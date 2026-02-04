@@ -116,6 +116,58 @@ jobs:
         working-directory: backend
         run: make build
 
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Build Docker images
+        working-directory: deploy/docker
+        run: docker compose build
+
+      - name: Start Docker stack
+        working-directory: deploy/docker
+        run: docker compose up -d
+
+      - name: Wait for gateway health
+        run: |
+          echo "Waiting for gateway to become healthy..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Gateway is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting 2s..."
+            sleep 2
+          done
+          echo "Gateway did not become healthy within 60 seconds"
+          exit 1
+
+      - name: Run E2E tests
+        working-directory: backend
+        env:
+          GATEWAY_URL: http://localhost:8080
+        run: go test -tags=e2e ./test/e2e/... -v -count=1
+
+      - name: Dump Docker logs on failure
+        if: failure()
+        working-directory: deploy/docker
+        run: docker compose logs --no-color
+
+      - name: Tear down Docker stack
+        if: always()
+        working-directory: deploy/docker
+        run: docker compose down -v
+
   openapi-validate:
     name: Validate OpenAPI
     runs-on: ubuntu-latest

@@ -22,6 +22,9 @@ type Config struct {
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=,,default=http://localhost:3000"`
 
 	RateLimitRPS int `env:"RATE_LIMIT_RPS,default=100"`
+
+	MetricsPort string `env:"METRICS_PORT,default=:9090"`
+	HealthPort  string `env:"HEALTH_PORT,default=:9091"`
 }
 
 func Load(ctx context.Context) (*Config, error) {

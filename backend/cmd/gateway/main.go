@@ -16,6 +16,8 @@ import (
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/health"
+	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
@@ -58,8 +60,17 @@ func main() {
 	// Minimal auth service for token validation only (no DB needed)
 	localAuthService := auth.NewService(nil, tokenMaker)
 
+	// Metrics
+	metricsRegistry := metrics.NewRegistry()
+
+	// Health checkers
+	healthCheckers := []health.Checker{
+		health.NewRedisChecker(redisClient),
+	}
+
 	// Router
 	r := chi.NewRouter()
+	r.Use(middleware.Metrics(metricsRegistry))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logging)
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
@@ -68,7 +79,7 @@ func main() {
 	r.Use(rateLimiter.Middleware)
 
 	// Register routes
-	handler := server.NewGatewayHandler(authClient)
+	handler := server.NewGatewayHandler(authClient, healthCheckers)
 	handler.RegisterRoutes(r, middleware.Auth(localAuthService))
 
 	// HTTP server
@@ -79,6 +90,23 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+
+	// Metrics server (separate port)
+	metricsRouter := chi.NewRouter()
+	metricsRouter.Handle("/metrics", metricsRegistry.Handler())
+	metricsSrv := &http.Server{
+		Addr:         cfg.MetricsPort,
+		Handler:      metricsRouter,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		slog.Info("metrics server starting", "port", cfg.MetricsPort)
+		if err := metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("metrics server failed", "error", err)
+		}
+	}()
 
 	go func() {
 		slog.Info("gateway starting", "port", cfg.GatewayHTTPPort)
@@ -100,6 +128,9 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
+	if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+		slog.Error("metrics server shutdown failed", "error", err)
+	}
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("http server shutdown failed", "error", err)
 	}

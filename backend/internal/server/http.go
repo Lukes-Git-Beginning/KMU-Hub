@@ -1,25 +1,32 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 )
 
 type GatewayHandler struct {
-	authClient authv1.AuthServiceClient
+	authClient     authv1.AuthServiceClient
+	healthCheckers []health.Checker
 }
 
-func NewGatewayHandler(authClient authv1.AuthServiceClient) *GatewayHandler {
-	return &GatewayHandler{authClient: authClient}
+func NewGatewayHandler(authClient authv1.AuthServiceClient, healthCheckers []health.Checker) *GatewayHandler {
+	return &GatewayHandler{
+		authClient:     authClient,
+		healthCheckers: healthCheckers,
+	}
 }
 
 func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
@@ -42,8 +49,23 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	})
 
 	// Health check
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		response.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	r.Get("/health", h.HandleHealth)
+}
+
+func (h *GatewayHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	overall, checks := health.CheckAll(ctx, h.healthCheckers)
+
+	statusCode := http.StatusOK
+	if overall == health.StatusUnhealthy {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	response.JSON(w, statusCode, map[string]interface{}{
+		"status": string(overall),
+		"checks": checks,
 	})
 }
 
@@ -273,6 +295,27 @@ func (h *GatewayHandler) HandleRemoveRole(w http.ResponseWriter, r *http.Request
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "role removed"})
+}
+
+// HealthHandler returns an http.HandlerFunc that runs the given health checkers.
+// Used by services that need a standalone health endpoint (e.g. auth service).
+func HealthHandler(checkers []health.Checker) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		overall, checks := health.CheckAll(ctx, checkers)
+
+		statusCode := http.StatusOK
+		if overall == health.StatusUnhealthy {
+			statusCode = http.StatusServiceUnavailable
+		}
+
+		response.JSON(w, statusCode, map[string]interface{}{
+			"status": string(overall),
+			"checks": checks,
+		})
+	}
 }
 
 func respondGRPCError(w http.ResponseWriter, err error) {

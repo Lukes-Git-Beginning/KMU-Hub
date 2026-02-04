@@ -72,3 +72,17 @@ docker-clean:
 # E2E tests (requires running Docker stack)
 e2e-test:
 	go test -tags=e2e ./test/e2e/... -v
+
+# Health checks
+health-gateway:
+	curl -s http://localhost:8080/health
+
+health-auth:
+	curl -s http://localhost:9091/health
+
+# Metrics
+metrics-gateway:
+	curl -s http://localhost:9090/metrics
+
+metrics-auth:
+	curl -s http://localhost:9091/metrics
