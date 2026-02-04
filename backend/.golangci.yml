@@ -1,29 +1,25 @@
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
+  default: standard
   enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    - gofmt
-    - goimports
     - gosec
     - bodyclose
     - misspell
     - unconvert
-
-linters-settings:
-  govet:
-    shadow: true
-  goimports:
-    local-prefixes: github.com/kmuhub/kmuhub
-  gosec:
-    excludes:
-      - G404
+  settings:
+    govet:
+      enable:
+        - shadow
+    goimports:
+      local-prefixes:
+        - github.com/kmuhub/kmuhub
+    gosec:
+      excludes:
+        - G404
 
 issues:
   exclude-dirs:
