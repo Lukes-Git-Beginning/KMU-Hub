@@ -55,9 +55,16 @@ func TestTokenMaker_TamperedToken(t *testing.T) {
 	token, err := tm.CreateAccessToken(uuid.New(), nil, nil)
 	require.NoError(t, err)
 
-	// Tamper with the token
-	tampered := token[:len(token)-1] + "X"
-	_, err = tm.ValidateAccessToken(tampered)
+	// Tamper with the signature by flipping multiple characters
+	bytes := []byte(token)
+	for i := len(bytes) - 5; i < len(bytes); i++ {
+		if bytes[i] == 'A' {
+			bytes[i] = 'B'
+		} else {
+			bytes[i] = 'A'
+		}
+	}
+	_, err = tm.ValidateAccessToken(string(bytes))
 	assert.Error(t, err)
 }
 
