@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -13,7 +14,8 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 		return nil, fmt.Errorf("parse database config: %w", err)
 	}
 	config.MaxConns = 25
-	config.MinConns = 5
+	config.MinConns = 2
+	config.ConnConfig.ConnectTimeout = 10 * time.Second
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
