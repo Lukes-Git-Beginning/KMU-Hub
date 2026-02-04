@@ -19,7 +19,7 @@ type Config struct {
 	AuthGRPCAddress string `env:"AUTH_GRPC_ADDRESS,default=localhost:50051"`
 	GatewayHTTPPort string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
-	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=,,default=http://localhost:3000"`
+	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000"`
 
 	RateLimitRPS int `env:"RATE_LIMIT_RPS,default=100"`
 
