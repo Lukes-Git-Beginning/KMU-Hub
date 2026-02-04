@@ -120,6 +120,36 @@ jobs:
     name: E2E Tests
     runs-on: ubuntu-latest
     needs: [lint, test]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: kmuhub_test
+          POSTGRES_USER: kmuhub_test
+          POSTGRES_PASSWORD: kmuhub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kmuhub_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://kmuhub_test:kmuhub_test@localhost:5432/kmuhub_test?sslmode=disable
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-e2e-test-secret-minimum-32-characters
+      GATEWAY_URL: http://localhost:8080
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -130,29 +160,62 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: backend/go.sum
 
-      - name: Build Docker images
-        working-directory: deploy/docker
-        run: docker compose build
+      - name: Install golang-migrate
+        run: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.17.0
 
-      - name: Start Docker stack
-        working-directory: deploy/docker
-        run: docker compose up -d --wait --wait-timeout 120
+      - name: Run migrations
+        run: migrate -path backend/migrations -database "$DATABASE_URL" up
+
+      - name: Build services
+        working-directory: backend
+        run: go build -o bin/auth ./cmd/auth && go build -o bin/gateway ./cmd/gateway
+
+      - name: Start auth service
+        working-directory: backend
+        run: |
+          ./bin/auth > /tmp/auth.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9091/health > /dev/null 2>&1; then
+              echo "Auth service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Auth service failed to start"
+              cat /tmp/auth.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Start gateway service
+        working-directory: backend
+        run: |
+          ./bin/gateway > /tmp/gateway.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Gateway service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Gateway service failed to start"
+              cat /tmp/gateway.log
+              exit 1
+            fi
+            sleep 1
+          done
 
       - name: Run E2E tests
         working-directory: backend
-        env:
-          GATEWAY_URL: http://localhost:8080
         run: go test -tags=e2e ./test/e2e/... -v -count=1
 
-      - name: Dump Docker logs on failure
+      - name: Dump service logs on failure
         if: failure()
-        working-directory: deploy/docker
-        run: docker compose logs --no-color
-
-      - name: Tear down Docker stack
-        if: always()
-        working-directory: deploy/docker
-        run: docker compose down -v
+        run: |
+          echo "=== Auth Service Logs ==="
+          cat /tmp/auth.log || true
+          echo ""
+          echo "=== Gateway Service Logs ==="
+          cat /tmp/gateway.log || true
 
   openapi-validate:
     name: Validate OpenAPI
