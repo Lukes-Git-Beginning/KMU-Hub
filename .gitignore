@@ -1,0 +1,70 @@
+# === Go ===
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+bin/
+
+# === Node / Electron ===
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.next/
+out/
+
+# === React Native ===
+mobile/ios/Pods/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+*.apk
+*.aab
+*.ipa
+
+# === Environment ===
+.env
+.env.local
+.env.*.local
+*.env
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Logs ===
+logs/
+*.log
+npm-debug.log*
+
+# === Database ===
+*.sql.bak
+data/
+
+# === Docker ===
+docker-compose.override.yml
+
+# === Coverage ===
+coverage/
+*.cover
+*.coverage
+htmlcov/
+
+# === OS ===
+.DS_Store
+Desktop.ini
+ehthumbs.db
+
+# === Temp ===
+tmp/
+temp/
+*.tmp
