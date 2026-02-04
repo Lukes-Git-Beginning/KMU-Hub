@@ -136,21 +136,7 @@ jobs:
 
       - name: Start Docker stack
         working-directory: deploy/docker
-        run: docker compose up -d
-
-      - name: Wait for gateway health
-        run: |
-          echo "Waiting for gateway to become healthy..."
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
-              echo "Gateway is healthy!"
-              exit 0
-            fi
-            echo "Attempt $i/30 - waiting 2s..."
-            sleep 2
-          done
-          echo "Gateway did not become healthy within 60 seconds"
-          exit 1
+        run: docker compose up -d --wait --wait-timeout 120
 
       - name: Run E2E tests
         working-directory: backend

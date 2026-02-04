@@ -61,8 +61,8 @@ services:
       test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9091/health || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 15
+      start_period: 15s
     restart: unless-stopped
 
   gateway:
