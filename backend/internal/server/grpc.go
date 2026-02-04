@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"math"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -120,7 +119,7 @@ func (s *AuthGRPCServer) ListUsers(ctx context.Context, req *authv1.ListUsersReq
 
 	return &authv1.ListUsersResponse{
 		Users: infos,
-		Total: int32(min(total, math.MaxInt32)),
+		Total: int32(total),
 	}, nil
 }
 

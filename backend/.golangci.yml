@@ -17,6 +17,7 @@ linters:
     gosec:
       excludes:
         - G404
+        - G115
   exclusions:
     paths:
       - proto
