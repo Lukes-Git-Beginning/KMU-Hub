@@ -6,7 +6,7 @@
 - **USP:** Massanfertigung durch 1-Woche-Onsite-Prozessanalyse + Config/WASM-Plugin-System
 - **Zielgruppe:** Branchenunabhaengige KMUs (5-200 Mitarbeiter)
 - **Team:** 1 Dev + 2 Business, AI-First Development
-- **Timeline:** 18-20 Monate bis Beta
+- **Timeline:** 8-10 Monate bis Beta (AI-gestuetzte Entwicklung)
 - **Version:** 0.1.0
 
 ---
