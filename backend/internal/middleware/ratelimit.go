@@ -15,10 +15,10 @@ import (
 )
 
 type RateLimiter struct {
-	redis       *redis.Client
-	rps         int
-	window      time.Duration
-	fallback    *inMemoryLimiter
+	redis    *redis.Client
+	rps      int
+	window   time.Duration
+	fallback *inMemoryLimiter
 }
 
 func NewRateLimiter(redisClient *redis.Client, rps int) *RateLimiter {
@@ -86,14 +86,14 @@ func clientIP(r *http.Request) string {
 }
 
 type inMemoryLimiter struct {
-	mu      sync.Mutex
-	counts  map[string]*bucket
-	rps     int
+	mu     sync.Mutex
+	counts map[string]*bucket
+	rps    int
 }
 
 type bucket struct {
-	count    int
-	resetAt  time.Time
+	count   int
+	resetAt time.Time
 }
 
 func newInMemoryLimiter(rps int) *inMemoryLimiter {

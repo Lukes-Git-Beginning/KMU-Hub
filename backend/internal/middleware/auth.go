@@ -12,9 +12,9 @@ import (
 type userContextKey string
 
 const (
-	UserIDKey      userContextKey = "user_id"
-	UserRolesKey   userContextKey = "user_roles"
-	UserPermsKey   userContextKey = "user_permissions"
+	UserIDKey    userContextKey = "user_id"
+	UserRolesKey userContextKey = "user_roles"
+	UserPermsKey userContextKey = "user_permissions"
 )
 
 func Auth(authService *auth.Service) func(http.Handler) http.Handler {

@@ -49,7 +49,7 @@ func main() {
 		slog.Error("failed to connect to auth service", "error", err)
 		os.Exit(1)
 	}
-	defer authConn.Close()
+	defer func() { _ = authConn.Close() }()
 
 	authClient := authv1.NewAuthServiceClient(authConn)
 

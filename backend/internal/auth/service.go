@@ -47,12 +47,12 @@ func (s *Service) Register(ctx context.Context, email, password, firstName, last
 		UpdatedAt:    time.Now(),
 	}
 
-	if err := s.repo.CreateUser(ctx, user); err != nil {
-		return nil, nil, err
+	if createErr := s.repo.CreateUser(ctx, user); createErr != nil {
+		return nil, nil, createErr
 	}
 
-	if err := s.repo.AssignRole(ctx, user.ID, "member"); err != nil {
-		slog.Error("failed to assign default role", "user_id", user.ID, "error", err)
+	if roleErr := s.repo.AssignRole(ctx, user.ID, "member"); roleErr != nil {
+		slog.Error("failed to assign default role", "user_id", user.ID, "error", roleErr)
 	}
 
 	tokens, err := s.createTokenPair(ctx, user)
@@ -74,7 +74,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.Us
 		return nil, nil, ErrUserInactive
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); compareErr != nil {
 		return nil, nil, ErrInvalidCredentials
 	}
 
@@ -107,8 +107,8 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*model
 	}
 
 	// Rotate: revoke old token
-	if err := s.repo.RevokeRefreshToken(ctx, stored.ID); err != nil {
-		return nil, err
+	if revokeErr := s.repo.RevokeRefreshToken(ctx, stored.ID); revokeErr != nil {
+		return nil, revokeErr
 	}
 
 	user, err := s.repo.GetUserByID(ctx, stored.UserID)
