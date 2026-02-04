@@ -38,13 +38,13 @@ func waitForHealth(t *testing.T, baseURL string) {
 
 type authResponse struct {
 	User         map[string]interface{} `json:"user"`
-	AccessToken  string                 `json:"accessToken"`
-	RefreshToken string                 `json:"refreshToken"`
+	AccessToken  string                 `json:"access_token"`
+	RefreshToken string                 `json:"refresh_token"`
 }
 
 type refreshResponse struct {
-	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type errorResponse struct {
