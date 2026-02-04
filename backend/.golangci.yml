@@ -14,19 +14,23 @@ linters:
     govet:
       enable:
         - shadow
-    goimports:
-      local-prefixes:
-        - github.com/kmuhub/kmuhub
     gosec:
       excludes:
         - G404
+  exclusions:
+    paths:
+      - proto
+      - bin
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
 
-issues:
-  exclude-dirs:
-    - proto
-    - bin
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/kmuhub/kmuhub
