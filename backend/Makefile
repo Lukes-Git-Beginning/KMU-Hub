@@ -1,4 +1,4 @@
-.PHONY: build test lint clean run-gateway run-crm run-chat run-auth migrate-up migrate-down migrate-create
+.PHONY: build test lint clean run-gateway run-crm run-chat run-auth migrate-up migrate-down migrate-create proto
 
 # Build all services
 build:
@@ -46,3 +46,9 @@ migrate-down:
 
 migrate-create:
 	migrate create -ext sql -dir migrations -seq $(name)
+
+# Proto generation (requires protoc, protoc-gen-go, protoc-gen-go-grpc)
+proto:
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/auth/v1/auth.proto
