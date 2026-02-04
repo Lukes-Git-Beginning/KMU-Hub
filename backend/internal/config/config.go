@@ -16,6 +16,7 @@ type Config struct {
 	RefreshTokenExpiry time.Duration `env:"REFRESH_TOKEN_EXPIRY,default=168h"`
 
 	AuthGRPCPort    string `env:"AUTH_GRPC_PORT,default=:50051"`
+	AuthGRPCAddress string `env:"AUTH_GRPC_ADDRESS,default=localhost:50051"`
 	GatewayHTTPPort string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=,,default=http://localhost:3000"`

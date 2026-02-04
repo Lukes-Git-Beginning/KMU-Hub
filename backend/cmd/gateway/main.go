@@ -42,7 +42,7 @@ func main() {
 
 	// gRPC connection to auth service
 	authConn, err := grpc.NewClient(
-		"localhost"+cfg.AuthGRPCPort,
+		cfg.AuthGRPCAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {

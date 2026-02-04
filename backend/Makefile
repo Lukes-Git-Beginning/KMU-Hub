@@ -1,4 +1,4 @@
-.PHONY: build test lint clean run-gateway run-crm run-chat run-auth migrate-up migrate-down migrate-create proto
+.PHONY: build test lint clean run-gateway run-crm run-chat run-auth migrate-up migrate-down migrate-create proto docker-build docker-up docker-down docker-logs docker-clean e2e-test
 
 # Build all services
 build:
@@ -52,3 +52,23 @@ proto:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
 		proto/auth/v1/auth.proto
+
+# Docker operations
+docker-build:
+	cd ../deploy/docker && docker-compose build
+
+docker-up:
+	cd ../deploy/docker && docker-compose up -d
+
+docker-down:
+	cd ../deploy/docker && docker-compose down
+
+docker-logs:
+	cd ../deploy/docker && docker-compose logs -f
+
+docker-clean:
+	cd ../deploy/docker && docker-compose down -v
+
+# E2E tests (requires running Docker stack)
+e2e-test:
+	go test -tags=e2e ./test/e2e/... -v
