@@ -52,14 +52,14 @@ func (s *CRMGRPCServer) CreateCustomField(ctx context.Context, req *crmv1.Create
 	}
 
 	input := customfield.CreateInput{
-		EntityType:   models.EntityType(req.EntityType),
-		FieldName:    req.FieldName,
-		FieldLabel:   req.FieldLabel,
-		FieldType:    models.FieldType(req.FieldType),
-		Options:      req.Options,
-		IsRequired:   req.IsRequired,
-		SortOrder:    int(req.SortOrder),
-		CreatedBy:    createdBy,
+		EntityType: models.EntityType(req.EntityType),
+		FieldName:  req.FieldName,
+		FieldLabel: req.FieldLabel,
+		FieldType:  models.FieldType(req.FieldType),
+		Options:    req.Options,
+		IsRequired: req.IsRequired,
+		SortOrder:  int(req.SortOrder),
+		CreatedBy:  createdBy,
 	}
 
 	if req.DefaultValue != nil {

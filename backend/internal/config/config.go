@@ -25,9 +25,9 @@ type Config struct {
 
 	RateLimitRPS int `env:"RATE_LIMIT_RPS,default=100"`
 
-	MetricsPort    string `env:"METRICS_PORT,default=:9090"`
-	HealthPort     string `env:"HEALTH_PORT,default=:9091"`
-	CRMHealthPort  string `env:"CRM_HEALTH_PORT,default=:9092"`
+	MetricsPort   string `env:"METRICS_PORT,default=:9090"`
+	HealthPort    string `env:"HEALTH_PORT,default=:9091"`
+	CRMHealthPort string `env:"CRM_HEALTH_PORT,default=:9092"`
 }
 
 func Load(ctx context.Context) (*Config, error) {
