@@ -15,15 +15,15 @@ import (
 
 // MockRepository implements Repository for testing
 type MockRepository struct {
-	stages       map[uuid.UUID]*models.PipelineStage
-	hasWon       bool
-	hasLost      bool
+	stages        map[uuid.UUID]*models.PipelineStage
+	hasWon        bool
+	hasLost       bool
 	dealsPerStage map[uuid.UUID]int
-	createErr    error
-	getErr       error
-	updateErr    error
-	deleteErr    error
-	reorderErr   error
+	createErr     error
+	getErr        error
+	updateErr     error
+	deleteErr     error
+	reorderErr    error
 }
 
 func NewMockRepository() *MockRepository {

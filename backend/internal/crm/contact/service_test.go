@@ -14,17 +14,17 @@ import (
 
 // MockRepository implements Repository for testing
 type MockRepository struct {
-	contacts       map[uuid.UUID]*models.Contact
-	contactTags    map[uuid.UUID][]*models.Tag
-	customFields   map[uuid.UUID]map[uuid.UUID]any
-	companies      map[uuid.UUID]string // companyID -> name
-	validTags      map[uuid.UUID]models.EntityType
-	inUseContacts  map[uuid.UUID]bool
-	createErr      error
-	getErr         error
-	listErr        error
-	updateErr      error
-	deleteErr      error
+	contacts      map[uuid.UUID]*models.Contact
+	contactTags   map[uuid.UUID][]*models.Tag
+	customFields  map[uuid.UUID]map[uuid.UUID]any
+	companies     map[uuid.UUID]string // companyID -> name
+	validTags     map[uuid.UUID]models.EntityType
+	inUseContacts map[uuid.UUID]bool
+	createErr     error
+	getErr        error
+	listErr       error
+	updateErr     error
+	deleteErr     error
 }
 
 func NewMockRepository() *MockRepository {

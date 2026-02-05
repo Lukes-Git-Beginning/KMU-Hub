@@ -14,14 +14,14 @@ import (
 
 // MockRepository implements Repository for testing
 type MockRepository struct {
-	tags          map[uuid.UUID]*models.Tag
-	inUseTagIDs   map[uuid.UUID]bool
-	createErr     error
-	getErr        error
-	listErr       error
-	updateErr     error
-	deleteErr     error
-	isInUseErr    error
+	tags        map[uuid.UUID]*models.Tag
+	inUseTagIDs map[uuid.UUID]bool
+	createErr   error
+	getErr      error
+	listErr     error
+	updateErr   error
+	deleteErr   error
+	isInUseErr  error
 }
 
 func NewMockRepository() *MockRepository {
@@ -513,7 +513,7 @@ func TestService_Update_Color(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, "Test", tag.Name)   // Unchanged
+	assert.Equal(t, "Test", tag.Name) // Unchanged
 	assert.Equal(t, "#3b82f6", tag.Color)
 }
 

@@ -15,18 +15,18 @@ import (
 
 // MockRepository implements Repository for testing
 type MockRepository struct {
-	deals          map[uuid.UUID]*models.Deal
-	dealTags       map[uuid.UUID][]*models.Tag
-	customFields   map[uuid.UUID]map[uuid.UUID]any
-	stages         map[uuid.UUID]*models.PipelineStage
-	contacts       map[uuid.UUID]string // contactID -> name
-	companies      map[uuid.UUID]string // companyID -> name
-	owners         map[uuid.UUID]string // ownerID -> name
-	validTags      map[uuid.UUID]models.EntityType
-	createErr      error
-	getErr         error
-	updateErr      error
-	deleteErr      error
+	deals        map[uuid.UUID]*models.Deal
+	dealTags     map[uuid.UUID][]*models.Tag
+	customFields map[uuid.UUID]map[uuid.UUID]any
+	stages       map[uuid.UUID]*models.PipelineStage
+	contacts     map[uuid.UUID]string // contactID -> name
+	companies    map[uuid.UUID]string // companyID -> name
+	owners       map[uuid.UUID]string // ownerID -> name
+	validTags    map[uuid.UUID]models.EntityType
+	createErr    error
+	getErr       error
+	updateErr    error
+	deleteErr    error
 }
 
 func NewMockRepository() *MockRepository {
