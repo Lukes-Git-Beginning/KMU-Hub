@@ -15,6 +15,18 @@ tags:
     description: User management
   - name: health
     description: Health checks
+  - name: custom-fields
+    description: Custom field definitions
+  - name: tags
+    description: Tags for entities
+  - name: contacts
+    description: Contact management
+  - name: companies
+    description: Company management
+  - name: pipeline-stages
+    description: Pipeline stage configuration
+  - name: deals
+    description: Deal management
 
 paths:
   /health:
@@ -429,6 +441,1032 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  # Custom Fields
+  /api/v1/custom-fields:
+    post:
+      summary: Create custom field definition
+      tags: [custom-fields]
+      operationId: createCustomField
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCustomFieldRequest"
+      responses:
+        "201":
+          description: Custom field created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomFieldResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      summary: List custom field definitions
+      tags: [custom-fields]
+      operationId: listCustomFields
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+            enum: [contact, company, deal, activity]
+      responses:
+        "200":
+          description: List of custom fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListCustomFieldsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/custom-fields/{id}:
+    get:
+      summary: Get custom field by ID
+      tags: [custom-fields]
+      operationId: getCustomField
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Custom field details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomFieldResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update custom field
+      tags: [custom-fields]
+      operationId: updateCustomField
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCustomFieldRequest"
+      responses:
+        "200":
+          description: Custom field updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomFieldResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete custom field
+      tags: [custom-fields]
+      operationId: deleteCustomField
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Custom field deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Tags
+  /api/v1/tags:
+    post:
+      summary: Create tag
+      tags: [tags]
+      operationId: createTag
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTagRequest"
+      responses:
+        "201":
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+    get:
+      summary: List tags
+      tags: [tags]
+      operationId: listTags
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+            enum: [contact, company, deal, activity]
+      responses:
+        "200":
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListTagsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tags/{id}:
+    get:
+      summary: Get tag by ID
+      tags: [tags]
+      operationId: getTag
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Tag details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update tag
+      tags: [tags]
+      operationId: updateTag
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTagRequest"
+      responses:
+        "200":
+          description: Tag updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete tag
+      tags: [tags]
+      operationId: deleteTag
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Tag deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Tag is in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Contacts
+  /api/v1/contacts:
+    post:
+      summary: Create contact
+      tags: [contacts]
+      operationId: createContact
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContactRequest"
+      responses:
+        "201":
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+    get:
+      summary: List contacts
+      tags: [contacts]
+      operationId: listContacts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: company_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: tag_ids
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of contacts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListContactsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/contacts/{id}:
+    get:
+      summary: Get contact by ID
+      tags: [contacts]
+      operationId: getContact
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Contact details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update contact
+      tags: [contacts]
+      operationId: updateContact
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContactRequest"
+      responses:
+        "200":
+          description: Contact updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete contact
+      tags: [contacts]
+      operationId: deleteContact
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Contact deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/contacts/{id}/tags:
+    post:
+      summary: Add tags to contact
+      tags: [contacts]
+      operationId: addContactTags
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagIdsRequest"
+      responses:
+        "200":
+          description: Tags added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Remove tags from contact
+      tags: [contacts]
+      operationId: removeContactTags
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagIdsRequest"
+      responses:
+        "200":
+          description: Tags removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Companies
+  /api/v1/companies:
+    post:
+      summary: Create company
+      tags: [companies]
+      operationId: createCompany
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCompanyRequest"
+      responses:
+        "201":
+          description: Company created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      summary: List companies
+      tags: [companies]
+      operationId: listCompanies
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tag_ids
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of companies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListCompaniesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/companies/{id}:
+    get:
+      summary: Get company by ID
+      tags: [companies]
+      operationId: getCompany
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Company details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update company
+      tags: [companies]
+      operationId: updateCompany
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCompanyRequest"
+      responses:
+        "200":
+          description: Company updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete company
+      tags: [companies]
+      operationId: deleteCompany
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Company deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/companies/{id}/contacts:
+    get:
+      summary: Get company contacts
+      tags: [companies]
+      operationId: getCompanyContacts
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: List of contacts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListContactsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Pipeline Stages
+  /api/v1/pipeline-stages:
+    post:
+      summary: Create pipeline stage
+      tags: [pipeline-stages]
+      operationId: createPipelineStage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePipelineStageRequest"
+      responses:
+        "201":
+          description: Pipeline stage created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      summary: List pipeline stages
+      description: Returns stages sorted by sort_order
+      tags: [pipeline-stages]
+      operationId: listPipelineStages
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of pipeline stages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPipelineStagesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/pipeline-stages/{id}:
+    get:
+      summary: Get pipeline stage by ID
+      tags: [pipeline-stages]
+      operationId: getPipelineStage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Pipeline stage details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update pipeline stage
+      tags: [pipeline-stages]
+      operationId: updatePipelineStage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePipelineStageRequest"
+      responses:
+        "200":
+          description: Pipeline stage updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete pipeline stage
+      description: Cannot delete stages that have deals
+      tags: [pipeline-stages]
+      operationId: deletePipelineStage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Pipeline stage deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Stage has deals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/pipeline-stages/reorder:
+    post:
+      summary: Reorder pipeline stages
+      description: Provide complete list of stage IDs in desired order
+      tags: [pipeline-stages]
+      operationId: reorderPipelineStages
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderPipelineStagesRequest"
+      responses:
+        "200":
+          description: Stages reordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPipelineStagesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # Deals
+  /api/v1/deals:
+    post:
+      summary: Create deal
+      tags: [deals]
+      operationId: createDeal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDealRequest"
+      responses:
+        "201":
+          description: Deal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DealResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      summary: List deals
+      tags: [deals]
+      operationId: listDeals
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stage_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: contact_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: company_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: owner_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: tag_ids
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [name, value, created_at, updated_at, expected_close_date]
+        - name: sort_desc
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of deals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListDealsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/deals/{id}:
+    get:
+      summary: Get deal by ID
+      tags: [deals]
+      operationId: getDeal
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Deal details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DealResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update deal
+      tags: [deals]
+      operationId: updateDeal
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDealRequest"
+      responses:
+        "200":
+          description: Deal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DealResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete deal
+      tags: [deals]
+      operationId: deleteDeal
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Deal deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/deals/{id}/stage:
+    post:
+      summary: Move deal to stage
+      description: Automatically sets closed_at when moving to Won/Lost stages
+      tags: [deals]
+      operationId: moveDealToStage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveDealToStageRequest"
+      responses:
+        "200":
+          description: Deal moved to stage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DealResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/deals/{id}/tags:
+    post:
+      summary: Add tags to deal
+      tags: [deals]
+      operationId: addDealTags
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagIdsRequest"
+      responses:
+        "200":
+          description: Tags added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DealResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Remove tags from deal
+      tags: [deals]
+      operationId: removeDealTags
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagIdsRequest"
+      responses:
+        "200":
+          description: Tags removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DealResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -439,6 +1477,14 @@ components:
 
   parameters:
     UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    ResourceId:
       name: id
       in: path
       required: true
@@ -650,6 +1696,597 @@ components:
       properties:
         error:
           type: string
+
+    # Custom Fields
+    CustomFieldInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        entityType:
+          type: string
+          enum: [contact, company, deal, activity]
+        fieldType:
+          type: string
+          enum: [text, number, date, boolean, select, multiselect]
+        options:
+          type: array
+          items:
+            type: string
+        isRequired:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateCustomFieldRequest:
+      type: object
+      required: [name, entity_type, field_type]
+      properties:
+        name:
+          type: string
+        entity_type:
+          type: string
+          enum: [contact, company, deal, activity]
+        field_type:
+          type: string
+          enum: [text, number, date, boolean, select, multiselect]
+        options:
+          type: array
+          items:
+            type: string
+        is_required:
+          type: boolean
+          default: false
+
+    UpdateCustomFieldRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        is_required:
+          type: boolean
+
+    CustomFieldResponse:
+      type: object
+      properties:
+        customField:
+          $ref: "#/components/schemas/CustomFieldInfo"
+
+    ListCustomFieldsResponse:
+      type: object
+      properties:
+        customFields:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomFieldInfo"
+
+    # Tags
+    TagInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex color code (#rrggbb)
+        entityType:
+          type: string
+          enum: [contact, company, deal, activity]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateTagRequest:
+      type: object
+      required: [name, entity_type]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex color code (#rrggbb)
+          default: "#3b82f6"
+        entity_type:
+          type: string
+          enum: [contact, company, deal, activity]
+
+    UpdateTagRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+
+    TagResponse:
+      type: object
+      properties:
+        tag:
+          $ref: "#/components/schemas/TagInfo"
+
+    ListTagsResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagInfo"
+
+    TagIdsRequest:
+      type: object
+      required: [tag_ids]
+      properties:
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # Contacts
+    ContactInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        title:
+          type: string
+        companyId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagInfo"
+        customFields:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateContactRequest:
+      type: object
+      required: [first_name, last_name]
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        title:
+          type: string
+        company_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        custom_fields:
+          type: object
+          additionalProperties: true
+
+    UpdateContactRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        title:
+          type: string
+        company_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+        custom_fields:
+          type: object
+          additionalProperties: true
+
+    ContactResponse:
+      type: object
+      properties:
+        contact:
+          $ref: "#/components/schemas/ContactInfo"
+
+    ListContactsResponse:
+      type: object
+      properties:
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactInfo"
+        total:
+          type: integer
+
+    # Companies
+    CompanyInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        website:
+          type: string
+        industry:
+          type: string
+        address:
+          type: string
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagInfo"
+        customFields:
+          type: object
+          additionalProperties: true
+        contactCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateCompanyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        website:
+          type: string
+        industry:
+          type: string
+        address:
+          type: string
+        notes:
+          type: string
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        custom_fields:
+          type: object
+          additionalProperties: true
+
+    UpdateCompanyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        website:
+          type: string
+        industry:
+          type: string
+        address:
+          type: string
+        notes:
+          type: string
+        custom_fields:
+          type: object
+          additionalProperties: true
+
+    CompanyResponse:
+      type: object
+      properties:
+        company:
+          $ref: "#/components/schemas/CompanyInfo"
+
+    ListCompaniesResponse:
+      type: object
+      properties:
+        companies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompanyInfo"
+        total:
+          type: integer
+
+    # Pipeline Stages
+    PipelineStageInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex color code (#rrggbb)
+        sortOrder:
+          type: integer
+        isWon:
+          type: boolean
+        isLost:
+          type: boolean
+        probability:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+        dealCount:
+          type: integer
+        totalValue:
+          type: number
+          format: double
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePipelineStageRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+          description: Hex color code (#rrggbb)
+          default: "#3b82f6"
+        is_won:
+          type: boolean
+          default: false
+        is_lost:
+          type: boolean
+          default: false
+        probability:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          default: 0
+
+    UpdatePipelineStageRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+        is_won:
+          type: boolean
+        is_lost:
+          type: boolean
+        probability:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+
+    ReorderPipelineStagesRequest:
+      type: object
+      required: [stage_ids]
+      properties:
+        stage_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    PipelineStageResponse:
+      type: object
+      properties:
+        stage:
+          $ref: "#/components/schemas/PipelineStageInfo"
+
+    ListPipelineStagesResponse:
+      type: object
+      properties:
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStageInfo"
+
+    # Deals
+    DealInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        value:
+          type: number
+          format: double
+        currency:
+          type: string
+          description: ISO 4217 currency code
+        stageId:
+          type: string
+          format: uuid
+        stageName:
+          type: string
+        contactId:
+          type: string
+          format: uuid
+        contactName:
+          type: string
+        companyId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        ownerName:
+          type: string
+        expectedCloseDate:
+          type: string
+          format: date
+        notes:
+          type: string
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagInfo"
+        customFields:
+          type: object
+          additionalProperties: true
+        createdBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+
+    CreateDealRequest:
+      type: object
+      required: [name, stage_id]
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+          format: double
+          default: 0
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          default: EUR
+        stage_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        expected_close_date:
+          type: string
+          format: date
+        notes:
+          type: string
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        custom_fields:
+          type: object
+          additionalProperties: true
+
+    UpdateDealRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+          format: double
+        currency:
+          type: string
+        contact_id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        expected_close_date:
+          type: string
+          format: date
+        notes:
+          type: string
+        custom_fields:
+          type: object
+          additionalProperties: true
+
+    MoveDealToStageRequest:
+      type: object
+      required: [stage_id]
+      properties:
+        stage_id:
+          type: string
+          format: uuid
+
+    DealResponse:
+      type: object
+      properties:
+        deal:
+          $ref: "#/components/schemas/DealInfo"
+
+    ListDealsResponse:
+      type: object
+      properties:
+        deals:
+          type: array
+          items:
+            $ref: "#/components/schemas/DealInfo"
+        total:
+          type: integer
 
   responses:
     BadRequest:

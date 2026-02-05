@@ -116,6 +116,30 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("companies", "delete")).Delete("/{id}", h.HandleDeleteCompany)
 	})
 
+	// CRM: Pipeline Stages routes
+	r.Route("/api/v1/pipeline-stages", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("pipeline_stages", "read")).Get("/", h.HandleListPipelineStages)
+		r.With(middleware.RequirePermission("pipeline_stages", "read")).Get("/{id}", h.HandleGetPipelineStage)
+		r.With(middleware.RequirePermission("pipeline_stages", "write")).Post("/", h.HandleCreatePipelineStage)
+		r.With(middleware.RequirePermission("pipeline_stages", "write")).Put("/{id}", h.HandleUpdatePipelineStage)
+		r.With(middleware.RequirePermission("pipeline_stages", "write")).Post("/reorder", h.HandleReorderPipelineStages)
+		r.With(middleware.RequirePermission("pipeline_stages", "delete")).Delete("/{id}", h.HandleDeletePipelineStage)
+	})
+
+	// CRM: Deals routes
+	r.Route("/api/v1/deals", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("deals", "read")).Get("/", h.HandleListDeals)
+		r.With(middleware.RequirePermission("deals", "read")).Get("/{id}", h.HandleGetDeal)
+		r.With(middleware.RequirePermission("deals", "write")).Post("/", h.HandleCreateDeal)
+		r.With(middleware.RequirePermission("deals", "write")).Put("/{id}", h.HandleUpdateDeal)
+		r.With(middleware.RequirePermission("deals", "write")).Post("/{id}/stage", h.HandleMoveDealToStage)
+		r.With(middleware.RequirePermission("deals", "write")).Post("/{id}/tags", h.HandleAddDealTags)
+		r.With(middleware.RequirePermission("deals", "write")).Delete("/{id}/tags", h.HandleRemoveDealTags)
+		r.With(middleware.RequirePermission("deals", "delete")).Delete("/{id}", h.HandleDeleteDeal)
+	})
+
 	// Health check
 	r.Get("/health", h.HandleHealth)
 }
@@ -1351,4 +1375,458 @@ func (h *GatewayHandler) HandleGetCompanyContacts(w http.ResponseWriter, r *http
 	}
 
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// CRM: Pipeline Stages Handlers
+// ============================================================================
+
+type createPipelineStageRequest struct {
+	Name        string  `json:"name"`
+	Color       string  `json:"color"`
+	IsWon       bool    `json:"is_won"`
+	IsLost      bool    `json:"is_lost"`
+	Probability float64 `json:"probability"`
+}
+
+func (h *GatewayHandler) HandleCreatePipelineStage(w http.ResponseWriter, r *http.Request) {
+	var req createPipelineStageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" {
+		response.Error(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	resp, err := h.crmClient.CreatePipelineStage(r.Context(), &crmv1.CreatePipelineStageRequest{
+		Name:        req.Name,
+		Color:       req.Color,
+		IsWon:       req.IsWon,
+		IsLost:      req.IsLost,
+		Probability: req.Probability,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (h *GatewayHandler) HandleGetPipelineStage(w http.ResponseWriter, r *http.Request) {
+	stageID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(stageID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid pipeline stage id")
+		return
+	}
+
+	resp, err := h.crmClient.GetPipelineStage(r.Context(), &crmv1.GetPipelineStageRequest{Id: stageID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleListPipelineStages(w http.ResponseWriter, r *http.Request) {
+	resp, err := h.crmClient.ListPipelineStages(r.Context(), &crmv1.ListPipelineStagesRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updatePipelineStageRequest struct {
+	Name        *string  `json:"name,omitempty"`
+	Color       *string  `json:"color,omitempty"`
+	IsWon       *bool    `json:"is_won,omitempty"`
+	IsLost      *bool    `json:"is_lost,omitempty"`
+	Probability *float64 `json:"probability,omitempty"`
+}
+
+func (h *GatewayHandler) HandleUpdatePipelineStage(w http.ResponseWriter, r *http.Request) {
+	stageID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(stageID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid pipeline stage id")
+		return
+	}
+
+	var req updatePipelineStageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdatePipelineStageRequest{Id: stageID}
+	if req.Name != nil {
+		grpcReq.Name = req.Name
+	}
+	if req.Color != nil {
+		grpcReq.Color = req.Color
+	}
+	if req.IsWon != nil {
+		grpcReq.IsWon = req.IsWon
+	}
+	if req.IsLost != nil {
+		grpcReq.IsLost = req.IsLost
+	}
+	if req.Probability != nil {
+		grpcReq.Probability = req.Probability
+	}
+
+	resp, err := h.crmClient.UpdatePipelineStage(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleDeletePipelineStage(w http.ResponseWriter, r *http.Request) {
+	stageID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(stageID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid pipeline stage id")
+		return
+	}
+
+	_, err := h.crmClient.DeletePipelineStage(r.Context(), &crmv1.DeletePipelineStageRequest{Id: stageID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "pipeline stage deleted"})
+}
+
+type reorderPipelineStagesRequest struct {
+	StageIDs []string `json:"stage_ids"`
+}
+
+func (h *GatewayHandler) HandleReorderPipelineStages(w http.ResponseWriter, r *http.Request) {
+	var req reorderPipelineStagesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if len(req.StageIDs) == 0 {
+		response.Error(w, http.StatusBadRequest, "stage_ids is required")
+		return
+	}
+
+	resp, err := h.crmClient.ReorderPipelineStages(r.Context(), &crmv1.ReorderPipelineStagesRequest{
+		StageIds: req.StageIDs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// CRM: Deals Handlers
+// ============================================================================
+
+type createDealRequest struct {
+	Name              string                    `json:"name"`
+	Value             float64                   `json:"value"`
+	Currency          string                    `json:"currency"`
+	StageID           string                    `json:"stage_id"`
+	ContactID         *string                   `json:"contact_id,omitempty"`
+	CompanyID         *string                   `json:"company_id,omitempty"`
+	OwnerID           *string                   `json:"owner_id,omitempty"`
+	ExpectedCloseDate string                    `json:"expected_close_date"`
+	Notes             string                    `json:"notes"`
+	TagIDs            []string                  `json:"tag_ids"`
+	CustomFields      []customFieldValueRequest `json:"custom_fields"`
+}
+
+func (h *GatewayHandler) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req createDealRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" || req.StageID == "" {
+		response.Error(w, http.StatusBadRequest, "name and stage_id are required")
+		return
+	}
+
+	grpcReq := &crmv1.CreateDealRequest{
+		Name:              req.Name,
+		Value:             req.Value,
+		Currency:          req.Currency,
+		StageId:           req.StageID,
+		ExpectedCloseDate: req.ExpectedCloseDate,
+		Notes:             req.Notes,
+		TagIds:            req.TagIDs,
+		CreatedBy:         userID,
+	}
+
+	if req.ContactID != nil {
+		grpcReq.ContactId = req.ContactID
+	}
+	if req.CompanyID != nil {
+		grpcReq.CompanyId = req.CompanyID
+	}
+	if req.OwnerID != nil {
+		grpcReq.OwnerId = req.OwnerID
+	}
+
+	for _, cf := range req.CustomFields {
+		grpcReq.CustomFields = append(grpcReq.CustomFields, &crmv1.CustomFieldValueInput{
+			FieldId: cf.FieldID,
+			Value:   cf.Value,
+		})
+	}
+
+	resp, err := h.crmClient.CreateDeal(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (h *GatewayHandler) HandleGetDeal(w http.ResponseWriter, r *http.Request) {
+	dealID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(dealID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid deal id")
+		return
+	}
+
+	resp, err := h.crmClient.GetDeal(r.Context(), &crmv1.GetDealRequest{Id: dealID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleListDeals(w http.ResponseWriter, r *http.Request) {
+	stageID := r.URL.Query().Get("stage_id")
+	contactID := r.URL.Query().Get("contact_id")
+	companyID := r.URL.Query().Get("company_id")
+	ownerID := r.URL.Query().Get("owner_id")
+	search := r.URL.Query().Get("search")
+	sortBy := r.URL.Query().Get("sort_by")
+	sortDesc := r.URL.Query().Get("sort_desc") == "true"
+	tagIDs := r.URL.Query()["tag_ids"]
+	page := 1
+	pageSize := 20
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
+			pageSize = parsed
+		}
+	}
+
+	grpcReq := &crmv1.ListDealsRequest{
+		Search:   search,
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+		SortBy:   sortBy,
+		SortDesc: sortDesc,
+		TagIds:   tagIDs,
+	}
+
+	if stageID != "" {
+		grpcReq.StageId = &stageID
+	}
+	if contactID != "" {
+		grpcReq.ContactId = &contactID
+	}
+	if companyID != "" {
+		grpcReq.CompanyId = &companyID
+	}
+	if ownerID != "" {
+		grpcReq.OwnerId = &ownerID
+	}
+
+	resp, err := h.crmClient.ListDeals(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateDealRequest struct {
+	Name              *string                   `json:"name,omitempty"`
+	Value             *float64                  `json:"value,omitempty"`
+	Currency          *string                   `json:"currency,omitempty"`
+	ContactID         *string                   `json:"contact_id,omitempty"`
+	CompanyID         *string                   `json:"company_id,omitempty"`
+	OwnerID           *string                   `json:"owner_id,omitempty"`
+	ExpectedCloseDate *string                   `json:"expected_close_date,omitempty"`
+	Notes             *string                   `json:"notes,omitempty"`
+	CustomFields      []customFieldValueRequest `json:"custom_fields"`
+}
+
+func (h *GatewayHandler) HandleUpdateDeal(w http.ResponseWriter, r *http.Request) {
+	dealID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(dealID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid deal id")
+		return
+	}
+
+	var req updateDealRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateDealRequest{Id: dealID}
+	if req.Name != nil {
+		grpcReq.Name = req.Name
+	}
+	if req.Value != nil {
+		grpcReq.Value = req.Value
+	}
+	if req.Currency != nil {
+		grpcReq.Currency = req.Currency
+	}
+	if req.ContactID != nil {
+		grpcReq.ContactId = req.ContactID
+	}
+	if req.CompanyID != nil {
+		grpcReq.CompanyId = req.CompanyID
+	}
+	if req.OwnerID != nil {
+		grpcReq.OwnerId = req.OwnerID
+	}
+	if req.ExpectedCloseDate != nil {
+		grpcReq.ExpectedCloseDate = req.ExpectedCloseDate
+	}
+	if req.Notes != nil {
+		grpcReq.Notes = req.Notes
+	}
+	for _, cf := range req.CustomFields {
+		grpcReq.CustomFields = append(grpcReq.CustomFields, &crmv1.CustomFieldValueInput{
+			FieldId: cf.FieldID,
+			Value:   cf.Value,
+		})
+	}
+
+	resp, err := h.crmClient.UpdateDeal(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleDeleteDeal(w http.ResponseWriter, r *http.Request) {
+	dealID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(dealID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid deal id")
+		return
+	}
+
+	_, err := h.crmClient.DeleteDeal(r.Context(), &crmv1.DeleteDealRequest{Id: dealID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "deal deleted"})
+}
+
+type moveDealToStageRequest struct {
+	StageID string `json:"stage_id"`
+}
+
+func (h *GatewayHandler) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request) {
+	dealID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(dealID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid deal id")
+		return
+	}
+
+	var req moveDealToStageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.StageID == "" {
+		response.Error(w, http.StatusBadRequest, "stage_id is required")
+		return
+	}
+
+	resp, err := h.crmClient.MoveDealToStage(r.Context(), &crmv1.MoveDealToStageRequest{
+		DealId:  dealID,
+		StageId: req.StageID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type modifyDealTagsRequest struct {
+	TagIDs []string `json:"tag_ids"`
+}
+
+func (h *GatewayHandler) HandleAddDealTags(w http.ResponseWriter, r *http.Request) {
+	dealID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(dealID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid deal id")
+		return
+	}
+
+	var req modifyDealTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Note: We don't have AddDealTags in proto, so we update the deal with tags
+	// For now, respond with a not implemented error
+	response.Error(w, http.StatusNotImplemented, "add deal tags not implemented via HTTP, use gRPC")
+}
+
+func (h *GatewayHandler) HandleRemoveDealTags(w http.ResponseWriter, r *http.Request) {
+	dealID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(dealID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid deal id")
+		return
+	}
+
+	var req modifyDealTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Note: We don't have RemoveDealTags in proto, so we update the deal with tags
+	// For now, respond with a not implemented error
+	response.Error(w, http.StatusNotImplemented, "remove deal tags not implemented via HTTP, use gRPC")
 }

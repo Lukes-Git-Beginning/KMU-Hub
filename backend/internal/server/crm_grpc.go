@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -12,6 +13,8 @@ import (
 	"github.com/kmuhub/kmuhub/internal/crm/company"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/crm/customfield"
+	"github.com/kmuhub/kmuhub/internal/crm/deal"
+	"github.com/kmuhub/kmuhub/internal/crm/pipelinestage"
 	"github.com/kmuhub/kmuhub/internal/crm/tag"
 	"github.com/kmuhub/kmuhub/internal/models"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
@@ -20,10 +23,12 @@ import (
 // CRMGRPCServer implements the CRM gRPC service
 type CRMGRPCServer struct {
 	crmv1.UnimplementedCRMServiceServer
-	customFieldService *customfield.Service
-	tagService         *tag.Service
-	contactService     *contact.Service
-	companyService     *company.Service
+	customFieldService   *customfield.Service
+	tagService           *tag.Service
+	contactService       *contact.Service
+	companyService       *company.Service
+	pipelineStageService *pipelinestage.Service
+	dealService          *deal.Service
 }
 
 // NewCRMGRPCServer creates a new CRM gRPC server
@@ -32,12 +37,16 @@ func NewCRMGRPCServer(
 	tagService *tag.Service,
 	contactService *contact.Service,
 	companyService *company.Service,
+	pipelineStageService *pipelinestage.Service,
+	dealService *deal.Service,
 ) *CRMGRPCServer {
 	return &CRMGRPCServer{
-		customFieldService: customFieldService,
-		tagService:         tagService,
-		contactService:     contactService,
-		companyService:     companyService,
+		customFieldService:   customFieldService,
+		tagService:           tagService,
+		contactService:       contactService,
+		companyService:       companyService,
+		pipelineStageService: pipelineStageService,
+		dealService:          dealService,
 	}
 }
 
@@ -753,8 +762,553 @@ func (s *CRMGRPCServer) GetCompanyContacts(ctx context.Context, req *crmv1.GetCo
 }
 
 // ============================================================================
+// Pipeline Stages
+// ============================================================================
+
+func (s *CRMGRPCServer) CreatePipelineStage(ctx context.Context, req *crmv1.CreatePipelineStageRequest) (*crmv1.CreatePipelineStageResponse, error) {
+	input := pipelinestage.CreateInput{
+		Name:        req.Name,
+		Color:       req.Color,
+		IsWon:       req.IsWon,
+		IsLost:      req.IsLost,
+		Probability: req.Probability,
+	}
+
+	stage, err := s.pipelineStageService.Create(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.CreatePipelineStageResponse{
+		Stage: toPipelineStageInfo(stage, 0, 0),
+	}, nil
+}
+
+func (s *CRMGRPCServer) GetPipelineStage(ctx context.Context, req *crmv1.GetPipelineStageRequest) (*crmv1.GetPipelineStageResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid pipeline stage id")
+	}
+
+	stage, err := s.pipelineStageService.GetByID(ctx, id)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.GetPipelineStageResponse{
+		Stage: toPipelineStageInfo(stage, 0, 0),
+	}, nil
+}
+
+func (s *CRMGRPCServer) ListPipelineStages(ctx context.Context, req *crmv1.ListPipelineStagesRequest) (*crmv1.ListPipelineStagesResponse, error) {
+	stages, err := s.pipelineStageService.ListWithStats(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list pipeline stages")
+	}
+
+	var infos []*crmv1.PipelineStageInfo
+	for _, stage := range stages {
+		infos = append(infos, toPipelineStageInfoWithStats(stage))
+	}
+
+	return &crmv1.ListPipelineStagesResponse{
+		Stages: infos,
+	}, nil
+}
+
+func (s *CRMGRPCServer) UpdatePipelineStage(ctx context.Context, req *crmv1.UpdatePipelineStageRequest) (*crmv1.UpdatePipelineStageResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid pipeline stage id")
+	}
+
+	input := pipelinestage.UpdateInput{}
+
+	if req.Name != nil {
+		input.Name = req.Name
+	}
+	if req.Color != nil {
+		input.Color = req.Color
+	}
+	if req.IsWon != nil {
+		input.IsWon = req.IsWon
+	}
+	if req.IsLost != nil {
+		input.IsLost = req.IsLost
+	}
+	if req.Probability != nil {
+		input.Probability = req.Probability
+	}
+
+	stage, err := s.pipelineStageService.Update(ctx, id, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.UpdatePipelineStageResponse{
+		Stage: toPipelineStageInfo(stage, 0, 0),
+	}, nil
+}
+
+func (s *CRMGRPCServer) DeletePipelineStage(ctx context.Context, req *crmv1.DeletePipelineStageRequest) (*crmv1.DeletePipelineStageResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid pipeline stage id")
+	}
+
+	if err := s.pipelineStageService.Delete(ctx, id); err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.DeletePipelineStageResponse{}, nil
+}
+
+func (s *CRMGRPCServer) ReorderPipelineStages(ctx context.Context, req *crmv1.ReorderPipelineStagesRequest) (*crmv1.ReorderPipelineStagesResponse, error) {
+	var stageIDs []uuid.UUID
+	for _, idStr := range req.StageIds {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid stage id in list")
+		}
+		stageIDs = append(stageIDs, id)
+	}
+
+	if err := s.pipelineStageService.Reorder(ctx, stageIDs); err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	// Return updated list
+	stages, err := s.pipelineStageService.ListWithStats(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list pipeline stages")
+	}
+
+	var infos []*crmv1.PipelineStageInfo
+	for _, stage := range stages {
+		infos = append(infos, toPipelineStageInfoWithStats(stage))
+	}
+
+	return &crmv1.ReorderPipelineStagesResponse{
+		Stages: infos,
+	}, nil
+}
+
+// ============================================================================
+// Deals
+// ============================================================================
+
+func (s *CRMGRPCServer) CreateDeal(ctx context.Context, req *crmv1.CreateDealRequest) (*crmv1.CreateDealResponse, error) {
+	createdBy, err := uuid.Parse(req.CreatedBy)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
+	}
+
+	stageID, err := uuid.Parse(req.StageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
+	}
+
+	input := deal.CreateInput{
+		Name:      req.Name,
+		Value:     req.Value,
+		Currency:  req.Currency,
+		StageID:   stageID,
+		CreatedBy: createdBy,
+	}
+
+	if req.ContactId != nil {
+		contactID, parseErr := uuid.Parse(*req.ContactId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		input.ContactID = &contactID
+	}
+
+	if req.CompanyId != nil {
+		companyID, parseErr := uuid.Parse(*req.CompanyId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid company_id")
+		}
+		input.CompanyID = &companyID
+	}
+
+	if req.OwnerId != nil {
+		ownerID, parseErr := uuid.Parse(*req.OwnerId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid owner_id")
+		}
+		input.OwnerID = &ownerID
+	}
+
+	if req.ExpectedCloseDate != "" {
+		t, parseErr := parseDate(req.ExpectedCloseDate)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid expected_close_date format")
+		}
+		input.ExpectedCloseDate = &t
+	}
+
+	if req.Notes != "" {
+		input.Notes = &req.Notes
+	}
+
+	// Parse tag IDs
+	for _, tagIDStr := range req.TagIds {
+		tagID, parseErr := uuid.Parse(tagIDStr)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid tag_id")
+		}
+		input.TagIDs = append(input.TagIDs, tagID)
+	}
+
+	// Parse custom field values
+	if len(req.CustomFields) > 0 {
+		input.CustomFields = make(map[uuid.UUID]any)
+		for _, cf := range req.CustomFields {
+			fieldID, parseErr := uuid.Parse(cf.FieldId)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid custom field_id")
+			}
+			var value any
+			if unmarshalErr := json.Unmarshal([]byte(cf.Value), &value); unmarshalErr != nil {
+				value = cf.Value
+			}
+			input.CustomFields[fieldID] = value
+		}
+	}
+
+	d, err := s.dealService.Create(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.CreateDealResponse{
+		Deal: toDealInfo(d),
+	}, nil
+}
+
+func (s *CRMGRPCServer) GetDeal(ctx context.Context, req *crmv1.GetDealRequest) (*crmv1.GetDealResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
+	}
+
+	d, err := s.dealService.GetByID(ctx, id)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.GetDealResponse{
+		Deal: toDealInfo(d),
+	}, nil
+}
+
+func (s *CRMGRPCServer) ListDeals(ctx context.Context, req *crmv1.ListDealsRequest) (*crmv1.ListDealsResponse, error) {
+	input := deal.ListInput{
+		Search:   req.Search,
+		Page:     int(req.Page),
+		PageSize: int(req.PageSize),
+		SortBy:   req.SortBy,
+		SortDesc: req.SortDesc,
+	}
+
+	if req.StageId != nil {
+		stageID, err := uuid.Parse(*req.StageId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
+		}
+		input.StageID = &stageID
+	}
+
+	if req.ContactId != nil {
+		contactID, err := uuid.Parse(*req.ContactId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		input.ContactID = &contactID
+	}
+
+	if req.CompanyId != nil {
+		companyID, err := uuid.Parse(*req.CompanyId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid company_id")
+		}
+		input.CompanyID = &companyID
+	}
+
+	if req.OwnerId != nil {
+		ownerID, err := uuid.Parse(*req.OwnerId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid owner_id")
+		}
+		input.OwnerID = &ownerID
+	}
+
+	for _, tagIDStr := range req.TagIds {
+		tagID, err := uuid.Parse(tagIDStr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid tag_id")
+		}
+		input.TagIDs = append(input.TagIDs, tagID)
+	}
+
+	deals, total, err := s.dealService.List(ctx, input)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list deals")
+	}
+
+	var infos []*crmv1.DealInfo
+	for _, d := range deals {
+		infos = append(infos, toDealInfo(d))
+	}
+
+	return &crmv1.ListDealsResponse{
+		Deals: infos,
+		Total: int32(total),
+	}, nil
+}
+
+func (s *CRMGRPCServer) UpdateDeal(ctx context.Context, req *crmv1.UpdateDealRequest) (*crmv1.UpdateDealResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
+	}
+
+	input := deal.UpdateInput{}
+
+	if req.Name != nil {
+		input.Name = req.Name
+	}
+	if req.Value != nil {
+		input.Value = req.Value
+	}
+	if req.Currency != nil {
+		input.Currency = req.Currency
+	}
+	if req.ContactId != nil {
+		if *req.ContactId == "" {
+			nilUUID := uuid.Nil
+			input.ContactID = &nilUUID
+		} else {
+			contactID, parseErr := uuid.Parse(*req.ContactId)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+			}
+			input.ContactID = &contactID
+		}
+	}
+	if req.CompanyId != nil {
+		if *req.CompanyId == "" {
+			nilUUID := uuid.Nil
+			input.CompanyID = &nilUUID
+		} else {
+			companyID, parseErr := uuid.Parse(*req.CompanyId)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid company_id")
+			}
+			input.CompanyID = &companyID
+		}
+	}
+	if req.OwnerId != nil {
+		if *req.OwnerId == "" {
+			nilUUID := uuid.Nil
+			input.OwnerID = &nilUUID
+		} else {
+			ownerID, parseErr := uuid.Parse(*req.OwnerId)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid owner_id")
+			}
+			input.OwnerID = &ownerID
+		}
+	}
+	if req.ExpectedCloseDate != nil {
+		if *req.ExpectedCloseDate == "" {
+			// Clear the date
+			input.ExpectedCloseDate = nil
+		} else {
+			t, parseErr := parseDate(*req.ExpectedCloseDate)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid expected_close_date format")
+			}
+			input.ExpectedCloseDate = &t
+		}
+	}
+	if req.Notes != nil {
+		input.Notes = req.Notes
+	}
+
+	// Parse custom field values
+	if len(req.CustomFields) > 0 {
+		input.CustomFields = make(map[uuid.UUID]any)
+		for _, cf := range req.CustomFields {
+			fieldID, parseErr := uuid.Parse(cf.FieldId)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid custom field_id")
+			}
+			var value any
+			if unmarshalErr := json.Unmarshal([]byte(cf.Value), &value); unmarshalErr != nil {
+				value = cf.Value
+			}
+			input.CustomFields[fieldID] = value
+		}
+	}
+
+	d, err := s.dealService.Update(ctx, id, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.UpdateDealResponse{
+		Deal: toDealInfo(d),
+	}, nil
+}
+
+func (s *CRMGRPCServer) DeleteDeal(ctx context.Context, req *crmv1.DeleteDealRequest) (*crmv1.DeleteDealResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
+	}
+
+	if err := s.dealService.Delete(ctx, id); err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.DeleteDealResponse{}, nil
+}
+
+func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDealToStageRequest) (*crmv1.MoveDealToStageResponse, error) {
+	dealID, err := uuid.Parse(req.DealId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
+	}
+
+	stageID, err := uuid.Parse(req.StageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
+	}
+
+	d, err := s.dealService.MoveToStage(ctx, dealID, stageID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.MoveDealToStageResponse{
+		Deal: toDealInfo(d),
+	}, nil
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
+
+func toDealInfo(d *models.DealWithRelations) *crmv1.DealInfo {
+	value, _ := d.Value.Float64()
+	info := &crmv1.DealInfo{
+		Id:         d.ID.String(),
+		Name:       d.Name,
+		Value:      value,
+		Currency:   d.Currency,
+		StageId:    d.StageID.String(),
+		StageName:  d.StageName,
+		CreatedBy:  d.CreatedBy.String(),
+		CreatedAt:  d.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:  d.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+
+	if d.ContactID != nil {
+		contactIDStr := d.ContactID.String()
+		info.ContactId = &contactIDStr
+	}
+	if d.ContactName != nil {
+		info.ContactName = d.ContactName
+	}
+	if d.CompanyID != nil {
+		companyIDStr := d.CompanyID.String()
+		info.CompanyId = &companyIDStr
+	}
+	if d.CompanyName != nil {
+		info.CompanyName = d.CompanyName
+	}
+	if d.OwnerID != nil {
+		ownerIDStr := d.OwnerID.String()
+		info.OwnerId = &ownerIDStr
+	}
+	if d.OwnerName != nil {
+		info.OwnerName = d.OwnerName
+	}
+	if d.ExpectedCloseDate != nil {
+		info.ExpectedCloseDate = d.ExpectedCloseDate.Format("2006-01-02")
+	}
+	if d.Notes != nil {
+		info.Notes = *d.Notes
+	}
+	if d.ClosedAt != nil {
+		closedAtStr := d.ClosedAt.Format("2006-01-02T15:04:05Z07:00")
+		info.ClosedAt = &closedAtStr
+	}
+
+	for _, t := range d.Tags {
+		info.Tags = append(info.Tags, toTagInfo(t))
+	}
+
+	if len(d.CustomFields) > 0 {
+		info.CustomFields = make(map[string]string)
+		for k, v := range d.CustomFields {
+			jsonBytes, _ := json.Marshal(v)
+			info.CustomFields[k] = string(jsonBytes)
+		}
+	}
+
+	return info
+}
+
+func parseDate(s string) (time.Time, error) {
+	// Try multiple formats
+	formats := []string{
+		"2006-01-02",
+		"2006-01-02T15:04:05Z07:00",
+		time.RFC3339,
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, errors.New("invalid date format")
+}
+
+func toPipelineStageInfo(stage *models.PipelineStage, dealCount int, totalValue float64) *crmv1.PipelineStageInfo {
+	prob, _ := stage.Probability.Float64()
+	return &crmv1.PipelineStageInfo{
+		Id:          stage.ID.String(),
+		Name:        stage.Name,
+		Color:       stage.Color,
+		SortOrder:   int32(stage.SortOrder),
+		IsWon:       stage.IsWon,
+		IsLost:      stage.IsLost,
+		Probability: prob,
+		DealCount:   int32(dealCount),
+		TotalValue:  totalValue,
+		CreatedAt:   stage.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
+func toPipelineStageInfoWithStats(stage *models.PipelineStageWithStats) *crmv1.PipelineStageInfo {
+	prob, _ := stage.Probability.Float64()
+	totalValue, _ := stage.TotalValue.Float64()
+	return &crmv1.PipelineStageInfo{
+		Id:          stage.ID.String(),
+		Name:        stage.Name,
+		Color:       stage.Color,
+		SortOrder:   int32(stage.SortOrder),
+		IsWon:       stage.IsWon,
+		IsLost:      stage.IsLost,
+		Probability: prob,
+		DealCount:   int32(stage.DealCount),
+		TotalValue:  totalValue,
+		CreatedAt:   stage.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
 
 func toTagInfo(t *models.Tag) *crmv1.TagInfo {
 	return &crmv1.TagInfo{
@@ -937,6 +1491,40 @@ func mapCRMError(err error) error {
 	case errors.Is(err, company.ErrCompanyInUse):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, company.ErrTagNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	// Pipeline stage errors
+	case errors.Is(err, pipelinestage.ErrStageNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, pipelinestage.ErrNameRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, pipelinestage.ErrInvalidColor):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, pipelinestage.ErrInvalidProbability):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, pipelinestage.ErrStageHasDeals):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, pipelinestage.ErrWonStageExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, pipelinestage.ErrLostStageExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, pipelinestage.ErrInvalidReorder):
+		return status.Error(codes.InvalidArgument, err.Error())
+	// Deal errors
+	case errors.Is(err, deal.ErrDealNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, deal.ErrNameRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, deal.ErrInvalidCurrency):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, deal.ErrStageNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, deal.ErrContactNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, deal.ErrCompanyNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, deal.ErrOwnerNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, deal.ErrTagNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")

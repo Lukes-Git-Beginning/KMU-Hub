@@ -27,9 +27,9 @@
 - [x] Kontakte (CRUD, Custom Fields, Tags, Search)
 - [x] Unternehmen (CRUD, Kontakt-Verknuepfung)
 
-### Sprint 3: Deals Pipeline
-- [ ] Pipeline Stages (CRUD, Reorder, Defaults)
-- [ ] Deals (CRUD, Stage Transitions)
+### Sprint 3: Deals Pipeline (complete)
+- [x] Pipeline Stages (CRUD, Reorder, Defaults)
+- [x] Deals (CRUD, Stage Transitions)
 
 ### Sprint 4: Activities & Search
 - [ ] Aktivitaeten (Calls, Meetings, Notizen, E-Mails, Tasks)
@@ -109,6 +109,38 @@
 ---
 
 ## Fortschritts-Log
+
+### 05.02.2026 — Phase 2 Sprint 3 Complete (1 Dev + AI-Coder)
+
+**Fokus:** CRM Core — Deals Pipeline (Sprint 3)
+
+- Pipeline Stages vollstaendig implementiert:
+  - Migration 000008 (pipeline_stages Tabelle mit Default-Stages)
+  - `internal/crm/pipelinestage/` Package (service, repository, postgres_repository, errors)
+  - `internal/models/pipeline_stage.go` — PipelineStage + WithStats Variant
+  - gRPC Server Methoden (CRUD + Reorder)
+  - HTTP Gateway Endpoints: `/api/v1/pipeline-stages`, `/api/v1/pipeline-stages/reorder`
+  - 32 Unit Tests (100% Coverage fuer Service Layer)
+- Deals vollstaendig implementiert:
+  - Migration 000009 (deals + deal_custom_field_values Tabellen)
+  - `internal/crm/deal/` Package (service, repository, postgres_repository, errors)
+  - `internal/models/deal.go` — Deal + DealWithRelations Models
+  - gRPC Server Methoden (CRUD + MoveToStage + AddTags + RemoveTags)
+  - HTTP Gateway Endpoints: `/api/v1/deals`, `/api/v1/deals/{id}/stage`, `/api/v1/deals/{id}/tags`
+  - 27 Unit Tests (100% Coverage fuer Service Layer)
+- Features:
+  - Default Pipeline Stages (Lead, Qualified, Proposal, Negotiation, Won, Lost)
+  - Stage Reordering via ID-Liste
+  - Unique is_won/is_lost Constraints
+  - Deal Value mit shopspring/decimal (Praezision)
+  - ISO 4217 Currency Validation
+  - Automatic closed_at bei Won/Lost Stage Transitions
+  - Contact, Company, Owner Relations (SET NULL on delete)
+  - Tags + Custom Fields per Deal
+- OpenAPI Spec aktualisiert mit allen CRM Endpoints
+- **Sprint 3 Deals Pipeline ist damit abgeschlossen**
+
+---
 
 ### 05.02.2026 — Phase 2 Sprint 2 Complete (1 Dev + AI-Coder)
 
