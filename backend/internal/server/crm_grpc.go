@@ -10,11 +10,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/kmuhub/kmuhub/internal/crm/activity"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/crm/customfield"
 	"github.com/kmuhub/kmuhub/internal/crm/deal"
 	"github.com/kmuhub/kmuhub/internal/crm/pipelinestage"
+	"github.com/kmuhub/kmuhub/internal/crm/search"
 	"github.com/kmuhub/kmuhub/internal/crm/tag"
 	"github.com/kmuhub/kmuhub/internal/models"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
@@ -29,6 +31,8 @@ type CRMGRPCServer struct {
 	companyService       *company.Service
 	pipelineStageService *pipelinestage.Service
 	dealService          *deal.Service
+	activityService      *activity.Service
+	searchService        *search.Service
 }
 
 // NewCRMGRPCServer creates a new CRM gRPC server
@@ -39,6 +43,8 @@ func NewCRMGRPCServer(
 	companyService *company.Service,
 	pipelineStageService *pipelinestage.Service,
 	dealService *deal.Service,
+	activityService *activity.Service,
+	searchService *search.Service,
 ) *CRMGRPCServer {
 	return &CRMGRPCServer{
 		customFieldService:   customFieldService,
@@ -47,6 +53,8 @@ func NewCRMGRPCServer(
 		companyService:       companyService,
 		pipelineStageService: pipelineStageService,
 		dealService:          dealService,
+		activityService:      activityService,
+		searchService:        searchService,
 	}
 }
 
@@ -1198,21 +1206,370 @@ func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDeal
 }
 
 // ============================================================================
+// Activities
+// ============================================================================
+
+func (s *CRMGRPCServer) CreateActivity(ctx context.Context, req *crmv1.CreateActivityRequest) (*crmv1.CreateActivityResponse, error) {
+	createdBy, err := uuid.Parse(req.CreatedBy)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
+	}
+
+	input := activity.CreateInput{
+		ActivityType: models.ActivityType(req.ActivityType),
+		Subject:      req.Subject,
+		CreatedBy:    createdBy,
+	}
+
+	if req.Description != "" {
+		input.Description = &req.Description
+	}
+	if req.ContactId != nil {
+		contactID, parseErr := uuid.Parse(*req.ContactId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		input.ContactID = &contactID
+	}
+	if req.CompanyId != nil {
+		companyID, parseErr := uuid.Parse(*req.CompanyId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid company_id")
+		}
+		input.CompanyID = &companyID
+	}
+	if req.DealId != nil {
+		dealID, parseErr := uuid.Parse(*req.DealId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
+		}
+		input.DealID = &dealID
+	}
+	if req.AssignedTo != nil {
+		assignedTo, parseErr := uuid.Parse(*req.AssignedTo)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid assigned_to")
+		}
+		input.AssignedTo = &assignedTo
+	}
+	if req.DueDate != "" {
+		t, parseErr := time.Parse(time.RFC3339, req.DueDate)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid due_date format")
+		}
+		input.DueDate = &t
+	}
+
+	a, err := s.activityService.Create(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.CreateActivityResponse{
+		Activity: toActivityInfo(a),
+	}, nil
+}
+
+func (s *CRMGRPCServer) GetActivity(ctx context.Context, req *crmv1.GetActivityRequest) (*crmv1.GetActivityResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
+	}
+
+	a, err := s.activityService.GetByID(ctx, id)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.GetActivityResponse{
+		Activity: toActivityInfo(a),
+	}, nil
+}
+
+func (s *CRMGRPCServer) ListActivities(ctx context.Context, req *crmv1.ListActivitiesRequest) (*crmv1.ListActivitiesResponse, error) {
+	input := activity.ListInput{
+		Page:     int(req.Page),
+		PageSize: int(req.PageSize),
+		SortBy:   req.SortBy,
+		SortDesc: req.SortDesc,
+	}
+
+	if req.ActivityType != nil && *req.ActivityType != "" {
+		actType := models.ActivityType(*req.ActivityType)
+		input.ActivityType = &actType
+	}
+	if req.ContactId != nil {
+		contactID, err := uuid.Parse(*req.ContactId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		input.ContactID = &contactID
+	}
+	if req.CompanyId != nil {
+		companyID, err := uuid.Parse(*req.CompanyId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid company_id")
+		}
+		input.CompanyID = &companyID
+	}
+	if req.DealId != nil {
+		dealID, err := uuid.Parse(*req.DealId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
+		}
+		input.DealID = &dealID
+	}
+	if req.AssignedTo != nil {
+		assignedTo, err := uuid.Parse(*req.AssignedTo)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid assigned_to")
+		}
+		input.AssignedTo = &assignedTo
+	}
+	if req.IsCompleted != nil {
+		input.IsCompleted = req.IsCompleted
+	}
+
+	activities, total, err := s.activityService.List(ctx, input)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list activities")
+	}
+
+	var infos []*crmv1.ActivityInfo
+	for _, a := range activities {
+		infos = append(infos, toActivityInfo(a))
+	}
+
+	return &crmv1.ListActivitiesResponse{
+		Activities: infos,
+		Total:      int32(total),
+	}, nil
+}
+
+func (s *CRMGRPCServer) UpdateActivity(ctx context.Context, req *crmv1.UpdateActivityRequest) (*crmv1.UpdateActivityResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
+	}
+
+	input := activity.UpdateInput{}
+
+	if req.Subject != nil {
+		input.Subject = req.Subject
+	}
+	if req.Description != nil {
+		input.Description = req.Description
+	}
+	if req.ContactId != nil {
+		if *req.ContactId == "" {
+			nilUUID := uuid.Nil
+			input.ContactID = &nilUUID
+		} else {
+			contactID, parseErr := uuid.Parse(*req.ContactId)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+			}
+			input.ContactID = &contactID
+		}
+	}
+	if req.CompanyId != nil {
+		if *req.CompanyId == "" {
+			nilUUID := uuid.Nil
+			input.CompanyID = &nilUUID
+		} else {
+			companyID, parseErr := uuid.Parse(*req.CompanyId)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid company_id")
+			}
+			input.CompanyID = &companyID
+		}
+	}
+	if req.DealId != nil {
+		if *req.DealId == "" {
+			nilUUID := uuid.Nil
+			input.DealID = &nilUUID
+		} else {
+			dealID, parseErr := uuid.Parse(*req.DealId)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid deal_id")
+			}
+			input.DealID = &dealID
+		}
+	}
+	if req.AssignedTo != nil {
+		if *req.AssignedTo == "" {
+			nilUUID := uuid.Nil
+			input.AssignedTo = &nilUUID
+		} else {
+			assignedTo, parseErr := uuid.Parse(*req.AssignedTo)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid assigned_to")
+			}
+			input.AssignedTo = &assignedTo
+		}
+	}
+	if req.DueDate != nil {
+		if *req.DueDate == "" {
+			input.DueDate = nil
+		} else {
+			t, parseErr := time.Parse(time.RFC3339, *req.DueDate)
+			if parseErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid due_date format")
+			}
+			input.DueDate = &t
+		}
+	}
+
+	a, err := s.activityService.Update(ctx, id, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.UpdateActivityResponse{
+		Activity: toActivityInfo(a),
+	}, nil
+}
+
+func (s *CRMGRPCServer) DeleteActivity(ctx context.Context, req *crmv1.DeleteActivityRequest) (*crmv1.DeleteActivityResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
+	}
+
+	if err := s.activityService.Delete(ctx, id); err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.DeleteActivityResponse{}, nil
+}
+
+func (s *CRMGRPCServer) CompleteActivity(ctx context.Context, req *crmv1.CompleteActivityRequest) (*crmv1.CompleteActivityResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid activity id")
+	}
+
+	a, err := s.activityService.Complete(ctx, id)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.CompleteActivityResponse{
+		Activity: toActivityInfo(a),
+	}, nil
+}
+
+// ============================================================================
+// Search
+// ============================================================================
+
+func (s *CRMGRPCServer) Search(ctx context.Context, req *crmv1.SearchRequest) (*crmv1.SearchResponse, error) {
+	input := search.SearchInput{
+		Query: req.Query,
+		Limit: int(req.Limit),
+	}
+
+	for _, et := range req.EntityTypes {
+		input.EntityTypes = append(input.EntityTypes, models.SearchEntityType(et))
+	}
+
+	results, err := s.searchService.Search(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	var infos []*crmv1.SearchResult
+	for _, r := range results {
+		infos = append(infos, toSearchResultInfo(r))
+	}
+
+	return &crmv1.SearchResponse{
+		Results: infos,
+	}, nil
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
+
+func toActivityInfo(a *models.ActivityWithRelations) *crmv1.ActivityInfo {
+	info := &crmv1.ActivityInfo{
+		Id:           a.ID.String(),
+		ActivityType: string(a.ActivityType),
+		Subject:      a.Subject,
+		IsCompleted:  a.IsCompleted,
+		CreatedBy:    a.CreatedBy.String(),
+		CreatedAt:    a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    a.UpdatedAt.Format(time.RFC3339),
+	}
+
+	if a.Description != nil {
+		info.Description = *a.Description
+	}
+	if a.ContactID != nil {
+		contactIDStr := a.ContactID.String()
+		info.ContactId = &contactIDStr
+	}
+	if a.ContactName != nil {
+		info.ContactName = a.ContactName
+	}
+	if a.CompanyID != nil {
+		companyIDStr := a.CompanyID.String()
+		info.CompanyId = &companyIDStr
+	}
+	if a.CompanyName != nil {
+		info.CompanyName = a.CompanyName
+	}
+	if a.DealID != nil {
+		dealIDStr := a.DealID.String()
+		info.DealId = &dealIDStr
+	}
+	if a.DealName != nil {
+		info.DealName = a.DealName
+	}
+	if a.AssignedTo != nil {
+		assignedToStr := a.AssignedTo.String()
+		info.AssignedTo = &assignedToStr
+	}
+	if a.AssignedToName != nil {
+		info.AssignedToName = a.AssignedToName
+	}
+	if a.DueDate != nil {
+		info.DueDate = a.DueDate.Format(time.RFC3339)
+	}
+	if a.CompletedAt != nil {
+		completedAtStr := a.CompletedAt.Format(time.RFC3339)
+		info.CompletedAt = &completedAtStr
+	}
+
+	// Note: Tags and CustomFields are not in the proto ActivityInfo
+	// They would need to be fetched separately if needed
+
+	return info
+}
+
+func toSearchResultInfo(r *models.SearchResult) *crmv1.SearchResult {
+	return &crmv1.SearchResult{
+		Id:         r.ID,
+		EntityType: r.EntityType,
+		Title:      r.Title,
+		Subtitle:   r.Subtitle,
+		Score:      r.Score,
+	}
+}
 
 func toDealInfo(d *models.DealWithRelations) *crmv1.DealInfo {
 	value, _ := d.Value.Float64()
 	info := &crmv1.DealInfo{
-		Id:         d.ID.String(),
-		Name:       d.Name,
-		Value:      value,
-		Currency:   d.Currency,
-		StageId:    d.StageID.String(),
-		StageName:  d.StageName,
-		CreatedBy:  d.CreatedBy.String(),
-		CreatedAt:  d.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:  d.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Id:        d.ID.String(),
+		Name:      d.Name,
+		Value:     value,
+		Currency:  d.Currency,
+		StageId:   d.StageID.String(),
+		StageName: d.StageName,
+		CreatedBy: d.CreatedBy.String(),
+		CreatedAt: d.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt: d.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	if d.ContactID != nil {
@@ -1526,6 +1883,30 @@ func mapCRMError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, deal.ErrTagNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	// Activity errors
+	case errors.Is(err, activity.ErrActivityNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, activity.ErrSubjectRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, activity.ErrInvalidActivityType):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, activity.ErrContactNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, activity.ErrCompanyNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, activity.ErrDealNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, activity.ErrUserNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, activity.ErrTagNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	// Search errors
+	case errors.Is(err, search.ErrQueryTooShort):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, search.ErrQueryTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, search.ErrInvalidEntity):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}

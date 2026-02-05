@@ -27,6 +27,10 @@ tags:
     description: Pipeline stage configuration
   - name: deals
     description: Deal management
+  - name: activities
+    description: Activity management (calls, meetings, notes, emails, tasks)
+  - name: search
+    description: Global search across CRM entities
 
 paths:
   /health:
@@ -1467,6 +1471,278 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ============================================================================
+  # Activities
+  # ============================================================================
+
+  /api/v1/activities:
+    get:
+      summary: List activities with filters
+      tags: [activities]
+      operationId: listActivities
+      parameters:
+        - name: activity_type
+          in: query
+          schema:
+            type: string
+            enum: [call, meeting, note, email, task]
+        - name: contact_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: company_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: deal_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: assigned_to
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: is_completed
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [created_at, due_date, subject]
+        - name: sort_desc
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Activities list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListActivitiesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Create a new activity
+      tags: [activities]
+      operationId: createActivity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityRequest"
+      responses:
+        "201":
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/activities/{id}:
+    get:
+      summary: Get activity by ID
+      tags: [activities]
+      operationId: getActivity
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Activity details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Update an activity
+      tags: [activities]
+      operationId: updateActivity
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityRequest"
+      responses:
+        "200":
+          description: Activity updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete an activity
+      tags: [activities]
+      operationId: deleteActivity
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Activity deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/activities/{id}/complete:
+    post:
+      summary: Mark activity as completed
+      tags: [activities]
+      operationId: completeActivity
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Activity marked as completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/activities/{id}/tags:
+    post:
+      summary: Add tags to activity
+      tags: [activities]
+      operationId: addActivityTags
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagIdsRequest"
+      responses:
+        "200":
+          description: Tags added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Remove tags from activity
+      tags: [activities]
+      operationId: removeActivityTags
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TagIdsRequest"
+      responses:
+        "200":
+          description: Tags removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ============================================================================
+  # Search
+  # ============================================================================
+
+  /api/v1/search:
+    get:
+      summary: Global search across CRM entities
+      tags: [search]
+      operationId: search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query (2-200 characters)
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 200
+        - name: types
+          in: query
+          description: Entity types to search (comma-separated). Default searches all.
+          schema:
+            type: string
+            example: contact,company,deal,activity
+        - name: limit
+          in: query
+          description: Maximum results (default 20, max 100)
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -2287,6 +2563,159 @@ components:
             $ref: "#/components/schemas/DealInfo"
         total:
           type: integer
+
+    # ============================================================================
+    # Activity Schemas
+    # ============================================================================
+
+    ActivityInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        activity_type:
+          type: string
+          enum: [call, meeting, note, email, task]
+        subject:
+          type: string
+        description:
+          type: string
+        contact_id:
+          type: string
+          format: uuid
+        contact_name:
+          type: string
+        company_id:
+          type: string
+          format: uuid
+        company_name:
+          type: string
+        deal_id:
+          type: string
+          format: uuid
+        deal_name:
+          type: string
+        assigned_to:
+          type: string
+          format: uuid
+        assigned_to_name:
+          type: string
+        due_date:
+          type: string
+          format: date-time
+        is_completed:
+          type: boolean
+        completed_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateActivityRequest:
+      type: object
+      required: [activity_type, subject]
+      properties:
+        activity_type:
+          type: string
+          enum: [call, meeting, note, email, task]
+        subject:
+          type: string
+        description:
+          type: string
+        contact_id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        deal_id:
+          type: string
+          format: uuid
+        assigned_to:
+          type: string
+          format: uuid
+        due_date:
+          type: string
+          format: date-time
+
+    UpdateActivityRequest:
+      type: object
+      properties:
+        subject:
+          type: string
+        description:
+          type: string
+        contact_id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        deal_id:
+          type: string
+          format: uuid
+        assigned_to:
+          type: string
+          format: uuid
+        due_date:
+          type: string
+          format: date-time
+
+    ActivityResponse:
+      type: object
+      properties:
+        activity:
+          $ref: "#/components/schemas/ActivityInfo"
+
+    ListActivitiesResponse:
+      type: object
+      properties:
+        activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityInfo"
+        total:
+          type: integer
+
+    # ============================================================================
+    # Search Schemas
+    # ============================================================================
+
+    SearchResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_type:
+          type: string
+          enum: [contact, company, deal, activity]
+        title:
+          type: string
+          description: Primary display text (name, subject)
+        subtitle:
+          type: string
+          description: Secondary display text (email, value)
+        score:
+          type: number
+          format: double
+          description: Relevance score (higher is better)
+
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
 
   responses:
     BadRequest:

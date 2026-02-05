@@ -140,6 +140,25 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("deals", "delete")).Delete("/{id}", h.HandleDeleteDeal)
 	})
 
+	// CRM: Activities routes
+	r.Route("/api/v1/activities", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("activities", "read")).Get("/", h.HandleListActivities)
+		r.With(middleware.RequirePermission("activities", "read")).Get("/{id}", h.HandleGetActivity)
+		r.With(middleware.RequirePermission("activities", "write")).Post("/", h.HandleCreateActivity)
+		r.With(middleware.RequirePermission("activities", "write")).Put("/{id}", h.HandleUpdateActivity)
+		r.With(middleware.RequirePermission("activities", "write")).Post("/{id}/complete", h.HandleCompleteActivity)
+		r.With(middleware.RequirePermission("activities", "write")).Post("/{id}/tags", h.HandleAddActivityTags)
+		r.With(middleware.RequirePermission("activities", "write")).Delete("/{id}/tags", h.HandleRemoveActivityTags)
+		r.With(middleware.RequirePermission("activities", "delete")).Delete("/{id}", h.HandleDeleteActivity)
+	})
+
+	// CRM: Search route
+	r.Route("/api/v1/search", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Get("/", h.HandleSearch)
+	})
+
 	// Health check
 	r.Get("/health", h.HandleHealth)
 }
@@ -1829,4 +1848,304 @@ func (h *GatewayHandler) HandleRemoveDealTags(w http.ResponseWriter, r *http.Req
 	// Note: We don't have RemoveDealTags in proto, so we update the deal with tags
 	// For now, respond with a not implemented error
 	response.Error(w, http.StatusNotImplemented, "remove deal tags not implemented via HTTP, use gRPC")
+}
+
+// ============================================================================
+// CRM: Activities Handlers
+// ============================================================================
+
+type createActivityRequest struct {
+	ActivityType string                    `json:"activity_type"`
+	Subject      string                    `json:"subject"`
+	Description  string                    `json:"description"`
+	ContactID    *string                   `json:"contact_id,omitempty"`
+	CompanyID    *string                   `json:"company_id,omitempty"`
+	DealID       *string                   `json:"deal_id,omitempty"`
+	AssignedTo   *string                   `json:"assigned_to,omitempty"`
+	DueDate      string                    `json:"due_date"`
+	TagIDs       []string                  `json:"tag_ids"`
+	CustomFields []customFieldValueRequest `json:"custom_fields"`
+}
+
+func (h *GatewayHandler) HandleCreateActivity(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req createActivityRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.ActivityType == "" || req.Subject == "" {
+		response.Error(w, http.StatusBadRequest, "activity_type and subject are required")
+		return
+	}
+
+	grpcReq := &crmv1.CreateActivityRequest{
+		ActivityType: req.ActivityType,
+		Subject:      req.Subject,
+		Description:  req.Description,
+		DueDate:      req.DueDate,
+		CreatedBy:    userID,
+	}
+
+	if req.ContactID != nil {
+		grpcReq.ContactId = req.ContactID
+	}
+	if req.CompanyID != nil {
+		grpcReq.CompanyId = req.CompanyID
+	}
+	if req.DealID != nil {
+		grpcReq.DealId = req.DealID
+	}
+	if req.AssignedTo != nil {
+		grpcReq.AssignedTo = req.AssignedTo
+	}
+
+	resp, err := h.crmClient.CreateActivity(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (h *GatewayHandler) HandleGetActivity(w http.ResponseWriter, r *http.Request) {
+	activityID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(activityID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid activity id")
+		return
+	}
+
+	resp, err := h.crmClient.GetActivity(r.Context(), &crmv1.GetActivityRequest{Id: activityID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleListActivities(w http.ResponseWriter, r *http.Request) {
+	activityType := r.URL.Query().Get("activity_type")
+	contactID := r.URL.Query().Get("contact_id")
+	companyID := r.URL.Query().Get("company_id")
+	dealID := r.URL.Query().Get("deal_id")
+	assignedTo := r.URL.Query().Get("assigned_to")
+	isCompletedStr := r.URL.Query().Get("is_completed")
+	sortBy := r.URL.Query().Get("sort_by")
+	sortDesc := r.URL.Query().Get("sort_desc") == "true"
+	page := 1
+	pageSize := 20
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
+			pageSize = parsed
+		}
+	}
+
+	grpcReq := &crmv1.ListActivitiesRequest{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+		SortBy:   sortBy,
+		SortDesc: sortDesc,
+	}
+
+	if activityType != "" {
+		grpcReq.ActivityType = &activityType
+	}
+
+	if contactID != "" {
+		grpcReq.ContactId = &contactID
+	}
+	if companyID != "" {
+		grpcReq.CompanyId = &companyID
+	}
+	if dealID != "" {
+		grpcReq.DealId = &dealID
+	}
+	if assignedTo != "" {
+		grpcReq.AssignedTo = &assignedTo
+	}
+	if isCompletedStr != "" {
+		isCompleted := isCompletedStr == "true"
+		grpcReq.IsCompleted = &isCompleted
+	}
+
+	resp, err := h.crmClient.ListActivities(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateActivityRequest struct {
+	Subject      *string                   `json:"subject,omitempty"`
+	Description  *string                   `json:"description,omitempty"`
+	ContactID    *string                   `json:"contact_id,omitempty"`
+	CompanyID    *string                   `json:"company_id,omitempty"`
+	DealID       *string                   `json:"deal_id,omitempty"`
+	AssignedTo   *string                   `json:"assigned_to,omitempty"`
+	DueDate      *string                   `json:"due_date,omitempty"`
+	CustomFields []customFieldValueRequest `json:"custom_fields"`
+}
+
+func (h *GatewayHandler) HandleUpdateActivity(w http.ResponseWriter, r *http.Request) {
+	activityID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(activityID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid activity id")
+		return
+	}
+
+	var req updateActivityRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateActivityRequest{Id: activityID}
+	if req.Subject != nil {
+		grpcReq.Subject = req.Subject
+	}
+	if req.Description != nil {
+		grpcReq.Description = req.Description
+	}
+	if req.ContactID != nil {
+		grpcReq.ContactId = req.ContactID
+	}
+	if req.CompanyID != nil {
+		grpcReq.CompanyId = req.CompanyID
+	}
+	if req.DealID != nil {
+		grpcReq.DealId = req.DealID
+	}
+	if req.AssignedTo != nil {
+		grpcReq.AssignedTo = req.AssignedTo
+	}
+	if req.DueDate != nil {
+		grpcReq.DueDate = req.DueDate
+	}
+
+	resp, err := h.crmClient.UpdateActivity(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleDeleteActivity(w http.ResponseWriter, r *http.Request) {
+	activityID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(activityID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid activity id")
+		return
+	}
+
+	_, err := h.crmClient.DeleteActivity(r.Context(), &crmv1.DeleteActivityRequest{Id: activityID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "activity deleted"})
+}
+
+func (h *GatewayHandler) HandleCompleteActivity(w http.ResponseWriter, r *http.Request) {
+	activityID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(activityID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid activity id")
+		return
+	}
+
+	resp, err := h.crmClient.CompleteActivity(r.Context(), &crmv1.CompleteActivityRequest{Id: activityID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type modifyActivityTagsRequest struct {
+	TagIDs []string `json:"tag_ids"`
+}
+
+func (h *GatewayHandler) HandleAddActivityTags(w http.ResponseWriter, r *http.Request) {
+	activityID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(activityID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid activity id")
+		return
+	}
+
+	var req modifyActivityTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Note: Activity tags are managed via gRPC for now
+	response.Error(w, http.StatusNotImplemented, "add activity tags not implemented via HTTP, use gRPC")
+}
+
+func (h *GatewayHandler) HandleRemoveActivityTags(w http.ResponseWriter, r *http.Request) {
+	activityID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(activityID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid activity id")
+		return
+	}
+
+	var req modifyActivityTagsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Note: Activity tags are managed via gRPC for now
+	response.Error(w, http.StatusNotImplemented, "remove activity tags not implemented via HTTP, use gRPC")
+}
+
+// ============================================================================
+// CRM: Search Handler
+// ============================================================================
+
+func (h *GatewayHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		response.Error(w, http.StatusBadRequest, "query parameter 'q' is required")
+		return
+	}
+
+	entityTypes := r.URL.Query()["types"]
+	limit := 20
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	resp, err := h.crmClient.Search(r.Context(), &crmv1.SearchRequest{
+		Query:       query,
+		EntityTypes: entityTypes,
+		Limit:       int32(limit),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }

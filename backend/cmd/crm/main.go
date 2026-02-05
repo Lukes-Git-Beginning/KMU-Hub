@@ -14,11 +14,13 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/config"
+	"github.com/kmuhub/kmuhub/internal/crm/activity"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/crm/customfield"
 	"github.com/kmuhub/kmuhub/internal/crm/deal"
 	"github.com/kmuhub/kmuhub/internal/crm/pipelinestage"
+	"github.com/kmuhub/kmuhub/internal/crm/search"
 	"github.com/kmuhub/kmuhub/internal/crm/tag"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -54,6 +56,8 @@ func main() {
 	companyRepo := company.NewPostgresRepository(pool)
 	pipelineStageRepo := pipelinestage.NewPostgresRepository(pool)
 	dealRepo := deal.NewPostgresRepository(pool)
+	activityRepo := activity.NewPostgresRepository(pool)
+	searchRepo := search.NewPostgresRepository(pool)
 
 	// Initialize services
 	customFieldService := customfield.NewService(customFieldRepo)
@@ -62,6 +66,8 @@ func main() {
 	companyService := company.NewService(companyRepo)
 	pipelineStageService := pipelinestage.NewService(pipelineStageRepo)
 	dealService := deal.NewService(dealRepo)
+	activityService := activity.NewService(activityRepo)
+	searchService := search.NewService(searchRepo)
 
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
@@ -75,7 +81,7 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	crmGRPC := server.NewCRMGRPCServer(customFieldService, tagService, contactService, companyService, pipelineStageService, dealService)
+	crmGRPC := server.NewCRMGRPCServer(customFieldService, tagService, contactService, companyService, pipelineStageService, dealService, activityService, searchService)
 	crmv1.RegisterCRMServiceServer(grpcServer, crmGRPC)
 
 	// Initialize gRPC metrics after service registration
