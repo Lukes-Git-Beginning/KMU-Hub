@@ -1,0 +1,827 @@
+syntax = "proto3";
+
+package crm.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/crm/v1;crmv1";
+
+service CRMService {
+  // Custom Fields
+  rpc CreateCustomField(CreateCustomFieldRequest) returns (CreateCustomFieldResponse);
+  rpc GetCustomField(GetCustomFieldRequest) returns (GetCustomFieldResponse);
+  rpc ListCustomFields(ListCustomFieldsRequest) returns (ListCustomFieldsResponse);
+  rpc UpdateCustomField(UpdateCustomFieldRequest) returns (UpdateCustomFieldResponse);
+  rpc DeleteCustomField(DeleteCustomFieldRequest) returns (DeleteCustomFieldResponse);
+
+  // Tags (Sprint 1)
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc GetTag(GetTagRequest) returns (GetTagResponse);
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc UpdateTag(UpdateTagRequest) returns (UpdateTagResponse);
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+
+  // Contacts (Sprint 2)
+  rpc CreateContact(CreateContactRequest) returns (CreateContactResponse);
+  rpc GetContact(GetContactRequest) returns (GetContactResponse);
+  rpc ListContacts(ListContactsRequest) returns (ListContactsResponse);
+  rpc UpdateContact(UpdateContactRequest) returns (UpdateContactResponse);
+  rpc DeleteContact(DeleteContactRequest) returns (DeleteContactResponse);
+  rpc AddContactTags(AddContactTagsRequest) returns (AddContactTagsResponse);
+  rpc RemoveContactTags(RemoveContactTagsRequest) returns (RemoveContactTagsResponse);
+
+  // Companies (Sprint 2)
+  rpc CreateCompany(CreateCompanyRequest) returns (CreateCompanyResponse);
+  rpc GetCompany(GetCompanyRequest) returns (GetCompanyResponse);
+  rpc ListCompanies(ListCompaniesRequest) returns (ListCompaniesResponse);
+  rpc UpdateCompany(UpdateCompanyRequest) returns (UpdateCompanyResponse);
+  rpc DeleteCompany(DeleteCompanyRequest) returns (DeleteCompanyResponse);
+  rpc GetCompanyContacts(GetCompanyContactsRequest) returns (GetCompanyContactsResponse);
+
+  // Pipeline Stages (Sprint 3)
+  rpc CreatePipelineStage(CreatePipelineStageRequest) returns (CreatePipelineStageResponse);
+  rpc GetPipelineStage(GetPipelineStageRequest) returns (GetPipelineStageResponse);
+  rpc ListPipelineStages(ListPipelineStagesRequest) returns (ListPipelineStagesResponse);
+  rpc UpdatePipelineStage(UpdatePipelineStageRequest) returns (UpdatePipelineStageResponse);
+  rpc DeletePipelineStage(DeletePipelineStageRequest) returns (DeletePipelineStageResponse);
+  rpc ReorderPipelineStages(ReorderPipelineStagesRequest) returns (ReorderPipelineStagesResponse);
+
+  // Deals (Sprint 3)
+  rpc CreateDeal(CreateDealRequest) returns (CreateDealResponse);
+  rpc GetDeal(GetDealRequest) returns (GetDealResponse);
+  rpc ListDeals(ListDealsRequest) returns (ListDealsResponse);
+  rpc UpdateDeal(UpdateDealRequest) returns (UpdateDealResponse);
+  rpc DeleteDeal(DeleteDealRequest) returns (DeleteDealResponse);
+  rpc MoveDealToStage(MoveDealToStageRequest) returns (MoveDealToStageResponse);
+
+  // Activities (Sprint 4)
+  rpc CreateActivity(CreateActivityRequest) returns (CreateActivityResponse);
+  rpc GetActivity(GetActivityRequest) returns (GetActivityResponse);
+  rpc ListActivities(ListActivitiesRequest) returns (ListActivitiesResponse);
+  rpc UpdateActivity(UpdateActivityRequest) returns (UpdateActivityResponse);
+  rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
+  rpc CompleteActivity(CompleteActivityRequest) returns (CompleteActivityResponse);
+
+  // Search (Sprint 4)
+  rpc Search(SearchRequest) returns (SearchResponse);
+
+  // Filters (Sprint 5)
+  rpc CreateSavedFilter(CreateSavedFilterRequest) returns (CreateSavedFilterResponse);
+  rpc GetSavedFilter(GetSavedFilterRequest) returns (GetSavedFilterResponse);
+  rpc ListSavedFilters(ListSavedFiltersRequest) returns (ListSavedFiltersResponse);
+  rpc UpdateSavedFilter(UpdateSavedFilterRequest) returns (UpdateSavedFilterResponse);
+  rpc DeleteSavedFilter(DeleteSavedFilterRequest) returns (DeleteSavedFilterResponse);
+
+  // Reports (Sprint 5)
+  rpc GetPipelineReport(GetPipelineReportRequest) returns (GetPipelineReportResponse);
+  rpc GetConversionReport(GetConversionReportRequest) returns (GetConversionReportResponse);
+  rpc GetActivityReport(GetActivityReportRequest) returns (GetActivityReportResponse);
+}
+
+// ============================================================================
+// Custom Fields Messages
+// ============================================================================
+
+message CustomFieldInfo {
+  string id = 1;
+  string entity_type = 2;
+  string field_name = 3;
+  string field_label = 4;
+  string field_type = 5;
+  repeated string options = 6;
+  optional string default_value = 7;
+  bool is_required = 8;
+  int32 sort_order = 9;
+  string created_by = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message CreateCustomFieldRequest {
+  string entity_type = 1;
+  string field_name = 2;
+  string field_label = 3;
+  string field_type = 4;
+  repeated string options = 5;
+  optional string default_value = 6;
+  bool is_required = 7;
+  int32 sort_order = 8;
+  string created_by = 9;
+}
+
+message CreateCustomFieldResponse {
+  CustomFieldInfo custom_field = 1;
+}
+
+message GetCustomFieldRequest {
+  string id = 1;
+}
+
+message GetCustomFieldResponse {
+  CustomFieldInfo custom_field = 1;
+}
+
+message ListCustomFieldsRequest {
+  string entity_type = 1;  // Filter by entity type (optional)
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListCustomFieldsResponse {
+  repeated CustomFieldInfo custom_fields = 1;
+  int32 total = 2;
+}
+
+message UpdateCustomFieldRequest {
+  string id = 1;
+  optional string field_label = 2;
+  repeated string options = 3;
+  optional string default_value = 4;
+  optional bool is_required = 5;
+  optional int32 sort_order = 6;
+}
+
+message UpdateCustomFieldResponse {
+  CustomFieldInfo custom_field = 1;
+}
+
+message DeleteCustomFieldRequest {
+  string id = 1;
+}
+
+message DeleteCustomFieldResponse {}
+
+// ============================================================================
+// Tags Messages
+// ============================================================================
+
+message TagInfo {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+  string entity_type = 4;
+  string created_at = 5;
+}
+
+message CreateTagRequest {
+  string name = 1;
+  string color = 2;
+  string entity_type = 3;
+}
+
+message CreateTagResponse {
+  TagInfo tag = 1;
+}
+
+message GetTagRequest {
+  string id = 1;
+}
+
+message GetTagResponse {
+  TagInfo tag = 1;
+}
+
+message ListTagsRequest {
+  string entity_type = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListTagsResponse {
+  repeated TagInfo tags = 1;
+  int32 total = 2;
+}
+
+message UpdateTagRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string color = 3;
+}
+
+message UpdateTagResponse {
+  TagInfo tag = 1;
+}
+
+message DeleteTagRequest {
+  string id = 1;
+}
+
+message DeleteTagResponse {}
+
+// ============================================================================
+// Contacts Messages
+// ============================================================================
+
+message CustomFieldValueInput {
+  string field_id = 1;
+  string value = 2;  // JSON-encoded value
+}
+
+message ContactInfo {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  string phone = 5;
+  optional string company_id = 6;
+  optional string company_name = 7;
+  string position = 8;
+  string notes = 9;
+  repeated TagInfo tags = 10;
+  map<string, string> custom_fields = 11;  // field_name -> JSON value
+  string created_by = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message CreateContactRequest {
+  string first_name = 1;
+  string last_name = 2;
+  string email = 3;
+  string phone = 4;
+  optional string company_id = 5;
+  string position = 6;
+  string notes = 7;
+  repeated string tag_ids = 8;
+  repeated CustomFieldValueInput custom_fields = 9;
+  string created_by = 10;
+}
+
+message CreateContactResponse {
+  ContactInfo contact = 1;
+}
+
+message GetContactRequest {
+  string id = 1;
+}
+
+message GetContactResponse {
+  ContactInfo contact = 1;
+}
+
+message ListContactsRequest {
+  optional string company_id = 1;
+  repeated string tag_ids = 2;
+  string search = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+  string sort_by = 6;
+  bool sort_desc = 7;
+}
+
+message ListContactsResponse {
+  repeated ContactInfo contacts = 1;
+  int32 total = 2;
+}
+
+message UpdateContactRequest {
+  string id = 1;
+  optional string first_name = 2;
+  optional string last_name = 3;
+  optional string email = 4;
+  optional string phone = 5;
+  optional string company_id = 6;
+  optional string position = 7;
+  optional string notes = 8;
+  repeated CustomFieldValueInput custom_fields = 9;
+}
+
+message UpdateContactResponse {
+  ContactInfo contact = 1;
+}
+
+message DeleteContactRequest {
+  string id = 1;
+}
+
+message DeleteContactResponse {}
+
+message AddContactTagsRequest {
+  string contact_id = 1;
+  repeated string tag_ids = 2;
+}
+
+message AddContactTagsResponse {
+  ContactInfo contact = 1;
+}
+
+message RemoveContactTagsRequest {
+  string contact_id = 1;
+  repeated string tag_ids = 2;
+}
+
+message RemoveContactTagsResponse {
+  ContactInfo contact = 1;
+}
+
+// ============================================================================
+// Companies Messages
+// ============================================================================
+
+message CompanyInfo {
+  string id = 1;
+  string name = 2;
+  string domain = 3;
+  string industry = 4;
+  int32 employee_count = 5;
+  string address = 6;
+  string city = 7;
+  string country = 8;
+  string notes = 9;
+  repeated TagInfo tags = 10;
+  map<string, string> custom_fields = 11;
+  int32 contact_count = 12;
+  string created_by = 13;
+  string created_at = 14;
+  string updated_at = 15;
+}
+
+message CreateCompanyRequest {
+  string name = 1;
+  string domain = 2;
+  string industry = 3;
+  int32 employee_count = 4;
+  string address = 5;
+  string city = 6;
+  string country = 7;
+  string notes = 8;
+  repeated string tag_ids = 9;
+  repeated CustomFieldValueInput custom_fields = 10;
+  string created_by = 11;
+}
+
+message CreateCompanyResponse {
+  CompanyInfo company = 1;
+}
+
+message GetCompanyRequest {
+  string id = 1;
+}
+
+message GetCompanyResponse {
+  CompanyInfo company = 1;
+}
+
+message ListCompaniesRequest {
+  string industry = 1;
+  repeated string tag_ids = 2;
+  string search = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+  string sort_by = 6;
+  bool sort_desc = 7;
+}
+
+message ListCompaniesResponse {
+  repeated CompanyInfo companies = 1;
+  int32 total = 2;
+}
+
+message UpdateCompanyRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string domain = 3;
+  optional string industry = 4;
+  optional int32 employee_count = 5;
+  optional string address = 6;
+  optional string city = 7;
+  optional string country = 8;
+  optional string notes = 9;
+  repeated CustomFieldValueInput custom_fields = 10;
+}
+
+message UpdateCompanyResponse {
+  CompanyInfo company = 1;
+}
+
+message DeleteCompanyRequest {
+  string id = 1;
+}
+
+message DeleteCompanyResponse {}
+
+message GetCompanyContactsRequest {
+  string company_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetCompanyContactsResponse {
+  repeated ContactInfo contacts = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Pipeline Stages Messages
+// ============================================================================
+
+message PipelineStageInfo {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+  int32 sort_order = 4;
+  bool is_won = 5;
+  bool is_lost = 6;
+  double probability = 7;
+  int32 deal_count = 8;
+  double total_value = 9;
+  string created_at = 10;
+}
+
+message CreatePipelineStageRequest {
+  string name = 1;
+  string color = 2;
+  int32 sort_order = 3;
+  bool is_won = 4;
+  bool is_lost = 5;
+  double probability = 6;
+}
+
+message CreatePipelineStageResponse {
+  PipelineStageInfo stage = 1;
+}
+
+message GetPipelineStageRequest {
+  string id = 1;
+}
+
+message GetPipelineStageResponse {
+  PipelineStageInfo stage = 1;
+}
+
+message ListPipelineStagesRequest {}
+
+message ListPipelineStagesResponse {
+  repeated PipelineStageInfo stages = 1;
+}
+
+message UpdatePipelineStageRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string color = 3;
+  optional bool is_won = 4;
+  optional bool is_lost = 5;
+  optional double probability = 6;
+}
+
+message UpdatePipelineStageResponse {
+  PipelineStageInfo stage = 1;
+}
+
+message DeletePipelineStageRequest {
+  string id = 1;
+}
+
+message DeletePipelineStageResponse {}
+
+message ReorderPipelineStagesRequest {
+  repeated string stage_ids = 1;  // Ordered list of stage IDs
+}
+
+message ReorderPipelineStagesResponse {
+  repeated PipelineStageInfo stages = 1;
+}
+
+// ============================================================================
+// Deals Messages
+// ============================================================================
+
+message DealInfo {
+  string id = 1;
+  string name = 2;
+  double value = 3;
+  string currency = 4;
+  string stage_id = 5;
+  string stage_name = 6;
+  optional string contact_id = 7;
+  optional string contact_name = 8;
+  optional string company_id = 9;
+  optional string company_name = 10;
+  optional string owner_id = 11;
+  optional string owner_name = 12;
+  string expected_close_date = 13;
+  string notes = 14;
+  repeated TagInfo tags = 15;
+  map<string, string> custom_fields = 16;
+  string created_by = 17;
+  string created_at = 18;
+  string updated_at = 19;
+  optional string closed_at = 20;
+}
+
+message CreateDealRequest {
+  string name = 1;
+  double value = 2;
+  string currency = 3;
+  string stage_id = 4;
+  optional string contact_id = 5;
+  optional string company_id = 6;
+  optional string owner_id = 7;
+  string expected_close_date = 8;
+  string notes = 9;
+  repeated string tag_ids = 10;
+  repeated CustomFieldValueInput custom_fields = 11;
+  string created_by = 12;
+}
+
+message CreateDealResponse {
+  DealInfo deal = 1;
+}
+
+message GetDealRequest {
+  string id = 1;
+}
+
+message GetDealResponse {
+  DealInfo deal = 1;
+}
+
+message ListDealsRequest {
+  optional string stage_id = 1;
+  optional string contact_id = 2;
+  optional string company_id = 3;
+  optional string owner_id = 4;
+  repeated string tag_ids = 5;
+  string search = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+  string sort_by = 9;
+  bool sort_desc = 10;
+}
+
+message ListDealsResponse {
+  repeated DealInfo deals = 1;
+  int32 total = 2;
+}
+
+message UpdateDealRequest {
+  string id = 1;
+  optional string name = 2;
+  optional double value = 3;
+  optional string currency = 4;
+  optional string contact_id = 5;
+  optional string company_id = 6;
+  optional string owner_id = 7;
+  optional string expected_close_date = 8;
+  optional string notes = 9;
+  repeated CustomFieldValueInput custom_fields = 10;
+}
+
+message UpdateDealResponse {
+  DealInfo deal = 1;
+}
+
+message DeleteDealRequest {
+  string id = 1;
+}
+
+message DeleteDealResponse {}
+
+message MoveDealToStageRequest {
+  string deal_id = 1;
+  string stage_id = 2;
+}
+
+message MoveDealToStageResponse {
+  DealInfo deal = 1;
+}
+
+// ============================================================================
+// Activities Messages
+// ============================================================================
+
+message ActivityInfo {
+  string id = 1;
+  string activity_type = 2;  // 'call', 'meeting', 'note', 'email', 'task'
+  string subject = 3;
+  string description = 4;
+  optional string contact_id = 5;
+  optional string contact_name = 6;
+  optional string company_id = 7;
+  optional string company_name = 8;
+  optional string deal_id = 9;
+  optional string deal_name = 10;
+  optional string assigned_to = 11;
+  optional string assigned_to_name = 12;
+  string due_date = 13;
+  bool is_completed = 14;
+  optional string completed_at = 15;
+  string created_by = 16;
+  string created_at = 17;
+  string updated_at = 18;
+}
+
+message CreateActivityRequest {
+  string activity_type = 1;
+  string subject = 2;
+  string description = 3;
+  optional string contact_id = 4;
+  optional string company_id = 5;
+  optional string deal_id = 6;
+  optional string assigned_to = 7;
+  string due_date = 8;
+  string created_by = 9;
+}
+
+message CreateActivityResponse {
+  ActivityInfo activity = 1;
+}
+
+message GetActivityRequest {
+  string id = 1;
+}
+
+message GetActivityResponse {
+  ActivityInfo activity = 1;
+}
+
+message ListActivitiesRequest {
+  optional string activity_type = 1;
+  optional string contact_id = 2;
+  optional string company_id = 3;
+  optional string deal_id = 4;
+  optional string assigned_to = 5;
+  optional bool is_completed = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+  string sort_by = 9;
+  bool sort_desc = 10;
+}
+
+message ListActivitiesResponse {
+  repeated ActivityInfo activities = 1;
+  int32 total = 2;
+}
+
+message UpdateActivityRequest {
+  string id = 1;
+  optional string subject = 2;
+  optional string description = 3;
+  optional string contact_id = 4;
+  optional string company_id = 5;
+  optional string deal_id = 6;
+  optional string assigned_to = 7;
+  optional string due_date = 8;
+}
+
+message UpdateActivityResponse {
+  ActivityInfo activity = 1;
+}
+
+message DeleteActivityRequest {
+  string id = 1;
+}
+
+message DeleteActivityResponse {}
+
+message CompleteActivityRequest {
+  string id = 1;
+}
+
+message CompleteActivityResponse {
+  ActivityInfo activity = 1;
+}
+
+// ============================================================================
+// Search Messages
+// ============================================================================
+
+message SearchResult {
+  string id = 1;
+  string entity_type = 2;
+  string title = 3;
+  string subtitle = 4;
+  double score = 5;
+}
+
+message SearchRequest {
+  string query = 1;
+  repeated string entity_types = 2;  // Empty = all types
+  int32 limit = 3;
+}
+
+message SearchResponse {
+  repeated SearchResult results = 1;
+}
+
+// ============================================================================
+// Saved Filters Messages
+// ============================================================================
+
+message SavedFilterInfo {
+  string id = 1;
+  string name = 2;
+  string entity_type = 3;
+  string filter_json = 4;  // JSON-encoded filter criteria
+  bool is_default = 5;
+  string created_by = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message CreateSavedFilterRequest {
+  string name = 1;
+  string entity_type = 2;
+  string filter_json = 3;
+  bool is_default = 4;
+  string created_by = 5;
+}
+
+message CreateSavedFilterResponse {
+  SavedFilterInfo filter = 1;
+}
+
+message GetSavedFilterRequest {
+  string id = 1;
+}
+
+message GetSavedFilterResponse {
+  SavedFilterInfo filter = 1;
+}
+
+message ListSavedFiltersRequest {
+  string entity_type = 1;
+  string user_id = 2;
+}
+
+message ListSavedFiltersResponse {
+  repeated SavedFilterInfo filters = 1;
+}
+
+message UpdateSavedFilterRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string filter_json = 3;
+  optional bool is_default = 4;
+}
+
+message UpdateSavedFilterResponse {
+  SavedFilterInfo filter = 1;
+}
+
+message DeleteSavedFilterRequest {
+  string id = 1;
+}
+
+message DeleteSavedFilterResponse {}
+
+// ============================================================================
+// Reports Messages
+// ============================================================================
+
+message PipelineStageValue {
+  string stage_id = 1;
+  string stage_name = 2;
+  int32 deal_count = 3;
+  double total_value = 4;
+  double weighted_value = 5;
+}
+
+message GetPipelineReportRequest {
+  optional string owner_id = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+message GetPipelineReportResponse {
+  repeated PipelineStageValue stages = 1;
+  int32 total_deals = 2;
+  double total_value = 3;
+  double total_weighted_value = 4;
+}
+
+message ConversionMetric {
+  string from_stage = 1;
+  string to_stage = 2;
+  int32 converted_count = 3;
+  double conversion_rate = 4;
+  double average_days = 5;
+}
+
+message GetConversionReportRequest {
+  string start_date = 1;
+  string end_date = 2;
+}
+
+message GetConversionReportResponse {
+  repeated ConversionMetric metrics = 1;
+  double overall_win_rate = 2;
+  double average_deal_cycle = 3;
+}
+
+message ActivityMetric {
+  string activity_type = 1;
+  int32 total_count = 2;
+  int32 completed_count = 3;
+  int32 overdue_count = 4;
+}
+
+message GetActivityReportRequest {
+  optional string user_id = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+message GetActivityReportResponse {
+  repeated ActivityMetric metrics = 1;
+  int32 total_activities = 2;
+  double completion_rate = 3;
+}

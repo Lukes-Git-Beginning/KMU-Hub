@@ -5,9 +5,9 @@
 **Ziel:** Solides technisches Fundament
 
 - [x] Auth Service (JWT, Refresh Tokens, RBAC)
-- [ ] User Management (CRUD, Rollen, Einladungen) — teilweise via Auth Service abgedeckt
+- [x] User Management (CRUD, Rollen, Einladungen)
 - [x] API Gateway (Routing, Rate Limiting, CORS)
-- [x] PostgreSQL Schema Design + Migrations (3 Migrations)
+- [x] PostgreSQL Schema Design + Migrations (7 Migrations)
 - [x] Redis Setup (Sessions, Cache, Rate-Limit Fallback)
 - [x] CI/CD Pipeline (GitHub Actions: lint, test, build, openapi-validate, e2e)
 - [x] Docker-Compose fuer lokale Entwicklung (Full-Stack: postgres->redis->migrate->auth->gateway)
@@ -19,14 +19,25 @@
 
 **Ziel:** Funktionierendes CRM-Backend
 
-- [ ] Kontakte (CRUD, Custom Fields, Tags, Import/Export)
-- [ ] Unternehmen (CRUD, Verknuepfung mit Kontakten)
-- [ ] Deals / Pipeline (Kanban, Stages, Drag & Drop)
-- [ ] Aktivitaeten (Calls, Meetings, Notizen, E-Mails)
+### Sprint 1: Foundation (complete)
+- [x] Custom Fields Engine (Definitions CRUD + Validator)
+- [x] Tags System (CRUD + Junction Tables)
+
+### Sprint 2: Core Entities (complete)
+- [x] Kontakte (CRUD, Custom Fields, Tags, Search)
+- [x] Unternehmen (CRUD, Kontakt-Verknuepfung)
+
+### Sprint 3: Deals Pipeline
+- [ ] Pipeline Stages (CRUD, Reorder, Defaults)
+- [ ] Deals (CRUD, Stage Transitions)
+
+### Sprint 4: Activities & Search
+- [ ] Aktivitaeten (Calls, Meetings, Notizen, E-Mails, Tasks)
 - [ ] Such-Engine (PostgreSQL Full-Text Search)
+
+### Sprint 5: Filters & Reporting
 - [ ] Filter + Views (gespeicherte Filter)
 - [ ] Basis-Reporting (Pipeline Value, Conversion Rates)
-- [ ] Config-basierte Custom Fields Engine
 
 ## Phase 3: Chat & Messaging (Monat 4-5)
 
@@ -98,6 +109,90 @@
 ---
 
 ## Fortschritts-Log
+
+### 05.02.2026 — Phase 2 Sprint 2 Complete (1 Dev + AI-Coder)
+
+**Fokus:** CRM Core — Contacts & Companies (Sprint 2)
+
+- Contacts vollstaendig implementiert:
+  - Migration 000007 (contacts, companies, custom_field_values, FK constraints)
+  - `internal/crm/contact/` Package (service, repository, postgres_repository, errors)
+  - `internal/models/contact.go` — Contact + ContactWithRelations Models
+  - gRPC Server Methoden (CRUD + AddTags, RemoveTags)
+  - HTTP Gateway Endpoints: `/api/v1/contacts`, `/api/v1/contacts/{id}/tags`
+  - 33 Unit Tests (100% Coverage fuer Service Layer)
+- Companies vollstaendig implementiert:
+  - `internal/crm/company/` Package (service, repository, postgres_repository, errors)
+  - `internal/models/company.go` — Company + CompanyWithRelations Models
+  - gRPC Server Methoden (CRUD + GetCompanyContacts)
+  - HTTP Gateway Endpoints: `/api/v1/companies`, `/api/v1/companies/{id}/contacts`
+  - 26 Unit Tests (100% Coverage fuer Service Layer)
+- Features:
+  - Email Uniqueness (case-insensitive, optional)
+  - Company-Contact Linking (SET NULL on delete)
+  - Tags per Entity (via junction tables)
+  - Custom Fields Storage (JSONB)
+  - Search by name/email
+- **Sprint 2 Core Entities ist damit abgeschlossen**
+
+---
+
+### 05.02.2026 — Phase 2 Sprint 1 Complete (1 Dev + AI-Coder)
+
+**Fokus:** CRM Core — Tags System (Sprint 1 Task 2)
+
+- Tags System vollstaendig implementiert:
+  - Migration 000006 (tags Tabelle + 4 Junction Tables + Permissions)
+  - `internal/crm/tag/` Package (service, repository, postgres_repository, errors)
+  - `internal/models/tag.go` — Tag Model mit Hex-Color-Validation
+  - gRPC Server Methoden (Create, Get, List, Update, Delete)
+  - HTTP Gateway Endpoints: `/api/v1/tags`
+  - 31 Unit Tests (100% Coverage fuer Service Layer)
+- Tags Features:
+  - Scoped per Entity Type (contact, company, deal, activity)
+  - Hex Color Validation (#rrggbb Format)
+  - Duplicate Name Detection per Entity Type
+  - In-Use Check vor Loeschung
+- **Sprint 1 Foundation ist damit abgeschlossen**
+
+---
+
+### 05.02.2026 — Phase 2 Start (1 Dev + AI-Coder)
+
+**Fokus:** CRM Core — Custom Fields Engine (Sprint 1 Task 1)
+
+- CRM Microservice Grundstruktur aufgesetzt:
+  - `cmd/crm/main.go` — CRM Service Entry Point
+  - `internal/crm/customfield/` — Custom Fields Domain Package
+  - `proto/crm/v1/crm.proto` — gRPC Service Definition (alle CRM RPCs)
+- Custom Field Definitions implementiert:
+  - Migration 000005 (custom_field_definitions Tabelle + Permissions)
+  - Service Layer mit Validation (Entity Type, Field Type, Options fuer Select/Multiselect)
+  - Repository Interface + PostgreSQL Implementation
+  - gRPC Server + HTTP Gateway Endpoints
+  - Unit Tests (100% Coverage fuer Service Layer)
+- Gateway erweitert: CRM gRPC Client + Custom Fields HTTP Handlers
+- Docker-Compose aktualisiert: CRM Service Container
+- Dockerfile.crm erstellt
+
+---
+
+### 05.02.2026 — Session 1 (1 Dev + AI-Coder)
+
+**Fokus:** Phase 1 abgeschlossen — User Management komplett
+
+- User Management Feature vollstaendig implementiert:
+  - GET /auth/me — Profil abrufen
+  - POST /auth/change-password — Passwort aendern
+  - POST/GET/DELETE /invitations — Einladungssystem (erstellen, auflisten, stornieren)
+  - POST /invitations/{token}/accept — Einladung annehmen
+- Database Migration 000004 (invitations Tabelle)
+- gRPC Service + HTTP Gateway erweitert
+- Unit Tests + E2E Tests hinzugefuegt
+- CI Pipeline gruen (alle 5 Jobs: lint, test, build, openapi-validate, e2e)
+- **Phase 1 ist damit vollstaendig abgeschlossen**
+
+---
 
 ### 04.02.2026 — Abend-Session (1 Dev + AI-Coder)
 

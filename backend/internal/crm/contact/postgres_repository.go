@@ -1,0 +1,309 @@
+package contact
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/models"
+)
+
+// PostgresRepository implements Repository using PostgreSQL
+type PostgresRepository struct {
+	pool *pgxpool.Pool
+}
+
+// NewPostgresRepository creates a new PostgreSQL repository
+func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
+	return &PostgresRepository{pool: pool}
+}
+
+func (r *PostgresRepository) Create(ctx context.Context, contact *models.Contact) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO contacts (id, first_name, last_name, email, phone, company_id, position, notes, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		contact.ID, contact.FirstName, contact.LastName, contact.Email, contact.Phone,
+		contact.CompanyID, contact.Position, contact.Notes,
+		contact.CreatedBy, contact.CreatedAt, contact.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Contact, error) {
+	return r.scanContact(r.pool.QueryRow(ctx,
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, created_by, created_at, updated_at
+		 FROM contacts WHERE id = $1`, id,
+	))
+}
+
+func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*models.Contact, error) {
+	return r.scanContact(r.pool.QueryRow(ctx,
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, created_by, created_at, updated_at
+		 FROM contacts WHERE LOWER(email) = LOWER($1)`, email,
+	))
+}
+
+func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Contact, int, error) {
+	// Build WHERE clause
+	var conditions []string
+	var args []any
+	argNum := 1
+
+	if filter.CompanyID != nil {
+		conditions = append(conditions, fmt.Sprintf("company_id = $%d", argNum))
+		args = append(args, *filter.CompanyID)
+		argNum++
+	}
+
+	if filter.Search != "" {
+		conditions = append(conditions, fmt.Sprintf(
+			"(LOWER(first_name) LIKE $%d OR LOWER(last_name) LIKE $%d OR LOWER(email) LIKE $%d)",
+			argNum, argNum, argNum,
+		))
+		args = append(args, "%"+strings.ToLower(filter.Search)+"%")
+		argNum++
+	}
+
+	if len(filter.TagIDs) > 0 {
+		// Subquery to find contacts with all specified tags
+		conditions = append(conditions, fmt.Sprintf(`id IN (
+			SELECT contact_id FROM contact_tags WHERE tag_id = ANY($%d)
+			GROUP BY contact_id HAVING COUNT(DISTINCT tag_id) = $%d
+		)`, argNum, argNum+1))
+		args = append(args, filter.TagIDs, len(filter.TagIDs))
+		argNum += 2
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM contacts %s", whereClause)
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Build ORDER BY
+	orderBy := "created_at"
+	switch filter.SortBy {
+	case "first_name":
+		orderBy = "LOWER(first_name)"
+	case "last_name":
+		orderBy = "LOWER(last_name)"
+	case "email":
+		orderBy = "LOWER(email)"
+	}
+	direction := "DESC"
+	if !filter.SortDesc {
+		direction = "ASC"
+	}
+
+	// Query with pagination
+	query := fmt.Sprintf(`
+		SELECT id, first_name, last_name, email, phone, company_id, position, notes, created_by, created_at, updated_at
+		FROM contacts %s
+		ORDER BY %s %s
+		LIMIT $%d OFFSET $%d
+	`, whereClause, orderBy, direction, argNum, argNum+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var contacts []*models.Contact
+	for rows.Next() {
+		contact, scanErr := r.scanContactFromRows(rows)
+		if scanErr != nil {
+			return nil, 0, scanErr
+		}
+		contacts = append(contacts, contact)
+	}
+
+	return contacts, total, rows.Err()
+}
+
+func (r *PostgresRepository) Update(ctx context.Context, contact *models.Contact) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE contacts SET first_name = $1, last_name = $2, email = $3, phone = $4,
+		 company_id = $5, position = $6, notes = $7, updated_at = $8
+		 WHERE id = $9`,
+		contact.FirstName, contact.LastName, contact.Email, contact.Phone,
+		contact.CompanyID, contact.Position, contact.Notes,
+		contact.UpdatedAt, contact.ID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM contacts WHERE id = $1`, id)
+	return err
+}
+
+func (r *PostgresRepository) GetCompanyName(ctx context.Context, companyID uuid.UUID) (string, error) {
+	var name string
+	err := r.pool.QueryRow(ctx,
+		`SELECT name FROM companies WHERE id = $1`, companyID,
+	).Scan(&name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return name, err
+}
+
+func (r *PostgresRepository) GetTags(ctx context.Context, contactID uuid.UUID) ([]*models.Tag, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT t.id, t.name, t.color, t.entity_type, t.created_at
+		 FROM tags t
+		 JOIN contact_tags ct ON t.id = ct.tag_id
+		 WHERE ct.contact_id = $1
+		 ORDER BY t.name`, contactID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []*models.Tag
+	for rows.Next() {
+		var tag models.Tag
+		if scanErr := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.EntityType, &tag.CreatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		tags = append(tags, &tag)
+	}
+	return tags, rows.Err()
+}
+
+func (r *PostgresRepository) AddTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID) error {
+	for _, tagID := range tagIDs {
+		_, err := r.pool.Exec(ctx,
+			`INSERT INTO contact_tags (contact_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			contactID, tagID,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *PostgresRepository) RemoveTags(ctx context.Context, contactID uuid.UUID, tagIDs []uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM contact_tags WHERE contact_id = $1 AND tag_id = ANY($2)`,
+		contactID, tagIDs,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetCustomFieldValues(ctx context.Context, contactID uuid.UUID) ([]*models.CustomFieldValueRow, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT cfv.field_id, cfd.field_name, cfv.value
+		 FROM contact_custom_field_values cfv
+		 JOIN custom_field_definitions cfd ON cfv.field_id = cfd.id
+		 WHERE cfv.contact_id = $1`, contactID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var values []*models.CustomFieldValueRow
+	for rows.Next() {
+		var v models.CustomFieldValueRow
+		var valueJSON []byte
+		if scanErr := rows.Scan(&v.FieldID, &v.FieldName, &valueJSON); scanErr != nil {
+			return nil, scanErr
+		}
+		if unmarshalErr := json.Unmarshal(valueJSON, &v.Value); unmarshalErr != nil {
+			return nil, unmarshalErr
+		}
+		values = append(values, &v)
+	}
+	return values, rows.Err()
+}
+
+func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, contactID uuid.UUID, values map[uuid.UUID]any) error {
+	for fieldID, value := range values {
+		valueJSON, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		_, execErr := r.pool.Exec(ctx,
+			`INSERT INTO contact_custom_field_values (contact_id, field_id, value, created_at, updated_at)
+			 VALUES ($1, $2, $3, NOW(), NOW())
+			 ON CONFLICT (contact_id, field_id) DO UPDATE SET value = $3, updated_at = NOW()`,
+			contactID, fieldID, valueJSON,
+		)
+		if execErr != nil {
+			return execErr
+		}
+	}
+	return nil
+}
+
+func (r *PostgresRepository) IsInUse(ctx context.Context, id uuid.UUID) (bool, error) {
+	// For now, contacts are not in use by anything
+	// In the future, check deal_contacts and activities
+	return false, nil
+}
+
+func (r *PostgresRepository) CompanyExists(ctx context.Context, companyID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM companies WHERE id = $1)`, companyID,
+	).Scan(&exists)
+	return exists, err
+}
+
+func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM tags WHERE id = $1 AND entity_type = $2)`,
+		tagID, entityType,
+	).Scan(&exists)
+	return exists, err
+}
+
+// Helper to scan a single row into Contact
+func (r *PostgresRepository) scanContact(row pgx.Row) (*models.Contact, error) {
+	var c models.Contact
+	err := row.Scan(
+		&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
+		&c.CompanyID, &c.Position, &c.Notes,
+		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrContactNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// Helper to scan rows iterator
+func (r *PostgresRepository) scanContactFromRows(rows pgx.Rows) (*models.Contact, error) {
+	var c models.Contact
+	err := rows.Scan(
+		&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
+		&c.CompanyID, &c.Position, &c.Notes,
+		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}

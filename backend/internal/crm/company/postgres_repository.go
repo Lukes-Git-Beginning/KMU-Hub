@@ -1,0 +1,285 @@
+package company
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/kmuhub/kmuhub/internal/models"
+)
+
+// PostgresRepository implements Repository using PostgreSQL
+type PostgresRepository struct {
+	pool *pgxpool.Pool
+}
+
+// NewPostgresRepository creates a new PostgreSQL repository
+func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
+	return &PostgresRepository{pool: pool}
+}
+
+func (r *PostgresRepository) Create(ctx context.Context, company *models.Company) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO companies (id, name, domain, industry, employee_count, address, city, country, notes, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		company.ID, company.Name, company.Domain, company.Industry, company.EmployeeCount,
+		company.Address, company.City, company.Country, company.Notes,
+		company.CreatedBy, company.CreatedAt, company.UpdatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Company, error) {
+	return r.scanCompany(r.pool.QueryRow(ctx,
+		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, created_by, created_at, updated_at
+		 FROM companies WHERE id = $1`, id,
+	))
+}
+
+func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Company, int, error) {
+	// Build WHERE clause
+	var conditions []string
+	var args []any
+	argNum := 1
+
+	if filter.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("(LOWER(name) LIKE $%d OR LOWER(domain) LIKE $%d)", argNum, argNum))
+		args = append(args, "%"+strings.ToLower(filter.Search)+"%")
+		argNum++
+	}
+
+	if filter.Industry != nil {
+		conditions = append(conditions, fmt.Sprintf("industry = $%d", argNum))
+		args = append(args, *filter.Industry)
+		argNum++
+	}
+
+	if len(filter.TagIDs) > 0 {
+		// Subquery to find companies with all specified tags
+		conditions = append(conditions, fmt.Sprintf(`id IN (
+			SELECT company_id FROM company_tags WHERE tag_id = ANY($%d)
+			GROUP BY company_id HAVING COUNT(DISTINCT tag_id) = $%d
+		)`, argNum, argNum+1))
+		args = append(args, filter.TagIDs, len(filter.TagIDs))
+		argNum += 2
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM companies %s", whereClause)
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Build ORDER BY
+	orderBy := "created_at"
+	if filter.SortBy == "name" {
+		orderBy = "LOWER(name)"
+	}
+	direction := "DESC"
+	if !filter.SortDesc {
+		direction = "ASC"
+	}
+
+	// Query with pagination
+	query := fmt.Sprintf(`
+		SELECT id, name, domain, industry, employee_count, address, city, country, notes, created_by, created_at, updated_at
+		FROM companies %s
+		ORDER BY %s %s
+		LIMIT $%d OFFSET $%d
+	`, whereClause, orderBy, direction, argNum, argNum+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var companies []*models.Company
+	for rows.Next() {
+		company, scanErr := r.scanCompanyFromRows(rows)
+		if scanErr != nil {
+			return nil, 0, scanErr
+		}
+		companies = append(companies, company)
+	}
+
+	return companies, total, rows.Err()
+}
+
+func (r *PostgresRepository) Update(ctx context.Context, company *models.Company) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE companies SET name = $1, domain = $2, industry = $3, employee_count = $4,
+		 address = $5, city = $6, country = $7, notes = $8, updated_at = $9
+		 WHERE id = $10`,
+		company.Name, company.Domain, company.Industry, company.EmployeeCount,
+		company.Address, company.City, company.Country, company.Notes,
+		company.UpdatedAt, company.ID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM companies WHERE id = $1`, id)
+	return err
+}
+
+func (r *PostgresRepository) GetContactCount(ctx context.Context, companyID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM contacts WHERE company_id = $1`, companyID,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *PostgresRepository) GetTags(ctx context.Context, companyID uuid.UUID) ([]*models.Tag, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT t.id, t.name, t.color, t.entity_type, t.created_at
+		 FROM tags t
+		 JOIN company_tags ct ON t.id = ct.tag_id
+		 WHERE ct.company_id = $1
+		 ORDER BY t.name`, companyID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []*models.Tag
+	for rows.Next() {
+		var tag models.Tag
+		if scanErr := rows.Scan(&tag.ID, &tag.Name, &tag.Color, &tag.EntityType, &tag.CreatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		tags = append(tags, &tag)
+	}
+	return tags, rows.Err()
+}
+
+func (r *PostgresRepository) AddTags(ctx context.Context, companyID uuid.UUID, tagIDs []uuid.UUID) error {
+	for _, tagID := range tagIDs {
+		_, err := r.pool.Exec(ctx,
+			`INSERT INTO company_tags (company_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			companyID, tagID,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *PostgresRepository) RemoveTags(ctx context.Context, companyID uuid.UUID, tagIDs []uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM company_tags WHERE company_id = $1 AND tag_id = ANY($2)`,
+		companyID, tagIDs,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetCustomFieldValues(ctx context.Context, companyID uuid.UUID) ([]*models.CustomFieldValueRow, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT cfv.field_id, cfd.field_name, cfv.value
+		 FROM company_custom_field_values cfv
+		 JOIN custom_field_definitions cfd ON cfv.field_id = cfd.id
+		 WHERE cfv.company_id = $1`, companyID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var values []*models.CustomFieldValueRow
+	for rows.Next() {
+		var v models.CustomFieldValueRow
+		var valueJSON []byte
+		if scanErr := rows.Scan(&v.FieldID, &v.FieldName, &valueJSON); scanErr != nil {
+			return nil, scanErr
+		}
+		if unmarshalErr := json.Unmarshal(valueJSON, &v.Value); unmarshalErr != nil {
+			return nil, unmarshalErr
+		}
+		values = append(values, &v)
+	}
+	return values, rows.Err()
+}
+
+func (r *PostgresRepository) SetCustomFieldValues(ctx context.Context, companyID uuid.UUID, values map[uuid.UUID]any) error {
+	for fieldID, value := range values {
+		valueJSON, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		_, execErr := r.pool.Exec(ctx,
+			`INSERT INTO company_custom_field_values (company_id, field_id, value, created_at, updated_at)
+			 VALUES ($1, $2, $3, NOW(), NOW())
+			 ON CONFLICT (company_id, field_id) DO UPDATE SET value = $3, updated_at = NOW()`,
+			companyID, fieldID, valueJSON,
+		)
+		if execErr != nil {
+			return execErr
+		}
+	}
+	return nil
+}
+
+func (r *PostgresRepository) HasContacts(ctx context.Context, companyID uuid.UUID) (bool, error) {
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM contacts WHERE company_id = $1 LIMIT 1`, companyID,
+	).Scan(&count)
+	return count > 0, err
+}
+
+func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM tags WHERE id = $1 AND entity_type = $2)`,
+		tagID, entityType,
+	).Scan(&exists)
+	return exists, err
+}
+
+// Helper to scan a single row into Company
+func (r *PostgresRepository) scanCompany(row pgx.Row) (*models.Company, error) {
+	var c models.Company
+	err := row.Scan(
+		&c.ID, &c.Name, &c.Domain, &c.Industry, &c.EmployeeCount,
+		&c.Address, &c.City, &c.Country, &c.Notes,
+		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrCompanyNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// Helper to scan rows iterator
+func (r *PostgresRepository) scanCompanyFromRows(rows pgx.Rows) (*models.Company, error) {
+	var c models.Company
+	err := rows.Scan(
+		&c.ID, &c.Name, &c.Domain, &c.Industry, &c.EmployeeCount,
+		&c.Address, &c.City, &c.Country, &c.Notes,
+		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
