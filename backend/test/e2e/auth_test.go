@@ -94,6 +94,25 @@ func getJSON(t *testing.T, url string, token string) (*http.Response, []byte) {
 	return resp, respBody.Bytes()
 }
 
+func deleteJSON(t *testing.T, url string, token string) (*http.Response, []byte) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	var respBody bytes.Buffer
+	respBody.ReadFrom(resp.Body)
+	return resp, respBody.Bytes()
+}
+
 func TestAuthFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
@@ -221,4 +240,311 @@ func TestAuthFlow(t *testing.T) {
 			t.Fatal("expected refresh to fail after logout")
 		}
 	})
+}
+
+func TestGetProfile(t *testing.T) {
+	base := gatewayURL()
+	waitForHealth(t, base)
+
+	email := fmt.Sprintf("profile-%d@test.com", time.Now().UnixNano())
+	password := "SecurePass123!"
+
+	// Register and login
+	_, _ = postJSON(t, base+"/api/v1/auth/register", map[string]string{
+		"email":      email,
+		"password":   password,
+		"first_name": "Profile",
+		"last_name":  "Test",
+	}, "")
+
+	resp, body := postJSON(t, base+"/api/v1/auth/login", map[string]string{
+		"email":    email,
+		"password": password,
+	}, "")
+
+	var authResp authResponse
+	if err := json.Unmarshal(body, &authResp); err != nil {
+		t.Fatalf("failed to decode login response: %v", err)
+	}
+	accessToken := authResp.AccessToken
+
+	t.Run("get_profile_success", func(t *testing.T) {
+		resp, body = getJSON(t, base+"/api/v1/auth/me", accessToken)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+		}
+
+		var profileResp struct {
+			User map[string]interface{} `json:"user"`
+		}
+		if err := json.Unmarshal(body, &profileResp); err != nil {
+			t.Fatalf("failed to decode profile response: %v", err)
+		}
+		if profileResp.User["email"] != email {
+			t.Fatalf("expected email %s, got %v", email, profileResp.User["email"])
+		}
+	})
+
+	t.Run("get_profile_no_auth", func(t *testing.T) {
+		resp, _ := getJSON(t, base+"/api/v1/auth/me", "")
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d", resp.StatusCode)
+		}
+	})
+}
+
+func TestChangePassword(t *testing.T) {
+	base := gatewayURL()
+	waitForHealth(t, base)
+
+	email := fmt.Sprintf("changepw-%d@test.com", time.Now().UnixNano())
+	oldPassword := "OldPass123!"
+	newPassword := "NewPass456!"
+
+	// Register
+	_, _ = postJSON(t, base+"/api/v1/auth/register", map[string]string{
+		"email":      email,
+		"password":   oldPassword,
+		"first_name": "Change",
+		"last_name":  "Password",
+	}, "")
+
+	// Login with old password
+	resp, body := postJSON(t, base+"/api/v1/auth/login", map[string]string{
+		"email":    email,
+		"password": oldPassword,
+	}, "")
+
+	var authResp authResponse
+	if err := json.Unmarshal(body, &authResp); err != nil {
+		t.Fatalf("failed to decode login response: %v", err)
+	}
+	accessToken := authResp.AccessToken
+
+	t.Run("change_password_success", func(t *testing.T) {
+		resp, body = postJSON(t, base+"/api/v1/auth/change-password", map[string]string{
+			"old_password": oldPassword,
+			"new_password": newPassword,
+		}, accessToken)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+		}
+	})
+
+	t.Run("login_with_old_password_fails", func(t *testing.T) {
+		resp, _ := postJSON(t, base+"/api/v1/auth/login", map[string]string{
+			"email":    email,
+			"password": oldPassword,
+		}, "")
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("expected 401 with old password, got %d", resp.StatusCode)
+		}
+	})
+
+	t.Run("login_with_new_password_succeeds", func(t *testing.T) {
+		resp, body := postJSON(t, base+"/api/v1/auth/login", map[string]string{
+			"email":    email,
+			"password": newPassword,
+		}, "")
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200 with new password, got %d: %s", resp.StatusCode, string(body))
+		}
+	})
+
+	t.Run("change_password_wrong_old", func(t *testing.T) {
+		// Login first to get new token
+		resp, body := postJSON(t, base+"/api/v1/auth/login", map[string]string{
+			"email":    email,
+			"password": newPassword,
+		}, "")
+		var auth authResponse
+		json.Unmarshal(body, &auth)
+
+		resp, _ = postJSON(t, base+"/api/v1/auth/change-password", map[string]string{
+			"old_password": "WrongPass!",
+			"new_password": "AnotherPass!",
+		}, auth.AccessToken)
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("expected 401 for wrong old password, got %d", resp.StatusCode)
+		}
+	})
+}
+
+func TestInvitationFlow(t *testing.T) {
+	base := gatewayURL()
+	waitForHealth(t, base)
+
+	// Create an admin user to create invitations
+	adminEmail := fmt.Sprintf("admin-%d@test.com", time.Now().UnixNano())
+	adminPassword := "AdminPass123!"
+
+	// Register admin
+	_, _ = postJSON(t, base+"/api/v1/auth/register", map[string]string{
+		"email":      adminEmail,
+		"password":   adminPassword,
+		"first_name": "Admin",
+		"last_name":  "User",
+	}, "")
+
+	// Login as admin
+	resp, body := postJSON(t, base+"/api/v1/auth/login", map[string]string{
+		"email":    adminEmail,
+		"password": adminPassword,
+	}, "")
+
+	var adminAuth authResponse
+	if err := json.Unmarshal(body, &adminAuth); err != nil {
+		t.Fatalf("failed to decode admin login response: %v", err)
+	}
+	adminToken := adminAuth.AccessToken
+	adminUserID := adminAuth.User["id"].(string)
+
+	// Assign admin role (need to do this via direct API call)
+	// Note: In real setup, seed data would have an initial admin
+	_, _ = postJSON(t, base+"/api/v1/users/"+adminUserID+"/roles", map[string]string{
+		"role_name": "admin",
+	}, adminToken)
+
+	// Re-login to get new token with admin role
+	resp, body = postJSON(t, base+"/api/v1/auth/login", map[string]string{
+		"email":    adminEmail,
+		"password": adminPassword,
+	}, "")
+	json.Unmarshal(body, &adminAuth)
+	adminToken = adminAuth.AccessToken
+
+	invitedEmail := fmt.Sprintf("invited-%d@test.com", time.Now().UnixNano())
+	var invitationToken string
+	var invitationID string
+
+	t.Run("create_invitation", func(t *testing.T) {
+		resp, body = postJSON(t, base+"/api/v1/invitations", map[string]string{
+			"email": invitedEmail,
+			"role":  "member",
+		}, adminToken)
+
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", resp.StatusCode, string(body))
+		}
+
+		var invResp struct {
+			Invitation map[string]interface{} `json:"invitation"`
+			Token      string                 `json:"token"`
+		}
+		if err := json.Unmarshal(body, &invResp); err != nil {
+			t.Fatalf("failed to decode invitation response: %v", err)
+		}
+
+		if invResp.Token == "" {
+			t.Fatal("expected invitation token")
+		}
+		invitationToken = invResp.Token
+		invitationID = invResp.Invitation["id"].(string)
+	})
+
+	t.Run("list_invitations", func(t *testing.T) {
+		resp, body = getJSON(t, base+"/api/v1/invitations", adminToken)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+		}
+
+		var listResp struct {
+			Invitations []map[string]interface{} `json:"invitations"`
+		}
+		if err := json.Unmarshal(body, &listResp); err != nil {
+			t.Fatalf("failed to decode list response: %v", err)
+		}
+
+		found := false
+		for _, inv := range listResp.Invitations {
+			if inv["email"] == invitedEmail {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatal("created invitation not found in list")
+		}
+	})
+
+	t.Run("accept_invitation", func(t *testing.T) {
+		resp, body = postJSON(t, base+"/api/v1/invitations/"+invitationToken+"/accept", map[string]string{
+			"password":   "InvitedPass123!",
+			"first_name": "Invited",
+			"last_name":  "User",
+		}, "")
+
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("expected 201, got %d: %s", resp.StatusCode, string(body))
+		}
+
+		var acceptResp authResponse
+		if err := json.Unmarshal(body, &acceptResp); err != nil {
+			t.Fatalf("failed to decode accept response: %v", err)
+		}
+
+		if acceptResp.AccessToken == "" {
+			t.Fatal("expected access_token after accepting invitation")
+		}
+	})
+
+	t.Run("login_as_invited_user", func(t *testing.T) {
+		resp, body = postJSON(t, base+"/api/v1/auth/login", map[string]string{
+			"email":    invitedEmail,
+			"password": "InvitedPass123!",
+		}, "")
+
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+		}
+	})
+
+	t.Run("accept_same_invitation_again_fails", func(t *testing.T) {
+		resp, _ := postJSON(t, base+"/api/v1/invitations/"+invitationToken+"/accept", map[string]string{
+			"password":   "AnotherPass123!",
+			"first_name": "Another",
+			"last_name":  "User",
+		}, "")
+
+		if resp.StatusCode == http.StatusCreated {
+			t.Fatal("expected error when accepting same invitation twice")
+		}
+	})
+
+	// Test cancel invitation
+	t.Run("cancel_invitation", func(t *testing.T) {
+		// Create another invitation to cancel
+		cancelEmail := fmt.Sprintf("cancel-%d@test.com", time.Now().UnixNano())
+		resp, body = postJSON(t, base+"/api/v1/invitations", map[string]string{
+			"email": cancelEmail,
+			"role":  "member",
+		}, adminToken)
+
+		var invResp struct {
+			Invitation map[string]interface{} `json:"invitation"`
+		}
+		json.Unmarshal(body, &invResp)
+		cancelID := invResp.Invitation["id"].(string)
+
+		resp, body = deleteJSON(t, base+"/api/v1/invitations/"+cancelID, adminToken)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+		}
+
+		// Verify it's no longer in the list
+		resp, body = getJSON(t, base+"/api/v1/invitations", adminToken)
+		var listResp struct {
+			Invitations []map[string]interface{} `json:"invitations"`
+		}
+		json.Unmarshal(body, &listResp)
+
+		for _, inv := range listResp.Invitations {
+			if inv["email"] == cancelEmail {
+				t.Fatal("cancelled invitation should not appear in list")
+			}
+		}
+	})
+
+	// Suppress unused variable warning
+	_ = invitationID
 }

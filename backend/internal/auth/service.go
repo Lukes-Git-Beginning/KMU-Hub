@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"log/slog"
 	"time"
 
@@ -245,4 +247,150 @@ func (s *Service) createTokenPair(ctx context.Context, user *models.User) (*mode
 		AccessToken:  accessToken,
 		RefreshToken: plain,
 	}, nil
+}
+
+// GetProfile returns the current user's profile (same as GetUser, convenience method)
+func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*models.User, []string, error) {
+	return s.GetUser(ctx, userID)
+}
+
+// ChangePassword verifies old password and updates to new, then revokes all tokens
+func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
+		return ErrInvalidCredentials
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcryptCost)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.UpdatePassword(ctx, userID, string(hash)); err != nil {
+		return err
+	}
+
+	// Revoke all refresh tokens (force re-login on all devices)
+	_ = s.repo.RevokeAllUserTokens(ctx, userID)
+
+	slog.Info("password changed", "user_id", userID)
+	return nil
+}
+
+const invitationExpiry = 7 * 24 * time.Hour // 7 days
+
+// CreateInvitation creates a new user invitation
+func (s *Service) CreateInvitation(ctx context.Context, email, role string, createdBy uuid.UUID) (*models.Invitation, string, error) {
+	// Check if email already exists as a user
+	if existing, _ := s.repo.GetUserByEmail(ctx, email); existing != nil {
+		return nil, "", ErrUserExists
+	}
+
+	// Generate secure token
+	token := generateSecureToken()
+	hash := HashToken(token)
+
+	inv := &models.Invitation{
+		ID:        uuid.New(),
+		Email:     email,
+		Role:      role,
+		TokenHash: hash,
+		CreatedBy: createdBy,
+		ExpiresAt: time.Now().Add(invitationExpiry),
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.repo.CreateInvitation(ctx, inv); err != nil {
+		return nil, "", err
+	}
+
+	slog.Info("invitation created", "email", email, "role", role, "created_by", createdBy)
+	return inv, token, nil
+}
+
+// AcceptInvitation creates a user from an invitation
+func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstName, lastName string) (*models.User, *models.TokenPair, error) {
+	hash := HashToken(token)
+
+	inv, err := s.repo.GetInvitationByToken(ctx, hash)
+	if err != nil {
+		return nil, nil, ErrInvitationNotFound
+	}
+
+	if inv.AcceptedAt != nil {
+		return nil, nil, ErrInvitationAlreadyUsed
+	}
+
+	if time.Now().After(inv.ExpiresAt) {
+		return nil, nil, ErrInvitationExpired
+	}
+
+	// Create user with pre-assigned role
+	pwHash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	user := &models.User{
+		ID:           uuid.New(),
+		Email:        inv.Email,
+		PasswordHash: string(pwHash),
+		FirstName:    firstName,
+		LastName:     lastName,
+		IsActive:     true,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	if err := s.repo.CreateUser(ctx, user); err != nil {
+		return nil, nil, err
+	}
+
+	// Assign the role from invitation
+	if err := s.repo.AssignRole(ctx, user.ID, inv.Role); err != nil {
+		slog.Error("failed to assign role from invitation", "user_id", user.ID, "role", inv.Role, "error", err)
+	}
+
+	// Mark invitation as accepted
+	if err := s.repo.MarkInvitationAccepted(ctx, inv.ID); err != nil {
+		slog.Error("failed to mark invitation accepted", "invitation_id", inv.ID, "error", err)
+	}
+
+	// Generate tokens
+	tokens, err := s.createTokenPair(ctx, user)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	slog.Info("invitation accepted", "user_id", user.ID, "invitation_id", inv.ID)
+	return user, tokens, nil
+}
+
+// ListInvitations returns all pending invitations
+func (s *Service) ListInvitations(ctx context.Context) ([]*models.Invitation, error) {
+	return s.repo.ListPendingInvitations(ctx)
+}
+
+// CancelInvitation deletes a pending invitation
+func (s *Service) CancelInvitation(ctx context.Context, invitationID uuid.UUID) error {
+	inv, err := s.repo.GetInvitationByID(ctx, invitationID)
+	if err != nil {
+		return ErrInvitationNotFound
+	}
+
+	if inv.AcceptedAt != nil {
+		return ErrInvitationAlreadyUsed
+	}
+
+	return s.repo.DeleteInvitation(ctx, invitationID)
+}
+
+func generateSecureToken() string {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }

@@ -22,6 +22,7 @@ paths:
       summary: Health check
       tags: [health]
       operationId: healthCheck
+      security: []
       responses:
         "200":
           description: Service is healthy
@@ -39,6 +40,7 @@ paths:
       summary: Register a new user
       tags: [auth]
       operationId: register
+      security: []
       requestBody:
         required: true
         content:
@@ -62,6 +64,7 @@ paths:
       summary: Login with email and password
       tags: [auth]
       operationId: login
+      security: []
       requestBody:
         required: true
         content:
@@ -85,6 +88,7 @@ paths:
       summary: Refresh access token using refresh token
       tags: [auth]
       operationId: refreshToken
+      security: []
       requestBody:
         required: true
         content:
@@ -106,6 +110,7 @@ paths:
       summary: Logout and invalidate refresh token
       tags: [auth]
       operationId: logout
+      security: []
       requestBody:
         required: true
         content:
@@ -119,6 +124,166 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatusResponse"
+
+  /api/v1/auth/me:
+    get:
+      summary: Get current user profile
+      description: Returns the authenticated user's profile based on JWT token.
+      tags: [auth]
+      operationId: getProfile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetUserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/change-password:
+    post:
+      summary: Change password
+      description: Changes the current user's password. Requires old password verification. Revokes all refresh tokens.
+      tags: [auth]
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/invitations:
+    post:
+      summary: Create user invitation
+      description: Creates an invitation to join the system. Requires admin or manager role.
+      tags: [users]
+      operationId: createInvitation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvitationRequest"
+      responses:
+        "201":
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+    get:
+      summary: List pending invitations
+      description: Returns all pending invitations. Requires admin or manager role.
+      tags: [users]
+      operationId: listInvitations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of pending invitations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListInvitationsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/invitations/{token}/accept:
+    post:
+      summary: Accept invitation and create account
+      description: Creates a user account from an invitation. No authentication required.
+      tags: [users]
+      operationId: acceptInvitation
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: The invitation token received via email
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInvitationRequest"
+      responses:
+        "201":
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          description: Invitation expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/invitations/{id}:
+    delete:
+      summary: Cancel invitation
+      description: Cancels a pending invitation. Requires admin role.
+      tags: [users]
+      operationId: cancelInvitation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Invitation cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/users:
     get:
@@ -364,6 +529,80 @@ components:
         role_name:
           type: string
           enum: [admin, manager, member]
+
+    ChangePasswordRequest:
+      type: object
+      required: [old_password, new_password]
+      properties:
+        old_password:
+          type: string
+          format: password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+
+    CreateInvitationRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, manager, member]
+
+    AcceptInvitationRequest:
+      type: object
+      required: [password, first_name, last_name]
+      properties:
+        password:
+          type: string
+          format: password
+          minLength: 8
+        first_name:
+          type: string
+        last_name:
+          type: string
+
+    InvitationInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    InvitationResponse:
+      type: object
+      properties:
+        invitation:
+          $ref: "#/components/schemas/InvitationInfo"
+        token:
+          type: string
+          description: Plain token, only returned on creation
+
+    ListInvitationsResponse:
+      type: object
+      properties:
+        invitations:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvitationInfo"
 
     AuthResponse:
       type: object

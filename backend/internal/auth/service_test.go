@@ -20,6 +20,8 @@ type mockRepository struct {
 	refreshTokens map[string]*models.RefreshToken // keyed by token_hash
 	userRoles     map[uuid.UUID][]string
 	userPerms     map[uuid.UUID][]string
+	invitations   map[uuid.UUID]*models.Invitation
+	invByToken    map[string]*models.Invitation
 }
 
 func newMockRepository() *mockRepository {
@@ -29,6 +31,8 @@ func newMockRepository() *mockRepository {
 		refreshTokens: make(map[string]*models.RefreshToken),
 		userRoles:     make(map[uuid.UUID][]string),
 		userPerms:     make(map[uuid.UUID][]string),
+		invitations:   make(map[uuid.UUID]*models.Invitation),
+		invByToken:    make(map[string]*models.Invitation),
 	}
 }
 
@@ -140,6 +144,67 @@ func (m *mockRepository) UserHasPermission(_ context.Context, userID uuid.UUID, 
 		}
 	}
 	return false, nil
+}
+
+func (m *mockRepository) UpdatePassword(_ context.Context, userID uuid.UUID, passwordHash string) error {
+	user, ok := m.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+	user.PasswordHash = passwordHash
+	return nil
+}
+
+func (m *mockRepository) CreateInvitation(_ context.Context, inv *models.Invitation) error {
+	m.invitations[inv.ID] = inv
+	m.invByToken[inv.TokenHash] = inv
+	return nil
+}
+
+func (m *mockRepository) GetInvitationByToken(_ context.Context, tokenHash string) (*models.Invitation, error) {
+	inv, ok := m.invByToken[tokenHash]
+	if !ok {
+		return nil, ErrInvitationNotFound
+	}
+	return inv, nil
+}
+
+func (m *mockRepository) GetInvitationByID(_ context.Context, id uuid.UUID) (*models.Invitation, error) {
+	inv, ok := m.invitations[id]
+	if !ok {
+		return nil, ErrInvitationNotFound
+	}
+	return inv, nil
+}
+
+func (m *mockRepository) ListPendingInvitations(_ context.Context) ([]*models.Invitation, error) {
+	var pending []*models.Invitation
+	for _, inv := range m.invitations {
+		if inv.AcceptedAt == nil {
+			pending = append(pending, inv)
+		}
+	}
+	return pending, nil
+}
+
+func (m *mockRepository) MarkInvitationAccepted(_ context.Context, id uuid.UUID) error {
+	inv, ok := m.invitations[id]
+	if !ok {
+		return ErrInvitationNotFound
+	}
+	now := time.Now()
+	inv.AcceptedAt = &now
+	return nil
+}
+
+func (m *mockRepository) DeleteInvitation(_ context.Context, id uuid.UUID) error {
+	inv, ok := m.invitations[id]
+	if !ok {
+		return ErrInvitationNotFound
+	}
+	delete(m.invByToken, inv.TokenHash)
+	delete(m.invitations, id)
+	return nil
 }
 
 func newTestService() (*Service, *mockRepository) {
@@ -543,4 +608,278 @@ func TestService_RefreshToken_InactiveUser(t *testing.T) {
 	// Refresh should fail
 	_, err = svc.RefreshToken(context.Background(), tokens.RefreshToken)
 	assert.ErrorIs(t, err, ErrUserInactive)
+}
+
+func TestService_ChangePassword(t *testing.T) {
+	tests := []struct {
+		name        string
+		oldPassword string
+		newPassword string
+		setup       func(*mockRepository) uuid.UUID
+		wantErr     error
+	}{
+		{
+			name:        "success",
+			oldPassword: "old-password",
+			newPassword: "new-password",
+			setup: func(r *mockRepository) uuid.UUID {
+				user := createTestUser(r, "user@example.com", "old-password", true)
+				return user.ID
+			},
+		},
+		{
+			name:        "wrong old password",
+			oldPassword: "wrong-password",
+			newPassword: "new-password",
+			setup: func(r *mockRepository) uuid.UUID {
+				user := createTestUser(r, "user@example.com", "correct-password", true)
+				return user.ID
+			},
+			wantErr: ErrInvalidCredentials,
+		},
+		{
+			name:        "user not found",
+			oldPassword: "old",
+			newPassword: "new",
+			setup: func(r *mockRepository) uuid.UUID {
+				return uuid.New()
+			},
+			wantErr: ErrUserNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, repo := newTestService()
+			userID := tt.setup(repo)
+
+			err := svc.ChangePassword(context.Background(), userID, tt.oldPassword, tt.newPassword)
+
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				// Verify new password works
+				user := repo.users[userID]
+				err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(tt.newPassword))
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestService_CreateInvitation(t *testing.T) {
+	tests := []struct {
+		name    string
+		email   string
+		role    string
+		setup   func(*mockRepository)
+		wantErr error
+	}{
+		{
+			name:  "success",
+			email: "newuser@example.com",
+			role:  "member",
+			setup: func(r *mockRepository) {},
+		},
+		{
+			name:  "user already exists",
+			email: "existing@example.com",
+			role:  "member",
+			setup: func(r *mockRepository) {
+				createTestUser(r, "existing@example.com", "pass", true)
+			},
+			wantErr: ErrUserExists,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, repo := newTestService()
+			tt.setup(repo)
+			createdBy := uuid.New()
+
+			inv, token, err := svc.CreateInvitation(context.Background(), tt.email, tt.role, createdBy)
+
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, inv)
+				assert.Empty(t, token)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, inv)
+				assert.Equal(t, tt.email, inv.Email)
+				assert.Equal(t, tt.role, inv.Role)
+				assert.NotEmpty(t, token)
+				assert.Nil(t, inv.AcceptedAt)
+			}
+		})
+	}
+}
+
+func TestService_AcceptInvitation(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(*Service, *mockRepository) string
+		wantErr error
+	}{
+		{
+			name: "success",
+			setup: func(svc *Service, repo *mockRepository) string {
+				inv, token, _ := svc.CreateInvitation(context.Background(), "new@example.com", "member", uuid.New())
+				_ = inv
+				return token
+			},
+		},
+		{
+			name: "invitation not found",
+			setup: func(svc *Service, repo *mockRepository) string {
+				return "nonexistent-token"
+			},
+			wantErr: ErrInvitationNotFound,
+		},
+		{
+			name: "invitation expired",
+			setup: func(svc *Service, repo *mockRepository) string {
+				inv := &models.Invitation{
+					ID:        uuid.New(),
+					Email:     "expired@example.com",
+					Role:      "member",
+					TokenHash: HashToken("expired-token"),
+					CreatedBy: uuid.New(),
+					ExpiresAt: time.Now().Add(-1 * time.Hour),
+					CreatedAt: time.Now(),
+				}
+				repo.invitations[inv.ID] = inv
+				repo.invByToken[inv.TokenHash] = inv
+				return "expired-token"
+			},
+			wantErr: ErrInvitationExpired,
+		},
+		{
+			name: "invitation already used",
+			setup: func(svc *Service, repo *mockRepository) string {
+				now := time.Now()
+				inv := &models.Invitation{
+					ID:         uuid.New(),
+					Email:      "used@example.com",
+					Role:       "member",
+					TokenHash:  HashToken("used-token"),
+					CreatedBy:  uuid.New(),
+					ExpiresAt:  time.Now().Add(1 * time.Hour),
+					AcceptedAt: &now,
+					CreatedAt:  time.Now(),
+				}
+				repo.invitations[inv.ID] = inv
+				repo.invByToken[inv.TokenHash] = inv
+				return "used-token"
+			},
+			wantErr: ErrInvitationAlreadyUsed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, repo := newTestService()
+			token := tt.setup(svc, repo)
+
+			user, tokens, err := svc.AcceptInvitation(context.Background(), token, "password123", "First", "Last")
+
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, user)
+				assert.Nil(t, tokens)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, user)
+				assert.NotNil(t, tokens)
+				assert.NotEmpty(t, tokens.AccessToken)
+				assert.NotEmpty(t, tokens.RefreshToken)
+			}
+		})
+	}
+}
+
+func TestService_ListInvitations(t *testing.T) {
+	svc, repo := newTestService()
+
+	// Create some invitations
+	_, _, _ = svc.CreateInvitation(context.Background(), "a@example.com", "member", uuid.New())
+	_, _, _ = svc.CreateInvitation(context.Background(), "b@example.com", "admin", uuid.New())
+
+	// Mark one as accepted
+	for id, inv := range repo.invitations {
+		if inv.Email == "a@example.com" {
+			now := time.Now()
+			inv.AcceptedAt = &now
+			repo.invitations[id] = inv
+			break
+		}
+	}
+
+	invs, err := svc.ListInvitations(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, invs, 1)
+	assert.Equal(t, "b@example.com", invs[0].Email)
+}
+
+func TestService_CancelInvitation(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(*Service, *mockRepository) uuid.UUID
+		wantErr error
+	}{
+		{
+			name: "success",
+			setup: func(svc *Service, repo *mockRepository) uuid.UUID {
+				inv, _, _ := svc.CreateInvitation(context.Background(), "cancel@example.com", "member", uuid.New())
+				return inv.ID
+			},
+		},
+		{
+			name: "not found",
+			setup: func(svc *Service, repo *mockRepository) uuid.UUID {
+				return uuid.New()
+			},
+			wantErr: ErrInvitationNotFound,
+		},
+		{
+			name: "already accepted",
+			setup: func(svc *Service, repo *mockRepository) uuid.UUID {
+				inv, _, _ := svc.CreateInvitation(context.Background(), "accepted@example.com", "member", uuid.New())
+				now := time.Now()
+				inv.AcceptedAt = &now
+				return inv.ID
+			},
+			wantErr: ErrInvitationAlreadyUsed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, repo := newTestService()
+			invID := tt.setup(svc, repo)
+
+			err := svc.CancelInvitation(context.Background(), invID)
+
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				_, exists := repo.invitations[invID]
+				assert.False(t, exists)
+			}
+		})
+	}
+}
+
+func TestService_GetProfile(t *testing.T) {
+	svc, repo := newTestService()
+	user := createTestUser(repo, "user@example.com", "pass", true)
+	repo.userRoles[user.ID] = []string{"member"}
+
+	profile, roles, err := svc.GetProfile(context.Background(), user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, user.Email, profile.Email)
+	assert.Contains(t, roles, "member")
 }

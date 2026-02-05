@@ -194,6 +194,105 @@ func (s *AuthGRPCServer) CheckPermission(ctx context.Context, req *authv1.CheckP
 	return &authv1.CheckPermissionResponse{Allowed: allowed}, nil
 }
 
+func (s *AuthGRPCServer) GetProfile(ctx context.Context, req *authv1.GetProfileRequest) (*authv1.GetProfileResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	user, roles, err := s.authService.GetProfile(ctx, userID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.GetProfileResponse{
+		User: toUserInfo(user, roles),
+	}, nil
+}
+
+func (s *AuthGRPCServer) ChangePassword(ctx context.Context, req *authv1.ChangePasswordRequest) (*authv1.ChangePasswordResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	if err := s.authService.ChangePassword(ctx, userID, req.OldPassword, req.NewPassword); err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.ChangePasswordResponse{}, nil
+}
+
+func (s *AuthGRPCServer) CreateInvitation(ctx context.Context, req *authv1.CreateInvitationRequest) (*authv1.CreateInvitationResponse, error) {
+	createdBy, err := uuid.Parse(req.CreatedBy)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
+	}
+
+	inv, token, err := s.authService.CreateInvitation(ctx, req.Email, req.Role, createdBy)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.CreateInvitationResponse{
+		Invitation: toInvitationInfo(inv),
+		Token:      token,
+	}, nil
+}
+
+func (s *AuthGRPCServer) ListInvitations(ctx context.Context, req *authv1.ListInvitationsRequest) (*authv1.ListInvitationsResponse, error) {
+	invs, err := s.authService.ListInvitations(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list invitations")
+	}
+
+	var infos []*authv1.InvitationInfo
+	for _, inv := range invs {
+		infos = append(infos, toInvitationInfo(inv))
+	}
+
+	return &authv1.ListInvitationsResponse{Invitations: infos}, nil
+}
+
+func (s *AuthGRPCServer) AcceptInvitation(ctx context.Context, req *authv1.AcceptInvitationRequest) (*authv1.AcceptInvitationResponse, error) {
+	user, tokens, err := s.authService.AcceptInvitation(ctx, req.Token, req.Password, req.FirstName, req.LastName)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	_, roles, _ := s.authService.GetUser(ctx, user.ID)
+
+	return &authv1.AcceptInvitationResponse{
+		User:         toUserInfo(user, roles),
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	}, nil
+}
+
+func (s *AuthGRPCServer) CancelInvitation(ctx context.Context, req *authv1.CancelInvitationRequest) (*authv1.CancelInvitationResponse, error) {
+	invID, err := uuid.Parse(req.InvitationId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid invitation id")
+	}
+
+	if err := s.authService.CancelInvitation(ctx, invID); err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.CancelInvitationResponse{}, nil
+}
+
+func toInvitationInfo(inv *models.Invitation) *authv1.InvitationInfo {
+	return &authv1.InvitationInfo{
+		Id:        inv.ID.String(),
+		Email:     inv.Email,
+		Role:      inv.Role,
+		ExpiresAt: inv.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedBy: inv.CreatedBy.String(),
+		CreatedAt: inv.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
 func toUserInfo(user *models.User, roles []string) *authv1.UserInfo {
 	return &authv1.UserInfo{
 		Id:        user.ID.String(),
@@ -218,6 +317,14 @@ func mapError(err error) error {
 		return status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, auth.ErrUserInactive):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, auth.ErrInvitationNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, auth.ErrInvitationExpired):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrInvitationAlreadyUsed):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrInvitationExists):
+		return status.Error(codes.AlreadyExists, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}

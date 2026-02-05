@@ -63,6 +63,14 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *models.User) 
 	return err
 }
 
+func (r *PostgresRepository) UpdatePassword(ctx context.Context, userID uuid.UUID, passwordHash string) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+		passwordHash, userID,
+	)
+	return err
+}
+
 func (r *PostgresRepository) ListUsers(ctx context.Context, offset, limit int) ([]*models.User, int, error) {
 	var total int
 	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&total)
@@ -200,4 +208,79 @@ func (r *PostgresRepository) UserHasPermission(ctx context.Context, userID uuid.
 		)`, userID, resource, action,
 	).Scan(&exists)
 	return exists, err
+}
+
+// Invitation methods
+
+func (r *PostgresRepository) CreateInvitation(ctx context.Context, inv *models.Invitation) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO invitations (id, email, role, token_hash, created_by, expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		inv.ID, inv.Email, inv.Role, inv.TokenHash, inv.CreatedBy, inv.ExpiresAt, inv.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetInvitationByToken(ctx context.Context, tokenHash string) (*models.Invitation, error) {
+	var inv models.Invitation
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, email, role, token_hash, created_by, expires_at, accepted_at, created_at
+		 FROM invitations WHERE token_hash = $1`, tokenHash,
+	).Scan(&inv.ID, &inv.Email, &inv.Role, &inv.TokenHash, &inv.CreatedBy,
+		&inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrInvitationNotFound
+	}
+	return &inv, err
+}
+
+func (r *PostgresRepository) GetInvitationByID(ctx context.Context, id uuid.UUID) (*models.Invitation, error) {
+	var inv models.Invitation
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, email, role, token_hash, created_by, expires_at, accepted_at, created_at
+		 FROM invitations WHERE id = $1`, id,
+	).Scan(&inv.ID, &inv.Email, &inv.Role, &inv.TokenHash, &inv.CreatedBy,
+		&inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrInvitationNotFound
+	}
+	return &inv, err
+}
+
+func (r *PostgresRepository) ListPendingInvitations(ctx context.Context) ([]*models.Invitation, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, email, role, token_hash, created_by, expires_at, accepted_at, created_at
+		 FROM invitations
+		 WHERE accepted_at IS NULL
+		 ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var invitations []*models.Invitation
+	for rows.Next() {
+		var inv models.Invitation
+		if err := rows.Scan(&inv.ID, &inv.Email, &inv.Role, &inv.TokenHash, &inv.CreatedBy,
+			&inv.ExpiresAt, &inv.AcceptedAt, &inv.CreatedAt); err != nil {
+			return nil, err
+		}
+		invitations = append(invitations, &inv)
+	}
+	return invitations, rows.Err()
+}
+
+func (r *PostgresRepository) MarkInvitationAccepted(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE invitations SET accepted_at = NOW() WHERE id = $1`, id,
+	)
+	return err
+}
+
+func (r *PostgresRepository) DeleteInvitation(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`DELETE FROM invitations WHERE id = $1`, id,
+	)
+	return err
 }

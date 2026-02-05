@@ -16,6 +16,16 @@ service AuthService {
   rpc AssignRole(AssignRoleRequest) returns (AssignRoleResponse);
   rpc RemoveRole(RemoveRoleRequest) returns (RemoveRoleResponse);
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+
+  // Profile & Password
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+
+  // Invitations
+  rpc CreateInvitation(CreateInvitationRequest) returns (CreateInvitationResponse);
+  rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
+  rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse);
+  rpc CancelInvitation(CancelInvitationRequest) returns (CancelInvitationResponse);
 }
 
 message RegisterRequest {
@@ -130,3 +140,68 @@ message UserInfo {
   repeated string roles = 6;
   string created_at = 7;
 }
+
+// Profile & Password messages
+
+message GetProfileRequest {
+  string user_id = 1;
+}
+
+message GetProfileResponse {
+  UserInfo user = 1;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string old_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {}
+
+// Invitation messages
+
+message InvitationInfo {
+  string id = 1;
+  string email = 2;
+  string role = 3;
+  string expires_at = 4;
+  string created_by = 5;
+  string created_at = 6;
+}
+
+message CreateInvitationRequest {
+  string email = 1;
+  string role = 2;
+  string created_by = 3;
+}
+
+message CreateInvitationResponse {
+  InvitationInfo invitation = 1;
+  string token = 2;
+}
+
+message ListInvitationsRequest {}
+
+message ListInvitationsResponse {
+  repeated InvitationInfo invitations = 1;
+}
+
+message AcceptInvitationRequest {
+  string token = 1;
+  string password = 2;
+  string first_name = 3;
+  string last_name = 4;
+}
+
+message AcceptInvitationResponse {
+  UserInfo user = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+}
+
+message CancelInvitationRequest {
+  string invitation_id = 1;
+}
+
+message CancelInvitationResponse {}
