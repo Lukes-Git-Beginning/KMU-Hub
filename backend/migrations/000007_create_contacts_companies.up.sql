@@ -92,19 +92,23 @@ ALTER TABLE company_tags
 INSERT INTO permissions (name, resource, action) VALUES
     ('companies:read', 'companies', 'read'),
     ('companies:write', 'companies', 'write'),
-    ('companies:delete', 'companies', 'delete');
+    ('companies:delete', 'companies', 'delete')
+ON CONFLICT (name) DO NOTHING;
 
 -- Assign companies permissions to admin (all)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'admin' AND p.resource = 'companies';
+WHERE r.name = 'admin' AND p.resource = 'companies'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign read + write to manager
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'manager' AND p.resource = 'companies' AND p.action IN ('read', 'write');
+WHERE r.name = 'manager' AND p.resource = 'companies' AND p.action IN ('read', 'write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign read to member
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'member' AND p.resource = 'companies' AND p.action = 'read';
+WHERE r.name = 'member' AND p.resource = 'companies' AND p.action = 'read'
+ON CONFLICT (role_id, permission_id) DO NOTHING;

@@ -32,23 +32,27 @@ INSERT INTO pipeline_stages (name, color, sort_order, is_won, is_lost, probabili
     ('Won', '#22c55e', 5, TRUE, FALSE, 100.00),
     ('Lost', '#6b7280', 6, FALSE, TRUE, 0.00);
 
--- Add pipeline stages permissions
+-- Add pipeline stages permissions (idempotent)
 INSERT INTO permissions (name, resource, action) VALUES
     ('pipeline_stages:read', 'pipeline_stages', 'read'),
     ('pipeline_stages:write', 'pipeline_stages', 'write'),
-    ('pipeline_stages:delete', 'pipeline_stages', 'delete');
+    ('pipeline_stages:delete', 'pipeline_stages', 'delete')
+ON CONFLICT (name) DO NOTHING;
 
 -- Assign pipeline_stages permissions to admin (all)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'admin' AND p.resource = 'pipeline_stages';
+WHERE r.name = 'admin' AND p.resource = 'pipeline_stages'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign read + write to manager
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'manager' AND p.resource = 'pipeline_stages' AND p.action IN ('read', 'write');
+WHERE r.name = 'manager' AND p.resource = 'pipeline_stages' AND p.action IN ('read', 'write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign read to member
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'member' AND p.resource = 'pipeline_stages' AND p.action = 'read';
+WHERE r.name = 'member' AND p.resource = 'pipeline_stages' AND p.action = 'read'
+ON CONFLICT (role_id, permission_id) DO NOTHING;

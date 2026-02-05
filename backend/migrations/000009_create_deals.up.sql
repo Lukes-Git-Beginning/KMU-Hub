@@ -45,23 +45,27 @@ ALTER TABLE deal_tags
     ADD CONSTRAINT fk_deal_tags_deal
     FOREIGN KEY (deal_id) REFERENCES deals(id) ON DELETE CASCADE;
 
--- Add deals permissions
+-- Add deals permissions (idempotent)
 INSERT INTO permissions (name, resource, action) VALUES
     ('deals:read', 'deals', 'read'),
     ('deals:write', 'deals', 'write'),
-    ('deals:delete', 'deals', 'delete');
+    ('deals:delete', 'deals', 'delete')
+ON CONFLICT (name) DO NOTHING;
 
 -- Assign deals permissions to admin (all)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'admin' AND p.resource = 'deals';
+WHERE r.name = 'admin' AND p.resource = 'deals'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign read + write to manager
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'manager' AND p.resource = 'deals' AND p.action IN ('read', 'write');
+WHERE r.name = 'manager' AND p.resource = 'deals' AND p.action IN ('read', 'write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign read to member
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'member' AND p.resource = 'deals' AND p.action = 'read';
+WHERE r.name = 'member' AND p.resource = 'deals' AND p.action = 'read'
+ON CONFLICT (role_id, permission_id) DO NOTHING;

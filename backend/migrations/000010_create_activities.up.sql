@@ -50,23 +50,27 @@ ALTER TABLE activity_tags
     ADD CONSTRAINT fk_activity_tags_activity
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE;
 
--- Add activities permissions
+-- Add activities permissions (idempotent)
 INSERT INTO permissions (name, resource, action) VALUES
     ('activities:read', 'activities', 'read'),
     ('activities:write', 'activities', 'write'),
-    ('activities:delete', 'activities', 'delete');
+    ('activities:delete', 'activities', 'delete')
+ON CONFLICT (name) DO NOTHING;
 
 -- Assign activities permissions to admin (all)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'admin' AND p.resource = 'activities';
+WHERE r.name = 'admin' AND p.resource = 'activities'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign read + write to manager
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'manager' AND p.resource = 'activities' AND p.action IN ('read', 'write');
+WHERE r.name = 'manager' AND p.resource = 'activities' AND p.action IN ('read', 'write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign read + write to member (members can manage their own activities)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r, permissions p
-WHERE r.name = 'member' AND p.resource = 'activities' AND p.action IN ('read', 'write');
+WHERE r.name = 'member' AND p.resource = 'activities' AND p.action IN ('read', 'write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
