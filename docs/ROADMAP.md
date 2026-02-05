@@ -31,13 +31,13 @@
 - [x] Pipeline Stages (CRUD, Reorder, Defaults)
 - [x] Deals (CRUD, Stage Transitions)
 
-### Sprint 4: Activities & Search
-- [ ] Aktivitaeten (Calls, Meetings, Notizen, E-Mails, Tasks)
-- [ ] Such-Engine (PostgreSQL Full-Text Search)
+### Sprint 4: Activities & Search (complete)
+- [x] Aktivitaeten (Calls, Meetings, Notizen, E-Mails, Tasks)
+- [x] Such-Engine (PostgreSQL Full-Text Search)
 
-### Sprint 5: Filters & Reporting
-- [ ] Filter + Views (gespeicherte Filter)
-- [ ] Basis-Reporting (Pipeline Value, Conversion Rates)
+### Sprint 5: Filters & Reporting (complete)
+- [x] Filter + Views (gespeicherte Filter)
+- [x] Basis-Reporting (Pipeline Value, Conversion Rates)
 
 ## Phase 3: Chat & Messaging (Monat 4-5)
 
@@ -109,6 +109,60 @@
 ---
 
 ## Fortschritts-Log
+
+### 05.02.2026 — Phase 2 Sprint 5 Complete (1 Dev + AI-Coder)
+
+**Fokus:** CRM Core — Filters & Reporting (Sprint 5)
+
+- Saved Filters vollstaendig implementiert:
+  - Migration 000012 (saved_filters Tabelle mit Permissions)
+  - `internal/crm/savedfilter/` Package (service, repository, postgres_repository, errors)
+  - `internal/models/saved_filter.go` — SavedFilter Model
+  - gRPC Server Methoden (Create, Get, List, Update, Delete)
+  - HTTP Gateway Endpoints: `/api/v1/saved-filters`
+  - 24 Unit Tests (100% Coverage fuer Service Layer)
+- Reports vollstaendig implementiert:
+  - Migration 000013 (deal_stage_history Tabelle + Trigger)
+  - `internal/crm/report/` Package (service, repository, postgres_repository, errors)
+  - `internal/models/report.go` — Report Models (Pipeline, Conversion, Activity)
+  - gRPC Server Methoden (GetPipelineReport, GetConversionReport, GetActivityReport)
+  - HTTP Gateway Endpoints: `/api/v1/reports/pipeline`, `/api/v1/reports/conversion`, `/api/v1/reports/activities`
+  - 19 Unit Tests (95%+ Coverage fuer Service Layer)
+- Features:
+  - Saved Filters per Entity Type (contact, company, deal, activity)
+  - Default Filter pro User + Entity Type (Unique Constraint)
+  - Filter Ownership Validation
+  - Pipeline Report: Deals per Stage mit total/weighted Value
+  - Conversion Report: Stage Transitions mit Conversion Rates + avg Days
+  - Activity Report: Activities per Typ mit Completion Rate
+  - Automatic Deal Stage History via PostgreSQL Trigger
+- OpenAPI Spec aktualisiert mit allen Filter + Report Endpoints
+- **Sprint 5 Filters & Reporting ist damit abgeschlossen**
+- **Phase 2 CRM Core ist damit vollstaendig abgeschlossen**
+
+---
+
+### 05.02.2026 — Phase 2 Sprint 4 Complete (1 Dev + AI-Coder)
+
+**Fokus:** CRM Core — Activities & Search (Sprint 4)
+
+- Activities vollstaendig implementiert:
+  - Migration 000010 (activities Tabelle mit Permissions)
+  - `internal/crm/activity/` Package (service, repository, postgres_repository, errors)
+  - `internal/models/activity.go` — Activity Model mit 5 Typen
+  - gRPC Server Methoden (CRUD + Complete/Uncomplete)
+  - HTTP Gateway Endpoints: `/api/v1/activities`
+  - Unit Tests (100% Coverage fuer Service Layer)
+- Full-Text Search implementiert:
+  - Migration 000011 (search_vector Spalten + GIN Indexes)
+  - `internal/crm/search/` Package (service, repository, postgres_repository)
+  - PostgreSQL TSVECTOR mit German Config
+  - Unified Search ueber Contacts, Companies, Deals
+  - gRPC Server Methode (Search)
+  - HTTP Gateway Endpoint: `/api/v1/search`
+- **Sprint 4 Activities & Search ist damit abgeschlossen**
+
+---
 
 ### 05.02.2026 — Phase 2 Sprint 3 Complete (1 Dev + AI-Coder)
 

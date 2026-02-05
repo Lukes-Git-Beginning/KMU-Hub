@@ -16,6 +16,8 @@ import (
 	"github.com/kmuhub/kmuhub/internal/crm/customfield"
 	"github.com/kmuhub/kmuhub/internal/crm/deal"
 	"github.com/kmuhub/kmuhub/internal/crm/pipelinestage"
+	"github.com/kmuhub/kmuhub/internal/crm/report"
+	"github.com/kmuhub/kmuhub/internal/crm/savedfilter"
 	"github.com/kmuhub/kmuhub/internal/crm/search"
 	"github.com/kmuhub/kmuhub/internal/crm/tag"
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -33,6 +35,8 @@ type CRMGRPCServer struct {
 	dealService          *deal.Service
 	activityService      *activity.Service
 	searchService        *search.Service
+	savedFilterService   *savedfilter.Service
+	reportService        *report.Service
 }
 
 // NewCRMGRPCServer creates a new CRM gRPC server
@@ -45,6 +49,8 @@ func NewCRMGRPCServer(
 	dealService *deal.Service,
 	activityService *activity.Service,
 	searchService *search.Service,
+	savedFilterService *savedfilter.Service,
+	reportService *report.Service,
 ) *CRMGRPCServer {
 	return &CRMGRPCServer{
 		customFieldService:   customFieldService,
@@ -55,6 +61,8 @@ func NewCRMGRPCServer(
 		dealService:          dealService,
 		activityService:      activityService,
 		searchService:        searchService,
+		savedFilterService:   savedFilterService,
+		reportService:        reportService,
 	}
 }
 
@@ -1489,8 +1497,284 @@ func (s *CRMGRPCServer) Search(ctx context.Context, req *crmv1.SearchRequest) (*
 }
 
 // ============================================================================
+// Saved Filters
+// ============================================================================
+
+func (s *CRMGRPCServer) CreateSavedFilter(ctx context.Context, req *crmv1.CreateSavedFilterRequest) (*crmv1.CreateSavedFilterResponse, error) {
+	createdBy, err := uuid.Parse(req.CreatedBy)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
+	}
+
+	input := savedfilter.CreateInput{
+		Name:       req.Name,
+		EntityType: req.EntityType,
+		FilterJSON: req.FilterJson,
+		IsDefault:  req.IsDefault,
+		CreatedBy:  createdBy,
+	}
+
+	filter, err := s.savedFilterService.Create(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.CreateSavedFilterResponse{
+		Filter: toSavedFilterInfo(filter),
+	}, nil
+}
+
+func (s *CRMGRPCServer) GetSavedFilter(ctx context.Context, req *crmv1.GetSavedFilterRequest) (*crmv1.GetSavedFilterResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid saved filter id")
+	}
+
+	filter, err := s.savedFilterService.GetByID(ctx, id)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.GetSavedFilterResponse{
+		Filter: toSavedFilterInfo(filter),
+	}, nil
+}
+
+func (s *CRMGRPCServer) ListSavedFilters(ctx context.Context, req *crmv1.ListSavedFiltersRequest) (*crmv1.ListSavedFiltersResponse, error) {
+	input := savedfilter.ListInput{}
+
+	if req.EntityType != "" {
+		input.EntityType = &req.EntityType
+	}
+	if req.UserId != "" {
+		userID, err := uuid.Parse(req.UserId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		}
+		input.UserID = &userID
+	}
+
+	filters, err := s.savedFilterService.List(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	var infos []*crmv1.SavedFilterInfo
+	for _, f := range filters {
+		infos = append(infos, toSavedFilterInfo(f))
+	}
+
+	return &crmv1.ListSavedFiltersResponse{
+		Filters: infos,
+	}, nil
+}
+
+func (s *CRMGRPCServer) UpdateSavedFilter(ctx context.Context, req *crmv1.UpdateSavedFilterRequest) (*crmv1.UpdateSavedFilterResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid saved filter id")
+	}
+
+	// Get the filter first to extract the user ID
+	existingFilter, err := s.savedFilterService.GetByID(ctx, id)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	input := savedfilter.UpdateInput{}
+
+	if req.Name != nil {
+		input.Name = req.Name
+	}
+	if req.FilterJson != nil {
+		input.FilterJSON = req.FilterJson
+	}
+	if req.IsDefault != nil {
+		input.IsDefault = req.IsDefault
+	}
+
+	filter, err := s.savedFilterService.Update(ctx, id, existingFilter.CreatedBy, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.UpdateSavedFilterResponse{
+		Filter: toSavedFilterInfo(filter),
+	}, nil
+}
+
+func (s *CRMGRPCServer) DeleteSavedFilter(ctx context.Context, req *crmv1.DeleteSavedFilterRequest) (*crmv1.DeleteSavedFilterResponse, error) {
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid saved filter id")
+	}
+
+	// Get the filter first to extract the user ID
+	existingFilter, err := s.savedFilterService.GetByID(ctx, id)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	if err := s.savedFilterService.Delete(ctx, id, existingFilter.CreatedBy); err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.DeleteSavedFilterResponse{}, nil
+}
+
+// ============================================================================
+// Reports
+// ============================================================================
+
+func (s *CRMGRPCServer) GetPipelineReport(ctx context.Context, req *crmv1.GetPipelineReportRequest) (*crmv1.GetPipelineReportResponse, error) {
+	startDate, err := parseDate(req.StartDate)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid start_date format")
+	}
+
+	endDate, err := parseDate(req.EndDate)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid end_date format")
+	}
+
+	input := report.PipelineReportInput{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	if req.OwnerId != nil && *req.OwnerId != "" {
+		ownerID, parseErr := uuid.Parse(*req.OwnerId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid owner_id")
+		}
+		input.OwnerID = &ownerID
+	}
+
+	r, err := s.reportService.GetPipelineReport(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	var stages []*crmv1.PipelineStageValue
+	for _, stage := range r.Stages {
+		stages = append(stages, &crmv1.PipelineStageValue{
+			StageId:       stage.StageID.String(),
+			StageName:     stage.StageName,
+			DealCount:     stage.DealCount,
+			TotalValue:    stage.TotalValue,
+			WeightedValue: stage.WeightedValue,
+		})
+	}
+
+	return &crmv1.GetPipelineReportResponse{
+		Stages:             stages,
+		TotalDeals:         r.TotalDeals,
+		TotalValue:         r.TotalValue,
+		TotalWeightedValue: r.TotalWeightedValue,
+	}, nil
+}
+
+func (s *CRMGRPCServer) GetConversionReport(ctx context.Context, req *crmv1.GetConversionReportRequest) (*crmv1.GetConversionReportResponse, error) {
+	startDate, err := parseDate(req.StartDate)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid start_date format")
+	}
+
+	endDate, err := parseDate(req.EndDate)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid end_date format")
+	}
+
+	input := report.ConversionReportInput{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	r, err := s.reportService.GetConversionReport(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	var metrics []*crmv1.ConversionMetric
+	for _, m := range r.Metrics {
+		metrics = append(metrics, &crmv1.ConversionMetric{
+			FromStage:      m.FromStage,
+			ToStage:        m.ToStage,
+			ConvertedCount: m.ConvertedCount,
+			ConversionRate: m.ConversionRate,
+			AverageDays:    m.AverageDays,
+		})
+	}
+
+	return &crmv1.GetConversionReportResponse{
+		Metrics:          metrics,
+		OverallWinRate:   r.OverallWinRate,
+		AverageDealCycle: r.AverageDealCycle,
+	}, nil
+}
+
+func (s *CRMGRPCServer) GetActivityReport(ctx context.Context, req *crmv1.GetActivityReportRequest) (*crmv1.GetActivityReportResponse, error) {
+	startDate, err := parseDate(req.StartDate)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid start_date format")
+	}
+
+	endDate, err := parseDate(req.EndDate)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid end_date format")
+	}
+
+	input := report.ActivityReportInput{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	if req.UserId != nil && *req.UserId != "" {
+		userID, parseErr := uuid.Parse(*req.UserId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		}
+		input.UserID = &userID
+	}
+
+	r, err := s.reportService.GetActivityReport(ctx, input)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	var metrics []*crmv1.ActivityMetric
+	for _, m := range r.Metrics {
+		metrics = append(metrics, &crmv1.ActivityMetric{
+			ActivityType:   m.ActivityType,
+			TotalCount:     m.TotalCount,
+			CompletedCount: m.CompletedCount,
+			OverdueCount:   m.OverdueCount,
+		})
+	}
+
+	return &crmv1.GetActivityReportResponse{
+		Metrics:         metrics,
+		TotalActivities: r.TotalActivities,
+		CompletionRate:  r.CompletionRate,
+	}, nil
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
+
+func toSavedFilterInfo(f *models.SavedFilter) *crmv1.SavedFilterInfo {
+	return &crmv1.SavedFilterInfo{
+		Id:         f.ID.String(),
+		Name:       f.Name,
+		EntityType: string(f.EntityType),
+		FilterJson: f.FilterJSON,
+		IsDefault:  f.IsDefault,
+		CreatedBy:  f.CreatedBy.String(),
+		CreatedAt:  f.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  f.UpdatedAt.Format(time.RFC3339),
+	}
+}
 
 func toActivityInfo(a *models.ActivityWithRelations) *crmv1.ActivityInfo {
 	info := &crmv1.ActivityInfo{
@@ -1906,6 +2190,24 @@ func mapCRMError(err error) error {
 	case errors.Is(err, search.ErrQueryTooLong):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, search.ErrInvalidEntity):
+		return status.Error(codes.InvalidArgument, err.Error())
+	// Saved filter errors
+	case errors.Is(err, savedfilter.ErrFilterNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, savedfilter.ErrNameRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, savedfilter.ErrInvalidEntityType):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, savedfilter.ErrInvalidFilterJSON):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, savedfilter.ErrFilterNotOwned):
+		return status.Error(codes.PermissionDenied, err.Error())
+	// Report errors
+	case errors.Is(err, report.ErrInvalidDateRange):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, report.ErrStartDateRequired):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, report.ErrEndDateRequired):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")

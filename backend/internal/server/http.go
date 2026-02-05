@@ -159,6 +159,24 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.Get("/", h.HandleSearch)
 	})
 
+	// CRM: Saved Filters routes
+	r.Route("/api/v1/saved-filters", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("saved_filters", "read")).Get("/", h.HandleListSavedFilters)
+		r.With(middleware.RequirePermission("saved_filters", "read")).Get("/{id}", h.HandleGetSavedFilter)
+		r.With(middleware.RequirePermission("saved_filters", "write")).Post("/", h.HandleCreateSavedFilter)
+		r.With(middleware.RequirePermission("saved_filters", "write")).Patch("/{id}", h.HandleUpdateSavedFilter)
+		r.With(middleware.RequirePermission("saved_filters", "delete")).Delete("/{id}", h.HandleDeleteSavedFilter)
+	})
+
+	// CRM: Reports routes
+	r.Route("/api/v1/reports", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("reports", "read")).Get("/pipeline", h.HandleGetPipelineReport)
+		r.With(middleware.RequirePermission("reports", "read")).Get("/conversion", h.HandleGetConversionReport)
+		r.With(middleware.RequirePermission("reports", "read")).Get("/activities", h.HandleGetActivityReport)
+	})
+
 	// Health check
 	r.Get("/health", h.HandleHealth)
 }
@@ -2142,6 +2160,216 @@ func (h *GatewayHandler) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		EntityTypes: entityTypes,
 		Limit:       int32(limit),
 	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// CRM: Saved Filters Handlers
+// ============================================================================
+
+type createSavedFilterRequest struct {
+	Name       string `json:"name"`
+	EntityType string `json:"entity_type"`
+	FilterJSON string `json:"filter_json"`
+	IsDefault  bool   `json:"is_default"`
+}
+
+func (h *GatewayHandler) HandleCreateSavedFilter(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req createSavedFilterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Name == "" || req.EntityType == "" || req.FilterJSON == "" {
+		response.Error(w, http.StatusBadRequest, "name, entity_type, and filter_json are required")
+		return
+	}
+
+	resp, err := h.crmClient.CreateSavedFilter(r.Context(), &crmv1.CreateSavedFilterRequest{
+		Name:       req.Name,
+		EntityType: req.EntityType,
+		FilterJson: req.FilterJSON,
+		IsDefault:  req.IsDefault,
+		CreatedBy:  userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (h *GatewayHandler) HandleGetSavedFilter(w http.ResponseWriter, r *http.Request) {
+	filterID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(filterID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid saved filter id")
+		return
+	}
+
+	resp, err := h.crmClient.GetSavedFilter(r.Context(), &crmv1.GetSavedFilterRequest{Id: filterID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleListSavedFilters(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	entityType := r.URL.Query().Get("entity_type")
+
+	resp, err := h.crmClient.ListSavedFilters(r.Context(), &crmv1.ListSavedFiltersRequest{
+		EntityType: entityType,
+		UserId:     userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateSavedFilterRequest struct {
+	Name       *string `json:"name,omitempty"`
+	FilterJSON *string `json:"filter_json,omitempty"`
+	IsDefault  *bool   `json:"is_default,omitempty"`
+}
+
+func (h *GatewayHandler) HandleUpdateSavedFilter(w http.ResponseWriter, r *http.Request) {
+	filterID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(filterID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid saved filter id")
+		return
+	}
+
+	var req updateSavedFilterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &crmv1.UpdateSavedFilterRequest{Id: filterID}
+	if req.Name != nil {
+		grpcReq.Name = req.Name
+	}
+	if req.FilterJSON != nil {
+		grpcReq.FilterJson = req.FilterJSON
+	}
+	if req.IsDefault != nil {
+		grpcReq.IsDefault = req.IsDefault
+	}
+
+	resp, err := h.crmClient.UpdateSavedFilter(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleDeleteSavedFilter(w http.ResponseWriter, r *http.Request) {
+	filterID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(filterID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid saved filter id")
+		return
+	}
+
+	_, err := h.crmClient.DeleteSavedFilter(r.Context(), &crmv1.DeleteSavedFilterRequest{Id: filterID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "saved filter deleted"})
+}
+
+// ============================================================================
+// CRM: Reports Handlers
+// ============================================================================
+
+func (h *GatewayHandler) HandleGetPipelineReport(w http.ResponseWriter, r *http.Request) {
+	ownerID := r.URL.Query().Get("owner_id")
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	if startDate == "" || endDate == "" {
+		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+
+	grpcReq := &crmv1.GetPipelineReportRequest{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+	if ownerID != "" {
+		grpcReq.OwnerId = &ownerID
+	}
+
+	resp, err := h.crmClient.GetPipelineReport(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleGetConversionReport(w http.ResponseWriter, r *http.Request) {
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	if startDate == "" || endDate == "" {
+		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+
+	resp, err := h.crmClient.GetConversionReport(r.Context(), &crmv1.GetConversionReportRequest{
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleGetActivityReport(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("user_id")
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
+
+	if startDate == "" || endDate == "" {
+		response.Error(w, http.StatusBadRequest, "start_date and end_date are required")
+		return
+	}
+
+	grpcReq := &crmv1.GetActivityReportRequest{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+	if userID != "" {
+		grpcReq.UserId = &userID
+	}
+
+	resp, err := h.crmClient.GetActivityReport(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

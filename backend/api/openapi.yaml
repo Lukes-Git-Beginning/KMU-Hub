@@ -31,6 +31,10 @@ tags:
     description: Activity management (calls, meetings, notes, emails, tasks)
   - name: search
     description: Global search across CRM entities
+  - name: saved-filters
+    description: Saved filter configurations
+  - name: reports
+    description: CRM reporting and analytics
 
 paths:
   /health:
@@ -1743,6 +1747,239 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ============================================================================
+  # Saved Filters
+  # ============================================================================
+
+  /api/v1/saved-filters:
+    get:
+      summary: List saved filters for current user
+      tags: [saved-filters]
+      operationId: listSavedFilters
+      parameters:
+        - name: entity_type
+          in: query
+          description: Filter by entity type (contact, company, deal, activity)
+          schema:
+            type: string
+            enum: [contact, company, deal, activity]
+      responses:
+        "200":
+          description: List of saved filters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSavedFiltersResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Create a new saved filter
+      tags: [saved-filters]
+      operationId: createSavedFilter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSavedFilterRequest"
+      responses:
+        "201":
+          description: Saved filter created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedFilterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/saved-filters/{id}:
+    get:
+      summary: Get a saved filter by ID
+      tags: [saved-filters]
+      operationId: getSavedFilter
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Saved filter details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedFilterResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update a saved filter
+      tags: [saved-filters]
+      operationId: updateSavedFilter
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSavedFilterRequest"
+      responses:
+        "200":
+          description: Saved filter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedFilterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete a saved filter
+      tags: [saved-filters]
+      operationId: deleteSavedFilter
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Saved filter deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: saved filter deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ============================================================================
+  # Reports
+  # ============================================================================
+
+  /api/v1/reports/pipeline:
+    get:
+      summary: Get pipeline report with deal aggregations by stage
+      tags: [reports]
+      operationId: getPipelineReport
+      parameters:
+        - name: owner_id
+          in: query
+          description: Filter by deal owner (UUID)
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          required: true
+          description: Start date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          description: End date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Pipeline report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineReportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/reports/conversion:
+    get:
+      summary: Get conversion report with stage transition metrics
+      tags: [reports]
+      operationId: getConversionReport
+      parameters:
+        - name: start_date
+          in: query
+          required: true
+          description: Start date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          description: End date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Conversion report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionReportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/reports/activities:
+    get:
+      summary: Get activity report with metrics by type
+      tags: [reports]
+      operationId: getActivityReport
+      parameters:
+        - name: user_id
+          in: query
+          description: Filter by user (creator or assignee)
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          required: true
+          description: Start date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          description: End date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Activity report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityReportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -2716,6 +2953,176 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SearchResult"
+
+    # Saved Filters Schemas
+
+    SavedFilter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        entity_type:
+          type: string
+          enum: [contact, company, deal, activity]
+        filter_json:
+          type: string
+          description: JSON-encoded filter criteria
+        is_default:
+          type: boolean
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateSavedFilterRequest:
+      type: object
+      required: [name, entity_type, filter_json]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        entity_type:
+          type: string
+          enum: [contact, company, deal, activity]
+        filter_json:
+          type: string
+          description: JSON-encoded filter criteria
+        is_default:
+          type: boolean
+          default: false
+
+    UpdateSavedFilterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        filter_json:
+          type: string
+          description: JSON-encoded filter criteria
+        is_default:
+          type: boolean
+
+    SavedFilterResponse:
+      type: object
+      properties:
+        filter:
+          $ref: "#/components/schemas/SavedFilter"
+
+    ListSavedFiltersResponse:
+      type: object
+      properties:
+        filters:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedFilter"
+
+    # Report Schemas
+
+    PipelineStageValue:
+      type: object
+      properties:
+        stage_id:
+          type: string
+          format: uuid
+        stage_name:
+          type: string
+        deal_count:
+          type: integer
+        total_value:
+          type: number
+          format: double
+        weighted_value:
+          type: number
+          format: double
+          description: value × (probability / 100)
+
+    PipelineReportResponse:
+      type: object
+      properties:
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineStageValue"
+        total_deals:
+          type: integer
+        total_value:
+          type: number
+          format: double
+        total_weighted_value:
+          type: number
+          format: double
+
+    ConversionMetric:
+      type: object
+      properties:
+        from_stage:
+          type: string
+        to_stage:
+          type: string
+        converted_count:
+          type: integer
+        conversion_rate:
+          type: number
+          format: double
+          description: Percentage of total transitions
+        average_days:
+          type: number
+          format: double
+          description: Average days between stages
+
+    ConversionReportResponse:
+      type: object
+      properties:
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversionMetric"
+        overall_win_rate:
+          type: number
+          format: double
+          description: Percentage of deals that reached Won stage
+        average_deal_cycle:
+          type: number
+          format: double
+          description: Average days from creation to close
+
+    ActivityMetric:
+      type: object
+      properties:
+        activity_type:
+          type: string
+          enum: [call, meeting, note, email, task]
+        total_count:
+          type: integer
+        completed_count:
+          type: integer
+        overdue_count:
+          type: integer
+
+    ActivityReportResponse:
+      type: object
+      properties:
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityMetric"
+        total_activities:
+          type: integer
+        completion_rate:
+          type: number
+          format: double
+          description: Percentage of completed activities
 
   responses:
     BadRequest:
