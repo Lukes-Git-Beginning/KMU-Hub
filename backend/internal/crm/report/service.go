@@ -39,11 +39,7 @@ func (s *Service) GetPipelineReport(ctx context.Context, input PipelineReportInp
 		return nil, ErrInvalidDateRange
 	}
 
-	report, err := s.repo.GetPipelineReport(ctx, PipelineFilter{
-		OwnerID:   input.OwnerID,
-		StartDate: input.StartDate,
-		EndDate:   input.EndDate,
-	})
+	report, err := s.repo.GetPipelineReport(ctx, PipelineFilter(input))
 	if err != nil {
 		return nil, err
 	}
@@ -108,11 +104,7 @@ func (s *Service) GetActivityReport(ctx context.Context, input ActivityReportInp
 		return nil, ErrInvalidDateRange
 	}
 
-	report, err := s.repo.GetActivityReport(ctx, ActivityFilter{
-		UserID:    input.UserID,
-		StartDate: input.StartDate,
-		EndDate:   input.EndDate,
-	})
+	report, err := s.repo.GetActivityReport(ctx, ActivityFilter(input))
 	if err != nil {
 		return nil, err
 	}

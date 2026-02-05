@@ -59,7 +59,6 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	if filter.UserID != nil {
 		conditions = append(conditions, fmt.Sprintf("created_by = $%d", argNum))
 		args = append(args, *filter.UserID)
-		argNum++
 	}
 
 	whereClause := ""
