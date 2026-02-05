@@ -261,7 +261,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassw
 		return ErrUserNotFound
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
+	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); compareErr != nil {
 		return ErrInvalidCredentials
 	}
 
@@ -270,8 +270,8 @@ func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassw
 		return err
 	}
 
-	if err := s.repo.UpdatePassword(ctx, userID, string(hash)); err != nil {
-		return err
+	if updateErr := s.repo.UpdatePassword(ctx, userID, string(hash)); updateErr != nil {
+		return updateErr
 	}
 
 	// Revoke all refresh tokens (force re-login on all devices)
@@ -346,18 +346,18 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstNa
 		UpdatedAt:    time.Now(),
 	}
 
-	if err := s.repo.CreateUser(ctx, user); err != nil {
-		return nil, nil, err
+	if createErr := s.repo.CreateUser(ctx, user); createErr != nil {
+		return nil, nil, createErr
 	}
 
 	// Assign the role from invitation
-	if err := s.repo.AssignRole(ctx, user.ID, inv.Role); err != nil {
-		slog.Error("failed to assign role from invitation", "user_id", user.ID, "role", inv.Role, "error", err)
+	if assignErr := s.repo.AssignRole(ctx, user.ID, inv.Role); assignErr != nil {
+		slog.Error("failed to assign role from invitation", "user_id", user.ID, "role", inv.Role, "error", assignErr)
 	}
 
 	// Mark invitation as accepted
-	if err := s.repo.MarkInvitationAccepted(ctx, inv.ID); err != nil {
-		slog.Error("failed to mark invitation accepted", "invitation_id", inv.ID, "error", err)
+	if acceptErr := s.repo.MarkInvitationAccepted(ctx, inv.ID); acceptErr != nil {
+		slog.Error("failed to mark invitation accepted", "invitation_id", inv.ID, "error", acceptErr)
 	}
 
 	// Generate tokens
