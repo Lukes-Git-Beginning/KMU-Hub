@@ -64,6 +64,9 @@ func (m *MockRepository) List(ctx context.Context, filter ListFilter) ([]*models
 		if msg.IsDeleted {
 			continue
 		}
+		if filter.ExcludeReplies && msg.ParentMessageID != nil {
+			continue
+		}
 		user := m.users[msg.CreatedBy]
 		result = append(result, &models.MessageWithSender{
 			Message:         *msg,
@@ -71,7 +74,6 @@ func (m *MockRepository) List(ctx context.Context, filter ListFilter) ([]*models
 			SenderLastName:  user.lastName,
 		})
 	}
-	// Sort by created_at desc and apply limit
 	if len(result) > filter.Limit {
 		result = result[:filter.Limit]
 	}
@@ -130,6 +132,51 @@ func (m *MockRepository) GetUserInfo(ctx context.Context, userID uuid.UUID) (fir
 		return "", "", nil
 	}
 	return user.firstName, user.lastName, nil
+}
+
+func (m *MockRepository) CreateWithReplyCount(ctx context.Context, message *models.Message) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+	m.messages[message.ID] = message
+	// Increment parent reply count
+	if message.ParentMessageID != nil {
+		if parent, ok := m.messages[*message.ParentMessageID]; ok {
+			parent.ReplyCount++
+		}
+	}
+	return nil
+}
+
+func (m *MockRepository) ListReplies(ctx context.Context, filter ThreadListFilter) ([]*models.MessageWithSender, error) {
+	var result []*models.MessageWithSender
+	for _, msg := range m.messages {
+		if msg.ParentMessageID == nil || *msg.ParentMessageID != filter.ParentMessageID {
+			continue
+		}
+		if msg.IsDeleted {
+			continue
+		}
+		user := m.users[msg.CreatedBy]
+		result = append(result, &models.MessageWithSender{
+			Message:         *msg,
+			SenderFirstName: user.firstName,
+			SenderLastName:  user.lastName,
+		})
+	}
+	if len(result) > filter.Limit {
+		result = result[:filter.Limit]
+	}
+	return result, nil
+}
+
+func (m *MockRepository) DecrementReplyCount(ctx context.Context, messageID uuid.UUID) error {
+	if msg, ok := m.messages[messageID]; ok {
+		if msg.ReplyCount > 0 {
+			msg.ReplyCount--
+		}
+	}
+	return nil
 }
 
 // Helpers for setting up test data
@@ -577,6 +624,320 @@ func TestService_Delete(t *testing.T) {
 		require.NoError(t, err)
 		err = service.Delete(context.Background(), created.ID, userID)
 		require.NoError(t, err) // Should not error
+	})
+}
+
+// ============================================================================
+// Thread Tests
+// ============================================================================
+
+func TestService_Create_ThreadReply(t *testing.T) {
+	t.Run("success - creates reply and increments parent", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+
+		// Create parent message
+		parent, err := service.Create(context.Background(), CreateInput{
+			ChannelID: channelID,
+			Content:   "Parent message",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		// Create thread reply
+		reply, err := service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "Reply to parent",
+			CreatedBy:       userID,
+			ParentMessageID: &parent.ID,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, &parent.ID, reply.ParentMessageID)
+		// Parent reply_count should be incremented
+		parentMsg := repo.messages[parent.ID]
+		assert.Equal(t, 1, parentMsg.ReplyCount)
+	})
+
+	t.Run("error - parent not in same channel", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID1 := uuid.New()
+		channelID2 := uuid.New()
+		userID := uuid.New()
+		repo.AddChannel(channelID1, false)
+		repo.AddChannel(channelID2, false)
+		repo.AddMember(channelID1, userID, models.ChannelRoleMember)
+		repo.AddMember(channelID2, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+
+		// Create message in channel 1
+		parent, err := service.Create(context.Background(), CreateInput{
+			ChannelID: channelID1,
+			Content:   "Parent in channel 1",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		// Try to reply from channel 2
+		_, err = service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID2,
+			Content:         "Reply from wrong channel",
+			CreatedBy:       userID,
+			ParentMessageID: &parent.ID,
+		})
+
+		assert.Equal(t, ErrParentNotInChannel, err)
+	})
+
+	t.Run("error - nested threads not allowed", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+
+		// Create parent
+		parent, err := service.Create(context.Background(), CreateInput{
+			ChannelID: channelID,
+			Content:   "Parent",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		// Create reply
+		reply, err := service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "Reply",
+			CreatedBy:       userID,
+			ParentMessageID: &parent.ID,
+		})
+		require.NoError(t, err)
+
+		// Try to reply to the reply (nested)
+		_, err = service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "Nested reply",
+			CreatedBy:       userID,
+			ParentMessageID: &reply.ID,
+		})
+
+		assert.Equal(t, ErrNestedThreads, err)
+	})
+
+	t.Run("error - reply to deleted parent", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+
+		// Create and delete parent
+		parent, err := service.Create(context.Background(), CreateInput{
+			ChannelID: channelID,
+			Content:   "Parent",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		err = service.Delete(context.Background(), parent.ID, userID)
+		require.NoError(t, err)
+
+		// Try to reply
+		_, err = service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "Reply to deleted",
+			CreatedBy:       userID,
+			ParentMessageID: &parent.ID,
+		})
+
+		assert.Equal(t, ErrParentDeleted, err)
+	})
+}
+
+func TestService_GetThreadReplies(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+
+		// Create parent and replies
+		parent, err := service.Create(context.Background(), CreateInput{
+			ChannelID: channelID,
+			Content:   "Parent",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		_, err = service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "Reply 1",
+			CreatedBy:       userID,
+			ParentMessageID: &parent.ID,
+		})
+		require.NoError(t, err)
+
+		_, err = service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "Reply 2",
+			CreatedBy:       userID,
+			ParentMessageID: &parent.ID,
+		})
+		require.NoError(t, err)
+
+		result, err := service.GetThreadReplies(context.Background(), GetThreadRepliesInput{
+			ParentMessageID: parent.ID,
+			UserID:          userID,
+			Limit:           50,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, parent.ID, result.Parent.ID)
+		assert.Len(t, result.Replies, 2)
+		assert.False(t, result.HasMore)
+	})
+
+	t.Run("error - not a member", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		otherID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+
+		parent, err := service.Create(context.Background(), CreateInput{
+			ChannelID: channelID,
+			Content:   "Parent",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		_, err = service.GetThreadReplies(context.Background(), GetThreadRepliesInput{
+			ParentMessageID: parent.ID,
+			UserID:          otherID,
+		})
+
+		assert.Equal(t, ErrNotChannelMember, err)
+	})
+
+	t.Run("error - parent not found", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		_, err := service.GetThreadReplies(context.Background(), GetThreadRepliesInput{
+			ParentMessageID: uuid.New(),
+			UserID:          uuid.New(),
+		})
+
+		assert.Equal(t, ErrMessageNotFound, err)
+	})
+}
+
+func TestService_Delete_ThreadReply(t *testing.T) {
+	t.Run("decrements parent reply_count", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+
+		// Create parent and reply
+		parent, err := service.Create(context.Background(), CreateInput{
+			ChannelID: channelID,
+			Content:   "Parent",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		reply, err := service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "Reply",
+			CreatedBy:       userID,
+			ParentMessageID: &parent.ID,
+		})
+		require.NoError(t, err)
+
+		// Verify parent has reply_count=1
+		assert.Equal(t, 1, repo.messages[parent.ID].ReplyCount)
+
+		// Delete reply
+		err = service.Delete(context.Background(), reply.ID, userID)
+		require.NoError(t, err)
+
+		// Verify parent has reply_count=0
+		assert.Equal(t, 0, repo.messages[parent.ID].ReplyCount)
+	})
+}
+
+func TestService_List_ExcludesReplies(t *testing.T) {
+	t.Run("thread replies excluded from channel messages", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+
+		// Create parent
+		parent, err := service.Create(context.Background(), CreateInput{
+			ChannelID: channelID,
+			Content:   "Parent",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		// Create a reply
+		_, err = service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "Reply",
+			CreatedBy:       userID,
+			ParentMessageID: &parent.ID,
+		})
+		require.NoError(t, err)
+
+		// Create another top-level message
+		_, err = service.Create(context.Background(), CreateInput{
+			ChannelID: channelID,
+			Content:   "Another message",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		// List should only return top-level messages
+		messages, _, err := service.List(context.Background(), ListInput{
+			ChannelID: channelID,
+			UserID:    userID,
+			Limit:     50,
+		})
+
+		require.NoError(t, err)
+		assert.Len(t, messages, 2) // parent + another, NOT the reply
 	})
 }
 

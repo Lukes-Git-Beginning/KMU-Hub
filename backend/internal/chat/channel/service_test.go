@@ -183,6 +183,26 @@ func (m *MockRepository) GetLastMessage(ctx context.Context, channelID uuid.UUID
 	return nil, nil
 }
 
+func (m *MockRepository) FindDMChannel(ctx context.Context, user1, user2 uuid.UUID) (*models.Channel, error) {
+	for _, ch := range m.channels {
+		if ch.IsDM && ch.DMUser1 != nil && ch.DMUser2 != nil &&
+			*ch.DMUser1 == user1 && *ch.DMUser2 == user2 {
+			return ch, nil
+		}
+	}
+	return nil, ErrChannelNotFound
+}
+
+func (m *MockRepository) CreateDMChannel(ctx context.Context, channel *models.Channel, mem1, mem2 *models.ChannelMembership) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+	m.channels[channel.ID] = channel
+	m.memberships[membershipKey(mem1.ChannelID, mem1.UserID)] = mem1
+	m.memberships[membershipKey(mem2.ChannelID, mem2.UserID)] = mem2
+	return nil
+}
+
 // Helper to add a user to mock
 func (m *MockRepository) AddUser(id uuid.UUID, firstName, lastName, email string) {
 	m.users[id] = struct {
@@ -780,6 +800,215 @@ func TestService_AddMember(t *testing.T) {
 		_, err = service.AddMember(context.Background(), created.ID, inviteeID, memberID)
 
 		assert.Equal(t, ErrNotAuthorized, err)
+	})
+}
+
+// ============================================================================
+// DM Tests
+// ============================================================================
+
+func TestService_GetOrCreateDM(t *testing.T) {
+	t.Run("creates new DM", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		otherID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+		repo.AddUser(otherID, "Jane", "Doe", "jane@example.com")
+
+		result, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: otherID,
+		})
+
+		require.NoError(t, err)
+		assert.True(t, result.Created)
+		assert.True(t, result.Channel.IsDM)
+		assert.True(t, result.Channel.IsPrivate)
+		assert.Equal(t, 2, result.Channel.MemberCount)
+	})
+
+	t.Run("returns existing DM", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		otherID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+		repo.AddUser(otherID, "Jane", "Doe", "jane@example.com")
+
+		// Create first DM
+		result1, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: otherID,
+		})
+		require.NoError(t, err)
+		assert.True(t, result1.Created)
+
+		// Get the same DM again
+		result2, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: otherID,
+		})
+		require.NoError(t, err)
+		assert.False(t, result2.Created)
+		assert.Equal(t, result1.Channel.ID, result2.Channel.ID)
+	})
+
+	t.Run("idempotent with swapped user order", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		otherID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+		repo.AddUser(otherID, "Jane", "Doe", "jane@example.com")
+
+		// Create DM as user->other
+		result1, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: otherID,
+		})
+		require.NoError(t, err)
+		assert.True(t, result1.Created)
+
+		// Try as other->user (should find existing)
+		result2, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      otherID,
+			OtherUserID: userID,
+		})
+		require.NoError(t, err)
+		assert.False(t, result2.Created)
+		assert.Equal(t, result1.Channel.ID, result2.Channel.ID)
+	})
+
+	t.Run("cannot DM self", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+
+		_, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: userID,
+		})
+
+		assert.Equal(t, ErrCannotDMSelf, err)
+	})
+
+	t.Run("other user not found", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+
+		_, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: uuid.New(),
+		})
+
+		assert.Equal(t, ErrUserNotFound, err)
+	})
+}
+
+func TestService_ListDMs(t *testing.T) {
+	t.Run("returns only DM channels", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		otherID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+		repo.AddUser(otherID, "Jane", "Doe", "jane@example.com")
+
+		// Create a regular channel
+		_, err := service.Create(context.Background(), CreateInput{
+			Name:      "General",
+			CreatedBy: userID,
+		})
+		require.NoError(t, err)
+
+		// Create a DM
+		_, err = service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: otherID,
+		})
+		require.NoError(t, err)
+
+		// List DMs should only return the DM
+		dms, total, err := service.ListDMs(context.Background(), userID, 1, 20)
+		require.NoError(t, err)
+		assert.Equal(t, 1, total)
+		assert.Len(t, dms, 1)
+		assert.True(t, dms[0].IsDM)
+	})
+}
+
+func TestService_Join_DM_Guard(t *testing.T) {
+	t.Run("cannot join DM channel", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		otherID := uuid.New()
+		thirdID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+		repo.AddUser(otherID, "Jane", "Doe", "jane@example.com")
+		repo.AddUser(thirdID, "Bob", "Smith", "bob@example.com")
+
+		dm, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: otherID,
+		})
+		require.NoError(t, err)
+
+		_, err = service.Join(context.Background(), dm.Channel.ID, thirdID)
+		assert.Equal(t, ErrCannotJoinDM, err)
+	})
+}
+
+func TestService_Leave_DM_Guard(t *testing.T) {
+	t.Run("cannot leave DM channel", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		otherID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+		repo.AddUser(otherID, "Jane", "Doe", "jane@example.com")
+
+		dm, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: otherID,
+		})
+		require.NoError(t, err)
+
+		err = service.Leave(context.Background(), dm.Channel.ID, userID)
+		assert.Equal(t, ErrCannotLeaveDM, err)
+	})
+}
+
+func TestService_Delete_DM_Guard(t *testing.T) {
+	t.Run("cannot delete DM channel", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		otherID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+		repo.AddUser(otherID, "Jane", "Doe", "jane@example.com")
+
+		dm, err := service.GetOrCreateDM(context.Background(), GetOrCreateDMInput{
+			UserID:      userID,
+			OtherUserID: otherID,
+		})
+		require.NoError(t, err)
+
+		err = service.Delete(context.Background(), dm.Channel.ID, userID)
+		assert.Equal(t, ErrCannotDeleteDM, err)
 	})
 }
 

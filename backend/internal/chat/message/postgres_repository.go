@@ -25,10 +25,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, message *models.Message) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		message.ID, message.ChannelID, message.Content, message.IsDeleted,
-		message.EditedAt, message.CreatedBy, message.CreatedAt,
+		message.EditedAt, message.ParentMessageID, message.CreatedBy, message.CreatedAt,
 	)
 	return err
 }
@@ -36,9 +36,10 @@ func (r *PostgresRepository) Create(ctx context.Context, message *models.Message
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Message, error) {
 	var m models.Message
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, channel_id, content, is_deleted, edited_at, created_by, created_at
+		`SELECT id, channel_id, content, is_deleted, edited_at, parent_message_id, reply_count, created_by, created_at
 		 FROM messages WHERE id = $1`, id,
-	).Scan(&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt, &m.CreatedBy, &m.CreatedAt)
+	).Scan(&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
+		&m.ParentMessageID, &m.ReplyCount, &m.CreatedBy, &m.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrMessageNotFound
 	}
@@ -53,19 +54,23 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	args = append(args, filter.ChannelID)
 	argNum := 2
 
+	// Build extra conditions
+	extraConditions := ""
+
+	// Exclude thread replies from main channel view
+	if filter.ExcludeReplies {
+		extraConditions += " AND m.parent_message_id IS NULL"
+	}
+
 	// Build cursor condition
-	cursorCondition := ""
 	if filter.Before != nil {
-		// Get the created_at of the cursor message
 		var cursorTime time.Time
 		if err := r.pool.QueryRow(ctx, `SELECT created_at FROM messages WHERE id = $1`, *filter.Before).Scan(&cursorTime); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				// Cursor message not found, just ignore
-			} else {
+			if !errors.Is(err, pgx.ErrNoRows) {
 				return nil, err
 			}
 		} else {
-			cursorCondition = fmt.Sprintf(" AND m.created_at < $%d", argNum)
+			extraConditions += fmt.Sprintf(" AND m.created_at < $%d", argNum)
 			args = append(args, cursorTime)
 			argNum++
 		}
@@ -76,21 +81,21 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 				return nil, err
 			}
 		} else {
-			cursorCondition = fmt.Sprintf(" AND m.created_at > $%d", argNum)
+			extraConditions += fmt.Sprintf(" AND m.created_at > $%d", argNum)
 			args = append(args, cursorTime)
 			argNum++
 		}
 	}
 
-	// Build query - always exclude deleted messages
 	query := fmt.Sprintf(`
-		SELECT m.id, m.channel_id, m.content, m.is_deleted, m.edited_at, m.created_by, m.created_at,
+		SELECT m.id, m.channel_id, m.content, m.is_deleted, m.edited_at,
+		       m.parent_message_id, m.reply_count, m.created_by, m.created_at,
 		       u.first_name, u.last_name
 		FROM messages m
 		JOIN users u ON m.created_by = u.id
 		WHERE m.channel_id = $1 AND m.is_deleted = FALSE%s
 		ORDER BY m.created_at DESC
-		LIMIT $%d`, cursorCondition, argNum)
+		LIMIT $%d`, extraConditions, argNum)
 
 	args = append(args, filter.Limit)
 
@@ -104,7 +109,8 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	for rows.Next() {
 		var m models.MessageWithSender
 		if scanErr := rows.Scan(
-			&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt, &m.CreatedBy, &m.CreatedAt,
+			&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
+			&m.ParentMessageID, &m.ReplyCount, &m.CreatedBy, &m.CreatedAt,
 			&m.SenderFirstName, &m.SenderLastName,
 		); scanErr != nil {
 			return nil, scanErr
@@ -178,4 +184,109 @@ func (r *PostgresRepository) GetUserInfo(ctx context.Context, userID uuid.UUID) 
 		`SELECT first_name, last_name FROM users WHERE id = $1`, userID,
 	).Scan(&firstName, &lastName)
 	return
+}
+
+// Thread operations
+
+func (r *PostgresRepository) CreateWithReplyCount(ctx context.Context, message *models.Message) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Insert the reply message
+	_, err = tx.Exec(ctx,
+		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		message.ID, message.ChannelID, message.Content, message.IsDeleted,
+		message.EditedAt, message.ParentMessageID, message.CreatedBy, message.CreatedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Increment parent's reply_count
+	_, err = tx.Exec(ctx,
+		`UPDATE messages SET reply_count = reply_count + 1 WHERE id = $1`,
+		message.ParentMessageID,
+	)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *PostgresRepository) ListReplies(ctx context.Context, filter ThreadListFilter) ([]*models.MessageWithSender, error) {
+	var args []any
+	args = append(args, filter.ParentMessageID)
+	argNum := 2
+
+	extraConditions := ""
+
+	if filter.Before != nil {
+		var cursorTime time.Time
+		if err := r.pool.QueryRow(ctx, `SELECT created_at FROM messages WHERE id = $1`, *filter.Before).Scan(&cursorTime); err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return nil, err
+			}
+		} else {
+			extraConditions += fmt.Sprintf(" AND m.created_at < $%d", argNum)
+			args = append(args, cursorTime)
+			argNum++
+		}
+	} else if filter.After != nil {
+		var cursorTime time.Time
+		if err := r.pool.QueryRow(ctx, `SELECT created_at FROM messages WHERE id = $1`, *filter.After).Scan(&cursorTime); err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return nil, err
+			}
+		} else {
+			extraConditions += fmt.Sprintf(" AND m.created_at > $%d", argNum)
+			args = append(args, cursorTime)
+			argNum++
+		}
+	}
+
+	query := fmt.Sprintf(`
+		SELECT m.id, m.channel_id, m.content, m.is_deleted, m.edited_at,
+		       m.parent_message_id, m.reply_count, m.created_by, m.created_at,
+		       u.first_name, u.last_name
+		FROM messages m
+		JOIN users u ON m.created_by = u.id
+		WHERE m.parent_message_id = $1 AND m.is_deleted = FALSE%s
+		ORDER BY m.created_at ASC
+		LIMIT $%d`, extraConditions, argNum)
+
+	args = append(args, filter.Limit)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*models.MessageWithSender
+	for rows.Next() {
+		var m models.MessageWithSender
+		if scanErr := rows.Scan(
+			&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
+			&m.ParentMessageID, &m.ReplyCount, &m.CreatedBy, &m.CreatedAt,
+			&m.SenderFirstName, &m.SenderLastName,
+		); scanErr != nil {
+			return nil, scanErr
+		}
+		messages = append(messages, &m)
+	}
+
+	return messages, rows.Err()
+}
+
+func (r *PostgresRepository) DecrementReplyCount(ctx context.Context, messageID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE messages SET reply_count = GREATEST(reply_count - 1, 0) WHERE id = $1`,
+		messageID,
+	)
+	return err
 }

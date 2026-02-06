@@ -23,9 +23,10 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains the data needed to create a message
 type CreateInput struct {
-	ChannelID uuid.UUID
-	Content   string
-	CreatedBy uuid.UUID
+	ChannelID       uuid.UUID
+	Content         string
+	CreatedBy       uuid.UUID
+	ParentMessageID *uuid.UUID // For thread replies
 }
 
 // Create creates a new message
@@ -63,25 +64,51 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		return nil, ErrNotChannelMember
 	}
 
-	now := time.Now()
-	message := &models.Message{
-		ID:        uuid.New(),
-		ChannelID: input.ChannelID,
-		Content:   content,
-		IsDeleted: false,
-		EditedAt:  nil,
-		CreatedBy: input.CreatedBy,
-		CreatedAt: now,
+	// Validate thread reply if parent is specified
+	if input.ParentMessageID != nil {
+		parent, parentErr := s.repo.GetByID(ctx, *input.ParentMessageID)
+		if parentErr != nil {
+			return nil, parentErr
+		}
+		if parent.ChannelID != input.ChannelID {
+			return nil, ErrParentNotInChannel
+		}
+		if parent.ParentMessageID != nil {
+			return nil, ErrNestedThreads
+		}
+		if parent.IsDeleted {
+			return nil, ErrParentDeleted
+		}
 	}
 
-	if createErr := s.repo.Create(ctx, message); createErr != nil {
-		return nil, createErr
+	now := time.Now()
+	message := &models.Message{
+		ID:              uuid.New(),
+		ChannelID:       input.ChannelID,
+		Content:         content,
+		IsDeleted:       false,
+		EditedAt:        nil,
+		ParentMessageID: input.ParentMessageID,
+		CreatedBy:       input.CreatedBy,
+		CreatedAt:       now,
+	}
+
+	// Use atomic create+increment for thread replies
+	if input.ParentMessageID != nil {
+		if createErr := s.repo.CreateWithReplyCount(ctx, message); createErr != nil {
+			return nil, createErr
+		}
+	} else {
+		if createErr := s.repo.Create(ctx, message); createErr != nil {
+			return nil, createErr
+		}
 	}
 
 	slog.Info("message created",
 		"message_id", message.ID,
 		"channel_id", message.ChannelID,
 		"created_by", message.CreatedBy,
+		"parent_message_id", input.ParentMessageID,
 	)
 
 	return s.getWithSender(ctx, message)
@@ -140,10 +167,11 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.MessageW
 	}
 
 	filter := ListFilter{
-		ChannelID: input.ChannelID,
-		Limit:     input.Limit + 1, // Fetch one extra to determine if there are more
-		Before:    input.Before,
-		After:     input.After,
+		ChannelID:      input.ChannelID,
+		Limit:          input.Limit + 1, // Fetch one extra to determine if there are more
+		Before:         input.Before,
+		After:          input.After,
+		ExcludeReplies: true, // Thread replies only via GetThreadReplies
 	}
 
 	messages, listErr := s.repo.List(ctx, filter)
@@ -226,6 +254,16 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 		return deleteErr
 	}
 
+	// Decrement parent reply_count if this was a thread reply
+	if message.ParentMessageID != nil {
+		if decErr := s.repo.DecrementReplyCount(ctx, *message.ParentMessageID); decErr != nil {
+			slog.Error("failed to decrement reply count",
+				"parent_message_id", message.ParentMessageID,
+				"error", decErr,
+			)
+		}
+	}
+
 	slog.Info("message deleted",
 		"message_id", message.ID,
 		"channel_id", message.ChannelID,
@@ -233,6 +271,77 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 	)
 
 	return nil
+}
+
+// GetThreadRepliesInput contains options for listing thread replies
+type GetThreadRepliesInput struct {
+	ParentMessageID uuid.UUID
+	UserID          uuid.UUID
+	Limit           int
+	Before          *uuid.UUID
+	After           *uuid.UUID
+}
+
+// GetThreadRepliesResult contains the parent and its replies
+type GetThreadRepliesResult struct {
+	Parent  *models.MessageWithSender
+	Replies []*models.MessageWithSender
+	HasMore bool
+}
+
+// GetThreadReplies returns a parent message and its thread replies
+func (s *Service) GetThreadReplies(ctx context.Context, input GetThreadRepliesInput) (*GetThreadRepliesResult, error) {
+	// Get parent message
+	parent, err := s.repo.GetByID(ctx, input.ParentMessageID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate parent is not a reply itself (no nested threads)
+	if parent.ParentMessageID != nil {
+		return nil, ErrNestedThreads
+	}
+
+	// Check user is member of the channel
+	isMember, memberErr := s.repo.IsMember(ctx, parent.ChannelID, input.UserID)
+	if memberErr != nil {
+		return nil, memberErr
+	}
+	if !isMember {
+		return nil, ErrNotChannelMember
+	}
+
+	if input.Limit < 1 || input.Limit > 100 {
+		input.Limit = 50
+	}
+
+	filter := ThreadListFilter{
+		ParentMessageID: input.ParentMessageID,
+		Limit:           input.Limit + 1,
+		Before:          input.Before,
+		After:           input.After,
+	}
+
+	replies, listErr := s.repo.ListReplies(ctx, filter)
+	if listErr != nil {
+		return nil, listErr
+	}
+
+	hasMore := len(replies) > input.Limit
+	if hasMore {
+		replies = replies[:input.Limit]
+	}
+
+	parentWithSender, senderErr := s.getWithSender(ctx, parent)
+	if senderErr != nil {
+		return nil, senderErr
+	}
+
+	return &GetThreadRepliesResult{
+		Parent:  parentWithSender,
+		Replies: replies,
+		HasMore: hasMore,
+	}, nil
 }
 
 // getWithSender loads sender info for a message

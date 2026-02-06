@@ -25,12 +25,26 @@ type Repository interface {
 
 	// User info
 	GetUserInfo(ctx context.Context, userID uuid.UUID) (firstName, lastName string, err error)
+
+	// Thread operations
+	CreateWithReplyCount(ctx context.Context, message *models.Message) error // Atomic create + increment parent reply_count
+	ListReplies(ctx context.Context, filter ThreadListFilter) ([]*models.MessageWithSender, error)
+	DecrementReplyCount(ctx context.Context, messageID uuid.UUID) error
 }
 
 // ListFilter contains filtering options for listing messages
 type ListFilter struct {
-	ChannelID uuid.UUID
-	Limit     int
-	Before    *uuid.UUID // Get messages before this message ID (by created_at)
-	After     *uuid.UUID // Get messages after this message ID (by created_at)
+	ChannelID      uuid.UUID
+	Limit          int
+	Before         *uuid.UUID // Get messages before this message ID (by created_at)
+	After          *uuid.UUID // Get messages after this message ID (by created_at)
+	ExcludeReplies bool       // Exclude thread replies from main channel view
+}
+
+// ThreadListFilter contains filtering options for listing thread replies
+type ThreadListFilter struct {
+	ParentMessageID uuid.UUID
+	Limit           int
+	Before          *uuid.UUID
+	After           *uuid.UUID
 }

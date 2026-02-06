@@ -14,4 +14,8 @@ var (
 	ErrNotAuthorized       = errors.New("not authorized to perform this action")
 	ErrCannotChangeOwner   = errors.New("cannot change owner role")
 	ErrInvalidRole         = errors.New("invalid channel role")
+	ErrCannotDMSelf        = errors.New("cannot create DM with yourself")
+	ErrCannotJoinDM        = errors.New("cannot join a DM channel")
+	ErrCannotLeaveDM       = errors.New("cannot leave a DM channel")
+	ErrCannotDeleteDM      = errors.New("cannot delete a DM channel")
 )

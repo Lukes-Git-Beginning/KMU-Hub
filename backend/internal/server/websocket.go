@@ -48,22 +48,24 @@ const (
 	WSUnsubscribeChannel = "channel.unsubscribe"
 
 	// Server -> Client
-	WSMessageNew     = "message.new"
-	WSMessageUpdated = "message.updated"
-	WSMessageDeleted = "message.deleted"
+	WSMessageNew      = "message.new"
+	WSMessageUpdated  = "message.updated"
+	WSMessageDeleted  = "message.deleted"
+	WSThreadReplyNew  = "thread.reply.new"
 	WSTypingIndicator = "typing"
-	WSError          = "error"
+	WSError           = "error"
 )
 
 // WSMessage represents a WebSocket message
 type WSMessage struct {
-	Type      string          `json:"type"`
-	ChannelID string          `json:"channel_id,omitempty"`
-	Content   string          `json:"content,omitempty"`
-	MessageID string          `json:"message_id,omitempty"`
-	UserID    string          `json:"user_id,omitempty"`
-	Message   json.RawMessage `json:"message,omitempty"`
-	Error     string          `json:"error,omitempty"`
+	Type            string          `json:"type"`
+	ChannelID       string          `json:"channel_id,omitempty"`
+	Content         string          `json:"content,omitempty"`
+	MessageID       string          `json:"message_id,omitempty"`
+	ParentMessageID string          `json:"parent_message_id,omitempty"`
+	UserID          string          `json:"user_id,omitempty"`
+	Message         json.RawMessage `json:"message,omitempty"`
+	Error           string          `json:"error,omitempty"`
 }
 
 // HandleWebSocket handles WebSocket connections
@@ -176,23 +178,36 @@ func (h *WebSocketHub) handleSendMessage(ctx context.Context, conn *websocket.Co
 		return
 	}
 
-	// Send message via gRPC
-	resp, err := h.chatClient.SendMessage(ctx, &chatv1.SendMessageRequest{
+	grpcReq := &chatv1.SendMessageRequest{
 		ChannelId: msg.ChannelID,
 		Content:   msg.Content,
 		CreatedBy: userID,
-	})
+	}
+
+	if msg.ParentMessageID != "" {
+		grpcReq.ParentMessageId = &msg.ParentMessageID
+	}
+
+	// Send message via gRPC
+	resp, err := h.chatClient.SendMessage(ctx, grpcReq)
 	if err != nil {
 		slog.Error("failed to send message", "error", err)
 		h.sendError(ctx, conn, "failed to send message")
 		return
 	}
 
+	// Determine broadcast type: thread reply or regular message
+	msgType := WSMessageNew
+	if msg.ParentMessageID != "" {
+		msgType = WSThreadReplyNew
+	}
+
 	// Broadcast to channel subscribers
 	h.broadcastToChannel(ctx, msg.ChannelID, WSMessage{
-		Type:      WSMessageNew,
-		ChannelID: msg.ChannelID,
-		Message:   mustMarshal(resp.Message),
+		Type:            msgType,
+		ChannelID:       msg.ChannelID,
+		ParentMessageID: msg.ParentMessageID,
+		Message:         mustMarshal(resp.Message),
 	})
 }
 

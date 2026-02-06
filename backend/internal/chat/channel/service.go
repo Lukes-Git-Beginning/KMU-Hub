@@ -221,6 +221,11 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 		return err
 	}
 
+	// DM channels cannot be deleted
+	if channel.IsDM {
+		return ErrCannotDeleteDM
+	}
+
 	// Check authorization (must be owner)
 	membership, membershipErr := s.repo.GetMembership(ctx, id, userID)
 	if membershipErr != nil {
@@ -283,6 +288,10 @@ func (s *Service) Join(ctx context.Context, channelID, userID uuid.UUID) (*model
 		return nil, err
 	}
 
+	if channel.IsDM {
+		return nil, ErrCannotJoinDM
+	}
+
 	if channel.IsArchived {
 		return nil, ErrChannelArchived
 	}
@@ -315,9 +324,13 @@ func (s *Service) Join(ctx context.Context, channelID, userID uuid.UUID) (*model
 
 // Leave removes a user from a channel
 func (s *Service) Leave(ctx context.Context, channelID, userID uuid.UUID) error {
-	_, err := s.repo.GetByID(ctx, channelID)
+	channel, err := s.repo.GetByID(ctx, channelID)
 	if err != nil {
 		return err
+	}
+
+	if channel.IsDM {
+		return ErrCannotLeaveDM
 	}
 
 	membership, membershipErr := s.repo.GetMembership(ctx, channelID, userID)
@@ -506,4 +519,107 @@ func (s *Service) getMemberWithInfo(ctx context.Context, membership *models.Chan
 		LastName:          lastName,
 		Email:             email,
 	}, nil
+}
+
+// GetOrCreateDMInput contains the data needed to get or create a DM
+type GetOrCreateDMInput struct {
+	UserID      uuid.UUID
+	OtherUserID uuid.UUID
+}
+
+// GetOrCreateDMResult contains the result of GetOrCreateDM
+type GetOrCreateDMResult struct {
+	Channel *models.ChannelWithRelations
+	Created bool
+}
+
+// GetOrCreateDM finds an existing DM between two users or creates a new one
+func (s *Service) GetOrCreateDM(ctx context.Context, input GetOrCreateDMInput) (*GetOrCreateDMResult, error) {
+	// Cannot DM yourself
+	if input.UserID == input.OtherUserID {
+		return nil, ErrCannotDMSelf
+	}
+
+	// Validate other user exists
+	exists, err := s.repo.UserExists(ctx, input.OtherUserID)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrUserNotFound
+	}
+
+	// Sort user IDs canonically (user1 < user2 for DB constraint)
+	user1, user2 := input.UserID, input.OtherUserID
+	if user1.String() > user2.String() {
+		user1, user2 = user2, user1
+	}
+
+	// Try to find existing DM
+	existing, findErr := s.repo.FindDMChannel(ctx, user1, user2)
+	if findErr == nil && existing != nil {
+		withRel, relErr := s.getWithRelations(ctx, existing, input.UserID)
+		if relErr != nil {
+			return nil, relErr
+		}
+		return &GetOrCreateDMResult{Channel: withRel, Created: false}, nil
+	}
+	if findErr != nil && findErr != ErrChannelNotFound {
+		return nil, findErr
+	}
+
+	// Create new DM channel
+	now := time.Now()
+	channel := &models.Channel{
+		ID:         uuid.New(),
+		Name:       "DM",
+		IsPrivate:  true,
+		IsDM:       true,
+		IsArchived: false,
+		CreatedBy:  input.UserID,
+		DMUser1:    &user1,
+		DMUser2:    &user2,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+
+	mem1 := &models.ChannelMembership{
+		ChannelID: channel.ID,
+		UserID:    user1,
+		Role:      models.ChannelRoleMember,
+		JoinedAt:  now,
+	}
+	mem2 := &models.ChannelMembership{
+		ChannelID: channel.ID,
+		UserID:    user2,
+		Role:      models.ChannelRoleMember,
+		JoinedAt:  now,
+	}
+
+	if createErr := s.repo.CreateDMChannel(ctx, channel, mem1, mem2); createErr != nil {
+		return nil, createErr
+	}
+
+	slog.Info("dm channel created",
+		"channel_id", channel.ID,
+		"user1", user1,
+		"user2", user2,
+	)
+
+	withRel, relErr := s.getWithRelations(ctx, channel, input.UserID)
+	if relErr != nil {
+		return nil, relErr
+	}
+	return &GetOrCreateDMResult{Channel: withRel, Created: true}, nil
+}
+
+// ListDMs lists DM channels for a user
+func (s *Service) ListDMs(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]*models.ChannelWithRelations, int, error) {
+	isDM := true
+	return s.List(ctx, ListInput{
+		UserID:   userID,
+		IsDM:     &isDM,
+		Page:     page,
+		PageSize: pageSize,
+	})
 }

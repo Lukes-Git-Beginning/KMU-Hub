@@ -306,6 +306,14 @@ func (s *ChatGRPCServer) SendMessage(ctx context.Context, req *chatv1.SendMessag
 		CreatedBy: createdBy,
 	}
 
+	if req.ParentMessageId != nil && *req.ParentMessageId != "" {
+		parentID, parseErr := uuid.Parse(*req.ParentMessageId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid parent_message_id")
+		}
+		input.ParentMessageID = &parentID
+	}
+
 	msg, err := s.messageService.Create(ctx, input)
 	if err != nil {
 		return nil, mapChatError(err)
@@ -409,6 +417,111 @@ func (s *ChatGRPCServer) DeleteMessage(ctx context.Context, req *chatv1.DeleteMe
 }
 
 // ============================================================================
+// Direct Messages (Sprint 2)
+// ============================================================================
+
+func (s *ChatGRPCServer) GetOrCreateDM(ctx context.Context, req *chatv1.GetOrCreateDMRequest) (*chatv1.GetOrCreateDMResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	otherUserID, err := uuid.Parse(req.OtherUserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid other_user_id")
+	}
+
+	result, err := s.channelService.GetOrCreateDM(ctx, channel.GetOrCreateDMInput{
+		UserID:      userID,
+		OtherUserID: otherUserID,
+	})
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	return &chatv1.GetOrCreateDMResponse{
+		Channel: toChannelInfo(result.Channel),
+		Created: result.Created,
+	}, nil
+}
+
+func (s *ChatGRPCServer) ListDMs(ctx context.Context, req *chatv1.ListDMsRequest) (*chatv1.ListDMsResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	channels, total, err := s.channelService.ListDMs(ctx, userID, int(req.Page), int(req.PageSize))
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	var infos []*chatv1.ChannelInfo
+	for _, ch := range channels {
+		infos = append(infos, toChannelInfo(ch))
+	}
+
+	return &chatv1.ListDMsResponse{
+		Channels: infos,
+		Total:    int32(total),
+	}, nil
+}
+
+// ============================================================================
+// Threads (Sprint 2)
+// ============================================================================
+
+func (s *ChatGRPCServer) GetThreadReplies(ctx context.Context, req *chatv1.GetThreadRepliesRequest) (*chatv1.GetThreadRepliesResponse, error) {
+	parentMessageID, err := uuid.Parse(req.ParentMessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid parent_message_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	input := message.GetThreadRepliesInput{
+		ParentMessageID: parentMessageID,
+		UserID:          userID,
+		Limit:           int(req.Limit),
+	}
+
+	if req.Before != nil && *req.Before != "" {
+		beforeID, parseErr := uuid.Parse(*req.Before)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid before message id")
+		}
+		input.Before = &beforeID
+	}
+
+	if req.After != nil && *req.After != "" {
+		afterID, parseErr := uuid.Parse(*req.After)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid after message id")
+		}
+		input.After = &afterID
+	}
+
+	result, err := s.messageService.GetThreadReplies(ctx, input)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	var replyInfos []*chatv1.MessageInfo
+	for _, reply := range result.Replies {
+		replyInfos = append(replyInfos, toMessageInfo(reply))
+	}
+
+	return &chatv1.GetThreadRepliesResponse{
+		Parent:  toMessageInfo(result.Parent),
+		Replies: replyInfos,
+		HasMore: result.HasMore,
+	}, nil
+}
+
+// ============================================================================
 // Converters
 // ============================================================================
 
@@ -469,11 +582,17 @@ func toMessageInfo(m *models.MessageWithSender) *chatv1.MessageInfo {
 		CreatedAt:       m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		SenderFirstName: m.SenderFirstName,
 		SenderLastName:  m.SenderLastName,
+		ReplyCount:      int32(m.ReplyCount),
 	}
 
 	if m.EditedAt != nil {
 		editedAt := m.EditedAt.Format("2006-01-02T15:04:05Z07:00")
 		info.EditedAt = &editedAt
+	}
+
+	if m.ParentMessageID != nil {
+		parentID := m.ParentMessageID.String()
+		info.ParentMessageId = &parentID
 	}
 
 	return info
@@ -481,17 +600,23 @@ func toMessageInfo(m *models.MessageWithSender) *chatv1.MessageInfo {
 
 func toMessageInfoFromBase(m *models.Message) *chatv1.MessageInfo {
 	info := &chatv1.MessageInfo{
-		Id:        m.ID.String(),
-		ChannelId: m.ChannelID.String(),
-		Content:   m.Content,
-		IsDeleted: m.IsDeleted,
-		CreatedBy: m.CreatedBy.String(),
-		CreatedAt: m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Id:         m.ID.String(),
+		ChannelId:  m.ChannelID.String(),
+		Content:    m.Content,
+		IsDeleted:  m.IsDeleted,
+		CreatedBy:  m.CreatedBy.String(),
+		CreatedAt:  m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ReplyCount: int32(m.ReplyCount),
 	}
 
 	if m.EditedAt != nil {
 		editedAt := m.EditedAt.Format("2006-01-02T15:04:05Z07:00")
 		info.EditedAt = &editedAt
+	}
+
+	if m.ParentMessageID != nil {
+		parentID := m.ParentMessageID.String()
+		info.ParentMessageId = &parentID
 	}
 
 	return info
@@ -526,6 +651,14 @@ func mapChatError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, channel.ErrInvalidRole):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, channel.ErrCannotDMSelf):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, channel.ErrCannotJoinDM):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, channel.ErrCannotLeaveDM):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, channel.ErrCannotDeleteDM):
+		return status.Error(codes.FailedPrecondition, err.Error())
 
 	// Message errors
 	case errors.Is(err, message.ErrMessageNotFound):
@@ -543,6 +676,12 @@ func mapChatError(err error) error {
 	case errors.Is(err, message.ErrNotAuthorized):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, message.ErrMessageDeleted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, message.ErrParentNotInChannel):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, message.ErrNestedThreads):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, message.ErrParentDeleted):
 		return status.Error(codes.FailedPrecondition, err.Error())
 
 	default:

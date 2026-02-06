@@ -8,13 +8,15 @@ import (
 
 // Message represents a chat message
 type Message struct {
-	ID        uuid.UUID  `json:"id"`
-	ChannelID uuid.UUID  `json:"channel_id"`
-	Content   string     `json:"content"`
-	IsDeleted bool       `json:"is_deleted"`
-	EditedAt  *time.Time `json:"edited_at,omitempty"`
-	CreatedBy uuid.UUID  `json:"created_by"`
-	CreatedAt time.Time  `json:"created_at"`
+	ID              uuid.UUID  `json:"id"`
+	ChannelID       uuid.UUID  `json:"channel_id"`
+	Content         string     `json:"content"`
+	IsDeleted       bool       `json:"is_deleted"`
+	EditedAt        *time.Time `json:"edited_at,omitempty"`
+	ParentMessageID *uuid.UUID `json:"parent_message_id,omitempty"`
+	ReplyCount      int        `json:"reply_count"`
+	CreatedBy       uuid.UUID  `json:"created_by"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 // MessageWithSender includes sender details for API responses

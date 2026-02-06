@@ -2285,6 +2285,10 @@ paths:
               properties:
                 content:
                   type: string
+                parent_message_id:
+                  type: string
+                  format: uuid
+                  description: Optional parent message ID for thread replies
       responses:
         "201":
           description: Message sent
@@ -2346,6 +2350,108 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/v1/messages/{id}/thread:
+    get:
+      summary: Get thread replies for a message
+      tags: [chat-messages]
+      operationId: getThreadReplies
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Cursor - get replies before this message ID
+        - name: after
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Cursor - get replies after this message ID
+      responses:
+        "200":
+          description: Thread replies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ThreadRepliesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/channels/dm:
+    post:
+      summary: Get or create a direct message channel with another user
+      tags: [chat-channels]
+      operationId: getOrCreateDM
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [other_user_id]
+              properties:
+                other_user_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Existing DM channel found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetOrCreateDMResponse"
+        "201":
+          description: New DM channel created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetOrCreateDMResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      summary: List direct message channels for the current user
+      tags: [chat-channels]
+      operationId: listDMs
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: List of DM channels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListChannelsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
 components:
   securitySchemes:
@@ -3554,6 +3660,13 @@ components:
           type: string
         sender_last_name:
           type: string
+        parent_message_id:
+          type: string
+          format: uuid
+          description: ID of parent message (for thread replies)
+        reply_count:
+          type: integer
+          description: Number of thread replies
 
     MemberInfo:
       type: object
@@ -3644,6 +3757,27 @@ components:
       type: object
       properties:
         messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageInfo"
+        has_more:
+          type: boolean
+
+    GetOrCreateDMResponse:
+      type: object
+      properties:
+        channel:
+          $ref: "#/components/schemas/ChannelInfo"
+        created:
+          type: boolean
+          description: true if a new DM was created, false if existing
+
+    ThreadRepliesResponse:
+      type: object
+      properties:
+        parent:
+          $ref: "#/components/schemas/MessageInfo"
+        replies:
           type: array
           items:
             $ref: "#/components/schemas/MessageInfo"

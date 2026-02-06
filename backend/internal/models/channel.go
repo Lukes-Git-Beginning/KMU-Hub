@@ -39,15 +39,17 @@ func (cr ChannelRole) CanModerate() bool {
 
 // Channel represents a chat channel
 type Channel struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description,omitempty"`
-	IsPrivate   bool      `json:"is_private"`
-	IsDM        bool      `json:"is_dm"`
-	IsArchived  bool      `json:"is_archived"`
-	CreatedBy   uuid.UUID `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Description *string    `json:"description,omitempty"`
+	IsPrivate   bool       `json:"is_private"`
+	IsDM        bool       `json:"is_dm"`
+	IsArchived  bool       `json:"is_archived"`
+	CreatedBy   uuid.UUID  `json:"created_by"`
+	DMUser1     *uuid.UUID `json:"dm_user1,omitempty"`
+	DMUser2     *uuid.UUID `json:"dm_user2,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // ChannelWithRelations includes membership and denormalized data for API responses

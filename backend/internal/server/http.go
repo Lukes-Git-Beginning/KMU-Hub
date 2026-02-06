@@ -183,6 +183,10 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// Chat: Channels routes
 	r.Route("/api/v1/channels", func(r chi.Router) {
 		r.Use(authMiddleware)
+		// DM routes (before /{id} to avoid conflict)
+		r.With(middleware.RequirePermission("channels", "write")).Post("/dm", h.HandleGetOrCreateDM)
+		r.With(middleware.RequirePermission("channels", "read")).Get("/dm", h.HandleListDMs)
+		// Channel CRUD
 		r.With(middleware.RequirePermission("channels", "read")).Get("/", h.HandleListChannels)
 		r.With(middleware.RequirePermission("channels", "write")).Post("/", h.HandleCreateChannel)
 		r.With(middleware.RequirePermission("channels", "read")).Get("/{id}", h.HandleGetChannel)
@@ -202,6 +206,7 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// Chat: Message routes (for individual message operations)
 	r.Route("/api/v1/messages", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/thread", h.HandleGetThreadReplies)
 		r.With(middleware.RequirePermission("messages", "write")).Put("/{id}", h.HandleUpdateMessage)
 		r.With(middleware.RequirePermission("messages", "delete")).Delete("/{id}", h.HandleDeleteMessage)
 	})
@@ -2751,7 +2756,8 @@ func (h *GatewayHandler) HandleUpdateMemberRole(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 type sendMessageRequest struct {
-	Content string `json:"content"`
+	Content         string  `json:"content"`
+	ParentMessageID *string `json:"parent_message_id,omitempty"`
 }
 
 func (h *GatewayHandler) HandleSendMessage(w http.ResponseWriter, r *http.Request) {
@@ -2778,11 +2784,21 @@ func (h *GatewayHandler) HandleSendMessage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	resp, err := h.chatClient.SendMessage(r.Context(), &chatv1.SendMessageRequest{
+	grpcReq := &chatv1.SendMessageRequest{
 		ChannelId: channelID,
 		Content:   req.Content,
 		CreatedBy: userID,
-	})
+	}
+
+	if req.ParentMessageID != nil && *req.ParentMessageID != "" {
+		if _, parseErr := uuid.Parse(*req.ParentMessageID); parseErr != nil {
+			response.Error(w, http.StatusBadRequest, "invalid parent_message_id")
+			return
+		}
+		grpcReq.ParentMessageId = req.ParentMessageID
+	}
+
+	resp, err := h.chatClient.SendMessage(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -2897,4 +2913,132 @@ func (h *GatewayHandler) HandleDeleteMessage(w http.ResponseWriter, r *http.Requ
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "message deleted"})
+}
+
+// ============================================================================
+// Chat: DM Handlers (Sprint 2)
+// ============================================================================
+
+type getOrCreateDMRequest struct {
+	OtherUserID string `json:"other_user_id"`
+}
+
+func (h *GatewayHandler) HandleGetOrCreateDM(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req getOrCreateDMRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.OtherUserID == "" {
+		response.Error(w, http.StatusBadRequest, "other_user_id is required")
+		return
+	}
+
+	if _, err := uuid.Parse(req.OtherUserID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid other_user_id")
+		return
+	}
+
+	resp, err := h.chatClient.GetOrCreateDM(r.Context(), &chatv1.GetOrCreateDMRequest{
+		UserId:      userID,
+		OtherUserId: req.OtherUserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	statusCode := http.StatusOK
+	if resp.Created {
+		statusCode = http.StatusCreated
+	}
+
+	response.JSON(w, statusCode, resp)
+}
+
+func (h *GatewayHandler) HandleListDMs(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	pageSize := 20
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
+			pageSize = parsed
+		}
+	}
+
+	resp, err := h.chatClient.ListDMs(r.Context(), &chatv1.ListDMsRequest{
+		UserId:   userID,
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Chat: Thread Handlers (Sprint 2)
+// ============================================================================
+
+func (h *GatewayHandler) HandleGetThreadReplies(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	messageID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(messageID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid message id")
+		return
+	}
+
+	limit := 50
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	grpcReq := &chatv1.GetThreadRepliesRequest{
+		ParentMessageId: messageID,
+		UserId:          userID,
+		Limit:           int32(limit),
+	}
+
+	if before := r.URL.Query().Get("before"); before != "" {
+		grpcReq.Before = &before
+	}
+	if after := r.URL.Query().Get("after"); after != "" {
+		grpcReq.After = &after
+	}
+
+	resp, err := h.chatClient.GetThreadReplies(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }

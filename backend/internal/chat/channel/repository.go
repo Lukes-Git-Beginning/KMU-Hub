@@ -31,6 +31,10 @@ type Repository interface {
 
 	// Last message for channel list
 	GetLastMessage(ctx context.Context, channelID uuid.UUID) (*models.MessageWithSender, error)
+
+	// DM operations
+	FindDMChannel(ctx context.Context, user1, user2 uuid.UUID) (*models.Channel, error)
+	CreateDMChannel(ctx context.Context, channel *models.Channel, mem1, mem2 *models.ChannelMembership) error
 }
 
 // ListFilter contains filtering options for listing channels
