@@ -90,6 +90,31 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  chat:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.chat
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      CHAT_GRPC_PORT: ":50053"
+      CHAT_HEALTH_PORT: ":9093"
+    ports:
+      - "50053:50053"
+      - "9093:9093"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9093/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
   gateway:
     build:
       context: ../../backend
@@ -98,6 +123,8 @@ services:
       auth:
         condition: service_healthy
       crm:
+        condition: service_healthy
+      chat:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -111,6 +138,8 @@ services:
       AUTH_GRPC_PORT: ":50051"
       CRM_GRPC_ADDRESS: crm:50052
       CRM_GRPC_PORT: ":50052"
+      CHAT_GRPC_ADDRESS: chat:50053
+      CHAT_GRPC_PORT: ":50053"
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"
       CORS_ALLOWED_ORIGINS: "http://localhost:3000;http://localhost:8080"

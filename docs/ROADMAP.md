@@ -43,15 +43,40 @@
 
 **Ziel:** Internes Kommunikations-Tool
 
-- [ ] WebSocket-basierter Chat Service
-- [ ] Channels (public, private)
-- [ ] Direct Messages
-- [ ] Threads
-- [ ] File Sharing (Uploads, Previews)
-- [ ] Mentions (@user, @channel)
-- [ ] Notifications (In-App, Push)
-- [ ] Read Receipts + Typing Indicators
-- [ ] Chat-Suche
+### Sprint 1: Foundation + Channels + Messages (in progress)
+
+- [x] Chat Microservice Grundstruktur (cmd/chat, internal/chat)
+- [x] Proto Definition (chat.proto mit 14 RPCs)
+- [x] Migrations 000014-000015 (channels, channel_memberships, messages)
+- [x] Channel Service (CRUD, Join, Leave, Archive, Memberships)
+- [x] Message Service (CRUD, Soft-Delete)
+- [x] gRPC Server (chat_grpc.go)
+- [x] Docker-Compose + Dockerfile.chat
+- [x] Unit Tests (100% Service Layer Coverage)
+- [ ] Gateway HTTP Routes fuer Chat Endpoints
+- [ ] WebSocket Handler
+
+### Sprint 2: Direct Messages + Threads
+
+- [ ] DM Support (private Channels mit 2 Members)
+- [ ] Thread Replies (parent_message_id)
+- [ ] GetOrCreateDM, ListDMs, GetThreadReplies
+
+### Sprint 3: Mentions + Read Receipts + Typing
+
+- [ ] @Mentions (user, channel, everyone)
+- [ ] Read Receipts (last_read_at tracking)
+- [ ] Typing Indicators (ephemeral via WebSocket)
+
+### Sprint 4: File Sharing + Search
+
+- [ ] File Uploads (chat_files table)
+- [ ] Full-Text Search (TSVECTOR auf messages)
+
+### Sprint 5: Notifications
+
+- [ ] In-App Notifications
+- [ ] Notification Preferences
 
 ## Phase 4: Desktop App (Monat 5-7)
 

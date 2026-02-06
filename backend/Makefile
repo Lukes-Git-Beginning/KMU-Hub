@@ -55,6 +55,9 @@ proto:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
 		proto/crm/v1/crm.proto
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/chat/v1/chat.proto
 
 # Docker operations
 docker-build:

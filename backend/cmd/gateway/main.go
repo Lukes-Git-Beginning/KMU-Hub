@@ -21,6 +21,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
+	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
 
@@ -69,6 +70,19 @@ func main() {
 
 	crmClient := crmv1.NewCRMServiceClient(crmConn)
 
+	// gRPC connection to Chat service
+	chatConn, err := grpc.NewClient(
+		cfg.ChatGRPCAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		slog.Error("failed to connect to chat service", "error", err)
+		os.Exit(1)
+	}
+	defer func() { _ = chatConn.Close() }()
+
+	chatClient := chatv1.NewChatServiceClient(chatConn)
+
 	// Token maker for local token validation in middleware
 	tokenMaker := auth.NewTokenMaker(cfg.JWTSecret, cfg.AccessTokenExpiry, cfg.RefreshTokenExpiry)
 	// Minimal auth service for token validation only (no DB needed)
@@ -93,8 +107,12 @@ func main() {
 	r.Use(rateLimiter.Middleware)
 
 	// Register routes
-	handler := server.NewGatewayHandler(authClient, crmClient, healthCheckers)
+	handler := server.NewGatewayHandler(authClient, crmClient, chatClient, healthCheckers)
 	handler.RegisterRoutes(r, middleware.Auth(localAuthService))
+
+	// WebSocket hub for real-time chat
+	wsHub := server.NewWebSocketHub(chatClient, tokenMaker)
+	r.Get("/api/v1/ws", wsHub.HandleWebSocket)
 
 	// HTTP server
 	srv := &http.Server{

@@ -19,15 +19,18 @@ type Config struct {
 	AuthGRPCAddress string `env:"AUTH_GRPC_ADDRESS,default=localhost:50051"`
 	CRMGRPCPort     string `env:"CRM_GRPC_PORT,default=:50052"`
 	CRMGRPCAddress  string `env:"CRM_GRPC_ADDRESS,default=localhost:50052"`
+	ChatGRPCPort    string `env:"CHAT_GRPC_PORT,default=:50053"`
+	ChatGRPCAddress string `env:"CHAT_GRPC_ADDRESS,default=localhost:50053"`
 	GatewayHTTPPort string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000"`
 
 	RateLimitRPS int `env:"RATE_LIMIT_RPS,default=100"`
 
-	MetricsPort   string `env:"METRICS_PORT,default=:9090"`
-	HealthPort    string `env:"HEALTH_PORT,default=:9091"`
-	CRMHealthPort string `env:"CRM_HEALTH_PORT,default=:9092"`
+	MetricsPort    string `env:"METRICS_PORT,default=:9090"`
+	HealthPort     string `env:"HEALTH_PORT,default=:9091"`
+	CRMHealthPort  string `env:"CRM_HEALTH_PORT,default=:9092"`
+	ChatHealthPort string `env:"CHAT_HEALTH_PORT,default=:9093"`
 }
 
 func Load(ctx context.Context) (*Config, error) {

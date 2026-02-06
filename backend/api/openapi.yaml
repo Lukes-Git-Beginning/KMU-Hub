@@ -35,6 +35,10 @@ tags:
     description: Saved filter configurations
   - name: reports
     description: CRM reporting and analytics
+  - name: chat-channels
+    description: Chat channel management
+  - name: chat-messages
+    description: Chat message management
 
 paths:
   /health:
@@ -1980,6 +1984,369 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ==========================================================================
+  # Chat: Channels
+  # ==========================================================================
+
+  /api/v1/channels:
+    post:
+      summary: Create a new channel
+      tags: [chat-channels]
+      operationId: createChannel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelRequest"
+      responses:
+        "201":
+          description: Channel created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: List channels the current user is a member of
+      tags: [chat-channels]
+      operationId: listChannels
+      parameters:
+        - name: include_archived
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of channels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListChannelsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/channels/{id}:
+    get:
+      summary: Get a channel by ID
+      tags: [chat-channels]
+      operationId: getChannel
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Channel details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update a channel (owner/admin only)
+      tags: [chat-channels]
+      operationId: updateChannel
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelRequest"
+      responses:
+        "200":
+          description: Channel updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a channel (owner only)
+      tags: [chat-channels]
+      operationId: deleteChannel
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Channel deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/channels/{id}/archive:
+    post:
+      summary: Archive a channel (owner/admin only)
+      tags: [chat-channels]
+      operationId: archiveChannel
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Channel archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/channels/{id}/join:
+    post:
+      summary: Join a public channel
+      tags: [chat-channels]
+      operationId: joinChannel
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Joined channel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/channels/{id}/leave:
+    post:
+      summary: Leave a channel (not owner)
+      tags: [chat-channels]
+      operationId: leaveChannel
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Left channel
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/channels/{id}/members:
+    get:
+      summary: List channel members
+      tags: [chat-channels]
+      operationId: getChannelMembers
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListMembersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/channels/{id}/members/{userId}/role:
+    put:
+      summary: Update a member's role (owner only)
+      tags: [chat-channels]
+      operationId: updateMemberRole
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [admin, member]
+      responses:
+        "200":
+          description: Member role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ==========================================================================
+  # Chat: Messages
+  # ==========================================================================
+
+  /api/v1/channels/{id}/messages:
+    get:
+      summary: Get messages in a channel (cursor-based pagination)
+      tags: [chat-messages]
+      operationId: getMessages
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: before
+          in: query
+          description: Get messages before this message ID
+          schema:
+            type: string
+            format: uuid
+        - name: after
+          in: query
+          description: Get messages after this message ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListMessagesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      summary: Send a message to a channel
+      tags: [chat-messages]
+      operationId: sendMessage
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/messages/{id}:
+    put:
+      summary: Update a message (author only)
+      tags: [chat-messages]
+      operationId: updateMessage
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+      responses:
+        "200":
+          description: Message updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a message (author or channel admin/owner)
+      tags: [chat-messages]
+      operationId: deleteMessage
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Message deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3123,6 +3490,165 @@ components:
           type: number
           format: double
           description: Percentage of completed activities
+
+    # ========================================================================
+    # Chat Schemas
+    # ========================================================================
+
+    ChannelInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        is_private:
+          type: boolean
+        is_dm:
+          type: boolean
+        is_archived:
+          type: boolean
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        member_count:
+          type: integer
+        my_role:
+          type: string
+          enum: [owner, admin, member]
+        last_message:
+          $ref: "#/components/schemas/MessageInfo"
+
+    MessageInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        is_deleted:
+          type: boolean
+        edited_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        sender_first_name:
+          type: string
+        sender_last_name:
+          type: string
+
+    MemberInfo:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, admin, member]
+        joined_at:
+          type: string
+          format: date-time
+        last_read_at:
+          type: string
+          format: date-time
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+
+    CreateChannelRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        is_private:
+          type: boolean
+          default: false
+        initial_member_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UpdateChannelRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    ChannelResponse:
+      type: object
+      properties:
+        channel:
+          $ref: "#/components/schemas/ChannelInfo"
+
+    ListChannelsResponse:
+      type: object
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChannelInfo"
+        total:
+          type: integer
+
+    MemberResponse:
+      type: object
+      properties:
+        member:
+          $ref: "#/components/schemas/MemberInfo"
+
+    ListMembersResponse:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberInfo"
+        total:
+          type: integer
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/MessageInfo"
+
+    ListMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageInfo"
+        has_more:
+          type: boolean
 
   responses:
     BadRequest:

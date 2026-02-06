@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+package chat.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/chat/v1;chatv1";
+
+service ChatService {
+  // Channels (Sprint 1)
+  rpc CreateChannel(CreateChannelRequest) returns (CreateChannelResponse);
+  rpc GetChannel(GetChannelRequest) returns (GetChannelResponse);
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);
+  rpc UpdateChannel(UpdateChannelRequest) returns (UpdateChannelResponse);
+  rpc DeleteChannel(DeleteChannelRequest) returns (DeleteChannelResponse);
+  rpc ArchiveChannel(ArchiveChannelRequest) returns (ArchiveChannelResponse);
+
+  // Channel Memberships (Sprint 1)
+  rpc JoinChannel(JoinChannelRequest) returns (JoinChannelResponse);
+  rpc LeaveChannel(LeaveChannelRequest) returns (LeaveChannelResponse);
+  rpc GetChannelMembers(GetChannelMembersRequest) returns (GetChannelMembersResponse);
+  rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse);
+
+  // Messages (Sprint 1)
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
+  rpc UpdateMessage(UpdateMessageRequest) returns (UpdateMessageResponse);
+  rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
+}
+
+// ============================================================================
+// Channel Messages
+// ============================================================================
+
+message ChannelInfo {
+  string id = 1;
+  string name = 2;
+  optional string description = 3;
+  bool is_private = 4;
+  bool is_dm = 5;
+  bool is_archived = 6;
+  string created_by = 7;
+  string created_at = 8;
+  string updated_at = 9;
+  // Denormalized fields for API responses
+  int32 member_count = 10;
+  optional string my_role = 11;  // Current user's role in the channel
+  optional MessageInfo last_message = 12;
+}
+
+message CreateChannelRequest {
+  string name = 1;
+  optional string description = 2;
+  bool is_private = 3;
+  string created_by = 4;
+  repeated string initial_member_ids = 5;  // Optional initial members to add
+}
+
+message CreateChannelResponse {
+  ChannelInfo channel = 1;
+}
+
+message GetChannelRequest {
+  string id = 1;
+  string user_id = 2;  // For calculating my_role
+}
+
+message GetChannelResponse {
+  ChannelInfo channel = 1;
+}
+
+message ListChannelsRequest {
+  string user_id = 1;  // List channels this user is a member of
+  bool include_archived = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListChannelsResponse {
+  repeated ChannelInfo channels = 1;
+  int32 total = 2;
+}
+
+message UpdateChannelRequest {
+  string id = 1;
+  string user_id = 2;  // For permission check
+  optional string name = 3;
+  optional string description = 4;
+}
+
+message UpdateChannelResponse {
+  ChannelInfo channel = 1;
+}
+
+message DeleteChannelRequest {
+  string id = 1;
+  string user_id = 2;  // Must be owner
+}
+
+message DeleteChannelResponse {}
+
+message ArchiveChannelRequest {
+  string id = 1;
+  string user_id = 2;  // Must be owner or admin
+}
+
+message ArchiveChannelResponse {
+  ChannelInfo channel = 1;
+}
+
+// ============================================================================
+// Channel Membership Messages
+// ============================================================================
+
+message MemberInfo {
+  string user_id = 1;
+  string role = 2;  // owner, admin, member
+  string joined_at = 3;
+  optional string last_read_at = 4;
+  // Denormalized user info
+  string first_name = 5;
+  string last_name = 6;
+  string email = 7;
+}
+
+message JoinChannelRequest {
+  string channel_id = 1;
+  string user_id = 2;
+}
+
+message JoinChannelResponse {
+  MemberInfo member = 1;
+}
+
+message LeaveChannelRequest {
+  string channel_id = 1;
+  string user_id = 2;
+}
+
+message LeaveChannelResponse {}
+
+message GetChannelMembersRequest {
+  string channel_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetChannelMembersResponse {
+  repeated MemberInfo members = 1;
+  int32 total = 2;
+}
+
+message UpdateMemberRoleRequest {
+  string channel_id = 1;
+  string target_user_id = 2;  // User whose role is being changed
+  string requester_user_id = 3;  // User making the request (must be owner/admin)
+  string new_role = 4;  // admin or member (cannot change to owner)
+}
+
+message UpdateMemberRoleResponse {
+  MemberInfo member = 1;
+}
+
+// ============================================================================
+// Message Messages
+// ============================================================================
+
+message MessageInfo {
+  string id = 1;
+  string channel_id = 2;
+  string content = 3;
+  bool is_deleted = 4;
+  optional string edited_at = 5;
+  string created_by = 6;
+  string created_at = 7;
+  // Denormalized sender info
+  string sender_first_name = 8;
+  string sender_last_name = 9;
+}
+
+message SendMessageRequest {
+  string channel_id = 1;
+  string content = 2;
+  string created_by = 3;
+}
+
+message SendMessageResponse {
+  MessageInfo message = 1;
+}
+
+message GetMessagesRequest {
+  string channel_id = 1;
+  string user_id = 2;  // For membership check
+  int32 limit = 3;  // Default 50
+  optional string before = 4;  // Cursor: get messages before this message ID
+  optional string after = 5;   // Cursor: get messages after this message ID
+}
+
+message GetMessagesResponse {
+  repeated MessageInfo messages = 1;
+  bool has_more = 2;
+}
+
+message UpdateMessageRequest {
+  string id = 1;
+  string user_id = 2;  // Must be the message author
+  string content = 3;
+}
+
+message UpdateMessageResponse {
+  MessageInfo message = 1;
+}
+
+message DeleteMessageRequest {
+  string id = 1;
+  string user_id = 2;  // Must be author or channel admin/owner
+}
+
+message DeleteMessageResponse {}
