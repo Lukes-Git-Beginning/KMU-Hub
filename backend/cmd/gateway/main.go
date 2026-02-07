@@ -111,7 +111,13 @@ func main() {
 	handler.RegisterRoutes(r, middleware.Auth(localAuthService))
 
 	// WebSocket hub for real-time chat
-	wsHub := server.NewWebSocketHub(chatClient, tokenMaker)
+	wsHub := server.NewWebSocketHub(chatClient, tokenMaker, func(ctx context.Context, userID string) (string, string, error) {
+		resp, err := authClient.GetUser(ctx, &authv1.GetUserRequest{UserId: userID})
+		if err != nil {
+			return "", "", err
+		}
+		return resp.User.FirstName, resp.User.LastName, nil
+	})
 	r.Get("/api/v1/ws", wsHub.HandleWebSocket)
 
 	// HTTP server

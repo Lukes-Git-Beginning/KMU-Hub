@@ -58,6 +58,7 @@ type ChannelWithRelations struct {
 	MemberCount int          `json:"member_count"`
 	MyRole      *ChannelRole `json:"my_role,omitempty"`
 	LastMessage *Message     `json:"last_message,omitempty"`
+	UnreadCount int          `json:"unread_count"`
 }
 
 // ChannelMembership represents a user's membership in a channel

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -295,6 +296,61 @@ func (r *PostgresRepository) FindDMChannel(ctx context.Context, user1, user2 uui
 		`SELECT id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at
 		 FROM channels WHERE is_dm = TRUE AND dm_user1 = $1 AND dm_user2 = $2`, user1, user2,
 	))
+}
+
+// Read receipts (Sprint 3)
+
+func (r *PostgresRepository) UpdateLastRead(ctx context.Context, channelID, userID uuid.UUID, readAt time.Time) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE channel_memberships SET last_read_at = $1 WHERE channel_id = $2 AND user_id = $3`,
+		readAt, channelID, userID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetUnreadCount(ctx context.Context, channelID, userID uuid.UUID) (int, error) {
+	var count int
+	err := r.pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM messages m
+		JOIN channel_memberships cm ON cm.channel_id = m.channel_id AND cm.user_id = $2
+		WHERE m.channel_id = $1
+		  AND m.created_at > COALESCE(cm.last_read_at, cm.joined_at)
+		  AND m.parent_message_id IS NULL
+		  AND m.is_deleted = FALSE
+	`, channelID, userID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *PostgresRepository) GetUnreadCountsForUser(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT cm.channel_id, COUNT(m.id)
+		FROM channel_memberships cm
+		LEFT JOIN messages m ON m.channel_id = cm.channel_id
+		  AND m.created_at > COALESCE(cm.last_read_at, cm.joined_at)
+		  AND m.parent_message_id IS NULL
+		  AND m.is_deleted = FALSE
+		WHERE cm.user_id = $1
+		GROUP BY cm.channel_id
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]int)
+	for rows.Next() {
+		var channelID uuid.UUID
+		var count int
+		if scanErr := rows.Scan(&channelID, &count); scanErr != nil {
+			return nil, scanErr
+		}
+		result[channelID] = count
+	}
+	return result, rows.Err()
 }
 
 func (r *PostgresRepository) CreateDMChannel(ctx context.Context, channel *models.Channel, mem1, mem2 *models.ChannelMembership) error {

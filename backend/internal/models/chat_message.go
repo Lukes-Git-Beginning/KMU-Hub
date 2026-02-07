@@ -22,6 +22,7 @@ type Message struct {
 // MessageWithSender includes sender details for API responses
 type MessageWithSender struct {
 	Message
-	SenderFirstName string `json:"sender_first_name"`
-	SenderLastName  string `json:"sender_last_name"`
+	SenderFirstName string            `json:"sender_first_name"`
+	SenderLastName  string            `json:"sender_last_name"`
+	Mentions        []MentionWithUser `json:"mentions,omitempty"`
 }

@@ -3,6 +3,7 @@ package channel
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -201,6 +202,31 @@ func (m *MockRepository) CreateDMChannel(ctx context.Context, channel *models.Ch
 	m.memberships[membershipKey(mem1.ChannelID, mem1.UserID)] = mem1
 	m.memberships[membershipKey(mem2.ChannelID, mem2.UserID)] = mem2
 	return nil
+}
+
+func (m *MockRepository) UpdateLastRead(_ context.Context, channelID, userID uuid.UUID, readAt time.Time) error {
+	key := membershipKey(channelID, userID)
+	if mem, ok := m.memberships[key]; ok {
+		mem.LastReadAt = &readAt
+		return nil
+	}
+	return ErrNotChannelMember
+}
+
+func (m *MockRepository) GetUnreadCount(_ context.Context, channelID, userID uuid.UUID) (int, error) {
+	// For test simplicity, return 0 (no messages to count)
+	return 0, nil
+}
+
+func (m *MockRepository) GetUnreadCountsForUser(_ context.Context, userID uuid.UUID) (map[uuid.UUID]int, error) {
+	result := make(map[uuid.UUID]int)
+	for _, ch := range m.channels {
+		key := membershipKey(ch.ID, userID)
+		if _, ok := m.memberships[key]; ok {
+			result[ch.ID] = 0
+		}
+	}
+	return result, nil
 }
 
 // Helper to add a user to mock
@@ -1009,6 +1035,107 @@ func TestService_Delete_DM_Guard(t *testing.T) {
 
 		err = service.Delete(context.Background(), dm.Channel.ID, userID)
 		assert.Equal(t, ErrCannotDeleteDM, err)
+	})
+}
+
+// ============================================================================
+// Read Receipt Tests (Sprint 3)
+// ============================================================================
+
+func TestService_MarkRead(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+
+		created, err := service.Create(context.Background(), CreateInput{Name: "General", CreatedBy: userID})
+		require.NoError(t, err)
+
+		now := time.Now()
+		err = service.MarkRead(context.Background(), created.ID, userID, now)
+
+		require.NoError(t, err)
+		// Verify the membership was updated
+		mem, _ := repo.GetMembership(context.Background(), created.ID, userID)
+		assert.NotNil(t, mem.LastReadAt)
+	})
+
+	t.Run("not a member", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		otherID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+		repo.AddUser(otherID, "Jane", "Doe", "jane@example.com")
+
+		created, err := service.Create(context.Background(), CreateInput{Name: "General", CreatedBy: userID})
+		require.NoError(t, err)
+
+		err = service.MarkRead(context.Background(), created.ID, otherID, time.Now())
+
+		assert.Equal(t, ErrNotChannelMember, err)
+	})
+
+	t.Run("archived channel error", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+
+		created, err := service.Create(context.Background(), CreateInput{Name: "Old", CreatedBy: userID})
+		require.NoError(t, err)
+		_, err = service.Archive(context.Background(), created.ID, userID)
+		require.NoError(t, err)
+
+		err = service.MarkRead(context.Background(), created.ID, userID, time.Now())
+
+		assert.Equal(t, ErrChannelArchived, err)
+	})
+}
+
+func TestService_GetUnreadCounts(t *testing.T) {
+	t.Run("returns counts map", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+
+		_, err := service.Create(context.Background(), CreateInput{Name: "Channel 1", CreatedBy: userID})
+		require.NoError(t, err)
+		_, err = service.Create(context.Background(), CreateInput{Name: "Channel 2", CreatedBy: userID})
+		require.NoError(t, err)
+
+		counts, err := service.GetUnreadCounts(context.Background(), userID)
+
+		require.NoError(t, err)
+		assert.Len(t, counts, 2)
+	})
+}
+
+func TestService_List_IncludesUnreadCount(t *testing.T) {
+	t.Run("unread populated in channel list", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		userID := uuid.New()
+		repo.AddUser(userID, "John", "Doe", "john@example.com")
+
+		_, err := service.Create(context.Background(), CreateInput{Name: "General", CreatedBy: userID})
+		require.NoError(t, err)
+
+		channels, _, err := service.List(context.Background(), ListInput{
+			UserID: userID,
+		})
+
+		require.NoError(t, err)
+		require.Len(t, channels, 1)
+		// UnreadCount should be populated (0 since mock returns 0)
+		assert.Equal(t, 0, channels[0].UnreadCount)
 	})
 }
 

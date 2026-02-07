@@ -186,6 +186,8 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		// DM routes (before /{id} to avoid conflict)
 		r.With(middleware.RequirePermission("channels", "write")).Post("/dm", h.HandleGetOrCreateDM)
 		r.With(middleware.RequirePermission("channels", "read")).Get("/dm", h.HandleListDMs)
+		// Unread counts (before /{id} to avoid conflict)
+		r.With(middleware.RequirePermission("channels", "read")).Get("/unread", h.HandleGetUnreadCounts)
 		// Channel CRUD
 		r.With(middleware.RequirePermission("channels", "read")).Get("/", h.HandleListChannels)
 		r.With(middleware.RequirePermission("channels", "write")).Post("/", h.HandleCreateChannel)
@@ -193,6 +195,8 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("channels", "write")).Put("/{id}", h.HandleUpdateChannel)
 		r.With(middleware.RequirePermission("channels", "delete")).Delete("/{id}", h.HandleDeleteChannel)
 		r.With(middleware.RequirePermission("channels", "write")).Post("/{id}/archive", h.HandleArchiveChannel)
+		// Read receipts
+		r.With(middleware.RequirePermission("channels", "write")).Post("/{id}/read", h.HandleMarkChannelRead)
 		// Membership routes
 		r.With(middleware.RequirePermission("channels", "write")).Post("/{id}/join", h.HandleJoinChannel)
 		r.With(middleware.RequirePermission("channels", "write")).Post("/{id}/leave", h.HandleLeaveChannel)
@@ -206,6 +210,7 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// Chat: Message routes (for individual message operations)
 	r.Route("/api/v1/messages", func(r chi.Router) {
 		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("mentions", "read")).Get("/mentions", h.HandleGetUserMentions)
 		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/thread", h.HandleGetThreadReplies)
 		r.With(middleware.RequirePermission("messages", "write")).Put("/{id}", h.HandleUpdateMessage)
 		r.With(middleware.RequirePermission("messages", "delete")).Delete("/{id}", h.HandleDeleteMessage)
@@ -2756,8 +2761,10 @@ func (h *GatewayHandler) HandleUpdateMemberRole(w http.ResponseWriter, r *http.R
 // ============================================================================
 
 type sendMessageRequest struct {
-	Content         string  `json:"content"`
-	ParentMessageID *string `json:"parent_message_id,omitempty"`
+	Content          string   `json:"content"`
+	ParentMessageID  *string  `json:"parent_message_id,omitempty"`
+	MentionedUserIDs []string `json:"mentioned_user_ids,omitempty"`
+	MentionEveryone  bool     `json:"mention_everyone,omitempty"`
 }
 
 func (h *GatewayHandler) HandleSendMessage(w http.ResponseWriter, r *http.Request) {
@@ -2785,9 +2792,10 @@ func (h *GatewayHandler) HandleSendMessage(w http.ResponseWriter, r *http.Reques
 	}
 
 	grpcReq := &chatv1.SendMessageRequest{
-		ChannelId: channelID,
-		Content:   req.Content,
-		CreatedBy: userID,
+		ChannelId:       channelID,
+		Content:         req.Content,
+		CreatedBy:       userID,
+		MentionEveryone: req.MentionEveryone,
 	}
 
 	if req.ParentMessageID != nil && *req.ParentMessageID != "" {
@@ -2796,6 +2804,14 @@ func (h *GatewayHandler) HandleSendMessage(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		grpcReq.ParentMessageId = req.ParentMessageID
+	}
+
+	for _, idStr := range req.MentionedUserIDs {
+		if _, parseErr := uuid.Parse(idStr); parseErr != nil {
+			response.Error(w, http.StatusBadRequest, "invalid mentioned_user_id")
+			return
+		}
+		grpcReq.MentionedUserIds = append(grpcReq.MentionedUserIds, idStr)
 	}
 
 	resp, err := h.chatClient.SendMessage(r.Context(), grpcReq)
@@ -3035,6 +3051,108 @@ func (h *GatewayHandler) HandleGetThreadReplies(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := h.chatClient.GetThreadReplies(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Chat: Mentions & Read Receipts Handlers (Sprint 3)
+// ============================================================================
+
+type markChannelReadRequest struct {
+	MessageID string `json:"message_id"`
+}
+
+func (h *GatewayHandler) HandleMarkChannelRead(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	channelID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(channelID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid channel id")
+		return
+	}
+
+	var req markChannelReadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.MessageID == "" {
+		response.Error(w, http.StatusBadRequest, "message_id is required")
+		return
+	}
+
+	if _, err := uuid.Parse(req.MessageID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid message_id")
+		return
+	}
+
+	_, err := h.chatClient.MarkChannelRead(r.Context(), &chatv1.MarkChannelReadRequest{
+		ChannelId: channelID,
+		UserId:    userID,
+		MessageId: req.MessageID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "channel marked as read"})
+}
+
+func (h *GatewayHandler) HandleGetUnreadCounts(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	resp, err := h.chatClient.GetUnreadCounts(r.Context(), &chatv1.GetUnreadCountsRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleGetUserMentions(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	pageSize := 20
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
+			pageSize = parsed
+		}
+	}
+
+	resp, err := h.chatClient.GetUserMentions(r.Context(), &chatv1.GetUserMentionsRequest{
+		UserId:   userID,
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

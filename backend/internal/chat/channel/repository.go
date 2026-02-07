@@ -2,6 +2,7 @@ package channel
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -35,6 +36,11 @@ type Repository interface {
 	// DM operations
 	FindDMChannel(ctx context.Context, user1, user2 uuid.UUID) (*models.Channel, error)
 	CreateDMChannel(ctx context.Context, channel *models.Channel, mem1, mem2 *models.ChannelMembership) error
+
+	// Read receipts (Sprint 3)
+	UpdateLastRead(ctx context.Context, channelID, userID uuid.UUID, readAt time.Time) error
+	GetUnreadCount(ctx context.Context, channelID, userID uuid.UUID) (int, error)
+	GetUnreadCountsForUser(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int, error)
 }
 
 // ListFilter contains filtering options for listing channels

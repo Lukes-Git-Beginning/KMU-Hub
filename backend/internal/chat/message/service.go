@@ -23,10 +23,12 @@ func NewService(repo Repository) *Service {
 
 // CreateInput contains the data needed to create a message
 type CreateInput struct {
-	ChannelID       uuid.UUID
-	Content         string
-	CreatedBy       uuid.UUID
-	ParentMessageID *uuid.UUID // For thread replies
+	ChannelID        uuid.UUID
+	Content          string
+	CreatedBy        uuid.UUID
+	ParentMessageID  *uuid.UUID  // For thread replies
+	MentionedUserIDs []uuid.UUID // User IDs to mention (Sprint 3)
+	MentionEveryone  bool        // @everyone/@channel mention (Sprint 3)
 }
 
 // Create creates a new message
@@ -111,7 +113,18 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		"parent_message_id", input.ParentMessageID,
 	)
 
-	return s.getWithSender(ctx, message)
+	// Create mentions (Sprint 3)
+	mentions, mentionErr := s.processMentions(ctx, message.ID, input.ChannelID, input.MentionedUserIDs, input.MentionEveryone, now)
+	if mentionErr != nil {
+		return nil, mentionErr
+	}
+
+	result, senderErr := s.getWithSender(ctx, message)
+	if senderErr != nil {
+		return nil, senderErr
+	}
+	result.Mentions = mentions
+	return result, nil
 }
 
 // GetByID retrieves a message by ID
@@ -183,6 +196,11 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.MessageW
 	hasMore := len(messages) > input.Limit
 	if hasMore {
 		messages = messages[:input.Limit] // Remove the extra
+	}
+
+	// Batch-load mentions
+	if loadErr := s.loadMentionsForMessages(ctx, messages); loadErr != nil {
+		return nil, false, loadErr
 	}
 
 	return messages, hasMore, nil
@@ -337,6 +355,12 @@ func (s *Service) GetThreadReplies(ctx context.Context, input GetThreadRepliesIn
 		return nil, senderErr
 	}
 
+	// Batch-load mentions for parent and replies
+	allMessages := append([]*models.MessageWithSender{parentWithSender}, replies...)
+	if loadErr := s.loadMentionsForMessages(ctx, allMessages); loadErr != nil {
+		return nil, loadErr
+	}
+
 	return &GetThreadRepliesResult{
 		Parent:  parentWithSender,
 		Replies: replies,
@@ -356,4 +380,98 @@ func (s *Service) getWithSender(ctx context.Context, message *models.Message) (*
 		SenderFirstName: firstName,
 		SenderLastName:  lastName,
 	}, nil
+}
+
+// processMentions validates and creates mentions for a message
+func (s *Service) processMentions(ctx context.Context, messageID, channelID uuid.UUID, mentionedUserIDs []uuid.UUID, mentionEveryone bool, now time.Time) ([]models.MentionWithUser, error) {
+	if len(mentionedUserIDs) == 0 && !mentionEveryone {
+		return nil, nil
+	}
+
+	var mentions []models.Mention
+
+	if mentionEveryone {
+		// Expand @everyone to all channel members
+		memberIDs, err := s.repo.GetChannelMemberIDs(ctx, channelID)
+		if err != nil {
+			return nil, err
+		}
+		mentionType := models.MentionTypeEveryone
+		for _, memberID := range memberIDs {
+			mentions = append(mentions, models.Mention{
+				MessageID:   messageID,
+				UserID:      memberID,
+				MentionType: mentionType,
+				CreatedAt:   now,
+			})
+		}
+	} else {
+		// Validate each mentioned user is a channel member
+		for _, userID := range mentionedUserIDs {
+			isMember, err := s.repo.IsMember(ctx, channelID, userID)
+			if err != nil {
+				return nil, err
+			}
+			if !isMember {
+				return nil, ErrInvalidMention
+			}
+			mentions = append(mentions, models.Mention{
+				MessageID:   messageID,
+				UserID:      userID,
+				MentionType: models.MentionTypeUser,
+				CreatedAt:   now,
+			})
+		}
+	}
+
+	if len(mentions) == 0 {
+		return nil, nil
+	}
+
+	if err := s.repo.CreateMentions(ctx, messageID, mentions); err != nil {
+		return nil, err
+	}
+
+	// Return mentions with user info via batch load
+	mentionMap, err := s.repo.GetMentionsByMessages(ctx, []uuid.UUID{messageID})
+	if err != nil {
+		return nil, err
+	}
+	return mentionMap[messageID], nil
+}
+
+// loadMentionsForMessages batch-loads mentions for a set of messages
+func (s *Service) loadMentionsForMessages(ctx context.Context, messages []*models.MessageWithSender) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	ids := make([]uuid.UUID, len(messages))
+	for i, m := range messages {
+		ids[i] = m.ID
+	}
+
+	mentionMap, err := s.repo.GetMentionsByMessages(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, m := range messages {
+		if mentions, ok := mentionMap[m.ID]; ok {
+			m.Mentions = mentions
+		}
+	}
+	return nil
+}
+
+// GetMentionsForUser returns paginated mentions for a user
+func (s *Service) GetMentionsForUser(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]MentionDetailRow, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+	return s.repo.GetMentionsForUser(ctx, userID, pageSize, offset)
 }

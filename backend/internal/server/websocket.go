@@ -16,6 +16,9 @@ import (
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 )
 
+// UserInfoFunc is a callback to resolve user IDs to names
+type UserInfoFunc func(ctx context.Context, userID string) (firstName, lastName string, err error)
+
 // WebSocketHub manages WebSocket connections and message broadcasting
 type WebSocketHub struct {
 	chatClient chatv1.ChatServiceClient
@@ -25,27 +28,33 @@ type WebSocketHub struct {
 	connections map[string]map[*websocket.Conn]struct{}
 	// channelMembers maps channel ID to user IDs
 	channelMembers map[string]map[string]struct{}
-	mu             sync.RWMutex
+	// userNames caches user display names for typing indicators
+	userNames    map[string]struct{ firstName, lastName string }
+	userInfoFunc UserInfoFunc
+	mu           sync.RWMutex
 }
 
 // NewWebSocketHub creates a new WebSocket hub
-func NewWebSocketHub(chatClient chatv1.ChatServiceClient, tokenMaker *auth.TokenMaker) *WebSocketHub {
+func NewWebSocketHub(chatClient chatv1.ChatServiceClient, tokenMaker *auth.TokenMaker, userInfoFunc UserInfoFunc) *WebSocketHub {
 	return &WebSocketHub{
 		chatClient:     chatClient,
 		tokenMaker:     tokenMaker,
 		connections:    make(map[string]map[*websocket.Conn]struct{}),
 		channelMembers: make(map[string]map[string]struct{}),
+		userNames:      make(map[string]struct{ firstName, lastName string }),
+		userInfoFunc:   userInfoFunc,
 	}
 }
 
 // WebSocket message types
 const (
 	// Client -> Server
-	WSMessageSend       = "message.send"
-	WSTypingStart       = "typing.start"
-	WSTypingStop        = "typing.stop"
-	WSSubscribeChannel  = "channel.subscribe"
+	WSMessageSend        = "message.send"
+	WSTypingStart        = "typing.start"
+	WSTypingStop         = "typing.stop"
+	WSSubscribeChannel   = "channel.subscribe"
 	WSUnsubscribeChannel = "channel.unsubscribe"
+	WSMarkRead           = "channel.mark_read"
 
 	// Server -> Client
 	WSMessageNew      = "message.new"
@@ -53,6 +62,8 @@ const (
 	WSMessageDeleted  = "message.deleted"
 	WSThreadReplyNew  = "thread.reply.new"
 	WSTypingIndicator = "typing"
+	WSReadReceipt     = "read_receipt"
+	WSMentionNew      = "mention.new"
 	WSError           = "error"
 )
 
@@ -64,6 +75,8 @@ type WSMessage struct {
 	MessageID       string          `json:"message_id,omitempty"`
 	ParentMessageID string          `json:"parent_message_id,omitempty"`
 	UserID          string          `json:"user_id,omitempty"`
+	FirstName       string          `json:"first_name,omitempty"`
+	LastName        string          `json:"last_name,omitempty"`
 	Message         json.RawMessage `json:"message,omitempty"`
 	Error           string          `json:"error,omitempty"`
 }
@@ -97,8 +110,9 @@ func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Register connection
+	// Register connection and cache user name
 	h.registerConnection(userID, conn)
+	h.cacheUserName(r.Context(), userID)
 	defer h.unregisterConnection(userID, conn)
 
 	slog.Info("websocket connected", "user_id", userID)
@@ -167,6 +181,8 @@ func (h *WebSocketHub) handleMessage(ctx context.Context, conn *websocket.Conn, 
 		h.handleSubscribeChannel(ctx, conn, userID, msg)
 	case WSUnsubscribeChannel:
 		h.handleUnsubscribeChannel(userID, msg)
+	case WSMarkRead:
+		h.handleMarkRead(ctx, conn, userID, msg)
 	default:
 		h.sendError(ctx, conn, "unknown message type: "+msg.Type)
 	}
@@ -209,6 +225,26 @@ func (h *WebSocketHub) handleSendMessage(ctx context.Context, conn *websocket.Co
 		ParentMessageID: msg.ParentMessageID,
 		Message:         mustMarshal(resp.Message),
 	})
+
+	// Send mention.new to mentioned users not currently subscribed to the channel
+	if resp.Message != nil && len(resp.Message.Mentions) > 0 {
+		h.mu.RLock()
+		subscribedUsers := h.channelMembers[msg.ChannelID]
+		h.mu.RUnlock()
+
+		for _, mention := range resp.Message.Mentions {
+			mentionedUserID := mention.UserId
+			// Skip if user is already subscribed to the channel
+			if _, subscribed := subscribedUsers[mentionedUserID]; subscribed {
+				continue
+			}
+			h.sendToUser(ctx, mentionedUserID, WSMessage{
+				Type:      WSMentionNew,
+				ChannelID: msg.ChannelID,
+				Message:   mustMarshal(resp.Message),
+			})
+		}
+	}
 }
 
 func (h *WebSocketHub) handleTypingIndicator(ctx context.Context, userID string, msg *WSMessage) {
@@ -216,11 +252,15 @@ func (h *WebSocketHub) handleTypingIndicator(ctx context.Context, userID string,
 		return
 	}
 
+	firstName, lastName := h.getUserName(userID)
+
 	// Broadcast typing indicator to channel (except sender)
 	h.broadcastToChannelExcept(ctx, msg.ChannelID, userID, WSMessage{
 		Type:      WSTypingIndicator,
 		ChannelID: msg.ChannelID,
 		UserID:    userID,
+		FirstName: firstName,
+		LastName:  lastName,
 		Content:   msg.Type, // "typing.start" or "typing.stop"
 	})
 }
@@ -352,6 +392,82 @@ func (h *WebSocketHub) BroadcastMessageDeleted(ctx context.Context, channelID, m
 		ChannelID: channelID,
 		MessageID: messageID,
 	})
+}
+
+func (h *WebSocketHub) handleMarkRead(ctx context.Context, conn *websocket.Conn, userID string, msg *WSMessage) {
+	if msg.ChannelID == "" || msg.MessageID == "" {
+		h.sendError(ctx, conn, "channel_id and message_id are required")
+		return
+	}
+
+	_, err := h.chatClient.MarkChannelRead(ctx, &chatv1.MarkChannelReadRequest{
+		ChannelId: msg.ChannelID,
+		UserId:    userID,
+		MessageId: msg.MessageID,
+	})
+	if err != nil {
+		slog.Error("failed to mark channel as read", "error", err)
+		h.sendError(ctx, conn, "failed to mark channel as read")
+		return
+	}
+
+	// Broadcast read receipt to user's other connections (multi-device sync)
+	h.mu.RLock()
+	conns := h.connections[userID]
+	connList := make([]*websocket.Conn, 0, len(conns))
+	for c := range conns {
+		if c != conn { // Exclude the connection that sent the mark_read
+			connList = append(connList, c)
+		}
+	}
+	h.mu.RUnlock()
+
+	writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	readMsg := WSMessage{
+		Type:      WSReadReceipt,
+		ChannelID: msg.ChannelID,
+		MessageID: msg.MessageID,
+		UserID:    userID,
+	}
+
+	for _, c := range connList {
+		_ = wsjson.Write(writeCtx, c, readMsg)
+	}
+}
+
+func (h *WebSocketHub) cacheUserName(ctx context.Context, userID string) {
+	if h.userInfoFunc == nil {
+		return
+	}
+
+	h.mu.RLock()
+	_, cached := h.userNames[userID]
+	h.mu.RUnlock()
+	if cached {
+		return
+	}
+
+	firstName, lastName, err := h.userInfoFunc(ctx, userID)
+	if err != nil {
+		slog.Warn("failed to cache user name", "user_id", userID, "error", err)
+		return
+	}
+
+	h.mu.Lock()
+	h.userNames[userID] = struct{ firstName, lastName string }{firstName, lastName}
+	h.mu.Unlock()
+}
+
+func (h *WebSocketHub) getUserName(userID string) (string, string) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	name, ok := h.userNames[userID]
+	if !ok {
+		return "", ""
+	}
+	return name.firstName, name.lastName
 }
 
 func mustMarshal(v interface{}) json.RawMessage {

@@ -503,6 +503,12 @@ func (s *Service) getWithRelations(ctx context.Context, channel *models.Channel,
 		result.LastMessage = &lastMsg.Message
 	}
 
+	// Get unread count
+	if membership != nil {
+		unread, _ := s.repo.GetUnreadCount(ctx, channel.ID, userID)
+		result.UnreadCount = unread
+	}
+
 	return result, nil
 }
 
@@ -622,4 +628,40 @@ func (s *Service) ListDMs(ctx context.Context, userID uuid.UUID, page, pageSize 
 		Page:     page,
 		PageSize: pageSize,
 	})
+}
+
+// MarkRead marks a channel as read up to a specific message time
+func (s *Service) MarkRead(ctx context.Context, channelID, userID uuid.UUID, messageCreatedAt time.Time) error {
+	// Check channel exists
+	ch, err := s.repo.GetByID(ctx, channelID)
+	if err != nil {
+		return err
+	}
+
+	// Check channel not archived
+	if ch.IsArchived {
+		return ErrChannelArchived
+	}
+
+	// Check user is a member
+	_, membershipErr := s.repo.GetMembership(ctx, channelID, userID)
+	if membershipErr != nil {
+		return ErrNotChannelMember
+	}
+
+	if updateErr := s.repo.UpdateLastRead(ctx, channelID, userID, messageCreatedAt); updateErr != nil {
+		return updateErr
+	}
+
+	slog.Info("channel marked as read",
+		"channel_id", channelID,
+		"user_id", userID,
+	)
+
+	return nil
+}
+
+// GetUnreadCounts returns unread counts for all channels the user is a member of
+func (s *Service) GetUnreadCounts(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int, error) {
+	return s.repo.GetUnreadCountsForUser(ctx, userID)
 }

@@ -31,6 +31,11 @@ service ChatService {
 
   // Threads (Sprint 2)
   rpc GetThreadReplies(GetThreadRepliesRequest) returns (GetThreadRepliesResponse);
+
+  // Mentions & Read Receipts (Sprint 3)
+  rpc MarkChannelRead(MarkChannelReadRequest) returns (MarkChannelReadResponse);
+  rpc GetUnreadCounts(GetUnreadCountsRequest) returns (GetUnreadCountsResponse);
+  rpc GetUserMentions(GetUserMentionsRequest) returns (GetUserMentionsResponse);
 }
 
 // ============================================================================
@@ -51,6 +56,7 @@ message ChannelInfo {
   int32 member_count = 10;
   optional string my_role = 11;  // Current user's role in the channel
   optional MessageInfo last_message = 12;
+  int32 unread_count = 13;  // Unread messages for the requesting user (Sprint 3)
 }
 
 message CreateChannelRequest {
@@ -170,6 +176,19 @@ message UpdateMemberRoleResponse {
 // Message Messages
 // ============================================================================
 
+enum MentionType {
+  MENTION_TYPE_USER = 0;
+  MENTION_TYPE_CHANNEL = 1;
+  MENTION_TYPE_EVERYONE = 2;
+}
+
+message MentionInfo {
+  string user_id = 1;
+  MentionType mention_type = 2;
+  string first_name = 3;
+  string last_name = 4;
+}
+
 message MessageInfo {
   string id = 1;
   string channel_id = 2;
@@ -184,6 +203,8 @@ message MessageInfo {
   // Thread support (Sprint 2)
   optional string parent_message_id = 10;
   int32 reply_count = 11;
+  // Mentions (Sprint 3)
+  repeated MentionInfo mentions = 12;
 }
 
 message SendMessageRequest {
@@ -191,6 +212,8 @@ message SendMessageRequest {
   string content = 2;
   string created_by = 3;
   optional string parent_message_id = 4;  // For thread replies
+  repeated string mentioned_user_ids = 5;  // User IDs to mention (Sprint 3)
+  bool mention_everyone = 6;               // @everyone/@channel mention (Sprint 3)
 }
 
 message SendMessageResponse {
@@ -268,4 +291,45 @@ message GetThreadRepliesResponse {
   MessageInfo parent = 1;             // The parent message
   repeated MessageInfo replies = 2;   // Thread replies
   bool has_more = 3;
+}
+
+// ============================================================================
+// Mentions & Read Receipts (Sprint 3)
+// ============================================================================
+
+message MarkChannelReadRequest {
+  string channel_id = 1;
+  string user_id = 2;
+  string message_id = 3;  // Mark as read up to this message
+}
+
+message MarkChannelReadResponse {}
+
+message GetUnreadCountsRequest {
+  string user_id = 1;
+}
+
+message GetUnreadCountsResponse {
+  map<string, int32> unread_counts = 1;  // channel_id -> unread count
+}
+
+message GetUserMentionsRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message MentionDetail {
+  string message_id = 1;
+  string channel_id = 2;
+  string content = 3;
+  MentionType mention_type = 4;
+  string sender_first_name = 5;
+  string sender_last_name = 6;
+  string created_at = 7;
+}
+
+message GetUserMentionsResponse {
+  repeated MentionDetail mentions = 1;
+  int32 total = 2;
 }

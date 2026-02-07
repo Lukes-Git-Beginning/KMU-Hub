@@ -36,6 +36,9 @@ const (
 	ChatService_GetOrCreateDM_FullMethodName     = "/chat.v1.ChatService/GetOrCreateDM"
 	ChatService_ListDMs_FullMethodName           = "/chat.v1.ChatService/ListDMs"
 	ChatService_GetThreadReplies_FullMethodName  = "/chat.v1.ChatService/GetThreadReplies"
+	ChatService_MarkChannelRead_FullMethodName   = "/chat.v1.ChatService/MarkChannelRead"
+	ChatService_GetUnreadCounts_FullMethodName   = "/chat.v1.ChatService/GetUnreadCounts"
+	ChatService_GetUserMentions_FullMethodName   = "/chat.v1.ChatService/GetUserMentions"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -64,6 +67,10 @@ type ChatServiceClient interface {
 	ListDMs(ctx context.Context, in *ListDMsRequest, opts ...grpc.CallOption) (*ListDMsResponse, error)
 	// Threads (Sprint 2)
 	GetThreadReplies(ctx context.Context, in *GetThreadRepliesRequest, opts ...grpc.CallOption) (*GetThreadRepliesResponse, error)
+	// Mentions & Read Receipts (Sprint 3)
+	MarkChannelRead(ctx context.Context, in *MarkChannelReadRequest, opts ...grpc.CallOption) (*MarkChannelReadResponse, error)
+	GetUnreadCounts(ctx context.Context, in *GetUnreadCountsRequest, opts ...grpc.CallOption) (*GetUnreadCountsResponse, error)
+	GetUserMentions(ctx context.Context, in *GetUserMentionsRequest, opts ...grpc.CallOption) (*GetUserMentionsResponse, error)
 }
 
 type chatServiceClient struct {
@@ -244,6 +251,36 @@ func (c *chatServiceClient) GetThreadReplies(ctx context.Context, in *GetThreadR
 	return out, nil
 }
 
+func (c *chatServiceClient) MarkChannelRead(ctx context.Context, in *MarkChannelReadRequest, opts ...grpc.CallOption) (*MarkChannelReadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MarkChannelReadResponse)
+	err := c.cc.Invoke(ctx, ChatService_MarkChannelRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetUnreadCounts(ctx context.Context, in *GetUnreadCountsRequest, opts ...grpc.CallOption) (*GetUnreadCountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUnreadCountsResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetUnreadCounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetUserMentions(ctx context.Context, in *GetUserMentionsRequest, opts ...grpc.CallOption) (*GetUserMentionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserMentionsResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetUserMentions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -270,6 +307,10 @@ type ChatServiceServer interface {
 	ListDMs(context.Context, *ListDMsRequest) (*ListDMsResponse, error)
 	// Threads (Sprint 2)
 	GetThreadReplies(context.Context, *GetThreadRepliesRequest) (*GetThreadRepliesResponse, error)
+	// Mentions & Read Receipts (Sprint 3)
+	MarkChannelRead(context.Context, *MarkChannelReadRequest) (*MarkChannelReadResponse, error)
+	GetUnreadCounts(context.Context, *GetUnreadCountsRequest) (*GetUnreadCountsResponse, error)
+	GetUserMentions(context.Context, *GetUserMentionsRequest) (*GetUserMentionsResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -330,6 +371,15 @@ func (UnimplementedChatServiceServer) ListDMs(context.Context, *ListDMsRequest) 
 }
 func (UnimplementedChatServiceServer) GetThreadReplies(context.Context, *GetThreadRepliesRequest) (*GetThreadRepliesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetThreadReplies not implemented")
+}
+func (UnimplementedChatServiceServer) MarkChannelRead(context.Context, *MarkChannelReadRequest) (*MarkChannelReadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MarkChannelRead not implemented")
+}
+func (UnimplementedChatServiceServer) GetUnreadCounts(context.Context, *GetUnreadCountsRequest) (*GetUnreadCountsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUnreadCounts not implemented")
+}
+func (UnimplementedChatServiceServer) GetUserMentions(context.Context, *GetUserMentionsRequest) (*GetUserMentionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserMentions not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -658,6 +708,60 @@ func _ChatService_GetThreadReplies_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_MarkChannelRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MarkChannelReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).MarkChannelRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_MarkChannelRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).MarkChannelRead(ctx, req.(*MarkChannelReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetUnreadCounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUnreadCountsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetUnreadCounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetUnreadCounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetUnreadCounts(ctx, req.(*GetUnreadCountsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetUserMentions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserMentionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetUserMentions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetUserMentions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetUserMentions(ctx, req.(*GetUserMentionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -732,6 +836,18 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetThreadReplies",
 			Handler:    _ChatService_GetThreadReplies_Handler,
+		},
+		{
+			MethodName: "MarkChannelRead",
+			Handler:    _ChatService_MarkChannelRead_Handler,
+		},
+		{
+			MethodName: "GetUnreadCounts",
+			Handler:    _ChatService_GetUnreadCounts_Handler,
+		},
+		{
+			MethodName: "GetUserMentions",
+			Handler:    _ChatService_GetUserMentions_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -290,3 +290,126 @@ func (r *PostgresRepository) DecrementReplyCount(ctx context.Context, messageID 
 	)
 	return err
 }
+
+// Mention operations (Sprint 3)
+
+func (r *PostgresRepository) CreateMentions(ctx context.Context, messageID uuid.UUID, mentions []models.Mention) error {
+	if len(mentions) == 0 {
+		return nil
+	}
+
+	// Batch insert mentions
+	query := `INSERT INTO message_mentions (message_id, user_id, mention_type, created_at) VALUES `
+	var args []any
+	argNum := 1
+	for i, m := range mentions {
+		if i > 0 {
+			query += ", "
+		}
+		query += fmt.Sprintf("($%d, $%d, $%d, $%d)", argNum, argNum+1, argNum+2, argNum+3)
+		args = append(args, messageID, m.UserID, string(m.MentionType), m.CreatedAt)
+		argNum += 4
+	}
+	query += " ON CONFLICT DO NOTHING"
+
+	_, err := r.pool.Exec(ctx, query, args...)
+	return err
+}
+
+func (r *PostgresRepository) GetMentionsByMessages(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]models.MentionWithUser, error) {
+	if len(messageIDs) == 0 {
+		return nil, nil
+	}
+
+	// Build IN clause
+	query := `
+		SELECT mm.message_id, mm.user_id, mm.mention_type, mm.created_at,
+		       u.first_name, u.last_name
+		FROM message_mentions mm
+		JOIN users u ON mm.user_id = u.id
+		WHERE mm.message_id = ANY($1)
+		ORDER BY mm.created_at`
+
+	rows, err := r.pool.Query(ctx, query, messageIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]models.MentionWithUser)
+	for rows.Next() {
+		var mw models.MentionWithUser
+		if scanErr := rows.Scan(
+			&mw.MessageID, &mw.UserID, &mw.MentionType, &mw.CreatedAt,
+			&mw.FirstName, &mw.LastName,
+		); scanErr != nil {
+			return nil, scanErr
+		}
+		result[mw.MessageID] = append(result[mw.MessageID], mw)
+	}
+
+	return result, rows.Err()
+}
+
+func (r *PostgresRepository) GetMentionsForUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]MentionDetailRow, int, error) {
+	// Count total
+	var total int
+	if err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM message_mentions mm
+		 JOIN messages m ON mm.message_id = m.id
+		 WHERE mm.user_id = $1 AND m.is_deleted = FALSE`, userID,
+	).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT m.id, m.channel_id, m.content, mm.mention_type,
+		       u.first_name, u.last_name, m.created_at
+		FROM message_mentions mm
+		JOIN messages m ON mm.message_id = m.id
+		JOIN users u ON m.created_by = u.id
+		WHERE mm.user_id = $1 AND m.is_deleted = FALSE
+		ORDER BY mm.created_at DESC
+		LIMIT $2 OFFSET $3
+	`, userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var mentions []MentionDetailRow
+	for rows.Next() {
+		var md MentionDetailRow
+		var createdAt time.Time
+		if scanErr := rows.Scan(
+			&md.MessageID, &md.ChannelID, &md.Content, &md.MentionType,
+			&md.SenderFirstName, &md.SenderLastName, &createdAt,
+		); scanErr != nil {
+			return nil, 0, scanErr
+		}
+		md.CreatedAt = createdAt.Format("2006-01-02T15:04:05Z07:00")
+		mentions = append(mentions, md)
+	}
+
+	return mentions, total, rows.Err()
+}
+
+func (r *PostgresRepository) GetChannelMemberIDs(ctx context.Context, channelID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT user_id FROM channel_memberships WHERE channel_id = $1`, channelID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			return nil, scanErr
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}

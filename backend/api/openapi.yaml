@@ -2289,6 +2289,16 @@ paths:
                   type: string
                   format: uuid
                   description: Optional parent message ID for thread replies
+                mentioned_user_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: User IDs to mention in the message
+                mention_everyone:
+                  type: boolean
+                  default: false
+                  description: If true, mentions all channel members
       responses:
         "201":
           description: Message sent
@@ -2450,6 +2460,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListChannelsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/channels/unread:
+    get:
+      summary: Get unread message counts for all channels
+      tags: [chat-channels]
+      operationId: getUnreadCounts
+      responses:
+        "200":
+          description: Unread counts per channel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadCountsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/channels/{id}/read:
+    post:
+      summary: Mark a channel as read up to a specific message
+      tags: [chat-channels]
+      operationId: markChannelRead
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message_id]
+              properties:
+                message_id:
+                  type: string
+                  format: uuid
+                  description: The ID of the last read message
+      responses:
+        "204":
+          description: Channel marked as read
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/messages/mentions:
+    get:
+      summary: Get messages where the current user was mentioned
+      tags: [chat-messages]
+      operationId: getUserMentions
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: List of mentions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMentionsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -3633,6 +3714,9 @@ components:
           enum: [owner, admin, member]
         last_message:
           $ref: "#/components/schemas/MessageInfo"
+        unread_count:
+          type: integer
+          description: Number of unread messages in the channel for the current user
 
     MessageInfo:
       type: object
@@ -3667,6 +3751,11 @@ components:
         reply_count:
           type: integer
           description: Number of thread replies
+        mentions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MentionInfo"
+          description: Users mentioned in this message
 
     MemberInfo:
       type: object
@@ -3783,6 +3872,58 @@ components:
             $ref: "#/components/schemas/MessageInfo"
         has_more:
           type: boolean
+
+    MentionInfo:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        mention_type:
+          type: string
+          enum: [user, channel, everyone]
+        first_name:
+          type: string
+        last_name:
+          type: string
+
+    UnreadCountsResponse:
+      type: object
+      properties:
+        unread_counts:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Map of channel_id to unread message count
+
+    UserMentionsResponse:
+      type: object
+      properties:
+        mentions:
+          type: array
+          items:
+            type: object
+            properties:
+              message_id:
+                type: string
+                format: uuid
+              channel_id:
+                type: string
+                format: uuid
+              content:
+                type: string
+              mention_type:
+                type: string
+                enum: [user, channel, everyone]
+              sender_first_name:
+                type: string
+              sender_last_name:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+        total:
+          type: integer
 
   responses:
     BadRequest:

@@ -301,9 +301,10 @@ func (s *ChatGRPCServer) SendMessage(ctx context.Context, req *chatv1.SendMessag
 	}
 
 	input := message.CreateInput{
-		ChannelID: channelID,
-		Content:   req.Content,
-		CreatedBy: createdBy,
+		ChannelID:       channelID,
+		Content:         req.Content,
+		CreatedBy:       createdBy,
+		MentionEveryone: req.MentionEveryone,
 	}
 
 	if req.ParentMessageId != nil && *req.ParentMessageId != "" {
@@ -312,6 +313,14 @@ func (s *ChatGRPCServer) SendMessage(ctx context.Context, req *chatv1.SendMessag
 			return nil, status.Error(codes.InvalidArgument, "invalid parent_message_id")
 		}
 		input.ParentMessageID = &parentID
+	}
+
+	for _, idStr := range req.MentionedUserIds {
+		uid, parseErr := uuid.Parse(idStr)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid mentioned_user_id")
+		}
+		input.MentionedUserIDs = append(input.MentionedUserIDs, uid)
 	}
 
 	msg, err := s.messageService.Create(ctx, input)
@@ -522,6 +531,90 @@ func (s *ChatGRPCServer) GetThreadReplies(ctx context.Context, req *chatv1.GetTh
 }
 
 // ============================================================================
+// Mentions & Read Receipts (Sprint 3)
+// ============================================================================
+
+func (s *ChatGRPCServer) MarkChannelRead(ctx context.Context, req *chatv1.MarkChannelReadRequest) (*chatv1.MarkChannelReadResponse, error) {
+	channelID, err := uuid.Parse(req.ChannelId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid channel_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	messageID, err := uuid.Parse(req.MessageId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
+	}
+
+	// Get the message to find its created_at
+	msg, err := s.messageService.GetByID(ctx, messageID, userID)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	if err := s.channelService.MarkRead(ctx, channelID, userID, msg.CreatedAt); err != nil {
+		return nil, mapChatError(err)
+	}
+
+	return &chatv1.MarkChannelReadResponse{}, nil
+}
+
+func (s *ChatGRPCServer) GetUnreadCounts(ctx context.Context, req *chatv1.GetUnreadCountsRequest) (*chatv1.GetUnreadCountsResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	counts, err := s.channelService.GetUnreadCounts(ctx, userID)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	result := make(map[string]int32, len(counts))
+	for channelID, count := range counts {
+		result[channelID.String()] = int32(count)
+	}
+
+	return &chatv1.GetUnreadCountsResponse{
+		UnreadCounts: result,
+	}, nil
+}
+
+func (s *ChatGRPCServer) GetUserMentions(ctx context.Context, req *chatv1.GetUserMentionsRequest) (*chatv1.GetUserMentionsResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	mentions, total, err := s.messageService.GetMentionsForUser(ctx, userID, int(req.Page), int(req.PageSize))
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	var details []*chatv1.MentionDetail
+	for _, m := range mentions {
+		details = append(details, &chatv1.MentionDetail{
+			MessageId:       m.MessageID.String(),
+			ChannelId:       m.ChannelID.String(),
+			Content:         m.Content,
+			MentionType:     toProtoMentionType(m.MentionType),
+			SenderFirstName: m.SenderFirstName,
+			SenderLastName:  m.SenderLastName,
+			CreatedAt:       m.CreatedAt,
+		})
+	}
+
+	return &chatv1.GetUserMentionsResponse{
+		Mentions: details,
+		Total:    int32(total),
+	}, nil
+}
+
+// ============================================================================
 // Converters
 // ============================================================================
 
@@ -536,6 +629,7 @@ func toChannelInfo(ch *models.ChannelWithRelations) *chatv1.ChannelInfo {
 		CreatedAt:   ch.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:   ch.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		MemberCount: int32(ch.MemberCount),
+		UnreadCount: int32(ch.UnreadCount),
 	}
 
 	if ch.Description != nil {
@@ -595,7 +689,31 @@ func toMessageInfo(m *models.MessageWithSender) *chatv1.MessageInfo {
 		info.ParentMessageId = &parentID
 	}
 
+	for _, mention := range m.Mentions {
+		info.Mentions = append(info.Mentions, toMentionInfo(&mention))
+	}
+
 	return info
+}
+
+func toMentionInfo(m *models.MentionWithUser) *chatv1.MentionInfo {
+	return &chatv1.MentionInfo{
+		UserId:      m.UserID.String(),
+		MentionType: toProtoMentionType(m.MentionType),
+		FirstName:   m.FirstName,
+		LastName:    m.LastName,
+	}
+}
+
+func toProtoMentionType(mt models.MentionType) chatv1.MentionType {
+	switch mt {
+	case models.MentionTypeChannel:
+		return chatv1.MentionType_MENTION_TYPE_CHANNEL
+	case models.MentionTypeEveryone:
+		return chatv1.MentionType_MENTION_TYPE_EVERYONE
+	default:
+		return chatv1.MentionType_MENTION_TYPE_USER
+	}
 }
 
 func toMessageInfoFromBase(m *models.Message) *chatv1.MessageInfo {
@@ -683,6 +801,8 @@ func mapChatError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, message.ErrParentDeleted):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, message.ErrInvalidMention):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	default:
 		return status.Error(codes.Internal, "internal server error")

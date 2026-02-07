@@ -17,6 +17,7 @@ type MockRepository struct {
 	channels    map[uuid.UUID]struct{ archived bool }
 	memberships map[string]models.ChannelRole // key: channelID-userID
 	users       map[uuid.UUID]struct{ firstName, lastName string }
+	mentions    map[uuid.UUID][]models.Mention // key: messageID
 	createErr   error
 	getErr      error
 	updateErr   error
@@ -29,6 +30,7 @@ func NewMockRepository() *MockRepository {
 		channels:    make(map[uuid.UUID]struct{ archived bool }),
 		memberships: make(map[string]models.ChannelRole),
 		users:       make(map[uuid.UUID]struct{ firstName, lastName string }),
+		mentions:    make(map[uuid.UUID][]models.Mention),
 	}
 }
 
@@ -177,6 +179,74 @@ func (m *MockRepository) DecrementReplyCount(ctx context.Context, messageID uuid
 		}
 	}
 	return nil
+}
+
+func (m *MockRepository) CreateMentions(ctx context.Context, messageID uuid.UUID, mentions []models.Mention) error {
+	m.mentions[messageID] = mentions
+	return nil
+}
+
+func (m *MockRepository) GetMentionsByMessages(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]models.MentionWithUser, error) {
+	result := make(map[uuid.UUID][]models.MentionWithUser)
+	for _, msgID := range messageIDs {
+		if mentions, ok := m.mentions[msgID]; ok {
+			for _, mention := range mentions {
+				user := m.users[mention.UserID]
+				result[msgID] = append(result[msgID], models.MentionWithUser{
+					Mention:   mention,
+					FirstName: user.firstName,
+					LastName:  user.lastName,
+				})
+			}
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) GetMentionsForUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]MentionDetailRow, int, error) {
+	var result []MentionDetailRow
+	for msgID, mentions := range m.mentions {
+		for _, mention := range mentions {
+			if mention.UserID == userID {
+				msg := m.messages[msgID]
+				if msg != nil && !msg.IsDeleted {
+					sender := m.users[msg.CreatedBy]
+					result = append(result, MentionDetailRow{
+						MessageID:       msgID,
+						ChannelID:       msg.ChannelID,
+						Content:         msg.Content,
+						MentionType:     mention.MentionType,
+						SenderFirstName: sender.firstName,
+						SenderLastName:  sender.lastName,
+						CreatedAt:       msg.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+					})
+				}
+			}
+		}
+	}
+	total := len(result)
+	if offset >= len(result) {
+		return []MentionDetailRow{}, total, nil
+	}
+	end := offset + limit
+	if end > len(result) {
+		end = len(result)
+	}
+	return result[offset:end], total, nil
+}
+
+func (m *MockRepository) GetChannelMemberIDs(ctx context.Context, channelID uuid.UUID) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	for key := range m.memberships {
+		// key format: channelID-userID
+		if len(key) > 37 && key[:36] == channelID.String() {
+			uid, err := uuid.Parse(key[37:])
+			if err == nil {
+				ids = append(ids, uid)
+			}
+		}
+	}
+	return ids, nil
 }
 
 // Helpers for setting up test data
@@ -938,6 +1008,165 @@ func TestService_List_ExcludesReplies(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Len(t, messages, 2) // parent + another, NOT the reply
+	})
+}
+
+// ============================================================================
+// Mention Tests (Sprint 3)
+// ============================================================================
+
+func TestService_Create_WithMentions(t *testing.T) {
+	t.Run("success - mentions stored and returned", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		mentionedUserID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddMember(channelID, mentionedUserID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+		repo.AddUser(mentionedUserID, "Jane", "Smith")
+
+		msg, err := service.Create(context.Background(), CreateInput{
+			ChannelID:        channelID,
+			Content:          "Hey @Jane!",
+			CreatedBy:        userID,
+			MentionedUserIDs: []uuid.UUID{mentionedUserID},
+		})
+
+		require.NoError(t, err)
+		assert.Len(t, msg.Mentions, 1)
+		assert.Equal(t, mentionedUserID, msg.Mentions[0].UserID)
+		assert.Equal(t, models.MentionTypeUser, msg.Mentions[0].MentionType)
+		assert.Equal(t, "Jane", msg.Mentions[0].FirstName)
+	})
+}
+
+func TestService_Create_WithMentionEveryone(t *testing.T) {
+	t.Run("success - expands to all members", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		user1 := uuid.New()
+		user2 := uuid.New()
+		user3 := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, user1, models.ChannelRoleMember)
+		repo.AddMember(channelID, user2, models.ChannelRoleMember)
+		repo.AddMember(channelID, user3, models.ChannelRoleMember)
+		repo.AddUser(user1, "John", "Doe")
+		repo.AddUser(user2, "Jane", "Smith")
+		repo.AddUser(user3, "Bob", "Brown")
+
+		msg, err := service.Create(context.Background(), CreateInput{
+			ChannelID:       channelID,
+			Content:         "@everyone check this out",
+			CreatedBy:       user1,
+			MentionEveryone: true,
+		})
+
+		require.NoError(t, err)
+		assert.Len(t, msg.Mentions, 3) // All 3 members
+		for _, m := range msg.Mentions {
+			assert.Equal(t, models.MentionTypeEveryone, m.MentionType)
+		}
+	})
+}
+
+func TestService_Create_InvalidMention(t *testing.T) {
+	t.Run("error - mentioned user not in channel", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		outsiderID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+		// outsiderID is NOT added as member
+
+		_, err := service.Create(context.Background(), CreateInput{
+			ChannelID:        channelID,
+			Content:          "Hey @outsider",
+			CreatedBy:        userID,
+			MentionedUserIDs: []uuid.UUID{outsiderID},
+		})
+
+		assert.Equal(t, ErrInvalidMention, err)
+	})
+}
+
+func TestService_GetMentionsForUser(t *testing.T) {
+	t.Run("returns paginated mentions", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		senderID := uuid.New()
+		mentionedID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, senderID, models.ChannelRoleMember)
+		repo.AddMember(channelID, mentionedID, models.ChannelRoleMember)
+		repo.AddUser(senderID, "John", "Doe")
+		repo.AddUser(mentionedID, "Jane", "Smith")
+
+		// Create a message with mention
+		_, err := service.Create(context.Background(), CreateInput{
+			ChannelID:        channelID,
+			Content:          "Hey @Jane",
+			CreatedBy:        senderID,
+			MentionedUserIDs: []uuid.UUID{mentionedID},
+		})
+		require.NoError(t, err)
+
+		// Get mentions for the mentioned user
+		mentions, total, err := service.GetMentionsForUser(context.Background(), mentionedID, 1, 20)
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, total)
+		assert.Len(t, mentions, 1)
+		assert.Equal(t, "Hey @Jane", mentions[0].Content)
+	})
+}
+
+func TestService_List_IncludesMentions(t *testing.T) {
+	t.Run("mentions batch-loaded for listed messages", func(t *testing.T) {
+		repo := NewMockRepository()
+		service := NewService(repo)
+
+		channelID := uuid.New()
+		userID := uuid.New()
+		mentionedID := uuid.New()
+		repo.AddChannel(channelID, false)
+		repo.AddMember(channelID, userID, models.ChannelRoleMember)
+		repo.AddMember(channelID, mentionedID, models.ChannelRoleMember)
+		repo.AddUser(userID, "John", "Doe")
+		repo.AddUser(mentionedID, "Jane", "Smith")
+
+		// Create message with mention
+		_, err := service.Create(context.Background(), CreateInput{
+			ChannelID:        channelID,
+			Content:          "Hey @Jane!",
+			CreatedBy:        userID,
+			MentionedUserIDs: []uuid.UUID{mentionedID},
+		})
+		require.NoError(t, err)
+
+		// List messages
+		messages, _, err := service.List(context.Background(), ListInput{
+			ChannelID: channelID,
+			UserID:    userID,
+			Limit:     50,
+		})
+
+		require.NoError(t, err)
+		require.Len(t, messages, 1)
+		assert.Len(t, messages[0].Mentions, 1)
+		assert.Equal(t, mentionedID, messages[0].Mentions[0].UserID)
 	})
 }
 

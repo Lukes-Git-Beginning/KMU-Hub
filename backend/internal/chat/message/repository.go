@@ -30,6 +30,12 @@ type Repository interface {
 	CreateWithReplyCount(ctx context.Context, message *models.Message) error // Atomic create + increment parent reply_count
 	ListReplies(ctx context.Context, filter ThreadListFilter) ([]*models.MessageWithSender, error)
 	DecrementReplyCount(ctx context.Context, messageID uuid.UUID) error
+
+	// Mention operations (Sprint 3)
+	CreateMentions(ctx context.Context, messageID uuid.UUID, mentions []models.Mention) error
+	GetMentionsByMessages(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]models.MentionWithUser, error)
+	GetMentionsForUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]MentionDetailRow, int, error)
+	GetChannelMemberIDs(ctx context.Context, channelID uuid.UUID) ([]uuid.UUID, error)
 }
 
 // ListFilter contains filtering options for listing messages
@@ -47,4 +53,15 @@ type ThreadListFilter struct {
 	Limit           int
 	Before          *uuid.UUID
 	After           *uuid.UUID
+}
+
+// MentionDetailRow is the raw row from a user mentions query
+type MentionDetailRow struct {
+	MessageID       uuid.UUID
+	ChannelID       uuid.UUID
+	Content         string
+	MentionType     models.MentionType
+	SenderFirstName string
+	SenderLastName  string
+	CreatedAt       string // RFC3339 formatted
 }
