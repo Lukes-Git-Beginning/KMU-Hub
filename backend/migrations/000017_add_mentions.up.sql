@@ -14,4 +14,4 @@ CREATE INDEX idx_message_mentions_user ON message_mentions(user_id, created_at D
 CREATE INDEX idx_message_mentions_type ON message_mentions(mention_type) WHERE mention_type != 'user';
 
 -- Permissions
-INSERT INTO permissions (resource, action) VALUES ('mentions', 'read') ON CONFLICT DO NOTHING;
+INSERT INTO permissions (name, resource, action) VALUES ('mentions:read', 'mentions', 'read') ON CONFLICT (name) DO NOTHING;
