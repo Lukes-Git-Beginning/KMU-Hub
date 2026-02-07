@@ -246,3 +246,8 @@ func (r *PostgresRepository) MarkEventProcessed(ctx context.Context, eventID str
 	)
 	return err
 }
+
+func (r *PostgresRepository) NotifyDelivery(ctx context.Context, payload string) error {
+	_, err := r.pool.Exec(ctx, "SELECT pg_notify('notification_delivery', $1)", payload)
+	return err
+}

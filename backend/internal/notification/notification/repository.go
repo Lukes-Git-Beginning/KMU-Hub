@@ -47,6 +47,10 @@ type Repository interface {
 
 	// MarkEventProcessed marks an event as processed.
 	MarkEventProcessed(ctx context.Context, eventID string) error
+
+	// NotifyDelivery emits a pg_notify on the notification_delivery channel
+	// to signal the gateway to push a real-time WebSocket notification.
+	NotifyDelivery(ctx context.Context, payload string) error
 }
 
 // ListFilter contains filtering options for listing notifications.

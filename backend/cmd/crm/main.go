@@ -70,6 +70,7 @@ func main() {
 	companyService := company.NewService(companyRepo)
 	pipelineStageService := pipelinestage.NewService(pipelineStageRepo)
 	dealService := deal.NewService(dealRepo)
+	dealService.SetEventEmitter(deal.NewPGEventEmitter(pool))
 	activityService := activity.NewService(activityRepo)
 	searchService := search.NewService(searchRepo)
 	savedFilterService := savedfilter.NewService(savedFilterRepo)

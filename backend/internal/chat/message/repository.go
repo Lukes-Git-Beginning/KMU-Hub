@@ -39,6 +39,10 @@ type Repository interface {
 
 	// File operations (Sprint 4)
 	GetFilesByMessageIDs(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]models.ChatFileWithUploader, error)
+
+	// Channel info for notification events
+	GetDMRecipient(ctx context.Context, channelID, senderID uuid.UUID) (*uuid.UUID, error)
+	GetChannelName(ctx context.Context, channelID uuid.UUID) (string, error)
 }
 
 // ListFilter contains filtering options for listing messages

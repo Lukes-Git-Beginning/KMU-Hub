@@ -450,3 +450,34 @@ func (r *PostgresRepository) GetChannelMemberIDs(ctx context.Context, channelID 
 	}
 	return ids, rows.Err()
 }
+
+func (r *PostgresRepository) GetDMRecipient(ctx context.Context, channelID, senderID uuid.UUID) (*uuid.UUID, error) {
+	var dmUser1, dmUser2 *uuid.UUID
+	var isDM bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT is_dm, dm_user1, dm_user2 FROM channels WHERE id = $1`, channelID,
+	).Scan(&isDM, &dmUser1, &dmUser2)
+	if err != nil {
+		return nil, err
+	}
+	if !isDM {
+		return nil, nil
+	}
+
+	// Return the other participant
+	if dmUser1 != nil && *dmUser1 == senderID {
+		return dmUser2, nil
+	}
+	return dmUser1, nil
+}
+
+func (r *PostgresRepository) GetChannelName(ctx context.Context, channelID uuid.UUID) (string, error) {
+	var name string
+	err := r.pool.QueryRow(ctx,
+		`SELECT name FROM channels WHERE id = $1`, channelID,
+	).Scan(&name)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}

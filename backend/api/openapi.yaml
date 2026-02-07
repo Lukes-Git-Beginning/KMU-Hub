@@ -43,6 +43,8 @@ tags:
     description: Chat file sharing and uploads
   - name: chat-search
     description: Full-text search across chat messages and files
+  - name: notifications
+    description: Notification management (list, read, preferences, mutes, quiet hours)
 
 paths:
   /health:
@@ -2757,6 +2759,376 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ===========================================================================
+  # Notifications
+  # ===========================================================================
+
+  /api/v1/notifications:
+    get:
+      summary: List notifications for the current user
+      tags: [notifications]
+      operationId: listNotifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: module_id
+          in: query
+          description: Filter by module (e.g. chat, crm)
+          schema:
+            type: string
+        - name: is_read
+          in: query
+          description: Filter by read status
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Paginated list of notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/unread-count:
+    get:
+      summary: Get unread notification count
+      tags: [notifications]
+      operationId: getUnreadCount
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/{id}/read:
+    post:
+      summary: Mark a single notification as read
+      tags: [notifications]
+      operationId: markNotificationRead
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notifications/read-all:
+    post:
+      summary: Mark all notifications as read
+      tags: [notifications]
+      operationId: markAllNotificationsRead
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                module_id:
+                  type: string
+                  description: Optional module filter
+      responses:
+        "200":
+          description: Count of marked notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marked_count:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/preferences:
+    get:
+      summary: Get notification preferences
+      tags: [notifications]
+      operationId: getNotificationPreferences
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module_id
+          in: query
+          description: Filter preferences by module
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of notification preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preferences:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NotificationPreference"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Update a notification preference
+      tags: [notifications]
+      operationId: updateNotificationPreference
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNotificationPreferenceRequest"
+      responses:
+        "200":
+          description: Preference updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreference"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/event-types:
+    get:
+      summary: List available notification event types
+      tags: [notifications]
+      operationId: listEventTypes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module_id
+          in: query
+          description: Filter by module
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of event types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event_types:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/mutes:
+    post:
+      summary: Mute notifications for a resource
+      tags: [notifications]
+      operationId: muteResource
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [module_id, resource_id]
+              properties:
+                module_id:
+                  type: string
+                resource_id:
+                  type: string
+      responses:
+        "201":
+          description: Resource muted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationMute"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Unmute notifications for a resource
+      tags: [notifications]
+      operationId: unmuteResource
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [module_id, resource_id]
+              properties:
+                module_id:
+                  type: string
+                resource_id:
+                  type: string
+      responses:
+        "200":
+          description: Resource unmuted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: List muted resources
+      tags: [notifications]
+      operationId: listMutedResources
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: module_id
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of muted resources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mutes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NotificationMute"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/quiet-hours:
+    get:
+      summary: Get quiet hours configuration
+      tags: [notifications]
+      operationId: getQuietHours
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Quiet hours configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuietHours"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Update quiet hours configuration
+      tags: [notifications]
+      operationId: updateQuietHours
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuietHoursRequest"
+      responses:
+        "200":
+          description: Quiet hours updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuietHours"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/dnd:
+    post:
+      summary: Toggle manual Do Not Disturb mode
+      tags: [notifications]
+      operationId: toggleDND
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+                until:
+                  type: string
+                  format: date-time
+                  description: Optional end time for DND (RFC3339)
+      responses:
+        "200":
+          description: DND toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuietHours"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -4238,6 +4610,174 @@ components:
           type: integer
           format: int64
           description: Present for file results
+
+    # =========================================================================
+    # Notification Schemas
+    # =========================================================================
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        event_type_key:
+          type: string
+        module_id:
+          type: string
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        actor_id:
+          type: string
+          format: uuid
+        resource_id:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        deep_link:
+          type: string
+        group_key:
+          type: string
+        group_count:
+          type: integer
+        is_read:
+          type: boolean
+        read_at:
+          type: string
+          format: date-time
+        delivered_desktop:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    NotificationPreference:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        event_type_key:
+          type: string
+        module_id:
+          type: string
+        in_app:
+          type: boolean
+        desktop_push:
+          type: boolean
+        sound:
+          type: string
+
+    UpdateNotificationPreferenceRequest:
+      type: object
+      properties:
+        event_type_key:
+          type: string
+          description: Specific event type key (mutually exclusive with module_id for module-level default)
+        module_id:
+          type: string
+          description: Module ID for module-level default preference
+        in_app:
+          type: boolean
+        desktop_push:
+          type: boolean
+        sound:
+          type: string
+
+    EventType:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        module_id:
+          type: string
+        event_key:
+          type: string
+        display_name:
+          type: string
+        description:
+          type: string
+        default_priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        default_in_app:
+          type: boolean
+        default_desktop_push:
+          type: boolean
+        default_sound:
+          type: string
+
+    NotificationMute:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        module_id:
+          type: string
+        resource_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    QuietHours:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          description: Start time in HH:MM format
+        end_time:
+          type: string
+          description: End time in HH:MM format
+        timezone:
+          type: string
+          description: IANA timezone (e.g. Europe/Berlin)
+        days_of_week:
+          type: array
+          items:
+            type: integer
+          description: Days of week (0=Sunday, 6=Saturday)
+        enabled:
+          type: boolean
+        manual_dnd:
+          type: boolean
+        manual_dnd_until:
+          type: string
+          format: date-time
+
+    UpdateQuietHoursRequest:
+      type: object
+      required: [start_time, end_time, timezone, enabled]
+      properties:
+        start_time:
+          type: string
+        end_time:
+          type: string
+        timezone:
+          type: string
+        days_of_week:
+          type: array
+          items:
+            type: integer
+        enabled:
+          type: boolean
 
   responses:
     BadRequest:

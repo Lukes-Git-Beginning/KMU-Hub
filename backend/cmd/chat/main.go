@@ -76,6 +76,7 @@ func main() {
 	channelService := channel.NewService(channelRepo)
 	messageService := message.NewService(messageRepo)
 	messageService.SetLangDetector(langDetector)
+	messageService.SetEventEmitter(message.NewPGEventEmitter(pool))
 	fileService := file.NewService(fileRepo, fileStore, fileScanner, thumbnailGen, cfg.FileSizeLimitMB)
 	searchService := search.NewService(searchRepo, langDetector)
 

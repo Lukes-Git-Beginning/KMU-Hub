@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"time"
 
@@ -164,6 +165,9 @@ func (s *Service) ProcessEvent(ctx context.Context, payload models.EventPayload)
 
 		// Dispatch delivery
 		s.dispatcher.Dispatch(ctx, result.Notification, decision)
+
+		// Signal gateway for WebSocket push via pg_notify
+		s.notifyDelivery(ctx, result.Notification)
 	}
 
 	// Mark event as processed
@@ -225,4 +229,40 @@ func (s *Service) MarkRead(ctx context.Context, notifID, userID uuid.UUID) (*mod
 // MarkAllRead marks all unread notifications as read for a user.
 func (s *Service) MarkAllRead(ctx context.Context, userID uuid.UUID, moduleID *string) (int, error) {
 	return s.repo.MarkAllRead(ctx, userID, moduleID, time.Now())
+}
+
+// notifyDelivery sends a lightweight payload via pg_notify on the delivery channel
+// so the gateway can push the notification to the user's WebSocket connection.
+func (s *Service) notifyDelivery(ctx context.Context, notif *models.Notification) {
+	type deliveryPayload struct {
+		NotificationID string `json:"notification_id"`
+		UserID         string `json:"user_id"`
+		Title          string `json:"title"`
+		EventTypeKey   string `json:"event_type_key"`
+		ModuleID       string `json:"module_id"`
+		Priority       string `json:"priority"`
+	}
+
+	payload := deliveryPayload{
+		NotificationID: notif.ID.String(),
+		UserID:         notif.UserID.String(),
+		Title:          notif.Title,
+		EventTypeKey:   notif.EventTypeKey,
+		ModuleID:       notif.ModuleID,
+		Priority:       notif.Priority,
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		slog.Error("failed to marshal delivery payload", "error", err)
+		return
+	}
+
+	if err := s.repo.NotifyDelivery(ctx, string(data)); err != nil {
+		slog.Error("failed to send delivery notification",
+			"notification_id", notif.ID,
+			"user_id", notif.UserID,
+			"error", err,
+		)
+	}
 }

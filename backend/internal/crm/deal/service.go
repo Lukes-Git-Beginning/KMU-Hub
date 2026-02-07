@@ -20,14 +20,26 @@ var validCurrencies = map[string]bool{
 	"CZK": true, "HUF": true, "RON": true, "BGN": true,
 }
 
+// EventEmitter is an optional interface for emitting notification events.
+// If set, the deal service will emit events on stage changes and owner assignments.
+type EventEmitter interface {
+	EmitDealEvent(ctx context.Context, payload models.EventPayload) error
+}
+
 // Service handles deal business logic
 type Service struct {
-	repo Repository
+	repo         Repository
+	eventEmitter EventEmitter
 }
 
 // NewService creates a new deal service
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetEventEmitter sets the optional event emitter for notification events.
+func (s *Service) SetEventEmitter(emitter EventEmitter) {
+	s.eventEmitter = emitter
 }
 
 // CreateInput contains the data needed to create a deal
@@ -294,10 +306,17 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 		}
 	}
 
+	var ownerChanged bool
+	var newOwnerID uuid.UUID
 	if input.OwnerID != nil {
 		if *input.OwnerID == uuid.Nil {
 			deal.OwnerID = nil
 		} else {
+			// Track owner change for event emission
+			if deal.OwnerID == nil || *deal.OwnerID != *input.OwnerID {
+				ownerChanged = true
+				newOwnerID = *input.OwnerID
+			}
 			exists, ownerErr := s.repo.OwnerExists(ctx, *input.OwnerID)
 			if ownerErr != nil {
 				return nil, ownerErr
@@ -331,6 +350,21 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateInput) (
 	}
 
 	slog.Info("deal updated", "deal_id", deal.ID)
+
+	// Emit notification event for deal assignment change
+	if s.eventEmitter != nil && ownerChanged {
+		_ = s.eventEmitter.EmitDealEvent(ctx, models.EventPayload{
+			Type:          "crm.deal.assigned",
+			Priority:      models.PriorityNormal,
+			ResourceID:    deal.ID.String(),
+			ModuleID:      "crm",
+			Title:         "You were assigned to deal: " + deal.Name,
+			Body:          "Deal assignment changed",
+			DeepLink:      "/crm/deals/" + deal.ID.String(),
+			TargetUserIDs: []string{newOwnerID.String()},
+			Timestamp:     time.Now(),
+		})
+	}
 
 	return s.getWithRelations(ctx, deal)
 }
@@ -396,6 +430,27 @@ func (s *Service) MoveToStage(ctx context.Context, dealID, stageID uuid.UUID) (*
 		"is_won", stage.IsWon,
 		"is_lost", stage.IsLost,
 	)
+
+	// Emit notification event for deal stage change
+	if s.eventEmitter != nil && deal.OwnerID != nil {
+		// Find who triggered this operation (not available in current context,
+		// so we use empty actor_id which means the notification service will
+		// deliver to the owner unconditionally). In a proper implementation,
+		// the actorID would be passed through the context or as a parameter.
+		ownerIDStr := deal.OwnerID.String()
+		_ = s.eventEmitter.EmitDealEvent(ctx, models.EventPayload{
+			Type:       "crm.deal.stage_changed",
+			Priority:   models.PriorityNormal,
+			ResourceID: deal.ID.String(),
+			ModuleID:   "crm",
+			Title:      deal.Name + " moved to " + stage.Name,
+			Body:       "Deal stage changed",
+			DeepLink:   "/crm/deals/" + deal.ID.String(),
+			GroupKey:   "deal-stage:" + deal.ID.String(),
+			TargetUserIDs: []string{ownerIDStr},
+			Timestamp:  time.Now(),
+		})
+	}
 
 	return s.getWithRelations(ctx, deal)
 }

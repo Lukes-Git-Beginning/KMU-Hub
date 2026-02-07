@@ -16,15 +16,27 @@ type LangDetector interface {
 	Detect(text string) string
 }
 
+// EventEmitter is an optional interface for emitting notification events.
+// If set, the message service will emit events for mentions and DM messages.
+type EventEmitter interface {
+	EmitChatEvent(ctx context.Context, payload models.EventPayload) error
+}
+
 // Service handles message business logic
 type Service struct {
 	repo         Repository
 	langDetector LangDetector
+	eventEmitter EventEmitter
 }
 
 // NewService creates a new message service
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetEventEmitter sets the optional event emitter for notification events.
+func (s *Service) SetEventEmitter(emitter EventEmitter) {
+	s.eventEmitter = emitter
 }
 
 // SetLangDetector sets the language detector (optional, for search indexing)
@@ -142,7 +154,71 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		return nil, senderErr
 	}
 	result.Mentions = mentions
+
+	// Emit notification events (best-effort, don't fail the message creation)
+	if s.eventEmitter != nil {
+		s.emitMessageEvents(ctx, message, result, input, mentions)
+	}
+
 	return result, nil
+}
+
+// emitMessageEvents emits notification events for mentions and DM messages.
+func (s *Service) emitMessageEvents(ctx context.Context, message *models.Message, result *models.MessageWithSender, input CreateInput, mentions []models.MentionWithUser) {
+	senderName := result.SenderFirstName + " " + result.SenderLastName
+
+	// Truncate content for preview
+	contentPreview := message.Content
+	if len(contentPreview) > 100 {
+		contentPreview = contentPreview[:100]
+	}
+
+	// Emit mention events
+	if len(mentions) > 0 {
+		var targetUserIDs []string
+		for _, m := range mentions {
+			// Don't notify the sender about their own mention
+			if m.UserID != message.CreatedBy {
+				targetUserIDs = append(targetUserIDs, m.UserID.String())
+			}
+		}
+
+		if len(targetUserIDs) > 0 {
+			channelName, _ := s.repo.GetChannelName(ctx, message.ChannelID)
+
+			_ = s.eventEmitter.EmitChatEvent(ctx, models.EventPayload{
+				Type:          "chat.mention",
+				Priority:      models.PriorityNormal,
+				ActorID:       message.CreatedBy.String(),
+				ResourceID:    message.ChannelID.String(),
+				ModuleID:      "chat",
+				Title:         senderName + " mentioned you in #" + channelName,
+				Body:          contentPreview,
+				DeepLink:      "/chat/channels/" + message.ChannelID.String() + "/messages/" + message.ID.String(),
+				GroupKey:      "chat-mention:" + message.ChannelID.String(),
+				TargetUserIDs: targetUserIDs,
+				Timestamp:     time.Now(),
+			})
+		}
+	}
+
+	// Emit DM event
+	recipientID, err := s.repo.GetDMRecipient(ctx, message.ChannelID, message.CreatedBy)
+	if err == nil && recipientID != nil {
+		_ = s.eventEmitter.EmitChatEvent(ctx, models.EventPayload{
+			Type:          "chat.dm.new",
+			Priority:      models.PriorityNormal,
+			ActorID:       message.CreatedBy.String(),
+			ResourceID:    message.ChannelID.String(),
+			ModuleID:      "chat",
+			Title:         senderName + " sent you a message",
+			Body:          contentPreview,
+			DeepLink:      "/chat/dm/" + message.ChannelID.String(),
+			GroupKey:      "chat-dm:" + message.ChannelID.String(),
+			TargetUserIDs: []string{recipientID.String()},
+			Timestamp:     time.Now(),
+		})
+	}
 }
 
 // GetByID retrieves a message by ID

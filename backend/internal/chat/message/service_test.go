@@ -253,6 +253,14 @@ func (m *MockRepository) GetFilesByMessageIDs(_ context.Context, _ []uuid.UUID) 
 	return make(map[uuid.UUID][]models.ChatFileWithUploader), nil
 }
 
+func (m *MockRepository) GetDMRecipient(_ context.Context, _ uuid.UUID, _ uuid.UUID) (*uuid.UUID, error) {
+	return nil, nil
+}
+
+func (m *MockRepository) GetChannelName(_ context.Context, _ uuid.UUID) (string, error) {
+	return "test-channel", nil
+}
+
 // Helpers for setting up test data
 func (m *MockRepository) AddChannel(id uuid.UUID, archived bool) {
 	m.channels[id] = struct{ archived bool }{archived}

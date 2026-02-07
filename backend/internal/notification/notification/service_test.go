@@ -580,6 +580,10 @@ func (m *mockNotifRepo) MarkEventProcessed(_ context.Context, _ string) error {
 	return nil
 }
 
+func (m *mockNotifRepo) NotifyDelivery(_ context.Context, _ string) error {
+	return nil
+}
+
 // ============================================================================
 // Mock Preference Repository (for use in service integration tests)
 // ============================================================================
