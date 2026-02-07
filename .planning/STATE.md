@@ -5,34 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 5 - Desktop App Shell (Plan 1 of 7 complete)
+**Current focus:** Phase 5 - Desktop App Shell (Plan 2 of 7 complete)
 
 ## Current Position
 
 Phase: 5 of 13 (Desktop App Shell)
-Plan: 1 of 7 in current phase
+Plan: 2 of 7 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 05-01-PLAN.md (Electron Shell Foundation)
+Last activity: 2026-02-07 -- Completed 05-02-PLAN.md (App Shell Auth & Navigation)
 
-Progress: [##########░░░░░░░░░░] 12% (4/32 plans across phases 4-13)
+Progress: [###########░░░░░░░░░] 15% (5/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: ~13 minutes
-- Total execution time: ~0.9 hours
+- Total plans completed: 5
+- Average duration: ~12 minutes
+- Total execution time: ~1 hour
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
-| 05 | 1/7 | ~9min | ~9min |
+| 05 | 2/7 | ~19min | ~10min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (~10min), 04-02 (~16min), 04-03 (~20min), 05-01 (~9min)
-- Trend: Foundation plans faster than integration-heavy plans
+- Last 5 plans: 04-02 (~16min), 04-03 (~20min), 05-01 (~9min), 05-02 (~10min)
+- Trend: Desktop foundation plans consistently fast (~10min)
 
 *Updated after each plan completion*
 
@@ -65,6 +65,10 @@ Recent decisions affecting current work:
 - [05-01]: electron.vite.config.ts excluded from tsc (electron-vite v5/vite 5 type mismatch)
 - [05-01]: CSP unsafe-inline for dev only (Vite HMR), production uses self only
 - [05-01]: safeStorage with plaintext fallback for Linux without keyring
+- [05-02]: shadcn CLI installs to @/ literal -- lib/index.ts barrel export needed
+- [05-02]: vite-env.d.ts for import.meta.env types (electron-vite v5 gap)
+- [05-02]: createHashRouter for Electron file:// protocol compatibility
+- [05-02]: Auth init before render; GuestRoute guard on login page
 
 ### Pending Todos
 
@@ -79,5 +83,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 05-01-PLAN.md (Electron Shell Foundation)
+Stopped at: Completed 05-02-PLAN.md (App Shell Auth & Navigation)
 Resume file: None
