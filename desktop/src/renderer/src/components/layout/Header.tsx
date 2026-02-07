@@ -1,15 +1,13 @@
 /**
  * Compact header bar displayed above the main content area.
  *
- * Shows current module name, online/offline indicator, and the
+ * Shows current module name, connection status dot, and the
  * notification bell with real-time unread count.
  */
 import { useLocation } from 'react-router-dom'
-import { Wifi, WifiOff } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
-import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
   TooltipContent,
@@ -40,22 +38,15 @@ export function Header() {
 
       {/* Right: status indicators */}
       <div className="flex items-center gap-3">
-        {/* Online / Offline indicator */}
+        {/* Connection status dot: green (online), red (offline) */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5">
-              {isOnline ? (
-                <Wifi className="h-4 w-4 text-emerald-500" />
-              ) : (
-                <WifiOff className="h-4 w-4 text-destructive" />
-              )}
-              <Badge
-                variant={isOnline ? 'secondary' : 'destructive'}
-                className="text-xs"
-              >
-                {isOnline ? 'Online' : 'Offline'}
-              </Badge>
-            </div>
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                isOnline ? 'bg-emerald-500' : 'bg-destructive'
+              }`}
+              aria-label={isOnline ? 'Online' : 'Offline'}
+            />
           </TooltipTrigger>
           <TooltipContent>
             {isOnline

@@ -11,6 +11,7 @@ import { useUIStore } from '@/stores/ui'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { OfflineBanner } from './OfflineBanner'
 import { ModuleLoadingFallback, ModuleErrorBoundary } from './ModuleShell'
 
 export function AppShell() {
@@ -25,6 +26,7 @@ export function AppShell() {
       <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
       <main className="flex flex-1 flex-col overflow-hidden">
+        <OfflineBanner />
         <Header />
 
         <div className="flex-1 overflow-auto">

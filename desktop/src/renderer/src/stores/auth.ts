@@ -3,6 +3,11 @@
  *
  * Manages user session, token persistence via Electron safeStorage,
  * and WebSocket connectivity lifecycle.
+ *
+ * Offline behavior:
+ * - initialize: loads cached user from localStorage when offline (skip API call)
+ * - login: rejects immediately when offline (requires network)
+ * - refreshToken: skips refresh when offline (use cached access token until online)
  */
 import { create } from 'zustand'
 import { apiClient } from '@/api/client'
@@ -10,6 +15,9 @@ import { wsManager } from '@/api/websocket'
 import type { components } from '@/api/types'
 
 type UserInfo = components['schemas']['UserInfo']
+
+/** localStorage key for cached user data (offline fallback). */
+const CACHED_USER_KEY = 'kmuhub-cached-user'
 
 export interface User {
   id: string
@@ -50,6 +58,35 @@ function toUser(info: UserInfo): User {
   }
 }
 
+/** Cache user data in localStorage for offline fallback. */
+function cacheUser(user: User): void {
+  try {
+    localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user))
+  } catch {
+    // QuotaExceededError or other storage error -- non-critical
+  }
+}
+
+/** Load cached user data from localStorage. */
+function loadCachedUser(): User | null {
+  try {
+    const raw = localStorage.getItem(CACHED_USER_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as User
+  } catch {
+    return null
+  }
+}
+
+/** Clear cached user data from localStorage. */
+function clearCachedUser(): void {
+  try {
+    localStorage.removeItem(CACHED_USER_KEY)
+  } catch {
+    // Non-critical
+  }
+}
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   accessToken: null,
@@ -74,6 +111,19 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         isAuthenticated: true,
       })
 
+      // If offline, use cached user data instead of making API call
+      if (!navigator.onLine) {
+        const cachedUser = loadCachedUser()
+        if (cachedUser) {
+          set({ user: cachedUser, isLoading: false })
+          return
+        }
+        // No cached user but have tokens -- still mark authenticated,
+        // user profile will load when back online
+        set({ isLoading: false })
+        return
+      }
+
       // Fetch user profile to validate the token is still valid
       const { data, error } = await apiClient.GET('/api/v1/auth/me')
 
@@ -83,6 +133,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         if (!newToken) {
           // Refresh also failed -- clean up
           await window.electronAPI.auth.clearTokens()
+          clearCachedUser()
           set({
             user: null,
             accessToken: null,
@@ -97,6 +148,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         const retryResult = await apiClient.GET('/api/v1/auth/me')
         if (retryResult.error || !retryResult.data?.user) {
           await window.electronAPI.auth.clearTokens()
+          clearCachedUser()
           set({
             user: null,
             accessToken: null,
@@ -107,9 +159,13 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           return
         }
 
-        set({ user: toUser(retryResult.data.user), isLoading: false })
+        const user = toUser(retryResult.data.user)
+        cacheUser(user)
+        set({ user, isLoading: false })
       } else {
-        set({ user: toUser(data.user), isLoading: false })
+        const user = toUser(data.user)
+        cacheUser(user)
+        set({ user, isLoading: false })
       }
 
       // Connect WebSocket after successful auth restoration
@@ -118,6 +174,15 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         wsManager.connect(accessToken)
       }
     } catch {
+      // If offline and we have tokens, try cached user as fallback
+      if (!navigator.onLine) {
+        const cachedUser = loadCachedUser()
+        if (cachedUser) {
+          set({ user: cachedUser, isLoading: false })
+          return
+        }
+      }
+
       set({
         user: null,
         accessToken: null,
@@ -129,6 +194,11 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   async login(email: string, password: string) {
+    // Login requires a network connection
+    if (!navigator.onLine) {
+      throw new Error('Anmeldung erfordert eine Internetverbindung.')
+    }
+
     const { data, error } = await apiClient.POST('/api/v1/auth/login', {
       body: { email, password },
     })
@@ -150,6 +220,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       accessToken,
       refreshToken,
     })
+
+    // Cache user for offline access
+    cacheUser(user)
 
     set({
       user,
@@ -183,6 +256,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     // Clear persisted tokens
     await window.electronAPI.auth.clearTokens()
 
+    // Clear cached user
+    clearCachedUser()
+
     set({
       user: null,
       accessToken: null,
@@ -195,6 +271,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   async refreshToken() {
     const { refreshTokenValue } = get()
     if (!refreshTokenValue) return null
+
+    // Skip refresh when offline -- use cached access token until online
+    if (!navigator.onLine) return null
 
     try {
       const { data, error } = await apiClient.POST('/api/v1/auth/refresh', {

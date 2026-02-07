@@ -34,10 +34,25 @@ const queryClient = new QueryClient({
   },
 })
 
-// Persist query cache to localStorage for offline support
+// Persist query cache to localStorage for offline support.
+// localStorage has a ~5-10MB limit; handle QuotaExceededError gracefully.
 const persister = createSyncStoragePersister({
   storage: window.localStorage,
   key: 'kmuhub-query-cache',
+  serialize: (data) => {
+    try {
+      return JSON.stringify(data)
+    } catch {
+      return '{}'
+    }
+  },
+  deserialize: (data) => {
+    try {
+      return JSON.parse(data)
+    } catch {
+      return {}
+    }
+  },
 })
 
 /**
@@ -137,7 +152,7 @@ export default function App() {
   return (
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister }}
+      persistOptions={{ persister, maxAge: GC_TIME }}
     >
       <TooltipProvider>
         <RouterProvider router={router} />

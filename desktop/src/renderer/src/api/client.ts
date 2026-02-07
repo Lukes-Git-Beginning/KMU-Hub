@@ -5,10 +5,22 @@
  * - Automatic Authorization header injection from auth store
  * - 401 response interception with transparent token refresh
  * - Concurrent refresh request de-duplication
+ * - Offline guard: blocks mutations (POST/PUT/DELETE) when offline
  */
 import createClient from 'openapi-fetch'
 import type { paths } from './types'
 import { API_BASE_URL } from '@/lib/constants'
+
+/**
+ * Custom error thrown when a mutation is attempted while offline.
+ * The UI can check `error instanceof OfflineError` to show a specific message.
+ */
+export class OfflineError extends Error {
+  constructor() {
+    super('Aenderungen sind offline nicht moeglich. Bitte stellen Sie die Internetverbindung wieder her.')
+    this.name = 'OfflineError'
+  }
+}
 
 const apiClient = createClient<paths>({ baseUrl: API_BASE_URL })
 
@@ -18,8 +30,16 @@ const apiClient = createClient<paths>({ baseUrl: API_BASE_URL })
  */
 let refreshPromise: Promise<string | null> | null = null
 
+/** HTTP methods that mutate data and must be blocked when offline. */
+const MUTATION_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH'])
+
 apiClient.use({
   async onRequest({ request }) {
+    // Block mutations when offline -- allow GETs to proceed (served from cache)
+    if (!navigator.onLine && MUTATION_METHODS.has(request.method)) {
+      throw new OfflineError()
+    }
+
     // Lazy import to break circular dependency (auth store imports apiClient)
     const { useAuthStore } = await import('@/stores/auth')
     const { accessToken } = useAuthStore.getState()
