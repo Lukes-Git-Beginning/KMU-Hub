@@ -12,7 +12,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useAuthStore } from '@/stores/auth'
 import { STALE_TIME, GC_TIME } from '@/lib/constants'
-import { AppShell } from '@/components/layout/AppShell'
+import { DeskEnvironment } from '@/components/layout/DeskEnvironment'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import LoginPage from '@/modules/auth/LoginPage'
 
@@ -43,10 +43,19 @@ const persister = createSyncStoragePersister({
 /**
  * Redirect to login if user is not authenticated.
  * Used as a route element wrapper for protected routes.
+ *
+ * DEV_BYPASS_AUTH: Set to true to skip auth for design work
+ * without a running backend. REMOVE before merging to main.
  */
+const DEV_BYPASS_AUTH = true
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const isLoading = useAuthStore((s) => s.isLoading)
+
+  if (DEV_BYPASS_AUTH) {
+    return <>{children}</>
+  }
 
   if (isLoading) {
     return <ModuleLoadingFallback />
@@ -85,7 +94,7 @@ const router = createHashRouter([
     path: '/',
     element: (
       <ProtectedRoute>
-        <AppShell />
+        <DeskEnvironment />
       </ProtectedRoute>
     ),
     children: [

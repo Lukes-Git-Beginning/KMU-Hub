@@ -5,8 +5,9 @@
  * a notification bell placeholder (wired in 05-04).
  */
 import { useLocation } from 'react-router-dom'
-import { Bell, Wifi, WifiOff } from 'lucide-react'
+import { Bell, Wifi, WifiOff, Maximize2, Minimize2 } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { useUIStore } from '@/stores/ui'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,6 +29,8 @@ export function Header() {
   const { pathname } = useLocation()
   const { isOnline } = useOnlineStatus()
   const moduleName = getModuleName(pathname)
+  const deskMaximized = useUIStore((s) => s.deskMaximized)
+  const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
@@ -57,6 +60,27 @@ export function Header() {
             {isOnline
               ? 'Verbunden mit dem Server'
               : 'Keine Verbindung zum Server'}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Desk maximize toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={toggleDeskMaximized}
+            >
+              {deskMaximized ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {deskMaximized ? 'Schreibtisch anzeigen' : 'Arbeitsflaeche maximieren'}
           </TooltipContent>
         </Tooltip>
 

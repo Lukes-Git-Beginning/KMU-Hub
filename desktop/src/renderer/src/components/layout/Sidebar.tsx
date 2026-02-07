@@ -13,9 +13,12 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/stores/auth'
+import { useUIStore } from '@/stores/ui'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,6 +42,8 @@ const navItems = [
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const deskMaximized = useUIStore((s) => s.deskMaximized)
+  const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
 
   const initials = user
     ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
@@ -51,7 +56,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col border-r border-border bg-card transition-all duration-200',
+        'flex flex-col border-r transition-all duration-200',
+        'bg-[var(--desk-sidebar-bg)] border-[var(--desk-sidebar-border)]',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
@@ -137,25 +143,46 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           )}
         </div>
 
-        {/* Collapse toggle */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            'mt-1 w-full',
-            collapsed && 'px-2'
-          )}
-          onClick={onToggle}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" />
-          ) : (
-            <>
-              <PanelLeftClose className="h-4 w-4" />
-              <span className="ml-2">Einklappen</span>
-            </>
-          )}
-        </Button>
+        {/* Maximize + Collapse toggles */}
+        <div className={cn('mt-1 flex gap-1', collapsed ? 'flex-col' : 'flex-row')}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(collapsed ? 'w-full px-2' : 'px-2')}
+                onClick={toggleDeskMaximized}
+              >
+                {deskMaximized ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {deskMaximized ? 'Schreibtisch anzeigen' : 'Arbeitsflaeche maximieren'}
+            </TooltipContent>
+          </Tooltip>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              collapsed ? 'w-full px-2' : 'flex-1'
+            )}
+            onClick={onToggle}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <>
+                <PanelLeftClose className="h-4 w-4" />
+                <span className="ml-2">Einklappen</span>
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </aside>
   )
