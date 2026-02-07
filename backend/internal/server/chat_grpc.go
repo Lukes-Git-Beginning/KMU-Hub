@@ -9,7 +9,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/chat/channel"
+	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/chat/message"
+	"github.com/kmuhub/kmuhub/internal/chat/search"
 	"github.com/kmuhub/kmuhub/internal/models"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 )
@@ -19,16 +21,22 @@ type ChatGRPCServer struct {
 	chatv1.UnimplementedChatServiceServer
 	channelService *channel.Service
 	messageService *message.Service
+	fileService    *file.Service
+	searchService  *search.Service
 }
 
 // NewChatGRPCServer creates a new Chat gRPC server
 func NewChatGRPCServer(
 	channelService *channel.Service,
 	messageService *message.Service,
+	fileService *file.Service,
+	searchService *search.Service,
 ) *ChatGRPCServer {
 	return &ChatGRPCServer{
 		channelService: channelService,
 		messageService: messageService,
+		fileService:    fileService,
+		searchService:  searchService,
 	}
 }
 
@@ -615,6 +623,134 @@ func (s *ChatGRPCServer) GetUserMentions(ctx context.Context, req *chatv1.GetUse
 }
 
 // ============================================================================
+// Files (Sprint 4)
+// ============================================================================
+
+func (s *ChatGRPCServer) GetFileDownloadURL(ctx context.Context, req *chatv1.GetFileDownloadURLRequest) (*chatv1.GetFileDownloadURLResponse, error) {
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	url, err := s.fileService.GetDownloadURL(ctx, fileID, userID)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	return &chatv1.GetFileDownloadURLResponse{Url: url}, nil
+}
+
+func (s *ChatGRPCServer) GetFileThumbnailURL(ctx context.Context, req *chatv1.GetFileThumbnailURLRequest) (*chatv1.GetFileThumbnailURLResponse, error) {
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	url, err := s.fileService.GetThumbnailURL(ctx, fileID, userID)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	return &chatv1.GetFileThumbnailURLResponse{Url: url}, nil
+}
+
+func (s *ChatGRPCServer) ListChannelFiles(ctx context.Context, req *chatv1.ListChannelFilesRequest) (*chatv1.ListChannelFilesResponse, error) {
+	channelID, err := uuid.Parse(req.ChannelId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid channel_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	files, total, err := s.fileService.ListChannelFiles(ctx, channelID, userID, int(req.Page), int(req.PageSize))
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	var infos []*chatv1.FileInfo
+	for _, f := range files {
+		infos = append(infos, toFileInfo(f))
+	}
+
+	return &chatv1.ListChannelFilesResponse{
+		Files: infos,
+		Total: int32(total),
+	}, nil
+}
+
+func (s *ChatGRPCServer) DeleteFile(ctx context.Context, req *chatv1.DeleteFileRequest) (*chatv1.DeleteFileResponse, error) {
+	fileID, err := uuid.Parse(req.FileId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	if err := s.fileService.Delete(ctx, fileID, userID); err != nil {
+		return nil, mapChatError(err)
+	}
+
+	return &chatv1.DeleteFileResponse{}, nil
+}
+
+// ============================================================================
+// Search (Sprint 4)
+// ============================================================================
+
+func (s *ChatGRPCServer) SearchChat(ctx context.Context, req *chatv1.SearchChatRequest) (*chatv1.SearchChatResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	input := search.SearchInput{
+		Query:    req.Query,
+		UserID:   userID,
+		Page:     int(req.Page),
+		PageSize: int(req.PageSize),
+	}
+
+	if req.ChannelId != nil && *req.ChannelId != "" {
+		chID, parseErr := uuid.Parse(*req.ChannelId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid channel_id")
+		}
+		input.ChannelID = &chID
+	}
+
+	results, total, err := s.searchService.Search(ctx, input)
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	var protos []*chatv1.ChatSearchResultProto
+	for _, r := range results {
+		protos = append(protos, toChatSearchResultProto(&r))
+	}
+
+	return &chatv1.SearchChatResponse{
+		Results: protos,
+		Total:   int32(total),
+	}, nil
+}
+
+// ============================================================================
 // Converters
 // ============================================================================
 
@@ -693,6 +829,10 @@ func toMessageInfo(m *models.MessageWithSender) *chatv1.MessageInfo {
 		info.Mentions = append(info.Mentions, toMentionInfo(&mention))
 	}
 
+	for _, f := range m.Files {
+		info.Files = append(info.Files, toFileInfo(&f))
+	}
+
 	return info
 }
 
@@ -738,6 +878,65 @@ func toMessageInfoFromBase(m *models.Message) *chatv1.MessageInfo {
 	}
 
 	return info
+}
+
+func toFileInfo(f *models.ChatFileWithUploader) *chatv1.FileInfo {
+	info := &chatv1.FileInfo{
+		Id:                f.ID.String(),
+		ChannelId:         f.ChannelID.String(),
+		Filename:          f.Filename,
+		MimeType:          f.MimeType,
+		FileSize:          f.FileSize,
+		UploadedBy:        f.UploadedBy.String(),
+		CreatedAt:         f.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UploaderFirstName: f.UploaderFirstName,
+		UploaderLastName:  f.UploaderLastName,
+	}
+
+	if f.MessageID != nil {
+		msgID := f.MessageID.String()
+		info.MessageId = &msgID
+	}
+
+	return info
+}
+
+func toChatSearchResultProto(r *models.ChatSearchResult) *chatv1.ChatSearchResultProto {
+	proto := &chatv1.ChatSearchResultProto{
+		Type:        string(r.Type),
+		Id:          r.ID.String(),
+		ChannelId:   r.ChannelID.String(),
+		ChannelName: r.ChannelName,
+		Score:       r.Score,
+		Snippet:     r.Snippet,
+		CreatedAt:   r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		FirstName:   r.FirstName,
+		LastName:    r.LastName,
+	}
+
+	if r.MessageID != nil {
+		msgID := r.MessageID.String()
+		proto.MessageId = &msgID
+	}
+	if r.ParentMessageID != nil {
+		parentID := r.ParentMessageID.String()
+		proto.ParentMessageId = &parentID
+	}
+	if r.FileID != nil {
+		fileID := r.FileID.String()
+		proto.FileId = &fileID
+	}
+	if r.Filename != nil {
+		proto.Filename = r.Filename
+	}
+	if r.MimeType != nil {
+		proto.MimeType = r.MimeType
+	}
+	if r.FileSize != nil {
+		proto.FileSize = r.FileSize
+	}
+
+	return proto
 }
 
 // ============================================================================
@@ -802,6 +1001,32 @@ func mapChatError(err error) error {
 	case errors.Is(err, message.ErrParentDeleted):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, message.ErrInvalidMention):
+		return status.Error(codes.InvalidArgument, err.Error())
+
+	// File errors
+	case errors.Is(err, file.ErrNotChannelMember):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, file.ErrChannelArchived):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, file.ErrFileTooLarge):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, file.ErrInvalidMimeType):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, file.ErrQuotaExceeded):
+		return status.Error(codes.ResourceExhausted, err.Error())
+	case errors.Is(err, file.ErrFileNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, file.ErrFileDeleted):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, file.ErrNotAuthorized):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, file.ErrScanFailed):
+		return status.Error(codes.FailedPrecondition, err.Error())
+
+	// Search errors
+	case errors.Is(err, search.ErrQueryTooShort):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, search.ErrQueryTooLong):
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	default:

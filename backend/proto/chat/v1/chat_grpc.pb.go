@@ -19,26 +19,31 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_CreateChannel_FullMethodName     = "/chat.v1.ChatService/CreateChannel"
-	ChatService_GetChannel_FullMethodName        = "/chat.v1.ChatService/GetChannel"
-	ChatService_ListChannels_FullMethodName      = "/chat.v1.ChatService/ListChannels"
-	ChatService_UpdateChannel_FullMethodName     = "/chat.v1.ChatService/UpdateChannel"
-	ChatService_DeleteChannel_FullMethodName     = "/chat.v1.ChatService/DeleteChannel"
-	ChatService_ArchiveChannel_FullMethodName    = "/chat.v1.ChatService/ArchiveChannel"
-	ChatService_JoinChannel_FullMethodName       = "/chat.v1.ChatService/JoinChannel"
-	ChatService_LeaveChannel_FullMethodName      = "/chat.v1.ChatService/LeaveChannel"
-	ChatService_GetChannelMembers_FullMethodName = "/chat.v1.ChatService/GetChannelMembers"
-	ChatService_UpdateMemberRole_FullMethodName  = "/chat.v1.ChatService/UpdateMemberRole"
-	ChatService_SendMessage_FullMethodName       = "/chat.v1.ChatService/SendMessage"
-	ChatService_GetMessages_FullMethodName       = "/chat.v1.ChatService/GetMessages"
-	ChatService_UpdateMessage_FullMethodName     = "/chat.v1.ChatService/UpdateMessage"
-	ChatService_DeleteMessage_FullMethodName     = "/chat.v1.ChatService/DeleteMessage"
-	ChatService_GetOrCreateDM_FullMethodName     = "/chat.v1.ChatService/GetOrCreateDM"
-	ChatService_ListDMs_FullMethodName           = "/chat.v1.ChatService/ListDMs"
-	ChatService_GetThreadReplies_FullMethodName  = "/chat.v1.ChatService/GetThreadReplies"
-	ChatService_MarkChannelRead_FullMethodName   = "/chat.v1.ChatService/MarkChannelRead"
-	ChatService_GetUnreadCounts_FullMethodName   = "/chat.v1.ChatService/GetUnreadCounts"
-	ChatService_GetUserMentions_FullMethodName   = "/chat.v1.ChatService/GetUserMentions"
+	ChatService_CreateChannel_FullMethodName       = "/chat.v1.ChatService/CreateChannel"
+	ChatService_GetChannel_FullMethodName          = "/chat.v1.ChatService/GetChannel"
+	ChatService_ListChannels_FullMethodName        = "/chat.v1.ChatService/ListChannels"
+	ChatService_UpdateChannel_FullMethodName       = "/chat.v1.ChatService/UpdateChannel"
+	ChatService_DeleteChannel_FullMethodName       = "/chat.v1.ChatService/DeleteChannel"
+	ChatService_ArchiveChannel_FullMethodName      = "/chat.v1.ChatService/ArchiveChannel"
+	ChatService_JoinChannel_FullMethodName         = "/chat.v1.ChatService/JoinChannel"
+	ChatService_LeaveChannel_FullMethodName        = "/chat.v1.ChatService/LeaveChannel"
+	ChatService_GetChannelMembers_FullMethodName   = "/chat.v1.ChatService/GetChannelMembers"
+	ChatService_UpdateMemberRole_FullMethodName    = "/chat.v1.ChatService/UpdateMemberRole"
+	ChatService_SendMessage_FullMethodName         = "/chat.v1.ChatService/SendMessage"
+	ChatService_GetMessages_FullMethodName         = "/chat.v1.ChatService/GetMessages"
+	ChatService_UpdateMessage_FullMethodName       = "/chat.v1.ChatService/UpdateMessage"
+	ChatService_DeleteMessage_FullMethodName       = "/chat.v1.ChatService/DeleteMessage"
+	ChatService_GetOrCreateDM_FullMethodName       = "/chat.v1.ChatService/GetOrCreateDM"
+	ChatService_ListDMs_FullMethodName             = "/chat.v1.ChatService/ListDMs"
+	ChatService_GetThreadReplies_FullMethodName    = "/chat.v1.ChatService/GetThreadReplies"
+	ChatService_MarkChannelRead_FullMethodName     = "/chat.v1.ChatService/MarkChannelRead"
+	ChatService_GetUnreadCounts_FullMethodName     = "/chat.v1.ChatService/GetUnreadCounts"
+	ChatService_GetUserMentions_FullMethodName     = "/chat.v1.ChatService/GetUserMentions"
+	ChatService_GetFileDownloadURL_FullMethodName  = "/chat.v1.ChatService/GetFileDownloadURL"
+	ChatService_GetFileThumbnailURL_FullMethodName = "/chat.v1.ChatService/GetFileThumbnailURL"
+	ChatService_ListChannelFiles_FullMethodName    = "/chat.v1.ChatService/ListChannelFiles"
+	ChatService_DeleteFile_FullMethodName          = "/chat.v1.ChatService/DeleteFile"
+	ChatService_SearchChat_FullMethodName          = "/chat.v1.ChatService/SearchChat"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -71,6 +76,13 @@ type ChatServiceClient interface {
 	MarkChannelRead(ctx context.Context, in *MarkChannelReadRequest, opts ...grpc.CallOption) (*MarkChannelReadResponse, error)
 	GetUnreadCounts(ctx context.Context, in *GetUnreadCountsRequest, opts ...grpc.CallOption) (*GetUnreadCountsResponse, error)
 	GetUserMentions(ctx context.Context, in *GetUserMentionsRequest, opts ...grpc.CallOption) (*GetUserMentionsResponse, error)
+	// Files (Sprint 4)
+	GetFileDownloadURL(ctx context.Context, in *GetFileDownloadURLRequest, opts ...grpc.CallOption) (*GetFileDownloadURLResponse, error)
+	GetFileThumbnailURL(ctx context.Context, in *GetFileThumbnailURLRequest, opts ...grpc.CallOption) (*GetFileThumbnailURLResponse, error)
+	ListChannelFiles(ctx context.Context, in *ListChannelFilesRequest, opts ...grpc.CallOption) (*ListChannelFilesResponse, error)
+	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*DeleteFileResponse, error)
+	// Search (Sprint 4)
+	SearchChat(ctx context.Context, in *SearchChatRequest, opts ...grpc.CallOption) (*SearchChatResponse, error)
 }
 
 type chatServiceClient struct {
@@ -281,6 +293,56 @@ func (c *chatServiceClient) GetUserMentions(ctx context.Context, in *GetUserMent
 	return out, nil
 }
 
+func (c *chatServiceClient) GetFileDownloadURL(ctx context.Context, in *GetFileDownloadURLRequest, opts ...grpc.CallOption) (*GetFileDownloadURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFileDownloadURLResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetFileDownloadURL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetFileThumbnailURL(ctx context.Context, in *GetFileThumbnailURLRequest, opts ...grpc.CallOption) (*GetFileThumbnailURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFileThumbnailURLResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetFileThumbnailURL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListChannelFiles(ctx context.Context, in *ListChannelFilesRequest, opts ...grpc.CallOption) (*ListChannelFilesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListChannelFilesResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListChannelFiles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*DeleteFileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteFileResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SearchChat(ctx context.Context, in *SearchChatRequest, opts ...grpc.CallOption) (*SearchChatResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchChatResponse)
+	err := c.cc.Invoke(ctx, ChatService_SearchChat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -311,6 +373,13 @@ type ChatServiceServer interface {
 	MarkChannelRead(context.Context, *MarkChannelReadRequest) (*MarkChannelReadResponse, error)
 	GetUnreadCounts(context.Context, *GetUnreadCountsRequest) (*GetUnreadCountsResponse, error)
 	GetUserMentions(context.Context, *GetUserMentionsRequest) (*GetUserMentionsResponse, error)
+	// Files (Sprint 4)
+	GetFileDownloadURL(context.Context, *GetFileDownloadURLRequest) (*GetFileDownloadURLResponse, error)
+	GetFileThumbnailURL(context.Context, *GetFileThumbnailURLRequest) (*GetFileThumbnailURLResponse, error)
+	ListChannelFiles(context.Context, *ListChannelFilesRequest) (*ListChannelFilesResponse, error)
+	DeleteFile(context.Context, *DeleteFileRequest) (*DeleteFileResponse, error)
+	// Search (Sprint 4)
+	SearchChat(context.Context, *SearchChatRequest) (*SearchChatResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -380,6 +449,21 @@ func (UnimplementedChatServiceServer) GetUnreadCounts(context.Context, *GetUnrea
 }
 func (UnimplementedChatServiceServer) GetUserMentions(context.Context, *GetUserMentionsRequest) (*GetUserMentionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserMentions not implemented")
+}
+func (UnimplementedChatServiceServer) GetFileDownloadURL(context.Context, *GetFileDownloadURLRequest) (*GetFileDownloadURLResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFileDownloadURL not implemented")
+}
+func (UnimplementedChatServiceServer) GetFileThumbnailURL(context.Context, *GetFileThumbnailURLRequest) (*GetFileThumbnailURLResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFileThumbnailURL not implemented")
+}
+func (UnimplementedChatServiceServer) ListChannelFiles(context.Context, *ListChannelFilesRequest) (*ListChannelFilesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListChannelFiles not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteFile(context.Context, *DeleteFileRequest) (*DeleteFileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteFile not implemented")
+}
+func (UnimplementedChatServiceServer) SearchChat(context.Context, *SearchChatRequest) (*SearchChatResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SearchChat not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -762,6 +846,96 @@ func _ChatService_GetUserMentions_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_GetFileDownloadURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFileDownloadURLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetFileDownloadURL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetFileDownloadURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetFileDownloadURL(ctx, req.(*GetFileDownloadURLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetFileThumbnailURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFileThumbnailURLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetFileThumbnailURL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetFileThumbnailURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetFileThumbnailURL(ctx, req.(*GetFileThumbnailURLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListChannelFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListChannelFilesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListChannelFiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListChannelFiles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListChannelFiles(ctx, req.(*ListChannelFilesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteFile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteFile(ctx, req.(*DeleteFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SearchChat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchChatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SearchChat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SearchChat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SearchChat(ctx, req.(*SearchChatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -848,6 +1022,26 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserMentions",
 			Handler:    _ChatService_GetUserMentions_Handler,
+		},
+		{
+			MethodName: "GetFileDownloadURL",
+			Handler:    _ChatService_GetFileDownloadURL_Handler,
+		},
+		{
+			MethodName: "GetFileThumbnailURL",
+			Handler:    _ChatService_GetFileThumbnailURL_Handler,
+		},
+		{
+			MethodName: "ListChannelFiles",
+			Handler:    _ChatService_ListChannelFiles_Handler,
+		},
+		{
+			MethodName: "DeleteFile",
+			Handler:    _ChatService_DeleteFile_Handler,
+		},
+		{
+			MethodName: "SearchChat",
+			Handler:    _ChatService_SearchChat_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

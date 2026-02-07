@@ -11,14 +11,25 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// LangDetector detects the language of a text for search indexing
+type LangDetector interface {
+	Detect(text string) string
+}
+
 // Service handles message business logic
 type Service struct {
-	repo Repository
+	repo         Repository
+	langDetector LangDetector
 }
 
 // NewService creates a new message service
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetLangDetector sets the language detector (optional, for search indexing)
+func (s *Service) SetLangDetector(detector LangDetector) {
+	s.langDetector = detector
 }
 
 // CreateInput contains the data needed to create a message
@@ -83,6 +94,12 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		}
 	}
 
+	// Detect language for search indexing
+	lang := "german" // default
+	if s.langDetector != nil {
+		lang = s.langDetector.Detect(content)
+	}
+
 	now := time.Now()
 	message := &models.Message{
 		ID:              uuid.New(),
@@ -91,6 +108,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		IsDeleted:       false,
 		EditedAt:        nil,
 		ParentMessageID: input.ParentMessageID,
+		Lang:            lang,
 		CreatedBy:       input.CreatedBy,
 		CreatedAt:       now,
 	}
@@ -200,6 +218,11 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.MessageW
 
 	// Batch-load mentions
 	if loadErr := s.loadMentionsForMessages(ctx, messages); loadErr != nil {
+		return nil, false, loadErr
+	}
+
+	// Batch-load files
+	if loadErr := s.loadFilesForMessages(ctx, messages); loadErr != nil {
 		return nil, false, loadErr
 	}
 
@@ -361,6 +384,11 @@ func (s *Service) GetThreadReplies(ctx context.Context, input GetThreadRepliesIn
 		return nil, loadErr
 	}
 
+	// Batch-load files for parent and replies
+	if loadErr := s.loadFilesForMessages(ctx, allMessages); loadErr != nil {
+		return nil, loadErr
+	}
+
 	return &GetThreadRepliesResult{
 		Parent:  parentWithSender,
 		Replies: replies,
@@ -459,6 +487,30 @@ func (s *Service) loadMentionsForMessages(ctx context.Context, messages []*model
 	for _, m := range messages {
 		if mentions, ok := mentionMap[m.ID]; ok {
 			m.Mentions = mentions
+		}
+	}
+	return nil
+}
+
+// loadFilesForMessages batch-loads files for a set of messages
+func (s *Service) loadFilesForMessages(ctx context.Context, messages []*models.MessageWithSender) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	ids := make([]uuid.UUID, len(messages))
+	for i, m := range messages {
+		ids[i] = m.ID
+	}
+
+	fileMap, err := s.repo.GetFilesByMessageIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, m := range messages {
+		if files, ok := fileMap[m.ID]; ok {
+			m.Files = files
 		}
 	}
 	return nil

@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -83,6 +84,32 @@ func main() {
 
 	chatClient := chatv1.NewChatServiceClient(chatConn)
 
+	// Database for file upload handler (direct access, not via gRPC)
+	pool, err := database.NewPostgresPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		slog.Error("failed to connect to postgres", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	// Initialize MinIO file store for upload handler
+	fileStore, err := file.NewMinIOStore(
+		cfg.MinIOEndpoint,
+		cfg.MinIOAccessKey,
+		cfg.MinIOSecretKey,
+		cfg.MinIOBucket,
+		cfg.MinIOUseSSL,
+	)
+	if err != nil {
+		slog.Error("failed to connect to minio", "error", err)
+		os.Exit(1)
+	}
+
+	fileRepo := file.NewPostgresRepository(pool)
+	fileScanner := &file.NoOpScanner{}
+	thumbnailGen := file.NewImagingGenerator()
+	fileService := file.NewService(fileRepo, fileStore, fileScanner, thumbnailGen, cfg.FileSizeLimitMB)
+
 	// Token maker for local token validation in middleware
 	tokenMaker := auth.NewTokenMaker(cfg.JWTSecret, cfg.AccessTokenExpiry, cfg.RefreshTokenExpiry)
 	// Minimal auth service for token validation only (no DB needed)
@@ -119,6 +146,12 @@ func main() {
 		return resp.User.FirstName, resp.User.LastName, nil
 	})
 	r.Get("/api/v1/ws", wsHub.HandleWebSocket)
+
+	// File upload handler (multipart/form-data, not gRPC)
+	fileUploadHandler := server.NewFileUploadHandler(fileService, wsHub)
+	r.With(middleware.Auth(localAuthService)).
+		With(middleware.RequirePermission("files", "write")).
+		Post("/api/v1/files/upload", fileUploadHandler.HandleUploadFile)
 
 	// HTTP server
 	srv := &http.Server{

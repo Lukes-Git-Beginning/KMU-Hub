@@ -36,6 +36,15 @@ service ChatService {
   rpc MarkChannelRead(MarkChannelReadRequest) returns (MarkChannelReadResponse);
   rpc GetUnreadCounts(GetUnreadCountsRequest) returns (GetUnreadCountsResponse);
   rpc GetUserMentions(GetUserMentionsRequest) returns (GetUserMentionsResponse);
+
+  // Files (Sprint 4)
+  rpc GetFileDownloadURL(GetFileDownloadURLRequest) returns (GetFileDownloadURLResponse);
+  rpc GetFileThumbnailURL(GetFileThumbnailURLRequest) returns (GetFileThumbnailURLResponse);
+  rpc ListChannelFiles(ListChannelFilesRequest) returns (ListChannelFilesResponse);
+  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
+
+  // Search (Sprint 4)
+  rpc SearchChat(SearchChatRequest) returns (SearchChatResponse);
 }
 
 // ============================================================================
@@ -205,6 +214,8 @@ message MessageInfo {
   int32 reply_count = 11;
   // Mentions (Sprint 3)
   repeated MentionInfo mentions = 12;
+  // Files (Sprint 4)
+  repeated FileInfo files = 13;
 }
 
 message SendMessageRequest {
@@ -331,5 +342,95 @@ message MentionDetail {
 
 message GetUserMentionsResponse {
   repeated MentionDetail mentions = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// File Messages (Sprint 4)
+// ============================================================================
+
+message FileInfo {
+  string id = 1;
+  optional string message_id = 2;
+  string channel_id = 3;
+  string filename = 4;
+  string mime_type = 5;
+  int64 file_size = 6;
+  string uploaded_by = 7;
+  string created_at = 8;
+  string uploader_first_name = 9;
+  string uploader_last_name = 10;
+  optional string thumbnail_url = 11;
+}
+
+message GetFileDownloadURLRequest {
+  string file_id = 1;
+  string user_id = 2;
+}
+
+message GetFileDownloadURLResponse {
+  string url = 1;
+}
+
+message GetFileThumbnailURLRequest {
+  string file_id = 1;
+  string user_id = 2;
+}
+
+message GetFileThumbnailURLResponse {
+  string url = 1;
+}
+
+message ListChannelFilesRequest {
+  string channel_id = 1;
+  string user_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListChannelFilesResponse {
+  repeated FileInfo files = 1;
+  int32 total = 2;
+}
+
+message DeleteFileRequest {
+  string file_id = 1;
+  string user_id = 2;
+}
+
+message DeleteFileResponse {}
+
+// ============================================================================
+// Search Messages (Sprint 4)
+// ============================================================================
+
+message SearchChatRequest {
+  string query = 1;
+  string user_id = 2;
+  optional string channel_id = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ChatSearchResultProto {
+  string type = 1;  // "message" or "file"
+  string id = 2;
+  string channel_id = 3;
+  string channel_name = 4;
+  double score = 5;
+  string snippet = 6;
+  string created_at = 7;
+  string first_name = 8;
+  string last_name = 9;
+  optional string message_id = 10;
+  optional string parent_message_id = 11;
+  optional string file_id = 12;
+  optional string filename = 13;
+  optional string mime_type = 14;
+  optional int64 file_size = 15;
+}
+
+message SearchChatResponse {
+  repeated ChatSearchResultProto results = 1;
   int32 total = 2;
 }

@@ -14,7 +14,10 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/chat/channel"
+	"github.com/kmuhub/kmuhub/internal/chat/file"
+	"github.com/kmuhub/kmuhub/internal/chat/langdetect"
 	"github.com/kmuhub/kmuhub/internal/chat/message"
+	"github.com/kmuhub/kmuhub/internal/chat/search"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -46,10 +49,35 @@ func main() {
 	// Initialize repositories
 	channelRepo := channel.NewPostgresRepository(pool)
 	messageRepo := message.NewPostgresRepository(pool)
+	fileRepo := file.NewPostgresRepository(pool)
+	searchRepo := search.NewPostgresRepository(pool)
+
+	// Initialize MinIO file store
+	fileStore, err := file.NewMinIOStore(
+		cfg.MinIOEndpoint,
+		cfg.MinIOAccessKey,
+		cfg.MinIOSecretKey,
+		cfg.MinIOBucket,
+		cfg.MinIOUseSSL,
+	)
+	if err != nil {
+		slog.Error("failed to connect to minio", "error", err)
+		os.Exit(1)
+	}
+
+	// Initialize file service components
+	fileScanner := &file.NoOpScanner{}
+	thumbnailGen := file.NewImagingGenerator()
+
+	// Initialize language detector
+	langDetector := langdetect.NewLinguaDetector()
 
 	// Initialize services
 	channelService := channel.NewService(channelRepo)
 	messageService := message.NewService(messageRepo)
+	messageService.SetLangDetector(langDetector)
+	fileService := file.NewService(fileRepo, fileStore, fileScanner, thumbnailGen, cfg.FileSizeLimitMB)
+	searchService := search.NewService(searchRepo, langDetector)
 
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
@@ -63,7 +91,7 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	chatGRPC := server.NewChatGRPCServer(channelService, messageService)
+	chatGRPC := server.NewChatGRPCServer(channelService, messageService, fileService, searchService)
 	chatv1.RegisterChatServiceServer(grpcServer, chatGRPC)
 
 	// Initialize gRPC metrics after service registration

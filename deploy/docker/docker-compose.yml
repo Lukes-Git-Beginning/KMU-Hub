@@ -25,6 +25,36 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  createbucket:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing myminio/kmuhub-files;
+      exit 0;
+      "
+    restart: "no"
+
   migrate:
     build:
       context: ../../backend
@@ -97,6 +127,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      createbucket:
+        condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
     environment:
@@ -104,6 +138,12 @@ services:
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       CHAT_GRPC_PORT: ":50053"
       CHAT_HEALTH_PORT: ":9093"
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: kmuhub-files
+      MINIO_USE_SSL: "false"
+      FILE_SIZE_LIMIT_MB: "50"
     ports:
       - "50053:50053"
       - "9093:9093"
@@ -126,6 +166,8 @@ services:
         condition: service_healthy
       chat:
         condition: service_healthy
+      minio:
+        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
@@ -144,6 +186,12 @@ services:
       METRICS_PORT: ":9090"
       CORS_ALLOWED_ORIGINS: "http://localhost:3000;http://localhost:8080"
       RATE_LIMIT_RPS: 100
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: kmuhub-files
+      MINIO_USE_SSL: "false"
+      FILE_SIZE_LIMIT_MB: "50"
     ports:
       - "8080:8080"
       - "9090:9090"
@@ -157,3 +205,4 @@ services:
 
 volumes:
   pgdata:
+  minio_data:

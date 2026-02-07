@@ -249,6 +249,10 @@ func (m *MockRepository) GetChannelMemberIDs(ctx context.Context, channelID uuid
 	return ids, nil
 }
 
+func (m *MockRepository) GetFilesByMessageIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID][]models.ChatFileWithUploader, error) {
+	return make(map[uuid.UUID][]models.ChatFileWithUploader), nil
+}
+
 // Helpers for setting up test data
 func (m *MockRepository) AddChannel(id uuid.UUID, archived bool) {
 	m.channels[id] = struct{ archived bool }{archived}

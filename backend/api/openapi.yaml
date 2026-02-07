@@ -39,6 +39,10 @@ tags:
     description: Chat channel management
   - name: chat-messages
     description: Chat message management
+  - name: chat-files
+    description: Chat file sharing and uploads
+  - name: chat-search
+    description: Full-text search across chat messages and files
 
 paths:
   /health:
@@ -2534,6 +2538,225 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/files/upload:
+    post:
+      summary: Upload a file to a channel
+      tags: [chat-files]
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, channel_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload (max 50MB)
+                channel_id:
+                  type: string
+                  format: uuid
+                  description: Channel to attach the file to
+                message_id:
+                  type: string
+                  format: uuid
+                  description: Optional message to attach the file to
+      responses:
+        "201":
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileInfo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Channel is archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "415":
+          description: Unsupported media type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "507":
+          description: Storage quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/files/{id}/download:
+    get:
+      summary: Get a presigned download URL for a file
+      tags: [chat-files]
+      operationId: getFileDownloadURL
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Presigned download URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: Presigned URL valid for 15 minutes
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/files/{id}/thumbnail:
+    get:
+      summary: Get a presigned thumbnail URL for an image file
+      tags: [chat-files]
+      operationId: getFileThumbnailURL
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Presigned thumbnail URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: Presigned URL for the thumbnail (200x200 JPEG)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/files/{id}:
+    delete:
+      summary: Delete a file (soft delete)
+      tags: [chat-files]
+      operationId: deleteFile
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204":
+          description: File deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/channels/{id}/files:
+    get:
+      summary: List files in a channel
+      tags: [chat-files]
+      operationId: listChannelFiles
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated list of files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FileInfo"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/chat/search:
+    get:
+      summary: Search chat messages and files
+      tags: [chat-search]
+      operationId: searchChat
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 200
+          description: Search query (min 2, max 200 characters)
+        - name: channel_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Optional filter to a specific channel
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Search results (messages and files merged by relevance)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ChatSearchResult"
+                  total:
+                    type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3756,6 +3979,11 @@ components:
           items:
             $ref: "#/components/schemas/MentionInfo"
           description: Users mentioned in this message
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileInfo"
+          description: Files attached to this message
 
     MemberInfo:
       type: object
@@ -3924,6 +4152,92 @@ components:
                 format: date-time
         total:
           type: integer
+
+    FileInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        message_id:
+          type: string
+          format: uuid
+        channel_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mime_type:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+          description: File size in bytes
+        uploaded_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        uploader_first_name:
+          type: string
+        uploader_last_name:
+          type: string
+        has_thumbnail:
+          type: boolean
+          description: Whether a thumbnail is available (images only)
+
+    ChatSearchResult:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [message, file]
+          description: Result type
+        id:
+          type: string
+          format: uuid
+        channel_id:
+          type: string
+          format: uuid
+        channel_name:
+          type: string
+        score:
+          type: number
+          format: double
+          description: Relevance score
+        snippet:
+          type: string
+          description: Highlighted text snippet with <mark> tags
+        created_at:
+          type: string
+          format: date-time
+        first_name:
+          type: string
+        last_name:
+          type: string
+        message_id:
+          type: string
+          format: uuid
+          description: Present for message results
+        parent_message_id:
+          type: string
+          format: uuid
+          description: Present if message is a thread reply
+        file_id:
+          type: string
+          format: uuid
+          description: Present for file results
+        filename:
+          type: string
+          description: Present for file results
+        mime_type:
+          type: string
+          description: Present for file results
+        file_size:
+          type: integer
+          format: int64
+          description: Present for file results
 
   responses:
     BadRequest:

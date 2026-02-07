@@ -205,6 +205,8 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		// Message routes
 		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/messages", h.HandleGetMessages)
 		r.With(middleware.RequirePermission("messages", "write")).Post("/{id}/messages", h.HandleSendMessage)
+		// File routes (Sprint 4)
+		r.With(middleware.RequirePermission("files", "read")).Get("/{id}/files", h.HandleListChannelFiles)
 	})
 
 	// Chat: Message routes (for individual message operations)
@@ -214,6 +216,20 @@ func (h *GatewayHandler) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(middleware.RequirePermission("messages", "read")).Get("/{id}/thread", h.HandleGetThreadReplies)
 		r.With(middleware.RequirePermission("messages", "write")).Put("/{id}", h.HandleUpdateMessage)
 		r.With(middleware.RequirePermission("messages", "delete")).Delete("/{id}", h.HandleDeleteMessage)
+	})
+
+	// Chat: File routes (Sprint 4)
+	r.Route("/api/v1/files", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("files", "read")).Get("/{id}/download", h.HandleGetFileDownloadURL)
+		r.With(middleware.RequirePermission("files", "read")).Get("/{id}/thumbnail", h.HandleGetFileThumbnailURL)
+		r.With(middleware.RequirePermission("files", "delete")).Delete("/{id}", h.HandleDeleteFile)
+	})
+
+	// Chat: Search route (Sprint 4)
+	r.Route("/api/v1/chat", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.Get("/search", h.HandleSearchChat)
 	})
 
 	// Health check
@@ -3153,6 +3169,181 @@ func (h *GatewayHandler) HandleGetUserMentions(w http.ResponseWriter, r *http.Re
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Chat: File Handlers (Sprint 4)
+// ============================================================================
+
+func (h *GatewayHandler) HandleGetFileDownloadURL(w http.ResponseWriter, r *http.Request) {
+	fileID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(fileID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid file id")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	resp, err := h.chatClient.GetFileDownloadURL(r.Context(), &chatv1.GetFileDownloadURLRequest{
+		FileId: fileID,
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleGetFileThumbnailURL(w http.ResponseWriter, r *http.Request) {
+	fileID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(fileID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid file id")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	resp, err := h.chatClient.GetFileThumbnailURL(r.Context(), &chatv1.GetFileThumbnailURLRequest{
+		FileId: fileID,
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleListChannelFiles(w http.ResponseWriter, r *http.Request) {
+	channelID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(channelID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid channel id")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	pageSize := 20
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
+			pageSize = parsed
+		}
+	}
+
+	resp, err := h.chatClient.ListChannelFiles(r.Context(), &chatv1.ListChannelFilesRequest{
+		ChannelId: channelID,
+		UserId:    userID,
+		Page:      int32(page),
+		PageSize:  int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (h *GatewayHandler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
+	fileID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(fileID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid file id")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	_, err := h.chatClient.DeleteFile(r.Context(), &chatv1.DeleteFileRequest{
+		FileId: fileID,
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "file deleted"})
+}
+
+// ============================================================================
+// Chat: Search Handlers (Sprint 4)
+// ============================================================================
+
+func (h *GatewayHandler) HandleSearchChat(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		response.Error(w, http.StatusBadRequest, "query parameter 'q' is required")
+		return
+	}
+
+	req := &chatv1.SearchChatRequest{
+		Query:  query,
+		UserId: userID,
+	}
+
+	if channelID := r.URL.Query().Get("channel_id"); channelID != "" {
+		if _, err := uuid.Parse(channelID); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid channel_id")
+			return
+		}
+		req.ChannelId = &channelID
+	}
+
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	req.Page = int32(page)
+
+	pageSize := 20
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
+			pageSize = parsed
+		}
+	}
+	req.PageSize = int32(pageSize)
+
+	resp, err := h.chatClient.SearchChat(r.Context(), req)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

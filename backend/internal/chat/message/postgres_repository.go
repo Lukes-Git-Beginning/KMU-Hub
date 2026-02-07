@@ -25,10 +25,10 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, message *models.Message) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		message.ID, message.ChannelID, message.Content, message.IsDeleted,
-		message.EditedAt, message.ParentMessageID, message.CreatedBy, message.CreatedAt,
+		message.EditedAt, message.ParentMessageID, message.Lang, message.CreatedBy, message.CreatedAt,
 	)
 	return err
 }
@@ -36,10 +36,10 @@ func (r *PostgresRepository) Create(ctx context.Context, message *models.Message
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Message, error) {
 	var m models.Message
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, channel_id, content, is_deleted, edited_at, parent_message_id, reply_count, created_by, created_at
+		`SELECT id, channel_id, content, is_deleted, edited_at, parent_message_id, reply_count, lang, created_by, created_at
 		 FROM messages WHERE id = $1`, id,
 	).Scan(&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
-		&m.ParentMessageID, &m.ReplyCount, &m.CreatedBy, &m.CreatedAt)
+		&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrMessageNotFound
 	}
@@ -89,7 +89,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 
 	query := fmt.Sprintf(`
 		SELECT m.id, m.channel_id, m.content, m.is_deleted, m.edited_at,
-		       m.parent_message_id, m.reply_count, m.created_by, m.created_at,
+		       m.parent_message_id, m.reply_count, m.lang, m.created_by, m.created_at,
 		       u.first_name, u.last_name
 		FROM messages m
 		JOIN users u ON m.created_by = u.id
@@ -110,7 +110,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 		var m models.MessageWithSender
 		if scanErr := rows.Scan(
 			&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
-			&m.ParentMessageID, &m.ReplyCount, &m.CreatedBy, &m.CreatedAt,
+			&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.CreatedAt,
 			&m.SenderFirstName, &m.SenderLastName,
 		); scanErr != nil {
 			return nil, scanErr
@@ -197,10 +197,10 @@ func (r *PostgresRepository) CreateWithReplyCount(ctx context.Context, message *
 
 	// Insert the reply message
 	_, err = tx.Exec(ctx,
-		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		message.ID, message.ChannelID, message.Content, message.IsDeleted,
-		message.EditedAt, message.ParentMessageID, message.CreatedBy, message.CreatedAt,
+		message.EditedAt, message.ParentMessageID, message.Lang, message.CreatedBy, message.CreatedAt,
 	)
 	if err != nil {
 		return err
@@ -251,7 +251,7 @@ func (r *PostgresRepository) ListReplies(ctx context.Context, filter ThreadListF
 
 	query := fmt.Sprintf(`
 		SELECT m.id, m.channel_id, m.content, m.is_deleted, m.edited_at,
-		       m.parent_message_id, m.reply_count, m.created_by, m.created_at,
+		       m.parent_message_id, m.reply_count, m.lang, m.created_by, m.created_at,
 		       u.first_name, u.last_name
 		FROM messages m
 		JOIN users u ON m.created_by = u.id
@@ -272,7 +272,7 @@ func (r *PostgresRepository) ListReplies(ctx context.Context, filter ThreadListF
 		var m models.MessageWithSender
 		if scanErr := rows.Scan(
 			&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
-			&m.ParentMessageID, &m.ReplyCount, &m.CreatedBy, &m.CreatedAt,
+			&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.CreatedAt,
 			&m.SenderFirstName, &m.SenderLastName,
 		); scanErr != nil {
 			return nil, scanErr
@@ -392,6 +392,43 @@ func (r *PostgresRepository) GetMentionsForUser(ctx context.Context, userID uuid
 	}
 
 	return mentions, total, rows.Err()
+}
+
+func (r *PostgresRepository) GetFilesByMessageIDs(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]models.ChatFileWithUploader, error) {
+	if len(messageIDs) == 0 {
+		return nil, nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT cf.id, cf.message_id, cf.channel_id, cf.filename, cf.mime_type, cf.file_size,
+		       cf.storage_key, cf.thumbnail_key, cf.uploaded_by, cf.is_deleted, cf.created_at, cf.deleted_at,
+		       u.first_name, u.last_name
+		FROM chat_files cf
+		JOIN users u ON cf.uploaded_by = u.id
+		WHERE cf.message_id = ANY($1) AND cf.is_deleted = FALSE
+		ORDER BY cf.created_at
+	`, messageIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]models.ChatFileWithUploader)
+	for rows.Next() {
+		var f models.ChatFileWithUploader
+		if scanErr := rows.Scan(
+			&f.ID, &f.MessageID, &f.ChannelID, &f.Filename, &f.MimeType, &f.FileSize,
+			&f.StorageKey, &f.ThumbnailKey, &f.UploadedBy, &f.IsDeleted, &f.CreatedAt, &f.DeletedAt,
+			&f.UploaderFirstName, &f.UploaderLastName,
+		); scanErr != nil {
+			return nil, scanErr
+		}
+		if f.MessageID != nil {
+			result[*f.MessageID] = append(result[*f.MessageID], f)
+		}
+	}
+
+	return result, rows.Err()
 }
 
 func (r *PostgresRepository) GetChannelMemberIDs(ctx context.Context, channelID uuid.UUID) ([]uuid.UUID, error) {

@@ -36,6 +36,9 @@ type Repository interface {
 	GetMentionsByMessages(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]models.MentionWithUser, error)
 	GetMentionsForUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]MentionDetailRow, int, error)
 	GetChannelMemberIDs(ctx context.Context, channelID uuid.UUID) ([]uuid.UUID, error)
+
+	// File operations (Sprint 4)
+	GetFilesByMessageIDs(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]models.ChatFileWithUploader, error)
 }
 
 // ListFilter contains filtering options for listing messages

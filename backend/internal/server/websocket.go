@@ -64,6 +64,7 @@ const (
 	WSTypingIndicator = "typing"
 	WSReadReceipt     = "read_receipt"
 	WSMentionNew      = "mention.new"
+	WSFileUploaded    = "file.uploaded"
 	WSError           = "error"
 )
 

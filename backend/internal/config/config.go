@@ -31,6 +31,14 @@ type Config struct {
 	HealthPort     string `env:"HEALTH_PORT,default=:9091"`
 	CRMHealthPort  string `env:"CRM_HEALTH_PORT,default=:9092"`
 	ChatHealthPort string `env:"CHAT_HEALTH_PORT,default=:9093"`
+
+	// MinIO (S3-compatible file storage)
+	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
+	MinIOAccessKey  string `env:"MINIO_ACCESS_KEY,default=kmuhub"`
+	MinIOSecretKey  string `env:"MINIO_SECRET_KEY,default=kmuhub_dev"`
+	MinIOBucket     string `env:"MINIO_BUCKET,default=kmuhub-files"`
+	MinIOUseSSL     bool   `env:"MINIO_USE_SSL,default=false"`
+	FileSizeLimitMB int    `env:"FILE_SIZE_LIMIT_MB,default=50"`
 }
 
 func Load(ctx context.Context) (*Config, error) {
