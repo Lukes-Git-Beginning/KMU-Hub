@@ -240,6 +240,20 @@ Diese Fehler wurden im Vorgaenger-Projekt (slot_booking_webapp) gemacht und duer
 
 ---
 
+## GSD Workflow
+
+Dieses Projekt nutzt [Get Shit Done](https://github.com/glittercowboy/get-shit-done) fuer strukturierte AI-Entwicklung.
+
+- Planung: `/gsd:discuss-phase` → `/gsd:plan-phase`
+- Ausfuehrung: `/gsd:execute-phase`
+- Verifikation: `/gsd:verify-work`
+- Ad-hoc Fixes: `/gsd:quick`
+- Status: `/gsd:progress`
+
+Planungsdateien in `.planning/` werden committed.
+
+---
+
 ## Weiterfuehrende Dokumentation
 
 | Thema | Datei |
@@ -247,4 +261,8 @@ Diese Fehler wurden im Vorgaenger-Projekt (slot_booking_webapp) gemacht und duer
 | Architektur-Entscheidungen (ADRs) | `docs/ARCHITECTURE.md` |
 | Learnings aus Vorgaenger-Projekt | `docs/LEARNINGS.md` |
 | Pricing-Modell | `docs/PRICING.md` |
-| Roadmap & Phasen | `docs/ROADMAP.md` |
+| Roadmap & Phasen (Archiv) | `docs/ROADMAP.md` |
+| GSD Projekt | `PROJECT.md` |
+| GSD Requirements | `REQUIREMENTS.md` |
+| GSD Roadmap | `ROADMAP.md` |
+| GSD State | `STATE.md` |

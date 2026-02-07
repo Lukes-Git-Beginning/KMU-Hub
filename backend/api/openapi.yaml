@@ -3283,7 +3283,7 @@ components:
   schemas:
     UserInfo:
       type: object
-      description: Protobuf JSON uses camelCase field names.
+      description: Go encoding/json serialization uses snake_case field names.
       properties:
         id:
           type: string
@@ -3291,17 +3291,17 @@ components:
         email:
           type: string
           format: email
-        firstName:
+        first_name:
           type: string
-        lastName:
+        last_name:
           type: string
-        isActive:
+        is_active:
           type: boolean
         roles:
           type: array
           items:
             type: string
-        createdAt:
+        created_at:
           type: string
           format: date-time
 
@@ -3440,21 +3440,21 @@ components:
 
     AuthResponse:
       type: object
-      description: Returned by register and login. Fields are camelCase (protobuf JSON).
+      description: Returned by register and login. Go encoding/json uses snake_case.
       properties:
         user:
           $ref: "#/components/schemas/UserInfo"
-        accessToken:
+        access_token:
           type: string
-        refreshToken:
+        refresh_token:
           type: string
 
     RefreshResponse:
       type: object
       properties:
-        accessToken:
+        access_token:
           type: string
-        refreshToken:
+        refresh_token:
           type: string
 
     GetUserResponse:
