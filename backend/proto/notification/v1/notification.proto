@@ -1,0 +1,260 @@
+syntax = "proto3";
+
+package notification.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/notification/v1;notificationv1";
+
+import "google/protobuf/timestamp.proto";
+
+service NotificationService {
+  // Notifications
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+  rpc MarkNotificationRead(MarkNotificationReadRequest) returns (MarkNotificationReadResponse);
+  rpc MarkAllNotificationsRead(MarkAllNotificationsReadRequest) returns (MarkAllNotificationsReadResponse);
+
+  // Preferences
+  rpc GetNotificationPreferences(GetNotificationPreferencesRequest) returns (GetNotificationPreferencesResponse);
+  rpc UpdateNotificationPreference(UpdateNotificationPreferenceRequest) returns (UpdateNotificationPreferenceResponse);
+
+  // Mutes
+  rpc MuteResource(MuteResourceRequest) returns (MuteResourceResponse);
+  rpc UnmuteResource(UnmuteResourceRequest) returns (UnmuteResourceResponse);
+  rpc ListMutedResources(ListMutedResourcesRequest) returns (ListMutedResourcesResponse);
+
+  // Quiet Hours
+  rpc GetQuietHours(GetQuietHoursRequest) returns (GetQuietHoursResponse);
+  rpc UpdateQuietHours(UpdateQuietHoursRequest) returns (UpdateQuietHoursResponse);
+  rpc ToggleManualDND(ToggleManualDNDRequest) returns (ToggleManualDNDResponse);
+
+  // Event Types
+  rpc ListEventTypes(ListEventTypesRequest) returns (ListEventTypesResponse);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum Priority {
+  PRIORITY_UNSPECIFIED = 0;
+  PRIORITY_URGENT = 1;
+  PRIORITY_NORMAL = 2;
+  PRIORITY_LOW = 3;
+}
+
+// ============================================================================
+// Notification Messages
+// ============================================================================
+
+message NotificationInfo {
+  string id = 1;
+  string user_id = 2;
+  string event_type_key = 3;
+  string module_id = 4;
+  Priority priority = 5;
+  optional string actor_id = 6;
+  optional string resource_id = 7;
+  string title = 8;
+  optional string body = 9;
+  optional string deep_link = 10;
+  optional string group_key = 11;
+  int32 group_count = 12;
+  bool is_read = 13;
+  optional google.protobuf.Timestamp read_at = 14;
+  bool delivered_desktop = 15;
+  google.protobuf.Timestamp created_at = 16;
+}
+
+message ListNotificationsRequest {
+  string user_id = 1;
+  optional string module_id = 2;
+  optional bool is_read = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListNotificationsResponse {
+  repeated NotificationInfo notifications = 1;
+  int32 total = 2;
+}
+
+message GetUnreadCountRequest {
+  string user_id = 1;
+}
+
+message GetUnreadCountResponse {
+  int32 count = 1;
+}
+
+message MarkNotificationReadRequest {
+  string notification_id = 1;
+  string user_id = 2;
+}
+
+message MarkNotificationReadResponse {
+  NotificationInfo notification = 1;
+}
+
+message MarkAllNotificationsReadRequest {
+  string user_id = 1;
+  optional string module_id = 2;
+}
+
+message MarkAllNotificationsReadResponse {
+  int32 updated_count = 1;
+}
+
+// ============================================================================
+// Preference Messages
+// ============================================================================
+
+message NotificationPreferenceInfo {
+  string id = 1;
+  string user_id = 2;
+  optional string event_type_key = 3;
+  optional string module_id = 4;
+  bool in_app = 5;
+  bool desktop_push = 6;
+  string sound = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message GetNotificationPreferencesRequest {
+  string user_id = 1;
+  optional string module_id = 2;
+}
+
+message GetNotificationPreferencesResponse {
+  repeated NotificationPreferenceInfo preferences = 1;
+}
+
+message UpdateNotificationPreferenceRequest {
+  string user_id = 1;
+  optional string event_type_key = 2;
+  optional string module_id = 3;
+  bool in_app = 4;
+  bool desktop_push = 5;
+  string sound = 6;
+}
+
+message UpdateNotificationPreferenceResponse {
+  NotificationPreferenceInfo preference = 1;
+}
+
+// ============================================================================
+// Mute Messages
+// ============================================================================
+
+message MuteInfo {
+  string id = 1;
+  string user_id = 2;
+  string module_id = 3;
+  string resource_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message MuteResourceRequest {
+  string user_id = 1;
+  string module_id = 2;
+  string resource_id = 3;
+}
+
+message MuteResourceResponse {
+  MuteInfo mute = 1;
+}
+
+message UnmuteResourceRequest {
+  string user_id = 1;
+  string module_id = 2;
+  string resource_id = 3;
+}
+
+message UnmuteResourceResponse {}
+
+message ListMutedResourcesRequest {
+  string user_id = 1;
+  optional string module_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListMutedResourcesResponse {
+  repeated MuteInfo mutes = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Quiet Hours Messages
+// ============================================================================
+
+message QuietHoursInfo {
+  string id = 1;
+  string user_id = 2;
+  string start_time = 3;
+  string end_time = 4;
+  string timezone = 5;
+  repeated int32 days_of_week = 6;
+  bool enabled = 7;
+  bool manual_dnd = 8;
+  optional google.protobuf.Timestamp manual_dnd_until = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message GetQuietHoursRequest {
+  string user_id = 1;
+}
+
+message GetQuietHoursResponse {
+  QuietHoursInfo quiet_hours = 1;
+}
+
+message UpdateQuietHoursRequest {
+  string user_id = 1;
+  string start_time = 2;
+  string end_time = 3;
+  string timezone = 4;
+  repeated int32 days_of_week = 5;
+  bool enabled = 6;
+}
+
+message UpdateQuietHoursResponse {
+  QuietHoursInfo quiet_hours = 1;
+}
+
+message ToggleManualDNDRequest {
+  string user_id = 1;
+  bool enabled = 2;
+  optional google.protobuf.Timestamp until = 3;
+}
+
+message ToggleManualDNDResponse {
+  QuietHoursInfo quiet_hours = 1;
+}
+
+// ============================================================================
+// Event Type Messages
+// ============================================================================
+
+message EventTypeInfo {
+  string id = 1;
+  string module_id = 2;
+  string event_key = 3;
+  string display_name = 4;
+  optional string description = 5;
+  Priority default_priority = 6;
+  bool default_in_app = 7;
+  bool default_desktop_push = 8;
+  string default_sound = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message ListEventTypesRequest {
+  optional string module_id = 1;
+}
+
+message ListEventTypesResponse {
+  repeated EventTypeInfo event_types = 1;
+}
