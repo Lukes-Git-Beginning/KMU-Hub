@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 5 - Desktop App Shell (Plan 4 of 7 complete)
+**Current focus:** Phase 5 - Desktop App Shell (Plan 5 of 7 complete)
 
 ## Current Position
 
 Phase: 5 of 13 (Desktop App Shell)
-Plan: 4 of 7 in current phase
+Plan: 5 of 7 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 05-04-PLAN.md (Chat Module & Notifications)
+Last activity: 2026-02-07 -- Completed 05-05-PLAN.md (Dashboard Widget System)
 
-Progress: [#############░░░░░░░] 22% (7/32 plans across phases 4-13)
+Progress: [##############░░░░░░] 25% (8/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: ~11 minutes
-- Total execution time: ~1 hour 21 minutes
+- Total execution time: ~1 hour 29 minutes
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
-| 05 | 4/7 | ~40min | ~10min |
+| 05 | 5/7 | ~48min | ~10min |
 
 **Recent Trend:**
-- Last 5 plans: 05-01 (~9min), 05-02 (~10min), 05-03 (~11min), 05-04 (~10min)
+- Last 5 plans: 05-01 (~9min), 05-02 (~10min), 05-03 (~11min), 05-04 (~10min), 05-05 (~8min)
 - Trend: Desktop module plans consistently ~10min
 
 *Updated after each plan completion*
@@ -77,6 +77,10 @@ Recent decisions affecting current work:
 - [05-04]: WebSocket cache sync via queryClient.setQueryData with invalidation fallback
 - [05-04]: Native push only when document.hasFocus() === false
 - [05-04]: Notification preferences embedded in NotificationCenter as toggleable panel
+- [05-05]: Widget registry pattern -- centralized definitions with lazy-loaded components
+- [05-05]: Per-widget ErrorBoundary for crash isolation
+- [05-05]: 500ms debounced onLayoutChange for localStorage persistence
+- [05-05]: DealPipeline uses PipelineStageInfo.totalValue (no separate deals fetch)
 
 ### Pending Todos
 
@@ -92,5 +96,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 05-04-PLAN.md (Chat Module & Notifications)
+Stopped at: Completed 05-05-PLAN.md (Dashboard Widget System)
 Resume file: None
