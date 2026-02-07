@@ -1259,6 +1259,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get effective dashboard layout for authenticated user */
+        get: operations["getDashboardLayout"];
+        /** Save personal dashboard layout */
+        put: operations["saveDashboardLayout"];
+        post?: never;
+        /** Reset dashboard to role defaults */
+        delete: operations["resetDashboardLayout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/defaults/{role}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get default dashboard layout for a role (admin only) */
+        get: operations["getDashboardDefaults"];
+        /** Save default dashboard layout for a role (admin only) */
+        put: operations["saveDashboardDefaults"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2170,6 +2207,46 @@ export interface components {
             timezone: string;
             days_of_week?: number[];
             enabled: boolean;
+        };
+        DashboardLayoutResponse: {
+            /** @description Grid layout items (react-grid-layout format) */
+            layout?: {
+                [key: string]: unknown;
+            }[];
+            /** @description List of active widget IDs */
+            active_widgets?: string[];
+            /** @description Whether this is a user override (true) or role default (false) */
+            is_custom?: boolean;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        SaveDashboardLayoutRequest: {
+            /** @description Grid layout items */
+            layout: {
+                [key: string]: unknown;
+            }[];
+            /** @description List of active widget IDs */
+            active_widgets: string[];
+        };
+        DashboardDefault: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            role?: "admin" | "manager" | "member";
+            layout?: {
+                [key: string]: unknown;
+            }[];
+            active_widgets?: string[];
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        SaveDashboardDefaultsRequest: {
+            layout: {
+                [key: string]: unknown;
+            }[];
+            active_widgets: string[];
         };
     };
     responses: {
@@ -5258,6 +5335,131 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dashboard layout (user override or role default) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    saveDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDashboardLayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Layout saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardLayoutResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    resetDashboardLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Layout reset to defaults */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        status?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDashboardDefaults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: "admin" | "manager" | "member";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role default layout */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardDefault"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveDashboardDefaults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role: "admin" | "manager" | "member";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDashboardDefaultsRequest"];
+            };
+        };
+        responses: {
+            /** @description Default layout saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardDefault"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

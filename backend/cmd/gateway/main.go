@@ -109,11 +109,16 @@ func main() {
 	// =========================================================================
 	authMiddleware := middleware.Auth(localAuthService)
 
+	// Dashboard layout service (direct DB access, not gRPC)
+	dashboardRepo := gateway.NewPostgresDashboardRepository(pool)
+	dashboardService := gateway.NewDashboardService(dashboardRepo)
+
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
 		gateway.NewCRMRoutes(registry),
 		gateway.NewChatRoutes(registry),
 		gateway.NewNotificationRoutes(registry),
+		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}
 
