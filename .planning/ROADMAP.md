@@ -53,12 +53,12 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
   3. User can configure per-event-type and per-channel notification preferences (mute, desktop only, all, etc.)
   4. Gateway connects to backend services lazily and returns 503 for unavailable routes instead of crashing on startup
   5. Adding a new backend service to the gateway requires only registering a route handler (no monolithic handler changes)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: Gateway refactoring (lazy gRPC connections, per-service route handlers, graceful degradation)
-- [ ] 04-02: Notification service backend (event bus via PostgreSQL LISTEN/NOTIFY, notification storage, preferences)
-- [ ] 04-03: Notification delivery (in-app bell + WebSocket push, Electron desktop notifications, preference filtering)
+- [ ] 04-01-PLAN.md -- Gateway modernization (ServiceRegistry with lazy gRPC, per-service route handlers, graceful degradation)
+- [ ] 04-02-PLAN.md -- Notification service backend (proto, migrations, event bus, notification + preference services, gRPC server)
+- [ ] 04-03-PLAN.md -- Notification delivery + integration (gateway HTTP routes, WebSocket push, event emission from CRM/Chat, Docker Compose)
 
 ### Phase 5: Desktop App Shell
 **Goal**: Users have a functional Electron desktop application that serves as the single window for their workday, with CRM and Chat modules already usable
@@ -237,7 +237,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 4. Notifications + Gateway | 0/3 | Not started | - |
+| 4. Notifications + Gateway | 0/3 | Planned | - |
 | 5. Desktop App Shell | 0/4 | Not started | - |
 | 6. Project Management | 0/3 | Not started | - |
 | 7. Calendar & Scheduling | 0/3 | Not started | - |
