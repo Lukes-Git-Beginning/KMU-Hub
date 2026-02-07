@@ -1,14 +1,15 @@
 /**
  * Compact header bar displayed above the main content area.
  *
- * Shows current module name, online/offline indicator, and
- * a notification bell placeholder (wired in 05-04).
+ * Shows current module name, online/offline indicator, and the
+ * notification bell with real-time unread count.
  */
 import { useLocation } from 'react-router-dom'
-import { Bell, Wifi, WifiOff } from 'lucide-react'
+import { Wifi, WifiOff } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
+import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -28,6 +29,9 @@ export function Header() {
   const { pathname } = useLocation()
   const { isOnline } = useOnlineStatus()
   const moduleName = getModuleName(pathname)
+
+  // Initialize notification WebSocket listener so it's always active
+  useNotificationWebSocket()
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
@@ -60,15 +64,8 @@ export function Header() {
           </TooltipContent>
         </Tooltip>
 
-        {/* Notification bell placeholder (wired in 05-04) */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-9 w-9">
-              <Bell className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Benachrichtigungen</TooltipContent>
-        </Tooltip>
+        {/* Notification bell with real-time unread count */}
+        <NotificationBell />
       </div>
     </header>
   )
