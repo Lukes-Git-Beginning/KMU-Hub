@@ -66,6 +66,12 @@ const (
 	WSMentionNew      = "mention.new"
 	WSFileUploaded    = "file.uploaded"
 	WSError           = "error"
+
+	// Notification events (Server -> Client)
+	WSNotificationNew         = "notification.new"
+	WSNotificationRead        = "notification.read"
+	WSNotificationReadAll     = "notification.read_all"
+	WSNotificationUnreadCount = "notification.unread_count"
 )
 
 // WSMessage represents a WebSocket message
@@ -478,6 +484,60 @@ func mustMarshal(v interface{}) json.RawMessage {
 		return nil
 	}
 	return data
+}
+
+// SendNotificationToUser sends a real-time notification to all connections of a user.
+// This is called by the gateway's notification delivery listener when a new
+// notification is stored and ready for delivery.
+func (h *WebSocketHub) SendNotificationToUser(ctx context.Context, userID string, notification interface{}, desktopPush bool, sound string) {
+	payload := map[string]interface{}{
+		"notification": notification,
+		"desktop_push": desktopPush,
+		"sound":        sound,
+	}
+
+	h.sendToUser(ctx, userID, WSMessage{
+		Type:    WSNotificationNew,
+		Message: mustMarshal(payload),
+	})
+}
+
+// SendNotificationRead sends a notification-read sync message to all connections
+// of a user (for multi-device sync when a notification is marked as read).
+func (h *WebSocketHub) SendNotificationRead(ctx context.Context, userID string, notificationID string) {
+	payload := map[string]interface{}{
+		"notification_id": notificationID,
+	}
+
+	h.sendToUser(ctx, userID, WSMessage{
+		Type:    WSNotificationRead,
+		Message: mustMarshal(payload),
+	})
+}
+
+// SendNotificationReadAll sends a read-all sync message to all connections
+// of a user (for multi-device sync when all notifications are marked as read).
+func (h *WebSocketHub) SendNotificationReadAll(ctx context.Context, userID string, markedCount int) {
+	payload := map[string]interface{}{
+		"marked_count": markedCount,
+	}
+
+	h.sendToUser(ctx, userID, WSMessage{
+		Type:    WSNotificationReadAll,
+		Message: mustMarshal(payload),
+	})
+}
+
+// SendNotificationUnreadCount sends an updated unread count to all connections of a user.
+func (h *WebSocketHub) SendNotificationUnreadCount(ctx context.Context, userID string, count int) {
+	payload := map[string]interface{}{
+		"unread_count": count,
+	}
+
+	h.sendToUser(ctx, userID, WSMessage{
+		Type:    WSNotificationUnreadCount,
+		Message: mustMarshal(payload),
+	})
 }
 
 // ValidateChannelID validates a channel ID

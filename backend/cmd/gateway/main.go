@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
@@ -50,6 +52,7 @@ func main() {
 	registry.Register("auth", cfg.AuthGRPCAddress)
 	registry.Register("crm", cfg.CRMGRPCAddress)
 	registry.Register("chat", cfg.ChatGRPCAddress)
+	registry.Register("notification", cfg.NotificationGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -110,6 +113,7 @@ func main() {
 		gateway.NewAuthRoutes(registry),
 		gateway.NewCRMRoutes(registry),
 		gateway.NewChatRoutes(registry),
+		gateway.NewNotificationRoutes(registry),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}
 
@@ -132,6 +136,15 @@ func main() {
 			Post("/api/v1/files/upload", fileUploadHandler.HandleUploadFile)
 	} else {
 		slog.Warn("websocket hub not available, /api/v1/ws and file upload disabled")
+	}
+
+	// =========================================================================
+	// Notification delivery listener (PostgreSQL LISTEN on notification_delivery)
+	// Receives signals from the notification service when a notification is stored,
+	// and pushes real-time WebSocket messages to connected users.
+	// =========================================================================
+	if wsHub != nil {
+		go startNotificationDeliveryListener(ctx, cfg.DatabaseURL, wsHub)
 	}
 
 	// HTTP server
@@ -187,6 +200,64 @@ func main() {
 		slog.Error("http server shutdown failed", "error", err)
 	}
 	slog.Info("gateway stopped")
+}
+
+// notificationDeliveryPayload is the JSON payload sent via pg_notify('notification_delivery', ...).
+type notificationDeliveryPayload struct {
+	UserID       string          `json:"user_id"`
+	Notification json.RawMessage `json:"notification"`
+	DesktopPush  bool            `json:"desktop_push"`
+	Sound        string          `json:"sound"`
+}
+
+// startNotificationDeliveryListener listens on the PostgreSQL notification_delivery channel
+// and pushes real-time notifications to connected WebSocket clients.
+func startNotificationDeliveryListener(ctx context.Context, databaseURL string, wsHub *server.WebSocketHub) {
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		if err := listenNotificationDelivery(ctx, databaseURL, wsHub); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			slog.Error("notification delivery listener failed, reconnecting", "error", err)
+			time.Sleep(5 * time.Second)
+		}
+	}
+}
+
+func listenNotificationDelivery(ctx context.Context, databaseURL string, wsHub *server.WebSocketHub) error {
+	conn, err := pgx.Connect(ctx, databaseURL)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(ctx)
+
+	if _, err := conn.Exec(ctx, "LISTEN notification_delivery"); err != nil {
+		return err
+	}
+
+	slog.Info("notification delivery listener started")
+
+	for {
+		notification, err := conn.WaitForNotification(ctx)
+		if err != nil {
+			return err
+		}
+
+		var payload notificationDeliveryPayload
+		if err := json.Unmarshal([]byte(notification.Payload), &payload); err != nil {
+			slog.Error("failed to parse notification delivery payload",
+				"error", err,
+				"payload", notification.Payload,
+			)
+			continue
+		}
+
+		wsHub.SendNotificationToUser(ctx, payload.UserID, payload.Notification, payload.DesktopPush, payload.Sound)
+	}
 }
 
 // setupWebSocketHub creates the WebSocket hub using lazy connections from the registry.
