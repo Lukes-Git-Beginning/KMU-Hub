@@ -1,21 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/globals.css'
+import App from './App'
+import { useAuthStore } from './stores/auth'
 
-function App() {
-  return (
-    <div className="bg-background text-foreground min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight">
-          KMU Hub
-        </h1>
-        <p className="mt-4 text-lg text-muted-foreground">
-          Desktop App wird geladen...
-        </p>
-      </div>
-    </div>
-  )
-}
+// Initialize auth state (check for stored tokens) before rendering.
+// This runs asynchronously -- the App component shows a loading state
+// while isLoading is true in the auth store.
+useAuthStore.getState().initialize()
 
 const root = document.getElementById('root')
 if (root) {
