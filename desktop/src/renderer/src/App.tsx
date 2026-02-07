@@ -21,6 +21,7 @@ const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
 const CRMLayout = lazy(() => import('@/modules/crm/CRMLayout'))
 const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const NotificationCenter = lazy(() => import('@/modules/notifications/NotificationCenter'))
+const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -133,6 +134,14 @@ const router = createHashRouter([
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
             <NotificationCenter />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'settings/dashboard',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <DashboardSettings />
           </Suspense>
         ),
       },

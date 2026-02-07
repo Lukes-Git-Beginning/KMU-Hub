@@ -1,8 +1,14 @@
 /**
- * Dashboard layout store (Zustand with localStorage persistence).
+ * Dashboard layout store (Zustand with localStorage + server sync).
  *
  * Manages widget grid layouts, active widget set, and edit mode.
- * Layouts persist across navigations and app restarts via localStorage.
+ * Layouts persist locally via localStorage (offline cache) and sync
+ * to the server as the source of truth.
+ *
+ * Flow:
+ * 1. On init: load from localStorage immediately (fast startup)
+ * 2. Fetch from server and merge (prefer server if newer)
+ * 3. On layout changes: update local state, debounce PUT to server
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -20,6 +26,8 @@ export const ALL_WIDGET_IDS = [
 
 export type WidgetId = (typeof ALL_WIDGET_IDS)[number]
 
+export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'idle'
+
 /** Default 12-column grid layout: 2 rows of 3 widgets. */
 function getDefaultLayout(): Layout[] {
   return [
@@ -32,6 +40,9 @@ function getDefaultLayout(): Layout[] {
   ]
 }
 
+/** Debounce timer for server sync. */
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+
 interface DashboardState {
   /** Current grid layout keyed by widget ID. */
   layouts: Layout[]
@@ -39,6 +50,10 @@ interface DashboardState {
   activeWidgets: string[]
   /** Whether the user is in edit mode (drag/resize enabled). */
   isEditing: boolean
+  /** Server sync status indicator. */
+  serverSyncStatus: SyncStatus
+  /** Whether the store has been initialized from server. */
+  serverInitialized: boolean
 
   /** Update layout from react-grid-layout onLayoutChange. */
   updateLayout: (layout: Layout[]) => void
@@ -48,10 +63,49 @@ interface DashboardState {
   removeWidget: (widgetId: string) => void
   /** Toggle edit mode on/off. */
   toggleEditing: () => void
-  /** Reset to default layout and widget set. */
+  /** Reset to default layout and widget set (calls server DELETE). */
   resetToDefaults: () => void
   /** Ensure defaults are loaded (call on first mount). */
   ensureDefaults: () => void
+  /** Initialize from server (fetch layout, merge with local). */
+  initFromServer: () => Promise<void>
+  /** Set sync status. */
+  setSyncStatus: (status: SyncStatus) => void
+}
+
+/**
+ * Debounced save to server. Waits 2 seconds after last layout change
+ * before sending PUT to avoid hammering the server during drag operations.
+ */
+function debouncedServerSync(layouts: Layout[], activeWidgets: string[], setSyncStatus: (s: SyncStatus) => void) {
+  if (syncTimer) clearTimeout(syncTimer)
+
+  syncTimer = setTimeout(async () => {
+    setSyncStatus('syncing')
+    try {
+      // Lazy import to avoid circular dependency
+      const { apiClient } = await import('@/api/client')
+      const { error } = await apiClient.PUT('/api/v1/dashboard/layout', {
+        body: {
+          layout: layouts.map((l) => ({
+            i: l.i,
+            x: l.x,
+            y: l.y,
+            w: l.w,
+            h: l.h,
+          })),
+          active_widgets: activeWidgets,
+        },
+      })
+      if (error) {
+        setSyncStatus('offline')
+      } else {
+        setSyncStatus('synced')
+      }
+    } catch {
+      setSyncStatus('offline')
+    }
+  }, 2000)
 }
 
 export const useDashboardStore = create<DashboardState>()(
@@ -60,39 +114,49 @@ export const useDashboardStore = create<DashboardState>()(
       layouts: [],
       activeWidgets: [],
       isEditing: false,
+      serverSyncStatus: 'idle' as SyncStatus,
+      serverInitialized: false,
 
       updateLayout: (layout: Layout[]) => {
         set({ layouts: layout })
+        // Trigger debounced server sync
+        const { activeWidgets, setSyncStatus } = get()
+        debouncedServerSync(layout, activeWidgets, setSyncStatus)
       },
 
       addWidget: (widgetId: string, position?: { x: number; y: number }) => {
-        const { activeWidgets, layouts } = get()
+        const { activeWidgets, layouts, setSyncStatus } = get()
         if (activeWidgets.includes(widgetId)) return
 
-        // Look up default size from the default layout
         const defaultItem = getDefaultLayout().find((l) => l.i === widgetId)
         const newItem: Layout = {
           i: widgetId,
           x: position?.x ?? 0,
-          y: position?.y ?? Infinity, // Infinity puts it at bottom
+          y: position?.y ?? Infinity,
           w: defaultItem?.w ?? 4,
           h: defaultItem?.h ?? 3,
           minW: defaultItem?.minW ?? 2,
           minH: defaultItem?.minH ?? 2,
         }
 
+        const newActiveWidgets = [...activeWidgets, widgetId]
+        const newLayouts = [...layouts, newItem]
         set({
-          activeWidgets: [...activeWidgets, widgetId],
-          layouts: [...layouts, newItem],
+          activeWidgets: newActiveWidgets,
+          layouts: newLayouts,
         })
+        debouncedServerSync(newLayouts, newActiveWidgets, setSyncStatus)
       },
 
       removeWidget: (widgetId: string) => {
-        const { activeWidgets, layouts } = get()
+        const { activeWidgets, layouts, setSyncStatus } = get()
+        const newActiveWidgets = activeWidgets.filter((id) => id !== widgetId)
+        const newLayouts = layouts.filter((l) => l.i !== widgetId)
         set({
-          activeWidgets: activeWidgets.filter((id) => id !== widgetId),
-          layouts: layouts.filter((l) => l.i !== widgetId),
+          activeWidgets: newActiveWidgets,
+          layouts: newLayouts,
         })
+        debouncedServerSync(newLayouts, newActiveWidgets, setSyncStatus)
       },
 
       toggleEditing: () => {
@@ -104,7 +168,38 @@ export const useDashboardStore = create<DashboardState>()(
           layouts: getDefaultLayout(),
           activeWidgets: [...ALL_WIDGET_IDS],
           isEditing: false,
+          serverSyncStatus: 'syncing',
         })
+
+        // Call server DELETE then refetch
+        ;(async () => {
+          try {
+            const { apiClient } = await import('@/api/client')
+            await apiClient.DELETE('/api/v1/dashboard/layout')
+
+            // Refetch the role default from server
+            const { data } = await apiClient.GET('/api/v1/dashboard/layout')
+            if (data) {
+              const serverLayout = (data.layout ?? []) as unknown as Layout[]
+              const serverWidgets = (data.active_widgets ?? []) as string[]
+              if (serverLayout.length > 0) {
+                set({
+                  layouts: serverLayout.map((l) => ({
+                    ...l,
+                    minW: getDefaultLayout().find((d) => d.i === l.i)?.minW ?? 2,
+                    minH: getDefaultLayout().find((d) => d.i === l.i)?.minH ?? 2,
+                  })),
+                  activeWidgets: serverWidgets,
+                  serverSyncStatus: 'synced',
+                })
+                return
+              }
+            }
+            set({ serverSyncStatus: 'synced' })
+          } catch {
+            set({ serverSyncStatus: 'offline' })
+          }
+        })()
       },
 
       ensureDefaults: () => {
@@ -116,9 +211,58 @@ export const useDashboardStore = create<DashboardState>()(
           })
         }
       },
+
+      initFromServer: async () => {
+        const { serverInitialized, setSyncStatus } = get()
+        if (serverInitialized) return
+
+        setSyncStatus('syncing')
+        try {
+          const { apiClient } = await import('@/api/client')
+          const { data, error } = await apiClient.GET('/api/v1/dashboard/layout')
+
+          if (error || !data) {
+            // Server unreachable -- keep localStorage state
+            setSyncStatus('offline')
+            set({ serverInitialized: true })
+            return
+          }
+
+          const serverLayout = (data.layout ?? []) as unknown as Layout[]
+          const serverWidgets = (data.active_widgets ?? []) as string[]
+
+          if (serverLayout.length > 0) {
+            // Merge server layout with minW/minH from defaults
+            set({
+              layouts: serverLayout.map((l) => ({
+                ...l,
+                minW: getDefaultLayout().find((d) => d.i === l.i)?.minW ?? 2,
+                minH: getDefaultLayout().find((d) => d.i === l.i)?.minH ?? 2,
+              })),
+              activeWidgets: serverWidgets,
+              serverSyncStatus: 'synced',
+              serverInitialized: true,
+            })
+          } else {
+            // No server layout -- use local defaults
+            set({ serverSyncStatus: 'synced', serverInitialized: true })
+          }
+        } catch {
+          setSyncStatus('offline')
+          set({ serverInitialized: true })
+        }
+      },
+
+      setSyncStatus: (status: SyncStatus) => {
+        set({ serverSyncStatus: status })
+      },
     }),
     {
       name: 'kmuhub-dashboard',
+      partialize: (state) => ({
+        layouts: state.layouts,
+        activeWidgets: state.activeWidgets,
+      }),
     }
   )
 )
