@@ -161,14 +161,16 @@ services:
       dockerfile: Dockerfile.gateway
     depends_on:
       auth:
-        condition: service_healthy
+        condition: service_started
       crm:
-        condition: service_healthy
+        condition: service_started
       chat:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable

@@ -10,20 +10,18 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
-	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
 
 func main() {
@@ -45,44 +43,14 @@ func main() {
 		slog.Warn("redis unavailable, using in-memory rate limiting", "error", err)
 	}
 
-	// gRPC connection to auth service
-	authConn, err := grpc.NewClient(
-		cfg.AuthGRPCAddress,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		slog.Error("failed to connect to auth service", "error", err)
-		os.Exit(1)
-	}
-	defer func() { _ = authConn.Close() }()
-
-	authClient := authv1.NewAuthServiceClient(authConn)
-
-	// gRPC connection to CRM service
-	crmConn, err := grpc.NewClient(
-		cfg.CRMGRPCAddress,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		slog.Error("failed to connect to crm service", "error", err)
-		os.Exit(1)
-	}
-	defer func() { _ = crmConn.Close() }()
-
-	crmClient := crmv1.NewCRMServiceClient(crmConn)
-
-	// gRPC connection to Chat service
-	chatConn, err := grpc.NewClient(
-		cfg.ChatGRPCAddress,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		slog.Error("failed to connect to chat service", "error", err)
-		os.Exit(1)
-	}
-	defer func() { _ = chatConn.Close() }()
-
-	chatClient := chatv1.NewChatServiceClient(chatConn)
+	// =========================================================================
+	// Service Registry: register backend services with lazy gRPC connections
+	// =========================================================================
+	registry := gateway.NewServiceRegistry()
+	registry.Register("auth", cfg.AuthGRPCAddress)
+	registry.Register("crm", cfg.CRMGRPCAddress)
+	registry.Register("chat", cfg.ChatGRPCAddress)
+	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
 	pool, err := database.NewPostgresPool(ctx, cfg.DatabaseURL)
@@ -133,25 +101,38 @@ func main() {
 	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS)
 	r.Use(rateLimiter.Middleware)
 
-	// Register routes
-	handler := server.NewGatewayHandler(authClient, crmClient, chatClient, healthCheckers)
-	handler.RegisterRoutes(r, middleware.Auth(localAuthService))
+	// =========================================================================
+	// Register per-service route handlers via RouteRegistrar interface
+	// =========================================================================
+	authMiddleware := middleware.Auth(localAuthService)
 
-	// WebSocket hub for real-time chat
-	wsHub := server.NewWebSocketHub(chatClient, tokenMaker, func(ctx context.Context, userID string) (string, string, error) {
-		resp, err := authClient.GetUser(ctx, &authv1.GetUserRequest{UserId: userID})
-		if err != nil {
-			return "", "", err
-		}
-		return resp.User.FirstName, resp.User.LastName, nil
-	})
-	r.Get("/api/v1/ws", wsHub.HandleWebSocket)
+	registrars := []gateway.RouteRegistrar{
+		gateway.NewAuthRoutes(registry),
+		gateway.NewCRMRoutes(registry),
+		gateway.NewChatRoutes(registry),
+		gateway.NewHealthRoutes(healthCheckers, registry),
+	}
 
-	// File upload handler (multipart/form-data, not gRPC)
-	fileUploadHandler := server.NewFileUploadHandler(fileService, wsHub)
-	r.With(middleware.Auth(localAuthService)).
-		With(middleware.RequirePermission("files", "write")).
-		Post("/api/v1/files/upload", fileUploadHandler.HandleUploadFile)
+	for _, reg := range registrars {
+		reg.RegisterRoutes(r, authMiddleware)
+		slog.Info("routes registered", "service", reg.ServiceName())
+	}
+
+	// =========================================================================
+	// WebSocket hub (cross-cutting: needs chat + auth gRPC clients)
+	// =========================================================================
+	wsHub := setupWebSocketHub(registry, tokenMaker)
+	if wsHub != nil {
+		r.Get("/api/v1/ws", wsHub.HandleWebSocket)
+
+		// File upload handler (multipart/form-data, not gRPC)
+		fileUploadHandler := server.NewFileUploadHandler(fileService, wsHub)
+		r.With(authMiddleware).
+			With(middleware.RequirePermission("files", "write")).
+			Post("/api/v1/files/upload", fileUploadHandler.HandleUploadFile)
+	} else {
+		slog.Warn("websocket hub not available, /api/v1/ws and file upload disabled")
+	}
 
 	// HTTP server
 	srv := &http.Server{
@@ -206,4 +187,30 @@ func main() {
 		slog.Error("http server shutdown failed", "error", err)
 	}
 	slog.Info("gateway stopped")
+}
+
+// setupWebSocketHub creates the WebSocket hub using lazy connections from the registry.
+// Returns nil if either chat or auth service connections cannot be obtained.
+func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.TokenMaker) *server.WebSocketHub {
+	chatConn, err := registry.GetConnection("chat")
+	if err != nil {
+		slog.Warn("chat connection unavailable for websocket hub", "error", err)
+		return nil
+	}
+	chatClient := chatv1.NewChatServiceClient(chatConn)
+
+	authConn, err := registry.GetConnection("auth")
+	if err != nil {
+		slog.Warn("auth connection unavailable for websocket user lookup", "error", err)
+		return nil
+	}
+	authClient := authv1.NewAuthServiceClient(authConn)
+
+	return server.NewWebSocketHub(chatClient, tokenMaker, func(ctx context.Context, userID string) (string, string, error) {
+		resp, err := authClient.GetUser(ctx, &authv1.GetUserRequest{UserId: userID})
+		if err != nil {
+			return "", "", err
+		}
+		return resp.User.FirstName, resp.User.LastName, nil
+	})
 }

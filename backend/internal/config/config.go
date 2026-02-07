@@ -19,9 +19,11 @@ type Config struct {
 	AuthGRPCAddress string `env:"AUTH_GRPC_ADDRESS,default=localhost:50051"`
 	CRMGRPCPort     string `env:"CRM_GRPC_PORT,default=:50052"`
 	CRMGRPCAddress  string `env:"CRM_GRPC_ADDRESS,default=localhost:50052"`
-	ChatGRPCPort    string `env:"CHAT_GRPC_PORT,default=:50053"`
-	ChatGRPCAddress string `env:"CHAT_GRPC_ADDRESS,default=localhost:50053"`
-	GatewayHTTPPort string `env:"GATEWAY_HTTP_PORT,default=:8080"`
+	ChatGRPCPort             string `env:"CHAT_GRPC_PORT,default=:50053"`
+	ChatGRPCAddress          string `env:"CHAT_GRPC_ADDRESS,default=localhost:50053"`
+	NotificationGRPCPort    string `env:"NOTIFICATION_GRPC_PORT,default=:50054"`
+	NotificationGRPCAddress string `env:"NOTIFICATION_GRPC_ADDRESS,default=localhost:50054"`
+	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000"`
 
@@ -30,7 +32,8 @@ type Config struct {
 	MetricsPort    string `env:"METRICS_PORT,default=:9090"`
 	HealthPort     string `env:"HEALTH_PORT,default=:9091"`
 	CRMHealthPort  string `env:"CRM_HEALTH_PORT,default=:9092"`
-	ChatHealthPort string `env:"CHAT_HEALTH_PORT,default=:9093"`
+	ChatHealthPort         string `env:"CHAT_HEALTH_PORT,default=:9093"`
+	NotificationHealthPort string `env:"NOTIFICATION_HEALTH_PORT,default=:9094"`
 
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
