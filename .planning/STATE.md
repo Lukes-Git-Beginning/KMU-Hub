@@ -5,33 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 4 complete - Ready for Phase 5 (Desktop App Electron Shell)
+**Current focus:** Phase 5 - Desktop App Shell (Plan 1 of 7 complete)
 
 ## Current Position
 
-Phase: 4 of 13 (Notifications + Gateway Modernization)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-07 -- Completed 04-03-PLAN.md (Notification Delivery + Integration)
+Phase: 5 of 13 (Desktop App Shell)
+Plan: 1 of 7 in current phase
+Status: In progress
+Last activity: 2026-02-07 -- Completed 05-01-PLAN.md (Electron Shell Foundation)
 
-Progress: [#########░░░░░░░░░░░] 9% (3/32 plans across phases 4-13)
+Progress: [##########░░░░░░░░░░] 12% (4/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: ~15 minutes
-- Total execution time: ~0.7 hours
+- Total plans completed: 4
+- Average duration: ~13 minutes
+- Total execution time: ~0.9 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
+| 05 | 1/7 | ~9min | ~9min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (~10min), 04-02 (~16min), 04-03 (~20min)
-- Trend: Slight increase (more integration complexity per plan)
+- Last 5 plans: 04-01 (~10min), 04-02 (~16min), 04-03 (~20min), 05-01 (~9min)
+- Trend: Foundation plans faster than integration-heavy plans
 
 *Updated after each plan completion*
 
@@ -59,6 +60,11 @@ Recent decisions affecting current work:
 - [04-03]: EventEmitter as optional SetEventEmitter pattern for backward compatibility
 - [04-03]: Best-effort event emission (errors logged, don't fail primary operations)
 - [04-03]: NotifyDelivery in notification repo signals gateway after storing each notification
+- [05-01]: electron-vite v5 with build.externalizeDeps (deprecated plugin replaced)
+- [05-01]: TSconfig split: node (bundler resolution) + web (DOM, react-jsx, path aliases)
+- [05-01]: electron.vite.config.ts excluded from tsc (electron-vite v5/vite 5 type mismatch)
+- [05-01]: CSP unsafe-inline for dev only (Vite HMR), production uses self only
+- [05-01]: safeStorage with plaintext fallback for Linux without keyring
 
 ### Pending Todos
 
@@ -73,5 +79,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 04-03-PLAN.md (Notification Delivery + Integration) -- Phase 4 complete
+Stopped at: Completed 05-01-PLAN.md (Electron Shell Foundation)
 Resume file: None
