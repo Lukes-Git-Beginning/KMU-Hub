@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 4 of 13 (Notifications + Gateway Modernization)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-02-07 -- Roadmap created (Phases 4-13), phases 1-3 completed prior to GSD
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-07 -- Completed 04-01-PLAN.md (Gateway Modularization)
 
-Progress: [######░░░░░░░░░░░░░░] 0% (0/32 plans across phases 4-13)
+Progress: [######░░░░░░░░░░░░░░] 3% (1/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: N/A
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: ~10 minutes
+- Total execution time: ~0.2 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 04 | 1/3 | ~10min | ~10min |
 
 **Recent Trend:**
-- Last 5 plans: N/A
-- Trend: N/A
+- Last 5 plans: 04-01 (~10min)
+- Trend: N/A (first plan)
 
 *Updated after each plan completion*
 
@@ -47,6 +47,9 @@ Recent decisions affecting current work:
 - [Roadmap]: Notifications first (unblocks all future modules)
 - [Roadmap]: Full IMAP+SMTP email in v1 (user decision despite research suggesting deferral)
 - [Roadmap]: Automation and Plugins last (need stable APIs from all other modules)
+- [04-01]: WebSocket hub stays in main.go (cross-cutting, needs both chat + auth clients)
+- [04-01]: HealthHandler kept in server/http.go (used by auth/crm/chat services)
+- [04-01]: Notification config fields pre-added to config.go
 
 ### Pending Todos
 
@@ -57,9 +60,10 @@ None yet.
 - [Phase 10]: GoBD compliance requires Steuerberater consultation before data model design
 - [Phase 11]: ArbZG/BUrlG implementation details need labor law expert review
 - [Phase 10]: DATEV Buchungsstapel format spec not publicly detailed -- may need DATEV partner access
+- [04-01]: Pre-existing notification package build failure (missing delivery/preference packages) -- not blocking gateway refactor
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Roadmap creation complete, ready for Phase 4 planning
+Stopped at: Completed 04-01-PLAN.md (Gateway Modularization)
 Resume file: None
