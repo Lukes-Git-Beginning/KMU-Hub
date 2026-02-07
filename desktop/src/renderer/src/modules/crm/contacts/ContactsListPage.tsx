@@ -1,0 +1,212 @@
+/**
+ * Contacts list page with search, pagination, and navigation to detail.
+ *
+ * Displays contacts in a table with columns for name, email, phone,
+ * company, tags, and creation date. Supports search and pagination.
+ */
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Search, ChevronLeft, ChevronRight, Users } from 'lucide-react'
+import { useContacts } from '@/api/hooks/useContacts'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+
+const PAGE_SIZE = 20
+
+export default function ContactsListPage() {
+  const navigate = useNavigate()
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
+
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const { data, isLoading, error, refetch } = useContacts({
+    page,
+    page_size: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+  })
+
+  const contacts = data?.contacts ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  function showComingSoon() {
+    // Placeholder for toast notification
+    alert('Kommt bald')
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="text-center">
+          <p className="text-lg font-semibold text-foreground">
+            Fehler beim Laden der Kontakte
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+            Erneut versuchen
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-foreground">Kontakte</h1>
+        <Button onClick={showComingSoon} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Neuer Kontakt
+        </Button>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Kontakte suchen..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : contacts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <Users className="h-12 w-12 text-muted-foreground" />
+          <p className="mt-4 text-lg font-medium text-foreground">
+            Keine Kontakte gefunden
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {debouncedSearch
+              ? 'Versuche einen anderen Suchbegriff.'
+              : 'Erstelle deinen ersten Kontakt, um loszulegen.'}
+          </p>
+          {!debouncedSearch && (
+            <Button className="mt-4 gap-2" onClick={showComingSoon}>
+              <Plus className="h-4 w-4" />
+              Ersten Kontakt erstellen
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>E-Mail</TableHead>
+                <TableHead>Telefon</TableHead>
+                <TableHead>Unternehmen</TableHead>
+                <TableHead>Tags</TableHead>
+                <TableHead>Erstellt</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contacts.map((contact) => (
+                <TableRow
+                  key={contact.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/crm/contacts/${contact.id}`)}
+                >
+                  <TableCell className="font-medium">
+                    {contact.firstName} {contact.lastName}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {contact.email || '-'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {contact.phone || '-'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {contact.companyName || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {contact.tags?.map((tag) => (
+                        <Badge
+                          key={tag.id}
+                          variant="secondary"
+                          className="text-xs"
+                          style={
+                            tag.color
+                              ? { backgroundColor: `${tag.color}20`, color: tag.color, borderColor: tag.color }
+                              : undefined
+                          }
+                        >
+                          {tag.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {contact.createdAt
+                      ? new Date(contact.createdAt).toLocaleDateString('de-DE')
+                      : '-'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {total} Kontakt{total !== 1 ? 'e' : ''} gesamt
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Seite {page} von {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
