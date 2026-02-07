@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/google/uuid"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
