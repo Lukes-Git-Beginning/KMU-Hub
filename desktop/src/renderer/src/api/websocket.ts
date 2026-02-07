@@ -1,0 +1,175 @@
+/**
+ * WebSocket manager for real-time communication.
+ *
+ * Handles connection lifecycle, message routing, and automatic reconnection
+ * with exponential backoff. Used by the auth store and useWebSocket hook.
+ */
+import { WS_RECONNECT_DELAYS, MAX_RECONNECT_ATTEMPTS } from '@/lib/constants'
+
+export type WSConnectionState = 'disconnected' | 'connecting' | 'connected'
+
+export type WSMessageHandler = (data: Record<string, unknown>) => void
+
+export class WebSocketManager {
+  private ws: WebSocket | null = null
+  private handlers = new Map<string, Set<WSMessageHandler>>()
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private reconnectAttempt = 0
+  private baseUrl: string
+  private currentToken: string | null = null
+  private state: WSConnectionState = 'disconnected'
+
+  constructor(baseUrl: string) {
+    // Convert http(s) to ws(s)
+    this.baseUrl = baseUrl.replace(/^http/, 'ws')
+  }
+
+  /** Connect to the WebSocket server with the given access token. */
+  connect(accessToken: string): void {
+    // If already connected or connecting with same token, skip
+    if (this.ws && this.currentToken === accessToken && this.state !== 'disconnected') {
+      return
+    }
+
+    // Clean up any existing connection
+    this.cleanupSocket()
+    this.clearReconnectTimer()
+
+    this.currentToken = accessToken
+    this.state = 'connecting'
+    this.reconnectAttempt = 0
+
+    this.createConnection()
+  }
+
+  /** Disconnect and stop reconnection attempts. */
+  disconnect(): void {
+    this.currentToken = null
+    this.state = 'disconnected'
+    this.reconnectAttempt = 0
+    this.clearReconnectTimer()
+    this.cleanupSocket()
+  }
+
+  /**
+   * Register a handler for a specific message type.
+   * Returns an unsubscribe function.
+   */
+  on(type: string, handler: WSMessageHandler): () => void {
+    let typeHandlers = this.handlers.get(type)
+    if (!typeHandlers) {
+      typeHandlers = new Set()
+      this.handlers.set(type, typeHandlers)
+    }
+    typeHandlers.add(handler)
+
+    return () => {
+      typeHandlers!.delete(handler)
+      if (typeHandlers!.size === 0) {
+        this.handlers.delete(type)
+      }
+    }
+  }
+
+  /** Send a message over the WebSocket connection. */
+  send(message: Record<string, unknown>): void {
+    if (this.ws && this.state === 'connected') {
+      this.ws.send(JSON.stringify(message))
+    }
+  }
+
+  /** Get the current connection state. */
+  getState(): WSConnectionState {
+    return this.state
+  }
+
+  private createConnection(): void {
+    if (!this.currentToken) return
+
+    const wsUrl = `${this.baseUrl}/api/v1/ws?token=${encodeURIComponent(this.currentToken)}`
+
+    try {
+      this.ws = new WebSocket(wsUrl)
+    } catch {
+      this.scheduleReconnect()
+      return
+    }
+
+    this.ws.onopen = () => {
+      this.state = 'connected'
+      this.reconnectAttempt = 0
+    }
+
+    this.ws.onmessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data as string) as Record<string, unknown>
+        const type = data.type as string | undefined
+        if (type) {
+          const typeHandlers = this.handlers.get(type)
+          if (typeHandlers) {
+            for (const handler of typeHandlers) {
+              handler(data)
+            }
+          }
+        }
+      } catch {
+        // Ignore malformed messages
+      }
+    }
+
+    this.ws.onclose = () => {
+      this.state = 'disconnected'
+      this.ws = null
+      // Only reconnect if we haven't been explicitly disconnected
+      if (this.currentToken) {
+        this.scheduleReconnect()
+      }
+    }
+
+    this.ws.onerror = () => {
+      // onerror is always followed by onclose, so reconnect logic runs there
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      this.state = 'disconnected'
+      return
+    }
+
+    const delayIndex = Math.min(this.reconnectAttempt, WS_RECONNECT_DELAYS.length - 1)
+    const delay = WS_RECONNECT_DELAYS[delayIndex]
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectAttempt++
+      this.state = 'connecting'
+      this.createConnection()
+    }, delay)
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+  }
+
+  private cleanupSocket(): void {
+    if (this.ws) {
+      // Remove handlers before closing to avoid triggering reconnect
+      this.ws.onopen = null
+      this.ws.onmessage = null
+      this.ws.onclose = null
+      this.ws.onerror = null
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        this.ws.close()
+      }
+      this.ws = null
+    }
+  }
+}
+
+/** Singleton WebSocket manager instance */
+export const wsManager = new WebSocketManager(
+  (import.meta.env.RENDERER_VITE_API_URL as string) || 'http://localhost:8080'
+)
