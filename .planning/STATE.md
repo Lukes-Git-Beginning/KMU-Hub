@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 5 - Desktop App Shell (Plan 3 of 7 complete)
+**Current focus:** Phase 5 - Desktop App Shell (Plan 4 of 7 complete)
 
 ## Current Position
 
 Phase: 5 of 13 (Desktop App Shell)
-Plan: 3 of 7 in current phase
+Plan: 4 of 7 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 05-03-PLAN.md (CRM Module UI)
+Last activity: 2026-02-07 -- Completed 05-04-PLAN.md (Chat Module & Notifications)
 
-Progress: [############░░░░░░░░] 19% (6/32 plans across phases 4-13)
+Progress: [#############░░░░░░░] 22% (7/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: ~12 minutes
-- Total execution time: ~1 hour 11 minutes
+- Total plans completed: 7
+- Average duration: ~11 minutes
+- Total execution time: ~1 hour 21 minutes
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
-| 05 | 3/7 | ~30min | ~10min |
+| 05 | 4/7 | ~40min | ~10min |
 
 **Recent Trend:**
-- Last 5 plans: 04-03 (~20min), 05-01 (~9min), 05-02 (~10min), 05-03 (~11min)
+- Last 5 plans: 05-01 (~9min), 05-02 (~10min), 05-03 (~11min), 05-04 (~10min)
 - Trend: Desktop module plans consistently ~10min
 
 *Updated after each plan completion*
@@ -73,6 +73,10 @@ Recent decisions affecting current work:
 - [05-03]: Alert placeholder for CRUD actions until toast system is added
 - [05-03]: Pipeline view fetches all deals (page_size 200) for client-side stage grouping
 - [05-03]: Shared activityUtils.ts for German labels and icons across 4 pages
+- [05-04]: Typing indicator: 3s debounce on send, 4s auto-expiry on receive
+- [05-04]: WebSocket cache sync via queryClient.setQueryData with invalidation fallback
+- [05-04]: Native push only when document.hasFocus() === false
+- [05-04]: Notification preferences embedded in NotificationCenter as toggleable panel
 
 ### Pending Todos
 
@@ -88,5 +92,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 05-03-PLAN.md (CRM Module UI)
+Stopped at: Completed 05-04-PLAN.md (Chat Module & Notifications)
 Resume file: None
