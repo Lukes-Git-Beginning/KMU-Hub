@@ -207,78 +207,78 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| NOTF-01 | TBD | Pending |
-| NOTF-02 | TBD | Pending |
-| NOTF-03 | TBD | Pending |
-| DESK-01 | TBD | Pending |
-| DESK-02 | TBD | Pending |
-| DESK-03 | TBD | Pending |
-| DESK-04 | TBD | Pending |
-| PM-01 | TBD | Pending |
-| PM-02 | TBD | Pending |
-| PM-03 | TBD | Pending |
-| PM-04 | TBD | Pending |
-| PM-05 | TBD | Pending |
-| PM-06 | TBD | Pending |
-| PM-07 | TBD | Pending |
-| PM-08 | TBD | Pending |
-| PM-09 | TBD | Pending |
-| CAL-01 | TBD | Pending |
-| CAL-02 | TBD | Pending |
-| CAL-03 | TBD | Pending |
-| CAL-04 | TBD | Pending |
-| CAL-05 | TBD | Pending |
-| CAL-06 | TBD | Pending |
-| CAL-07 | TBD | Pending |
-| MAIL-01 | TBD | Pending |
-| MAIL-02 | TBD | Pending |
-| MAIL-03 | TBD | Pending |
-| MAIL-04 | TBD | Pending |
-| MAIL-05 | TBD | Pending |
-| MAIL-06 | TBD | Pending |
-| MAIL-07 | TBD | Pending |
-| MAIL-08 | TBD | Pending |
-| MAIL-09 | TBD | Pending |
-| VID-01 | TBD | Pending |
-| VID-02 | TBD | Pending |
-| VID-03 | TBD | Pending |
-| VID-04 | TBD | Pending |
-| VID-05 | TBD | Pending |
-| VID-06 | TBD | Pending |
-| VID-07 | TBD | Pending |
-| HR-01 | TBD | Pending |
-| HR-02 | TBD | Pending |
-| HR-03 | TBD | Pending |
-| HR-04 | TBD | Pending |
-| HR-05 | TBD | Pending |
-| HR-06 | TBD | Pending |
-| HR-07 | TBD | Pending |
-| FIN-01 | TBD | Pending |
-| FIN-02 | TBD | Pending |
-| FIN-03 | TBD | Pending |
-| FIN-04 | TBD | Pending |
-| FIN-05 | TBD | Pending |
-| FIN-06 | TBD | Pending |
-| FIN-07 | TBD | Pending |
-| AUTO-01 | TBD | Pending |
-| AUTO-02 | TBD | Pending |
-| AUTO-03 | TBD | Pending |
-| AUTO-04 | TBD | Pending |
-| AUTO-05 | TBD | Pending |
-| AUTO-06 | TBD | Pending |
-| PLUG-01 | TBD | Pending |
-| PLUG-02 | TBD | Pending |
-| PLUG-03 | TBD | Pending |
-| PLUG-04 | TBD | Pending |
-| PLUG-05 | TBD | Pending |
-| PLUG-06 | TBD | Pending |
-| PLUG-07 | TBD | Pending |
+| NOTF-01 | Phase 4 | Pending |
+| NOTF-02 | Phase 4 | Pending |
+| NOTF-03 | Phase 4 | Pending |
+| DESK-01 | Phase 5 | Pending |
+| DESK-02 | Phase 5 | Pending |
+| DESK-03 | Phase 5 | Pending |
+| DESK-04 | Phase 5 | Pending |
+| PM-01 | Phase 6 | Pending |
+| PM-02 | Phase 6 | Pending |
+| PM-03 | Phase 6 | Pending |
+| PM-04 | Phase 6 | Pending |
+| PM-05 | Phase 6 | Pending |
+| PM-06 | Phase 6 | Pending |
+| PM-07 | Phase 6 | Pending |
+| PM-08 | Phase 6 | Pending |
+| PM-09 | Phase 6 | Pending |
+| CAL-01 | Phase 7 | Pending |
+| CAL-02 | Phase 7 | Pending |
+| CAL-03 | Phase 7 | Pending |
+| CAL-04 | Phase 7 | Pending |
+| CAL-05 | Phase 7 | Pending |
+| CAL-06 | Phase 7 | Pending |
+| CAL-07 | Phase 7 | Pending |
+| MAIL-01 | Phase 9 | Pending |
+| MAIL-02 | Phase 9 | Pending |
+| MAIL-03 | Phase 9 | Pending |
+| MAIL-04 | Phase 9 | Pending |
+| MAIL-05 | Phase 9 | Pending |
+| MAIL-06 | Phase 9 | Pending |
+| MAIL-07 | Phase 9 | Pending |
+| MAIL-08 | Phase 9 | Pending |
+| MAIL-09 | Phase 9 | Pending |
+| VID-01 | Phase 8 | Pending |
+| VID-02 | Phase 8 | Pending |
+| VID-03 | Phase 8 | Pending |
+| VID-04 | Phase 8 | Pending |
+| VID-05 | Phase 8 | Pending |
+| VID-06 | Phase 8 | Pending |
+| VID-07 | Phase 8 | Pending |
+| HR-01 | Phase 11 | Pending |
+| HR-02 | Phase 11 | Pending |
+| HR-03 | Phase 11 | Pending |
+| HR-04 | Phase 11 | Pending |
+| HR-05 | Phase 11 | Pending |
+| HR-06 | Phase 11 | Pending |
+| HR-07 | Phase 11 | Pending |
+| FIN-01 | Phase 10 | Pending |
+| FIN-02 | Phase 10 | Pending |
+| FIN-03 | Phase 10 | Pending |
+| FIN-04 | Phase 10 | Pending |
+| FIN-05 | Phase 10 | Pending |
+| FIN-06 | Phase 10 | Pending |
+| FIN-07 | Phase 10 | Pending |
+| AUTO-01 | Phase 12 | Pending |
+| AUTO-02 | Phase 12 | Pending |
+| AUTO-03 | Phase 12 | Pending |
+| AUTO-04 | Phase 12 | Pending |
+| AUTO-05 | Phase 12 | Pending |
+| AUTO-06 | Phase 12 | Pending |
+| PLUG-01 | Phase 13 | Pending |
+| PLUG-02 | Phase 13 | Pending |
+| PLUG-03 | Phase 13 | Pending |
+| PLUG-04 | Phase 13 | Pending |
+| PLUG-05 | Phase 13 | Pending |
+| PLUG-06 | Phase 13 | Pending |
+| PLUG-07 | Phase 13 | Pending |
 
 **Coverage:**
 - v1 requirements: 66 total
-- Mapped to phases: 0
-- Unmapped: 66 ⚠️
+- Mapped to phases: 66
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after initial definition*
+*Last updated: 2026-02-07 after roadmap creation*
