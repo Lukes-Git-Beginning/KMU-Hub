@@ -5,34 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 5 - Desktop App Shell (Plan 2 of 7 complete)
+**Current focus:** Phase 5 - Desktop App Shell (Plan 3 of 7 complete)
 
 ## Current Position
 
 Phase: 5 of 13 (Desktop App Shell)
-Plan: 2 of 7 in current phase
+Plan: 3 of 7 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 05-02-PLAN.md (App Shell Auth & Navigation)
+Last activity: 2026-02-07 -- Completed 05-03-PLAN.md (CRM Module UI)
 
-Progress: [###########░░░░░░░░░] 15% (5/32 plans across phases 4-13)
+Progress: [############░░░░░░░░] 19% (6/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: ~12 minutes
-- Total execution time: ~1 hour
+- Total execution time: ~1 hour 11 minutes
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
-| 05 | 2/7 | ~19min | ~10min |
+| 05 | 3/7 | ~30min | ~10min |
 
 **Recent Trend:**
-- Last 5 plans: 04-02 (~16min), 04-03 (~20min), 05-01 (~9min), 05-02 (~10min)
-- Trend: Desktop foundation plans consistently fast (~10min)
+- Last 5 plans: 04-03 (~20min), 05-01 (~9min), 05-02 (~10min), 05-03 (~11min)
+- Trend: Desktop module plans consistently ~10min
 
 *Updated after each plan completion*
 
@@ -69,10 +69,15 @@ Recent decisions affecting current work:
 - [05-02]: vite-env.d.ts for import.meta.env types (electron-vite v5 gap)
 - [05-02]: createHashRouter for Electron file:// protocol compatibility
 - [05-02]: Auth init before render; GuestRoute guard on login page
+- [05-03]: Routes/Route for CRM sub-navigation (module-level routing inside AppShell Outlet)
+- [05-03]: Alert placeholder for CRUD actions until toast system is added
+- [05-03]: Pipeline view fetches all deals (page_size 200) for client-side stage grouping
+- [05-03]: Shared activityUtils.ts for German labels and icons across 4 pages
 
 ### Pending Todos
 
-None yet.
+- Add toast notification system (sonner or similar) before CRUD forms phase
+- CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
 
 ### Blockers/Concerns
 
@@ -83,5 +88,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 05-02-PLAN.md (App Shell Auth & Navigation)
+Stopped at: Completed 05-03-PLAN.md (CRM Module UI)
 Resume file: None
