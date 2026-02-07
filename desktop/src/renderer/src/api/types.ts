@@ -1300,18 +1300,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Protobuf JSON uses camelCase field names. */
+        /** @description Go encoding/json serialization uses snake_case field names. */
         UserInfo: {
             /** Format: uuid */
             id?: string;
             /** Format: email */
             email?: string;
-            firstName?: string;
-            lastName?: string;
-            isActive?: boolean;
+            first_name?: string;
+            last_name?: string;
+            is_active?: boolean;
             roles?: string[];
             /** Format: date-time */
-            createdAt?: string;
+            created_at?: string;
         };
         RegisterRequest: {
             /** Format: email */
@@ -1381,15 +1381,15 @@ export interface components {
         ListInvitationsResponse: {
             invitations?: components["schemas"]["InvitationInfo"][];
         };
-        /** @description Returned by register and login. Fields are camelCase (protobuf JSON). */
+        /** @description Returned by register and login. Go encoding/json uses snake_case. */
         AuthResponse: {
             user?: components["schemas"]["UserInfo"];
-            accessToken?: string;
-            refreshToken?: string;
+            access_token?: string;
+            refresh_token?: string;
         };
         RefreshResponse: {
-            accessToken?: string;
-            refreshToken?: string;
+            access_token?: string;
+            refresh_token?: string;
         };
         GetUserResponse: {
             user?: components["schemas"]["UserInfo"];

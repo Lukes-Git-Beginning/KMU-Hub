@@ -52,8 +52,8 @@ function toUser(info: UserInfo): User {
   return {
     id: info.id ?? '',
     email: info.email ?? '',
-    firstName: info.firstName ?? '',
-    lastName: info.lastName ?? '',
+    firstName: info.first_name ?? '',
+    lastName: info.last_name ?? '',
     roles: info.roles ?? [],
   }
 }
@@ -207,8 +207,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       throw new Error('Login failed. Please check your credentials.')
     }
 
-    const accessToken = data.accessToken ?? null
-    const refreshToken = data.refreshToken ?? null
+    const accessToken = data.access_token ?? null
+    const refreshToken = data.refresh_token ?? null
     const user = data.user ? toUser(data.user) : null
 
     if (!accessToken || !refreshToken || !user) {
@@ -280,12 +280,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         body: { refresh_token: refreshTokenValue },
       })
 
-      if (error || !data?.accessToken || !data?.refreshToken) {
+      if (error || !data?.access_token || !data?.refresh_token) {
         return null
       }
 
-      const newAccessToken = data.accessToken
-      const newRefreshToken = data.refreshToken
+      const newAccessToken = data.access_token
+      const newRefreshToken = data.refresh_token
 
       // Persist updated tokens
       await window.electronAPI.auth.storeTokens({
