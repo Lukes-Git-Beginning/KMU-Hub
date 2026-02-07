@@ -9,9 +9,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Notifications
 
-- [ ] **NOTF-01**: User receives in-app notifications (bell icon with unread count, notification center)
-- [ ] **NOTF-02**: User receives desktop push notifications when Hub is in background (Electron)
-- [ ] **NOTF-03**: User can configure notification preferences per event type and channel
+- [x] **NOTF-01**: User receives in-app notifications (bell icon with unread count, notification center)
+- [x] **NOTF-02**: User receives desktop push notifications when Hub is in background (Electron)
+- [x] **NOTF-03**: User can configure notification preferences per event type and channel
 
 ### Desktop App
 
@@ -207,9 +207,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| NOTF-01 | Phase 4 | Pending |
-| NOTF-02 | Phase 4 | Pending |
-| NOTF-03 | Phase 4 | Pending |
+| NOTF-01 | Phase 4 | Complete |
+| NOTF-02 | Phase 4 | Complete |
+| NOTF-03 | Phase 4 | Complete |
 | DESK-01 | Phase 5 | Pending |
 | DESK-02 | Phase 5 | Pending |
 | DESK-03 | Phase 5 | Pending |

@@ -24,7 +24,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 ### Pilot MVP (Phases 4-8)
 
-- [ ] **Phase 4: Notifications + Gateway Modernization** - Centralized notification system and gateway refactoring for multi-service scale
+- [x] **Phase 4: Notifications + Gateway Modernization** - Centralized notification system and gateway refactoring for multi-service scale
 - [ ] **Phase 5: Desktop App Shell** - Electron workspace with module loading, personalization, and role-based dashboards
 - [ ] **Phase 6: Project Management** - Tasks, projects, Kanban boards, CRM integration, custom fields
 - [ ] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
@@ -56,9 +56,9 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Gateway modernization (ServiceRegistry with lazy gRPC, per-service route handlers, graceful degradation)
-- [ ] 04-02-PLAN.md -- Notification service backend (proto, migrations, event bus, notification + preference services, gRPC server)
-- [ ] 04-03-PLAN.md -- Notification delivery + integration (gateway HTTP routes, WebSocket push, event emission from CRM/Chat, Docker Compose)
+- [x] 04-01-PLAN.md -- Gateway modernization (ServiceRegistry with lazy gRPC, per-service route handlers, graceful degradation)
+- [x] 04-02-PLAN.md -- Notification service backend (proto, migrations, event bus, notification + preference services, gRPC server)
+- [x] 04-03-PLAN.md -- Notification delivery + integration (gateway HTTP routes, WebSocket push, event emission from CRM/Chat, Docker Compose)
 
 ### Phase 5: Desktop App Shell
 **Goal**: Users have a functional Electron desktop application that serves as the single window for their workday, with CRM and Chat modules already usable
@@ -237,7 +237,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 4. Notifications + Gateway | 0/3 | Planned | - |
+| 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
 | 5. Desktop App Shell | 0/4 | Not started | - |
 | 6. Project Management | 0/3 | Not started | - |
 | 7. Calendar & Scheduling | 0/3 | Not started | - |
