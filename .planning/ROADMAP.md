@@ -70,13 +70,16 @@ Plans:
   3. Admin can configure role-based default dashboards so a CEO sees different defaults than an office worker
   4. User can view recently accessed contacts, deals, and messages when briefly offline (local cache)
   5. Each module loads independently (lazy loading) and the app stays under 300MB RAM with 2-3 active modules
-**Plans**: TBD
+**Plans**: 7 plans
 
 Plans:
-- [ ] 05-01: Electron shell + module system (sidebar, routing, lazy loading, shared component library)
-- [ ] 05-02: CRM + Chat module integration (render existing backend features in Desktop UI)
-- [ ] 05-03: Workspace personalization (widget system, dashboard layouts, role-based defaults)
-- [ ] 05-04: Offline caching (local storage for recent data, graceful offline state)
+- [ ] 05-01-PLAN.md -- Electron shell foundation (electron-vite config, secure IPC bridge, safeStorage auth, Tailwind v4, all deps installed)
+- [ ] 05-02-PLAN.md -- App shell + auth flow (API client, WebSocket manager, Zustand stores, sidebar navigation, login page, routing)
+- [ ] 05-03-PLAN.md -- CRM module UI (contacts, companies, deals list + pipeline, activities, search with TanStack Query hooks)
+- [ ] 05-04-PLAN.md -- Chat module + notifications (channels, real-time messaging, typing indicators, threads, notification bell, desktop push)
+- [ ] 05-05-PLAN.md -- Dashboard + widget system (react-grid-layout grid, 6 widgets, drag-and-drop, widget picker, layout persistence)
+- [ ] 05-06-PLAN.md -- Role-based dashboards + backend (dashboard_layouts migration, API endpoints, admin settings, server sync)
+- [ ] 05-07-PLAN.md -- Offline caching + final verification (TanStack Query persistence, offline banner, CORS update, memory check, human verify)
 
 ### Phase 6: Project Management
 **Goal**: Users can manage their daily work through tasks and projects without leaving the Hub
@@ -238,7 +241,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
-| 5. Desktop App Shell | 0/4 | Not started | - |
+| 5. Desktop App Shell | 0/7 | Not started | - |
 | 6. Project Management | 0/3 | Not started | - |
 | 7. Calendar & Scheduling | 0/3 | Not started | - |
 | 8. Video & Voice Calls | 0/3 | Not started | - |
