@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 13 (Project Management)
-Plan: 1 of 8 in current phase
+Plan: 2 of 8 in current phase
 Status: In progress
-Last activity: 2026-02-08 -- Completed 06-01-PLAN.md (Proto, Migrations, Models)
+Last activity: 2026-02-08 -- Completed 06-02-PLAN.md (Project & Status Services)
 
-Progress: [█████████████████░░░] 34% (11/32 plans across phases 4-13)
+Progress: [██████████████████░░] 38% (12/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: ~10 minutes
-- Total execution time: ~1 hour 53 minutes
+- Total execution time: ~2 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [█████████████████░░░] 34% (11
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 1/8 | ~6min | ~6min |
+| 06 | 2/8 | ~13min | ~6.5min |
 
 **Recent Trend:**
-- Last 5 plans: 05-05 (~8min), 05-06 (~8min), 05-07 (~10min), 06-01 (~6min)
-- Trend: Foundation/schema plans faster than full-stack plans
+- Last 5 plans: 05-06 (~8min), 05-07 (~10min), 06-01 (~6min), 06-02 (~7min)
+- Trend: Service-layer plans consistently fast (~7min)
 
 *Updated after each plan completion*
 
@@ -70,6 +70,9 @@ Recent decisions affecting current work:
 - [05-07]: Mutations blocked when offline via OfflineError in API client
 - [05-07]: CORS origins include localhost:5173 for Electron dev
 - [06-01]: Task constants prefixed with Task* to avoid collision with notification model priority constants
+- [06-02]: Project key auto-normalizes to uppercase; validation rejects non-alphanumeric only
+- [06-02]: Status service trusts caller for authorization (gRPC server checks membership)
+- [06-02]: GetUserPreference returns nil when no preference set (caller applies defaults)
 
 ### Pending Todos
 
@@ -85,5 +88,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-01-PLAN.md (Proto, Migrations, Models)
+Stopped at: Completed 06-02-PLAN.md (Project & Status Services)
 Resume file: None
