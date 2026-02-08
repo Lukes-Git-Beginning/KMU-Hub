@@ -20,9 +20,9 @@ um Merge-Konflikte zu vermeiden.
 - [ ] **D3: Sidebar Redesign** — Figma-Sidebar mit Badges, Live-Indicator, Collapse, Branding
 - [ ] **D4: Header Redesign** — SearchBar, DailyPlanner, LanguageSwitcher, ProfileSwitcher, NotificationCenter
 - [ ] **D5: Dashboard** — ModulesGrid, Alerts, NotificationsFeed, Activity Feed, Quick Stats
-- [ ] **D6: Module Screens** — Projekte, Aufgaben, Meetings, Kontakte, Team, Dokumente, Mails, Buchhaltung
+- [ ] **D6: Module Screens** — Projekte, Aufgaben, Meetings (inkl. Call-UI, Whiteboard-Design), Kontakte, Team, Dokumente, Mails, Buchhaltung
 - [ ] **D7: Widgets & Overlays** — TimeTracker, HelpWidget, ProfileSystem, OnboardingWizard
-- [ ] **D8: Desk Polish** — Theme Picker UI, Dekorationen (Pflanzen/Fotos/Items), zusaetzliche Desk-Themes
+- [ ] **D8: Desk Polish** — Zwei Themes (Desk+Minimal), geblurrter Hintergrund, Theme Picker, Dekorationen
 - [ ] **D9: Visual Polish** — Texturen, Animationen, Empty States, Micro-Interactions
 
 ---
@@ -72,6 +72,17 @@ Features aus dem Figma die NICHT in Lukes aktueller Implementation sind:
 | Einstellungen Screen | Einstellungen.tsx | Teilweise |
 | Arbeitsprofile Screen | Arbeitsprofile.tsx | Fehlt |
 | VaultSettings | VaultSettings.tsx | Fehlt |
+
+## Design-Prinzipien
+
+1. **Figma-First:** Primaer an den Funktionen orientieren die im Figma dargestellt sind
+2. **UI-Tiefe:** Die Figma-Screens zeigen die Oberflaeche — wir bauen die Tiefe dazu
+   (Detail-Views, Modals, Call-UIs, etc.)
+3. **Zwei Themes:** "Arbeitsplatz" (Desk mit Deko + geblurrtem Hintergrund) und
+   "Minimal" (geblurrte Seiten, keine Spielereien)
+4. **Warme Aesthetic:** Einladend, professionell aber gemuetlich (wie Inspiration-Bild)
+5. **Meeting-Tiefe:** Gut ausgebauter Meeting-Bereich mit Detail-View, Call-UI,
+   Telefon-Ansicht, und spaeter Whiteboard (Backend = Luke)
 
 ## Uebergabe-Workflow
 
