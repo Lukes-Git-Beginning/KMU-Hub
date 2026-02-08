@@ -31,6 +31,7 @@ import {
   useTask,
   useUpdateTask,
   useSubtasks,
+  useTaskEntityLinks,
 } from '@/api/hooks/useTasks'
 import {
   useProject,
@@ -46,6 +47,8 @@ import ActivityLog from '../components/ActivityLog'
 import TaskFileAttachments from '../components/TaskFileAttachments'
 import DependencyList from '../components/DependencyList'
 import TaskCreateDialog from '../components/TaskCreateDialog'
+import TaskLinkField from '../components/TaskLinkField'
+import CustomFieldsSection from '../components/CustomFieldsSection'
 
 export default function TaskDetailPage() {
   const { id: projectId, taskId } = useParams<{
@@ -585,24 +588,27 @@ export default function TaskDetailPage() {
 
           <Separator />
 
-          {/* Entity links placeholder */}
+          {/* Entity links */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
               Verknuepfungen
             </label>
-            <p className="text-xs text-muted-foreground italic py-1">
-              CRM-Verknuepfungen (ab 06-08)
-            </p>
+            <TaskLinkField
+              taskId={taskId ?? ''}
+              taskTitle={task.title}
+              taskDescription={task.description}
+            />
           </div>
 
-          {/* Custom fields placeholder */}
+          {/* Custom fields */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
               Benutzerdefinierte Felder
             </label>
-            <p className="text-xs text-muted-foreground italic py-1">
-              Eigene Felder (ab 06-08)
-            </p>
+            <CustomFieldsSection
+              taskId={taskId ?? ''}
+              projectId={effectiveProjectId}
+            />
           </div>
 
           <Separator />

@@ -319,3 +319,148 @@ export function useDeleteDependency() {
     },
   })
 }
+
+// ---------------------------------------------------------------------------
+// Entity link queries & mutations
+// ---------------------------------------------------------------------------
+
+export function useTaskEntityLinks(taskId: string) {
+  return useQuery({
+    queryKey: ['task-entity-links', taskId],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET(
+        '/api/v1/tasks/{id}/links',
+        { params: { path: { id: taskId } } }
+      )
+      if (error) throw error
+      return data
+    },
+    enabled: !!taskId,
+  })
+}
+
+export function useLinkEntity() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      entity_type,
+      entity_id,
+    }: {
+      taskId: string
+      entity_type: 'contact' | 'company' | 'deal' | 'activity' | 'project'
+      entity_id: string
+    }) => {
+      const { data, error } = await apiClient.POST(
+        '/api/v1/tasks/{id}/links',
+        {
+          params: { path: { id: taskId } },
+          body: { entity_type, entity_id },
+        }
+      )
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['task-entity-links', variables.taskId],
+      })
+      queryClient.invalidateQueries({ queryKey: ['entity-tasks'] })
+    },
+  })
+}
+
+export function useUnlinkEntity() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      linkId,
+      taskId,
+    }: {
+      linkId: string
+      taskId: string
+    }) => {
+      const { data, error } = await apiClient.DELETE(
+        '/api/v1/task-links/{id}',
+        { params: { path: { id: linkId } } }
+      )
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['task-entity-links', variables.taskId],
+      })
+      queryClient.invalidateQueries({ queryKey: ['entity-tasks'] })
+    },
+  })
+}
+
+export function useEntityTasks(
+  entityType: 'contact' | 'company' | 'deal' | 'activity' | 'project',
+  entityId: string
+) {
+  return useQuery({
+    queryKey: ['entity-tasks', entityType, entityId],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/api/v1/entity-tasks', {
+        params: {
+          query: { entity_type: entityType, entity_id: entityId },
+        },
+      })
+      if (error) throw error
+      return data
+    },
+    enabled: !!entityId,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Custom field queries & mutations
+// ---------------------------------------------------------------------------
+
+export function useTaskCustomFields(taskId: string) {
+  return useQuery({
+    queryKey: ['task-custom-fields', taskId],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET(
+        '/api/v1/tasks/{id}/custom-fields',
+        { params: { path: { id: taskId } } }
+      )
+      if (error) throw error
+      return data
+    },
+    enabled: !!taskId,
+  })
+}
+
+export function useSetTaskCustomFields() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      values,
+    }: {
+      taskId: string
+      values: Array<{ field_id: string; value: string }>
+    }) => {
+      const { data, error } = await apiClient.PUT(
+        '/api/v1/tasks/{id}/custom-fields',
+        {
+          params: { path: { id: taskId } },
+          body: { values },
+        }
+      )
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['task-custom-fields', variables.taskId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['tasks', variables.taskId],
+      })
+    },
+  })
+}
