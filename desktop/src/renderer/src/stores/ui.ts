@@ -12,6 +12,7 @@ import { DEFAULT_DESK_THEME_ID } from '@/config/desk-themes'
 interface UIState {
   sidebarCollapsed: boolean
   sidebarWidth: number
+  sidebarMobileOpen: boolean
   locale: string
   theme: 'light' | 'dark'
 
@@ -23,6 +24,8 @@ interface UIState {
 
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
+  setSidebarMobileOpen: (open: boolean) => void
+  toggleSidebarMobile: () => void
   setLocale: (locale: string) => void
   setTheme: (theme: 'light' | 'dark') => void
 
@@ -39,6 +42,7 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       sidebarCollapsed: false,
       sidebarWidth: 256,
+      sidebarMobileOpen: false,
       locale: 'de',
       theme: 'light',
 
@@ -59,6 +63,12 @@ export const useUIStore = create<UIState>()(
 
       setSidebarWidth: (width: number) =>
         set({ sidebarWidth: width }),
+
+      setSidebarMobileOpen: (open: boolean) =>
+        set({ sidebarMobileOpen: open }),
+
+      toggleSidebarMobile: () =>
+        set((state) => ({ sidebarMobileOpen: !state.sidebarMobileOpen })),
 
       setLocale: (locale: string) =>
         set({ locale }),
