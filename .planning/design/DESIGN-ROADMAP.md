@@ -367,6 +367,15 @@ Manche Widgets fuer alle (Rechner, Notizen), manche modulgebunden (Buchhaltungsz
 ### 4. Anpassbarkeit
 Sidebar, Quick-Actions, Dashboard — User richtet sich alles selbst ein.
 
+### 5. UI-Shells mit Mock-Daten (Backend-unabhaengig)
+Jede Komponente muss OHNE Backend funktionieren:
+- **Mit Backend:** Echte Daten von API
+- **Ohne Backend:** Mock/Demo-Daten anzeigen ODER ausgegraut mit Hinweis "Verbindung noetig"
+- Beispiele: Team-Status zeigt Demo-Mitarbeiter, Wetter zeigt Placeholder, Chat zeigt Mock-Nachrichten
+- Senden/Erstellen-Buttons ausgegraut wenn Backend fehlt, mit Tooltip
+- Wenn Luke Backend anbindet, tauscht er Mocks gegen echte API-Calls
+- Vorbild: DEV_BYPASS_AUTH in App.tsx — gleiche Logik fuer alle Module
+
 ---
 
 ## Uebergabe-Workflow
