@@ -135,12 +135,18 @@ Plans:
   5. User can book a meeting room or resource via dedicated resource calendars that show availability
   6. Creating a calendar event with a video call option auto-generates a LiveKit room link in the event details
   7. Calendar displays DACH public holidays for the user's configured Bundesland/Kanton, with weeks starting Monday
-**Plans**: TBD
+**Plans**: 9 plans
 
 Plans:
-- [ ] 07-01: Calendar backend (event models, RRULE recurring events, personal/shared calendars, RSVP)
-- [ ] 07-02: Calendar UI (day/week/month views, event creation, multi-calendar overlay)
-- [ ] 07-03: Resource booking + DACH features (room/resource calendars, holiday data, LiveKit link generation)
+- [ ] 07-01-PLAN.md -- Proto + migrations + models + Go deps (CalendarService proto, 4 migrations for 12 tables, Go models, rrule-go + LiveKit SDK)
+- [ ] 07-02-PLAN.md -- Frontend module shell + API hooks + stores (rrule npm, TypeScript types, TanStack Query hooks, Zustand calendar store, CalendarLayout)
+- [ ] 07-03-PLAN.md -- Calendar + Event service packages (CRUD, permissions, RRULE expansion, three-way recurring edit, RSVP, reminders, event emitter)
+- [ ] 07-04-PLAN.md -- Resource + Holiday + LiveKit service packages (booking with exclusion constraints, Nager.Date holiday seeding, LiveKit token generation)
+- [ ] 07-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (CalendarService gRPC, ~30 HTTP endpoints, Work service dual registration)
+- [ ] 07-06-PLAN.md -- Calendar views + grid components (CSS Grid TimeGrid, WeekView, DayView, MonthView, ViewToolbar, event layout algorithm)
+- [ ] 07-07-PLAN.md -- Event creation + editing UI (EventPopover, EventForm, RecurrenceEditor, RecurrenceEditScope, ReminderEditor, AttendeePicker)
+- [ ] 07-08-PLAN.md -- Shared calendars + sidebar (CalendarSidebar with day agenda, CalendarListSidebar, CalendarBrowsePage, CalendarSettingsDialog, permissions)
+- [ ] 07-09-PLAN.md -- Resource booking + DACH holidays + task deadlines (ResourcesPage, ResourceTimeline, HolidayBadge, TaskDeadlineLayer)
 
 ### Phase 8: Video, Voice & Meetings
 **Goal**: Users can make video/voice calls, manage meetings end-to-end, see colleague presence, and react to messages -- replacing Zoom/Teams
@@ -386,7 +392,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
 | 5. Desktop App Shell | 7/7 | Complete | 2026-02-08 |
 | 6. Project Management | 10/10 | Complete | 2026-02-08 |
-| 7. Calendar & Scheduling | 0/3 | Not started | - |
+| 7. Calendar & Scheduling | 0/9 | Not started | - |
 | 8. Video, Voice & Meetings | 0/5 | Not started | - |
 | 9. Security & Compliance | 0/4 | Not started | - |
 | 10. Email Integration | 0/4 | Not started | - |
@@ -404,4 +410,4 @@ Decimal phases (if inserted) execute between their surrounding integers.
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-08 after second feature gap analysis (expanded from 18 to 20 phases -- added Abacus, Run my Accounts, chat file permissions)*
+*Last updated: 2026-02-09 after Phase 7 planning (9 plans in 5 waves)*
