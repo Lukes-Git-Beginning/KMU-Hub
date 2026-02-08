@@ -25,7 +25,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 ### Pilot MVP (Phases 4-8)
 
 - [x] **Phase 4: Notifications + Gateway Modernization** - Centralized notification system and gateway refactoring for multi-service scale
-- [ ] **Phase 5: Desktop App Shell** - Electron workspace with module loading, personalization, and role-based dashboards
+- [x] **Phase 5: Desktop App Shell** - Electron workspace with module loading, personalization, and role-based dashboards
 - [ ] **Phase 6: Project Management** - Tasks, projects, Kanban boards, CRM integration, custom fields
 - [ ] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
 - [ ] **Phase 8: Video & Voice Calls** - LiveKit-powered 1:1 and group calls, screen sharing, recording
@@ -241,7 +241,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
-| 5. Desktop App Shell | 0/7 | Not started | - |
+| 5. Desktop App Shell | 7/7 | Complete | 2026-02-08 |
 | 6. Project Management | 0/3 | Not started | - |
 | 7. Calendar & Scheduling | 0/3 | Not started | - |
 | 8. Video & Voice Calls | 0/3 | Not started | - |
@@ -254,4 +254,4 @@ Decimal phases (if inserted) execute between their surrounding integers.
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-07*
+*Last updated: 2026-02-08*

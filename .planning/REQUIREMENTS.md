@@ -15,10 +15,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Desktop App
 
-- [ ] **DESK-01**: Desktop app has sidebar navigation with module loading and cross-module routing
-- [ ] **DESK-02**: User can personalize their workspace with widgets and customizable dashboard layouts
-- [ ] **DESK-03**: Admin can configure role-based default dashboards (different presets for CEO, manager, office worker)
-- [ ] **DESK-04**: Desktop app provides basic offline functionality with local caching for recently accessed data
+- [x] **DESK-01**: Desktop app has sidebar navigation with module loading and cross-module routing
+- [x] **DESK-02**: User can personalize their workspace with widgets and customizable dashboard layouts
+- [x] **DESK-03**: Admin can configure role-based default dashboards (different presets for CEO, manager, office worker)
+- [x] **DESK-04**: Desktop app provides basic offline functionality with local caching for recently accessed data
 
 ### Project Management
 
@@ -210,10 +210,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NOTF-01 | Phase 4 | Complete |
 | NOTF-02 | Phase 4 | Complete |
 | NOTF-03 | Phase 4 | Complete |
-| DESK-01 | Phase 5 | Pending |
-| DESK-02 | Phase 5 | Pending |
-| DESK-03 | Phase 5 | Pending |
-| DESK-04 | Phase 5 | Pending |
+| DESK-01 | Phase 5 | Complete |
+| DESK-02 | Phase 5 | Complete |
+| DESK-03 | Phase 5 | Complete |
+| DESK-04 | Phase 5 | Complete |
 | PM-01 | Phase 6 | Pending |
 | PM-02 | Phase 6 | Pending |
 | PM-03 | Phase 6 | Pending |
@@ -281,4 +281,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after roadmap creation*
+*Last updated: 2026-02-08 after Phase 5 completion*

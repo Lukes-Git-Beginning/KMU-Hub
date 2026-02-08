@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 5 - Desktop App Shell (Plan 6 of 7 complete)
+**Current focus:** Phase 5 complete, ready for Phase 6 - Project Management
 
 ## Current Position
 
-Phase: 5 of 13 (Desktop App Shell)
-Plan: 6 of 7 in current phase
-Status: In progress
-Last activity: 2026-02-07 -- Completed 05-06-PLAN.md (Role-Based Dashboard Layouts)
+Phase: 5 of 13 (Desktop App Shell) -- COMPLETE
+Plan: 7 of 7 in current phase
+Status: Phase complete
+Last activity: 2026-02-08 -- Completed 05-07-PLAN.md (Offline Caching + Final Verification)
 
-Progress: [###############░░░░░] 28% (9/32 plans across phases 4-13)
+Progress: [████████████████░░░░] 31% (10/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: ~11 minutes
-- Total execution time: ~1 hour 37 minutes
+- Total execution time: ~1 hour 47 minutes
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
-| 05 | 6/7 | ~56min | ~9min |
+| 05 | 7/7 | ~66min | ~9min |
 
 **Recent Trend:**
-- Last 5 plans: 05-02 (~10min), 05-03 (~11min), 05-04 (~10min), 05-05 (~8min), 05-06 (~8min)
+- Last 5 plans: 05-03 (~11min), 05-04 (~10min), 05-05 (~8min), 05-06 (~8min), 05-07 (~10min)
 - Trend: Desktop module plans consistently ~9-10min
 
 *Updated after each plan completion*
@@ -49,42 +49,25 @@ Recent decisions affecting current work:
 - [Roadmap]: Full IMAP+SMTP email in v1 (user decision despite research suggesting deferral)
 - [Roadmap]: Automation and Plugins last (need stable APIs from all other modules)
 - [04-01]: WebSocket hub stays in main.go (cross-cutting, needs both chat + auth clients)
-- [04-01]: HealthHandler kept in server/http.go (used by auth/crm/chat services)
-- [04-01]: Notification config fields pre-added to config.go
 - [04-02]: Raw pgx over pgxlisten for event bus (pgxlisten pre-v1, unstable)
-- [04-02]: 30-second grouping window for smart notification collapse
-- [04-02]: 7-stage preference evaluation pipeline
 - [04-02]: Dual write (events table + pg_notify) for event durability
 - [04-02]: DeliveryCallback pattern decouples notification service from WebSocket delivery
 - [04-03]: Dual pg_notify channels: 'events' for notification processing, 'notification_delivery' for gateway WebSocket push
-- [04-03]: EventEmitter as optional SetEventEmitter pattern for backward compatibility
-- [04-03]: Best-effort event emission (errors logged, don't fail primary operations)
-- [04-03]: NotifyDelivery in notification repo signals gateway after storing each notification
 - [05-01]: electron-vite v5 with build.externalizeDeps (deprecated plugin replaced)
 - [05-01]: TSconfig split: node (bundler resolution) + web (DOM, react-jsx, path aliases)
-- [05-01]: electron.vite.config.ts excluded from tsc (electron-vite v5/vite 5 type mismatch)
 - [05-01]: CSP unsafe-inline for dev only (Vite HMR), production uses self only
-- [05-01]: safeStorage with plaintext fallback for Linux without keyring
-- [05-02]: shadcn CLI installs to @/ literal -- lib/index.ts barrel export needed
-- [05-02]: vite-env.d.ts for import.meta.env types (electron-vite v5 gap)
 - [05-02]: createHashRouter for Electron file:// protocol compatibility
 - [05-02]: Auth init before render; GuestRoute guard on login page
 - [05-03]: Routes/Route for CRM sub-navigation (module-level routing inside AppShell Outlet)
-- [05-03]: Alert placeholder for CRUD actions until toast system is added
-- [05-03]: Pipeline view fetches all deals (page_size 200) for client-side stage grouping
-- [05-03]: Shared activityUtils.ts for German labels and icons across 4 pages
-- [05-04]: Typing indicator: 3s debounce on send, 4s auto-expiry on receive
 - [05-04]: WebSocket cache sync via queryClient.setQueryData with invalidation fallback
 - [05-04]: Native push only when document.hasFocus() === false
-- [05-04]: Notification preferences embedded in NotificationCenter as toggleable panel
 - [05-05]: Widget registry pattern -- centralized definitions with lazy-loaded components
 - [05-05]: Per-widget ErrorBoundary for crash isolation
-- [05-05]: 500ms debounced onLayoutChange for localStorage persistence
-- [05-05]: DealPipeline uses PipelineStageInfo.totalValue (no separate deals fetch)
 - [05-06]: Dashboard service in gateway with direct DB access (not gRPC)
-- [05-06]: 2-second debounced server sync for layout changes
-- [05-06]: RequireRole("admin") for dashboard defaults endpoints
 - [05-06]: localStorage as offline cache, server as source of truth
+- [05-07]: 24h maxAge for TanStack Query cache with 5min staleTime
+- [05-07]: Mutations blocked when offline via OfflineError in API client
+- [05-07]: CORS origins include localhost:5173 for Electron dev
 
 ### Pending Todos
 
@@ -99,6 +82,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Completed 05-06-PLAN.md (Role-Based Dashboard Layouts)
+Last session: 2026-02-08
+Stopped at: Phase 5 complete, verified 5/5 must-haves
 Resume file: None
