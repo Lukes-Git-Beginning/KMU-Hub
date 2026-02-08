@@ -19,7 +19,7 @@ export interface TaskListParams {
   project_id?: string
   assignee_id?: string
   status_id?: string
-  priority?: 'urgent' | 'high' | 'normal' | 'low'
+  priority?: 'urgent' | 'high' | 'medium' | 'low'
   parent_task_id?: string
   search?: string
   sort_by?: string
@@ -153,7 +153,7 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: async (body: {
       title: string
-      priority: 'urgent' | 'high' | 'normal' | 'low'
+      priority: 'urgent' | 'high' | 'medium' | 'low'
       project_id?: string
       description?: string
       status_id?: string
@@ -186,7 +186,7 @@ export function useUpdateTask() {
       title?: string
       description?: string
       status_id?: string
-      priority?: 'urgent' | 'high' | 'normal' | 'low'
+      priority?: 'urgent' | 'high' | 'medium' | 'low'
       assignee_id?: string
       due_date?: string
       custom_fields?: Array<{ field_id: string; value: string }>

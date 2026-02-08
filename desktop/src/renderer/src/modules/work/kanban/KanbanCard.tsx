@@ -99,7 +99,7 @@ export default function KanbanCard({
             <Lock className="h-3 w-3 text-yellow-500" title="Blockiert" />
           )}
           <PriorityBadge
-            priority={(task.priority as Priority) ?? 'normal'}
+            priority={(task.priority as Priority) ?? 'medium'}
             compact
           />
         </div>

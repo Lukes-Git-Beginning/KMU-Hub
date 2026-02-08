@@ -333,7 +333,7 @@ export default function TaskDetailPage() {
                       </span>
                     )}
                     <PriorityBadge
-                      priority={(st.priority as Priority) ?? 'normal'}
+                      priority={(st.priority as Priority) ?? 'medium'}
                       compact
                     />
                   </div>
@@ -451,13 +451,13 @@ export default function TaskDetailPage() {
               <PopoverTrigger asChild>
                 <button type="button" className="cursor-pointer">
                   <PriorityBadge
-                    priority={(task.priority as Priority) ?? 'normal'}
+                    priority={(task.priority as Priority) ?? 'medium'}
                   />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-40 p-1" align="start">
                 <div className="space-y-0.5">
-                  {(['urgent', 'high', 'normal', 'low'] as const).map((p) => (
+                  {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
                     <button
                       key={p}
                       type="button"
@@ -473,7 +473,7 @@ export default function TaskDetailPage() {
                           ? 'Dringend'
                           : p === 'high'
                             ? 'Hoch'
-                            : p === 'normal'
+                            : p === 'medium'
                               ? 'Normal'
                               : 'Niedrig'}
                       </span>
@@ -555,7 +555,7 @@ export default function TaskDetailPage() {
                   <Input
                     type="date"
                     className="h-8 text-xs"
-                    value={task.due_date?.split('T')[0] ?? ''}
+                    value={task.due_date ? (typeof task.due_date === 'string' ? task.due_date : new Date(task.due_date).toISOString()).split('T')[0] : ''}
                     onChange={(e) => handleDueDateChange(e.target.value)}
                   />
                   {task.due_date && (

@@ -296,7 +296,7 @@ export default function TaskDetailPanel() {
                         <button type="button" className="cursor-pointer">
                           <PriorityBadge
                             priority={
-                              (task.priority as Priority) ?? 'normal'
+                              (task.priority as Priority) ?? 'medium'
                             }
                           />
                         </button>
@@ -304,7 +304,7 @@ export default function TaskDetailPanel() {
                       <PopoverContent className="w-40 p-1" align="start">
                         <div className="space-y-0.5">
                           {(
-                            ['urgent', 'high', 'normal', 'low'] as const
+                            ['urgent', 'high', 'medium', 'low'] as const
                           ).map((p) => (
                             <button
                               key={p}
@@ -321,7 +321,7 @@ export default function TaskDetailPanel() {
                                   ? 'Dringend'
                                   : p === 'high'
                                     ? 'Hoch'
-                                    : p === 'normal'
+                                    : p === 'medium'
                                       ? 'Normal'
                                       : 'Niedrig'}
                               </span>
@@ -407,7 +407,7 @@ export default function TaskDetailPanel() {
                           <Input
                             type="date"
                             className="h-8 text-xs"
-                            value={task.due_date?.split('T')[0] ?? ''}
+                            value={task.due_date ? (typeof task.due_date === 'string' ? task.due_date : new Date(task.due_date).toISOString()).split('T')[0] : ''}
                             onChange={(e) =>
                               handleDueDateChange(e.target.value)
                             }

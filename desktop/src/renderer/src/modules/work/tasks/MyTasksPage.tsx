@@ -54,7 +54,7 @@ const PRIORITY_CONFIG: Record<string, { label: string; className: string }> = {
 const PRIORITY_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'urgent', label: 'Dringend' },
   { value: 'high', label: 'Hoch' },
-  { value: 'normal', label: 'Normal' },
+  { value: 'medium', label: 'Normal' },
   { value: 'low', label: 'Niedrig' },
 ]
 
@@ -92,7 +92,7 @@ export default function MyTasksPage() {
 
   // Standalone task creation form
   const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [newTaskPriority, setNewTaskPriority] = useState<string>('normal')
+  const [newTaskPriority, setNewTaskPriority] = useState<string>('medium')
 
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
@@ -125,7 +125,7 @@ export default function MyTasksPage() {
   // Apply client-side priority filter if multiple priorities selected
   const filteredTasks = useMemo(() => {
     if (priorityFilter.length <= 1) return tasks
-    return tasks.filter((t) => priorityFilter.includes(t.priority ?? 'normal'))
+    return tasks.filter((t) => priorityFilter.includes(t.priority ?? 'medium'))
   }, [tasks, priorityFilter])
 
   // Group tasks by project
@@ -193,7 +193,7 @@ export default function MyTasksPage() {
       priority: newTaskPriority as Priority,
     })
     setNewTaskTitle('')
-    setNewTaskPriority('normal')
+    setNewTaskPriority('medium')
     setCreateDialogOpen(false)
   }
 
@@ -366,7 +366,7 @@ export default function MyTasksPage() {
                 {/* Tasks in this group */}
                 <div className="space-y-1">
                   {group.tasks.map((task) => {
-                    const priorityConfig = PRIORITY_CONFIG[task.priority ?? 'normal']
+                    const priorityConfig = PRIORITY_CONFIG[task.priority ?? 'medium']
                     const dueLabel = formatDueDate(task.due_date)
                     const overdue = isDueOverdue(task.due_date)
                     const isStandalone = !task.project_id

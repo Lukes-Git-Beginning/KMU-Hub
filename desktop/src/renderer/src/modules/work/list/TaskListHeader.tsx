@@ -56,7 +56,7 @@ const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
 const PRIORITY_PILLS: Array<{ value: string; label: string; className: string }> = [
   { value: 'urgent', label: 'Dringend', className: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' },
   { value: 'high', label: 'Hoch', className: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100' },
-  { value: 'normal', label: 'Normal', className: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' },
+  { value: 'medium', label: 'Normal', className: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' },
   { value: 'low', label: 'Niedrig', className: 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100' },
 ]
 
@@ -184,8 +184,8 @@ export default function TaskListHeader({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">Alle Status</SelectItem>
-                {statuses.map((s) => (
-                  <SelectItem key={s.id} value={s.id ?? ''}>
+                {statuses.filter((s) => s.id).map((s) => (
+                  <SelectItem key={s.id} value={s.id!}>
                     <span className="flex items-center gap-2">
                       <span
                         className="h-2 w-2 rounded-full inline-block"

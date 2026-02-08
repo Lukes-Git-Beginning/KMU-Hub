@@ -6,6 +6,7 @@
  * indentation and collapse/expand toggles at each level.
  */
 import { useState, useMemo, useCallback } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTasks, useSubtasks } from '@/api/hooks/useTasks'
 import {
@@ -95,7 +96,7 @@ function groupTasks(
         label = task.assignee_name ?? 'Nicht zugewiesen'
         break
       case 'priority':
-        key = task.priority ?? 'normal'
+        key = task.priority ?? 'medium'
         label =
           task.priority === 'urgent'
             ? 'Dringend'
@@ -104,7 +105,7 @@ function groupTasks(
               : task.priority === 'low'
                 ? 'Niedrig'
                 : 'Normal'
-        priority = (task.priority as Priority) ?? 'normal'
+        priority = (task.priority as Priority) ?? 'medium'
         break
       case 'due_date': {
         if (!task.due_date) {
@@ -165,7 +166,7 @@ function groupTasks(
 
   // For priority grouping, enforce priority order
   if (groupBy === 'priority') {
-    const order = ['urgent', 'high', 'normal', 'low']
+    const order = ['urgent', 'high', 'medium', 'low']
     const sorted: TaskGroup[] = []
     for (const k of order) {
       const g = map.get(k)

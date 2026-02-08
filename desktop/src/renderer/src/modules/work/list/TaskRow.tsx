@@ -270,12 +270,12 @@ export default function TaskRow({
       <Popover>
         <PopoverTrigger asChild>
           <button type="button" className="shrink-0 cursor-pointer">
-            <PriorityBadge priority={(task.priority as Priority) ?? 'normal'} compact />
+            <PriorityBadge priority={(task.priority as Priority) ?? 'medium'} compact />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-40 p-1" align="end">
           <div className="space-y-0.5">
-            {(['urgent', 'high', 'normal', 'low'] as const).map((p) => (
+            {(['urgent', 'high', 'medium', 'low'] as const).map((p) => (
               <button
                 key={p}
                 type="button"
@@ -291,7 +291,7 @@ export default function TaskRow({
                     ? 'Dringend'
                     : p === 'high'
                       ? 'Hoch'
-                      : p === 'normal'
+                      : p === 'medium'
                         ? 'Normal'
                         : 'Niedrig'}
                 </span>
@@ -370,7 +370,7 @@ export default function TaskRow({
             <Input
               type="date"
               className="h-8 text-xs"
-              value={task.due_date?.split('T')[0] ?? ''}
+              value={task.due_date ? (typeof task.due_date === 'string' ? task.due_date : new Date(task.due_date).toISOString()).split('T')[0] : ''}
               onChange={(e) => handleDueDateChange(e.target.value)}
             />
             {task.due_date && (

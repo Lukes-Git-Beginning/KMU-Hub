@@ -7,7 +7,7 @@
 import { AlertTriangle, ArrowUp, Minus, ArrowDown } from 'lucide-react'
 import { cn } from '@/lib'
 
-type Priority = 'urgent' | 'high' | 'normal' | 'low'
+type Priority = 'urgent' | 'high' | 'medium' | 'low'
 
 const priorityConfig: Record<
   Priority,
@@ -27,7 +27,7 @@ const priorityConfig: Record<
     icon: ArrowUp,
     label: 'Hoch',
   },
-  normal: {
+  medium: {
     color: 'text-blue-600 bg-blue-50 border-blue-200',
     icon: Minus,
     label: 'Normal',
@@ -50,7 +50,7 @@ export default function PriorityBadge({
   compact = false,
   className,
 }: PriorityBadgeProps) {
-  const config = priorityConfig[priority] ?? priorityConfig.normal
+  const config = priorityConfig[priority] ?? priorityConfig.medium
   const Icon = config.icon
 
   if (compact) {

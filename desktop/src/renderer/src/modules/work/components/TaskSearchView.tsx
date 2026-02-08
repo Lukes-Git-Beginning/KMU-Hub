@@ -171,7 +171,7 @@ export default function TaskSearchView() {
 
                   {/* Priority */}
                   <PriorityBadge
-                    priority={(task.priority as Priority) ?? 'normal'}
+                    priority={(task.priority as Priority) ?? 'medium'}
                     compact
                   />
 

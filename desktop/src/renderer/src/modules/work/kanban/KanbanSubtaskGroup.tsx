@@ -91,7 +91,7 @@ export default function KanbanSubtaskGroup({
                     ) : null}
                     <span className="truncate flex-1">{task.title}</span>
                     <PriorityBadge
-                      priority={(task.priority as Priority) ?? 'normal'}
+                      priority={(task.priority as Priority) ?? 'medium'}
                       compact
                       className="scale-75"
                     />

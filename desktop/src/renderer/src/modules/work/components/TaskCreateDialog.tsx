@@ -56,7 +56,7 @@ export default function TaskCreateDialog({
 }: TaskCreateDialogProps) {
   const [title, setTitle] = useState('')
   const [statusId, setStatusId] = useState('')
-  const [priority, setPriority] = useState<Priority>('normal')
+  const [priority, setPriority] = useState<Priority>('medium')
   const [assigneeId, setAssigneeId] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [description, setDescription] = useState('')
@@ -83,7 +83,7 @@ export default function TaskCreateDialog({
   function resetForm() {
     setTitle('')
     setStatusId('')
-    setPriority('normal')
+    setPriority('medium')
     setAssigneeId('')
     setDueDate('')
     setDescription('')
@@ -164,8 +164,10 @@ export default function TaskCreateDialog({
                   <SelectValue placeholder="Status waehlen" />
                 </SelectTrigger>
                 <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.id} value={s.id ?? ''}>
+                  {statuses
+                    .filter((s) => s.id)
+                    .map((s) => (
+                    <SelectItem key={s.id} value={s.id!}>
                       <span className="flex items-center gap-2">
                         <span
                           className="h-2 w-2 rounded-full inline-block"
@@ -191,7 +193,7 @@ export default function TaskCreateDialog({
                 <SelectContent>
                   <SelectItem value="urgent">Dringend</SelectItem>
                   <SelectItem value="high">Hoch</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="medium">Normal</SelectItem>
                   <SelectItem value="low">Niedrig</SelectItem>
                 </SelectContent>
               </Select>
@@ -202,17 +204,22 @@ export default function TaskCreateDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Zustaendig</Label>
-              <Select value={assigneeId} onValueChange={setAssigneeId}>
+              <Select
+                value={assigneeId || '__none__'}
+                onValueChange={(v) => setAssigneeId(v === '__none__' ? '' : v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Nicht zugewiesen" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nicht zugewiesen</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id ?? ''}>
-                      {m.display_name || m.email || 'Benutzer'}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="__none__">Nicht zugewiesen</SelectItem>
+                  {members
+                    .filter((m) => m.user_id)
+                    .map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id!}>
+                        {m.display_name || m.email || 'Benutzer'}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
