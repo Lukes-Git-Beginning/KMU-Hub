@@ -1,4 +1,4 @@
-.PHONY: build test lint clean run-gateway run-crm run-chat run-auth run-notification migrate-up migrate-down migrate-create proto docker-build docker-up docker-down docker-logs docker-clean e2e-test
+.PHONY: build test lint clean run-gateway run-crm run-chat run-auth run-notification run-work migrate-up migrate-down migrate-create proto docker-build docker-up docker-down docker-logs docker-clean e2e-test
 
 # Build all services
 build:
@@ -7,6 +7,7 @@ build:
 	go build -o bin/chat ./cmd/chat
 	go build -o bin/auth ./cmd/auth
 	go build -o bin/notification ./cmd/notification
+	go build -o bin/work ./cmd/work
 
 # Run individual services
 run-gateway:
@@ -23,6 +24,9 @@ run-auth:
 
 run-notification:
 	go run ./cmd/notification
+
+run-work:
+	go run ./cmd/work
 
 # Test
 test:
@@ -65,6 +69,9 @@ proto:
 	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
 		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
 		proto/notification/v1/notification.proto
+	protoc --go_out=. --go_opt=module=github.com/kmuhub/kmuhub \
+		--go-grpc_out=. --go-grpc_opt=module=github.com/kmuhub/kmuhub \
+		proto/work/v1/work.proto
 
 # Docker operations
 docker-build:

@@ -47,6 +47,18 @@ tags:
     description: Notification management (list, read, preferences, mutes, quiet hours)
   - name: dashboard
     description: Dashboard layout management (user layouts, role defaults)
+  - name: projects
+    description: Project management (CRUD, members, templates, statuses)
+  - name: tasks
+    description: Task management (CRUD, move, subtasks, dependencies)
+  - name: task-comments
+    description: Task comments
+  - name: task-files
+    description: Task file attachments
+  - name: task-links
+    description: Task entity links (CRM integration)
+  - name: work-search
+    description: Full-text search across tasks
 
 paths:
   /health:
@@ -3255,6 +3267,1361 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  # ===========================================================================
+  # Work / Project Management
+  # ===========================================================================
+
+  /api/v1/projects:
+    get:
+      summary: List projects
+      tags: [projects]
+      operationId: listProjects
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: include_archived
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: templates_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectResponse"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create project
+      tags: [projects]
+      operationId: createProject
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/projects/{id}:
+    get:
+      summary: Get project by ID
+      tags: [projects]
+      operationId: getProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: "#/components/schemas/ProjectResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update project
+      tags: [projects]
+      operationId: updateProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/projects/{id}/archive:
+    post:
+      summary: Archive project
+      tags: [projects]
+      operationId: archiveProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Project archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: "#/components/schemas/ProjectResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/projects/{id}/members:
+    get:
+      summary: List project members
+      tags: [projects]
+      operationId: listProjectMembers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Member list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectMemberResponse"
+    post:
+      summary: Add project member
+      tags: [projects]
+      operationId: addProjectMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                role:
+                  type: string
+                  enum: [owner, member, viewer]
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  member:
+                    $ref: "#/components/schemas/ProjectMemberResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/v1/projects/{id}/members/{userId}:
+    put:
+      summary: Update project member role
+      tags: [projects]
+      operationId: updateProjectMemberRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [owner, member, viewer]
+      responses:
+        "200":
+          description: Role updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    delete:
+      summary: Remove project member
+      tags: [projects]
+      operationId: removeProjectMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Member removed
+
+  /api/v1/projects/{id}/template:
+    post:
+      summary: Save project as template
+      tags: [projects]
+      operationId: saveProjectAsTemplate
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template_name]
+              properties:
+                template_name:
+                  type: string
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  template:
+                    $ref: "#/components/schemas/ProjectResponse"
+
+  /api/v1/projects/from-template:
+    post:
+      summary: Create project from template
+      tags: [projects]
+      operationId: createProjectFromTemplate
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template_id, name, project_key]
+              properties:
+                template_id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                project_key:
+                  type: string
+      responses:
+        "201":
+          description: Project created from template
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    $ref: "#/components/schemas/ProjectResponse"
+
+  /api/v1/projects/{id}/statuses:
+    get:
+      summary: List project statuses
+      tags: [projects]
+      operationId: listProjectStatuses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Status list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statuses:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProjectStatusResponse"
+    post:
+      summary: Create project status
+      tags: [projects]
+      operationId: createProjectStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectStatusRequest"
+      responses:
+        "201":
+          description: Status created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    $ref: "#/components/schemas/ProjectStatusResponse"
+
+  /api/v1/projects/{id}/statuses/reorder:
+    post:
+      summary: Reorder project statuses
+      tags: [projects]
+      operationId: reorderProjectStatuses
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status_ids]
+              properties:
+                status_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "200":
+          description: Statuses reordered
+
+  /api/v1/project-statuses/{id}:
+    put:
+      summary: Update project status
+      tags: [projects]
+      operationId: updateProjectStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectStatusRequest"
+      responses:
+        "200":
+          description: Status updated
+    delete:
+      summary: Delete project status
+      tags: [projects]
+      operationId: deleteProjectStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Status deleted
+
+  /api/v1/projects/{id}/preferences:
+    get:
+      summary: Get user project preference
+      tags: [projects]
+      operationId: getUserProjectPreference
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User preference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProjectPreferenceResponse"
+    put:
+      summary: Set user project preference
+      tags: [projects]
+      operationId: setUserProjectPreference
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetUserProjectPreferenceRequest"
+      responses:
+        "200":
+          description: Preference saved
+
+  /api/v1/tasks:
+    get:
+      summary: List tasks with filters
+      tags: [tasks]
+      operationId: listTasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: assignee_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [urgent, high, normal, low]
+        - name: parent_task_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+        - name: sort_desc
+          in: query
+          schema:
+            type: boolean
+        - name: include_completed
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskResponse"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: Create task
+      tags: [tasks]
+      operationId: createTask
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/TaskResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tasks/{id}:
+    get:
+      summary: Get task by ID
+      tags: [tasks]
+      operationId: getTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/TaskResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update task
+      tags: [tasks]
+      operationId: updateTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+      responses:
+        "200":
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/TaskResponse"
+    delete:
+      summary: Delete task
+      tags: [tasks]
+      operationId: deleteTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Task deleted
+
+  /api/v1/tasks/{id}/move:
+    post:
+      summary: Move task (Kanban status change)
+      tags: [tasks]
+      operationId: moveTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status_id]
+              properties:
+                status_id:
+                  type: string
+                  format: uuid
+                sort_order:
+                  type: number
+                  format: double
+      responses:
+        "200":
+          description: Task moved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: "#/components/schemas/TaskResponse"
+
+  /api/v1/tasks/{id}/subtasks:
+    get:
+      summary: List subtasks
+      tags: [tasks]
+      operationId: listSubtasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: recursive
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Subtask list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskResponse"
+
+  /api/v1/tasks/{id}/dependencies:
+    get:
+      summary: List task dependencies
+      tags: [tasks]
+      operationId: listTaskDependencies
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Dependency list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dependencies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskDependencyResponse"
+    post:
+      summary: Create task dependency
+      tags: [tasks]
+      operationId: createTaskDependency
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_task_id, dependency_type]
+              properties:
+                target_task_id:
+                  type: string
+                  format: uuid
+                dependency_type:
+                  type: string
+                  enum: [blocks, blocked_by, relates_to, duplicates]
+      responses:
+        "201":
+          description: Dependency created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dependency:
+                    $ref: "#/components/schemas/TaskDependencyResponse"
+
+  /api/v1/task-dependencies/{id}:
+    delete:
+      summary: Delete task dependency
+      tags: [tasks]
+      operationId: deleteTaskDependency
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Dependency deleted
+
+  /api/v1/tasks/{id}/comments:
+    get:
+      summary: List task comments
+      tags: [task-comments]
+      operationId: listTaskComments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Comment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskCommentResponse"
+                  total:
+                    type: integer
+    post:
+      summary: Create task comment
+      tags: [task-comments]
+      operationId: createTaskComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 10000
+                quoted_comment_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: "#/components/schemas/TaskCommentResponse"
+
+  /api/v1/task-comments/{id}:
+    put:
+      summary: Update task comment
+      tags: [task-comments]
+      operationId: updateTaskComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 10000
+      responses:
+        "200":
+          description: Comment updated
+    delete:
+      summary: Delete task comment
+      tags: [task-comments]
+      operationId: deleteTaskComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Comment deleted
+
+  /api/v1/tasks/{id}/links:
+    get:
+      summary: List task entity links
+      tags: [task-links]
+      operationId: listTaskEntityLinks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Entity link list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  links:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskEntityLinkResponse"
+    post:
+      summary: Link CRM entity to task
+      tags: [task-links]
+      operationId: linkEntityToTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity_type, entity_id]
+              properties:
+                entity_type:
+                  type: string
+                  enum: [contact, company, deal, activity, project]
+                entity_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Entity linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  link:
+                    $ref: "#/components/schemas/TaskEntityLinkResponse"
+
+  /api/v1/task-links/{id}:
+    delete:
+      summary: Unlink entity from task
+      tags: [task-links]
+      operationId: unlinkEntityFromTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Entity unlinked
+
+  /api/v1/entity-tasks:
+    get:
+      summary: List tasks linked to a CRM entity
+      tags: [task-links]
+      operationId: listEntityTasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: entity_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [contact, company, deal, activity, project]
+        - name: entity_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Tasks linked to entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskResponse"
+                  total:
+                    type: integer
+
+  /api/v1/tasks/{id}/activities:
+    get:
+      summary: List task activity log
+      tags: [tasks]
+      operationId: listTaskActivities
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Activity log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskActivityResponse"
+                  total:
+                    type: integer
+
+  /api/v1/tasks/{id}/files:
+    get:
+      summary: List task files
+      tags: [task-files]
+      operationId: listTaskFiles
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: File list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskFileResponse"
+    post:
+      summary: Attach file to task
+      tags: [task-files]
+      operationId: attachFileToTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, mime_type, file_size, storage_key]
+              properties:
+                filename:
+                  type: string
+                mime_type:
+                  type: string
+                file_size:
+                  type: integer
+                  format: int64
+                storage_key:
+                  type: string
+                thumbnail_key:
+                  type: string
+      responses:
+        "201":
+          description: File attached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file:
+                    $ref: "#/components/schemas/TaskFileResponse"
+
+  /api/v1/task-files/{id}:
+    delete:
+      summary: Remove file from task
+      tags: [task-files]
+      operationId: removeTaskFile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: File removed
+
+  /api/v1/tasks/{id}/custom-fields:
+    get:
+      summary: Get task custom field values
+      tags: [tasks]
+      operationId: getTaskCustomFieldValues
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Custom field values
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  custom_fields:
+                    type: object
+                    additionalProperties:
+                      type: string
+    put:
+      summary: Set task custom field values
+      tags: [tasks]
+      operationId: setTaskCustomFieldValues
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [values]
+              properties:
+                values:
+                  type: array
+                  items:
+                    type: object
+                    required: [field_id, value]
+                    properties:
+                      field_id:
+                        type: string
+                        format: uuid
+                      value:
+                        type: string
+      responses:
+        "200":
+          description: Custom fields updated
+
+  /api/v1/work/search:
+    get:
+      summary: Search tasks
+      tags: [work-search]
+      operationId: searchTasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: project_ids
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: assignee_ids
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: include_completed
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TaskResponse"
+                  total:
+                    type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -4984,6 +6351,442 @@ components:
           type: array
           items:
             type: string
+
+    # ===========================================================================
+    # Work / Project Management Schemas
+    # ===========================================================================
+
+    CreateProjectRequest:
+      type: object
+      required: [name, project_key]
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 100
+        description:
+          type: string
+        project_key:
+          type: string
+          minLength: 2
+          maxLength: 10
+          pattern: "^[A-Z0-9]+$"
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 3
+          maxLength: 100
+        description:
+          type: string
+
+    ProjectResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        project_key:
+          type: string
+        next_task_number:
+          type: integer
+        is_template:
+          type: boolean
+        template_source_id:
+          type: string
+          format: uuid
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        archived_at:
+          type: string
+          format: date-time
+        member_count:
+          type: integer
+        task_count:
+          type: integer
+        owner_name:
+          type: string
+
+    ProjectMemberResponse:
+      type: object
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, member, viewer]
+        added_at:
+          type: string
+          format: date-time
+        first_name:
+          type: string
+        last_name:
+          type: string
+
+    CreateProjectStatusRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        color:
+          type: string
+        is_default:
+          type: boolean
+          default: false
+        is_closed:
+          type: boolean
+          default: false
+
+    UpdateProjectStatusRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        color:
+          type: string
+        is_default:
+          type: boolean
+        is_closed:
+          type: boolean
+
+    ProjectStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+        sort_order:
+          type: integer
+        is_default:
+          type: boolean
+        is_closed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UserProjectPreferenceResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        view_type:
+          type: string
+          enum: [list, kanban]
+        list_group_by:
+          type: string
+        list_sort_by:
+          type: string
+        list_sort_desc:
+          type: boolean
+
+    SetUserProjectPreferenceRequest:
+      type: object
+      properties:
+        view_type:
+          type: string
+          enum: [list, kanban]
+        list_group_by:
+          type: string
+        list_sort_by:
+          type: string
+        list_sort_desc:
+          type: boolean
+
+    CreateTaskRequest:
+      type: object
+      required: [title, priority]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        status_id:
+          type: string
+          format: uuid
+        priority:
+          type: string
+          enum: [urgent, high, normal, low]
+        assignee_id:
+          type: string
+          format: uuid
+        parent_task_id:
+          type: string
+          format: uuid
+        due_date:
+          type: string
+          format: date-time
+        custom_fields:
+          type: array
+          items:
+            type: object
+            required: [field_id, value]
+            properties:
+              field_id:
+                type: string
+                format: uuid
+              value:
+                type: string
+
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        status_id:
+          type: string
+          format: uuid
+        priority:
+          type: string
+          enum: [urgent, high, normal, low]
+        assignee_id:
+          type: string
+          format: uuid
+        due_date:
+          type: string
+          format: date-time
+        custom_fields:
+          type: array
+          items:
+            type: object
+            required: [field_id, value]
+            properties:
+              field_id:
+                type: string
+                format: uuid
+              value:
+                type: string
+
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        task_number:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status_id:
+          type: string
+          format: uuid
+        status_name:
+          type: string
+        status_color:
+          type: string
+        priority:
+          type: string
+          enum: [urgent, high, normal, low]
+        assignee_id:
+          type: string
+          format: uuid
+        assignee_name:
+          type: string
+        parent_task_id:
+          type: string
+          format: uuid
+        depth:
+          type: integer
+        sort_order:
+          type: number
+          format: double
+        due_date:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        subtask_count:
+          type: integer
+        has_blocked_deps:
+          type: boolean
+        project_key:
+          type: string
+        custom_fields:
+          type: object
+          additionalProperties:
+            type: string
+
+    TaskDependencyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source_task_id:
+          type: string
+          format: uuid
+        target_task_id:
+          type: string
+          format: uuid
+        dependency_type:
+          type: string
+          enum: [blocks, blocked_by, relates_to, duplicates]
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    TaskCommentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        author_id:
+          type: string
+          format: uuid
+        author_name:
+          type: string
+        content:
+          type: string
+        quoted_comment_id:
+          type: string
+          format: uuid
+        quoted_content_preview:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TaskEntityLinkResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        entity_type:
+          type: string
+          enum: [contact, company, deal, activity, project]
+        entity_id:
+          type: string
+          format: uuid
+        entity_display_name:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    TaskActivityResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        actor_id:
+          type: string
+          format: uuid
+        actor_name:
+          type: string
+        action:
+          type: string
+        field_name:
+          type: string
+        old_value:
+          type: string
+        new_value:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    TaskFileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mime_type:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+        storage_key:
+          type: string
+        thumbnail_key:
+          type: string
+        uploaded_by:
+          type: string
+          format: uuid
+        uploaded_by_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
 
   responses:
     BadRequest:
