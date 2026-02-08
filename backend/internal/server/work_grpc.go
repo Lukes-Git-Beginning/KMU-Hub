@@ -16,17 +16,19 @@ import (
 	"github.com/kmuhub/kmuhub/internal/work/project"
 	wstatus "github.com/kmuhub/kmuhub/internal/work/status"
 	"github.com/kmuhub/kmuhub/internal/work/task"
+	"github.com/kmuhub/kmuhub/internal/work/timeentry"
 	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
 
 // WorkGRPCServer implements the Work gRPC service
 type WorkGRPCServer struct {
 	workv1.UnimplementedWorkServiceServer
-	projectService *project.Service
-	statusService  *wstatus.Service
-	taskService    *task.Service
-	taskRepo       task.Repository
-	commentService *comment.Service
+	projectService   *project.Service
+	statusService    *wstatus.Service
+	taskService      *task.Service
+	taskRepo         task.Repository
+	commentService   *comment.Service
+	timeEntryService *timeentry.Service
 }
 
 // NewWorkGRPCServer creates a new Work gRPC server
@@ -36,13 +38,15 @@ func NewWorkGRPCServer(
 	taskService *task.Service,
 	taskRepo task.Repository,
 	commentService *comment.Service,
+	timeEntryService *timeentry.Service,
 ) *WorkGRPCServer {
 	return &WorkGRPCServer{
-		projectService: projectService,
-		statusService:  statusService,
-		taskService:    taskService,
-		taskRepo:       taskRepo,
-		commentService: commentService,
+		projectService:   projectService,
+		statusService:    statusService,
+		taskService:      taskService,
+		taskRepo:         taskRepo,
+		commentService:   commentService,
+		timeEntryService: timeEntryService,
 	}
 }
 
@@ -1514,6 +1518,268 @@ func preferenceToProto(p *models.UserProjectPreference) *workv1.UserProjectPrefe
 		ListGroupBy:  p.ListGroupBy,
 		ListSortBy:   p.ListSortBy,
 		ListSortDesc: p.ListSortDesc,
+	}
+}
+
+// ============================================================================
+// Time Tracking
+// ============================================================================
+
+func (s *WorkGRPCServer) StartTimer(ctx context.Context, req *workv1.StartTimerRequest) (*workv1.StartTimerResponse, error) {
+	taskID, err := uuid.Parse(req.TaskId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	entry, stoppedEntry, err := s.timeEntryService.StartTimer(ctx, taskID, userID)
+	if err != nil {
+		return nil, mapTimeEntryError(err)
+	}
+
+	resp := &workv1.StartTimerResponse{
+		Entry: timeEntryToProto(entry, ""),
+	}
+	if stoppedEntry != nil {
+		resp.StoppedEntry = timeEntryToProto(stoppedEntry, "")
+	}
+
+	return resp, nil
+}
+
+func (s *WorkGRPCServer) StopTimer(ctx context.Context, req *workv1.StopTimerRequest) (*workv1.StopTimerResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	entry, err := s.timeEntryService.StopTimer(ctx, userID)
+	if err != nil {
+		return nil, mapTimeEntryError(err)
+	}
+
+	return &workv1.StopTimerResponse{
+		Entry: timeEntryToProto(entry, ""),
+	}, nil
+}
+
+func (s *WorkGRPCServer) GetActiveTimer(ctx context.Context, req *workv1.GetActiveTimerRequest) (*workv1.GetActiveTimerResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	timer, err := s.timeEntryService.GetActiveTimer(ctx, userID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get active timer")
+	}
+
+	resp := &workv1.GetActiveTimerResponse{}
+	if timer != nil {
+		resp.Timer = &workv1.ActiveTimerProto{
+			Id:        timer.ID.String(),
+			TaskId:    timer.TaskID.String(),
+			TaskTitle: timer.TaskTitle,
+			UserId:    timer.UserID.String(),
+			StartedAt: timestamppb.New(timer.StartedAt),
+		}
+	}
+
+	return resp, nil
+}
+
+func (s *WorkGRPCServer) AddManualTimeEntry(ctx context.Context, req *workv1.AddManualTimeEntryRequest) (*workv1.AddManualTimeEntryResponse, error) {
+	taskID, err := uuid.Parse(req.TaskId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	input := timeentry.ManualEntryInput{
+		TaskID:          taskID,
+		UserID:          userID,
+		StartedAt:       req.StartedAt.AsTime(),
+		DurationSeconds: int(req.DurationSeconds),
+	}
+	if req.Description != nil {
+		input.Description = req.Description
+	}
+
+	entry, err := s.timeEntryService.AddManualEntry(ctx, input)
+	if err != nil {
+		return nil, mapTimeEntryError(err)
+	}
+
+	return &workv1.AddManualTimeEntryResponse{
+		Entry: timeEntryToProto(entry, ""),
+	}, nil
+}
+
+func (s *WorkGRPCServer) UpdateTimeEntry(ctx context.Context, req *workv1.UpdateTimeEntryRequest) (*workv1.UpdateTimeEntryResponse, error) {
+	entryID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid time entry id")
+	}
+
+	actorID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	input := timeentry.UpdateEntryInput{}
+	if req.StartedAt != nil {
+		t := req.StartedAt.AsTime()
+		input.StartedAt = &t
+	}
+	if req.DurationSeconds != nil {
+		d := int(*req.DurationSeconds)
+		input.DurationSeconds = &d
+	}
+	if req.Description != nil {
+		input.Description = req.Description
+	}
+
+	result, err := s.timeEntryService.UpdateEntry(ctx, entryID, actorID, input)
+	if err != nil {
+		return nil, mapTimeEntryError(err)
+	}
+
+	return &workv1.UpdateTimeEntryResponse{
+		Entry: timeEntryWithUserToProto(result),
+	}, nil
+}
+
+func (s *WorkGRPCServer) DeleteTimeEntry(ctx context.Context, req *workv1.DeleteTimeEntryRequest) (*workv1.DeleteTimeEntryResponse, error) {
+	entryID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid time entry id")
+	}
+
+	actorID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	if err := s.timeEntryService.DeleteEntry(ctx, entryID, actorID, false); err != nil {
+		return nil, mapTimeEntryError(err)
+	}
+
+	return &workv1.DeleteTimeEntryResponse{}, nil
+}
+
+func (s *WorkGRPCServer) ListTimeEntries(ctx context.Context, req *workv1.ListTimeEntriesRequest) (*workv1.ListTimeEntriesResponse, error) {
+	taskID, err := uuid.Parse(req.TaskId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
+	}
+
+	page := int(req.Page)
+	pageSize := int(req.PageSize)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+
+	entries, total, err := s.timeEntryService.ListByTask(ctx, taskID, page, pageSize)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list time entries")
+	}
+
+	var protos []*workv1.TimeEntryProto
+	for _, e := range entries {
+		protos = append(protos, timeEntryWithUserToProto(&e))
+	}
+
+	return &workv1.ListTimeEntriesResponse{
+		Entries: protos,
+		Total:   int32(total),
+	}, nil
+}
+
+func (s *WorkGRPCServer) GetTaskTimeSummary(ctx context.Context, req *workv1.GetTaskTimeSummaryRequest) (*workv1.GetTaskTimeSummaryResponse, error) {
+	taskID, err := uuid.Parse(req.TaskId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
+	}
+
+	summary, err := s.timeEntryService.GetTaskTimeSummary(ctx, taskID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to get time summary")
+	}
+
+	return &workv1.GetTaskTimeSummaryResponse{
+		Summary: &workv1.TimeSummaryProto{
+			TaskId:               summary.TaskID.String(),
+			TotalDurationSeconds: int32(summary.TotalDurationSeconds),
+			EntryCount:           int32(summary.EntryCount),
+		},
+	}, nil
+}
+
+// ============================================================================
+// Time Entry Proto Converters
+// ============================================================================
+
+func timeEntryToProto(e *models.TimeEntry, userName string) *workv1.TimeEntryProto {
+	proto := &workv1.TimeEntryProto{
+		Id:        e.ID.String(),
+		TaskId:    e.TaskID.String(),
+		UserId:    e.UserID.String(),
+		UserName:  userName,
+		StartedAt: timestamppb.New(e.StartedAt),
+		IsManual:  e.IsManual,
+		CreatedAt: timestamppb.New(e.CreatedAt),
+		UpdatedAt: timestamppb.New(e.UpdatedAt),
+	}
+	if e.EndedAt != nil {
+		proto.EndedAt = timestamppb.New(*e.EndedAt)
+	}
+	if e.DurationSeconds != nil {
+		d := int32(*e.DurationSeconds)
+		proto.DurationSeconds = &d
+	}
+	if e.Description != nil {
+		proto.Description = e.Description
+	}
+	return proto
+}
+
+func timeEntryWithUserToProto(e *models.TimeEntryWithUser) *workv1.TimeEntryProto {
+	proto := timeEntryToProto(&e.TimeEntry, e.UserName)
+	return proto
+}
+
+// mapTimeEntryError maps time entry service errors to gRPC status errors
+func mapTimeEntryError(err error) error {
+	switch {
+	case errors.Is(err, timeentry.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, timeentry.ErrAlreadyRunning):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, timeentry.ErrNoActiveTimer):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, timeentry.ErrInvalidDuration):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, timeentry.ErrInvalidStartTime):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, timeentry.ErrDescriptionTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, timeentry.ErrCannotEditOthers):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, timeentry.ErrCannotDeleteOthers):
+		return status.Error(codes.PermissionDenied, err.Error())
+	default:
+		return status.Error(codes.Internal, "internal error")
 	}
 }
 

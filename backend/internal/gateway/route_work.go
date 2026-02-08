@@ -108,6 +108,28 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		// Custom fields
 		r.With(middleware.RequirePermission("tasks", "read")).Get("/{id}/custom-fields", w.HandleGetTaskCustomFieldValues)
 		r.With(middleware.RequirePermission("tasks", "write")).Put("/{id}/custom-fields", w.HandleSetTaskCustomFieldValues)
+
+		// Time entries
+		r.With(middleware.RequirePermission("tasks", "read")).Get("/{id}/time-entries", w.HandleListTimeEntries)
+		r.With(middleware.RequirePermission("tasks", "write")).Post("/{id}/time-entries", w.HandleAddManualTimeEntry)
+		r.With(middleware.RequirePermission("tasks", "read")).Get("/{id}/time-summary", w.HandleGetTaskTimeSummary)
+
+		// Timer
+		r.With(middleware.RequirePermission("tasks", "write")).Post("/{id}/timer/start", w.HandleStartTimer)
+	})
+
+	// Timer (user-level)
+	r.Route("/api/v1/timer", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("tasks", "write")).Post("/stop", w.HandleStopTimer)
+		r.With(middleware.RequirePermission("tasks", "read")).Get("/active", w.HandleGetActiveTimer)
+	})
+
+	// Time entries (top-level update/delete)
+	r.Route("/api/v1/time-entries", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("tasks", "write")).Put("/{id}", w.HandleUpdateTimeEntry)
+		r.With(middleware.RequirePermission("tasks", "delete")).Delete("/{id}", w.HandleDeleteTimeEntry)
 	})
 
 	// Task dependencies (top-level delete)
@@ -1532,6 +1554,247 @@ func (w *WorkRoutes) HandleSearchTasks(wr http.ResponseWriter, r *http.Request) 
 		IncludeCompleted: includeCompleted,
 		Page:             int32(page),
 		PageSize:         int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Time Tracking Handlers
+// ============================================================================
+
+func (w *WorkRoutes) HandleStartTimer(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	taskID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(taskID); err != nil {
+		response.Error(wr, http.StatusBadRequest, "invalid task id")
+		return
+	}
+
+	resp, err := client.StartTimer(r.Context(), &workv1.StartTimerRequest{
+		TaskId: taskID,
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusCreated, resp)
+}
+
+func (w *WorkRoutes) HandleStopTimer(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	resp, err := client.StopTimer(r.Context(), &workv1.StopTimerRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusOK, resp)
+}
+
+func (w *WorkRoutes) HandleGetActiveTimer(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	resp, err := client.GetActiveTimer(r.Context(), &workv1.GetActiveTimerRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusOK, resp)
+}
+
+type addManualTimeEntryRequest struct {
+	StartedAt       string  `json:"started_at"`
+	DurationSeconds int     `json:"duration_seconds"`
+	Description     *string `json:"description,omitempty"`
+}
+
+func (w *WorkRoutes) HandleAddManualTimeEntry(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	taskID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(taskID); err != nil {
+		response.Error(wr, http.StatusBadRequest, "invalid task id")
+		return
+	}
+
+	var req addManualTimeEntryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(wr, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	startedAt, parseErr := parseTimestamp(req.StartedAt)
+	if parseErr != nil {
+		response.Error(wr, http.StatusBadRequest, "invalid started_at format")
+		return
+	}
+
+	grpcReq := &workv1.AddManualTimeEntryRequest{
+		TaskId:          taskID,
+		UserId:          userID,
+		StartedAt:       startedAt,
+		DurationSeconds: int32(req.DurationSeconds),
+	}
+	if req.Description != nil {
+		grpcReq.Description = req.Description
+	}
+
+	resp, err := client.AddManualTimeEntry(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusCreated, resp)
+}
+
+type updateTimeEntryRequest struct {
+	StartedAt       *string `json:"started_at,omitempty"`
+	DurationSeconds *int    `json:"duration_seconds,omitempty"`
+	Description     *string `json:"description,omitempty"`
+}
+
+func (w *WorkRoutes) HandleUpdateTimeEntry(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	entryID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(entryID); err != nil {
+		response.Error(wr, http.StatusBadRequest, "invalid time entry id")
+		return
+	}
+
+	var req updateTimeEntryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(wr, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	grpcReq := &workv1.UpdateTimeEntryRequest{
+		Id:     entryID,
+		UserId: userID,
+	}
+	if req.StartedAt != nil {
+		t, parseErr := parseTimestamp(*req.StartedAt)
+		if parseErr != nil {
+			response.Error(wr, http.StatusBadRequest, "invalid started_at format")
+			return
+		}
+		grpcReq.StartedAt = t
+	}
+	if req.DurationSeconds != nil {
+		d := int32(*req.DurationSeconds)
+		grpcReq.DurationSeconds = &d
+	}
+	if req.Description != nil {
+		grpcReq.Description = req.Description
+	}
+
+	resp, err := client.UpdateTimeEntry(r.Context(), grpcReq)
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusOK, resp)
+}
+
+func (w *WorkRoutes) HandleDeleteTimeEntry(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	entryID := chi.URLParam(r, "id")
+
+	_, err = client.DeleteTimeEntry(r.Context(), &workv1.DeleteTimeEntryRequest{
+		Id:     entryID,
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusOK, map[string]string{"status": "time entry deleted"})
+}
+
+func (w *WorkRoutes) HandleListTimeEntries(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+	page, pageSize := parsePagination(r, 1, 20)
+
+	resp, err := client.ListTimeEntries(r.Context(), &workv1.ListTimeEntriesRequest{
+		TaskId:   taskID,
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
+	if err != nil {
+		respondGRPCError(wr, err)
+		return
+	}
+
+	response.JSON(wr, http.StatusOK, resp)
+}
+
+func (w *WorkRoutes) HandleGetTaskTimeSummary(wr http.ResponseWriter, r *http.Request) {
+	client, err := w.getWorkClient()
+	if err != nil {
+		respondServiceUnavailable(wr, w.ServiceName())
+		return
+	}
+
+	taskID := chi.URLParam(r, "id")
+
+	resp, err := client.GetTaskTimeSummary(r.Context(), &workv1.GetTaskTimeSummaryRequest{
+		TaskId: taskID,
 	})
 	if err != nil {
 		respondGRPCError(wr, err)

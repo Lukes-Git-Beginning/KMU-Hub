@@ -5827,6 +5827,1074 @@ func (x *SearchTasksResponse) GetTotal() int32 {
 	return 0
 }
 
+type TimeEntryProto struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TaskId          string                 `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	UserId          string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserName        string                 `protobuf:"bytes,4,opt,name=user_name,json=userName,proto3" json:"user_name,omitempty"`
+	StartedAt       *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	EndedAt         *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=ended_at,json=endedAt,proto3,oneof" json:"ended_at,omitempty"`
+	DurationSeconds *int32                 `protobuf:"varint,7,opt,name=duration_seconds,json=durationSeconds,proto3,oneof" json:"duration_seconds,omitempty"`
+	Description     *string                `protobuf:"bytes,8,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	IsManual        bool                   `protobuf:"varint,9,opt,name=is_manual,json=isManual,proto3" json:"is_manual,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *TimeEntryProto) Reset() {
+	*x = TimeEntryProto{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[97]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimeEntryProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimeEntryProto) ProtoMessage() {}
+
+func (x *TimeEntryProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[97]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimeEntryProto.ProtoReflect.Descriptor instead.
+func (*TimeEntryProto) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{97}
+}
+
+func (x *TimeEntryProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *TimeEntryProto) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TimeEntryProto) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *TimeEntryProto) GetUserName() string {
+	if x != nil {
+		return x.UserName
+	}
+	return ""
+}
+
+func (x *TimeEntryProto) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *TimeEntryProto) GetEndedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndedAt
+	}
+	return nil
+}
+
+func (x *TimeEntryProto) GetDurationSeconds() int32 {
+	if x != nil && x.DurationSeconds != nil {
+		return *x.DurationSeconds
+	}
+	return 0
+}
+
+func (x *TimeEntryProto) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *TimeEntryProto) GetIsManual() bool {
+	if x != nil {
+		return x.IsManual
+	}
+	return false
+}
+
+func (x *TimeEntryProto) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *TimeEntryProto) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type ActiveTimerProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TaskId        string                 `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskTitle     string                 `protobuf:"bytes,3,opt,name=task_title,json=taskTitle,proto3" json:"task_title,omitempty"`
+	UserId        string                 `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActiveTimerProto) Reset() {
+	*x = ActiveTimerProto{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[98]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActiveTimerProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActiveTimerProto) ProtoMessage() {}
+
+func (x *ActiveTimerProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[98]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActiveTimerProto.ProtoReflect.Descriptor instead.
+func (*ActiveTimerProto) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{98}
+}
+
+func (x *ActiveTimerProto) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ActiveTimerProto) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *ActiveTimerProto) GetTaskTitle() string {
+	if x != nil {
+		return x.TaskTitle
+	}
+	return ""
+}
+
+func (x *ActiveTimerProto) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ActiveTimerProto) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+type TimeSummaryProto struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	TaskId               string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TotalDurationSeconds int32                  `protobuf:"varint,2,opt,name=total_duration_seconds,json=totalDurationSeconds,proto3" json:"total_duration_seconds,omitempty"`
+	EntryCount           int32                  `protobuf:"varint,3,opt,name=entry_count,json=entryCount,proto3" json:"entry_count,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *TimeSummaryProto) Reset() {
+	*x = TimeSummaryProto{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[99]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimeSummaryProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimeSummaryProto) ProtoMessage() {}
+
+func (x *TimeSummaryProto) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[99]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimeSummaryProto.ProtoReflect.Descriptor instead.
+func (*TimeSummaryProto) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{99}
+}
+
+func (x *TimeSummaryProto) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TimeSummaryProto) GetTotalDurationSeconds() int32 {
+	if x != nil {
+		return x.TotalDurationSeconds
+	}
+	return 0
+}
+
+func (x *TimeSummaryProto) GetEntryCount() int32 {
+	if x != nil {
+		return x.EntryCount
+	}
+	return 0
+}
+
+type StartTimerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartTimerRequest) Reset() {
+	*x = StartTimerRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[100]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartTimerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartTimerRequest) ProtoMessage() {}
+
+func (x *StartTimerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[100]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartTimerRequest.ProtoReflect.Descriptor instead.
+func (*StartTimerRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{100}
+}
+
+func (x *StartTimerRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *StartTimerRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type StartTimerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entry         *TimeEntryProto        `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`
+	StoppedEntry  *TimeEntryProto        `protobuf:"bytes,2,opt,name=stopped_entry,json=stoppedEntry,proto3,oneof" json:"stopped_entry,omitempty"` // Previously running timer that was auto-stopped
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartTimerResponse) Reset() {
+	*x = StartTimerResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[101]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartTimerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartTimerResponse) ProtoMessage() {}
+
+func (x *StartTimerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[101]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartTimerResponse.ProtoReflect.Descriptor instead.
+func (*StartTimerResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{101}
+}
+
+func (x *StartTimerResponse) GetEntry() *TimeEntryProto {
+	if x != nil {
+		return x.Entry
+	}
+	return nil
+}
+
+func (x *StartTimerResponse) GetStoppedEntry() *TimeEntryProto {
+	if x != nil {
+		return x.StoppedEntry
+	}
+	return nil
+}
+
+type StopTimerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopTimerRequest) Reset() {
+	*x = StopTimerRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[102]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopTimerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopTimerRequest) ProtoMessage() {}
+
+func (x *StopTimerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[102]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopTimerRequest.ProtoReflect.Descriptor instead.
+func (*StopTimerRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{102}
+}
+
+func (x *StopTimerRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type StopTimerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entry         *TimeEntryProto        `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopTimerResponse) Reset() {
+	*x = StopTimerResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[103]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopTimerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopTimerResponse) ProtoMessage() {}
+
+func (x *StopTimerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[103]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopTimerResponse.ProtoReflect.Descriptor instead.
+func (*StopTimerResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{103}
+}
+
+func (x *StopTimerResponse) GetEntry() *TimeEntryProto {
+	if x != nil {
+		return x.Entry
+	}
+	return nil
+}
+
+type GetActiveTimerRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetActiveTimerRequest) Reset() {
+	*x = GetActiveTimerRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[104]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetActiveTimerRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetActiveTimerRequest) ProtoMessage() {}
+
+func (x *GetActiveTimerRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[104]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetActiveTimerRequest.ProtoReflect.Descriptor instead.
+func (*GetActiveTimerRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{104}
+}
+
+func (x *GetActiveTimerRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type GetActiveTimerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timer         *ActiveTimerProto      `protobuf:"bytes,1,opt,name=timer,proto3,oneof" json:"timer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetActiveTimerResponse) Reset() {
+	*x = GetActiveTimerResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[105]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetActiveTimerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetActiveTimerResponse) ProtoMessage() {}
+
+func (x *GetActiveTimerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[105]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetActiveTimerResponse.ProtoReflect.Descriptor instead.
+func (*GetActiveTimerResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{105}
+}
+
+func (x *GetActiveTimerResponse) GetTimer() *ActiveTimerProto {
+	if x != nil {
+		return x.Timer
+	}
+	return nil
+}
+
+type AddManualTimeEntryRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TaskId          string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	UserId          string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	StartedAt       *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	DurationSeconds int32                  `protobuf:"varint,4,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
+	Description     *string                `protobuf:"bytes,5,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *AddManualTimeEntryRequest) Reset() {
+	*x = AddManualTimeEntryRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[106]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddManualTimeEntryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddManualTimeEntryRequest) ProtoMessage() {}
+
+func (x *AddManualTimeEntryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[106]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddManualTimeEntryRequest.ProtoReflect.Descriptor instead.
+func (*AddManualTimeEntryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{106}
+}
+
+func (x *AddManualTimeEntryRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *AddManualTimeEntryRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *AddManualTimeEntryRequest) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *AddManualTimeEntryRequest) GetDurationSeconds() int32 {
+	if x != nil {
+		return x.DurationSeconds
+	}
+	return 0
+}
+
+func (x *AddManualTimeEntryRequest) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+type AddManualTimeEntryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entry         *TimeEntryProto        `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddManualTimeEntryResponse) Reset() {
+	*x = AddManualTimeEntryResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[107]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddManualTimeEntryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddManualTimeEntryResponse) ProtoMessage() {}
+
+func (x *AddManualTimeEntryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[107]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddManualTimeEntryResponse.ProtoReflect.Descriptor instead.
+func (*AddManualTimeEntryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{107}
+}
+
+func (x *AddManualTimeEntryResponse) GetEntry() *TimeEntryProto {
+	if x != nil {
+		return x.Entry
+	}
+	return nil
+}
+
+type UpdateTimeEntryRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId          string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // actor for permission check
+	StartedAt       *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
+	DurationSeconds *int32                 `protobuf:"varint,4,opt,name=duration_seconds,json=durationSeconds,proto3,oneof" json:"duration_seconds,omitempty"`
+	Description     *string                `protobuf:"bytes,5,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *UpdateTimeEntryRequest) Reset() {
+	*x = UpdateTimeEntryRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[108]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTimeEntryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTimeEntryRequest) ProtoMessage() {}
+
+func (x *UpdateTimeEntryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[108]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTimeEntryRequest.ProtoReflect.Descriptor instead.
+func (*UpdateTimeEntryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{108}
+}
+
+func (x *UpdateTimeEntryRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateTimeEntryRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *UpdateTimeEntryRequest) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *UpdateTimeEntryRequest) GetDurationSeconds() int32 {
+	if x != nil && x.DurationSeconds != nil {
+		return *x.DurationSeconds
+	}
+	return 0
+}
+
+func (x *UpdateTimeEntryRequest) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+type UpdateTimeEntryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entry         *TimeEntryProto        `protobuf:"bytes,1,opt,name=entry,proto3" json:"entry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateTimeEntryResponse) Reset() {
+	*x = UpdateTimeEntryResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[109]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTimeEntryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTimeEntryResponse) ProtoMessage() {}
+
+func (x *UpdateTimeEntryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[109]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTimeEntryResponse.ProtoReflect.Descriptor instead.
+func (*UpdateTimeEntryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{109}
+}
+
+func (x *UpdateTimeEntryResponse) GetEntry() *TimeEntryProto {
+	if x != nil {
+		return x.Entry
+	}
+	return nil
+}
+
+type DeleteTimeEntryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // actor for permission check
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteTimeEntryRequest) Reset() {
+	*x = DeleteTimeEntryRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[110]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteTimeEntryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteTimeEntryRequest) ProtoMessage() {}
+
+func (x *DeleteTimeEntryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[110]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteTimeEntryRequest.ProtoReflect.Descriptor instead.
+func (*DeleteTimeEntryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{110}
+}
+
+func (x *DeleteTimeEntryRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DeleteTimeEntryRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type DeleteTimeEntryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteTimeEntryResponse) Reset() {
+	*x = DeleteTimeEntryResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[111]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteTimeEntryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteTimeEntryResponse) ProtoMessage() {}
+
+func (x *DeleteTimeEntryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[111]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteTimeEntryResponse.ProtoReflect.Descriptor instead.
+func (*DeleteTimeEntryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{111}
+}
+
+type ListTimeEntriesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTimeEntriesRequest) Reset() {
+	*x = ListTimeEntriesRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[112]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTimeEntriesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTimeEntriesRequest) ProtoMessage() {}
+
+func (x *ListTimeEntriesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[112]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTimeEntriesRequest.ProtoReflect.Descriptor instead.
+func (*ListTimeEntriesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{112}
+}
+
+func (x *ListTimeEntriesRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *ListTimeEntriesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListTimeEntriesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListTimeEntriesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*TimeEntryProto      `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTimeEntriesResponse) Reset() {
+	*x = ListTimeEntriesResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[113]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTimeEntriesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTimeEntriesResponse) ProtoMessage() {}
+
+func (x *ListTimeEntriesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[113]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTimeEntriesResponse.ProtoReflect.Descriptor instead.
+func (*ListTimeEntriesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{113}
+}
+
+func (x *ListTimeEntriesResponse) GetEntries() []*TimeEntryProto {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+func (x *ListTimeEntriesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type GetTaskTimeSummaryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTaskTimeSummaryRequest) Reset() {
+	*x = GetTaskTimeSummaryRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[114]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTaskTimeSummaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTaskTimeSummaryRequest) ProtoMessage() {}
+
+func (x *GetTaskTimeSummaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[114]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTaskTimeSummaryRequest.ProtoReflect.Descriptor instead.
+func (*GetTaskTimeSummaryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{114}
+}
+
+func (x *GetTaskTimeSummaryRequest) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+type GetTaskTimeSummaryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Summary       *TimeSummaryProto      `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTaskTimeSummaryResponse) Reset() {
+	*x = GetTaskTimeSummaryResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[115]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTaskTimeSummaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTaskTimeSummaryResponse) ProtoMessage() {}
+
+func (x *GetTaskTimeSummaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[115]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTaskTimeSummaryResponse.ProtoReflect.Descriptor instead.
+func (*GetTaskTimeSummaryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{115}
+}
+
+func (x *GetTaskTimeSummaryResponse) GetSummary() *TimeSummaryProto {
+	if x != nil {
+		return x.Summary
+	}
+	return nil
+}
+
 var File_proto_work_v1_work_proto protoreflect.FileDescriptor
 
 const file_proto_work_v1_work_proto_rawDesc = "" +
@@ -6385,7 +7453,92 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\f_due_date_to\"U\n" +
 	"\x13SearchTasksResponse\x12(\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x12.work.v1.TaskProtoR\x05tasks\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total2\xcb\x1e\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x82\x04\n" +
+	"\x0eTimeEntryProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x1b\n" +
+	"\tuser_name\x18\x04 \x01(\tR\buserName\x129\n" +
+	"\n" +
+	"started_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12:\n" +
+	"\bended_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\aendedAt\x88\x01\x01\x12.\n" +
+	"\x10duration_seconds\x18\a \x01(\x05H\x01R\x0fdurationSeconds\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\b \x01(\tH\x02R\vdescription\x88\x01\x01\x12\x1b\n" +
+	"\tis_manual\x18\t \x01(\bR\bisManual\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAtB\v\n" +
+	"\t_ended_atB\x13\n" +
+	"\x11_duration_secondsB\x0e\n" +
+	"\f_description\"\xae\x01\n" +
+	"\x10ActiveTimerProto\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x1d\n" +
+	"\n" +
+	"task_title\x18\x03 \x01(\tR\ttaskTitle\x12\x17\n" +
+	"\auser_id\x18\x04 \x01(\tR\x06userId\x129\n" +
+	"\n" +
+	"started_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\"\x82\x01\n" +
+	"\x10TimeSummaryProto\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x124\n" +
+	"\x16total_duration_seconds\x18\x02 \x01(\x05R\x14totalDurationSeconds\x12\x1f\n" +
+	"\ventry_count\x18\x03 \x01(\x05R\n" +
+	"entryCount\"E\n" +
+	"\x11StartTimerRequest\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"\x98\x01\n" +
+	"\x12StartTimerResponse\x12-\n" +
+	"\x05entry\x18\x01 \x01(\v2\x17.work.v1.TimeEntryProtoR\x05entry\x12A\n" +
+	"\rstopped_entry\x18\x02 \x01(\v2\x17.work.v1.TimeEntryProtoH\x00R\fstoppedEntry\x88\x01\x01B\x10\n" +
+	"\x0e_stopped_entry\"+\n" +
+	"\x10StopTimerRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"B\n" +
+	"\x11StopTimerResponse\x12-\n" +
+	"\x05entry\x18\x01 \x01(\v2\x17.work.v1.TimeEntryProtoR\x05entry\"0\n" +
+	"\x15GetActiveTimerRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"X\n" +
+	"\x16GetActiveTimerResponse\x124\n" +
+	"\x05timer\x18\x01 \x01(\v2\x19.work.v1.ActiveTimerProtoH\x00R\x05timer\x88\x01\x01B\b\n" +
+	"\x06_timer\"\xea\x01\n" +
+	"\x19AddManualTimeEntryRequest\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x129\n" +
+	"\n" +
+	"started_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12)\n" +
+	"\x10duration_seconds\x18\x04 \x01(\x05R\x0fdurationSeconds\x12%\n" +
+	"\vdescription\x18\x05 \x01(\tH\x00R\vdescription\x88\x01\x01B\x0e\n" +
+	"\f_description\"K\n" +
+	"\x1aAddManualTimeEntryResponse\x12-\n" +
+	"\x05entry\x18\x01 \x01(\v2\x17.work.v1.TimeEntryProtoR\x05entry\"\x8c\x02\n" +
+	"\x16UpdateTimeEntryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12>\n" +
+	"\n" +
+	"started_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tstartedAt\x88\x01\x01\x12.\n" +
+	"\x10duration_seconds\x18\x04 \x01(\x05H\x01R\x0fdurationSeconds\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x05 \x01(\tH\x02R\vdescription\x88\x01\x01B\r\n" +
+	"\v_started_atB\x13\n" +
+	"\x11_duration_secondsB\x0e\n" +
+	"\f_description\"H\n" +
+	"\x17UpdateTimeEntryResponse\x12-\n" +
+	"\x05entry\x18\x01 \x01(\v2\x17.work.v1.TimeEntryProtoR\x05entry\"A\n" +
+	"\x16DeleteTimeEntryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"\x19\n" +
+	"\x17DeleteTimeEntryResponse\"b\n" +
+	"\x16ListTimeEntriesRequest\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"b\n" +
+	"\x17ListTimeEntriesResponse\x121\n" +
+	"\aentries\x18\x01 \x03(\v2\x17.work.v1.TimeEntryProtoR\aentries\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"4\n" +
+	"\x19GetTaskTimeSummaryRequest\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\"Q\n" +
+	"\x1aGetTaskTimeSummaryResponse\x123\n" +
+	"\asummary\x18\x01 \x01(\v2\x19.work.v1.TimeSummaryProtoR\asummary2\xe9#\n" +
 	"\vWorkService\x12N\n" +
 	"\rCreateProject\x12\x1d.work.v1.CreateProjectRequest\x1a\x1e.work.v1.CreateProjectResponse\x12E\n" +
 	"\n" +
@@ -6433,7 +7586,16 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x18GetTaskCustomFieldValues\x12(.work.v1.GetTaskCustomFieldValuesRequest\x1a).work.v1.GetTaskCustomFieldValuesResponse\x12o\n" +
 	"\x18GetUserProjectPreference\x12(.work.v1.GetUserProjectPreferenceRequest\x1a).work.v1.GetUserProjectPreferenceResponse\x12o\n" +
 	"\x18SetUserProjectPreference\x12(.work.v1.SetUserProjectPreferenceRequest\x1a).work.v1.SetUserProjectPreferenceResponse\x12H\n" +
-	"\vSearchTasks\x12\x1b.work.v1.SearchTasksRequest\x1a\x1c.work.v1.SearchTasksResponseB/Z-github.com/kmuhub/kmuhub/proto/work/v1;workv1b\x06proto3"
+	"\vSearchTasks\x12\x1b.work.v1.SearchTasksRequest\x1a\x1c.work.v1.SearchTasksResponse\x12E\n" +
+	"\n" +
+	"StartTimer\x12\x1a.work.v1.StartTimerRequest\x1a\x1b.work.v1.StartTimerResponse\x12B\n" +
+	"\tStopTimer\x12\x19.work.v1.StopTimerRequest\x1a\x1a.work.v1.StopTimerResponse\x12Q\n" +
+	"\x0eGetActiveTimer\x12\x1e.work.v1.GetActiveTimerRequest\x1a\x1f.work.v1.GetActiveTimerResponse\x12]\n" +
+	"\x12AddManualTimeEntry\x12\".work.v1.AddManualTimeEntryRequest\x1a#.work.v1.AddManualTimeEntryResponse\x12T\n" +
+	"\x0fUpdateTimeEntry\x12\x1f.work.v1.UpdateTimeEntryRequest\x1a .work.v1.UpdateTimeEntryResponse\x12T\n" +
+	"\x0fDeleteTimeEntry\x12\x1f.work.v1.DeleteTimeEntryRequest\x1a .work.v1.DeleteTimeEntryResponse\x12T\n" +
+	"\x0fListTimeEntries\x12\x1f.work.v1.ListTimeEntriesRequest\x1a .work.v1.ListTimeEntriesResponse\x12]\n" +
+	"\x12GetTaskTimeSummary\x12\".work.v1.GetTaskTimeSummaryRequest\x1a#.work.v1.GetTaskTimeSummaryResponseB/Z-github.com/kmuhub/kmuhub/proto/work/v1;workv1b\x06proto3"
 
 var (
 	file_proto_work_v1_work_proto_rawDescOnce sync.Once
@@ -6447,7 +7609,7 @@ func file_proto_work_v1_work_proto_rawDescGZIP() []byte {
 	return file_proto_work_v1_work_proto_rawDescData
 }
 
-var file_proto_work_v1_work_proto_msgTypes = make([]protoimpl.MessageInfo, 100)
+var file_proto_work_v1_work_proto_msgTypes = make([]protoimpl.MessageInfo, 119)
 var file_proto_work_v1_work_proto_goTypes = []any{
 	(*ProjectProto)(nil),                      // 0: work.v1.ProjectProto
 	(*ProjectMemberProto)(nil),                // 1: work.v1.ProjectMemberProto
@@ -6546,28 +7708,47 @@ var file_proto_work_v1_work_proto_goTypes = []any{
 	(*SetUserProjectPreferenceResponse)(nil),  // 94: work.v1.SetUserProjectPreferenceResponse
 	(*SearchTasksRequest)(nil),                // 95: work.v1.SearchTasksRequest
 	(*SearchTasksResponse)(nil),               // 96: work.v1.SearchTasksResponse
-	nil,                                       // 97: work.v1.TaskProto.CustomFieldsEntry
-	nil,                                       // 98: work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	nil,                                       // 99: work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	(*timestamppb.Timestamp)(nil),             // 100: google.protobuf.Timestamp
+	(*TimeEntryProto)(nil),                    // 97: work.v1.TimeEntryProto
+	(*ActiveTimerProto)(nil),                  // 98: work.v1.ActiveTimerProto
+	(*TimeSummaryProto)(nil),                  // 99: work.v1.TimeSummaryProto
+	(*StartTimerRequest)(nil),                 // 100: work.v1.StartTimerRequest
+	(*StartTimerResponse)(nil),                // 101: work.v1.StartTimerResponse
+	(*StopTimerRequest)(nil),                  // 102: work.v1.StopTimerRequest
+	(*StopTimerResponse)(nil),                 // 103: work.v1.StopTimerResponse
+	(*GetActiveTimerRequest)(nil),             // 104: work.v1.GetActiveTimerRequest
+	(*GetActiveTimerResponse)(nil),            // 105: work.v1.GetActiveTimerResponse
+	(*AddManualTimeEntryRequest)(nil),         // 106: work.v1.AddManualTimeEntryRequest
+	(*AddManualTimeEntryResponse)(nil),        // 107: work.v1.AddManualTimeEntryResponse
+	(*UpdateTimeEntryRequest)(nil),            // 108: work.v1.UpdateTimeEntryRequest
+	(*UpdateTimeEntryResponse)(nil),           // 109: work.v1.UpdateTimeEntryResponse
+	(*DeleteTimeEntryRequest)(nil),            // 110: work.v1.DeleteTimeEntryRequest
+	(*DeleteTimeEntryResponse)(nil),           // 111: work.v1.DeleteTimeEntryResponse
+	(*ListTimeEntriesRequest)(nil),            // 112: work.v1.ListTimeEntriesRequest
+	(*ListTimeEntriesResponse)(nil),           // 113: work.v1.ListTimeEntriesResponse
+	(*GetTaskTimeSummaryRequest)(nil),         // 114: work.v1.GetTaskTimeSummaryRequest
+	(*GetTaskTimeSummaryResponse)(nil),        // 115: work.v1.GetTaskTimeSummaryResponse
+	nil,                                       // 116: work.v1.TaskProto.CustomFieldsEntry
+	nil,                                       // 117: work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	nil,                                       // 118: work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	(*timestamppb.Timestamp)(nil),             // 119: google.protobuf.Timestamp
 }
 var file_proto_work_v1_work_proto_depIdxs = []int32{
-	100, // 0: work.v1.ProjectProto.created_at:type_name -> google.protobuf.Timestamp
-	100, // 1: work.v1.ProjectProto.updated_at:type_name -> google.protobuf.Timestamp
-	100, // 2: work.v1.ProjectProto.archived_at:type_name -> google.protobuf.Timestamp
-	100, // 3: work.v1.ProjectMemberProto.added_at:type_name -> google.protobuf.Timestamp
-	100, // 4: work.v1.ProjectStatusProto.created_at:type_name -> google.protobuf.Timestamp
-	100, // 5: work.v1.TaskProto.due_date:type_name -> google.protobuf.Timestamp
-	100, // 6: work.v1.TaskProto.created_at:type_name -> google.protobuf.Timestamp
-	100, // 7: work.v1.TaskProto.updated_at:type_name -> google.protobuf.Timestamp
-	100, // 8: work.v1.TaskProto.completed_at:type_name -> google.protobuf.Timestamp
-	97,  // 9: work.v1.TaskProto.custom_fields:type_name -> work.v1.TaskProto.CustomFieldsEntry
-	100, // 10: work.v1.TaskDependencyProto.created_at:type_name -> google.protobuf.Timestamp
-	100, // 11: work.v1.TaskCommentProto.created_at:type_name -> google.protobuf.Timestamp
-	100, // 12: work.v1.TaskCommentProto.updated_at:type_name -> google.protobuf.Timestamp
-	100, // 13: work.v1.TaskEntityLinkProto.created_at:type_name -> google.protobuf.Timestamp
-	100, // 14: work.v1.TaskActivityProto.created_at:type_name -> google.protobuf.Timestamp
-	100, // 15: work.v1.TaskFileProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 0: work.v1.ProjectProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 1: work.v1.ProjectProto.updated_at:type_name -> google.protobuf.Timestamp
+	119, // 2: work.v1.ProjectProto.archived_at:type_name -> google.protobuf.Timestamp
+	119, // 3: work.v1.ProjectMemberProto.added_at:type_name -> google.protobuf.Timestamp
+	119, // 4: work.v1.ProjectStatusProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 5: work.v1.TaskProto.due_date:type_name -> google.protobuf.Timestamp
+	119, // 6: work.v1.TaskProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 7: work.v1.TaskProto.updated_at:type_name -> google.protobuf.Timestamp
+	119, // 8: work.v1.TaskProto.completed_at:type_name -> google.protobuf.Timestamp
+	116, // 9: work.v1.TaskProto.custom_fields:type_name -> work.v1.TaskProto.CustomFieldsEntry
+	119, // 10: work.v1.TaskDependencyProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 11: work.v1.TaskCommentProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 12: work.v1.TaskCommentProto.updated_at:type_name -> google.protobuf.Timestamp
+	119, // 13: work.v1.TaskEntityLinkProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 14: work.v1.TaskActivityProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 15: work.v1.TaskFileProto.created_at:type_name -> google.protobuf.Timestamp
 	0,   // 16: work.v1.CreateProjectResponse.project:type_name -> work.v1.ProjectProto
 	0,   // 17: work.v1.GetProjectResponse.project:type_name -> work.v1.ProjectProto
 	0,   // 18: work.v1.ListProjectsResponse.projects:type_name -> work.v1.ProjectProto
@@ -6582,14 +7763,14 @@ var file_proto_work_v1_work_proto_depIdxs = []int32{
 	2,   // 27: work.v1.UpdateProjectStatusResponse.status:type_name -> work.v1.ProjectStatusProto
 	2,   // 28: work.v1.ReorderProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
 	2,   // 29: work.v1.ListProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
-	100, // 30: work.v1.CreateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
+	119, // 30: work.v1.CreateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
 	10,  // 31: work.v1.CreateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
 	3,   // 32: work.v1.CreateTaskResponse.task:type_name -> work.v1.TaskProto
 	3,   // 33: work.v1.GetTaskResponse.task:type_name -> work.v1.TaskProto
-	100, // 34: work.v1.ListTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
-	100, // 35: work.v1.ListTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
+	119, // 34: work.v1.ListTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
+	119, // 35: work.v1.ListTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
 	3,   // 36: work.v1.ListTasksResponse.tasks:type_name -> work.v1.TaskProto
-	100, // 37: work.v1.UpdateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
+	119, // 37: work.v1.UpdateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
 	10,  // 38: work.v1.UpdateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
 	3,   // 39: work.v1.UpdateTaskResponse.task:type_name -> work.v1.TaskProto
 	3,   // 40: work.v1.MoveTaskResponse.task:type_name -> work.v1.TaskProto
@@ -6606,104 +7787,135 @@ var file_proto_work_v1_work_proto_depIdxs = []int32{
 	8,   // 51: work.v1.AttachFileToTaskResponse.file:type_name -> work.v1.TaskFileProto
 	8,   // 52: work.v1.ListTaskFilesResponse.files:type_name -> work.v1.TaskFileProto
 	10,  // 53: work.v1.SetTaskCustomFieldValuesRequest.values:type_name -> work.v1.CustomFieldValueInput
-	98,  // 54: work.v1.SetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	99,  // 55: work.v1.GetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	117, // 54: work.v1.SetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	118, // 55: work.v1.GetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
 	9,   // 56: work.v1.GetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
 	9,   // 57: work.v1.SetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
-	100, // 58: work.v1.SearchTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
-	100, // 59: work.v1.SearchTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
+	119, // 58: work.v1.SearchTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
+	119, // 59: work.v1.SearchTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
 	3,   // 60: work.v1.SearchTasksResponse.tasks:type_name -> work.v1.TaskProto
-	11,  // 61: work.v1.WorkService.CreateProject:input_type -> work.v1.CreateProjectRequest
-	13,  // 62: work.v1.WorkService.GetProject:input_type -> work.v1.GetProjectRequest
-	15,  // 63: work.v1.WorkService.ListProjects:input_type -> work.v1.ListProjectsRequest
-	17,  // 64: work.v1.WorkService.UpdateProject:input_type -> work.v1.UpdateProjectRequest
-	19,  // 65: work.v1.WorkService.ArchiveProject:input_type -> work.v1.ArchiveProjectRequest
-	21,  // 66: work.v1.WorkService.AddProjectMember:input_type -> work.v1.AddProjectMemberRequest
-	23,  // 67: work.v1.WorkService.RemoveProjectMember:input_type -> work.v1.RemoveProjectMemberRequest
-	25,  // 68: work.v1.WorkService.ListProjectMembers:input_type -> work.v1.ListProjectMembersRequest
-	27,  // 69: work.v1.WorkService.UpdateProjectMemberRole:input_type -> work.v1.UpdateProjectMemberRoleRequest
-	29,  // 70: work.v1.WorkService.SaveProjectAsTemplate:input_type -> work.v1.SaveProjectAsTemplateRequest
-	31,  // 71: work.v1.WorkService.CreateProjectFromTemplate:input_type -> work.v1.CreateProjectFromTemplateRequest
-	33,  // 72: work.v1.WorkService.CreateProjectStatus:input_type -> work.v1.CreateProjectStatusRequest
-	35,  // 73: work.v1.WorkService.UpdateProjectStatus:input_type -> work.v1.UpdateProjectStatusRequest
-	37,  // 74: work.v1.WorkService.DeleteProjectStatus:input_type -> work.v1.DeleteProjectStatusRequest
-	39,  // 75: work.v1.WorkService.ReorderProjectStatuses:input_type -> work.v1.ReorderProjectStatusesRequest
-	41,  // 76: work.v1.WorkService.ListProjectStatuses:input_type -> work.v1.ListProjectStatusesRequest
-	43,  // 77: work.v1.WorkService.CreateTask:input_type -> work.v1.CreateTaskRequest
-	45,  // 78: work.v1.WorkService.GetTask:input_type -> work.v1.GetTaskRequest
-	47,  // 79: work.v1.WorkService.ListTasks:input_type -> work.v1.ListTasksRequest
-	49,  // 80: work.v1.WorkService.UpdateTask:input_type -> work.v1.UpdateTaskRequest
-	51,  // 81: work.v1.WorkService.DeleteTask:input_type -> work.v1.DeleteTaskRequest
-	53,  // 82: work.v1.WorkService.MoveTask:input_type -> work.v1.MoveTaskRequest
-	55,  // 83: work.v1.WorkService.ListSubtasks:input_type -> work.v1.ListSubtasksRequest
-	57,  // 84: work.v1.WorkService.CreateTaskDependency:input_type -> work.v1.CreateTaskDependencyRequest
-	59,  // 85: work.v1.WorkService.DeleteTaskDependency:input_type -> work.v1.DeleteTaskDependencyRequest
-	61,  // 86: work.v1.WorkService.ListTaskDependencies:input_type -> work.v1.ListTaskDependenciesRequest
-	63,  // 87: work.v1.WorkService.CreateTaskComment:input_type -> work.v1.CreateTaskCommentRequest
-	65,  // 88: work.v1.WorkService.UpdateTaskComment:input_type -> work.v1.UpdateTaskCommentRequest
-	67,  // 89: work.v1.WorkService.DeleteTaskComment:input_type -> work.v1.DeleteTaskCommentRequest
-	69,  // 90: work.v1.WorkService.ListTaskComments:input_type -> work.v1.ListTaskCommentsRequest
-	71,  // 91: work.v1.WorkService.LinkEntityToTask:input_type -> work.v1.LinkEntityToTaskRequest
-	73,  // 92: work.v1.WorkService.UnlinkEntityFromTask:input_type -> work.v1.UnlinkEntityFromTaskRequest
-	75,  // 93: work.v1.WorkService.ListTaskEntityLinks:input_type -> work.v1.ListTaskEntityLinksRequest
-	77,  // 94: work.v1.WorkService.ListEntityTasks:input_type -> work.v1.ListEntityTasksRequest
-	79,  // 95: work.v1.WorkService.ListTaskActivities:input_type -> work.v1.ListTaskActivitiesRequest
-	81,  // 96: work.v1.WorkService.AttachFileToTask:input_type -> work.v1.AttachFileToTaskRequest
-	83,  // 97: work.v1.WorkService.RemoveTaskFile:input_type -> work.v1.RemoveTaskFileRequest
-	85,  // 98: work.v1.WorkService.ListTaskFiles:input_type -> work.v1.ListTaskFilesRequest
-	87,  // 99: work.v1.WorkService.SetTaskCustomFieldValues:input_type -> work.v1.SetTaskCustomFieldValuesRequest
-	89,  // 100: work.v1.WorkService.GetTaskCustomFieldValues:input_type -> work.v1.GetTaskCustomFieldValuesRequest
-	91,  // 101: work.v1.WorkService.GetUserProjectPreference:input_type -> work.v1.GetUserProjectPreferenceRequest
-	93,  // 102: work.v1.WorkService.SetUserProjectPreference:input_type -> work.v1.SetUserProjectPreferenceRequest
-	95,  // 103: work.v1.WorkService.SearchTasks:input_type -> work.v1.SearchTasksRequest
-	12,  // 104: work.v1.WorkService.CreateProject:output_type -> work.v1.CreateProjectResponse
-	14,  // 105: work.v1.WorkService.GetProject:output_type -> work.v1.GetProjectResponse
-	16,  // 106: work.v1.WorkService.ListProjects:output_type -> work.v1.ListProjectsResponse
-	18,  // 107: work.v1.WorkService.UpdateProject:output_type -> work.v1.UpdateProjectResponse
-	20,  // 108: work.v1.WorkService.ArchiveProject:output_type -> work.v1.ArchiveProjectResponse
-	22,  // 109: work.v1.WorkService.AddProjectMember:output_type -> work.v1.AddProjectMemberResponse
-	24,  // 110: work.v1.WorkService.RemoveProjectMember:output_type -> work.v1.RemoveProjectMemberResponse
-	26,  // 111: work.v1.WorkService.ListProjectMembers:output_type -> work.v1.ListProjectMembersResponse
-	28,  // 112: work.v1.WorkService.UpdateProjectMemberRole:output_type -> work.v1.UpdateProjectMemberRoleResponse
-	30,  // 113: work.v1.WorkService.SaveProjectAsTemplate:output_type -> work.v1.SaveProjectAsTemplateResponse
-	32,  // 114: work.v1.WorkService.CreateProjectFromTemplate:output_type -> work.v1.CreateProjectFromTemplateResponse
-	34,  // 115: work.v1.WorkService.CreateProjectStatus:output_type -> work.v1.CreateProjectStatusResponse
-	36,  // 116: work.v1.WorkService.UpdateProjectStatus:output_type -> work.v1.UpdateProjectStatusResponse
-	38,  // 117: work.v1.WorkService.DeleteProjectStatus:output_type -> work.v1.DeleteProjectStatusResponse
-	40,  // 118: work.v1.WorkService.ReorderProjectStatuses:output_type -> work.v1.ReorderProjectStatusesResponse
-	42,  // 119: work.v1.WorkService.ListProjectStatuses:output_type -> work.v1.ListProjectStatusesResponse
-	44,  // 120: work.v1.WorkService.CreateTask:output_type -> work.v1.CreateTaskResponse
-	46,  // 121: work.v1.WorkService.GetTask:output_type -> work.v1.GetTaskResponse
-	48,  // 122: work.v1.WorkService.ListTasks:output_type -> work.v1.ListTasksResponse
-	50,  // 123: work.v1.WorkService.UpdateTask:output_type -> work.v1.UpdateTaskResponse
-	52,  // 124: work.v1.WorkService.DeleteTask:output_type -> work.v1.DeleteTaskResponse
-	54,  // 125: work.v1.WorkService.MoveTask:output_type -> work.v1.MoveTaskResponse
-	56,  // 126: work.v1.WorkService.ListSubtasks:output_type -> work.v1.ListSubtasksResponse
-	58,  // 127: work.v1.WorkService.CreateTaskDependency:output_type -> work.v1.CreateTaskDependencyResponse
-	60,  // 128: work.v1.WorkService.DeleteTaskDependency:output_type -> work.v1.DeleteTaskDependencyResponse
-	62,  // 129: work.v1.WorkService.ListTaskDependencies:output_type -> work.v1.ListTaskDependenciesResponse
-	64,  // 130: work.v1.WorkService.CreateTaskComment:output_type -> work.v1.CreateTaskCommentResponse
-	66,  // 131: work.v1.WorkService.UpdateTaskComment:output_type -> work.v1.UpdateTaskCommentResponse
-	68,  // 132: work.v1.WorkService.DeleteTaskComment:output_type -> work.v1.DeleteTaskCommentResponse
-	70,  // 133: work.v1.WorkService.ListTaskComments:output_type -> work.v1.ListTaskCommentsResponse
-	72,  // 134: work.v1.WorkService.LinkEntityToTask:output_type -> work.v1.LinkEntityToTaskResponse
-	74,  // 135: work.v1.WorkService.UnlinkEntityFromTask:output_type -> work.v1.UnlinkEntityFromTaskResponse
-	76,  // 136: work.v1.WorkService.ListTaskEntityLinks:output_type -> work.v1.ListTaskEntityLinksResponse
-	78,  // 137: work.v1.WorkService.ListEntityTasks:output_type -> work.v1.ListEntityTasksResponse
-	80,  // 138: work.v1.WorkService.ListTaskActivities:output_type -> work.v1.ListTaskActivitiesResponse
-	82,  // 139: work.v1.WorkService.AttachFileToTask:output_type -> work.v1.AttachFileToTaskResponse
-	84,  // 140: work.v1.WorkService.RemoveTaskFile:output_type -> work.v1.RemoveTaskFileResponse
-	86,  // 141: work.v1.WorkService.ListTaskFiles:output_type -> work.v1.ListTaskFilesResponse
-	88,  // 142: work.v1.WorkService.SetTaskCustomFieldValues:output_type -> work.v1.SetTaskCustomFieldValuesResponse
-	90,  // 143: work.v1.WorkService.GetTaskCustomFieldValues:output_type -> work.v1.GetTaskCustomFieldValuesResponse
-	92,  // 144: work.v1.WorkService.GetUserProjectPreference:output_type -> work.v1.GetUserProjectPreferenceResponse
-	94,  // 145: work.v1.WorkService.SetUserProjectPreference:output_type -> work.v1.SetUserProjectPreferenceResponse
-	96,  // 146: work.v1.WorkService.SearchTasks:output_type -> work.v1.SearchTasksResponse
-	104, // [104:147] is the sub-list for method output_type
-	61,  // [61:104] is the sub-list for method input_type
-	61,  // [61:61] is the sub-list for extension type_name
-	61,  // [61:61] is the sub-list for extension extendee
-	0,   // [0:61] is the sub-list for field type_name
+	119, // 61: work.v1.TimeEntryProto.started_at:type_name -> google.protobuf.Timestamp
+	119, // 62: work.v1.TimeEntryProto.ended_at:type_name -> google.protobuf.Timestamp
+	119, // 63: work.v1.TimeEntryProto.created_at:type_name -> google.protobuf.Timestamp
+	119, // 64: work.v1.TimeEntryProto.updated_at:type_name -> google.protobuf.Timestamp
+	119, // 65: work.v1.ActiveTimerProto.started_at:type_name -> google.protobuf.Timestamp
+	97,  // 66: work.v1.StartTimerResponse.entry:type_name -> work.v1.TimeEntryProto
+	97,  // 67: work.v1.StartTimerResponse.stopped_entry:type_name -> work.v1.TimeEntryProto
+	97,  // 68: work.v1.StopTimerResponse.entry:type_name -> work.v1.TimeEntryProto
+	98,  // 69: work.v1.GetActiveTimerResponse.timer:type_name -> work.v1.ActiveTimerProto
+	119, // 70: work.v1.AddManualTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
+	97,  // 71: work.v1.AddManualTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
+	119, // 72: work.v1.UpdateTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
+	97,  // 73: work.v1.UpdateTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
+	97,  // 74: work.v1.ListTimeEntriesResponse.entries:type_name -> work.v1.TimeEntryProto
+	99,  // 75: work.v1.GetTaskTimeSummaryResponse.summary:type_name -> work.v1.TimeSummaryProto
+	11,  // 76: work.v1.WorkService.CreateProject:input_type -> work.v1.CreateProjectRequest
+	13,  // 77: work.v1.WorkService.GetProject:input_type -> work.v1.GetProjectRequest
+	15,  // 78: work.v1.WorkService.ListProjects:input_type -> work.v1.ListProjectsRequest
+	17,  // 79: work.v1.WorkService.UpdateProject:input_type -> work.v1.UpdateProjectRequest
+	19,  // 80: work.v1.WorkService.ArchiveProject:input_type -> work.v1.ArchiveProjectRequest
+	21,  // 81: work.v1.WorkService.AddProjectMember:input_type -> work.v1.AddProjectMemberRequest
+	23,  // 82: work.v1.WorkService.RemoveProjectMember:input_type -> work.v1.RemoveProjectMemberRequest
+	25,  // 83: work.v1.WorkService.ListProjectMembers:input_type -> work.v1.ListProjectMembersRequest
+	27,  // 84: work.v1.WorkService.UpdateProjectMemberRole:input_type -> work.v1.UpdateProjectMemberRoleRequest
+	29,  // 85: work.v1.WorkService.SaveProjectAsTemplate:input_type -> work.v1.SaveProjectAsTemplateRequest
+	31,  // 86: work.v1.WorkService.CreateProjectFromTemplate:input_type -> work.v1.CreateProjectFromTemplateRequest
+	33,  // 87: work.v1.WorkService.CreateProjectStatus:input_type -> work.v1.CreateProjectStatusRequest
+	35,  // 88: work.v1.WorkService.UpdateProjectStatus:input_type -> work.v1.UpdateProjectStatusRequest
+	37,  // 89: work.v1.WorkService.DeleteProjectStatus:input_type -> work.v1.DeleteProjectStatusRequest
+	39,  // 90: work.v1.WorkService.ReorderProjectStatuses:input_type -> work.v1.ReorderProjectStatusesRequest
+	41,  // 91: work.v1.WorkService.ListProjectStatuses:input_type -> work.v1.ListProjectStatusesRequest
+	43,  // 92: work.v1.WorkService.CreateTask:input_type -> work.v1.CreateTaskRequest
+	45,  // 93: work.v1.WorkService.GetTask:input_type -> work.v1.GetTaskRequest
+	47,  // 94: work.v1.WorkService.ListTasks:input_type -> work.v1.ListTasksRequest
+	49,  // 95: work.v1.WorkService.UpdateTask:input_type -> work.v1.UpdateTaskRequest
+	51,  // 96: work.v1.WorkService.DeleteTask:input_type -> work.v1.DeleteTaskRequest
+	53,  // 97: work.v1.WorkService.MoveTask:input_type -> work.v1.MoveTaskRequest
+	55,  // 98: work.v1.WorkService.ListSubtasks:input_type -> work.v1.ListSubtasksRequest
+	57,  // 99: work.v1.WorkService.CreateTaskDependency:input_type -> work.v1.CreateTaskDependencyRequest
+	59,  // 100: work.v1.WorkService.DeleteTaskDependency:input_type -> work.v1.DeleteTaskDependencyRequest
+	61,  // 101: work.v1.WorkService.ListTaskDependencies:input_type -> work.v1.ListTaskDependenciesRequest
+	63,  // 102: work.v1.WorkService.CreateTaskComment:input_type -> work.v1.CreateTaskCommentRequest
+	65,  // 103: work.v1.WorkService.UpdateTaskComment:input_type -> work.v1.UpdateTaskCommentRequest
+	67,  // 104: work.v1.WorkService.DeleteTaskComment:input_type -> work.v1.DeleteTaskCommentRequest
+	69,  // 105: work.v1.WorkService.ListTaskComments:input_type -> work.v1.ListTaskCommentsRequest
+	71,  // 106: work.v1.WorkService.LinkEntityToTask:input_type -> work.v1.LinkEntityToTaskRequest
+	73,  // 107: work.v1.WorkService.UnlinkEntityFromTask:input_type -> work.v1.UnlinkEntityFromTaskRequest
+	75,  // 108: work.v1.WorkService.ListTaskEntityLinks:input_type -> work.v1.ListTaskEntityLinksRequest
+	77,  // 109: work.v1.WorkService.ListEntityTasks:input_type -> work.v1.ListEntityTasksRequest
+	79,  // 110: work.v1.WorkService.ListTaskActivities:input_type -> work.v1.ListTaskActivitiesRequest
+	81,  // 111: work.v1.WorkService.AttachFileToTask:input_type -> work.v1.AttachFileToTaskRequest
+	83,  // 112: work.v1.WorkService.RemoveTaskFile:input_type -> work.v1.RemoveTaskFileRequest
+	85,  // 113: work.v1.WorkService.ListTaskFiles:input_type -> work.v1.ListTaskFilesRequest
+	87,  // 114: work.v1.WorkService.SetTaskCustomFieldValues:input_type -> work.v1.SetTaskCustomFieldValuesRequest
+	89,  // 115: work.v1.WorkService.GetTaskCustomFieldValues:input_type -> work.v1.GetTaskCustomFieldValuesRequest
+	91,  // 116: work.v1.WorkService.GetUserProjectPreference:input_type -> work.v1.GetUserProjectPreferenceRequest
+	93,  // 117: work.v1.WorkService.SetUserProjectPreference:input_type -> work.v1.SetUserProjectPreferenceRequest
+	95,  // 118: work.v1.WorkService.SearchTasks:input_type -> work.v1.SearchTasksRequest
+	100, // 119: work.v1.WorkService.StartTimer:input_type -> work.v1.StartTimerRequest
+	102, // 120: work.v1.WorkService.StopTimer:input_type -> work.v1.StopTimerRequest
+	104, // 121: work.v1.WorkService.GetActiveTimer:input_type -> work.v1.GetActiveTimerRequest
+	106, // 122: work.v1.WorkService.AddManualTimeEntry:input_type -> work.v1.AddManualTimeEntryRequest
+	108, // 123: work.v1.WorkService.UpdateTimeEntry:input_type -> work.v1.UpdateTimeEntryRequest
+	110, // 124: work.v1.WorkService.DeleteTimeEntry:input_type -> work.v1.DeleteTimeEntryRequest
+	112, // 125: work.v1.WorkService.ListTimeEntries:input_type -> work.v1.ListTimeEntriesRequest
+	114, // 126: work.v1.WorkService.GetTaskTimeSummary:input_type -> work.v1.GetTaskTimeSummaryRequest
+	12,  // 127: work.v1.WorkService.CreateProject:output_type -> work.v1.CreateProjectResponse
+	14,  // 128: work.v1.WorkService.GetProject:output_type -> work.v1.GetProjectResponse
+	16,  // 129: work.v1.WorkService.ListProjects:output_type -> work.v1.ListProjectsResponse
+	18,  // 130: work.v1.WorkService.UpdateProject:output_type -> work.v1.UpdateProjectResponse
+	20,  // 131: work.v1.WorkService.ArchiveProject:output_type -> work.v1.ArchiveProjectResponse
+	22,  // 132: work.v1.WorkService.AddProjectMember:output_type -> work.v1.AddProjectMemberResponse
+	24,  // 133: work.v1.WorkService.RemoveProjectMember:output_type -> work.v1.RemoveProjectMemberResponse
+	26,  // 134: work.v1.WorkService.ListProjectMembers:output_type -> work.v1.ListProjectMembersResponse
+	28,  // 135: work.v1.WorkService.UpdateProjectMemberRole:output_type -> work.v1.UpdateProjectMemberRoleResponse
+	30,  // 136: work.v1.WorkService.SaveProjectAsTemplate:output_type -> work.v1.SaveProjectAsTemplateResponse
+	32,  // 137: work.v1.WorkService.CreateProjectFromTemplate:output_type -> work.v1.CreateProjectFromTemplateResponse
+	34,  // 138: work.v1.WorkService.CreateProjectStatus:output_type -> work.v1.CreateProjectStatusResponse
+	36,  // 139: work.v1.WorkService.UpdateProjectStatus:output_type -> work.v1.UpdateProjectStatusResponse
+	38,  // 140: work.v1.WorkService.DeleteProjectStatus:output_type -> work.v1.DeleteProjectStatusResponse
+	40,  // 141: work.v1.WorkService.ReorderProjectStatuses:output_type -> work.v1.ReorderProjectStatusesResponse
+	42,  // 142: work.v1.WorkService.ListProjectStatuses:output_type -> work.v1.ListProjectStatusesResponse
+	44,  // 143: work.v1.WorkService.CreateTask:output_type -> work.v1.CreateTaskResponse
+	46,  // 144: work.v1.WorkService.GetTask:output_type -> work.v1.GetTaskResponse
+	48,  // 145: work.v1.WorkService.ListTasks:output_type -> work.v1.ListTasksResponse
+	50,  // 146: work.v1.WorkService.UpdateTask:output_type -> work.v1.UpdateTaskResponse
+	52,  // 147: work.v1.WorkService.DeleteTask:output_type -> work.v1.DeleteTaskResponse
+	54,  // 148: work.v1.WorkService.MoveTask:output_type -> work.v1.MoveTaskResponse
+	56,  // 149: work.v1.WorkService.ListSubtasks:output_type -> work.v1.ListSubtasksResponse
+	58,  // 150: work.v1.WorkService.CreateTaskDependency:output_type -> work.v1.CreateTaskDependencyResponse
+	60,  // 151: work.v1.WorkService.DeleteTaskDependency:output_type -> work.v1.DeleteTaskDependencyResponse
+	62,  // 152: work.v1.WorkService.ListTaskDependencies:output_type -> work.v1.ListTaskDependenciesResponse
+	64,  // 153: work.v1.WorkService.CreateTaskComment:output_type -> work.v1.CreateTaskCommentResponse
+	66,  // 154: work.v1.WorkService.UpdateTaskComment:output_type -> work.v1.UpdateTaskCommentResponse
+	68,  // 155: work.v1.WorkService.DeleteTaskComment:output_type -> work.v1.DeleteTaskCommentResponse
+	70,  // 156: work.v1.WorkService.ListTaskComments:output_type -> work.v1.ListTaskCommentsResponse
+	72,  // 157: work.v1.WorkService.LinkEntityToTask:output_type -> work.v1.LinkEntityToTaskResponse
+	74,  // 158: work.v1.WorkService.UnlinkEntityFromTask:output_type -> work.v1.UnlinkEntityFromTaskResponse
+	76,  // 159: work.v1.WorkService.ListTaskEntityLinks:output_type -> work.v1.ListTaskEntityLinksResponse
+	78,  // 160: work.v1.WorkService.ListEntityTasks:output_type -> work.v1.ListEntityTasksResponse
+	80,  // 161: work.v1.WorkService.ListTaskActivities:output_type -> work.v1.ListTaskActivitiesResponse
+	82,  // 162: work.v1.WorkService.AttachFileToTask:output_type -> work.v1.AttachFileToTaskResponse
+	84,  // 163: work.v1.WorkService.RemoveTaskFile:output_type -> work.v1.RemoveTaskFileResponse
+	86,  // 164: work.v1.WorkService.ListTaskFiles:output_type -> work.v1.ListTaskFilesResponse
+	88,  // 165: work.v1.WorkService.SetTaskCustomFieldValues:output_type -> work.v1.SetTaskCustomFieldValuesResponse
+	90,  // 166: work.v1.WorkService.GetTaskCustomFieldValues:output_type -> work.v1.GetTaskCustomFieldValuesResponse
+	92,  // 167: work.v1.WorkService.GetUserProjectPreference:output_type -> work.v1.GetUserProjectPreferenceResponse
+	94,  // 168: work.v1.WorkService.SetUserProjectPreference:output_type -> work.v1.SetUserProjectPreferenceResponse
+	96,  // 169: work.v1.WorkService.SearchTasks:output_type -> work.v1.SearchTasksResponse
+	101, // 170: work.v1.WorkService.StartTimer:output_type -> work.v1.StartTimerResponse
+	103, // 171: work.v1.WorkService.StopTimer:output_type -> work.v1.StopTimerResponse
+	105, // 172: work.v1.WorkService.GetActiveTimer:output_type -> work.v1.GetActiveTimerResponse
+	107, // 173: work.v1.WorkService.AddManualTimeEntry:output_type -> work.v1.AddManualTimeEntryResponse
+	109, // 174: work.v1.WorkService.UpdateTimeEntry:output_type -> work.v1.UpdateTimeEntryResponse
+	111, // 175: work.v1.WorkService.DeleteTimeEntry:output_type -> work.v1.DeleteTimeEntryResponse
+	113, // 176: work.v1.WorkService.ListTimeEntries:output_type -> work.v1.ListTimeEntriesResponse
+	115, // 177: work.v1.WorkService.GetTaskTimeSummary:output_type -> work.v1.GetTaskTimeSummaryResponse
+	127, // [127:178] is the sub-list for method output_type
+	76,  // [76:127] is the sub-list for method input_type
+	76,  // [76:76] is the sub-list for extension type_name
+	76,  // [76:76] is the sub-list for extension extendee
+	0,   // [0:76] is the sub-list for field type_name
 }
 
 func init() { file_proto_work_v1_work_proto_init() }
@@ -6729,13 +7941,18 @@ func file_proto_work_v1_work_proto_init() {
 	file_proto_work_v1_work_proto_msgTypes[81].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[93].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[95].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[97].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[101].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[105].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[106].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[108].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_work_v1_work_proto_rawDesc), len(file_proto_work_v1_work_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   100,
+			NumMessages:   119,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

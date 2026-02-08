@@ -22,6 +22,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/work/project"
 	wstatus "github.com/kmuhub/kmuhub/internal/work/status"
 	"github.com/kmuhub/kmuhub/internal/work/task"
+	"github.com/kmuhub/kmuhub/internal/work/timeentry"
 	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
 
@@ -50,12 +51,14 @@ func main() {
 	statusRepo := wstatus.NewPostgresRepository(pool)
 	taskRepo := task.NewPostgresRepository(pool)
 	commentRepo := comment.NewPostgresRepository(pool)
+	timeEntryRepo := timeentry.NewPostgresRepository(pool)
 
 	// Initialize services
 	projectService := project.NewService(projectRepo)
 	statusService := wstatus.NewService(statusRepo)
 	taskService := task.NewService(taskRepo, projectRepo)
 	commentService := comment.NewService(commentRepo, taskRepo)
+	timeEntryService := timeentry.NewService(timeEntryRepo)
 
 	// Set event emitters for notification integration
 	taskService.SetEventEmitter(task.NewPGEventEmitter(pool))
@@ -73,7 +76,7 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	workGRPC := server.NewWorkGRPCServer(projectService, statusService, taskService, taskRepo, commentService)
+	workGRPC := server.NewWorkGRPCServer(projectService, statusService, taskService, taskRepo, commentService, timeEntryService)
 	workv1.RegisterWorkServiceServer(grpcServer, workGRPC)
 
 	// Initialize gRPC metrics after service registration
