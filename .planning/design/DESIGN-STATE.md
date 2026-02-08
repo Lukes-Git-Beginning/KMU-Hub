@@ -53,6 +53,26 @@ Wichtigste Dateien:
 - Figma-Export als code reference in desktop/design-reference/
 - Feature brainstorm reviewed: 103/105 features approved (2026-02-08)
 
+## Inspiration Reference (Cozy Workspace Image)
+
+Key visual elements from Darien's reference image:
+- Frosted glass / semi-transparent UI panels over desk background
+- Desk visible through panels (plants, laptop, stationery, coffee cup)
+- Three-column layout: Sidebar | Main Content | Detail Panel
+- Sidebar: Branding + dropdown, avatar + online status, nav icons, mini calendar, upcoming appointments
+- Header: Minimal — only icon row right side (chat, messages, folder, bell with red badge, profile avatar)
+- Cards: Soft rounded corners, light shadows, warm colors
+- Active nav item: Colored background fill (teal/blue)
+- Tab navigation within panels (Notizen, To-Do, Info)
+- Overall: Professional but cozy/inviting, NOT corporate-cold
+
+## Theme Concepts (for D8)
+
+Three planned themes:
+1. **Cozy Desk** (DEFAULT) — warm beige/teal, real desk background with plants/stationery, frosted glass panels
+2. **Minimal** — clean frosted glass, no desk decorations, muted neutral background
+3. **Dreamy/Creative** — lila/lavendel gradient background, abstract 3D bubbles/spheres, pastel accent colors (mint, rosa, hellblau), stronger frosted glass transparency, playful/futuristic vibe for creative teams
+
 ## Key Color Tokens (from Figma — NOW LIVE)
 
 ### Light Mode
