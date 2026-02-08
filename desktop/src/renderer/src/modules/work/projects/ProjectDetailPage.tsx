@@ -1,11 +1,11 @@
 /**
- * Project detail page showing project info, view toggle, and task list.
+ * Project detail page showing project info, view toggle, and task views.
  *
- * Accessed via /work/projects/:id. Shows project header with name,
- * key, view toggle (List/Kanban), settings, and new task button.
- * Content area is a placeholder for views built in 06-06.
+ * Accessed via /work/projects/:id. Shows project header with name, key,
+ * view toggle (List/Kanban), settings, and new task button. Content area
+ * renders TaskListView or KanbanBoard based on persisted user preference.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -13,28 +13,50 @@ import {
   Columns3,
   Settings,
   Plus,
-  FolderKanban,
 } from 'lucide-react'
-import { useProject, useProjectStatuses } from '@/api/hooks/useProjects'
+import {
+  useProject,
+  useProjectStatuses,
+  useProjectPreference,
+  useSetPreference,
+} from '@/api/hooks/useProjects'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import ProjectSettingsDialog from './ProjectSettingsDialog'
+import TaskListView from '../list/TaskListView'
+import KanbanBoard from '../kanban/KanbanBoard'
+import TaskCreateDialog from '../components/TaskCreateDialog'
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [view, setView] = useState<'list' | 'kanban'>('list')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const { data, isLoading, error, refetch } = useProject(id ?? '')
   const { data: statusesData } = useProjectStatuses(id ?? '')
+  const { data: prefData } = useProjectPreference(id ?? '')
+  const setPreference = useSetPreference()
 
   const project = data?.project
   const statuses = statusesData?.statuses ?? []
 
-  function showComingSoon() {
-    alert('Kommt bald')
+  // View type from preferences (default to list)
+  const [view, setView] = useState<'list' | 'kanban'>('list')
+
+  // Sync view from preferences once loaded
+  useEffect(() => {
+    if (prefData?.view_type === 'kanban' || prefData?.view_type === 'list') {
+      setView(prefData.view_type)
+    }
+  }, [prefData?.view_type])
+
+  function handleViewChange(newView: 'list' | 'kanban') {
+    setView(newView)
+    if (id) {
+      setPreference.mutate({ projectId: id, view_type: newView })
+    }
   }
 
   if (error) {
@@ -83,6 +105,16 @@ export default function ProjectDetailPage() {
     )
   }
 
+  // Build statuses with proper id for Kanban columns
+  const kanbanStatuses = statuses
+    .filter((s) => s.id)
+    .map((s) => ({
+      id: s.id!,
+      name: s.name ?? 'Ohne Name',
+      color: s.color,
+      is_closed: s.is_closed,
+    }))
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -113,7 +145,7 @@ export default function ProjectDetailPage() {
               variant={view === 'list' ? 'secondary' : 'ghost'}
               size="sm"
               className="rounded-r-none"
-              onClick={() => setView('list')}
+              onClick={() => handleViewChange('list')}
             >
               <LayoutList className="h-4 w-4" />
             </Button>
@@ -121,7 +153,7 @@ export default function ProjectDetailPage() {
               variant={view === 'kanban' ? 'secondary' : 'ghost'}
               size="sm"
               className="rounded-l-none"
-              onClick={() => setView('kanban')}
+              onClick={() => handleViewChange('kanban')}
             >
               <Columns3 className="h-4 w-4" />
             </Button>
@@ -135,50 +167,34 @@ export default function ProjectDetailPage() {
             <Settings className="h-4 w-4" />
           </Button>
 
-          <Button size="sm" className="gap-1" onClick={showComingSoon}>
+          <Button size="sm" className="gap-1" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
             Neue Aufgabe
           </Button>
         </div>
       </div>
 
-      {/* Content area -- placeholder for task views (06-06) */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="text-center">
-          <FolderKanban className="mx-auto h-12 w-12 text-muted-foreground" />
-          <p className="mt-4 text-lg font-medium text-foreground">
-            {view === 'list' ? 'Listenansicht' : 'Kanban-Board'}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Aufgabenansicht wird in Kuerze implementiert.
-          </p>
-          {statuses.length > 0 && (
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {statuses.map((status) => (
-                <Badge
-                  key={status.id}
-                  variant="secondary"
-                  className="text-xs"
-                  style={
-                    status.color
-                      ? { backgroundColor: `${status.color}20`, color: status.color, borderColor: status.color }
-                      : undefined
-                  }
-                >
-                  {status.name}
-                  {status.is_default && ' (Standard)'}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Content area: List or Kanban view */}
+      <div className="flex-1 min-h-0">
+        {view === 'list' ? (
+          <TaskListView projectId={id ?? ''} statuses={statuses} />
+        ) : (
+          <KanbanBoard projectId={id ?? ''} statuses={kanbanStatuses} />
+        )}
       </div>
 
-      {/* Settings dialog */}
+      {/* Dialogs */}
       <ProjectSettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         projectId={id ?? ''}
+      />
+
+      <TaskCreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        projectId={id ?? ''}
+        statuses={statuses}
       />
     </div>
   )
