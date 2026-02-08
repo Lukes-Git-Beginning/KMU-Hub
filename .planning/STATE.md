@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 13 (Project Management)
-Plan: 3 of 8 in current phase
+Plan: 4 of 8 in current phase
 Status: In progress
-Last activity: 2026-02-08 -- Completed 06-03-PLAN.md (Task & Comment Services)
+Last activity: 2026-02-08 -- Completed 06-04-PLAN.md (Work Service Wiring)
 
-Progress: [███████████████████░] 41% (13/32 plans across phases 4-13)
+Progress: [████████████████████░] 44% (14/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
+- Total plans completed: 14
 - Average duration: ~10 minutes
-- Total execution time: ~2h 10min
+- Total execution time: ~2h 22min
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [███████████████████░] 41% (13
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 3/8 | ~23min | ~7.7min |
+| 06 | 4/8 | ~35min | ~8.8min |
 
 **Recent Trend:**
-- Last 5 plans: 05-07 (~10min), 06-01 (~6min), 06-02 (~7min), 06-03 (~10min)
-- Trend: Service-layer plans consistently fast (~8min)
+- Last 5 plans: 06-01 (~6min), 06-02 (~7min), 06-03 (~10min), 06-04 (~12min)
+- Trend: Wiring plans slightly slower due to larger file count
 
 *Updated after each plan completion*
 
@@ -78,6 +78,9 @@ Recent decisions affecting current work:
 - [06-03]: @mention pattern uses @{uuid} format for deterministic user resolution
 - [06-03]: Cycle detection only for blocking deps (blocks/blocked_by), not relates_to/duplicates
 - [06-03]: MoveTask handles completed_at setting/clearing based on status is_closed flag
+- [06-04]: gRPC server uses uuid.Nil + isAdmin=true (gateway handles auth)
+- [06-04]: Template key auto-generated from name prefix + UUID suffix
+- [06-04]: Work routes follow exact same RouteRegistrar pattern as CRM/Chat/Notification
 
 ### Pending Todos
 
@@ -93,5 +96,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-03-PLAN.md (Task & Comment Services)
+Stopped at: Completed 06-04-PLAN.md (Work Service Wiring)
 Resume file: None
