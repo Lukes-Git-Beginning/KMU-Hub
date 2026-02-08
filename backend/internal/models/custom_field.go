@@ -36,6 +36,7 @@ const (
 	EntityTypeCompany  EntityType = "company"
 	EntityTypeDeal     EntityType = "deal"
 	EntityTypeActivity EntityType = "activity"
+	EntityTypeTask     EntityType = "task"
 )
 
 // ValidEntityTypes contains all valid entity types
@@ -44,6 +45,7 @@ var ValidEntityTypes = map[EntityType]bool{
 	EntityTypeCompany:  true,
 	EntityTypeDeal:     true,
 	EntityTypeActivity: true,
+	EntityTypeTask:     true,
 }
 
 // CustomFieldDefinition represents the schema definition for a custom field

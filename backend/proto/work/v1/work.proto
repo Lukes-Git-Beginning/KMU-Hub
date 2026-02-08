@@ -1,0 +1,708 @@
+syntax = "proto3";
+
+package work.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/work/v1;workv1";
+
+import "google/protobuf/timestamp.proto";
+
+service WorkService {
+  // Projects
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectResponse);
+  rpc ArchiveProject(ArchiveProjectRequest) returns (ArchiveProjectResponse);
+
+  // Project Members
+  rpc AddProjectMember(AddProjectMemberRequest) returns (AddProjectMemberResponse);
+  rpc RemoveProjectMember(RemoveProjectMemberRequest) returns (RemoveProjectMemberResponse);
+  rpc ListProjectMembers(ListProjectMembersRequest) returns (ListProjectMembersResponse);
+  rpc UpdateProjectMemberRole(UpdateProjectMemberRoleRequest) returns (UpdateProjectMemberRoleResponse);
+
+  // Project Templates
+  rpc SaveProjectAsTemplate(SaveProjectAsTemplateRequest) returns (SaveProjectAsTemplateResponse);
+  rpc CreateProjectFromTemplate(CreateProjectFromTemplateRequest) returns (CreateProjectFromTemplateResponse);
+
+  // Project Statuses
+  rpc CreateProjectStatus(CreateProjectStatusRequest) returns (CreateProjectStatusResponse);
+  rpc UpdateProjectStatus(UpdateProjectStatusRequest) returns (UpdateProjectStatusResponse);
+  rpc DeleteProjectStatus(DeleteProjectStatusRequest) returns (DeleteProjectStatusResponse);
+  rpc ReorderProjectStatuses(ReorderProjectStatusesRequest) returns (ReorderProjectStatusesResponse);
+  rpc ListProjectStatuses(ListProjectStatusesRequest) returns (ListProjectStatusesResponse);
+
+  // Tasks
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+  rpc MoveTask(MoveTaskRequest) returns (MoveTaskResponse);
+  rpc ListSubtasks(ListSubtasksRequest) returns (ListSubtasksResponse);
+
+  // Task Dependencies
+  rpc CreateTaskDependency(CreateTaskDependencyRequest) returns (CreateTaskDependencyResponse);
+  rpc DeleteTaskDependency(DeleteTaskDependencyRequest) returns (DeleteTaskDependencyResponse);
+  rpc ListTaskDependencies(ListTaskDependenciesRequest) returns (ListTaskDependenciesResponse);
+
+  // Task Comments
+  rpc CreateTaskComment(CreateTaskCommentRequest) returns (CreateTaskCommentResponse);
+  rpc UpdateTaskComment(UpdateTaskCommentRequest) returns (UpdateTaskCommentResponse);
+  rpc DeleteTaskComment(DeleteTaskCommentRequest) returns (DeleteTaskCommentResponse);
+  rpc ListTaskComments(ListTaskCommentsRequest) returns (ListTaskCommentsResponse);
+
+  // Entity Links
+  rpc LinkEntityToTask(LinkEntityToTaskRequest) returns (LinkEntityToTaskResponse);
+  rpc UnlinkEntityFromTask(UnlinkEntityFromTaskRequest) returns (UnlinkEntityFromTaskResponse);
+  rpc ListTaskEntityLinks(ListTaskEntityLinksRequest) returns (ListTaskEntityLinksResponse);
+  rpc ListEntityTasks(ListEntityTasksRequest) returns (ListEntityTasksResponse);
+
+  // Activity Log
+  rpc ListTaskActivities(ListTaskActivitiesRequest) returns (ListTaskActivitiesResponse);
+
+  // Files
+  rpc AttachFileToTask(AttachFileToTaskRequest) returns (AttachFileToTaskResponse);
+  rpc RemoveTaskFile(RemoveTaskFileRequest) returns (RemoveTaskFileResponse);
+  rpc ListTaskFiles(ListTaskFilesRequest) returns (ListTaskFilesResponse);
+
+  // Custom Fields
+  rpc SetTaskCustomFieldValues(SetTaskCustomFieldValuesRequest) returns (SetTaskCustomFieldValuesResponse);
+  rpc GetTaskCustomFieldValues(GetTaskCustomFieldValuesRequest) returns (GetTaskCustomFieldValuesResponse);
+
+  // Preferences
+  rpc GetUserProjectPreference(GetUserProjectPreferenceRequest) returns (GetUserProjectPreferenceResponse);
+  rpc SetUserProjectPreference(SetUserProjectPreferenceRequest) returns (SetUserProjectPreferenceResponse);
+
+  // Search
+  rpc SearchTasks(SearchTasksRequest) returns (SearchTasksResponse);
+}
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+message ProjectProto {
+  string id = 1;
+  string name = 2;
+  optional string description = 3;
+  string project_key = 4;
+  int32 next_task_number = 5;
+  bool is_template = 6;
+  optional string template_source_id = 7;
+  string created_by = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  optional google.protobuf.Timestamp archived_at = 11;
+  // Denormalized for list views
+  int32 member_count = 12;
+  int32 task_count = 13;
+  string owner_name = 14;
+}
+
+message ProjectMemberProto {
+  string project_id = 1;
+  string user_id = 2;
+  string role = 3;  // "owner", "member", "viewer"
+  google.protobuf.Timestamp added_at = 4;
+  string first_name = 5;
+  string last_name = 6;
+}
+
+message ProjectStatusProto {
+  string id = 1;
+  string project_id = 2;
+  string name = 3;
+  optional string color = 4;
+  int32 sort_order = 5;
+  bool is_default = 6;
+  bool is_closed = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message TaskProto {
+  string id = 1;
+  optional string project_id = 2;
+  int32 task_number = 3;
+  string title = 4;
+  optional string description = 5;
+  optional string status_id = 6;
+  optional string status_name = 7;
+  optional string status_color = 8;
+  string priority = 9;
+  optional string assignee_id = 10;
+  optional string assignee_name = 11;
+  optional string parent_task_id = 12;
+  int32 depth = 13;
+  double sort_order = 14;
+  optional google.protobuf.Timestamp due_date = 15;
+  string created_by = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+  optional google.protobuf.Timestamp completed_at = 19;
+  int32 subtask_count = 20;
+  bool has_blocked_deps = 21;
+  optional string project_key = 22;  // Denormalized for display like "ACME-42"
+  map<string, string> custom_fields = 23;
+}
+
+message TaskDependencyProto {
+  string id = 1;
+  string source_task_id = 2;
+  string target_task_id = 3;
+  string dependency_type = 4;  // "blocks", "blocked_by", "relates_to", "duplicates"
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message TaskCommentProto {
+  string id = 1;
+  string task_id = 2;
+  string author_id = 3;
+  string author_name = 4;
+  string content = 5;
+  optional string quoted_comment_id = 6;
+  optional string quoted_content_preview = 7;
+  google.protobuf.Timestamp created_at = 8;
+  optional google.protobuf.Timestamp updated_at = 9;
+}
+
+message TaskEntityLinkProto {
+  string id = 1;
+  string task_id = 2;
+  string entity_type = 3;  // "contact", "company", "deal", "channel", "message"
+  string entity_id = 4;
+  string entity_display_name = 5;
+  string created_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message TaskActivityProto {
+  string id = 1;
+  string task_id = 2;
+  string actor_id = 3;
+  string actor_name = 4;
+  string action = 5;
+  optional string field_name = 6;
+  optional string old_value = 7;
+  optional string new_value = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message TaskFileProto {
+  string id = 1;
+  string task_id = 2;
+  string filename = 3;
+  string mime_type = 4;
+  int64 file_size = 5;
+  string storage_key = 6;
+  optional string thumbnail_key = 7;
+  string uploaded_by = 8;
+  string uploaded_by_name = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message UserProjectPreferenceProto {
+  string user_id = 1;
+  string project_id = 2;
+  string view_type = 3;       // "list", "kanban"
+  string list_group_by = 4;
+  string list_sort_by = 5;
+  bool list_sort_desc = 6;
+}
+
+message CustomFieldValueInput {
+  string field_id = 1;
+  string value = 2;  // JSON-encoded value
+}
+
+// ============================================================================
+// Project RPCs
+// ============================================================================
+
+message CreateProjectRequest {
+  string name = 1;
+  optional string description = 2;
+  string project_key = 3;
+  string created_by = 4;
+}
+
+message CreateProjectResponse {
+  ProjectProto project = 1;
+}
+
+message GetProjectRequest {
+  string id = 1;
+}
+
+message GetProjectResponse {
+  ProjectProto project = 1;
+}
+
+message ListProjectsRequest {
+  bool include_archived = 1;
+  bool templates_only = 2;
+  string search = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+  string sort_by = 6;
+  bool sort_desc = 7;
+}
+
+message ListProjectsResponse {
+  repeated ProjectProto projects = 1;
+  int32 total = 2;
+}
+
+message UpdateProjectRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string project_key = 4;
+}
+
+message UpdateProjectResponse {
+  ProjectProto project = 1;
+}
+
+message ArchiveProjectRequest {
+  string id = 1;
+}
+
+message ArchiveProjectResponse {
+  ProjectProto project = 1;
+}
+
+// ============================================================================
+// Project Member RPCs
+// ============================================================================
+
+message AddProjectMemberRequest {
+  string project_id = 1;
+  string user_id = 2;
+  string role = 3;
+}
+
+message AddProjectMemberResponse {
+  ProjectMemberProto member = 1;
+}
+
+message RemoveProjectMemberRequest {
+  string project_id = 1;
+  string user_id = 2;
+}
+
+message RemoveProjectMemberResponse {}
+
+message ListProjectMembersRequest {
+  string project_id = 1;
+}
+
+message ListProjectMembersResponse {
+  repeated ProjectMemberProto members = 1;
+}
+
+message UpdateProjectMemberRoleRequest {
+  string project_id = 1;
+  string user_id = 2;
+  string role = 3;
+}
+
+message UpdateProjectMemberRoleResponse {
+  ProjectMemberProto member = 1;
+}
+
+// ============================================================================
+// Project Template RPCs
+// ============================================================================
+
+message SaveProjectAsTemplateRequest {
+  string project_id = 1;
+  string template_name = 2;
+  string created_by = 3;
+}
+
+message SaveProjectAsTemplateResponse {
+  ProjectProto template = 1;
+}
+
+message CreateProjectFromTemplateRequest {
+  string template_id = 1;
+  string name = 2;
+  string project_key = 3;
+  string created_by = 4;
+}
+
+message CreateProjectFromTemplateResponse {
+  ProjectProto project = 1;
+}
+
+// ============================================================================
+// Project Status RPCs
+// ============================================================================
+
+message CreateProjectStatusRequest {
+  string project_id = 1;
+  string name = 2;
+  optional string color = 3;
+  bool is_default = 4;
+  bool is_closed = 5;
+}
+
+message CreateProjectStatusResponse {
+  ProjectStatusProto status = 1;
+}
+
+message UpdateProjectStatusRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string color = 3;
+  optional bool is_default = 4;
+  optional bool is_closed = 5;
+}
+
+message UpdateProjectStatusResponse {
+  ProjectStatusProto status = 1;
+}
+
+message DeleteProjectStatusRequest {
+  string id = 1;
+  optional string migrate_to_status_id = 2;  // Move tasks to this status before deleting
+}
+
+message DeleteProjectStatusResponse {}
+
+message ReorderProjectStatusesRequest {
+  string project_id = 1;
+  repeated string status_ids = 2;  // Ordered list of status IDs
+}
+
+message ReorderProjectStatusesResponse {
+  repeated ProjectStatusProto statuses = 1;
+}
+
+message ListProjectStatusesRequest {
+  string project_id = 1;
+}
+
+message ListProjectStatusesResponse {
+  repeated ProjectStatusProto statuses = 1;
+}
+
+// ============================================================================
+// Task RPCs
+// ============================================================================
+
+message CreateTaskRequest {
+  string project_id = 1;
+  string title = 2;
+  optional string description = 3;
+  optional string status_id = 4;
+  string priority = 5;
+  optional string assignee_id = 6;
+  optional string parent_task_id = 7;
+  optional google.protobuf.Timestamp due_date = 8;
+  string created_by = 9;
+  repeated CustomFieldValueInput custom_fields = 10;
+}
+
+message CreateTaskResponse {
+  TaskProto task = 1;
+}
+
+message GetTaskRequest {
+  string id = 1;
+}
+
+message GetTaskResponse {
+  TaskProto task = 1;
+}
+
+message ListTasksRequest {
+  optional string project_id = 1;
+  optional string assignee_id = 2;
+  optional string status_id = 3;
+  optional string priority = 4;
+  optional google.protobuf.Timestamp due_date_from = 5;
+  optional google.protobuf.Timestamp due_date_to = 6;
+  optional string parent_task_id = 7;
+  string search = 8;
+  int32 page = 9;
+  int32 page_size = 10;
+  string sort_by = 11;
+  bool sort_desc = 12;
+  bool include_completed = 13;
+}
+
+message ListTasksResponse {
+  repeated TaskProto tasks = 1;
+  int32 total = 2;
+}
+
+message UpdateTaskRequest {
+  string id = 1;
+  optional string title = 2;
+  optional string description = 3;
+  optional string status_id = 4;
+  optional string priority = 5;
+  optional string assignee_id = 6;
+  optional google.protobuf.Timestamp due_date = 7;
+  string updated_by = 8;
+  repeated CustomFieldValueInput custom_fields = 9;
+}
+
+message UpdateTaskResponse {
+  TaskProto task = 1;
+}
+
+message DeleteTaskRequest {
+  string id = 1;
+}
+
+message DeleteTaskResponse {}
+
+message MoveTaskRequest {
+  string id = 1;
+  string status_id = 2;
+  double sort_order = 3;
+  string moved_by = 4;
+}
+
+message MoveTaskResponse {
+  TaskProto task = 1;
+}
+
+message ListSubtasksRequest {
+  string parent_task_id = 1;
+  bool recursive = 2;
+}
+
+message ListSubtasksResponse {
+  repeated TaskProto tasks = 1;
+}
+
+// ============================================================================
+// Task Dependency RPCs
+// ============================================================================
+
+message CreateTaskDependencyRequest {
+  string source_task_id = 1;
+  string target_task_id = 2;
+  string dependency_type = 3;
+  string created_by = 4;
+}
+
+message CreateTaskDependencyResponse {
+  TaskDependencyProto dependency = 1;
+}
+
+message DeleteTaskDependencyRequest {
+  string id = 1;
+}
+
+message DeleteTaskDependencyResponse {}
+
+message ListTaskDependenciesRequest {
+  string task_id = 1;
+}
+
+message ListTaskDependenciesResponse {
+  repeated TaskDependencyProto dependencies = 1;
+}
+
+// ============================================================================
+// Task Comment RPCs
+// ============================================================================
+
+message CreateTaskCommentRequest {
+  string task_id = 1;
+  string author_id = 2;
+  string content = 3;
+  optional string quoted_comment_id = 4;
+}
+
+message CreateTaskCommentResponse {
+  TaskCommentProto comment = 1;
+}
+
+message UpdateTaskCommentRequest {
+  string id = 1;
+  string content = 2;
+}
+
+message UpdateTaskCommentResponse {
+  TaskCommentProto comment = 1;
+}
+
+message DeleteTaskCommentRequest {
+  string id = 1;
+}
+
+message DeleteTaskCommentResponse {}
+
+message ListTaskCommentsRequest {
+  string task_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListTaskCommentsResponse {
+  repeated TaskCommentProto comments = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Entity Link RPCs
+// ============================================================================
+
+message LinkEntityToTaskRequest {
+  string task_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+  string created_by = 4;
+}
+
+message LinkEntityToTaskResponse {
+  TaskEntityLinkProto link = 1;
+}
+
+message UnlinkEntityFromTaskRequest {
+  string id = 1;
+}
+
+message UnlinkEntityFromTaskResponse {}
+
+message ListTaskEntityLinksRequest {
+  string task_id = 1;
+}
+
+message ListTaskEntityLinksResponse {
+  repeated TaskEntityLinkProto links = 1;
+}
+
+message ListEntityTasksRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListEntityTasksResponse {
+  repeated TaskProto tasks = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Task Activity RPCs
+// ============================================================================
+
+message ListTaskActivitiesRequest {
+  string task_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListTaskActivitiesResponse {
+  repeated TaskActivityProto activities = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Task File RPCs
+// ============================================================================
+
+message AttachFileToTaskRequest {
+  string task_id = 1;
+  string filename = 2;
+  string mime_type = 3;
+  int64 file_size = 4;
+  string storage_key = 5;
+  optional string thumbnail_key = 6;
+  string uploaded_by = 7;
+}
+
+message AttachFileToTaskResponse {
+  TaskFileProto file = 1;
+}
+
+message RemoveTaskFileRequest {
+  string id = 1;
+}
+
+message RemoveTaskFileResponse {}
+
+message ListTaskFilesRequest {
+  string task_id = 1;
+}
+
+message ListTaskFilesResponse {
+  repeated TaskFileProto files = 1;
+}
+
+// ============================================================================
+// Custom Field RPCs
+// ============================================================================
+
+message SetTaskCustomFieldValuesRequest {
+  string task_id = 1;
+  repeated CustomFieldValueInput values = 2;
+}
+
+message SetTaskCustomFieldValuesResponse {
+  map<string, string> custom_fields = 1;  // field_name -> JSON value
+}
+
+message GetTaskCustomFieldValuesRequest {
+  string task_id = 1;
+}
+
+message GetTaskCustomFieldValuesResponse {
+  map<string, string> custom_fields = 1;
+}
+
+// ============================================================================
+// Preference RPCs
+// ============================================================================
+
+message GetUserProjectPreferenceRequest {
+  string user_id = 1;
+  string project_id = 2;
+}
+
+message GetUserProjectPreferenceResponse {
+  UserProjectPreferenceProto preference = 1;
+}
+
+message SetUserProjectPreferenceRequest {
+  string user_id = 1;
+  string project_id = 2;
+  optional string view_type = 3;
+  optional string list_group_by = 4;
+  optional string list_sort_by = 5;
+  optional bool list_sort_desc = 6;
+}
+
+message SetUserProjectPreferenceResponse {
+  UserProjectPreferenceProto preference = 1;
+}
+
+// ============================================================================
+// Search RPCs
+// ============================================================================
+
+message SearchTasksRequest {
+  string query = 1;
+  repeated string project_ids = 2;
+  repeated string assignee_ids = 3;
+  repeated string status_ids = 4;
+  repeated string priorities = 5;
+  optional google.protobuf.Timestamp due_date_from = 6;
+  optional google.protobuf.Timestamp due_date_to = 7;
+  bool include_completed = 8;
+  int32 page = 9;
+  int32 page_size = 10;
+}
+
+message SearchTasksResponse {
+  repeated TaskProto tasks = 1;
+  int32 total = 2;
+}

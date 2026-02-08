@@ -31,6 +31,7 @@ func (h *HealthRoutes) ServiceName() string { return "health" }
 // RegisterRoutes registers the /health endpoint.
 func (h *HealthRoutes) RegisterRoutes(r chi.Router, _ func(http.Handler) http.Handler) {
 	r.Get("/health", h.HandleHealth)
+	r.Head("/health", h.HandleHealth)
 }
 
 // HandleHealth runs all health checkers and reports registry status.

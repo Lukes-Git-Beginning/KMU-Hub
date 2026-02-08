@@ -2,37 +2,38 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-07)
+See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 5 - Desktop App Shell (Plan 6 of 7 complete)
+**Current focus:** Phase 6 - Project Management (in progress)
 
 ## Current Position
 
-Phase: 5 of 13 (Desktop App Shell)
-Plan: 6 of 7 in current phase
-Status: In progress
-Last activity: 2026-02-07 -- Completed 05-06-PLAN.md (Role-Based Dashboard Layouts)
+Phase: 6 of 20 (Project Management)
+Plan: 8 of 10 in current phase
+Status: In progress (plans 06-09, 06-10 need planning)
+Last activity: 2026-02-08 -- Completed 06-08-PLAN.md (CRM Linking + Search + Filters + Templates)
 
-Progress: [###############░░░░░] 28% (9/32 plans across phases 4-13)
+Progress: [██████░░░░░░░░░░░░░░░░░░] 28% (18/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: ~11 minutes
-- Total execution time: ~1 hour 37 minutes
+- Total plans completed: 18
+- Average duration: ~10 minutes
+- Total execution time: ~2h 57min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
-| 05 | 6/7 | ~56min | ~9min |
+| 05 | 7/7 | ~66min | ~9min |
+| 06 | 8/10 | ~70min | ~8.75min |
 
 **Recent Trend:**
-- Last 5 plans: 05-02 (~10min), 05-03 (~11min), 05-04 (~10min), 05-05 (~8min), 05-06 (~8min)
-- Trend: Desktop module plans consistently ~9-10min
+- Last 5 plans: 06-05 (~8min), 06-06 (~7min), 06-07 (~10min), 06-08 (~10min)
+- Trend: Consistent ~8-10min per frontend plan
 
 *Updated after each plan completion*
 
@@ -48,43 +49,55 @@ Recent decisions affecting current work:
 - [Roadmap]: Notifications first (unblocks all future modules)
 - [Roadmap]: Full IMAP+SMTP email in v1 (user decision despite research suggesting deferral)
 - [Roadmap]: Automation and Plugins last (need stable APIs from all other modules)
+- [Roadmap]: Feature gap analysis expansion -- 13 to 18 phases, Meeting Management merged into Phase 8, Security & Compliance as Phase 9 gatekeeper, Documents & Files as Phase 11, 3 integration mini-phases (14-16)
 - [04-01]: WebSocket hub stays in main.go (cross-cutting, needs both chat + auth clients)
-- [04-01]: HealthHandler kept in server/http.go (used by auth/crm/chat services)
-- [04-01]: Notification config fields pre-added to config.go
 - [04-02]: Raw pgx over pgxlisten for event bus (pgxlisten pre-v1, unstable)
-- [04-02]: 30-second grouping window for smart notification collapse
-- [04-02]: 7-stage preference evaluation pipeline
 - [04-02]: Dual write (events table + pg_notify) for event durability
 - [04-02]: DeliveryCallback pattern decouples notification service from WebSocket delivery
 - [04-03]: Dual pg_notify channels: 'events' for notification processing, 'notification_delivery' for gateway WebSocket push
-- [04-03]: EventEmitter as optional SetEventEmitter pattern for backward compatibility
-- [04-03]: Best-effort event emission (errors logged, don't fail primary operations)
-- [04-03]: NotifyDelivery in notification repo signals gateway after storing each notification
 - [05-01]: electron-vite v5 with build.externalizeDeps (deprecated plugin replaced)
 - [05-01]: TSconfig split: node (bundler resolution) + web (DOM, react-jsx, path aliases)
-- [05-01]: electron.vite.config.ts excluded from tsc (electron-vite v5/vite 5 type mismatch)
 - [05-01]: CSP unsafe-inline for dev only (Vite HMR), production uses self only
-- [05-01]: safeStorage with plaintext fallback for Linux without keyring
-- [05-02]: shadcn CLI installs to @/ literal -- lib/index.ts barrel export needed
-- [05-02]: vite-env.d.ts for import.meta.env types (electron-vite v5 gap)
 - [05-02]: createHashRouter for Electron file:// protocol compatibility
 - [05-02]: Auth init before render; GuestRoute guard on login page
 - [05-03]: Routes/Route for CRM sub-navigation (module-level routing inside AppShell Outlet)
-- [05-03]: Alert placeholder for CRUD actions until toast system is added
-- [05-03]: Pipeline view fetches all deals (page_size 200) for client-side stage grouping
-- [05-03]: Shared activityUtils.ts for German labels and icons across 4 pages
-- [05-04]: Typing indicator: 3s debounce on send, 4s auto-expiry on receive
 - [05-04]: WebSocket cache sync via queryClient.setQueryData with invalidation fallback
 - [05-04]: Native push only when document.hasFocus() === false
-- [05-04]: Notification preferences embedded in NotificationCenter as toggleable panel
 - [05-05]: Widget registry pattern -- centralized definitions with lazy-loaded components
 - [05-05]: Per-widget ErrorBoundary for crash isolation
-- [05-05]: 500ms debounced onLayoutChange for localStorage persistence
-- [05-05]: DealPipeline uses PipelineStageInfo.totalValue (no separate deals fetch)
 - [05-06]: Dashboard service in gateway with direct DB access (not gRPC)
-- [05-06]: 2-second debounced server sync for layout changes
-- [05-06]: RequireRole("admin") for dashboard defaults endpoints
 - [05-06]: localStorage as offline cache, server as source of truth
+- [05-07]: 24h maxAge for TanStack Query cache with 5min staleTime
+- [05-07]: Mutations blocked when offline via OfflineError in API client
+- [05-07]: CORS origins include localhost:5173 for Electron dev
+- [06-01]: Task constants prefixed with Task* to avoid collision with notification model priority constants
+- [06-02]: Project key auto-normalizes to uppercase; validation rejects non-alphanumeric only
+- [06-02]: Status service trusts caller for authorization (gRPC server checks membership)
+- [06-02]: GetUserPreference returns nil when no preference set (caller applies defaults)
+- [06-03]: Standalone tasks get task_number=0 (no project counter increment)
+- [06-03]: Comment service depends on taskRepo.CreateActivity for activity logging
+- [06-03]: @mention pattern uses @{uuid} format for deterministic user resolution
+- [06-03]: Cycle detection only for blocking deps (blocks/blocked_by), not relates_to/duplicates
+- [06-03]: MoveTask handles completed_at setting/clearing based on status is_closed flag
+- [06-04]: gRPC server uses uuid.Nil + isAdmin=true (gateway handles auth)
+- [06-04]: Template key auto-generated from name prefix + UUID suffix
+- [06-04]: Work routes follow exact same RouteRegistrar pattern as CRM/Chat/Notification
+- [06-05]: API types regenerated to include work/project/task endpoints from OpenAPI spec
+- [06-05]: Project create dialog bundles status creation as sequential API calls after project POST
+- [06-05]: My Tasks hooks auto-set assignee_id from auth store (user sees only own tasks)
+- [06-06]: Client-side grouping for instant group switching without network roundtrip
+- [06-06]: closestCorners collision detection for multi-container Kanban DnD
+- [06-06]: Max 3 visual nesting levels on Kanban to keep board clean
+- [06-06]: Subtask cards not independently draggable on Kanban (use list view or detail panel)
+- [06-07]: Fixed overlay panel (CSS transform) for task detail slide-over, no Radix Sheet dependency
+- [06-07]: Two-step file upload: multipart to MinIO via /files/upload, then JSON metadata to task files
+- [06-07]: Nested Routes in ProjectDetailPage for board view vs task detail page
+- [06-07]: Tab-based activity/comments view (Alle/Kommentare/Aktivitaet) for user control
+- [06-08]: Context-aware auto-suggest shows banner but never auto-applies links
+- [06-08]: Standalone tasks use task_number=0 with TASK system key
+- [06-08]: CRM search API reused for entity linking (no new backend search endpoint)
+- [06-08]: Custom fields reuse CRM engine with entity_type=task
+- [06-08]: Move-to-project updates project_id via existing task update API
 
 ### Pending Todos
 
@@ -93,12 +106,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- [Phase 10]: GoBD compliance requires Steuerberater consultation before data model design
-- [Phase 11]: ArbZG/BUrlG implementation details need labor law expert review
-- [Phase 10]: DATEV Buchungsstapel format spec not publicly detailed -- may need DATEV partner access
+- [Phase 12]: GoBD compliance requires Steuerberater consultation before data model design
+- [Phase 13]: ArbZG/BUrlG implementation details need labor law expert review
+- [Phase 12]: DATEV Buchungsstapel format spec not publicly detailed -- may need DATEV partner access
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Completed 05-06-PLAN.md (Role-Based Dashboard Layouts)
+Last session: 2026-02-08
+Stopped at: Completed 06-08-PLAN.md (CRM Linking + Search + Filters + Templates)
 Resume file: None

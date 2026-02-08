@@ -23,6 +23,8 @@ type Config struct {
 	ChatGRPCAddress          string `env:"CHAT_GRPC_ADDRESS,default=localhost:50053"`
 	NotificationGRPCPort    string `env:"NOTIFICATION_GRPC_PORT,default=:50054"`
 	NotificationGRPCAddress string `env:"NOTIFICATION_GRPC_ADDRESS,default=localhost:50054"`
+	WorkGRPCPort            string `env:"WORK_GRPC_PORT,default=:50055"`
+	WorkGRPCAddress         string `env:"WORK_GRPC_ADDRESS,default=localhost:50055"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -34,6 +36,7 @@ type Config struct {
 	CRMHealthPort  string `env:"CRM_HEALTH_PORT,default=:9092"`
 	ChatHealthPort         string `env:"CHAT_HEALTH_PORT,default=:9093"`
 	NotificationHealthPort string `env:"NOTIFICATION_HEALTH_PORT,default=:9094"`
+	WorkHealthPort         string `env:"WORK_HEALTH_PORT,default=:9095"`
 
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
