@@ -1296,6 +1296,481 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List projects */
+        get: operations["listProjects"];
+        put?: never;
+        /** Create project */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get project by ID */
+        get: operations["getProject"];
+        /** Update project */
+        put: operations["updateProject"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive project */
+        post: operations["archiveProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List project members */
+        get: operations["listProjectMembers"];
+        put?: never;
+        /** Add project member */
+        post: operations["addProjectMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/members/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update project member role */
+        put: operations["updateProjectMemberRole"];
+        post?: never;
+        /** Remove project member */
+        delete: operations["removeProjectMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save project as template */
+        post: operations["saveProjectAsTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/from-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create project from template */
+        post: operations["createProjectFromTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/statuses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List project statuses */
+        get: operations["listProjectStatuses"];
+        put?: never;
+        /** Create project status */
+        post: operations["createProjectStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/statuses/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder project statuses */
+        post: operations["reorderProjectStatuses"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/project-statuses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update project status */
+        put: operations["updateProjectStatus"];
+        post?: never;
+        /** Delete project status */
+        delete: operations["deleteProjectStatus"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get user project preference */
+        get: operations["getUserProjectPreference"];
+        /** Set user project preference */
+        put: operations["setUserProjectPreference"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List tasks with filters */
+        get: operations["listTasks"];
+        put?: never;
+        /** Create task */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get task by ID */
+        get: operations["getTask"];
+        /** Update task */
+        put: operations["updateTask"];
+        post?: never;
+        /** Delete task */
+        delete: operations["deleteTask"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move task (Kanban status change) */
+        post: operations["moveTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/subtasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List subtasks */
+        get: operations["listSubtasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/dependencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List task dependencies */
+        get: operations["listTaskDependencies"];
+        put?: never;
+        /** Create task dependency */
+        post: operations["createTaskDependency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-dependencies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete task dependency */
+        delete: operations["deleteTaskDependency"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List task comments */
+        get: operations["listTaskComments"];
+        put?: never;
+        /** Create task comment */
+        post: operations["createTaskComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-comments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update task comment */
+        put: operations["updateTaskComment"];
+        post?: never;
+        /** Delete task comment */
+        delete: operations["deleteTaskComment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List task entity links */
+        get: operations["listTaskEntityLinks"];
+        put?: never;
+        /** Link CRM entity to task */
+        post: operations["linkEntityToTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unlink entity from task */
+        delete: operations["unlinkEntityFromTask"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entity-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List tasks linked to a CRM entity */
+        get: operations["listEntityTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/activities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List task activity log */
+        get: operations["listTaskActivities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List task files */
+        get: operations["listTaskFiles"];
+        put?: never;
+        /** Attach file to task */
+        post: operations["attachFileToTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/task-files/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove file from task */
+        delete: operations["removeTaskFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/custom-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get task custom field values */
+        get: operations["getTaskCustomFieldValues"];
+        /** Set task custom field values */
+        put: operations["setTaskCustomFieldValues"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search tasks */
+        get: operations["searchTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2247,6 +2722,249 @@ export interface components {
                 [key: string]: unknown;
             }[];
             active_widgets: string[];
+        };
+        CreateProjectRequest: {
+            name: string;
+            description?: string;
+            project_key: string;
+        };
+        UpdateProjectRequest: {
+            name?: string;
+            description?: string;
+        };
+        ProjectResponse: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            description?: string;
+            project_key?: string;
+            next_task_number?: number;
+            is_template?: boolean;
+            /** Format: uuid */
+            template_source_id?: string;
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /** Format: date-time */
+            archived_at?: string;
+            member_count?: number;
+            task_count?: number;
+            owner_name?: string;
+        };
+        ProjectMemberResponse: {
+            /** Format: uuid */
+            project_id?: string;
+            /** Format: uuid */
+            user_id?: string;
+            /** @enum {string} */
+            role?: "owner" | "member" | "viewer";
+            /** Format: date-time */
+            added_at?: string;
+            first_name?: string;
+            last_name?: string;
+        };
+        CreateProjectStatusRequest: {
+            name: string;
+            color?: string;
+            /** @default false */
+            is_default: boolean;
+            /** @default false */
+            is_closed: boolean;
+        };
+        UpdateProjectStatusRequest: {
+            name?: string;
+            color?: string;
+            is_default?: boolean;
+            is_closed?: boolean;
+        };
+        ProjectStatusResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            project_id?: string;
+            name?: string;
+            color?: string;
+            sort_order?: number;
+            is_default?: boolean;
+            is_closed?: boolean;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        UserProjectPreferenceResponse: {
+            /** Format: uuid */
+            user_id?: string;
+            /** Format: uuid */
+            project_id?: string;
+            /** @enum {string} */
+            view_type?: "list" | "kanban";
+            list_group_by?: string;
+            list_sort_by?: string;
+            list_sort_desc?: boolean;
+        };
+        SetUserProjectPreferenceRequest: {
+            /** @enum {string} */
+            view_type?: "list" | "kanban";
+            list_group_by?: string;
+            list_sort_by?: string;
+            list_sort_desc?: boolean;
+        };
+        CreateTaskRequest: {
+            /** Format: uuid */
+            project_id?: string;
+            title: string;
+            description?: string;
+            /** Format: uuid */
+            status_id?: string;
+            /** @enum {string} */
+            priority: "urgent" | "high" | "normal" | "low";
+            /** Format: uuid */
+            assignee_id?: string;
+            /** Format: uuid */
+            parent_task_id?: string;
+            /** Format: date-time */
+            due_date?: string;
+            custom_fields?: {
+                /** Format: uuid */
+                field_id: string;
+                value: string;
+            }[];
+        };
+        UpdateTaskRequest: {
+            title?: string;
+            description?: string;
+            /** Format: uuid */
+            status_id?: string;
+            /** @enum {string} */
+            priority?: "urgent" | "high" | "normal" | "low";
+            /** Format: uuid */
+            assignee_id?: string;
+            /** Format: date-time */
+            due_date?: string;
+            custom_fields?: {
+                /** Format: uuid */
+                field_id: string;
+                value: string;
+            }[];
+        };
+        TaskResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            project_id?: string;
+            task_number?: number;
+            title?: string;
+            description?: string;
+            /** Format: uuid */
+            status_id?: string;
+            status_name?: string;
+            status_color?: string;
+            /** @enum {string} */
+            priority?: "urgent" | "high" | "normal" | "low";
+            /** Format: uuid */
+            assignee_id?: string;
+            assignee_name?: string;
+            /** Format: uuid */
+            parent_task_id?: string;
+            depth?: number;
+            /** Format: double */
+            sort_order?: number;
+            /** Format: date-time */
+            due_date?: string;
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            /** Format: date-time */
+            completed_at?: string;
+            subtask_count?: number;
+            has_blocked_deps?: boolean;
+            project_key?: string;
+            custom_fields?: {
+                [key: string]: string;
+            };
+        };
+        TaskDependencyResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            source_task_id?: string;
+            /** Format: uuid */
+            target_task_id?: string;
+            /** @enum {string} */
+            dependency_type?: "blocks" | "blocked_by" | "relates_to" | "duplicates";
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        TaskCommentResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            task_id?: string;
+            /** Format: uuid */
+            author_id?: string;
+            author_name?: string;
+            content?: string;
+            /** Format: uuid */
+            quoted_comment_id?: string;
+            quoted_content_preview?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        TaskEntityLinkResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            task_id?: string;
+            /** @enum {string} */
+            entity_type?: "contact" | "company" | "deal" | "activity" | "project";
+            /** Format: uuid */
+            entity_id?: string;
+            entity_display_name?: string;
+            /** Format: uuid */
+            created_by?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        TaskActivityResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            task_id?: string;
+            /** Format: uuid */
+            actor_id?: string;
+            actor_name?: string;
+            action?: string;
+            field_name?: string;
+            old_value?: string;
+            new_value?: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        TaskFileResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            task_id?: string;
+            filename?: string;
+            mime_type?: string;
+            /** Format: int64 */
+            file_size?: number;
+            storage_key?: string;
+            thumbnail_key?: string;
+            /** Format: uuid */
+            uploaded_by?: string;
+            uploaded_by_name?: string;
+            /** Format: date-time */
+            created_at?: string;
         };
     };
     responses: {
@@ -5460,6 +6178,1160 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listProjects: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+                templates_only?: boolean;
+                search?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        projects?: components["schemas"]["ProjectResponse"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        project?: components["schemas"]["ProjectResponse"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        project?: components["schemas"]["ProjectResponse"];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        project?: components["schemas"]["ProjectResponse"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    archiveProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project archived */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        project?: components["schemas"]["ProjectResponse"];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listProjectMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        members?: components["schemas"]["ProjectMemberResponse"][];
+                    };
+                };
+            };
+        };
+    };
+    addProjectMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    user_id: string;
+                    /** @enum {string} */
+                    role: "owner" | "member" | "viewer";
+                };
+            };
+        };
+        responses: {
+            /** @description Member added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        member?: components["schemas"]["ProjectMemberResponse"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    updateProjectMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    role: "owner" | "member" | "viewer";
+                };
+            };
+        };
+        responses: {
+            /** @description Role updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    removeProjectMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    saveProjectAsTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    template_name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Template created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        template?: components["schemas"]["ProjectResponse"];
+                    };
+                };
+            };
+        };
+    };
+    createProjectFromTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    template_id: string;
+                    name: string;
+                    project_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Project created from template */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        project?: components["schemas"]["ProjectResponse"];
+                    };
+                };
+            };
+        };
+    };
+    listProjectStatuses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        statuses?: components["schemas"]["ProjectStatusResponse"][];
+                    };
+                };
+            };
+        };
+    };
+    createProjectStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Status created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        status?: components["schemas"]["ProjectStatusResponse"];
+                    };
+                };
+            };
+        };
+    };
+    reorderProjectStatuses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    status_ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Statuses reordered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateProjectStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Status updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteProjectStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getUserProjectPreference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User preference */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserProjectPreferenceResponse"];
+                };
+            };
+        };
+    };
+    setUserProjectPreference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetUserProjectPreferenceRequest"];
+            };
+        };
+        responses: {
+            /** @description Preference saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: {
+                project_id?: string;
+                assignee_id?: string;
+                status_id?: string;
+                priority?: "urgent" | "high" | "normal" | "low";
+                parent_task_id?: string;
+                search?: string;
+                sort_by?: string;
+                sort_desc?: boolean;
+                include_completed?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tasks?: components["schemas"]["TaskResponse"][];
+                        total?: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Task created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        task?: components["schemas"]["TaskResponse"];
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        task?: components["schemas"]["TaskResponse"];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Task updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        task?: components["schemas"]["TaskResponse"];
+                    };
+                };
+            };
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    moveTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    status_id: string;
+                    /** Format: double */
+                    sort_order?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Task moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        task?: components["schemas"]["TaskResponse"];
+                    };
+                };
+            };
+        };
+    };
+    listSubtasks: {
+        parameters: {
+            query?: {
+                recursive?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subtask list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tasks?: components["schemas"]["TaskResponse"][];
+                    };
+                };
+            };
+        };
+    };
+    listTaskDependencies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dependency list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dependencies?: components["schemas"]["TaskDependencyResponse"][];
+                    };
+                };
+            };
+        };
+    };
+    createTaskDependency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    target_task_id: string;
+                    /** @enum {string} */
+                    dependency_type: "blocks" | "blocked_by" | "relates_to" | "duplicates";
+                };
+            };
+        };
+        responses: {
+            /** @description Dependency created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dependency?: components["schemas"]["TaskDependencyResponse"];
+                    };
+                };
+            };
+        };
+    };
+    deleteTaskDependency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dependency deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTaskComments: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comment list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        comments?: components["schemas"]["TaskCommentResponse"][];
+                        total?: number;
+                    };
+                };
+            };
+        };
+    };
+    createTaskComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    content: string;
+                    /** Format: uuid */
+                    quoted_comment_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Comment created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        comment?: components["schemas"]["TaskCommentResponse"];
+                    };
+                };
+            };
+        };
+    };
+    updateTaskComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    content: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Comment updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteTaskComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comment deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listTaskEntityLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entity link list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        links?: components["schemas"]["TaskEntityLinkResponse"][];
+                    };
+                };
+            };
+        };
+    };
+    linkEntityToTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    entity_type: "contact" | "company" | "deal" | "activity" | "project";
+                    /** Format: uuid */
+                    entity_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Entity linked */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        link?: components["schemas"]["TaskEntityLinkResponse"];
+                    };
+                };
+            };
+        };
+    };
+    unlinkEntityFromTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entity unlinked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listEntityTasks: {
+        parameters: {
+            query: {
+                entity_type: "contact" | "company" | "deal" | "activity" | "project";
+                entity_id: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tasks linked to entity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tasks?: components["schemas"]["TaskResponse"][];
+                        total?: number;
+                    };
+                };
+            };
+        };
+    };
+    listTaskActivities: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Activity log */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        activities?: components["schemas"]["TaskActivityResponse"][];
+                        total?: number;
+                    };
+                };
+            };
+        };
+    };
+    listTaskFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files?: components["schemas"]["TaskFileResponse"][];
+                    };
+                };
+            };
+        };
+    };
+    attachFileToTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    filename: string;
+                    mime_type: string;
+                    /** Format: int64 */
+                    file_size: number;
+                    storage_key: string;
+                    thumbnail_key?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description File attached */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file?: components["schemas"]["TaskFileResponse"];
+                    };
+                };
+            };
+        };
+    };
+    removeTaskFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTaskCustomFieldValues: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom field values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        custom_fields?: {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    setTaskCustomFieldValues: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    values: {
+                        /** Format: uuid */
+                        field_id: string;
+                        value: string;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Custom fields updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    searchTasks: {
+        parameters: {
+            query: {
+                q: string;
+                project_ids?: string[];
+                assignee_ids?: string[];
+                include_completed?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Search results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tasks?: components["schemas"]["TaskResponse"][];
+                        total?: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
         };
     };
 }
