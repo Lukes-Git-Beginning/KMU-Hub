@@ -14,6 +14,13 @@ const (
 	EventCRMDealAssigned     = "crm.deal.assigned"
 	EventCRMContactAssigned  = "crm.contact.assigned"
 
+	// Work events
+	EventWorkTaskCreated       = "work.task.created"
+	EventWorkTaskAssigned      = "work.task.assigned"
+	EventWorkTaskStatusChanged = "work.task.status_changed"
+	EventWorkTaskCommented     = "work.task.commented"
+	EventWorkTaskMentioned     = "work.task.mentioned"
+
 	// System events
 	EventSystemAlert = "system.alert"
 )
@@ -22,6 +29,7 @@ const (
 const (
 	ModuleChat   = "chat"
 	ModuleCRM    = "crm"
+	ModuleWork   = "work"
 	ModuleSystem = "system"
 )
 
