@@ -30,8 +30,8 @@ export interface NavItemConfig {
 
 export const navItems: NavItemConfig[] = [
   { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Uebersicht', enabled: true, section: 'main' },
-  { id: 'projects', to: '/projekte', icon: FolderKanban, label: 'Projekte', enabled: false, section: 'main' },
-  { id: 'tasks', to: '/aufgaben', icon: CheckSquare, label: 'Aufgaben', enabled: false, section: 'main', badge: { type: 'text', value: '5' } },
+  { id: 'projects', to: '/work/projects', icon: FolderKanban, label: 'Projekte', enabled: true, section: 'main' },
+  { id: 'tasks', to: '/work/my-tasks', icon: CheckSquare, label: 'Aufgaben', enabled: true, section: 'main', badge: { type: 'text', value: '5' } },
   { id: 'documents', to: '/dokumente', icon: FileText, label: 'Dokumente', enabled: false, section: 'main' },
   { id: 'finance', to: '/buchhaltung', icon: Calculator, label: 'Buchhaltung', enabled: false, section: 'main', badge: { type: 'text', value: 'Neu' } },
   { id: 'chat', to: '/chat', icon: MessageSquare, label: 'Nachrichten', enabled: true, section: 'main', badge: { type: 'text', value: '3' } },
