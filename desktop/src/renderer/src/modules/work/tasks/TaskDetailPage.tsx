@@ -49,6 +49,9 @@ import DependencyList from '../components/DependencyList'
 import TaskCreateDialog from '../components/TaskCreateDialog'
 import TaskLinkField from '../components/TaskLinkField'
 import CustomFieldsSection from '../components/CustomFieldsSection'
+import TaskTimer from '../components/TaskTimer'
+import TimeEntryList from '../components/TimeEntryList'
+import ManualTimeEntryDialog from '../components/ManualTimeEntryDialog'
 
 export default function TaskDetailPage() {
   const { id: projectId, taskId } = useParams<{
@@ -73,6 +76,7 @@ export default function TaskDetailPage() {
   const subtasks = subtasksData?.tasks ?? []
 
   const [createSubtaskOpen, setCreateSubtaskOpen] = useState(false)
+  const [manualTimeEntryOpen, setManualTimeEntryOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleValue, setTitleValue] = useState('')
   const [editingDesc, setEditingDesc] = useState(false)
@@ -634,6 +638,34 @@ export default function TaskDetailPage() {
 
           <Separator />
 
+          {/* Time tracking */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">
+                Zeiterfassung
+              </label>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs px-2"
+                onClick={() => setManualTimeEntryOpen(true)}
+              >
+                + Manuell
+              </Button>
+            </div>
+            <TaskTimer taskId={taskId ?? ''} />
+          </div>
+
+          {/* Time entries */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Zeiteintraege
+            </label>
+            <TimeEntryList taskId={taskId ?? ''} />
+          </div>
+
+          <Separator />
+
           {/* Metadata */}
           <div className="space-y-2 text-xs text-muted-foreground">
             {task.created_by_name && (
@@ -667,6 +699,13 @@ export default function TaskDetailPage() {
         projectId={effectiveProjectId}
         statuses={statuses}
         parentTaskId={taskId}
+      />
+
+      {/* Manual time entry dialog */}
+      <ManualTimeEntryDialog
+        open={manualTimeEntryOpen}
+        onOpenChange={setManualTimeEntryOpen}
+        taskId={taskId ?? ''}
       />
     </div>
   )
