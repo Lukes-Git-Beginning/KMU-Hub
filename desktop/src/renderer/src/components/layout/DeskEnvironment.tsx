@@ -38,6 +38,11 @@ export function DeskEnvironment() {
   const isDark = storeTheme === 'dark' || systemIsDark
   const activeTheme = DESK_THEMES[deskThemeId] ?? DESK_THEMES[DEFAULT_DESK_THEME_ID]
 
+  // Sync .dark class on <html> for CSS dark mode variables
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark)
+  }, [isDark])
+
   // Build inline CSS variables from active theme
   const themeStyle = useMemo(() => {
     const vars: Record<string, string> = {}
