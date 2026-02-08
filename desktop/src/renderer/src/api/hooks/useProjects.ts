@@ -364,7 +364,7 @@ export function useSetPreference() {
       ...body
     }: {
       projectId: string
-      view_type?: 'list' | 'kanban'
+      view_type?: 'list' | 'kanban' | 'gantt'
       list_group_by?: string
       list_sort_by?: string
       list_sort_desc?: boolean

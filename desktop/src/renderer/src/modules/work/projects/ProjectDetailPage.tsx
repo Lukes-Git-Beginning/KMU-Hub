@@ -2,9 +2,9 @@
  * Project detail page showing project info, view toggle, and task views.
  *
  * Accessed via /work/projects/:id. Shows project header with name, key,
- * view toggle (List/Kanban), settings, and new task button. Content area
- * renders TaskListView or KanbanBoard based on persisted user preference.
- * Includes TaskDetailPanel slide-over for quick task viewing.
+ * view toggle (List/Kanban/Gantt), settings, and new task button. Content
+ * area renders TaskListView, KanbanBoard, or GanttChart based on persisted
+ * user preference. Includes TaskDetailPanel slide-over for quick task viewing.
  */
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Routes, Route } from 'react-router-dom'
@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   LayoutList,
   Columns3,
+  GanttChartSquare,
   Settings,
   Plus,
 } from 'lucide-react'
@@ -30,6 +31,7 @@ import KanbanBoard from '../kanban/KanbanBoard'
 import TaskCreateDialog from '../components/TaskCreateDialog'
 import TaskDetailPanel from '../tasks/TaskDetailPanel'
 import TaskDetailPage from '../tasks/TaskDetailPage'
+import GanttChart from '../gantt/GanttChart'
 
 /**
  * Wrapper component that handles nested routing for project detail.
@@ -62,19 +64,21 @@ function ProjectBoardView() {
   const statuses = statusesData?.statuses ?? []
 
   // View type from preferences (default to list)
-  const [view, setView] = useState<'list' | 'kanban'>('list')
+  type ViewType = 'list' | 'kanban' | 'gantt'
+  const [view, setView] = useState<ViewType>('list')
 
   // Sync view from preferences once loaded
   useEffect(() => {
-    if (prefData?.view_type === 'kanban' || prefData?.view_type === 'list') {
-      setView(prefData.view_type)
+    const vt = prefData?.view_type
+    if (vt === 'kanban' || vt === 'list' || vt === 'gantt') {
+      setView(vt as ViewType)
     }
   }, [prefData?.view_type])
 
-  function handleViewChange(newView: 'list' | 'kanban') {
+  function handleViewChange(newView: ViewType) {
     setView(newView)
     if (id) {
-      setPreference.mutate({ projectId: id, view_type: newView })
+      setPreference.mutate({ projectId: id, view_type: newView as any })
     }
   }
 
@@ -165,16 +169,27 @@ function ProjectBoardView() {
               size="sm"
               className="rounded-r-none"
               onClick={() => handleViewChange('list')}
+              title="Listenansicht"
             >
               <LayoutList className="h-4 w-4" />
             </Button>
             <Button
               variant={view === 'kanban' ? 'secondary' : 'ghost'}
               size="sm"
-              className="rounded-l-none"
+              className="rounded-none border-x border-border"
               onClick={() => handleViewChange('kanban')}
+              title="Kanban-Ansicht"
             >
               <Columns3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={view === 'gantt' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-l-none"
+              onClick={() => handleViewChange('gantt')}
+              title="Gantt-Ansicht"
+            >
+              <GanttChartSquare className="h-4 w-4" />
             </Button>
           </div>
 
@@ -193,12 +208,14 @@ function ProjectBoardView() {
         </div>
       </div>
 
-      {/* Content area: List or Kanban view */}
+      {/* Content area: List, Kanban, or Gantt view */}
       <div className="flex-1 min-h-0">
         {view === 'list' ? (
           <TaskListView projectId={id ?? ''} statuses={statuses} />
-        ) : (
+        ) : view === 'kanban' ? (
           <KanbanBoard projectId={id ?? ''} statuses={kanbanStatuses} />
+        ) : (
+          <GanttChart projectId={id ?? ''} />
         )}
       </div>
 
