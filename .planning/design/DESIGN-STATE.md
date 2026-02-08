@@ -2,19 +2,20 @@
 
 ## Current Position
 
-Phase: D3 of D9 (Sidebar Redesign — next up)
-Last completed: D2 — Color System & Theme (2026-02-08)
-Branch: design/brainstorm (up to date with main, Phase 5 merged)
+Phase: D4 of D9 (Header Redesign — next up)
+Last completed: D3 — Sidebar Redesign (2026-02-08)
+Branch: design/brainstorm (merged with main, Luke's Phase 6 included)
 
 ## NEXT SESSION TODO
-1. D3 (Sidebar Redesign) — Figma sidebar with badges, live indicator, collapse, branding
-2. Consider new color tokens in sidebar components
+1. D4 (Header Redesign) — SearchBar, NotificationCenter, ProfileAvatar, Mobile Hamburger
+2. OR: Restyle Luke's Work module screens (D6.1 Projekte & Aufgaben)
+3. Check how Luke's Work screens look with our sidebar-* color tokens
 
 ## Progress
 
 - [x] D1: Desk Foundation (2026-02-07)
 - [x] D2: Color System & Theme (2026-02-08)
-- [ ] D3: Sidebar Redesign
+- [x] D3: Sidebar Redesign (2026-02-08)
 - [ ] D4: Header Redesign
 - [ ] D5: Dashboard
 - [ ] D6: Module Screens
@@ -37,6 +38,8 @@ Wichtigste Dateien:
 |-------|------|---------|-------------|
 | D1 | 2026-02-07 | 3 | DeskEnvironment, DeskFrame, DeskDecorations, DeskClock, Theme system, Maximize mode |
 | D2 | 2026-02-08 | 1 | Figma color palette (warm beige/teal), OKLCH dark mode, .dark class toggle, @theme inline mapping, typography base styles |
+| D3 | 2026-02-08 | 2 | Sidebar rewrite: 10 nav items, badge system (text/live/dot), branding header, user profile + online status, mobile drawer, tablet auto-collapse, sidebar-* CSS tokens |
+| Merge | 2026-02-08 | 1 | Luke's Phase 6 (Work module) merged — Projekte + Aufgaben now active in sidebar |
 
 ## Accumulated Decisions
 
@@ -52,6 +55,13 @@ Wichtigste Dateien:
 - Dark mode uses OKLCH color space (neutral gray, hue 240 — NOT brown)
 - Figma-Export als code reference in desktop/design-reference/
 - Feature brainstorm reviewed: 103/105 features approved (2026-02-08)
+- Sidebar extracted into sidebar/ subfolder (Sidebar, SidebarBranding, SidebarNav, SidebarBadge, SidebarUser)
+- Nav items config-driven via sidebar/nav-items.ts (data-only, no JSX)
+- Sidebar uses sidebar-* CSS tokens (not desk-sidebar-*) for Figma consistency
+- Disabled nav items show "Bald verfuegbar" tooltip, no navigation
+- useMediaQuery hook for responsive behavior (useSyncExternalStore)
+- Mobile drawer infrastructure ready (trigger comes in D4 Header)
+- Luke's Work module routes: /work/projects, /work/my-tasks, /work/search
 
 ## Inspiration Reference (Cozy Workspace Image)
 

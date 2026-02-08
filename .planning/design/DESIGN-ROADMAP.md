@@ -17,12 +17,12 @@ aus dem Feature-Brainstorm (103 genehmigte Features) auf, damit nichts verloren 
 ## Fortschritt
 
 ```
-[##--------] 2/9 Phasen abgeschlossen
+[###-------] 3/9 Phasen abgeschlossen
 ```
 
 - [x] D1: Desk Foundation (2026-02-07)
 - [x] D2: Color System & Theme (2026-02-08)
-- [ ] D3: Sidebar Redesign
+- [x] D3: Sidebar Redesign (2026-02-08)
 - [ ] D4: Header Redesign
 - [ ] D5: Dashboard
 - [ ] D6: Module Screens (groesste Phase — wird in Sub-Phasen aufgeteilt)
@@ -80,7 +80,7 @@ D1 (DONE) ──→ D2 (DONE) ──┬──→ D3 (Sidebar braucht neue Farben
 
 ---
 
-## D3: Sidebar Redesign — NAECHSTE PHASE
+## D3: Sidebar Redesign — DONE (2026-02-08)
 
 **Ziel:** Sidebar komplett nach Figma + Inspiration-Bild umbauen
 
