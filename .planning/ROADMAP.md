@@ -2,7 +2,7 @@
 
 ## Overview
 
-KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehensive workplace platform across 15 additional phases (18 total). The journey continues with Project Management (including Gantt and time tracking), then Calendar and an expanded Video/Voice/Meetings phase. Security & Compliance gates the Beta release with 2FA, audit logging, DSGVO compliance, and i18n. Email and Documents round out the communication layer with global search. Finance and HR deliver the Business Suite. Three focused integration mini-phases (CalDAV, Teams/Slack, Bexio) connect the Hub to the outside world. Finally, Automation and Plugins provide the extensibility layer. The architecture consolidates new modules into 3 backend services (Work, Biz, Automation) to keep operational complexity manageable for a solo developer.
+KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehensive workplace platform across 17 additional phases (20 total). The journey continues with Project Management (including Gantt and time tracking), then Calendar and an expanded Video/Voice/Meetings phase. Security & Compliance gates the Beta release with 2FA, audit logging, DSGVO compliance, and i18n. Email and Documents round out the communication layer with global search. Finance and HR deliver the Business Suite. Five focused integration mini-phases (CalDAV, Teams/Slack, Bexio, Abacus, Run my Accounts) connect the Hub to the Swiss/DACH business ecosystem. Finally, Automation and Plugins provide the extensibility layer. The architecture consolidates new modules into 3 backend services (Work, Biz, Automation) to keep operational complexity manageable for a solo developer.
 
 ## Milestones
 
@@ -10,8 +10,8 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - 📋 **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
 - 📋 **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files -- enterprise-ready communication)
 - 📋 **Business Suite** - Phases 12-13 (Finance, HR -- operational and revenue tools)
-- 📋 **Integrations** - Phases 14-16 (CalDAV/CardDAV, Teams/Slack, Bexio -- external connectivity)
-- 📋 **Extensibility** - Phases 17-18 (Automation, Plugins -- customization and integration layer)
+- 📋 **Integrations** - Phases 14-18 (CalDAV/CardDAV, Teams/Slack, Bexio, Abacus, Run my Accounts -- external connectivity)
+- 📋 **Extensibility** - Phases 19-20 (Automation, Plugins -- customization and integration layer)
 
 ## Phases
 
@@ -43,16 +43,18 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - [ ] **Phase 12: Finance Module** - GoBD-compliant quotes and invoices, tax calculation, DATEV export
 - [ ] **Phase 13: HR Module** - Leave management, time tracking, employee profiles, ArbZG/BUrlG compliance
 
-### Integrations (Phases 14-16)
+### Integrations (Phases 14-18)
 
 - [ ] **Phase 14: Integration - CalDAV/CardDAV** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS
 - [ ] **Phase 15: Integration - Teams & Slack** - Notification forwarding and basic bidirectional interaction
 - [ ] **Phase 16: Integration - Bexio** - Contact and invoice sync with Bexio accounting
+- [ ] **Phase 17: Integration - Abacus** - Contact and invoice sync with Abacus ERP/accounting
+- [ ] **Phase 18: Integration - Run my Accounts** - Contact and financial document sync with Run my Accounts
 
-### Extensibility (Phases 17-18)
+### Extensibility (Phases 19-20)
 
-- [ ] **Phase 17: Automation Engine** - Trigger-condition-action workflows across all modules
-- [ ] **Phase 18: Plugin System** - Config-based customization, WASM runtime, extension points, industry templates
+- [ ] **Phase 19: Automation Engine** - Trigger-condition-action workflows across all modules
+- [ ] **Phase 20: Plugin System** - Config-based customization, WASM runtime, extension points, industry templates
 
 ## Phase Details
 
@@ -210,7 +212,7 @@ Plans:
 ### Phase 11: Documents & Files
 **Goal**: Users can manage, share, and find documents and files across the entire Hub from a central file manager, with a global search spanning all modules
 **Depends on**: Phase 3 (Chat -- MinIO file infrastructure), Phase 6 (PM -- task file attachments)
-**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, DOC-07, DOC-08, DOC-09
+**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, DOC-07, DOC-08, DOC-09, DOC-10
 **Success Criteria** (what must be TRUE):
   1. User can browse files in a folder hierarchy with breadcrumb navigation
   2. User can upload files via drag-and-drop with progress indication and multi-file support
@@ -219,6 +221,7 @@ Plans:
   5. User can share files/folders with specific team members with read/write permissions
   6. User can search files by name, content, and tags across the entire file store
   7. User can search across ALL modules (CRM, PM, Chat, Email, Files) from a single global search bar with unified ranked results
+  8. Chat file attachments are accessible through the central file manager and subject to per-user/per-role access controls
 **Plans**: 4 plans (estimated)
 
 Plans:
@@ -306,9 +309,37 @@ Plans:
 - [ ] 16-01: Bexio connector (OAuth2 flow, API client, contact sync engine)
 - [ ] 16-02: Invoice sync + conflict resolution (invoice push to Bexio, field mapping, error handling)
 
-### Phase 17: Automation Engine
+### Phase 17: Integration - Abacus
+**Goal**: Swiss SMBs can sync their CRM contacts and invoices with Abacus ERP/accounting software
+**Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices)
+**Requirements**: INT-10, INT-11, INT-12
+**Success Criteria** (what must be TRUE):
+  1. Admin can authenticate with Abacus ERP via API key or OAuth2
+  2. Contacts sync bidirectionally between KMU Hub CRM and Abacus
+  3. Invoices created in KMU Hub are pushed to Abacus
+**Plans**: 2 plans (estimated)
+
+Plans:
+- [ ] 17-01: Abacus connector (OAuth2/API key flow, API client, contact sync engine)
+- [ ] 17-02: Invoice sync + conflict resolution (invoice push to Abacus, field mapping, error handling)
+
+### Phase 18: Integration - Run my Accounts
+**Goal**: Swiss SMBs can sync their CRM contacts and financial documents with Run my Accounts cloud accounting
+**Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices)
+**Requirements**: INT-13, INT-14, INT-15
+**Success Criteria** (what must be TRUE):
+  1. Admin can authenticate with Run my Accounts API
+  2. Contacts sync bidirectionally between KMU Hub CRM and Run my Accounts
+  3. Financial documents sync from KMU Hub Finance to Run my Accounts
+**Plans**: 2 plans (estimated)
+
+Plans:
+- [ ] 18-01: Run my Accounts connector (auth flow, API client, contact sync)
+- [ ] 18-02: Financial document sync + error handling (document push, field mapping, reconciliation)
+
+### Phase 19: Automation Engine
 **Goal**: Users can automate repetitive workflows across all Hub modules using simple trigger-action rules
-**Depends on**: Phases 4-16 (all modules emitting events via PostgreSQL LISTEN/NOTIFY)
+**Depends on**: Phases 4-18 (all modules emitting events via PostgreSQL LISTEN/NOTIFY)
 **Requirements**: AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05, AUTO-06
 **Success Criteria** (what must be TRUE):
   1. User can create an automation rule like "When a deal moves to Won stage, create an invoice draft" using a trigger-action model
@@ -320,13 +351,13 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 17-01: Automation service foundation (event consumer via LISTEN/NOTIFY, workflow storage, trigger registry, action registry)
-- [ ] 17-02: Workflow execution engine (condition evaluation with expr-lang, action execution via gRPC, execution logging, enable/disable)
-- [ ] 17-03: Pre-built automations (10-15 triggers + 8-10 actions across all modules, testing, documentation)
+- [ ] 19-01: Automation service foundation (event consumer via LISTEN/NOTIFY, workflow storage, trigger registry, action registry)
+- [ ] 19-02: Workflow execution engine (condition evaluation with expr-lang, action execution via gRPC, execution logging, enable/disable)
+- [ ] 19-03: Pre-built automations (10-15 triggers + 8-10 actions across all modules, testing, documentation)
 
-### Phase 18: Plugin System
+### Phase 20: Plugin System
 **Goal**: Admins can customize the Hub for their company's specific processes without modifying source code, and developers can extend it via sandboxed WASM plugins
-**Depends on**: Phase 17 (Automation -- plugin triggers via workflow engine), all modules (stable extension points)
+**Depends on**: Phase 19 (Automation -- plugin triggers via workflow engine), all modules (stable extension points)
 **Requirements**: PLUG-01, PLUG-02, PLUG-03, PLUG-04, PLUG-05, PLUG-06, PLUG-07
 **Success Criteria** (what must be TRUE):
   1. Admin can customize the Hub via config-based settings (custom fields, validation rules, workflow rules) without writing any code
@@ -339,15 +370,15 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 18-01: Config-based customization framework (extend existing custom fields, add workflow rules, validation rules, UI for admin configuration)
-- [ ] 18-02: WASM plugin runtime (wazero sandbox, host function API, plugin lifecycle management, permission model)
-- [ ] 18-03: Extension points + plugin API (before/after hooks in all modules, versioned plugin API, rate limiting, SDK)
-- [ ] 18-04: Industry templates (3+ Branchenvorlagen as config packages, example WASM plugins, documentation)
+- [ ] 20-01: Config-based customization framework (extend existing custom fields, add workflow rules, validation rules, UI for admin configuration)
+- [ ] 20-02: WASM plugin runtime (wazero sandbox, host function API, plugin lifecycle management, permission model)
+- [ ] 20-03: Extension points + plugin API (before/after hooks in all modules, versioned plugin API, rate limiting, SDK)
+- [ ] 20-04: Industry templates (3+ Branchenvorlagen as config packages, example WASM plugins, documentation)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18
+Phases execute in numeric order: 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 20
 Decimal phases (if inserted) execute between their surrounding integers.
 
 | Phase | Plans Complete | Status | Completed |
@@ -365,10 +396,12 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 14. Integration: CalDAV/CardDAV | 0/2 | Not started | - |
 | 15. Integration: Teams & Slack | 0/2 | Not started | - |
 | 16. Integration: Bexio | 0/2 | Not started | - |
-| 17. Automation Engine | 0/3 | Not started | - |
-| 18. Plugin System | 0/4 | Not started | - |
+| 17. Integration: Abacus | 0/2 | Not started | - |
+| 18. Integration: Run my Accounts | 0/2 | Not started | - |
+| 19. Automation Engine | 0/3 | Not started | - |
+| 20. Plugin System | 0/4 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-08 after feature gap analysis (expanded from 13 to 18 phases)*
+*Last updated: 2026-02-08 after second feature gap analysis (expanded from 18 to 20 phases -- added Abacus, Run my Accounts, chat file permissions)*

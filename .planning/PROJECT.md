@@ -26,17 +26,18 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 
 ### Active
 
-- [ ] Chat notifications (push, in-app, preferences)
-- [ ] Project management (tasks, boards, timelines, assignments, dependencies)
+- [ ] Project management (tasks, boards, Gantt chart, timer, subtasks, dependencies, templates, CRM linking)
 - [ ] Calendar & scheduling (shared calendars, availability, event management)
-- [ ] Email integration (send/receive within Hub, per-customer mail provider)
-- [ ] Video & voice calls (LiveKit, screen sharing, group calls)
-- [ ] HR module (leave requests, time tracking, employee onboarding)
-- [ ] Finance module (quotes, invoices, accounting system integration)
+- [ ] Video, voice calls & meetings (LiveKit, screen sharing, meeting management, emoji reactions, presence)
+- [ ] Security & compliance (2FA, audit log, DSGVO export/deletion, session management, vault, i18n)
+- [ ] Email integration (send/receive within Hub, CRM auto-linking, contact import/export, two-level contacts)
+- [ ] Documents & files (file browser, upload, preview, versioning, sharing, search, tags, global search)
+- [ ] Finance module (quotes, invoices, GoBD compliance, DATEV export)
+- [ ] HR module (leave requests, time tracking, employee onboarding, ArbZG/BUrlG compliance)
+- [ ] External integrations (CalDAV/CardDAV sync, Teams/Slack notifications, Bexio accounting sync)
 - [ ] Automation engine (workflows, triggers, automatic actions)
 - [ ] Desktop app (Electron + React, personalizable workspace, role-based dashboards)
 - [ ] Plugin system (Config-based modules, WASM for complex extensions, eventually marketplace)
-- [ ] Integration framework (case-by-case external tool connectivity — Outlook, Google, etc.)
 - [ ] Onsite configuration tooling (process analysis → Hub configuration mapping)
 
 ### Out of Scope
@@ -55,7 +56,7 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 
 **Market position:** DACH SMBs underserved by enterprise tools (too complex, too expensive, US-hosted) and consumer tools (too simple, no customization). KMU Hub fills the gap with EU-sovereign, tailored, affordable all-in-one.
 
-**Existing codebase:** Go microservices backend (gateway + auth + CRM + chat), Electron + React + TypeScript desktop shell, PostgreSQL + Redis + MinIO, 19 database migrations, comprehensive CI/CD pipeline. Phase 1 (Auth/Infra), Phase 2 (CRM), and Phase 3 (Chat) are built.
+**Existing codebase:** Go microservices backend (gateway + auth + CRM + chat + notification + work), Electron + React + TypeScript desktop shell, PostgreSQL + Redis + MinIO, 25+ database migrations, comprehensive CI/CD pipeline. Phases 1-5 complete (Auth/Infra, CRM, Chat, Notifications, Desktop Shell). Phase 6 (Project Management) in progress.
 
 **Business model:** Onsite 1-week process analysis → custom Hub configuration → ongoing support. Pricing sensitive to SMB budgets (SaaS subscription + self-hosted license option).
 
@@ -74,13 +75,14 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Go microservices + gRPC | Performance, type safety, single-binary deployment, strong concurrency model | ✓ Good — clean service boundaries established |
-| Electron + React desktop | Cross-platform, web tech reuse, rich UI capabilities, familiar ecosystem | — Pending |
+| Electron + React desktop | Cross-platform, web tech reuse, rich UI capabilities, familiar ecosystem | ✓ Good — desktop shell functional |
 | PostgreSQL full-text search over Elasticsearch | Simpler ops, good enough for SMB scale, one less service to manage | ✓ Good — multi-language FTS working well |
 | MinIO over cloud S3 | Self-hosted compatible, S3 API means easy migration, EU sovereign | ✓ Good — file sharing working |
 | LiveKit for video | Self-hostable, WebRTC-based, open source, EU-deployable | — Pending |
 | Config + WASM plugin system | Config for 80% of customization, WASM for complex cases — avoids full scripting engine security nightmare | — Pending |
 | Case-by-case integrations | No generic integration framework upfront. Build connectors as customers need them. Pragmatic over comprehensive. | — Pending |
-| Role-based dashboards + personalizable workspace | Every employee sees what they need. CEO dashboard ≠ office worker dashboard. Onsite analysis determines defaults. | — Pending |
+| Role-based dashboards + personalizable workspace | Every employee sees what they need. CEO dashboard ≠ office worker dashboard. Onsite analysis determines defaults. | ✓ Good — dashboard system working |
+| Feature gap analysis expansion | Security before business modules, meetings merged into video, integrations as mini-phases, documents as standalone module. Roadmap from 13 to 18 phases. | — Pending |
 
 ---
-*Last updated: 2026-02-07 after initialization*
+*Last updated: 2026-02-08 after feature gap analysis expansion*

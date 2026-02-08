@@ -31,6 +31,11 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **PM-07**: User can search and filter tasks across all projects
 - [ ] **PM-08**: User can link tasks to CRM entities (create task from deal, link task to contact)
 - [ ] **PM-09**: User can add custom fields to tasks per project (reusing CRM custom fields engine)
+- [ ] **PM-10**: Tasks can have dependencies (finish-to-start blocking) with visual indicators on blocked tasks
+- [ ] **PM-11**: Tasks support multi-level subtasks with nesting for breaking down large tasks
+- [ ] **PM-15**: Admin/manager can save a project as a template and create new projects from templates
+- [ ] **PM-16**: User can view a project timeline as a Gantt chart with task bars, dependency arrows, and date range navigation
+- [ ] **PM-17**: User can start/stop a timer on a task to track time spent, with manual time entry and per-task time summaries
 
 ### Calendar & Scheduling
 
@@ -41,6 +46,43 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CAL-05**: User can book meeting rooms and resources via dedicated resource calendars
 - [ ] **CAL-06**: Creating a calendar meeting auto-generates a LiveKit video call link
 - [ ] **CAL-07**: Calendar displays DACH public holidays per Bundesland/Kanton with week starting Monday
+
+### Video & Voice Calls
+
+- [ ] **VID-01**: User can make 1:1 video calls via LiveKit
+- [ ] **VID-02**: User can join group video calls with up to 25 participants
+- [ ] **VID-03**: User can make audio-only calls (camera off)
+- [ ] **VID-04**: User can share their screen or a specific window during a call
+- [ ] **VID-05**: User can mute/unmute microphone and toggle camera during a call
+- [ ] **VID-06**: User can start a call directly from a chat channel or DM
+- [ ] **VID-07**: User can record calls with DSGVO-compliant participant consent (stored in MinIO)
+
+### Meetings
+
+- [ ] **MEET-01**: User can schedule a meeting with agenda, attendees, time slot, and optional recurring schedule
+- [ ] **MEET-02**: Meeting attendees see a pre-meeting lobby with agenda, attendee list, and shared documents
+- [ ] **MEET-03**: During a meeting, participants can take shared or private notes linked to the meeting record
+- [ ] **MEET-04**: After a meeting, a summary record with attendees, duration, notes, and action items is created
+- [ ] **MEET-05**: Meeting records are linked to calendar events and optionally to CRM entities
+
+### Chat Enhancements
+
+- [ ] **CHAT-01**: User can react to messages with emoji reactions (add, remove, reaction counts)
+- [ ] **CHAT-02**: Users see presence/online status of colleagues (online, away, offline, in a call) across the app
+
+### Security & Compliance
+
+- [ ] **SEC-01**: User can enable TOTP-based two-factor authentication via authenticator app
+- [ ] **SEC-02**: Admin can enforce 2FA for all users or specific roles
+- [ ] **SEC-03**: System maintains a tamper-evident audit log of all security-relevant actions (login, permission changes, data access, data export)
+- [ ] **SEC-04**: Admin can view and search the audit log with date range, user, and action type filters
+- [ ] **SEC-05**: User can request a DSGVO-compliant data export (all personal data in machine-readable format)
+- [ ] **SEC-06**: Admin can execute DSGVO data deletion (right to erasure) with cascading anonymization across all modules
+- [ ] **SEC-07**: Admin can view and terminate active user sessions with device/IP/last activity details
+- [ ] **SEC-08**: System provides encrypted-at-rest secret vault for sensitive configuration (API keys, SMTP passwords)
+- [ ] **SEC-09**: Admin can configure password policies (minimum length, complexity, expiration, re-use prevention)
+- [ ] **SEC-10**: System supports IP allowlist/blocklist for admin access restriction
+- [ ] **SEC-11**: Frontend implements i18n framework with DE/FR/IT/EN locale support and runtime language switching
 
 ### Email Integration
 
@@ -54,15 +96,34 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **MAIL-08**: User sees read/unread status synced with IMAP server
 - [ ] **MAIL-09**: User can view and navigate email folders mapped from IMAP
 
-### Video & Voice Calls
+### CRM Enhancements
 
-- [ ] **VID-01**: User can make 1:1 video calls via LiveKit
-- [ ] **VID-02**: User can join group video calls with up to 25 participants
-- [ ] **VID-03**: User can make audio-only calls (camera off)
-- [ ] **VID-04**: User can share their screen or a specific window during a call
-- [ ] **VID-05**: User can mute/unmute microphone and toggle camera during a call
-- [ ] **VID-06**: User can start a call directly from a chat channel or DM
-- [ ] **VID-07**: User can record calls with DSGVO-compliant participant consent (stored in MinIO)
+- [ ] **CRM-01**: User can import contacts from CSV/vCard files with field mapping and duplicate detection preview
+- [ ] **CRM-02**: User can export contacts to CSV/vCard format with field selection
+- [ ] **CRM-03**: Contacts support two-level visibility: company-shared (visible to all) and personal (owner-only), with admin override
+
+### Documents & Files
+
+- [ ] **DOC-01**: User can browse files in a hierarchical folder structure with breadcrumb navigation
+- [ ] **DOC-02**: User can upload files via drag-and-drop or file picker with progress indicator and multi-file support
+- [ ] **DOC-03**: User can preview common file types inline (PDF, images, text, Markdown)
+- [ ] **DOC-04**: System maintains file version history; user can upload new versions and revert to previous ones
+- [ ] **DOC-05**: User can share files/folders with team members or specific users with read/write permissions
+- [ ] **DOC-06**: User can search files by name, content (full-text extraction for PDF/text), and tags
+- [ ] **DOC-07**: User can tag files with custom labels for organization and filtering
+- [ ] **DOC-08**: Files can be linked to CRM entities, projects, and other modules via entity linking
+- [ ] **DOC-09**: User can search across all modules (CRM, PM, Chat, Email, Files) from a single global search bar with unified ranked results
+- [ ] **DOC-10**: Chat file attachments are accessible through the central file manager and subject to per-user/per-role access controls
+
+### Finance Module
+
+- [ ] **FIN-01**: User can create quotes (Angebote) with line items, tax calculation, and PDF generation
+- [ ] **FIN-02**: User can create invoices (Rechnungen) compliant with GoBD (immutable once sent, sequential numbering, all Pflichtangaben)
+- [ ] **FIN-03**: System calculates MwSt/USt correctly (19% standard, 7% reduced, 0% Reverse Charge for EU B2B, Kleinunternehmerregelung)
+- [ ] **FIN-04**: User can track payment status per invoice (draft, sent, overdue, paid, cancelled)
+- [ ] **FIN-05**: User can convert a CRM deal to a quote and then to an invoice in a seamless flow
+- [ ] **FIN-06**: User can export Buchungsstapel in DATEV-compatible CSV format for Steuerberater
+- [ ] **FIN-07**: User can create credit notes (Gutschriften) referencing original invoices
 
 ### HR Module
 
@@ -74,15 +135,23 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **HR-06**: Employee profiles include department, position, contract type, and access-controlled document storage
 - [ ] **HR-07**: Sick leave recording with AU (doctor's note) upload after 3 days
 
-### Finance Module
+### External Integrations
 
-- [ ] **FIN-01**: User can create quotes (Angebote) with line items, tax calculation, and PDF generation
-- [ ] **FIN-02**: User can create invoices (Rechnungen) compliant with GoBD (immutable once sent, sequential numbering, all Pflichtangaben)
-- [ ] **FIN-03**: System calculates MwSt/USt correctly (19% standard, 7% reduced, 0% Reverse Charge for EU B2B, Kleinunternehmerregelung)
-- [ ] **FIN-04**: User can track payment status per invoice (draft, sent, overdue, paid, cancelled)
-- [ ] **FIN-05**: User can convert a CRM deal to a quote and then to an invoice in a seamless flow
-- [ ] **FIN-06**: User can export Buchungsstapel in DATEV-compatible CSV format for Steuerberater
-- [ ] **FIN-07**: User can create credit notes (Gutschriften) referencing original invoices
+- [ ] **INT-01**: System exposes a CalDAV endpoint for bidirectional calendar sync with Outlook, Thunderbird, and macOS Calendar
+- [ ] **INT-02**: System exposes a CardDAV endpoint for bidirectional contact sync with external clients
+- [ ] **INT-03**: CalDAV/CardDAV supports per-user authenticated access with proper ACL
+- [ ] **INT-04**: Admin can configure Microsoft Teams webhook for notification forwarding to a Teams channel
+- [ ] **INT-05**: Admin can configure Slack webhook for notification forwarding to a Slack channel
+- [ ] **INT-06**: Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
+- [ ] **INT-07**: Admin can connect to Bexio API via OAuth2 authentication
+- [ ] **INT-08**: Contacts sync bidirectionally between KMU Hub CRM and Bexio
+- [ ] **INT-09**: Invoices sync from KMU Hub Finance to Bexio accounting
+- [ ] **INT-10**: Admin can connect to Abacus ERP via API key or OAuth2 authentication
+- [ ] **INT-11**: Contacts sync bidirectionally between KMU Hub CRM and Abacus
+- [ ] **INT-12**: Invoices/financial documents sync from KMU Hub Finance to Abacus
+- [ ] **INT-13**: Admin can connect to Run my Accounts API via authentication
+- [ ] **INT-14**: Contacts sync bidirectionally between KMU Hub CRM and Run my Accounts
+- [ ] **INT-15**: Financial documents sync from KMU Hub Finance to Run my Accounts
 
 ### Automation Engine
 
@@ -109,12 +178,9 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ### Project Management
 
-- **PM-10**: Task dependencies (finish-to-start blocking)
-- **PM-11**: Subtasks and checklists for breaking down large tasks
-- **PM-12**: Timeline/Gantt view for visual project planning
+- **PM-12**: Interactive Gantt chart editing (drag to resize/move task bars, create dependencies by drawing arrows)
 - **PM-13**: Recurring tasks with RRULE-based recurrence
 - **PM-14**: Workload view showing task distribution per person
-- **PM-15**: Task templates for standardized processes
 
 ### Calendar & Scheduling
 
@@ -122,7 +188,6 @@ Deferred to future release. Tracked but not in current roadmap.
 - **CAL-09**: iCal import/export (.ics) for migration and external exchange
 - **CAL-10**: CRM activity sync (calendar event <-> CRM meeting activity, bidirectional)
 - **CAL-11**: PM task deadlines shown as overlay on calendar
-- **CAL-12**: CalDAV server for external client sync (Outlook, Thunderbird, macOS Calendar)
 - **CAL-13**: External booking page (Calendly-style) for clients
 
 ### Email Integration
@@ -141,6 +206,22 @@ Deferred to future release. Tracked but not in current roadmap.
 - **VID-10**: Noise suppression (client-side or LiveKit server-side)
 - **VID-11**: CRM activity auto-log (call metadata linked to CRM contact)
 
+### Meetings
+
+- **MEET-06**: AI-powered meeting transcription and summary generation
+- **MEET-07**: Automatic action item extraction from meeting notes
+
+### Chat
+
+- **CHAT-03**: Custom emoji upload and management
+- **CHAT-04**: Threaded emoji reactions (react to specific thread replies)
+
+### Security & Compliance
+
+- **SEC-12**: Hardware security key support (FIDO2/WebAuthn) as 2FA method
+- **SEC-13**: Single Sign-On via SAML/OIDC for enterprise customers
+- **SEC-14**: Data Loss Prevention rules (block sharing of sensitive data patterns)
+
 ### HR Module
 
 - **HR-08**: Company org chart (visual who-reports-to-whom)
@@ -158,6 +239,27 @@ Deferred to future release. Tracked but not in current roadmap.
 - **FIN-11**: Time tracking to invoice conversion (hours at rate -> line items)
 - **FIN-12**: XRechnung/ZUGFeRD electronic invoice format
 - **FIN-13**: Bank account connection via FinTS/HBCI for auto-reconciliation
+
+### Documents & Files
+
+- **DOC-11**: Fine-grained file sharing permissions (view/edit/download per user/role)
+- **DOC-12**: File locking for collaborative editing prevention
+
+### External Integrations
+
+- **INT-16**: Generic webhook/REST connector for arbitrary external services
+- **INT-17**: DATEV Unternehmen Online direct API integration (beyond CSV export)
+
+### General
+
+- **GEN-01**: Duplikat-Erkennung (fuzzy matching across contacts, companies)
+- **GEN-02**: Kontakt-Gruppen (static and dynamic grouping of contacts for bulk operations)
+- **GEN-03**: Arbeitsprofile (multiple user contexts with different sidebar/dashboard configs)
+- **GEN-04**: Wetter-Widget (weather dashboard widget via external API)
+- **GEN-05**: Auto-Save (draft auto-save for forms and editors with connection loss recovery)
+- **GEN-06**: Organigramm (visual organization chart from HR hierarchy data)
+- **GEN-07**: Arbeitsinteressen (employee skill/interest profiles for project matching)
+- **GEN-08**: Ausgabenverwaltung (expense receipt upload, categorization, cost tracking)
 
 ### Automation Engine
 
@@ -223,6 +325,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PM-07 | Phase 6 | Pending |
 | PM-08 | Phase 6 | Pending |
 | PM-09 | Phase 6 | Pending |
+| PM-10 | Phase 6 | Pending |
+| PM-11 | Phase 6 | Pending |
+| PM-15 | Phase 6 | Pending |
+| PM-16 | Phase 6 | Pending |
+| PM-17 | Phase 6 | Pending |
 | CAL-01 | Phase 7 | Pending |
 | CAL-02 | Phase 7 | Pending |
 | CAL-03 | Phase 7 | Pending |
@@ -230,15 +337,6 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAL-05 | Phase 7 | Pending |
 | CAL-06 | Phase 7 | Pending |
 | CAL-07 | Phase 7 | Pending |
-| MAIL-01 | Phase 9 | Pending |
-| MAIL-02 | Phase 9 | Pending |
-| MAIL-03 | Phase 9 | Pending |
-| MAIL-04 | Phase 9 | Pending |
-| MAIL-05 | Phase 9 | Pending |
-| MAIL-06 | Phase 9 | Pending |
-| MAIL-07 | Phase 9 | Pending |
-| MAIL-08 | Phase 9 | Pending |
-| MAIL-09 | Phase 9 | Pending |
 | VID-01 | Phase 8 | Pending |
 | VID-02 | Phase 8 | Pending |
 | VID-03 | Phase 8 | Pending |
@@ -246,39 +344,94 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VID-05 | Phase 8 | Pending |
 | VID-06 | Phase 8 | Pending |
 | VID-07 | Phase 8 | Pending |
-| HR-01 | Phase 11 | Pending |
-| HR-02 | Phase 11 | Pending |
-| HR-03 | Phase 11 | Pending |
-| HR-04 | Phase 11 | Pending |
-| HR-05 | Phase 11 | Pending |
-| HR-06 | Phase 11 | Pending |
-| HR-07 | Phase 11 | Pending |
-| FIN-01 | Phase 10 | Pending |
-| FIN-02 | Phase 10 | Pending |
-| FIN-03 | Phase 10 | Pending |
-| FIN-04 | Phase 10 | Pending |
-| FIN-05 | Phase 10 | Pending |
-| FIN-06 | Phase 10 | Pending |
-| FIN-07 | Phase 10 | Pending |
-| AUTO-01 | Phase 12 | Pending |
-| AUTO-02 | Phase 12 | Pending |
-| AUTO-03 | Phase 12 | Pending |
-| AUTO-04 | Phase 12 | Pending |
-| AUTO-05 | Phase 12 | Pending |
-| AUTO-06 | Phase 12 | Pending |
-| PLUG-01 | Phase 13 | Pending |
-| PLUG-02 | Phase 13 | Pending |
-| PLUG-03 | Phase 13 | Pending |
-| PLUG-04 | Phase 13 | Pending |
-| PLUG-05 | Phase 13 | Pending |
-| PLUG-06 | Phase 13 | Pending |
-| PLUG-07 | Phase 13 | Pending |
+| MEET-01 | Phase 8 | Pending |
+| MEET-02 | Phase 8 | Pending |
+| MEET-03 | Phase 8 | Pending |
+| MEET-04 | Phase 8 | Pending |
+| MEET-05 | Phase 8 | Pending |
+| CHAT-01 | Phase 8 | Pending |
+| CHAT-02 | Phase 8 | Pending |
+| SEC-01 | Phase 9 | Pending |
+| SEC-02 | Phase 9 | Pending |
+| SEC-03 | Phase 9 | Pending |
+| SEC-04 | Phase 9 | Pending |
+| SEC-05 | Phase 9 | Pending |
+| SEC-06 | Phase 9 | Pending |
+| SEC-07 | Phase 9 | Pending |
+| SEC-08 | Phase 9 | Pending |
+| SEC-09 | Phase 9 | Pending |
+| SEC-10 | Phase 9 | Pending |
+| SEC-11 | Phase 9 | Pending |
+| MAIL-01 | Phase 10 | Pending |
+| MAIL-02 | Phase 10 | Pending |
+| MAIL-03 | Phase 10 | Pending |
+| MAIL-04 | Phase 10 | Pending |
+| MAIL-05 | Phase 10 | Pending |
+| MAIL-06 | Phase 10 | Pending |
+| MAIL-07 | Phase 10 | Pending |
+| MAIL-08 | Phase 10 | Pending |
+| MAIL-09 | Phase 10 | Pending |
+| CRM-01 | Phase 10 | Pending |
+| CRM-02 | Phase 10 | Pending |
+| CRM-03 | Phase 10 | Pending |
+| DOC-01 | Phase 11 | Pending |
+| DOC-02 | Phase 11 | Pending |
+| DOC-03 | Phase 11 | Pending |
+| DOC-04 | Phase 11 | Pending |
+| DOC-05 | Phase 11 | Pending |
+| DOC-06 | Phase 11 | Pending |
+| DOC-07 | Phase 11 | Pending |
+| DOC-08 | Phase 11 | Pending |
+| DOC-09 | Phase 11 | Pending |
+| DOC-10 | Phase 11 | Pending |
+| FIN-01 | Phase 12 | Pending |
+| FIN-02 | Phase 12 | Pending |
+| FIN-03 | Phase 12 | Pending |
+| FIN-04 | Phase 12 | Pending |
+| FIN-05 | Phase 12 | Pending |
+| FIN-06 | Phase 12 | Pending |
+| FIN-07 | Phase 12 | Pending |
+| HR-01 | Phase 13 | Pending |
+| HR-02 | Phase 13 | Pending |
+| HR-03 | Phase 13 | Pending |
+| HR-04 | Phase 13 | Pending |
+| HR-05 | Phase 13 | Pending |
+| HR-06 | Phase 13 | Pending |
+| HR-07 | Phase 13 | Pending |
+| INT-01 | Phase 14 | Pending |
+| INT-02 | Phase 14 | Pending |
+| INT-03 | Phase 14 | Pending |
+| INT-04 | Phase 15 | Pending |
+| INT-05 | Phase 15 | Pending |
+| INT-06 | Phase 15 | Pending |
+| INT-07 | Phase 16 | Pending |
+| INT-08 | Phase 16 | Pending |
+| INT-09 | Phase 16 | Pending |
+| INT-10 | Phase 17 | Pending |
+| INT-11 | Phase 17 | Pending |
+| INT-12 | Phase 17 | Pending |
+| INT-13 | Phase 18 | Pending |
+| INT-14 | Phase 18 | Pending |
+| INT-15 | Phase 18 | Pending |
+| AUTO-01 | Phase 19 | Pending |
+| AUTO-02 | Phase 19 | Pending |
+| AUTO-03 | Phase 19 | Pending |
+| AUTO-04 | Phase 19 | Pending |
+| AUTO-05 | Phase 19 | Pending |
+| AUTO-06 | Phase 19 | Pending |
+| PLUG-01 | Phase 20 | Pending |
+| PLUG-02 | Phase 20 | Pending |
+| PLUG-03 | Phase 20 | Pending |
+| PLUG-04 | Phase 20 | Pending |
+| PLUG-05 | Phase 20 | Pending |
+| PLUG-06 | Phase 20 | Pending |
+| PLUG-07 | Phase 20 | Pending |
 
 **Coverage:**
-- v1 requirements: 66 total
-- Mapped to phases: 66
+- v1 requirements: 117 total
+- Mapped to phases: 117
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-08 after Phase 5 completion*
+*Last updated: 2026-02-08 after second feature gap analysis (added Abacus, Run my Accounts, chat file permissions)*
