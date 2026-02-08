@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 13 (Project Management)
-Plan: 2 of 8 in current phase
+Plan: 3 of 8 in current phase
 Status: In progress
-Last activity: 2026-02-08 -- Completed 06-02-PLAN.md (Project & Status Services)
+Last activity: 2026-02-08 -- Completed 06-03-PLAN.md (Task & Comment Services)
 
-Progress: [██████████████████░░] 38% (12/32 plans across phases 4-13)
+Progress: [███████████████████░] 41% (13/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
+- Total plans completed: 13
 - Average duration: ~10 minutes
-- Total execution time: ~2 hours
+- Total execution time: ~2h 10min
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [██████████████████░░] 38% (12
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 2/8 | ~13min | ~6.5min |
+| 06 | 3/8 | ~23min | ~7.7min |
 
 **Recent Trend:**
-- Last 5 plans: 05-06 (~8min), 05-07 (~10min), 06-01 (~6min), 06-02 (~7min)
-- Trend: Service-layer plans consistently fast (~7min)
+- Last 5 plans: 05-07 (~10min), 06-01 (~6min), 06-02 (~7min), 06-03 (~10min)
+- Trend: Service-layer plans consistently fast (~8min)
 
 *Updated after each plan completion*
 
@@ -73,6 +73,11 @@ Recent decisions affecting current work:
 - [06-02]: Project key auto-normalizes to uppercase; validation rejects non-alphanumeric only
 - [06-02]: Status service trusts caller for authorization (gRPC server checks membership)
 - [06-02]: GetUserPreference returns nil when no preference set (caller applies defaults)
+- [06-03]: Standalone tasks get task_number=0 (no project counter increment)
+- [06-03]: Comment service depends on taskRepo.CreateActivity for activity logging
+- [06-03]: @mention pattern uses @{uuid} format for deterministic user resolution
+- [06-03]: Cycle detection only for blocking deps (blocks/blocked_by), not relates_to/duplicates
+- [06-03]: MoveTask handles completed_at setting/clearing based on status is_closed flag
 
 ### Pending Todos
 
@@ -88,5 +93,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-02-PLAN.md (Project & Status Services)
+Stopped at: Completed 06-03-PLAN.md (Task & Comment Services)
 Resume file: None
