@@ -2,26 +2,26 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-07)
+See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
 **Current focus:** Phase 6 - Project Management (in progress)
 
 ## Current Position
 
-Phase: 6 of 13 (Project Management)
-Plan: 7 of 8 in current phase
-Status: In progress
-Last activity: 2026-02-08 -- Completed 06-07-PLAN.md (Task Detail and Collaboration)
+Phase: 6 of 18 (Project Management)
+Plan: 8 of 10 in current phase
+Status: In progress (plans 06-09, 06-10 need planning)
+Last activity: 2026-02-08 -- Completed 06-08-PLAN.md (CRM Linking + Search + Filters + Templates)
 
-Progress: [████████████████████████░] 53% (17/32 plans across phases 4-13)
+Progress: [███████░░░░░░░░░░░░░░░░░] 30% (18/59 plans across phases 4-18)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
+- Total plans completed: 18
 - Average duration: ~10 minutes
-- Total execution time: ~2h 47min
+- Total execution time: ~2h 57min
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [███████████████████████
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 7/8 | ~60min | ~8.6min |
+| 06 | 8/10 | ~70min | ~8.75min |
 
 **Recent Trend:**
-- Last 5 plans: 06-04 (~12min), 06-05 (~8min), 06-06 (~7min), 06-07 (~10min)
+- Last 5 plans: 06-05 (~8min), 06-06 (~7min), 06-07 (~10min), 06-08 (~10min)
 - Trend: Consistent ~8-10min per frontend plan
 
 *Updated after each plan completion*
@@ -49,6 +49,7 @@ Recent decisions affecting current work:
 - [Roadmap]: Notifications first (unblocks all future modules)
 - [Roadmap]: Full IMAP+SMTP email in v1 (user decision despite research suggesting deferral)
 - [Roadmap]: Automation and Plugins last (need stable APIs from all other modules)
+- [Roadmap]: Feature gap analysis expansion -- 13 to 18 phases, Meeting Management merged into Phase 8, Security & Compliance as Phase 9 gatekeeper, Documents & Files as Phase 11, 3 integration mini-phases (14-16)
 - [04-01]: WebSocket hub stays in main.go (cross-cutting, needs both chat + auth clients)
 - [04-02]: Raw pgx over pgxlisten for event bus (pgxlisten pre-v1, unstable)
 - [04-02]: Dual write (events table + pg_notify) for event durability
@@ -92,6 +93,11 @@ Recent decisions affecting current work:
 - [06-07]: Two-step file upload: multipart to MinIO via /files/upload, then JSON metadata to task files
 - [06-07]: Nested Routes in ProjectDetailPage for board view vs task detail page
 - [06-07]: Tab-based activity/comments view (Alle/Kommentare/Aktivitaet) for user control
+- [06-08]: Context-aware auto-suggest shows banner but never auto-applies links
+- [06-08]: Standalone tasks use task_number=0 with TASK system key
+- [06-08]: CRM search API reused for entity linking (no new backend search endpoint)
+- [06-08]: Custom fields reuse CRM engine with entity_type=task
+- [06-08]: Move-to-project updates project_id via existing task update API
 
 ### Pending Todos
 
@@ -100,12 +106,12 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- [Phase 10]: GoBD compliance requires Steuerberater consultation before data model design
-- [Phase 11]: ArbZG/BUrlG implementation details need labor law expert review
-- [Phase 10]: DATEV Buchungsstapel format spec not publicly detailed -- may need DATEV partner access
+- [Phase 12]: GoBD compliance requires Steuerberater consultation before data model design
+- [Phase 13]: ArbZG/BUrlG implementation details need labor law expert review
+- [Phase 12]: DATEV Buchungsstapel format spec not publicly detailed -- may need DATEV partner access
 
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-07-PLAN.md (Task Detail and Collaboration)
+Stopped at: Completed 06-08-PLAN.md (CRM Linking + Search + Filters + Templates)
 Resume file: None
