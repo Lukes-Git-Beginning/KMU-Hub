@@ -6,6 +6,11 @@ Phase: D2 of D9 (Color System & Theme — next up)
 Last completed: D1 — Desk Foundation (2026-02-07)
 Branch: design/brainstorm (up to date with main, Phase 5 merged)
 
+## NEXT SESSION TODO
+1. Darien reviewed FEATURE-BRAINSTORM.md (JA/NEIN Markierungen)
+2. Features in Design-Phasen einarbeiten
+3. D2 (Color System) starten — Figma-Farbpalette implementieren
+
 ## Progress
 
 - [x] D1: Desk Foundation (2026-02-07)
