@@ -37,13 +37,16 @@
 
   --radius: 0.5rem;
 
-  /* Desk frame defaults (overridden per theme via inline style) */
-  --desk-frame-bg: hsl(30 25% 78%);
-  --desk-frame-texture: none;
-  --desk-frame-border: hsl(30 20% 70%);
-  --desk-frame-shadow: inset 0 0 20px rgba(0,0,0,0.06);
-  --desk-window-radius: 8px;
-  --desk-window-shadow: 0 2px 20px rgba(0,0,0,0.12);
+  /* Desk room defaults (overridden per theme via inline style) */
+  --desk-wall-bg: hsl(35 20% 88%);
+  --desk-wall-texture: none;
+  --desk-deco-bg: hsl(35 18% 85%);
+  --desk-surface-bg: hsl(30 25% 65%);
+  --desk-surface-texture: none;
+  --desk-surface-border: hsl(30 20% 55%);
+  --desk-window-radius: 12px;
+  --desk-window-shadow: 0 4px 30px rgba(0,0,0,0.18);
+  --desk-window-border: hsl(210 10% 70%);
   --desk-sidebar-bg: hsl(30 15% 96%);
   --desk-sidebar-border: hsl(30 15% 88%);
   --desk-transition-duration: 300ms;
@@ -80,22 +83,16 @@
     --color-input: hsl(217.2 32.6% 17.5%);
     --color-ring: hsl(212.7 26.8% 83.9%);
 
-    /* Desk frame dark mode defaults */
-    --desk-frame-bg: hsl(25 20% 22%);
-    --desk-frame-texture: none;
-    --desk-frame-border: hsl(25 15% 30%);
-    --desk-frame-shadow: inset 0 0 20px rgba(0,0,0,0.15);
-    --desk-window-shadow: 0 2px 20px rgba(0,0,0,0.3);
+    /* Desk room dark mode defaults */
+    --desk-wall-bg: hsl(220 15% 12%);
+    --desk-deco-bg: hsl(220 12% 14%);
+    --desk-surface-bg: hsl(25 20% 18%);
+    --desk-surface-border: hsl(25 15% 25%);
+    --desk-window-shadow: 0 4px 30px rgba(0,0,0,0.4);
+    --desk-window-border: hsl(220 10% 25%);
     --desk-sidebar-bg: hsl(222.2 84% 6%);
     --desk-sidebar-border: hsl(217.2 32.6% 17.5%);
   }
-}
-
-/* Desk frame edge utility — shared background for all four frame strips */
-.desk-frame-edge {
-  background-color: var(--desk-frame-bg);
-  background-image: var(--desk-frame-texture);
-  background-size: cover;
 }
 
 body {

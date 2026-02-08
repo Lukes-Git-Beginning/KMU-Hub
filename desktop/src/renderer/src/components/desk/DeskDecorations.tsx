@@ -20,7 +20,7 @@ interface DeskDecorationsProps {
 function DecorationRenderer({ placement }: { placement: DecorationPlacement }) {
   switch (placement.type) {
     case 'clock':
-      return <DeskClock size={18} />
+      return <DeskClock size={64} />
     default:
       return null
   }

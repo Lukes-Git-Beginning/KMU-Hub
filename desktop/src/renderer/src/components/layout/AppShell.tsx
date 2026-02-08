@@ -21,7 +21,7 @@ export function AppShell() {
   useWebSocket()
 
   return (
-    <div className="flex h-full bg-background overflow-hidden rounded-[var(--desk-window-radius)] shadow-[var(--desk-window-shadow)]">
+    <div className="flex h-full bg-background overflow-hidden">
       <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
       <main className="flex flex-1 flex-col overflow-hidden">

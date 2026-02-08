@@ -1,19 +1,30 @@
 /**
- * Outermost layout wrapper implementing the desk metaphor.
+ * Outermost layout wrapper implementing the desk/room metaphor.
  *
- * Manages the relationship between the desk frame (decorative border)
- * and the work area (functional UI). Handles theme CSS variable application,
- * maximize/restore transitions, and keyboard shortcuts.
+ * Room layout:
+ * - Background: room wall color
+ * - Left/Right: large decoration panels (wall space for shelves, plants, photos)
+ * - Bottom: desk surface
+ * - Center: work area "window" (the main functional UI)
  *
- * When maximized: work area fills viewport, frame fades out.
- * When normal: work area is inset by frame dimensions, frame is visible.
+ * Maximize mode expands the work area to fill the entire viewport.
  */
-import { useMemo, useEffect, useCallback } from 'react'
+import { useMemo, useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores/ui'
 import { DESK_THEMES, DEFAULT_DESK_THEME_ID } from '@/config/desk-themes'
 import { DeskFrame } from './DeskFrame'
 import { DeskDecorations } from '@/components/desk/DeskDecorations'
 import { AppShell } from './AppShell'
+
+// Detect system dark mode preference reactively
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
+function subscribeSystemTheme(cb: () => void) {
+  darkQuery.addEventListener('change', cb)
+  return () => darkQuery.removeEventListener('change', cb)
+}
+function getSystemIsDark() {
+  return darkQuery.matches
+}
 
 export function DeskEnvironment() {
   const deskMaximized = useUIStore((s) => s.deskMaximized)
@@ -21,27 +32,34 @@ export function DeskEnvironment() {
   const deskDecorations = useUIStore((s) => s.deskDecorations)
   const deskDecorationsVisible = useUIStore((s) => s.deskDecorationsVisible)
   const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
-  const theme = useUIStore((s) => s.theme)
+  const storeTheme = useUIStore((s) => s.theme)
+  const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
 
+  const isDark = storeTheme === 'dark' || systemIsDark
   const activeTheme = DESK_THEMES[deskThemeId] ?? DESK_THEMES[DEFAULT_DESK_THEME_ID]
 
   // Build inline CSS variables from active theme
   const themeStyle = useMemo(() => {
     const vars: Record<string, string> = {}
     const base = activeTheme.cssVariables
-    const dark = theme === 'dark' ? activeTheme.cssVariablesDark ?? {} : {}
+    const dark = isDark ? activeTheme.cssVariablesDark ?? {} : {}
     const merged = { ...base, ...dark }
 
     for (const [key, value] of Object.entries(merged)) {
       vars[`--${key}`] = value
     }
     return vars
-  }, [activeTheme, theme])
+  }, [activeTheme, isDark])
 
-  // Work area inset controlled by frame dimensions
+  // Work area positioning via padding
   const workAreaStyle = useMemo(() => {
     if (deskMaximized) {
-      return { padding: 0 }
+      return {
+        paddingTop: '8px',
+        paddingRight: '8px',
+        paddingBottom: '8px',
+        paddingLeft: '8px',
+      }
     }
     const { top, right, bottom, left } = activeTheme.frame
     return {
@@ -71,15 +89,12 @@ export function DeskEnvironment() {
   return (
     <div
       className="h-screen w-screen overflow-hidden relative"
-      style={themeStyle}
+      style={{
+        ...themeStyle,
+        backgroundColor: 'var(--desk-wall-bg)',
+      }}
     >
-      {/* Desk background (full viewport, behind everything) */}
-      <div
-        className="absolute inset-0 desk-frame-edge"
-        style={{ boxShadow: 'var(--desk-frame-shadow)' }}
-      />
-
-      {/* Desk frame edges (decorative, hidden when maximized) */}
+      {/* Room scene (wall panels, desk surface, decorations) */}
       <DeskFrame visible={!deskMaximized} theme={activeTheme}>
         <DeskDecorations
           theme={activeTheme}
@@ -98,7 +113,17 @@ export function DeskEnvironment() {
           transitionTimingFunction: 'var(--desk-transition-easing)',
         }}
       >
-        <AppShell />
+        <div
+          className="h-full overflow-hidden"
+          style={{
+            borderRadius: 'var(--desk-window-radius)',
+            boxShadow: 'var(--desk-window-shadow)',
+            border: '1px solid var(--desk-window-border)',
+            transition: 'border-radius var(--desk-transition-duration) var(--desk-transition-easing), box-shadow var(--desk-transition-duration) var(--desk-transition-easing)',
+          }}
+        >
+          <AppShell />
+        </div>
       </div>
     </div>
   )

@@ -46,8 +46,8 @@ export const useUIStore = create<UIState>()(
       deskMaximized: false,
       deskThemeId: DEFAULT_DESK_THEME_ID,
       deskDecorations: {
-        'top-right-clock': {
-          slotId: 'top-right-clock',
+        'left-wall-clock': {
+          slotId: 'left-wall-clock',
           type: 'clock',
           variant: 'analog',
         },
