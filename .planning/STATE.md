@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 13 (Project Management)
-Plan: 4 of 8 in current phase
+Plan: 5 of 8 in current phase
 Status: In progress
-Last activity: 2026-02-08 -- Completed 06-04-PLAN.md (Work Service Wiring)
+Last activity: 2026-02-08 -- Completed 06-05-PLAN.md (Work Module Frontend Foundation)
 
-Progress: [████████████████████░] 44% (14/32 plans across phases 4-13)
+Progress: [█████████████████████░] 47% (15/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: ~10 minutes
-- Total execution time: ~2h 22min
+- Total execution time: ~2h 30min
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [████████████████████░] 44% 
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 4/8 | ~35min | ~8.8min |
+| 06 | 5/8 | ~43min | ~8.6min |
 
 **Recent Trend:**
-- Last 5 plans: 06-01 (~6min), 06-02 (~7min), 06-03 (~10min), 06-04 (~12min)
-- Trend: Wiring plans slightly slower due to larger file count
+- Last 5 plans: 06-02 (~7min), 06-03 (~10min), 06-04 (~12min), 06-05 (~8min)
+- Trend: Frontend plans slightly faster than wiring plans
 
 *Updated after each plan completion*
 
@@ -81,6 +81,9 @@ Recent decisions affecting current work:
 - [06-04]: gRPC server uses uuid.Nil + isAdmin=true (gateway handles auth)
 - [06-04]: Template key auto-generated from name prefix + UUID suffix
 - [06-04]: Work routes follow exact same RouteRegistrar pattern as CRM/Chat/Notification
+- [06-05]: API types regenerated to include work/project/task endpoints from OpenAPI spec
+- [06-05]: Project create dialog bundles status creation as sequential API calls after project POST
+- [06-05]: My Tasks hooks auto-set assignee_id from auth store (user sees only own tasks)
 
 ### Pending Todos
 
@@ -96,5 +99,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-04-PLAN.md (Work Service Wiring)
+Stopped at: Completed 06-05-PLAN.md (Work Module Frontend Foundation)
 Resume file: None
