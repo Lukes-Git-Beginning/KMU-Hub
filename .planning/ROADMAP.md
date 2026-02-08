@@ -73,13 +73,13 @@ Plans:
 **Plans**: 7 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- Electron shell foundation (electron-vite config, secure IPC bridge, safeStorage auth, Tailwind v4, all deps installed)
-- [ ] 05-02-PLAN.md -- App shell + auth flow (API client, WebSocket manager, Zustand stores, sidebar navigation, login page, routing)
-- [ ] 05-03-PLAN.md -- CRM module UI (contacts, companies, deals list + pipeline, activities, search with TanStack Query hooks)
-- [ ] 05-04-PLAN.md -- Chat module + notifications (channels, real-time messaging, typing indicators, threads, notification bell, desktop push)
-- [ ] 05-05-PLAN.md -- Dashboard + widget system (react-grid-layout grid, 6 widgets, drag-and-drop, widget picker, layout persistence)
-- [ ] 05-06-PLAN.md -- Role-based dashboards + backend (dashboard_layouts migration, API endpoints, admin settings, server sync)
-- [ ] 05-07-PLAN.md -- Offline caching + final verification (TanStack Query persistence, offline banner, CORS update, memory check, human verify)
+- [x] 05-01-PLAN.md -- Electron shell foundation (electron-vite config, secure IPC bridge, safeStorage auth, Tailwind v4, all deps installed)
+- [x] 05-02-PLAN.md -- App shell + auth flow (API client, WebSocket manager, Zustand stores, sidebar navigation, login page, routing)
+- [x] 05-03-PLAN.md -- CRM module UI (contacts, companies, deals list + pipeline, activities, search with TanStack Query hooks)
+- [x] 05-04-PLAN.md -- Chat module + notifications (channels, real-time messaging, typing indicators, threads, notification bell, desktop push)
+- [x] 05-05-PLAN.md -- Dashboard + widget system (react-grid-layout grid, 6 widgets, drag-and-drop, widget picker, layout persistence)
+- [x] 05-06-PLAN.md -- Role-based dashboards + backend (dashboard_layouts migration, API endpoints, admin settings, server sync)
+- [x] 05-07-PLAN.md -- Offline caching + final verification (TanStack Query persistence, offline banner, CORS update, memory check, human verify)
 
 ### Phase 6: Project Management
 **Goal**: Users can manage their daily work through tasks and projects without leaving the Hub
@@ -92,12 +92,17 @@ Plans:
   4. User can comment on a task with @mentions (reusing chat infrastructure) and attach files (reusing MinIO)
   5. User can search across all projects and filter by assignee, status, priority, due date, and custom fields
   6. User can link a task to a CRM deal or contact (e.g., "Follow up on Acme deal") and navigate between them
-**Plans**: TBD
+**Plans**: 8 plans
 
 Plans:
-- [ ] 06-01: Work service foundation + task/project backend (gRPC service, models, CRUD, assignments)
-- [ ] 06-02: Task views and interactions (list view, Kanban board, search, filters)
-- [ ] 06-03: Task collaboration (comments with @mentions, file attachments, CRM entity linking, custom fields)
+- [ ] 06-01-PLAN.md -- Proto + migrations + models + config (Work service data foundation)
+- [ ] 06-02-PLAN.md -- Project + status service packages (CRUD, membership, templates, preferences)
+- [ ] 06-03-PLAN.md -- Task + comment service packages (CRUD, nesting, dependencies, events, comments)
+- [ ] 06-04-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (connection layer)
+- [ ] 06-05-PLAN.md -- Frontend module shell + API hooks + project pages (frontend foundation)
+- [ ] 06-06-PLAN.md -- Task list view + Kanban board with @dnd-kit DnD (core views)
+- [ ] 06-07-PLAN.md -- Task detail panel + comments + files + activity log (collaboration)
+- [ ] 06-08-PLAN.md -- CRM linking + search + filters + My Tasks + templates (integration)
 
 ### Phase 7: Calendar & Scheduling
 **Goal**: Users can manage their schedules, book meetings, and coordinate team availability entirely within the Hub
@@ -242,7 +247,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 |-------|----------------|--------|-----------|
 | 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
 | 5. Desktop App Shell | 7/7 | Complete | 2026-02-08 |
-| 6. Project Management | 0/3 | Not started | - |
+| 6. Project Management | 0/8 | Not started | - |
 | 7. Calendar & Scheduling | 0/3 | Not started | - |
 | 8. Video & Voice Calls | 0/3 | Not started | - |
 | 9. Email Integration | 0/3 | Not started | - |
