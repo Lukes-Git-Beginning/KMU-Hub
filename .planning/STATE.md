@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 13 (Project Management)
-Plan: 5 of 8 in current phase
+Plan: 6 of 8 in current phase
 Status: In progress
-Last activity: 2026-02-08 -- Completed 06-05-PLAN.md (Work Module Frontend Foundation)
+Last activity: 2026-02-08 -- Completed 06-06-PLAN.md (Task List and Kanban Views)
 
-Progress: [█████████████████████░] 47% (15/32 plans across phases 4-13)
+Progress: [██████████████████████░] 50% (16/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
+- Total plans completed: 16
 - Average duration: ~10 minutes
-- Total execution time: ~2h 30min
+- Total execution time: ~2h 37min
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [█████████████████████░] 4
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 5/8 | ~43min | ~8.6min |
+| 06 | 6/8 | ~50min | ~8.3min |
 
 **Recent Trend:**
-- Last 5 plans: 06-02 (~7min), 06-03 (~10min), 06-04 (~12min), 06-05 (~8min)
-- Trend: Frontend plans slightly faster than wiring plans
+- Last 5 plans: 06-03 (~10min), 06-04 (~12min), 06-05 (~8min), 06-06 (~7min)
+- Trend: Consistent ~8-10min per frontend plan
 
 *Updated after each plan completion*
 
@@ -84,6 +84,10 @@ Recent decisions affecting current work:
 - [06-05]: API types regenerated to include work/project/task endpoints from OpenAPI spec
 - [06-05]: Project create dialog bundles status creation as sequential API calls after project POST
 - [06-05]: My Tasks hooks auto-set assignee_id from auth store (user sees only own tasks)
+- [06-06]: Client-side grouping for instant group switching without network roundtrip
+- [06-06]: closestCorners collision detection for multi-container Kanban DnD
+- [06-06]: Max 3 visual nesting levels on Kanban to keep board clean
+- [06-06]: Subtask cards not independently draggable on Kanban (use list view or detail panel)
 
 ### Pending Todos
 
@@ -99,5 +103,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-05-PLAN.md (Work Module Frontend Foundation)
+Stopped at: Completed 06-06-PLAN.md (Task List and Kanban Views)
 Resume file: None
