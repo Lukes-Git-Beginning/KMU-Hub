@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 6 of 20 (Project Management)
-Plan: 8 of 10 in current phase
-Status: In progress (plans 06-09, 06-10 need planning)
-Last activity: 2026-02-08 -- Completed 06-08-PLAN.md (CRM Linking + Search + Filters + Templates)
+Plan: 9 of 10 in current phase
+Status: In progress (plan 06-10 remaining)
+Last activity: 2026-02-08 -- Completed 06-09-PLAN.md (Gantt Chart View)
 
-Progress: [██████░░░░░░░░░░░░░░░░░░] 28% (18/63 plans across phases 4-20)
+Progress: [███████░░░░░░░░░░░░░░░░░] 30% (19/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
+- Total plans completed: 19
 - Average duration: ~10 minutes
-- Total execution time: ~2h 57min
+- Total execution time: ~3h 5min
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [██████░░░░░░░░░░░░░░░░░
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 8/10 | ~70min | ~8.75min |
+| 06 | 9/10 | ~78min | ~8.7min |
 
 **Recent Trend:**
-- Last 5 plans: 06-05 (~8min), 06-06 (~7min), 06-07 (~10min), 06-08 (~10min)
+- Last 5 plans: 06-06 (~7min), 06-07 (~10min), 06-08 (~10min), 06-09 (~8min)
 - Trend: Consistent ~8-10min per frontend plan
 
 *Updated after each plan completion*
@@ -98,6 +98,10 @@ Recent decisions affecting current work:
 - [06-08]: CRM search API reused for entity linking (no new backend search endpoint)
 - [06-08]: Custom fields reuse CRM engine with entity_type=task
 - [06-08]: Move-to-project updates project_id via existing task update API
+- [06-09]: Migration renumbered to 000031 to avoid collision with uncommitted time_entries migration
+- [06-09]: Batch dependency fetching via useQueries for tasks with has_blocked_deps flag
+- [06-09]: Gantt view is read-only in v1 (bars clickable, not draggable)
+- [06-09]: Critical path uses forward/backward pass CPM with Kahn's topological sort
 
 ### Pending Todos
 
@@ -113,5 +117,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-08-PLAN.md (CRM Linking + Search + Filters + Templates)
+Stopped at: Completed 06-09-PLAN.md (Gantt Chart View)
 Resume file: None
