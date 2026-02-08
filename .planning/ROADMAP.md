@@ -28,7 +28,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 - [x] **Phase 4: Notifications + Gateway Modernization** - Centralized notification system and gateway refactoring for multi-service scale
 - [x] **Phase 5: Desktop App Shell** - Electron workspace with module loading, personalization, and role-based dashboards
-- [ ] **Phase 6: Project Management** - Tasks, projects, Kanban boards, Gantt chart, task timer, subtasks, dependencies, templates, CRM integration, custom fields
+- [x] **Phase 6: Project Management** - Tasks, projects, Kanban boards, Gantt chart, task timer, subtasks, dependencies, templates, CRM integration, custom fields
 - [ ] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
 - [ ] **Phase 8: Video, Voice & Meetings** - LiveKit-powered calls, screen sharing, recording, meeting management, emoji reactions, presence/online status
 
@@ -120,8 +120,8 @@ Plans:
 - [x] 06-06-PLAN.md -- Task list view + Kanban board with @dnd-kit DnD (core views)
 - [x] 06-07-PLAN.md -- Task detail panel + comments + files + activity log (collaboration)
 - [x] 06-08-PLAN.md -- CRM linking + search + filters + My Tasks + templates (integration)
-- [ ] 06-09-PLAN.md -- Gantt chart view (read-only timeline with task bars, dependency arrows, date range scrolling, critical path)
-- [ ] 06-10-PLAN.md -- Task timer + time tracking (start/stop timer, manual time entry, time logs per task, summary views)
+- [x] 06-09-PLAN.md -- Gantt chart view (read-only timeline with task bars, dependency arrows, date range scrolling, critical path)
+- [x] 06-10-PLAN.md -- Task timer + time tracking (start/stop timer, manual time entry, time logs per task, summary views)
 
 ### Phase 7: Calendar & Scheduling
 **Goal**: Users can manage their schedules, book meetings, and coordinate team availability entirely within the Hub
@@ -385,7 +385,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 |-------|----------------|--------|-----------|
 | 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
 | 5. Desktop App Shell | 7/7 | Complete | 2026-02-08 |
-| 6. Project Management | 8/10 | In progress | - |
+| 6. Project Management | 10/10 | Complete | 2026-02-08 |
 | 7. Calendar & Scheduling | 0/3 | Not started | - |
 | 8. Video, Voice & Meetings | 0/5 | Not started | - |
 | 9. Security & Compliance | 0/4 | Not started | - |

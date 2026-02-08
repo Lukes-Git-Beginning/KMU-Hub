@@ -22,20 +22,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Project Management
 
-- [ ] **PM-01**: User can create and manage tasks with assignees, due dates, priority levels, and customizable statuses
-- [ ] **PM-02**: User can organize tasks into projects with shared settings and member access
-- [ ] **PM-03**: User can view tasks in a sortable, filterable list view
-- [ ] **PM-04**: User can view and manage tasks on a Kanban board with drag-and-drop columns per status
-- [ ] **PM-05**: User can add threaded comments on tasks with @mentions (reusing chat infrastructure)
-- [ ] **PM-06**: User can attach files to tasks (reusing MinIO file storage)
-- [ ] **PM-07**: User can search and filter tasks across all projects
-- [ ] **PM-08**: User can link tasks to CRM entities (create task from deal, link task to contact)
-- [ ] **PM-09**: User can add custom fields to tasks per project (reusing CRM custom fields engine)
-- [ ] **PM-10**: Tasks can have dependencies (finish-to-start blocking) with visual indicators on blocked tasks
-- [ ] **PM-11**: Tasks support multi-level subtasks with nesting for breaking down large tasks
-- [ ] **PM-15**: Admin/manager can save a project as a template and create new projects from templates
-- [ ] **PM-16**: User can view a project timeline as a Gantt chart with task bars, dependency arrows, and date range navigation
-- [ ] **PM-17**: User can start/stop a timer on a task to track time spent, with manual time entry and per-task time summaries
+- [x] **PM-01**: User can create and manage tasks with assignees, due dates, priority levels, and customizable statuses
+- [x] **PM-02**: User can organize tasks into projects with shared settings and member access
+- [x] **PM-03**: User can view tasks in a sortable, filterable list view
+- [x] **PM-04**: User can view and manage tasks on a Kanban board with drag-and-drop columns per status
+- [x] **PM-05**: User can add threaded comments on tasks with @mentions (reusing chat infrastructure)
+- [x] **PM-06**: User can attach files to tasks (reusing MinIO file storage)
+- [x] **PM-07**: User can search and filter tasks across all projects
+- [x] **PM-08**: User can link tasks to CRM entities (create task from deal, link task to contact)
+- [x] **PM-09**: User can add custom fields to tasks per project (reusing CRM custom fields engine)
+- [x] **PM-10**: Tasks can have dependencies (finish-to-start blocking) with visual indicators on blocked tasks
+- [x] **PM-11**: Tasks support multi-level subtasks with nesting for breaking down large tasks
+- [x] **PM-15**: Admin/manager can save a project as a template and create new projects from templates
+- [x] **PM-16**: User can view a project timeline as a Gantt chart with task bars, dependency arrows, and date range navigation
+- [x] **PM-17**: User can start/stop a timer on a task to track time spent, with manual time entry and per-task time summaries
 
 ### Calendar & Scheduling
 
