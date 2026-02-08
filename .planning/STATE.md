@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 6 - Project Management (in progress)
+**Current focus:** Phase 6 - Project Management (COMPLETE)
 
 ## Current Position
 
 Phase: 6 of 20 (Project Management)
-Plan: 9 of 10 in current phase
-Status: In progress (plan 06-10 remaining)
-Last activity: 2026-02-08 -- Completed 06-09-PLAN.md (Gantt Chart View)
+Plan: 10 of 10 in current phase
+Status: Phase complete
+Last activity: 2026-02-08 -- Completed 06-10-PLAN.md (Task Timer & Time Tracking)
 
-Progress: [███████░░░░░░░░░░░░░░░░░] 30% (19/63 plans across phases 4-20)
+Progress: [████████░░░░░░░░░░░░░░░░] 32% (20/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19
+- Total plans completed: 20
 - Average duration: ~10 minutes
-- Total execution time: ~3h 5min
+- Total execution time: ~3h 15min
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [███████░░░░░░░░░░░░░░░░
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 9/10 | ~78min | ~8.7min |
+| 06 | 10/10 | ~88min | ~8.8min |
 
 **Recent Trend:**
-- Last 5 plans: 06-06 (~7min), 06-07 (~10min), 06-08 (~10min), 06-09 (~8min)
-- Trend: Consistent ~8-10min per frontend plan
+- Last 5 plans: 06-07 (~10min), 06-08 (~10min), 06-09 (~8min), 06-10 (~10min)
+- Trend: Consistent ~8-10min per plan
 
 *Updated after each plan completion*
 
@@ -102,6 +102,11 @@ Recent decisions affecting current work:
 - [06-09]: Batch dependency fetching via useQueries for tasks with has_blocked_deps flag
 - [06-09]: Gantt view is read-only in v1 (bars clickable, not draggable)
 - [06-09]: Critical path uses forward/backward pass CPM with Kahn's topological sort
+- [06-10]: Separate timeentry package under internal/work/ for clean separation of concerns
+- [06-10]: Auto-stop previous timer in service layer ensures single-timer invariant at DB level
+- [06-10]: Partial index idx_time_entries_active for O(1) active timer lookup
+- [06-10]: requestAnimationFrame for timer display (smoother, auto-pauses in background tabs)
+- [06-10]: Migration 000030 for time_entries (06-09 used 000031 for gantt view type)
 
 ### Pending Todos
 
@@ -117,5 +122,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-09-PLAN.md (Gantt Chart View)
+Stopped at: Completed 06-10-PLAN.md (Task Timer & Time Tracking) -- Phase 6 complete
 Resume file: None
