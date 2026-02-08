@@ -1,0 +1,207 @@
+/**
+ * React Query hooks for the notification system.
+ *
+ * Provides notification CRUD, unread count tracking, preference management,
+ * and real-time WebSocket subscription that triggers native desktop
+ * notifications when the app is not focused.
+ */
+import { useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiClient } from '@/api/client'
+import { wsManager } from '@/api/websocket'
+import type { components } from '@/api/types'
+
+type Notification = components['schemas']['Notification']
+type NotificationPreference = components['schemas']['NotificationPreference']
+type UpdateNotificationPreferenceRequest = components['schemas']['UpdateNotificationPreferenceRequest']
+
+/** Query key factory for notification-related queries. */
+export const notificationKeys = {
+  all: ['notifications'] as const,
+  lists: () => [...notificationKeys.all, 'list'] as const,
+  list: (params?: { page?: number; isRead?: boolean; moduleId?: string }) =>
+    [...notificationKeys.lists(), params] as const,
+  unreadCount: () => [...notificationKeys.all, 'unread-count'] as const,
+  preferences: () => [...notificationKeys.all, 'preferences'] as const,
+  eventTypes: () => [...notificationKeys.all, 'event-types'] as const,
+}
+
+/** Fetch paginated list of notifications. */
+export function useNotifications(params?: {
+  page?: number
+  pageSize?: number
+  isRead?: boolean
+  moduleId?: string
+}) {
+  return useQuery({
+    queryKey: notificationKeys.list({
+      page: params?.page,
+      isRead: params?.isRead,
+      moduleId: params?.moduleId,
+    }),
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/api/v1/notifications', {
+        params: {
+          query: {
+            page: params?.page,
+            page_size: params?.pageSize,
+            is_read: params?.isRead,
+            module_id: params?.moduleId,
+          },
+        },
+      })
+      if (error) throw new Error('Failed to load notifications')
+      return data
+    },
+  })
+}
+
+/** Fetch unread notification count. */
+export function useUnreadNotificationCount() {
+  return useQuery({
+    queryKey: notificationKeys.unreadCount(),
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/api/v1/notifications/unread-count')
+      if (error) throw new Error('Failed to load unread count')
+      return data?.count ?? 0
+    },
+    // Poll every 30 seconds as fallback to WebSocket
+    refetchInterval: 30_000,
+  })
+}
+
+/** Mark a single notification as read. */
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (notificationId: string) => {
+      const { data, error } = await apiClient.POST('/api/v1/notifications/{id}/read', {
+        params: { path: { id: notificationId } },
+      })
+      if (error) throw new Error('Failed to mark notification as read')
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() })
+    },
+  })
+}
+
+/** Mark all notifications as read, optionally filtered by module. */
+export function useMarkAllNotificationsRead() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (moduleId?: string) => {
+      const { data, error } = await apiClient.POST('/api/v1/notifications/read-all', {
+        body: moduleId ? { module_id: moduleId } : {},
+      })
+      if (error) throw new Error('Failed to mark all as read')
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() })
+    },
+  })
+}
+
+/** Fetch notification preferences. */
+export function useNotificationPreferences(moduleId?: string) {
+  return useQuery({
+    queryKey: [...notificationKeys.preferences(), moduleId],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/api/v1/notifications/preferences', {
+        params: {
+          query: { module_id: moduleId },
+        },
+      })
+      if (error) throw new Error('Failed to load preferences')
+      return data?.preferences ?? []
+    },
+  })
+}
+
+/** Update a notification preference. */
+export function useUpdateNotificationPreference() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (request: UpdateNotificationPreferenceRequest) => {
+      const { data, error } = await apiClient.PUT('/api/v1/notifications/preferences', {
+        body: request,
+      })
+      if (error) throw new Error('Failed to update preference')
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: notificationKeys.preferences() })
+    },
+  })
+}
+
+/** Fetch available notification event types. */
+export function useEventTypes(moduleId?: string) {
+  return useQuery({
+    queryKey: [...notificationKeys.eventTypes(), moduleId],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/api/v1/notifications/event-types', {
+        params: {
+          query: { module_id: moduleId },
+        },
+      })
+      if (error) throw new Error('Failed to load event types')
+      return data?.event_types ?? []
+    },
+  })
+}
+
+/**
+ * Subscribe to real-time notification events via WebSocket.
+ *
+ * When a 'notification.new' event arrives:
+ * 1. Invalidates the notification list and unread count caches
+ * 2. If the app is not focused, triggers a native desktop notification
+ *    via the Electron IPC bridge
+ *
+ * Call this once in the AppShell or Header to ensure notifications
+ * are always active while authenticated.
+ */
+export function useNotificationWebSocket() {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const unsubNew = wsManager.on('notification.new', (data) => {
+      // Invalidate caches for fresh data
+      queryClient.invalidateQueries({ queryKey: notificationKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() })
+
+      // Trigger native desktop notification if app is not focused
+      if (!document.hasFocus()) {
+        const title = (data.title as string) || 'Neue Benachrichtigung'
+        const body = (data.body as string) || ''
+        try {
+          window.electronAPI.notifications.show(title, body)
+        } catch {
+          // Gracefully handle if electronAPI is not available (e.g., in browser dev)
+        }
+      }
+    })
+
+    const unsubCount = wsManager.on('notification.unread_count', (data) => {
+      const count = data.count as number | undefined
+      if (typeof count === 'number') {
+        queryClient.setQueryData(notificationKeys.unreadCount(), count)
+      }
+    })
+
+    return () => {
+      unsubNew()
+      unsubCount()
+    }
+  }, [queryClient])
+}
+
+export type { Notification, NotificationPreference }

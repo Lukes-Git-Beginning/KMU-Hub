@@ -45,6 +45,8 @@ tags:
     description: Full-text search across chat messages and files
   - name: notifications
     description: Notification management (list, read, preferences, mutes, quiet hours)
+  - name: dashboard
+    description: Dashboard layout management (user layouts, role defaults)
 
 paths:
   /health:
@@ -3129,6 +3131,130 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ========================================================================
+  # Dashboard Endpoints
+  # ========================================================================
+
+  /api/v1/dashboard/layout:
+    get:
+      summary: Get effective dashboard layout for authenticated user
+      tags: [dashboard]
+      operationId: getDashboardLayout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard layout (user override or role default)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardLayoutResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Save personal dashboard layout
+      tags: [dashboard]
+      operationId: saveDashboardLayout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveDashboardLayoutRequest"
+      responses:
+        "200":
+          description: Layout saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardLayoutResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      summary: Reset dashboard to role defaults
+      tags: [dashboard]
+      operationId: resetDashboardLayout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Layout reset to defaults
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/dashboard/defaults/{role}:
+    get:
+      summary: Get default dashboard layout for a role (admin only)
+      tags: [dashboard]
+      operationId: getDashboardDefaults
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [admin, manager, member]
+      responses:
+        "200":
+          description: Role default layout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardDefault"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Save default dashboard layout for a role (admin only)
+      tags: [dashboard]
+      operationId: saveDashboardDefaults
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [admin, manager, member]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveDashboardDefaultsRequest"
+      responses:
+        "200":
+          description: Default layout saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardDefault"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3157,7 +3283,7 @@ components:
   schemas:
     UserInfo:
       type: object
-      description: Protobuf JSON uses camelCase field names.
+      description: Go encoding/json serialization uses snake_case field names.
       properties:
         id:
           type: string
@@ -3165,17 +3291,17 @@ components:
         email:
           type: string
           format: email
-        firstName:
+        first_name:
           type: string
-        lastName:
+        last_name:
           type: string
-        isActive:
+        is_active:
           type: boolean
         roles:
           type: array
           items:
             type: string
-        createdAt:
+        created_at:
           type: string
           format: date-time
 
@@ -3314,21 +3440,21 @@ components:
 
     AuthResponse:
       type: object
-      description: Returned by register and login. Fields are camelCase (protobuf JSON).
+      description: Returned by register and login. Go encoding/json uses snake_case.
       properties:
         user:
           $ref: "#/components/schemas/UserInfo"
-        accessToken:
+        access_token:
           type: string
-        refreshToken:
+        refresh_token:
           type: string
 
     RefreshResponse:
       type: object
       properties:
-        accessToken:
+        access_token:
           type: string
-        refreshToken:
+        refresh_token:
           type: string
 
     GetUserResponse:
@@ -4778,6 +4904,86 @@ components:
             type: integer
         enabled:
           type: boolean
+
+    # ========================================================================
+    # Dashboard Schemas
+    # ========================================================================
+
+    DashboardLayoutResponse:
+      type: object
+      properties:
+        layout:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Grid layout items (react-grid-layout format)
+        active_widgets:
+          type: array
+          items:
+            type: string
+          description: List of active widget IDs
+        is_custom:
+          type: boolean
+          description: Whether this is a user override (true) or role default (false)
+        updated_at:
+          type: string
+          format: date-time
+
+    SaveDashboardLayoutRequest:
+      type: object
+      required: [layout, active_widgets]
+      properties:
+        layout:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Grid layout items
+        active_widgets:
+          type: array
+          items:
+            type: string
+          description: List of active widget IDs
+
+    DashboardDefault:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [admin, manager, member]
+        layout:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        active_widgets:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SaveDashboardDefaultsRequest:
+      type: object
+      required: [layout, active_widgets]
+      properties:
+        layout:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        active_widgets:
+          type: array
+          items:
+            type: string
 
   responses:
     BadRequest:

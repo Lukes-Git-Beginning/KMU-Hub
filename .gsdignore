@@ -1,0 +1,21 @@
+# Secrets
+.env*
+**/credentials*
+**/secrets*
+
+# Large generated files
+backend/proto/**/*.pb.go
+backend/proto/**/*_grpc.pb.go
+
+# Binary/Build artifacts
+*.exe
+*.dll
+vendor/
+node_modules/
+dist/
+build/
+
+# Data
+data/
+*.sql.bak
+coverage/

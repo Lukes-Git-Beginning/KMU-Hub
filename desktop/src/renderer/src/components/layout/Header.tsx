@@ -1,14 +1,15 @@
 /**
  * Compact header bar displayed above the main content area.
  *
- * Shows current module name, online/offline indicator, and
- * a notification bell placeholder (wired in 05-04).
+ * Shows current module name, connection status dot, desk maximize toggle,
+ * and the notification bell with real-time unread count.
  */
 import { useLocation } from 'react-router-dom'
-import { Bell, Wifi, WifiOff, Maximize2, Minimize2 } from 'lucide-react'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
-import { Badge } from '@/components/ui/badge'
+import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
+import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -32,6 +33,9 @@ export function Header() {
   const deskMaximized = useUIStore((s) => s.deskMaximized)
   const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
 
+  // Initialize notification WebSocket listener so it's always active
+  useNotificationWebSocket()
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
       {/* Left: module name */}
@@ -39,22 +43,15 @@ export function Header() {
 
       {/* Right: status indicators */}
       <div className="flex items-center gap-3">
-        {/* Online / Offline indicator */}
+        {/* Connection status dot: green (online), red (offline) */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5">
-              {isOnline ? (
-                <Wifi className="h-4 w-4 text-emerald-500" />
-              ) : (
-                <WifiOff className="h-4 w-4 text-destructive" />
-              )}
-              <Badge
-                variant={isOnline ? 'secondary' : 'destructive'}
-                className="text-xs"
-              >
-                {isOnline ? 'Online' : 'Offline'}
-              </Badge>
-            </div>
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                isOnline ? 'bg-emerald-500' : 'bg-destructive'
+              }`}
+              aria-label={isOnline ? 'Online' : 'Offline'}
+            />
           </TooltipTrigger>
           <TooltipContent>
             {isOnline
@@ -84,15 +81,8 @@ export function Header() {
           </TooltipContent>
         </Tooltip>
 
-        {/* Notification bell placeholder (wired in 05-04) */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-9 w-9">
-              <Bell className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Benachrichtigungen</TooltipContent>
-        </Tooltip>
+        {/* Notification bell with real-time unread count */}
+        <NotificationBell />
       </div>
     </header>
   )

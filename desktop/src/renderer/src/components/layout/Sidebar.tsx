@@ -10,6 +10,7 @@ import {
   Users,
   MessageSquare,
   Bell,
+  Cog,
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
@@ -32,12 +33,21 @@ interface SidebarProps {
   onToggle: () => void
 }
 
-const navItems = [
+interface NavItem {
+  to: string
+  icon: typeof LayoutDashboard
+  label: string
+  /** If set, only users with one of these roles see this item. */
+  roles?: string[]
+}
+
+const navItems: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/crm', icon: Users, label: 'CRM' },
   { to: '/chat', icon: MessageSquare, label: 'Chat' },
   { to: '/notifications', icon: Bell, label: 'Benachrichtigungen' },
-] as const
+  { to: '/settings/dashboard', icon: Cog, label: 'Einstellungen', roles: ['admin'] },
+]
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const user = useAuthStore((s) => s.user)
@@ -75,7 +85,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-2">
-        {navItems.map((item) => (
+        {navItems.filter((item) => {
+          if (!item.roles) return true
+          return item.roles.some((r) => user?.roles.includes(r))
+        }).map((item) => (
           <Tooltip key={item.to} delayDuration={collapsed ? 100 : 999999}>
             <TooltipTrigger asChild>
               <NavLink
