@@ -4,9 +4,10 @@
  * Accessed via /work/projects/:id. Shows project header with name, key,
  * view toggle (List/Kanban), settings, and new task button. Content area
  * renders TaskListView or KanbanBoard based on persisted user preference.
+ * Includes TaskDetailPanel slide-over for quick task viewing.
  */
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Routes, Route } from 'react-router-dom'
 import {
   ArrowLeft,
   LayoutList,
@@ -27,8 +28,26 @@ import ProjectSettingsDialog from './ProjectSettingsDialog'
 import TaskListView from '../list/TaskListView'
 import KanbanBoard from '../kanban/KanbanBoard'
 import TaskCreateDialog from '../components/TaskCreateDialog'
+import TaskDetailPanel from '../tasks/TaskDetailPanel'
+import TaskDetailPage from '../tasks/TaskDetailPage'
 
+/**
+ * Wrapper component that handles nested routing for project detail.
+ * Renders either the project board view or the full task detail page.
+ */
 export default function ProjectDetailPage() {
+  return (
+    <Routes>
+      <Route index element={<ProjectBoardView />} />
+      <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+    </Routes>
+  )
+}
+
+/**
+ * Project board view with task list/Kanban and slide-over task panel.
+ */
+function ProjectBoardView() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -182,6 +201,9 @@ export default function ProjectDetailPage() {
           <KanbanBoard projectId={id ?? ''} statuses={kanbanStatuses} />
         )}
       </div>
+
+      {/* Task detail slide-over panel */}
+      <TaskDetailPanel />
 
       {/* Dialogs */}
       <ProjectSettingsDialog

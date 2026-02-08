@@ -7,6 +7,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
 import { useAuthStore } from '@/stores/auth'
+import type { components } from '../types'
+
+export type TaskDependency = components['schemas']['TaskDependencyResponse']
 
 // ---------------------------------------------------------------------------
 // Query params
@@ -101,6 +104,23 @@ export function useSubtasks(taskId: string, recursive?: boolean) {
             path: { id: taskId },
             query: { recursive },
           },
+        }
+      )
+      if (error) throw error
+      return data
+    },
+    enabled: !!taskId,
+  })
+}
+
+export function useTaskDependencies(taskId: string) {
+  return useQuery({
+    queryKey: ['task-dependencies', taskId],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET(
+        '/api/v1/tasks/{id}/dependencies',
+        {
+          params: { path: { id: taskId } },
         }
       )
       if (error) throw error
@@ -227,6 +247,75 @@ export function useMoveTask() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: ['tasks', variables.id] })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Dependency mutations
+// ---------------------------------------------------------------------------
+
+export function useCreateDependency() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      target_task_id,
+      dependency_type,
+    }: {
+      taskId: string
+      target_task_id: string
+      dependency_type: 'blocks' | 'blocked_by' | 'relates_to' | 'duplicates'
+    }) => {
+      const { data, error } = await apiClient.POST(
+        '/api/v1/tasks/{id}/dependencies',
+        {
+          params: { path: { id: taskId } },
+          body: { target_task_id, dependency_type },
+        }
+      )
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['task-dependencies', variables.taskId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['task-activities', variables.taskId],
+      })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    },
+  })
+}
+
+export function useDeleteDependency() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      dependencyId,
+      taskId,
+    }: {
+      dependencyId: string
+      taskId: string
+    }) => {
+      const { data, error } = await apiClient.DELETE(
+        '/api/v1/task-dependencies/{id}',
+        {
+          params: { path: { id: dependencyId } },
+        }
+      )
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['task-dependencies', variables.taskId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['task-activities', variables.taskId],
+      })
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
     },
   })
 }
