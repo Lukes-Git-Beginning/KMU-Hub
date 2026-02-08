@@ -122,6 +122,17 @@ export default function TaskDetailPage() {
     if (taskId) updateTask.mutate({ id: taskId, due_date: date || undefined })
   }
 
+  function toDateInputValue(date: unknown): string {
+    if (!date) return ''
+    try {
+      const d = date instanceof Date ? date : new Date(String(date))
+      if (isNaN(d.getTime())) return ''
+      return d.toISOString().split('T')[0]
+    } catch {
+      return ''
+    }
+  }
+
   const taskKey =
     task?.project_key && task?.task_number
       ? `${task.project_key}-${task.task_number}`
@@ -555,7 +566,7 @@ export default function TaskDetailPage() {
                   <Input
                     type="date"
                     className="h-8 text-xs"
-                    value={task.due_date ? (typeof task.due_date === 'string' ? task.due_date : new Date(task.due_date).toISOString()).split('T')[0] : ''}
+                    value={toDateInputValue(task.due_date)}
                     onChange={(e) => handleDueDateChange(e.target.value)}
                   />
                   {task.due_date && (

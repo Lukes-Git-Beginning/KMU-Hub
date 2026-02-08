@@ -145,6 +145,17 @@ export default function TaskDetailPanel() {
     }
   }
 
+  function toDateInputValue(date: unknown): string {
+    if (!date) return ''
+    try {
+      const d = date instanceof Date ? date : new Date(String(date))
+      if (isNaN(d.getTime())) return ''
+      return d.toISOString().split('T')[0]
+    } catch {
+      return ''
+    }
+  }
+
   function handleExpand() {
     if (activeTaskId && projectId) {
       closeTaskPanel()
@@ -407,7 +418,7 @@ export default function TaskDetailPanel() {
                           <Input
                             type="date"
                             className="h-8 text-xs"
-                            value={task.due_date ? (typeof task.due_date === 'string' ? task.due_date : new Date(task.due_date).toISOString()).split('T')[0] : ''}
+                            value={toDateInputValue(task.due_date)}
                             onChange={(e) =>
                               handleDueDateChange(e.target.value)
                             }
