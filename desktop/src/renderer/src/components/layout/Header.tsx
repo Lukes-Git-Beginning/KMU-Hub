@@ -1,11 +1,4 @@
-/**
- * Compact header bar displayed above the main content area.
- *
- * Shows current module name, connection status dot, desk maximize toggle,
- * and the notification bell with real-time unread count.
- */
-import { useLocation } from 'react-router-dom'
-import { Maximize2, Minimize2 } from 'lucide-react'
+import { Maximize2, Minimize2, Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
@@ -16,34 +9,55 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-
-/** Map route paths to display names. */
-function getModuleName(pathname: string): string {
-  if (pathname === '/') return 'Dashboard'
-  if (pathname.startsWith('/crm')) return 'CRM'
-  if (pathname.startsWith('/chat')) return 'Chat'
-  if (pathname.startsWith('/notifications')) return 'Benachrichtigungen'
-  return 'KMU Hub'
-}
+import {
+  SearchBar,
+  DailyPlannerWidget,
+  LanguageSwitcher,
+  ProfileSwitcher,
+  ProfileMenu,
+} from '@/components/header'
 
 export function Header() {
-  const { pathname } = useLocation()
   const { isOnline } = useOnlineStatus()
-  const moduleName = getModuleName(pathname)
   const deskMaximized = useUIStore((s) => s.deskMaximized)
   const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
+  const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
 
   // Initialize notification WebSocket listener so it's always active
   useNotificationWebSocket()
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
-      {/* Left: module name */}
-      <h1 className="text-lg font-semibold text-foreground">{moduleName}</h1>
+    <header className="flex h-16 items-center justify-between border-b border-header-border bg-header-background px-4 md:px-6">
+      {/* Left: mobile menu + search */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-4">
+        <button
+          onClick={() => setSidebarMobileOpen(true)}
+          className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
+        >
+          <Menu className="h-5 w-5 text-muted-foreground" />
+        </button>
 
-      {/* Right: status indicators */}
-      <div className="flex items-center gap-3">
-        {/* Connection status dot: green (online), red (offline) */}
+        <div className="min-w-0 flex-1">
+          <SearchBar />
+        </div>
+      </div>
+
+      {/* Right: controls */}
+      <div className="flex shrink-0 items-center gap-1 md:gap-2">
+        {/* Daily Planner */}
+        <div className="hidden sm:block">
+          <DailyPlannerWidget />
+        </div>
+
+        {/* Language Switcher */}
+        <div className="hidden md:block">
+          <LanguageSwitcher />
+        </div>
+
+        {/* Notification bell (existing, real API) */}
+        <NotificationBell />
+
+        {/* Connection status dot */}
         <Tooltip>
           <TooltipTrigger asChild>
             <span
@@ -77,12 +91,19 @@ export function Header() {
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {deskMaximized ? 'Schreibtisch anzeigen' : 'Arbeitsflaeche maximieren'}
+            {deskMaximized
+              ? 'Schreibtisch anzeigen'
+              : 'Arbeitsflaeche maximieren'}
           </TooltipContent>
         </Tooltip>
 
-        {/* Notification bell with real-time unread count */}
-        <NotificationBell />
+        {/* Profile Switcher */}
+        <div className="hidden sm:block">
+          <ProfileSwitcher />
+        </div>
+
+        {/* Profile Menu (avatar) */}
+        <ProfileMenu />
       </div>
     </header>
   )
