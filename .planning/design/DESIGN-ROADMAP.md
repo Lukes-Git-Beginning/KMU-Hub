@@ -2,34 +2,76 @@
 
 ## Overview
 
-Design-Phasen fuer das KMU Hub Desktop Frontend. Getrennt von Lukes GSD-Phasen
-(`.planning/ROADMAP.md`), um Merge-Konflikte zu vermeiden. Fertige Design-Arbeit
-wird per Branch-Review an Luke uebergeben, der sie in offizielle GSD-Phasen integriert.
+Design-Phasen fuer das KMU Hub Desktop Frontend, basierend auf dem Figma-Export
+(`desktop/design-reference/`). Getrennt von Lukes GSD-Phasen (`.planning/ROADMAP.md`),
+um Merge-Konflikte zu vermeiden.
 
 **Branch:** `design/brainstorm`
 **Designer:** Darien
 **Uebergabe an:** Luke (main branch, GSD-Phasen)
+**Figma-Referenz:** `desktop/design-reference/`
 
 ---
 
 ## Design-Phasen
 
-- [x] **D1: Desk Foundation** — Schreibtisch-Metapher, Room-Scene Layout, Theme-System, Uhr-Deko, Maximize-Modus
-- [ ] **D2: Visual Polish** — Texturen, Schatten, Tiefenwirkung, Farbverfeinerung, Dark-Mode-Feinschliff
-- [ ] **D3: Theme Picker** — UI zum Wechseln von Desk-Themes, Theme-Vorschau, evtl. Custom-Theme-Editor
-- [ ] **D4: Decorations System** — Pflanzen-SVGs, Bilderrahmen, Schreibtisch-Items, Drag-to-Place UI
-- [ ] **D5: Module Styling** — Dashboard-Widgets, CRM-Listen/Details, Chat-UI, Notification-Center visuell aufwerten
+- [x] **D1: Desk Foundation** — Schreibtisch-Metapher, Room-Scene Layout, Theme-System, Maximize-Modus
+- [ ] **D2: Color System & Theme** — Figma-Farbpalette (warm beige/teal) uebernehmen, Dark Mode OKLCH, Typography
+- [ ] **D3: Sidebar Redesign** — Figma-Sidebar mit Badges, Live-Indicator, Collapse, Branding
+- [ ] **D4: Header Redesign** — SearchBar, DailyPlanner, LanguageSwitcher, ProfileSwitcher, NotificationCenter
+- [ ] **D5: Dashboard** — ModulesGrid, Alerts, NotificationsFeed, Activity Feed, Quick Stats
+- [ ] **D6: Module Screens** — Projekte, Aufgaben, Meetings, Kontakte, Team, Dokumente, Mails, Buchhaltung
+- [ ] **D7: Widgets & Overlays** — TimeTracker, HelpWidget, ProfileSystem, OnboardingWizard
+- [ ] **D8: Desk Polish** — Theme Picker UI, Dekorationen (Pflanzen/Fotos/Items), zusaetzliche Desk-Themes
+- [ ] **D9: Visual Polish** — Texturen, Animationen, Empty States, Micro-Interactions
 
 ---
 
 ## Abhaengigkeiten
 
 ```
-D1 (done) → D2 (polish das Fundament)
-                → D3 (braucht poliertes Theme-System)
-                → D4 (braucht polierte Slots)
-           → D5 (unabhaengig, kann parallel zu D2-D4)
+D1 (done) ─┐
+            ├─→ D2 (Farben muessen zuerst stehen)
+            │     ├─→ D3 (Sidebar braucht neue Farben)
+            │     ├─→ D4 (Header braucht neue Farben)
+            │     └─→ D5 (Dashboard braucht neue Farben)
+            │           └─→ D6 (Module-Screens bauen auf Dashboard-Patterns auf)
+            │
+            ├─→ D7 (Widgets unabhaengig, aber nach D2 sinnvoller)
+            ├─→ D8 (Desk-spezifisch, unabhaengig von Module-Arbeit)
+            └─→ D9 (Finaler Polish, ganz am Ende)
 ```
+
+## Figma Feature-Inventar
+
+Features aus dem Figma die NICHT in Lukes aktueller Implementation sind:
+
+| Feature | Figma-Datei | Status im Projekt |
+|---------|-------------|-------------------|
+| Warme Farbpalette (Beige/Teal) | theme.css | Fehlt (nutzt slate) |
+| OKLCH Dark Mode | theme.css | Fehlt (nutzt HSL) |
+| SearchBar (global) | SearchBar.tsx | Fehlt |
+| DailyPlanner Widget | DailyPlannerWidget.tsx | Fehlt |
+| TimeTracker Widget | TimeTrackerWidget.tsx | Fehlt |
+| HelpWidget (Support-Chat) | HelpWidget.tsx | Fehlt |
+| ProfileSwitcher | ProfileSwitcher.tsx | Fehlt |
+| ProfileMenu | ProfileMenu.tsx | Fehlt |
+| Language Switcher | Header.tsx | Fehlt |
+| ModulesGrid (Dashboard) | ModulesGrid.tsx | Fehlt (hat Widget-Grid) |
+| NotificationsFeed (Tabs) | NotificationsFeed.tsx | Teilweise (NotificationBell) |
+| OnboardingWizard | OnboardingWizard.tsx | Fehlt |
+| Projekte Screen | Projekte.tsx | Fehlt |
+| Aufgaben Screen | Aufgaben.tsx | Fehlt |
+| Meetings Screen | Meetings.tsx | Fehlt |
+| Meeting Detail View | MeetingDetailView.tsx | Fehlt |
+| Dokumente Screen | Dokumente.tsx | Fehlt |
+| Mails Screen | Mails.tsx | Fehlt |
+| Buchhaltung Screen | Buchhaltung.tsx | Fehlt |
+| Team Screen | Team.tsx | Fehlt |
+| Profil Screen | Profil.tsx | Fehlt |
+| Einstellungen Screen | Einstellungen.tsx | Teilweise |
+| Arbeitsprofile Screen | Arbeitsprofile.tsx | Fehlt |
+| VaultSettings | VaultSettings.tsx | Fehlt |
 
 ## Uebergabe-Workflow
 
