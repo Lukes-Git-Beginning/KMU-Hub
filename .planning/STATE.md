@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 13 (Project Management)
-Plan: 6 of 8 in current phase
+Plan: 7 of 8 in current phase
 Status: In progress
-Last activity: 2026-02-08 -- Completed 06-06-PLAN.md (Task List and Kanban Views)
+Last activity: 2026-02-08 -- Completed 06-07-PLAN.md (Task Detail and Collaboration)
 
-Progress: [██████████████████████░] 50% (16/32 plans across phases 4-13)
+Progress: [████████████████████████░] 53% (17/32 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: ~10 minutes
-- Total execution time: ~2h 37min
+- Total execution time: ~2h 47min
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: [██████████████████████░
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 6/8 | ~50min | ~8.3min |
+| 06 | 7/8 | ~60min | ~8.6min |
 
 **Recent Trend:**
-- Last 5 plans: 06-03 (~10min), 06-04 (~12min), 06-05 (~8min), 06-06 (~7min)
+- Last 5 plans: 06-04 (~12min), 06-05 (~8min), 06-06 (~7min), 06-07 (~10min)
 - Trend: Consistent ~8-10min per frontend plan
 
 *Updated after each plan completion*
@@ -88,6 +88,10 @@ Recent decisions affecting current work:
 - [06-06]: closestCorners collision detection for multi-container Kanban DnD
 - [06-06]: Max 3 visual nesting levels on Kanban to keep board clean
 - [06-06]: Subtask cards not independently draggable on Kanban (use list view or detail panel)
+- [06-07]: Fixed overlay panel (CSS transform) for task detail slide-over, no Radix Sheet dependency
+- [06-07]: Two-step file upload: multipart to MinIO via /files/upload, then JSON metadata to task files
+- [06-07]: Nested Routes in ProjectDetailPage for board view vs task detail page
+- [06-07]: Tab-based activity/comments view (Alle/Kommentare/Aktivitaet) for user control
 
 ### Pending Todos
 
@@ -103,5 +107,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 06-06-PLAN.md (Task List and Kanban Views)
+Stopped at: Completed 06-07-PLAN.md (Task Detail and Collaboration)
 Resume file: None
