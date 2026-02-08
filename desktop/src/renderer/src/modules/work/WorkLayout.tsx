@@ -2,20 +2,22 @@
  * Work module layout with sub-navigation and nested routing.
  *
  * Provides horizontal tab navigation between Work sections:
- * Projects and My Tasks (Meine Aufgaben).
+ * Projects, My Tasks (Meine Aufgaben), and Search (Suche).
  * Uses React Router's Routes/Route for nested module routing.
  */
 import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
-import { FolderKanban, CheckSquare } from 'lucide-react'
+import { FolderKanban, CheckSquare, Search } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 import ProjectsListPage from './projects/ProjectsListPage'
 import ProjectDetailPage from './projects/ProjectDetailPage'
 import MyTasksPage from './tasks/MyTasksPage'
+import TaskSearchView from './components/TaskSearchView'
 
 const workNavItems = [
   { to: '/work/projects', icon: FolderKanban, label: 'Projekte' },
   { to: '/work/my-tasks', icon: CheckSquare, label: 'Meine Aufgaben' },
+  { to: '/work/search', icon: Search, label: 'Suche' },
 ] as const
 
 export default function WorkLayout() {
@@ -49,6 +51,7 @@ export default function WorkLayout() {
           <Route path="projects" element={<ProjectsListPage />} />
           <Route path="projects/:id/*" element={<ProjectDetailPage />} />
           <Route path="my-tasks" element={<MyTasksPage />} />
+          <Route path="search" element={<TaskSearchView />} />
         </Routes>
       </div>
     </div>
