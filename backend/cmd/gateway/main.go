@@ -53,6 +53,7 @@ func main() {
 	registry.Register("crm", cfg.CRMGRPCAddress)
 	registry.Register("chat", cfg.ChatGRPCAddress)
 	registry.Register("notification", cfg.NotificationGRPCAddress)
+	registry.Register("work", cfg.WorkGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -118,6 +119,7 @@ func main() {
 		gateway.NewCRMRoutes(registry),
 		gateway.NewChatRoutes(registry),
 		gateway.NewNotificationRoutes(registry),
+		gateway.NewWorkRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}
