@@ -12,6 +12,7 @@
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/stores/auth'
+import { canSeeNavItem } from '@/config/roles'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { navItems } from './nav-items'
 import { SidebarBranding } from './SidebarBranding'
@@ -48,10 +49,7 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
   }, [isTablet, collapsed, onToggle])
 
   const mainItems = navItems.filter((item) => item.section === 'main')
-  const bottomItems = navItems.filter((item) => item.section === 'bottom').filter((item) => {
-    if (!item.roles) return true
-    return item.roles.some((r) => user?.roles?.includes(r))
-  })
+  const bottomItems = navItems.filter((item) => item.section === 'bottom').filter((item) => canSeeNavItem(user, item.id))
 
   return (
     <aside

@@ -1,0 +1,743 @@
+import { useState } from 'react'
+import {
+  User,
+  Globe,
+  Palette,
+  Shield,
+  Bell,
+  Info,
+  Key,
+  Monitor,
+  Smartphone,
+  Check,
+  Mail,
+  Calendar,
+  Receipt,
+  Users,
+  Lock,
+  Copy,
+  Eye,
+  EyeOff,
+} from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/shared'
+import { useSettingsStore, type NotificationModule, type NotificationPrefs } from '@/stores/settings'
+import { useAuthStore } from '@/stores/auth'
+import { canSeeSettingsTab } from '@/config/roles'
+import { MailSettingsTab } from './tabs/MailSettingsTab'
+import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
+import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
+import { TeamSettingsTab } from './tabs/TeamSettingsTab'
+import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
+
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'team' | 'privacy' | 'about'
+
+interface TabConfig {
+  key: TabKey
+  label: string
+  icon: typeof User
+  group?: string
+}
+
+const ALL_TABS: TabConfig[] = [
+  { key: 'profile', label: 'Profil', icon: User, group: 'Persoenlich' },
+  { key: 'appearance', label: 'Darstellung', icon: Palette, group: 'Persoenlich' },
+  { key: 'language', label: 'Sprache & Region', icon: Globe, group: 'Persoenlich' },
+  { key: 'security', label: 'Sicherheit', icon: Shield, group: 'Persoenlich' },
+  { key: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'Persoenlich' },
+  { key: 'mail', label: 'E-Mail', icon: Mail, group: 'Module' },
+  { key: 'calendar', label: 'Kalender', icon: Calendar, group: 'Module' },
+  { key: 'finance', label: 'Buchhaltung', icon: Receipt, group: 'Module' },
+  { key: 'team', label: 'Team & HR', icon: Users, group: 'Admin' },
+  { key: 'privacy', label: 'Datenschutz', icon: Lock, group: 'Admin' },
+  { key: 'about', label: 'Ueber KMU Hub', icon: Info, group: 'Sonstiges' },
+]
+
+const TAB_GROUPS = ['Persoenlich', 'Module', 'Admin', 'Sonstiges']
+
+export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<TabKey>('profile')
+  const user = useAuthStore((s) => s.user)
+
+  // Filter tabs by role — restricted tabs are INVISIBLE, not greyed out
+  const tabs = ALL_TABS.filter((tab) => canSeeSettingsTab(user, tab.key))
+
+  // If the active tab got hidden (e.g. after role switch), fall back to profile
+  const isActiveVisible = tabs.some((t) => t.key === activeTab)
+  const effectiveTab = isActiveVisible ? activeTab : 'profile'
+
+  return (
+    <div className="flex h-full overflow-hidden">
+      {/* Settings sidebar */}
+      <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
+        <h3 className="text-sm font-medium text-foreground mb-4 px-2">Einstellungen</h3>
+        <nav className="space-y-4">
+          {TAB_GROUPS.map((group) => {
+            const groupTabs = tabs.filter((t) => t.group === group)
+            if (groupTabs.length === 0) return null
+            return (
+              <div key={group}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 mb-1">{group}</p>
+                <div className="space-y-0.5">
+                  {groupTabs.map((tab) => {
+                    const Icon = tab.icon
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActiveTab(tab.key)}
+                        className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                          effectiveTab === tab.key
+                            ? 'bg-primary-light text-primary font-medium'
+                            : 'text-foreground hover:bg-secondary'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {tab.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </nav>
+      </aside>
+
+      {/* Content area */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {effectiveTab === 'profile' && <ProfileTab />}
+        {effectiveTab === 'appearance' && <AppearanceTab />}
+        {effectiveTab === 'language' && <LanguageTab />}
+        {effectiveTab === 'security' && <SecurityTab />}
+        {effectiveTab === 'notifications' && <NotificationsTab />}
+        {effectiveTab === 'mail' && <MailSettingsTab />}
+        {effectiveTab === 'calendar' && <CalendarSettingsTab />}
+        {effectiveTab === 'finance' && <FinanceSettingsTab />}
+        {effectiveTab === 'team' && <TeamSettingsTab />}
+        {effectiveTab === 'privacy' && <PrivacySettingsTab />}
+        {effectiveTab === 'about' && <AboutTab />}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Profile Tab — now wired to settings store
+// ============================================================
+function ProfileTab() {
+  const { profile, updateProfile } = useSettingsStore()
+  const [firstName, setFirstName] = useState(profile.firstName)
+  const [lastName, setLastName] = useState(profile.lastName)
+  const [email, setEmail] = useState(profile.email)
+  const [phone, setPhone] = useState(profile.phone)
+  const [position, setPosition] = useState(profile.position)
+  const [bio, setBio] = useState(profile.bio)
+
+  const handleSave = () => {
+    updateProfile({ firstName, lastName, email, phone, position, bio })
+    toast.success('Profil gespeichert')
+  }
+
+  const handlePhotoChange = () => {
+    toast.success('Foto-Upload wird simuliert...')
+    setTimeout(() => {
+      updateProfile({ avatarUrl: 'mock-avatar.jpg' })
+      toast.success('Profilbild aktualisiert')
+    }, 1000)
+  }
+
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-foreground mb-1">Profil</h2>
+      <p className="text-sm text-muted-foreground mb-6">Verwalte deine persoenlichen Informationen</p>
+
+      {/* Avatar */}
+      <div className="flex items-center gap-4 mb-8">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-light text-2xl font-medium text-primary">
+          {initials}
+        </div>
+        <div>
+          <Button variant="outline" size="sm" onClick={handlePhotoChange}>
+            Foto aendern
+          </Button>
+          <p className="text-xs text-muted-foreground mt-1">JPG, PNG oder GIF, max. 5 MB</p>
+        </div>
+      </div>
+
+      {/* Form fields */}
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-foreground">Vorname</label>
+            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-foreground">Nachname</label>
+            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-foreground">E-Mail</label>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-foreground">Telefon</label>
+          <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-foreground">Position</label>
+          <Input value={position} onChange={(e) => setPosition(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-foreground">Bio</label>
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={3}
+            className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
+          />
+        </div>
+      </div>
+
+      <div className="mt-6 flex gap-2">
+        <Button onClick={handleSave}>Speichern</Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setFirstName(profile.firstName)
+            setLastName(profile.lastName)
+            setEmail(profile.email)
+            setPhone(profile.phone)
+            setPosition(profile.position)
+            setBio(profile.bio)
+          }}
+        >
+          Abbrechen
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// Appearance Tab — wired to store
+// ============================================================
+function AppearanceTab() {
+  const { appearance, updateAppearance } = useSettingsStore()
+  const [theme, setTheme] = useState(appearance.theme)
+  const [fontSize, setFontSize] = useState(appearance.fontSize)
+
+  const themes = [
+    { id: 'light' as const, label: 'Hell', desc: 'Warme, helle Oberflaeche' },
+    { id: 'dark' as const, label: 'Dunkel', desc: 'Augenfreundlich bei wenig Licht' },
+    { id: 'auto' as const, label: 'System', desc: 'Folgt den Systemeinstellungen' },
+  ]
+
+  const handleSave = () => {
+    updateAppearance({ theme, fontSize })
+    toast.success('Darstellung gespeichert')
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-foreground mb-1">Darstellung</h2>
+      <p className="text-sm text-muted-foreground mb-6">Passe das Erscheinungsbild der App an</p>
+
+      <h3 className="text-sm font-medium text-foreground mb-3">Farbschema</h3>
+      <div className="grid grid-cols-3 gap-3 mb-8">
+        {themes.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTheme(t.id)}
+            className={`relative rounded-lg border p-4 text-center transition-colors ${
+              theme === t.id
+                ? 'border-primary bg-primary-light'
+                : 'border-border bg-card hover:bg-secondary'
+            }`}
+          >
+            {theme === t.id && (
+              <span className="absolute top-2 right-2">
+                <Check className="h-4 w-4 text-primary" />
+              </span>
+            )}
+            <div className={`mx-auto mb-2 h-8 w-8 rounded-full border ${
+              t.id === 'light' ? 'bg-amber-100 border-amber-300' :
+              t.id === 'dark' ? 'bg-slate-700 border-slate-500' :
+              'bg-gradient-to-br from-amber-100 to-slate-700 border-gray-400'
+            }`} />
+            <p className="text-sm font-medium text-foreground">{t.label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      <h3 className="text-sm font-medium text-foreground mb-3">Schriftgroesse</h3>
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-xs text-muted-foreground">Klein</span>
+        <input
+          type="range"
+          min={12}
+          max={20}
+          value={fontSize}
+          onChange={(e) => setFontSize(Number(e.target.value))}
+          className="flex-1 accent-[var(--primary)]"
+        />
+        <span className="text-xs text-muted-foreground">Gross</span>
+      </div>
+      <p className="text-xs text-muted-foreground mb-8">{fontSize}px</p>
+
+      <Button onClick={handleSave}>Speichern</Button>
+    </div>
+  )
+}
+
+// ============================================================
+// Language Tab — wired to store
+// ============================================================
+function LanguageTab() {
+  const { language, updateLanguage } = useSettingsStore()
+  const [locale, setLocale] = useState(language.locale)
+  const [timezone, setTimezone] = useState(language.timezone)
+  const [dateFormat, setDateFormat] = useState(language.dateFormat)
+
+  const languages = [
+    { id: 'de' as const, label: 'Deutsch', flag: 'DE' },
+    { id: 'en' as const, label: 'English', flag: 'EN' },
+    { id: 'fr' as const, label: 'Francais', flag: 'FR' },
+  ]
+
+  const handleSave = () => {
+    updateLanguage({ locale, timezone, dateFormat })
+    toast.success('Sprache & Region gespeichert')
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-foreground mb-1">Sprache & Region</h2>
+      <p className="text-sm text-muted-foreground mb-6">Sprache, Zeitzone und Datumsformat einstellen</p>
+
+      <h3 className="text-sm font-medium text-foreground mb-3">Sprache</h3>
+      <div className="space-y-2 mb-8">
+        {languages.map((lang) => (
+          <button
+            key={lang.id}
+            onClick={() => setLocale(lang.id)}
+            className={`flex w-full items-center gap-3 rounded-lg border p-3 transition-colors ${
+              locale === lang.id ? 'border-primary bg-primary-light' : 'border-border bg-card hover:bg-secondary'
+            }`}
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-medium text-foreground">{lang.flag}</span>
+            <span className="text-sm text-foreground">{lang.label}</span>
+            {locale === lang.id && <Check className="ml-auto h-4 w-4 text-primary" />}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Zeitzone</label>
+          <select
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          >
+            <option value="Europe/Zurich">Europe/Zurich (GMT+1)</option>
+            <option value="Europe/Berlin">Europe/Berlin (GMT+1)</option>
+            <option value="Europe/Vienna">Europe/Vienna (GMT+1)</option>
+            <option value="Europe/Paris">Europe/Paris (GMT+1)</option>
+            <option value="Europe/London">Europe/London (GMT+0)</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Datumsformat</label>
+          <select
+            value={dateFormat}
+            onChange={(e) => setDateFormat(e.target.value)}
+            className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          >
+            <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+          </select>
+        </div>
+      </div>
+
+      <Button onClick={handleSave}>Speichern</Button>
+    </div>
+  )
+}
+
+// ============================================================
+// Security Tab — 2FA setup, sessions, password
+// ============================================================
+function SecurityTab() {
+  const { security, enable2FA, disable2FA } = useSettingsStore()
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [show2FASetup, setShow2FASetup] = useState(false)
+  const [showDisable2FA, setShowDisable2FA] = useState(false)
+  const [showRevokeSession, setShowRevokeSession] = useState<number | null>(null)
+
+  const mockSessions = [
+    { id: 1, device: 'Desktop — Windows', location: 'Zuerich, CH', lastActive: 'Jetzt aktiv', isCurrent: true, icon: Monitor },
+    { id: 2, device: 'iPhone 15 Pro', location: 'Zuerich, CH', lastActive: 'Vor 2 Stunden', isCurrent: false, icon: Smartphone },
+    { id: 3, device: 'MacBook Pro', location: 'Bern, CH', lastActive: 'Vor 3 Tagen', isCurrent: false, icon: Monitor },
+  ]
+
+  const handlePasswordChange = () => {
+    if (!currentPw || !newPw) return
+    if (newPw !== confirmPw) {
+      toast.error('Passwoerter stimmen nicht ueberein')
+      return
+    }
+    if (newPw.length < 8) {
+      toast.error('Passwort muss mindestens 8 Zeichen haben')
+      return
+    }
+    toast.success('Passwort geaendert')
+    setCurrentPw('')
+    setNewPw('')
+    setConfirmPw('')
+  }
+
+  const handle2FAEnable = () => {
+    enable2FA()
+    setShow2FASetup(false)
+    toast.success('Zwei-Faktor-Authentifizierung aktiviert')
+  }
+
+  const handle2FADisable = () => {
+    disable2FA()
+    setShowDisable2FA(false)
+    toast.success('Zwei-Faktor-Authentifizierung deaktiviert')
+  }
+
+  const handleRevokeSession = () => {
+    toast.success('Sitzung beendet')
+    setShowRevokeSession(null)
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-foreground mb-1">Sicherheit</h2>
+      <p className="text-sm text-muted-foreground mb-6">Passwort, 2FA und Sitzungen verwalten</p>
+
+      {/* Password */}
+      <section className="mb-8">
+        <h3 className="text-sm font-medium text-foreground mb-3">Passwort aendern</h3>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-foreground">Aktuelles Passwort</label>
+            <div className="relative">
+              <Input
+                type={showCurrent ? 'text' : 'password'}
+                value={currentPw}
+                onChange={(e) => setCurrentPw(e.target.value)}
+              />
+              <button
+                onClick={() => setShowCurrent(!showCurrent)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-foreground">Neues Passwort</label>
+            <div className="relative">
+              <Input
+                type={showNew ? 'text' : 'password'}
+                value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+              />
+              <button
+                onClick={() => setShowNew(!showNew)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-foreground">Passwort bestaetigen</label>
+            <Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
+          </div>
+        </div>
+        <Button onClick={handlePasswordChange} className="mt-3" size="sm" disabled={!currentPw || !newPw || !confirmPw}>
+          Passwort aendern
+        </Button>
+      </section>
+
+      {/* 2FA */}
+      <section className="mb-8">
+        <h3 className="text-sm font-medium text-foreground mb-3">Zwei-Faktor-Authentifizierung</h3>
+
+        {!security.twoFactorEnabled ? (
+          <>
+            <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">
+                  <Key className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">2FA nicht aktiviert</p>
+                  <p className="text-xs text-muted-foreground">Schuetze dein Konto mit einem zweiten Faktor</p>
+                </div>
+              </div>
+              <Button size="sm" onClick={() => setShow2FASetup(true)}>
+                Aktivieren
+              </Button>
+            </div>
+
+            {/* 2FA setup flow */}
+            {show2FASetup && (
+              <div className="mt-4 rounded-lg border border-border bg-card p-4 space-y-4">
+                <h4 className="text-sm font-medium text-foreground">2FA einrichten</h4>
+                <p className="text-xs text-muted-foreground">
+                  Scanne den QR-Code mit deiner Authenticator-App (z.B. Google Authenticator, Authy).
+                </p>
+
+                {/* QR code mockup */}
+                <div className="flex justify-center">
+                  <div className="h-40 w-40 rounded-lg border-2 border-dashed border-border bg-secondary flex items-center justify-center">
+                    <div className="text-center">
+                      <Key className="h-8 w-8 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-[10px] text-muted-foreground">QR-Code</p>
+                      <p className="text-[10px] text-muted-foreground">(Simulation)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Oder manuell eingeben:</p>
+                  <code className="rounded bg-secondary px-2 py-1 text-xs font-mono text-foreground">JBSWY3DPEHPK3PXP</code>
+                </div>
+
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" size="sm" onClick={() => setShow2FASetup(false)}>
+                    Abbrechen
+                  </Button>
+                  <Button size="sm" onClick={handle2FAEnable}>
+                    2FA aktivieren
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border border-success/30 bg-success/5 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+                  <Check className="h-5 w-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">2FA ist aktiv</p>
+                  <p className="text-xs text-muted-foreground">Dein Konto ist durch einen zweiten Faktor geschuetzt</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setShowDisable2FA(true)}>
+                Deaktivieren
+              </Button>
+            </div>
+
+            {/* Backup codes */}
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h4 className="text-sm font-medium text-foreground mb-2">Backup-Codes</h4>
+              <p className="text-xs text-muted-foreground mb-3">
+                Bewahre diese Codes sicher auf. Jeder Code kann einmalig verwendet werden.
+              </p>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {security.backupCodes.map((code) => (
+                  <code key={code} className="rounded bg-secondary px-2 py-1.5 text-center text-xs font-mono text-foreground">
+                    {code}
+                  </code>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(security.backupCodes.join('\n'))
+                  toast.success('Backup-Codes in Zwischenablage kopiert')
+                }}
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Codes kopieren
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Sessions */}
+      <section>
+        <h3 className="text-sm font-medium text-foreground mb-3">Aktive Sitzungen</h3>
+        <div className="space-y-2">
+          {mockSessions.map((session) => {
+            const Icon = session.icon
+            return (
+              <div key={session.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+                  <Icon className="h-4 w-4 text-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground">{session.device}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {session.location} &middot; {session.lastActive}
+                  </p>
+                </div>
+                {session.isCurrent ? (
+                  <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] text-success font-medium">Aktuell</span>
+                ) : (
+                  <button
+                    onClick={() => setShowRevokeSession(session.id)}
+                    className="text-xs text-error hover:underline"
+                  >
+                    Abmelden
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Confirm dialogs */}
+      <ConfirmDialog
+        open={showDisable2FA}
+        onOpenChange={setShowDisable2FA}
+        title="2FA deaktivieren?"
+        description="Dein Konto wird nur noch durch dein Passwort geschuetzt. Dies wird nicht empfohlen."
+        confirmLabel="2FA deaktivieren"
+        variant="destructive"
+        onConfirm={handle2FADisable}
+      />
+
+      <ConfirmDialog
+        open={showRevokeSession !== null}
+        onOpenChange={(open) => { if (!open) setShowRevokeSession(null) }}
+        title="Sitzung beenden?"
+        description="Das Geraet wird abgemeldet und muss sich erneut anmelden."
+        confirmLabel="Abmelden"
+        variant="destructive"
+        onConfirm={handleRevokeSession}
+      />
+    </div>
+  )
+}
+
+// ============================================================
+// Notifications Tab — per-module matrix with 3 channels
+// ============================================================
+const NOTIFICATION_MODULES: { key: NotificationModule; label: string; desc: string }[] = [
+  { key: 'messages', label: 'Nachrichten', desc: 'Chat-Nachrichten und DMs' },
+  { key: 'tasks', label: 'Aufgaben', desc: 'Zuweisung, Status-Aenderungen' },
+  { key: 'meetings', label: 'Meetings', desc: 'Erinnerungen und Einladungen' },
+  { key: 'mails', label: 'E-Mails', desc: 'Neue E-Mails und Antworten' },
+  { key: 'calendar', label: 'Kalender', desc: 'Termine und Aenderungen' },
+  { key: 'team', label: 'Team', desc: 'HR-Antraege und Mitglieder-Updates' },
+  { key: 'finance', label: 'Buchhaltung', desc: 'Zahlungen und Faelligkeiten' },
+]
+
+function NotificationsTab() {
+  const { notifications, updateNotification } = useSettingsStore()
+
+  const channels: { key: keyof NotificationPrefs; label: string }[] = [
+    { key: 'email', label: 'E-Mail' },
+    { key: 'push', label: 'Push' },
+    { key: 'inApp', label: 'In-App' },
+  ]
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-foreground mb-1">Benachrichtigungen</h2>
+      <p className="text-sm text-muted-foreground mb-6">Stelle ein, wie du pro Modul benachrichtigt werden moechtest</p>
+
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {/* Header */}
+        <div className="grid grid-cols-[1fr_70px_70px_70px] gap-2 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+          <span>Modul</span>
+          {channels.map((ch) => (
+            <span key={ch.key} className="text-center">{ch.label}</span>
+          ))}
+        </div>
+
+        {/* Rows */}
+        {NOTIFICATION_MODULES.map((mod) => (
+          <div key={mod.key} className="grid grid-cols-[1fr_70px_70px_70px] gap-2 items-center px-4 py-3 border-b border-border-muted last:border-b-0">
+            <div>
+              <p className="text-sm text-foreground">{mod.label}</p>
+              <p className="text-xs text-muted-foreground">{mod.desc}</p>
+            </div>
+            {channels.map((ch) => (
+              <div key={ch.key} className="flex justify-center">
+                <Switch
+                  checked={notifications[mod.key][ch.key]}
+                  onCheckedChange={(v) => updateNotification(mod.key, ch.key, v)}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <p className="text-xs text-muted-foreground mt-3">Aenderungen werden automatisch gespeichert.</p>
+    </div>
+  )
+}
+
+// ============================================================
+// About Tab
+// ============================================================
+function AboutTab() {
+  return (
+    <div className="max-w-2xl">
+      <div className="rounded-lg bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
+        <h2 className="text-primary-foreground text-xl mb-2">KMU Hub</h2>
+        <p className="text-primary-foreground/80 text-sm">
+          All-in-One CRM fuer DACH-KMUs mit EU-Datensouveraenitaet
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Version</p>
+          <p className="text-sm font-medium text-foreground">0.1.0 (Beta)</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Lizenz</p>
+          <p className="text-sm font-medium text-foreground">Enterprise</p>
+        </div>
+      </div>
+
+      <h3 className="text-sm font-medium text-foreground mb-3">Features</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        {[
+          { title: 'EU-Datensouveraenitaet', desc: 'Hosting nur auf EU-Servern' },
+          { title: 'KMU-optimiert', desc: 'Fuer 5-200 Mitarbeiter' },
+          { title: 'Self-Hosted Option', desc: 'Volle Kontrolle ueber deine Daten' },
+        ].map((f) => (
+          <div key={f.title} className="rounded-lg border border-border bg-card p-3">
+            <p className="text-sm font-medium text-foreground mb-0.5">{f.title}</p>
+            <p className="text-xs text-muted-foreground">{f.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="text-sm font-medium text-foreground mb-3">Kontakt</h3>
+      <div className="space-y-2 text-sm text-muted-foreground">
+        <p>Support: support@kmuhub.ch</p>
+        <p>Website: www.kmuhub.ch</p>
+      </div>
+    </div>
+  )
+}

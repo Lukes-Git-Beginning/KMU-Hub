@@ -55,6 +55,11 @@ export const useUIStore = create<UIState>()(
           type: 'clock',
           variant: 'analog',
         },
+        'left-wall-calendar': {
+          slotId: 'left-wall-calendar',
+          type: 'calendar',
+          variant: 'tearoff',
+        },
       },
       deskDecorationsVisible: true,
 

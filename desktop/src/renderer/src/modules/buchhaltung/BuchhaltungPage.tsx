@@ -1,0 +1,498 @@
+import { useState } from 'react'
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  CreditCard,
+  FileText,
+  ArrowUpRight,
+  ArrowDownRight,
+  Search,
+  Download,
+  Plus,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  BarChart3,
+  PieChart,
+  Receipt,
+  XCircle,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  useFinanceStore,
+  type Invoice,
+  type Transaction,
+  type Expense,
+  calcInvoiceTotal,
+  calcRemainingAmount,
+} from '@/stores/finance'
+import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
+import { InvoiceFormDialog } from './InvoiceFormDialog'
+import { ExpenseFormDialog } from './ExpenseFormDialog'
+import { PaymentRecordDialog } from './PaymentRecordDialog'
+import { InvoiceDetailPanel } from './InvoiceDetailPanel'
+import { ExportDialog } from './ExportDialog'
+
+type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'reports'
+
+function formatCHF(amount: number) {
+  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(amount)
+}
+
+const invoiceStatusConfig: Record<string, { label: string; colors: string; icon: typeof CheckCircle2 }> = {
+  draft: { label: 'Entwurf', colors: 'bg-secondary text-muted-foreground', icon: FileText },
+  sent: { label: 'Gesendet', colors: 'bg-info-light text-info', icon: Clock },
+  paid: { label: 'Bezahlt', colors: 'bg-success-light text-success', icon: CheckCircle2 },
+  overdue: { label: 'Ueberfaellig', colors: 'bg-error-light text-error', icon: AlertCircle },
+  cancelled: { label: 'Storniert', colors: 'bg-secondary text-muted-foreground', icon: XCircle },
+}
+
+export default function BuchhaltungPage() {
+  const {
+    invoices, transactions, expenses,
+    deleteInvoice, duplicateInvoice, sendInvoice, cancelInvoice,
+    deleteTransaction, deleteExpense, approveExpense, rejectExpense,
+  } = useFinanceStore()
+
+  const [tab, setTab] = useState<TabKey>('invoices')
+  const [search, setSearch] = useState('')
+
+  // Dialogs
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false)
+  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null)
+  const [invoiceFormType, setInvoiceFormType] = useState<'invoice' | 'quote'>('invoice')
+  const [showExpenseForm, setShowExpenseForm] = useState(false)
+  const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [showExport, setShowExport] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; label: string } | null>(null)
+
+  // Stats from actual data
+  const totalIncome = transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
+  const totalExpense = transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0)
+  const balance = totalIncome - totalExpense
+  const openInvoiceAmount = invoices
+    .filter((i) => i.type === 'invoice' && i.status !== 'paid' && i.status !== 'cancelled')
+    .reduce((sum, i) => sum + calcRemainingAmount(i), 0)
+
+  const stats = [
+    { label: 'Einnahmen', value: formatCHF(totalIncome), icon: TrendingUp, color: 'text-success', bg: 'bg-success-light' },
+    { label: 'Ausgaben', value: formatCHF(totalExpense), icon: TrendingDown, color: 'text-error', bg: 'bg-error-light' },
+    { label: 'Saldo', value: formatCHF(balance), icon: DollarSign, color: 'text-primary', bg: 'bg-primary-light' },
+    { label: 'Offene Rechnungen', value: formatCHF(openInvoiceAmount), icon: CreditCard, color: 'text-warning', bg: 'bg-warning-light' },
+  ]
+
+  // Filtered data
+  const filteredInvoices = invoices.filter((i) => i.type === 'invoice').filter((i) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return i.client.toLowerCase().includes(q) || i.number.toLowerCase().includes(q)
+  })
+  const filteredQuotes = invoices.filter((i) => i.type === 'quote').filter((i) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return i.client.toLowerCase().includes(q) || i.number.toLowerCase().includes(q)
+  })
+  const filteredTransactions = transactions.filter((t) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return t.description.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
+  })
+  const filteredExpenses = expenses.filter((e) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return e.description.toLowerCase().includes(q) || e.supplier.toLowerCase().includes(q)
+  })
+
+  // Handlers
+  const handleNewInvoice = () => {
+    setEditInvoice(null)
+    setInvoiceFormType('invoice')
+    setShowInvoiceForm(true)
+  }
+
+  const handleNewQuote = () => {
+    setEditInvoice(null)
+    setInvoiceFormType('quote')
+    setShowInvoiceForm(true)
+  }
+
+  const handleEditInvoice = (inv: Invoice) => {
+    setEditInvoice(inv)
+    setInvoiceFormType(inv.type)
+    setShowInvoiceForm(true)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (!confirmDelete) return
+    if (confirmDelete.type === 'invoice') {
+      deleteInvoice(confirmDelete.id)
+    } else if (confirmDelete.type === 'transaction') {
+      deleteTransaction(confirmDelete.id)
+    } else if (confirmDelete.type === 'expense') {
+      deleteExpense(confirmDelete.id)
+    }
+    toast.success(`${confirmDelete.label} geloescht`)
+    setConfirmDelete(null)
+  }
+
+  const getInvoiceActions = (inv: Invoice) => {
+    const actions: { label: string; onClick: () => void; variant?: 'destructive'; separator?: true }[] = [
+      { label: 'Details ansehen', onClick: () => setSelectedInvoice(inv) },
+    ]
+    if (inv.status === 'draft') {
+      actions.push({ label: 'Bearbeiten', onClick: () => handleEditInvoice(inv) })
+      actions.push({ label: 'Senden', onClick: () => { sendInvoice(inv.id); toast.success(`${inv.number} gesendet`) } })
+    }
+    actions.push({ label: 'Duplizieren', onClick: () => { duplicateInvoice(inv.id); toast.success('Kopie erstellt') } })
+    if (inv.type === 'invoice' && inv.status !== 'paid' && inv.status !== 'cancelled') {
+      actions.push({ label: 'Zahlung erfassen', onClick: () => setPaymentInvoice(inv) })
+    }
+    if (inv.status !== 'cancelled' && inv.status !== 'paid') {
+      actions.push({ separator: true as const, label: '', onClick: () => {} })
+      actions.push({ label: 'Stornieren', variant: 'destructive' as const, onClick: () => { cancelInvoice(inv.id); toast.success(`${inv.number} storniert`) } })
+    }
+    if (inv.status === 'draft') {
+      actions.push({ label: 'Loeschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'invoice', id: inv.id, label: inv.number }) })
+    }
+    return actions
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-foreground">Buchhaltung</h1>
+          <p className="text-sm text-muted-foreground">Rechnungen, Transaktionen und Ausgaben</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowExport(true)}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </button>
+          <button
+            onClick={handleNewInvoice}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Neue Rechnung
+          </button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {stats.map((stat) => {
+          const Icon = stat.icon
+          return (
+            <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
+                  <Icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+              </div>
+              <p className={`text-xl font-semibold ${stat.color}`}>{stat.value}</p>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto">
+        {([
+          { key: 'invoices' as const, label: `Rechnungen (${invoices.filter((i) => i.type === 'invoice').length})`, icon: FileText },
+          { key: 'quotes' as const, label: `Angebote (${invoices.filter((i) => i.type === 'quote').length})`, icon: FileText },
+          { key: 'expenses' as const, label: `Ausgaben (${expenses.length})`, icon: Receipt },
+          { key: 'transactions' as const, label: `Transaktionen (${transactions.length})`, icon: Receipt },
+          { key: 'reports' as const, label: 'Berichte', icon: BarChart3 },
+        ]).map((t) => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
+                tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Search (for non-reports tabs) */}
+      {tab !== 'reports' && (
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Suchen..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+          </div>
+          {tab === 'expenses' && (
+            <button onClick={() => setShowExpenseForm(true)} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">
+              <Plus className="h-3.5 w-3.5" />
+              Neue Ausgabe
+            </button>
+          )}
+          {tab === 'quotes' && (
+            <button onClick={handleNewQuote} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">
+              <Plus className="h-3.5 w-3.5" />
+              Neues Angebot
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Invoices Tab */}
+      {tab === 'invoices' && (
+        filteredInvoices.length === 0 ? (
+          <EmptyState icon={FileText} title="Keine Rechnungen" description="Erstelle deine erste Rechnung" actionLabel="Neue Rechnung" onAction={handleNewInvoice} />
+        ) : (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Faellig</span><span>Offen</span><span>Status</span><span />
+            </div>
+            {filteredInvoices.map((inv) => {
+              const sc = invoiceStatusConfig[inv.status]
+              const StatusIcon = sc.icon
+              const total = calcInvoiceTotal(inv.items)
+              const remaining = calcRemainingAmount(inv)
+              return (
+                <div key={inv.id} className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
+                  <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
+                  <span className="text-sm text-foreground truncate">{inv.client}</span>
+                  <span className="text-sm font-medium text-foreground">{formatCHF(total)}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-CH')}</span>
+                  <span className={`text-xs font-medium ${remaining > 0 ? 'text-warning' : 'text-success'}`}>
+                    {remaining > 0 ? formatCHF(remaining) : '—'}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
+                    <StatusIcon className="h-3 w-3" />
+                    {sc.label}
+                  </span>
+                  <ItemActions actions={getInvoiceActions(inv)} />
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {/* Quotes Tab */}
+      {tab === 'quotes' && (
+        filteredQuotes.length === 0 ? (
+          <EmptyState icon={FileText} title="Keine Angebote" description="Erstelle dein erstes Angebot" actionLabel="Neues Angebot" onAction={handleNewQuote} />
+        ) : (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="grid grid-cols-[80px_1fr_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Gueltig bis</span><span>Status</span><span />
+            </div>
+            {filteredQuotes.map((inv) => {
+              const sc = invoiceStatusConfig[inv.status]
+              const StatusIcon = sc.icon
+              const total = calcInvoiceTotal(inv.items)
+              return (
+                <div key={inv.id} className="grid grid-cols-[80px_1fr_100px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
+                  <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
+                  <span className="text-sm text-foreground truncate">{inv.client}</span>
+                  <span className="text-sm font-medium text-foreground">{formatCHF(total)}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-CH')}</span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
+                    <StatusIcon className="h-3 w-3" />
+                    {sc.label}
+                  </span>
+                  <ItemActions actions={getInvoiceActions(inv)} />
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {/* Expenses Tab */}
+      {tab === 'expenses' && (
+        filteredExpenses.length === 0 ? (
+          <EmptyState icon={Receipt} title="Keine Ausgaben" description="Erfasse Ausgaben und Belege" actionLabel="Neue Ausgabe" onAction={() => setShowExpenseForm(true)} />
+        ) : (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+              <span>Beschreibung</span><span>Kategorie</span><span>Betrag</span><span>Lieferant</span><span>Status</span><span />
+            </div>
+            {filteredExpenses.map((exp) => {
+              const statusColors = { pending: 'bg-warning-light text-warning', approved: 'bg-success-light text-success', rejected: 'bg-error-light text-error' }
+              const statusLabels = { pending: 'Offen', approved: 'OK', rejected: 'Abgelehnt' }
+              return (
+                <div key={exp.id} className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
+                  <div className="min-w-0">
+                    <p className="text-sm text-foreground truncate">{exp.description}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(exp.date).toLocaleDateString('de-CH')}{exp.project && ` · ${exp.project}`}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{exp.category}</span>
+                  <span className="text-sm font-medium text-error">{formatCHF(exp.amount)}</span>
+                  <span className="text-xs text-muted-foreground truncate">{exp.supplier}</span>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[exp.status]}`}>
+                    {statusLabels[exp.status]}
+                  </span>
+                  <ItemActions actions={[
+                    ...(exp.status === 'pending' ? [
+                      { label: 'Genehmigen', onClick: () => { approveExpense(exp.id); toast.success('Genehmigt') } },
+                      { label: 'Ablehnen', onClick: () => { rejectExpense(exp.id); toast.success('Abgelehnt') } },
+                    ] : []),
+                    { label: 'Loeschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'expense', id: exp.id, label: exp.description }) },
+                  ]} />
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {/* Transactions Tab */}
+      {tab === 'transactions' && (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="grid grid-cols-[1fr_120px_120px_100px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+            <span>Beschreibung</span><span>Kategorie</span><span className="text-right">Betrag</span><span className="text-right">Datum</span><span />
+          </div>
+          {filteredTransactions.map((tx) => (
+            <div key={tx.id} className="grid grid-cols-[1fr_120px_120px_100px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tx.type === 'income' ? 'bg-success-light' : 'bg-error-light'}`}>
+                  {tx.type === 'income' ? <ArrowUpRight className="h-4 w-4 text-success" /> : <ArrowDownRight className="h-4 w-4 text-error" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground truncate">{tx.description}</p>
+                  {tx.reference && <p className="text-[10px] text-muted-foreground">{tx.reference}</p>}
+                </div>
+              </div>
+              <span className="text-xs text-muted-foreground">{tx.category}</span>
+              <span className={`text-sm font-medium text-right ${tx.type === 'income' ? 'text-success' : 'text-error'}`}>
+                {tx.type === 'income' ? '+' : ''}{formatCHF(tx.amount)}
+              </span>
+              <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-CH')}</span>
+              <ItemActions actions={[
+                { label: 'Loeschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
+              ]} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Reports Tab */}
+      {tab === 'reports' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-lg border border-border bg-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <h3 className="text-sm font-medium text-foreground">Einnahmen vs. Ausgaben</h3>
+            </div>
+            <div className="flex items-end gap-3 h-40">
+              {['Okt', 'Nov', 'Dez', 'Jan', 'Feb'].map((month, i) => {
+                const incomeHeight = [55, 70, 80, 65, 90][i]
+                const expenseHeight = [35, 40, 45, 30, 25][i]
+                return (
+                  <div key={month} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="flex gap-1 items-end h-32 w-full">
+                      <div className="flex-1 rounded-t-sm bg-primary" style={{ height: `${incomeHeight}%` }} />
+                      <div className="flex-1 rounded-t-sm bg-error/60" style={{ height: `${expenseHeight}%` }} />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{month}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> Einnahmen</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-error/60" /> Ausgaben</span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <PieChart className="h-5 w-5 text-primary" />
+              <h3 className="text-sm font-medium text-foreground">Ausgaben nach Kategorie</h3>
+            </div>
+            <div className="space-y-3">
+              {(() => {
+                const cats = new Map<string, number>()
+                transactions.filter((t) => t.type === 'expense').forEach((t) => {
+                  cats.set(t.category, (cats.get(t.category) ?? 0) + Math.abs(t.amount))
+                })
+                const total = Array.from(cats.values()).reduce((s, v) => s + v, 0) || 1
+                const colors = ['bg-primary', 'bg-info', 'bg-warning', 'bg-error', 'bg-success']
+                return Array.from(cats.entries())
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 5)
+                  .map(([name, amount], idx) => (
+                    <div key={name}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="text-foreground">{name}</span>
+                        <span className="text-muted-foreground">{formatCHF(amount)}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-secondary">
+                        <div className={`h-full rounded-full ${colors[idx % colors.length]}`} style={{ width: `${(amount / total) * 100}%` }} />
+                      </div>
+                    </div>
+                  ))
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Detail Panel */}
+      {selectedInvoice && (
+        <InvoiceDetailPanel
+          invoice={selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+          onEdit={() => { handleEditInvoice(selectedInvoice); setSelectedInvoice(null) }}
+          onRecordPayment={() => { setPaymentInvoice(selectedInvoice); setSelectedInvoice(null) }}
+        />
+      )}
+
+      {/* Invoice Form */}
+      <InvoiceFormDialog
+        open={showInvoiceForm}
+        onOpenChange={setShowInvoiceForm}
+        editInvoice={editInvoice}
+        defaultType={invoiceFormType}
+      />
+
+      {/* Expense Form */}
+      <ExpenseFormDialog open={showExpenseForm} onOpenChange={setShowExpenseForm} />
+
+      {/* Payment Record */}
+      <PaymentRecordDialog
+        open={!!paymentInvoice}
+        onOpenChange={() => setPaymentInvoice(null)}
+        invoice={paymentInvoice}
+      />
+
+      {/* Export */}
+      <ExportDialog open={showExport} onOpenChange={setShowExport} />
+
+      {/* Confirm Delete */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={() => setConfirmDelete(null)}
+        title="Eintrag loeschen?"
+        description={`"${confirmDelete?.label}" wird dauerhaft geloescht.`}
+        confirmLabel="Loeschen"
+        variant="destructive"
+        onConfirm={handleDeleteConfirm}
+      />
+    </div>
+  )
+}

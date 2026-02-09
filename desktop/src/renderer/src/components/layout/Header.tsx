@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/tooltip'
 import {
   SearchBar,
+  HeaderClock,
   DailyPlannerWidget,
   LanguageSwitcher,
   ProfileSwitcher,
@@ -27,9 +28,9 @@ export function Header() {
   useNotificationWebSocket()
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-header-border bg-header-background px-4 md:px-6">
-      {/* Left: mobile menu + search */}
-      <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-4">
+    <header className="flex h-16 items-center border-b border-header-border bg-header-background px-4 md:px-6">
+      {/* Left: mobile menu + compact search + clock */}
+      <div className="flex items-center gap-3 md:gap-4">
         <button
           onClick={() => setSidebarMobileOpen(true)}
           className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
@@ -37,10 +38,15 @@ export function Header() {
           <Menu className="h-5 w-5 text-muted-foreground" />
         </button>
 
-        <div className="min-w-0 flex-1">
-          <SearchBar />
+        <SearchBar />
+
+        <div className="hidden sm:block">
+          <HeaderClock />
         </div>
       </div>
+
+      {/* Spacer */}
+      <div className="flex-1" />
 
       {/* Right: controls */}
       <div className="flex shrink-0 items-center gap-1 md:gap-2">

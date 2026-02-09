@@ -10,6 +10,7 @@
  */
 import type { DeskTheme, DecorationPlacement } from '@/types/desk-theme'
 import { DeskClock } from './decorations/DeskClock'
+import { DeskCalendar } from './decorations/DeskCalendar'
 
 interface DeskDecorationsProps {
   theme: DeskTheme
@@ -21,6 +22,8 @@ function DecorationRenderer({ placement }: { placement: DecorationPlacement }) {
   switch (placement.type) {
     case 'clock':
       return <DeskClock size={64} />
+    case 'calendar':
+      return <DeskCalendar size={52} />
     default:
       return null
   }

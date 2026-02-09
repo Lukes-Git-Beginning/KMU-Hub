@@ -4,17 +4,20 @@
  * Sets up React Query with localStorage persistence, hash-based routing
  * (required for Electron's file:// protocol), and authentication guards.
  */
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { createHashRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Toaster } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
 import { STALE_TIME, GC_TIME } from '@/lib/constants'
 import { DeskEnvironment } from '@/components/layout/DeskEnvironment'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import LoginPage from '@/modules/auth/LoginPage'
+import { DEV_PROFILES } from '@/config/roles'
+import { ProfileSwitcher } from '@/components/dev/ProfileSwitcher'
 
 // Lazy-loaded module pages
 const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
@@ -23,6 +26,15 @@ const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const WorkLayout = lazy(() => import('@/modules/work/WorkLayout'))
 const NotificationCenter = lazy(() => import('@/modules/notifications/NotificationCenter'))
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
+const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
+const MeetingsPage = lazy(() => import('@/modules/meetings/MeetingsPage'))
+const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
+const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
+const MailsPage = lazy(() => import('@/modules/mails/MailsPage'))
+const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
+const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
+const BuchhaltungPage = lazy(() => import('@/modules/buchhaltung/BuchhaltungPage'))
+const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -163,6 +175,78 @@ const router = createHashRouter([
           </Suspense>
         ),
       },
+      {
+        path: 'settings',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <SettingsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'meetings',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <MeetingsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'kontakte',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <KontaktePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'dokumente',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <DokumentePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'mails',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <MailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'kalender',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <KalenderPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'team',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <TeamPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'buchhaltung',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <BuchhaltungPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'infrastruktur',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <InfrastrukturPage />
+          </Suspense>
+        ),
+      },
     ],
   },
   {
@@ -176,6 +260,23 @@ const router = createHashRouter([
 ])
 
 export default function App() {
+  // Set a default mock user when DEV_BYPASS_AUTH is active so role-based
+  // filtering works immediately. The ProfileSwitcher lets Darien switch roles.
+  useEffect(() => {
+    if (DEV_BYPASS_AUTH) {
+      const { user } = useAuthStore.getState()
+      if (!user) {
+        const adminProfile = DEV_PROFILES.find((p) => p.id === 'admin')
+        if (adminProfile) {
+          useAuthStore.setState({
+            user: adminProfile.user,
+            isAuthenticated: true,
+          })
+        }
+      }
+    }
+  }, [])
+
   return (
     <PersistQueryClientProvider
       client={queryClient}
@@ -183,6 +284,8 @@ export default function App() {
     >
       <TooltipProvider>
         <RouterProvider router={router} />
+        <Toaster position="bottom-right" richColors closeButton />
+        {DEV_BYPASS_AUTH && <ProfileSwitcher />}
       </TooltipProvider>
     </PersistQueryClientProvider>
   )

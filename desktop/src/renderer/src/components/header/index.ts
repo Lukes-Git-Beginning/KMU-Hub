@@ -1,4 +1,5 @@
 export { SearchBar } from './SearchBar'
+export { HeaderClock } from './HeaderClock'
 export { DailyPlannerWidget } from './DailyPlannerWidget'
 export { LanguageSwitcher } from './LanguageSwitcher'
 export { ProfileSwitcher } from './ProfileSwitcher'

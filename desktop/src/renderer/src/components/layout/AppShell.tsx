@@ -9,6 +9,7 @@ import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useUIStore } from '@/stores/ui'
 import { useWebSocket } from '@/hooks/useWebSocket'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { Sidebar } from './sidebar'
 import { Header } from './Header'
 import { OfflineBanner } from './OfflineBanner'
@@ -22,6 +23,9 @@ export function AppShell() {
 
   // Manage WebSocket lifecycle based on auth state
   useWebSocket()
+
+  // Global keyboard shortcuts (Ctrl+,, etc.)
+  useKeyboardShortcuts()
 
   return (
     <div className="flex h-full bg-background overflow-hidden">

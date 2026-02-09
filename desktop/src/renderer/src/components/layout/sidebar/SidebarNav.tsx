@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/stores/auth'
+import { canSeeNavItem } from '@/config/roles'
 import {
   Tooltip,
   TooltipContent,
@@ -18,10 +19,7 @@ interface SidebarNavProps {
 export function SidebarNav({ items, collapsed, onItemClick }: SidebarNavProps) {
   const user = useAuthStore((s) => s.user)
 
-  const visibleItems = items.filter((item) => {
-    if (!item.roles) return true
-    return item.roles.some((r) => user?.roles?.includes(r))
-  })
+  const visibleItems = items.filter((item) => canSeeNavItem(user, item.id))
 
   return (
     <nav className="flex-1 overflow-y-auto p-3">

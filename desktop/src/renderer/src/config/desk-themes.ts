@@ -61,14 +61,21 @@ const classicOffice: DeskTheme = {
     {
       id: 'left-wall-clock',
       edge: 'left',
-      position: { x: '50%', y: '15%' },
+      position: { x: '50%', y: '12%' },
       maxSize: { width: 80, height: 80 },
       acceptTypes: ['clock'],
     },
     {
+      id: 'left-wall-calendar',
+      edge: 'left',
+      position: { x: '50%', y: '30%' },
+      maxSize: { width: 60, height: 80 },
+      acceptTypes: ['calendar'],
+    },
+    {
       id: 'left-wall-photo',
       edge: 'left',
-      position: { x: '50%', y: '50%' },
+      position: { x: '50%', y: '55%' },
       maxSize: { width: 120, height: 100 },
       acceptTypes: ['photo'],
     },

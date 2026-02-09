@@ -58,7 +58,7 @@ export interface DecorationSlot {
 }
 
 /** Types of decorative items that can be placed on the desk. */
-export type DecorationItemType = 'clock' | 'plant' | 'photo' | 'stationery' | 'custom'
+export type DecorationItemType = 'clock' | 'calendar' | 'plant' | 'photo' | 'stationery' | 'custom'
 
 /** A decoration item placed by the user in a specific slot. */
 export interface DecorationPlacement {
