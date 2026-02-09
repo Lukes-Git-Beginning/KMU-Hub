@@ -41,7 +41,7 @@ export function ProfileMenu() {
   }, [isOpen])
 
   const handleProfile = () => {
-    navigate('/settings')
+    navigate('/profil')
     setIsOpen(false)
   }
 
@@ -51,7 +51,7 @@ export function ProfileMenu() {
   }
 
   const handleHelp = () => {
-    toast.info('Hilfe-Center wird geoeffnet...')
+    toast.info('Nutze das ? Symbol unten rechts fuer Hilfe')
     setIsOpen(false)
   }
 

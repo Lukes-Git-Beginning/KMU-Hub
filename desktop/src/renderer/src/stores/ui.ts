@@ -22,12 +22,18 @@ interface UIState {
   deskDecorations: Record<string, DecorationPlacement>
   deskDecorationsVisible: boolean
 
+  // Onboarding
+  onboardingCompleted: boolean
+
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
   setSidebarMobileOpen: (open: boolean) => void
   toggleSidebarMobile: () => void
   setLocale: (locale: string) => void
   setTheme: (theme: 'light' | 'dark') => void
+
+  // Onboarding
+  setOnboardingCompleted: (completed: boolean) => void
 
   // Desk actions
   toggleDeskMaximized: () => void
@@ -62,6 +68,10 @@ export const useUIStore = create<UIState>()(
         },
       },
       deskDecorationsVisible: true,
+      onboardingCompleted: false,
+
+      setOnboardingCompleted: (completed: boolean) =>
+        set({ onboardingCompleted: completed }),
 
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),

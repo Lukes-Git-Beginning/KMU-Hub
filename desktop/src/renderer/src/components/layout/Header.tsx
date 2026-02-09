@@ -13,6 +13,7 @@ import {
   SearchBar,
   HeaderClock,
   DailyPlannerWidget,
+  TimeTrackerWidget,
   LanguageSwitcher,
   ProfileSwitcher,
   ProfileMenu,
@@ -53,6 +54,11 @@ export function Header() {
         {/* Daily Planner */}
         <div className="hidden sm:block">
           <DailyPlannerWidget />
+        </div>
+
+        {/* Time Tracker */}
+        <div className="hidden sm:block">
+          <TimeTrackerWidget />
         </div>
 
         {/* Language Switcher */}

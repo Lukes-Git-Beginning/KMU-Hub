@@ -14,12 +14,15 @@ import { Sidebar } from './sidebar'
 import { Header } from './Header'
 import { OfflineBanner } from './OfflineBanner'
 import { ModuleLoadingFallback, ModuleErrorBoundary } from './ModuleShell'
+import { HelpWidget } from '@/components/widgets/HelpWidget'
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 
 export function AppShell() {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const sidebarMobileOpen = useUIStore((s) => s.sidebarMobileOpen)
   const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
+  const onboardingCompleted = useUIStore((s) => s.onboardingCompleted)
 
   // Manage WebSocket lifecycle based on auth state
   useWebSocket()
@@ -56,6 +59,9 @@ export function AppShell() {
           </ModuleErrorBoundary>
         </div>
       </main>
+
+      <HelpWidget />
+      {!onboardingCompleted && <OnboardingWizard />}
     </div>
   )
 }

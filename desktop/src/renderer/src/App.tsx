@@ -35,6 +35,7 @@ const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
 const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
 const BuchhaltungPage = lazy(() => import('@/modules/buchhaltung/BuchhaltungPage'))
 const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage'))
+const ProfilPage = lazy(() => import('@/modules/profil/ProfilPage'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -244,6 +245,14 @@ const router = createHashRouter([
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
             <InfrastrukturPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'profil',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <ProfilPage />
           </Suspense>
         ),
       },
