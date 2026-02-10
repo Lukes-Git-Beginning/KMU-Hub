@@ -22,9 +22,18 @@ export async function checkAssetQuality(
   const imageBuffer = fs.readFileSync(imagePath)
   const base64Image = imageBuffer.toString('base64')
 
+  const themeStyles: Record<string, string[]> = {
+    cozy: STYLE_DNA.cozyStyle,
+    dreamy: STYLE_DNA.dreamyStyle,
+    nature: STYLE_DNA.natureStyle,
+    industrial: STYLE_DNA.industrialStyle,
+  }
+  const baseStyle = asset.category === 'background' ? STYLE_DNA.backgroundStyle
+    : asset.category === 'preview' ? STYLE_DNA.previewStyle
+    : STYLE_DNA.objectStyle
   const styleDescription = [
-    ...STYLE_DNA.baseStyle,
-    ...(asset.theme === 'cozy' ? STYLE_DNA.cozyStyle : STYLE_DNA.dreamyStyle),
+    ...baseStyle,
+    ...(themeStyles[asset.theme] ?? STYLE_DNA.cozyStyle),
   ].join('. ')
 
   const response = await client.chat.completions.create({
