@@ -116,6 +116,11 @@ Recent decisions affecting current work:
 - [07-02]: calendar-client.ts fetch wrapper mirrors openapi-fetch auth/error patterns for pre-OpenAPI hooks
 - [07-02]: Set<string> serialized as array in Zustand persist localStorage adapter
 - [07-02]: CalendarLayout uses internal Routes/Route pattern (same as WorkLayout)
+- [07-03]: Calendar permission hierarchy: view < edit < admin numeric levels, owner implicit admin
+- [07-03]: EnsurePersonalCalendar on every ListByUser for auto-creation with DACH defaults
+- [07-03]: Three-way recurring edit: this=exception, this_and_future=split with SetUntil, all=update master
+- [07-03]: Event emitter optional via SetEventEmitter (same pattern as task service)
+- [07-03]: rrule-go v1.8.2 re-added to go.mod (was missing from working tree despite 07-01 commit)
 - [07-04]: HolidayFetcher interface abstracts Nager client for testability
 - [07-04]: LiveKit disabled-by-default: empty config values = feature off
 - [07-04]: BookingConflictError carries alternative resource suggestions
@@ -135,5 +140,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 07-04-PLAN.md (Resource, Holiday, and LiveKit Services)
+Stopped at: Completed 07-03-PLAN.md (Calendar and Event Services) + 07-04-PLAN.md (Resource, Holiday, and LiveKit Services)
 Resume file: None
