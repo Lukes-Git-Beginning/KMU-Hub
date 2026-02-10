@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 7 of 20 (Calendar & Scheduling)
-Plan: 1 of 9 in current phase
+Plan: 2 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-10 -- Completed 07-01-PLAN.md (Calendar Data Foundation)
+Last activity: 2026-02-10 -- Completed 07-02-PLAN.md (Calendar Frontend Foundation)
 
-Progress: [████████░░░░░░░░░░░░░░░░] 33% (21/63 plans across phases 4-20)
+Progress: [█████████░░░░░░░░░░░░░░░] 35% (22/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
+- Total plans completed: 22
 - Average duration: ~10 minutes
-- Total execution time: ~3h 22min
+- Total execution time: ~3h 27min
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [████████░░░░░░░░░░░░░░░
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
 | 06 | 10/10 | ~88min | ~8.8min |
-| 07 | 1/9 | ~7min | ~7min |
+| 07 | 2/9 | ~12min | ~6min |
 
 **Recent Trend:**
-- Last 5 plans: 06-08 (~10min), 06-09 (~8min), 06-10 (~10min), 07-01 (~7min)
-- Trend: Consistent ~7-10min per plan
+- Last 5 plans: 06-09 (~8min), 06-10 (~10min), 07-01 (~7min), 07-02 (~5min)
+- Trend: Consistent ~5-10min per plan
 
 *Updated after each plan completion*
 
@@ -112,6 +112,10 @@ Recent decisions affecting current work:
 - [07-01]: Deferred FK constraints: resource_id FK added via ALTER TABLE in migration 000034 after resources table exists
 - [07-01]: Calendar-prefixed model naming (CalendarEvent, EventCategory) to avoid collision with notification Event model
 - [07-01]: 40 RPCs in CalendarService covering calendars, events, resources, bookings, holidays, preferences, LiveKit
+- [07-02]: Separate calendar-types.ts instead of modifying auto-generated types.ts (openapi-typescript)
+- [07-02]: calendar-client.ts fetch wrapper mirrors openapi-fetch auth/error patterns for pre-OpenAPI hooks
+- [07-02]: Set<string> serialized as array in Zustand persist localStorage adapter
+- [07-02]: CalendarLayout uses internal Routes/Route pattern (same as WorkLayout)
 
 ### Pending Todos
 
@@ -127,5 +131,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 07-01-PLAN.md (Calendar Data Foundation)
+Stopped at: Completed 07-02-PLAN.md (Calendar Frontend Foundation)
 Resume file: None
