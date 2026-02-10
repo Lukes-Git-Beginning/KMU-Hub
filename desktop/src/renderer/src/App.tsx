@@ -21,6 +21,7 @@ const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
 const CRMLayout = lazy(() => import('@/modules/crm/CRMLayout'))
 const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const WorkLayout = lazy(() => import('@/modules/work/WorkLayout'))
+const CalendarLayout = lazy(() => import('@/modules/calendar/CalendarLayout'))
 const NotificationCenter = lazy(() => import('@/modules/notifications/NotificationCenter'))
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
 
@@ -135,6 +136,14 @@ const router = createHashRouter([
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
             <WorkLayout />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'calendar/*',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <CalendarLayout />
           </Suspense>
         ),
       },

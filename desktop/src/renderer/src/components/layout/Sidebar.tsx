@@ -10,6 +10,7 @@ import {
   Users,
   MessageSquare,
   FolderKanban,
+  CalendarDays,
   Bell,
   Cog,
   PanelLeftClose,
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { to: '/crm', icon: Users, label: 'CRM' },
   { to: '/chat', icon: MessageSquare, label: 'Chat' },
   { to: '/work', icon: FolderKanban, label: 'Aufgaben' },
+  { to: '/calendar', icon: CalendarDays, label: 'Kalender' },
   { to: '/notifications', icon: Bell, label: 'Benachrichtigungen' },
   { to: '/settings/dashboard', icon: Cog, label: 'Einstellungen', roles: ['admin'] },
 ]
