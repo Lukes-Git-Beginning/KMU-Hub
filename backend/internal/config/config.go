@@ -38,6 +38,11 @@ type Config struct {
 	NotificationHealthPort string `env:"NOTIFICATION_HEALTH_PORT,default=:9094"`
 	WorkHealthPort         string `env:"WORK_HEALTH_PORT,default=:9095"`
 
+	// LiveKit (Video calls -- optional, feature-flagged)
+	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
+	LiveKitAPISecret string `env:"LIVEKIT_API_SECRET,default="`
+	LiveKitWSURL     string `env:"LIVEKIT_WS_URL,default="`
+
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
 	MinIOAccessKey  string `env:"MINIO_ACCESS_KEY,default=kmuhub"`
