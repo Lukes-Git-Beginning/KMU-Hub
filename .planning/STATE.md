@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 7 of 20 (Calendar & Scheduling)
-Plan: 2 of 9 in current phase
+Plan: 4 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-10 -- Completed 07-02-PLAN.md (Calendar Frontend Foundation)
+Last activity: 2026-02-10 -- Completed 07-04-PLAN.md (Resource, Holiday, and LiveKit Services)
 
-Progress: [█████████░░░░░░░░░░░░░░░] 35% (22/63 plans across phases 4-20)
+Progress: [██████████░░░░░░░░░░░░░░] 38% (24/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22
-- Average duration: ~10 minutes
-- Total execution time: ~3h 27min
+- Total plans completed: 24
+- Average duration: ~9 minutes
+- Total execution time: ~3h 43min
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [█████████░░░░░░░░░░░░░░
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
 | 06 | 10/10 | ~88min | ~8.8min |
-| 07 | 2/9 | ~12min | ~6min |
+| 07 | 4/9 | ~28min | ~7min |
 
 **Recent Trend:**
-- Last 5 plans: 06-09 (~8min), 06-10 (~10min), 07-01 (~7min), 07-02 (~5min)
+- Last 5 plans: 06-10 (~10min), 07-01 (~7min), 07-02 (~5min), 07-03 (~8min), 07-04 (~8min)
 - Trend: Consistent ~5-10min per plan
 
 *Updated after each plan completion*
@@ -116,6 +116,10 @@ Recent decisions affecting current work:
 - [07-02]: calendar-client.ts fetch wrapper mirrors openapi-fetch auth/error patterns for pre-OpenAPI hooks
 - [07-02]: Set<string> serialized as array in Zustand persist localStorage adapter
 - [07-02]: CalendarLayout uses internal Routes/Route pattern (same as WorkLayout)
+- [07-04]: HolidayFetcher interface abstracts Nager client for testability
+- [07-04]: LiveKit disabled-by-default: empty config values = feature off
+- [07-04]: BookingConflictError carries alternative resource suggestions
+- [07-04]: Resource delete is soft-delete (is_active=false), bookings preserved
 
 ### Pending Todos
 
@@ -131,5 +135,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 07-02-PLAN.md (Calendar Frontend Foundation)
+Stopped at: Completed 07-04-PLAN.md (Resource, Holiday, and LiveKit Services)
 Resume file: None
