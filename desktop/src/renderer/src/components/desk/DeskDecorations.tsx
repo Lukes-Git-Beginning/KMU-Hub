@@ -1,12 +1,12 @@
 /**
- * Renders decorative items placed in desk frame slots.
+ * Renders decorative items placed at mount points within the desk frame.
  *
- * Each decoration is positioned absolutely within the frame based
- * on its slot definition. Items have pointer-events: auto so they
- * remain interactive even though the frame layer is pointer-events: none.
+ * Each decoration is positioned absolutely within the room container based
+ * on its mount point definition (percentage-based x/y). Items have
+ * pointer-events: auto so they remain interactive even though the frame
+ * layer is pointer-events: none.
  *
- * Phase 1: Only the 'clock' decoration type is implemented.
- * Future phases add plants, photos, and custom items.
+ * Supports: clock, calendar, and image-based decorations with CSS animations.
  */
 import type { DeskTheme, DecorationPlacement } from '@/types/desk-theme'
 import { DeskClock } from './decorations/DeskClock'
@@ -18,12 +18,28 @@ interface DeskDecorationsProps {
   visible: boolean
 }
 
-function DecorationRenderer({ placement }: { placement: DecorationPlacement }) {
+function DecorationRenderer({ placement, maxSize }: { placement: DecorationPlacement; maxSize: { width: number; height: number } }) {
   switch (placement.type) {
     case 'clock':
       return <DeskClock size={64} />
     case 'calendar':
       return <DeskCalendar size={52} />
+    case 'image':
+      if (!placement.imageUrl) return null
+      return (
+        <img
+          src={placement.imageUrl}
+          alt={placement.variant}
+          className={placement.animationClass ?? undefined}
+          draggable={false}
+          style={{
+            maxWidth: `${maxSize.width}px`,
+            maxHeight: `${maxSize.height}px`,
+            objectFit: 'contain',
+            userSelect: 'none',
+          }}
+        />
+      )
     default:
       return null
   }
@@ -34,23 +50,23 @@ export function DeskDecorations({ theme, placements, visible }: DeskDecorationsP
 
   return (
     <>
-      {theme.decorationSlots.map((slot) => {
-        const placement = placements[slot.id]
+      {theme.mountPoints.map((mp) => {
+        const placement = placements[mp.id]
         if (!placement) return null
 
         return (
           <div
-            key={slot.id}
+            key={mp.id}
             className="absolute pointer-events-auto"
             style={{
-              left: slot.position.x,
-              top: slot.position.y,
+              left: mp.position.x,
+              top: mp.position.y,
               transform: 'translate(-50%, -50%)',
-              maxWidth: `${slot.maxSize.width}px`,
-              maxHeight: `${slot.maxSize.height}px`,
+              maxWidth: `${mp.maxSize.width}px`,
+              maxHeight: `${mp.maxSize.height}px`,
             }}
           >
-            <DecorationRenderer placement={placement} />
+            <DecorationRenderer placement={placement} maxSize={mp.maxSize} />
           </div>
         )
       })}

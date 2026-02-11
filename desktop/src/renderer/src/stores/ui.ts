@@ -8,6 +8,30 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { DecorationPlacement } from '@/types/desk-theme'
 import { DEFAULT_DESK_THEME_ID } from '@/config/desk-themes'
+import { DECO_ASSETS } from '@/config/desk-asset-urls'
+
+/** Build default decorations for a given theme */
+function buildDefaultDecorations(themeId: string): Record<string, DecorationPlacement> {
+  const placements: Record<string, DecorationPlacement> = {
+    'left-wall-clock': { slotId: 'left-wall-clock', type: 'clock', variant: 'analog' },
+    'left-wall-calendar': { slotId: 'left-wall-calendar', type: 'calendar', variant: 'tearoff' },
+  }
+
+  // Add a few image decorations from the theme's available decos
+  const themeDecos = DECO_ASSETS.filter((d) => d.themes.includes(themeId))
+  const imageSlots = ['left-wall-deco', 'right-wall-deco1', 'desk-surface-right']
+  themeDecos.slice(0, imageSlots.length).forEach((deco, i) => {
+    placements[imageSlots[i]] = {
+      slotId: imageSlots[i],
+      type: 'image',
+      variant: deco.id,
+      imageUrl: deco.image,
+      animationClass: deco.animation ?? undefined,
+    }
+  })
+
+  return placements
+}
 
 interface UIState {
   sidebarCollapsed: boolean
@@ -39,6 +63,7 @@ interface UIState {
   toggleDeskMaximized: () => void
   setDeskMaximized: (maximized: boolean) => void
   setDeskThemeId: (themeId: string) => void
+  setDeskThemeAndDecorations: (themeId: string) => void
   setDeskDecoration: (slotId: string, placement: DecorationPlacement | null) => void
   toggleDeskDecorations: () => void
 }
@@ -55,18 +80,7 @@ export const useUIStore = create<UIState>()(
       // Desk defaults
       deskMaximized: false,
       deskThemeId: DEFAULT_DESK_THEME_ID,
-      deskDecorations: {
-        'left-wall-clock': {
-          slotId: 'left-wall-clock',
-          type: 'clock',
-          variant: 'analog',
-        },
-        'left-wall-calendar': {
-          slotId: 'left-wall-calendar',
-          type: 'calendar',
-          variant: 'tearoff',
-        },
-      },
+      deskDecorations: buildDefaultDecorations(DEFAULT_DESK_THEME_ID),
       deskDecorationsVisible: true,
       onboardingCompleted: false,
 
@@ -99,6 +113,13 @@ export const useUIStore = create<UIState>()(
 
       setDeskThemeId: (themeId: string) =>
         set({ deskThemeId: themeId }),
+
+      /** Atomically switch theme and reset decorations to theme defaults */
+      setDeskThemeAndDecorations: (themeId: string) =>
+        set({
+          deskThemeId: themeId,
+          deskDecorations: buildDefaultDecorations(themeId),
+        }),
 
       setDeskDecoration: (slotId: string, placement: DecorationPlacement | null) =>
         set((state) => {

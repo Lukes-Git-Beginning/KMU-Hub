@@ -1,6 +1,7 @@
 import { Maximize2, Minimize2, Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
+import { DESK_THEMES } from '@/config/desk-themes'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { Button } from '@/components/ui/button'
@@ -22,8 +23,10 @@ import {
 export function Header() {
   const { isOnline } = useOnlineStatus()
   const deskMaximized = useUIStore((s) => s.deskMaximized)
+  const deskThemeId = useUIStore((s) => s.deskThemeId)
   const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
   const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
+  const isMinimalTheme = DESK_THEMES[deskThemeId]?.isMinimal ?? false
 
   // Initialize notification WebSocket listener so it's always active
   useNotificationWebSocket()
@@ -86,28 +89,30 @@ export function Header() {
           </TooltipContent>
         </Tooltip>
 
-        {/* Desk maximize toggle */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              onClick={toggleDeskMaximized}
-            >
-              {deskMaximized ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {deskMaximized
-              ? 'Schreibtisch anzeigen'
-              : 'Arbeitsflaeche maximieren'}
-          </TooltipContent>
-        </Tooltip>
+        {/* Desk maximize toggle — hidden for minimal theme */}
+        {!isMinimalTheme && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={toggleDeskMaximized}
+              >
+                {deskMaximized ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {deskMaximized
+                ? 'Schreibtisch anzeigen'
+                : 'Arbeitsflaeche maximieren'}
+            </TooltipContent>
+          </Tooltip>
+        )}
 
         {/* Profile Switcher */}
         <div className="hidden sm:block">

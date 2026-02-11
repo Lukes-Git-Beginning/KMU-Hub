@@ -18,6 +18,8 @@ import {
   Copy,
   Eye,
   EyeOff,
+  X,
+  Plus,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -26,8 +28,11 @@ import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared'
 import { useSettingsStore, type NotificationModule, type NotificationPrefs } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
+import { useUIStore } from '@/stores/ui'
 import { canSeeSettingsTab } from '@/config/roles'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
+import { DESK_THEMES, DESK_THEME_ORDER } from '@/config/desk-themes'
+import { getDecosForTheme, DECO_ASSETS } from '@/config/desk-asset-urls'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
 import { TeamSettingsTab } from './tabs/TeamSettingsTab'
@@ -232,6 +237,11 @@ function AppearanceTab() {
   const [theme, setTheme] = useState(appearance.theme)
   const [fontSize, setFontSize] = useState(appearance.fontSize)
 
+  const deskThemeId = useUIStore((s) => s.deskThemeId)
+  const setDeskThemeAndDecorations = useUIStore((s) => s.setDeskThemeAndDecorations)
+  const deskDecorations = useUIStore((s) => s.deskDecorations)
+  const setDeskDecoration = useUIStore((s) => s.setDeskDecoration)
+
   const themes = [
     { id: 'light' as const, label: 'Hell', desc: 'Warme, helle Oberflaeche' },
     { id: 'dark' as const, label: 'Dunkel', desc: 'Augenfreundlich bei wenig Licht' },
@@ -241,6 +251,39 @@ function AppearanceTab() {
   const handleSave = () => {
     updateAppearance({ theme, fontSize })
     toast.success('Darstellung gespeichert')
+  }
+
+  // Theme-aware available decorations
+  const availableDecos = getDecosForTheme(deskThemeId)
+  const activeDecoIds = Object.values(deskDecorations)
+    .filter((p) => p.type === 'image')
+    .map((p) => p.variant)
+
+  // Find first free image mount point for adding a decoration
+  const currentTheme = DESK_THEMES[deskThemeId]
+  const freeImageSlots = currentTheme?.mountPoints.filter(
+    (mp) => mp.acceptTypes.includes('image') && !deskDecorations[mp.id]
+  ) ?? []
+
+  const handleAddDeco = (decoId: string) => {
+    if (freeImageSlots.length === 0) {
+      toast.error('Alle Plaetze belegt — entferne erst eine Deko')
+      return
+    }
+    const mp = freeImageSlots[0]
+    const asset = DECO_ASSETS.find((d) => d.id === decoId)
+    if (!asset) return
+    setDeskDecoration(mp.id, {
+      slotId: mp.id,
+      type: 'image',
+      variant: asset.id,
+      imageUrl: asset.image,
+      animationClass: asset.animation ?? undefined,
+    })
+  }
+
+  const handleRemoveDeco = (slotId: string) => {
+    setDeskDecoration(slotId, null)
   }
 
   return (
@@ -275,6 +318,126 @@ function AppearanceTab() {
           </button>
         ))}
       </div>
+
+      {/* ── DESK THEME PICKER ─────────────────────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Arbeitsplatz-Theme</h3>
+      <p className="text-xs text-muted-foreground mb-3">Waehle das Ambiente deines virtuellen Schreibtischs</p>
+      <div className="grid grid-cols-3 gap-3 mb-8">
+        {DESK_THEME_ORDER.map((id) => {
+          const dt = DESK_THEMES[id]
+          const isActive = deskThemeId === id
+          return (
+            <button
+              key={id}
+              onClick={() => setDeskThemeAndDecorations(id)}
+              className={`relative rounded-xl border-2 overflow-hidden transition-all ${
+                isActive
+                  ? 'border-primary ring-2 ring-primary/20 scale-[1.02]'
+                  : 'border-border hover:border-muted-foreground/30'
+              }`}
+            >
+              {/* CSS gradient preview from theme roomVariables */}
+              <div
+                className="aspect-[4/3]"
+                style={{ background: dt.roomVariables['desk-room-bg'] ?? '#e5e5e5' }}
+              />
+              <div className="p-2 bg-card">
+                <p className="text-xs font-medium text-foreground truncate">{dt.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{dt.description}</p>
+              </div>
+              {dt.isMinimal && (
+                <span className="absolute top-1.5 left-1.5 bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[9px] font-medium">
+                  Kein Schreibtisch
+                </span>
+              )}
+              {isActive && (
+                <span className="absolute top-1.5 right-1.5 bg-primary rounded-full p-0.5">
+                  <Check className="h-3 w-3 text-white" />
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── DEKO-REGAL ────────────────────────────────── */}
+      {!currentTheme?.isMinimal && (
+        <>
+          <h3 className="text-sm font-medium text-foreground mb-3">Dekorationen</h3>
+          <p className="text-xs text-muted-foreground mb-3">Platziere Objekte auf deinem Schreibtisch</p>
+
+          {/* Active decorations */}
+          <div className="mb-4">
+            <p className="text-xs text-muted-foreground mb-2">Auf dem Schreibtisch</p>
+            <div className="flex flex-wrap gap-2 min-h-[60px] rounded-lg border border-border bg-card/50 p-3">
+              {Object.entries(deskDecorations)
+                .filter(([, p]) => p.type === 'image')
+                .map(([slotId, placement]) => {
+                  const asset = DECO_ASSETS.find((d) => d.id === placement.variant)
+                  if (!asset) return null
+                  return (
+                    <div
+                      key={slotId}
+                      className="relative group flex flex-col items-center gap-1 rounded-lg border border-border bg-card p-2 w-[72px]"
+                    >
+                      <img
+                        src={asset.image}
+                        alt={asset.name}
+                        className="h-10 w-10 object-contain"
+                      />
+                      <span className="text-[9px] text-muted-foreground text-center leading-tight truncate w-full">{asset.name}</span>
+                      <button
+                        onClick={() => handleRemoveDeco(slotId)}
+                        className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )
+                })}
+              {Object.values(deskDecorations).filter((p) => p.type === 'image').length === 0 && (
+                <p className="text-xs text-muted-foreground italic m-auto">Keine Dekorationen platziert</p>
+              )}
+            </div>
+          </div>
+
+          {/* Available decorations */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Verfuegbar ({availableDecos.length})</p>
+            <div className="flex flex-wrap gap-2 rounded-lg border border-dashed border-border p-3">
+              {availableDecos.map((deco) => {
+                const isPlaced = activeDecoIds.includes(deco.id)
+                return (
+                  <button
+                    key={deco.id}
+                    onClick={() => {
+                      if (!isPlaced) handleAddDeco(deco.id)
+                    }}
+                    disabled={isPlaced}
+                    className={`flex flex-col items-center gap-1 rounded-lg border p-2 w-[72px] transition-all ${
+                      isPlaced
+                        ? 'border-border/50 opacity-40 cursor-not-allowed'
+                        : 'border-border bg-card hover:border-primary hover:bg-primary-light cursor-pointer'
+                    }`}
+                  >
+                    <img
+                      src={deco.image}
+                      alt={deco.name}
+                      className="h-10 w-10 object-contain"
+                    />
+                    <span className="text-[9px] text-muted-foreground text-center leading-tight truncate w-full">{deco.name}</span>
+                    {!isPlaced && (
+                      <Plus className="h-3 w-3 text-muted-foreground" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="mt-8 mb-4 border-t border-border" />
 
       <h3 className="text-sm font-medium text-foreground mb-3">Schriftgroesse</h3>
       <div className="flex items-center gap-3 mb-2">

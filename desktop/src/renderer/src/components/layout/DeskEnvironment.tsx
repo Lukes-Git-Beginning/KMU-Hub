@@ -1,13 +1,15 @@
 /**
  * Outermost layout wrapper implementing the desk/room metaphor.
  *
- * Room layout:
- * - Background: room wall color
- * - Left/Right: large decoration panels (wall space for shelves, plants, photos)
- * - Bottom: desk surface
- * - Center: work area "window" (the main functional UI)
+ * 5-Layer workspace:
+ *   L1 – Room Scene (painted room + window view)
+ *   L2 – Furniture Overlays (desk, shelves)
+ *   L3 – Decorations (on mount points)
+ *   L4 – Mount Points (data only)
+ *   L5 – UI Skin (CSS variable overrides on work area)
  *
- * Maximize mode expands the work area to fill the entire viewport.
+ * The functional UI "floats" inside the room's window.
+ * Minimal theme skips the room entirely.
  */
 import { useMemo, useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores/ui'
@@ -43,47 +45,63 @@ export function DeskEnvironment() {
     document.documentElement.classList.toggle('dark', isDark)
   }, [isDark])
 
-  // Build inline CSS variables from active theme
-  const themeStyle = useMemo(() => {
+  // Build room-level CSS variables from active theme
+  const roomStyle = useMemo(() => {
     const vars: Record<string, string> = {}
-    const base = activeTheme.cssVariables
-    const dark = isDark ? activeTheme.cssVariablesDark ?? {} : {}
+    const base = activeTheme.roomVariables
+    const dark = isDark ? activeTheme.roomVariablesDark ?? {} : {}
     const merged = { ...base, ...dark }
-
     for (const [key, value] of Object.entries(merged)) {
       vars[`--${key}`] = value
     }
     return vars
   }, [activeTheme, isDark])
 
-  // Work area positioning via padding
-  const workAreaStyle = useMemo(() => {
-    if (deskMaximized) {
+  // Build UI skin CSS variables (Layer 5)
+  const uiSkinStyle = useMemo(() => {
+    const vars: Record<string, string> = {}
+    const base = activeTheme.uiSkin.variables
+    const dark = isDark ? activeTheme.uiSkin.variablesDark ?? {} : {}
+    const merged = { ...base, ...dark }
+    for (const [key, value] of Object.entries(merged)) {
+      vars[`--${key}`] = value
+    }
+    return vars
+  }, [activeTheme, isDark])
+
+  // Work area positioning — percentage-based window within room
+  const workAreaStyle = useMemo<React.CSSProperties>(() => {
+    if (deskMaximized || activeTheme.isMinimal) {
       return {
-        paddingTop: '8px',
-        paddingRight: '8px',
-        paddingBottom: '8px',
-        paddingLeft: '8px',
+        position: 'absolute' as const,
+        top: '0',
+        right: '0',
+        bottom: '0',
+        left: '0',
+        padding: activeTheme.isMinimal ? '0' : '8px',
       }
     }
-    const { top, right, bottom, left } = activeTheme.frame
+    const { top, right, bottom, left, innerPadding } = activeTheme.window
     return {
-      paddingTop: `${top}px`,
-      paddingRight: `${right}px`,
-      paddingBottom: `${bottom}px`,
-      paddingLeft: `${left}px`,
+      position: 'absolute' as const,
+      top,
+      right,
+      bottom,
+      left,
+      padding: innerPadding,
     }
-  }, [deskMaximized, activeTheme.frame])
+  }, [deskMaximized, activeTheme])
 
   // Keyboard shortcut: Ctrl+Shift+F to toggle maximize
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (activeTheme.isMinimal) return
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
         e.preventDefault()
         toggleDeskMaximized()
       }
     },
-    [toggleDeskMaximized]
+    [toggleDeskMaximized, activeTheme.isMinimal]
   )
 
   useEffect(() => {
@@ -91,40 +109,47 @@ export function DeskEnvironment() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
+  const showFrame = !activeTheme.isMinimal
+  const showDecorations = showFrame && deskDecorationsVisible && !deskMaximized
+
   return (
     <div
       className="h-screen w-screen overflow-hidden relative"
       style={{
-        ...themeStyle,
-        backgroundColor: 'var(--desk-wall-bg)',
+        ...roomStyle,
+        backgroundColor: 'var(--desk-room-bg)',
       }}
     >
-      {/* Room scene (wall panels, desk surface, decorations) */}
-      <DeskFrame visible={!deskMaximized} theme={activeTheme}>
-        <DeskDecorations
-          theme={activeTheme}
-          placements={deskDecorations}
-          visible={deskDecorationsVisible && !deskMaximized}
-        />
-      </DeskFrame>
+      {/* Room scene (L1 room bg, L2 furniture, L3 decorations) */}
+      {showFrame && (
+        <DeskFrame visible={!deskMaximized} theme={activeTheme} isDark={isDark}>
+          <DeskDecorations
+            theme={activeTheme}
+            placements={deskDecorations}
+            visible={showDecorations}
+          />
+        </DeskFrame>
+      )}
 
-      {/* Work area (the "window" — contains all functional UI) */}
+      {/* Work area — the "window" containing all functional UI */}
       <div
-        className="relative z-10 h-full"
+        className="z-10"
         style={{
           ...workAreaStyle,
-          transitionProperty: 'padding',
+          transitionProperty: 'top, right, bottom, left, padding',
           transitionDuration: 'var(--desk-transition-duration)',
           transitionTimingFunction: 'var(--desk-transition-easing)',
         }}
       >
         <div
-          className="h-full overflow-hidden"
+          className={`h-full overflow-hidden ${activeTheme.uiSkin.className ?? ''}`}
           style={{
-            borderRadius: 'var(--desk-window-radius)',
-            boxShadow: 'var(--desk-window-shadow)',
-            border: '1px solid var(--desk-window-border)',
-            transition: 'border-radius var(--desk-transition-duration) var(--desk-transition-easing), box-shadow var(--desk-transition-duration) var(--desk-transition-easing)',
+            ...uiSkinStyle,
+            borderRadius: activeTheme.isMinimal ? '0' : 'var(--desk-window-radius)',
+            boxShadow: activeTheme.isMinimal ? 'none' : 'var(--desk-window-shadow)',
+            border: activeTheme.isMinimal ? 'none' : '1px solid var(--desk-window-border)',
+            transition: `border-radius var(--desk-transition-duration) var(--desk-transition-easing),
+                         box-shadow var(--desk-transition-duration) var(--desk-transition-easing)`,
           }}
         >
           <AppShell />
