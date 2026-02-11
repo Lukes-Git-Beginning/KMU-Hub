@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 9 of 20 (Security & Compliance)
-Plan: 7 of 9 in current phase
+Plan: 5 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-11 -- Completed 09-02-PLAN.md (vault encryption & password policy)
+Last activity: 2026-02-11 -- Completed 09-05-PLAN.md (DSGVO compliance services)
 
-Progress: [█████████████████████░░░] 67% (42/63 plans across phases 4-20)
+Progress: [█████████████████████░░░] 68% (43/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 42
+- Total plans completed: 43
 - Average duration: ~7 minutes
-- Total execution time: ~5h 00min
+- Total execution time: ~5h 03min
 
 **By Phase:**
 
@@ -33,11 +33,11 @@ Progress: [█████████████████████░░
 | 07 | 9/9 | ~48min | ~5min |
 | 08 | 9/9 | ~45min | ~5min |
 
-| 09 | 3/9 | ~15min | ~5min |
+| 09 | 4/9 | ~18min | ~4.5min |
 
 **Recent Trend:**
-- Last 5 plans: 08-09 (~8min), 09-01 (~5min), 09-07 (~6min), 09-02 (~4min)
-- Trend: Consistent ~4-6min per plan
+- Last 5 plans: 09-01 (~5min), 09-07 (~6min), 09-02 (~4min), 09-05 (~3min)
+- Trend: Consistent ~3-6min per plan
 
 *Updated after each plan completion*
 
@@ -190,6 +190,11 @@ Recent decisions affecting current work:
 - [09-02]: Vault dual-key derivation from single master secret (min 32 chars)
 - [09-02]: Password history uses bcrypt.CompareHashAndPassword for reuse checking
 - [09-02]: go-password-validator GetEntropy for custom threshold entropy checking
+- [09-05]: Handler registry pattern for modular per-service GDPR export/erasure operations
+- [09-05]: Continue-on-failure erasure: partial erasure across modules better than aborting
+- [09-05]: Audit logs retained per DSGVO Art. 17(3)(e) -- AuditErasureHandler is no-op
+- [09-05]: 7-day download expiration on export ZIP files
+- [09-05]: Anonymized label "Geloeschter Benutzer #NNN" via sequential counter from erasure log
 
 ### Pending Todos
 
@@ -204,6 +209,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 09-02-PLAN.md (vault encryption & password policy)
+Stopped at: Completed 09-05-PLAN.md (DSGVO compliance services)
 Resume file: None
 Next: Continue Phase 9 plans
