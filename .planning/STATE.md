@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 9 of 20 (Security & Compliance)
-Plan: 6 of 9 in current phase
+Plan: 8 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-11 -- Completed 09-06-PLAN.md (gRPC + gateway wiring)
+Last activity: 2026-02-11 -- Completed 09-08-PLAN.md (security frontend UI)
 
-Progress: [█████████████████████░░░] 73% (46/63 plans across phases 4-20)
+Progress: [██████████████████████░░] 76% (48/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 45
+- Total plans completed: 47
 - Average duration: ~7 minutes
-- Total execution time: ~5h 14min
+- Total execution time: ~5h 28min
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: [█████████████████████░░
 | 07 | 9/9 | ~48min | ~5min |
 | 08 | 9/9 | ~45min | ~5min |
 
-| 09 | 6/9 | ~37min | ~6.2min |
+| 09 | 8/9 | ~51min | ~6.4min |
 
 **Recent Trend:**
-- Last 5 plans: 09-04-vault (~3min), 09-05 (~3min), 09-03 (~5min), 09-04-2fa (~6min), 09-06 (~8min)
+- Last 5 plans: 09-05 (~3min), 09-03 (~5min), 09-04-2fa (~6min), 09-06 (~8min), 09-08 (~7min)
 - Trend: Consistent ~3-8min per plan
 
 *Updated after each plan completion*
@@ -210,6 +210,11 @@ Recent decisions affecting current work:
 - [09-06]: IP filter applied globally before rate limiter, fail-open when rules unavailable
 - [09-06]: IP rules use direct pgx in security_grpc.go (no separate service layer)
 - [09-06]: 2FA validate is public (pending_token), all other 2FA endpoints require JWT auth
+- [09-08]: Auth store login throws '2FA_REQUIRED' error for LoginPage state machine transition
+- [09-08]: Vault secret reveal uses mutation (not query) to avoid caching decrypted values in TanStack Query
+- [09-08]: 30-second auto-hide timer for revealed vault secrets using setInterval cleanup
+- [09-08]: Security hooks placed in api/hooks/ directory (existing pattern) not hooks/ root
+- [09-08]: LoginPage 2FA flow uses auth store complete2FALogin instead of direct API hook
 
 ### Pending Todos
 
@@ -224,6 +229,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 09-06-PLAN.md (gRPC + gateway wiring)
+Stopped at: Completed 09-08-PLAN.md (security frontend UI)
 Resume file: None
-Next: Continue Phase 9 plans (09-07, 09-08, 09-09 remaining)
+Next: Complete Phase 9 plan 09-09 (final routing/settings integration)
