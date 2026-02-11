@@ -12,9 +12,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 Phase: 9 of 20 (Security & Compliance)
 Plan: 6 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-11 -- Completed 09-04-PLAN.md (TOTP two-factor authentication)
+Last activity: 2026-02-11 -- Completed 09-06-PLAN.md (gRPC + gateway wiring)
 
-Progress: [█████████████████████░░░] 71% (45/63 plans across phases 4-20)
+Progress: [█████████████████████░░░] 73% (46/63 plans across phases 4-20)
 
 ## Performance Metrics
 
@@ -33,11 +33,11 @@ Progress: [█████████████████████░░
 | 07 | 9/9 | ~48min | ~5min |
 | 08 | 9/9 | ~45min | ~5min |
 
-| 09 | 6/9 | ~29min | ~4.8min |
+| 09 | 6/9 | ~37min | ~6.2min |
 
 **Recent Trend:**
-- Last 5 plans: 09-02 (~4min), 09-04-vault (~3min), 09-05 (~3min), 09-03 (~5min), 09-04-2fa (~6min)
-- Trend: Consistent ~3-6min per plan
+- Last 5 plans: 09-04-vault (~3min), 09-05 (~3min), 09-03 (~5min), 09-04-2fa (~6min), 09-06 (~8min)
+- Trend: Consistent ~3-8min per plan
 
 *Updated after each plan completion*
 
@@ -205,6 +205,11 @@ Recent decisions affecting current work:
 - [09-04]: Recovery codes: 8 codes, 10 hex chars, SHA-256 hashed at rest
 - [09-04]: 2FA enforcement grace period calculated from user.CreatedAt
 - [09-04]: AdminReset2FA requires non-empty reason for audit trail
+- [09-06]: SecurityService runs in same binary as AuthService (shared gRPC port)
+- [09-06]: VaultAdapter bridges vault.Service (no ctx) to auth.VaultEncryptor (with ctx)
+- [09-06]: IP filter applied globally before rate limiter, fail-open when rules unavailable
+- [09-06]: IP rules use direct pgx in security_grpc.go (no separate service layer)
+- [09-06]: 2FA validate is public (pending_token), all other 2FA endpoints require JWT auth
 
 ### Pending Todos
 
@@ -219,6 +224,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 09-04-PLAN.md (TOTP two-factor authentication)
+Stopped at: Completed 09-06-PLAN.md (gRPC + gateway wiring)
 Resume file: None
-Next: Continue Phase 9 plans
+Next: Continue Phase 9 plans (09-07, 09-08, 09-09 remaining)
