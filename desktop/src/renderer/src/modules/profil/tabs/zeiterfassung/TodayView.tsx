@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Clock } from 'lucide-react'
+import { Plus, Trash2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
 import { useTimeTrackingStore } from '@/stores/timetracking'
 import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
-import { formatMinutes, isToday, todayStr } from './time-utils'
+import { formatMinutes, isToday } from './time-utils'
 import ManualEntryForm from './ManualEntryForm'
 
 export default function TodayView() {

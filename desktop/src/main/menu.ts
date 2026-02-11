@@ -1,4 +1,4 @@
-import { Menu, app } from 'electron'
+import { dialog, Menu, app } from 'electron'
 
 export function createMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
@@ -41,7 +41,6 @@ export function createMenu(): void {
         {
           label: 'About KMU Hub',
           click: () => {
-            const { dialog } = require('electron')
             dialog.showMessageBox({
               type: 'info',
               title: 'About KMU Hub',

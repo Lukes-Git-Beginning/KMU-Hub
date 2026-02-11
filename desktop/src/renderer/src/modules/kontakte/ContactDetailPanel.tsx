@@ -9,17 +9,13 @@ import {
   Linkedin,
   Star,
   Briefcase,
-  Clock,
   Video,
   FileText,
-  MessageCircle,
   StickyNote,
   ChevronLeft,
   Pencil,
   Trash2,
-  Copy,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Contact } from '@/stores/contacts'

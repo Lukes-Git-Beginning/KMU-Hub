@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Users, Monitor, X, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Users, Monitor, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 
 // ============================================================

@@ -5,7 +5,7 @@
  * Sort within groups: Created, Due Date, Priority, Title, Task Number + asc/desc.
  * Quick filter pills for priority levels, assignee, and status dropdowns.
  */
-import { ArrowUpDown, Filter, ChevronDown, ChevronUp } from 'lucide-react'
+import { Filter, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Select,

@@ -22,8 +22,6 @@ import { toast } from 'sonner'
 import {
   useFinanceStore,
   type Invoice,
-  type Transaction,
-  type Expense,
   calcInvoiceTotal,
   calcRemainingAmount,
 } from '@/stores/finance'

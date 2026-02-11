@@ -5,7 +5,7 @@
  * Left column: breadcrumb, title, description, subtasks, activity+comments feed.
  * Right column: status, priority, assignee, due date, dependencies, files, metadata.
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -31,14 +31,12 @@ import {
   useTask,
   useUpdateTask,
   useSubtasks,
-  useTaskEntityLinks,
 } from '@/api/hooks/useTasks'
 import {
   useProject,
   useProjectStatuses,
   useProjectMembers,
 } from '@/api/hooks/useProjects'
-import { useWorkStore } from '@/stores/work'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'

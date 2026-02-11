@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Check, X, Clock } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore, type TimeCategory } from '@/stores/timetracking'
+import { useTimeTrackingStore } from '@/stores/timetracking'
 import { toast } from 'sonner'
 
 const COLOR_PRESETS = [

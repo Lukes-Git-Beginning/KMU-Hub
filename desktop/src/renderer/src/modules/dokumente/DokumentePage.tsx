@@ -22,10 +22,6 @@ import {
   Trash2,
   Plus,
   Pencil,
-  Copy,
-  FolderInput,
-  Tag,
-  MoreVertical,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDocumentsStore, type DocFile, type DocFolder } from '@/stores/documents'

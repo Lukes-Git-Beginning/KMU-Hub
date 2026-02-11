@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  HelpCircle, X, Search, ChevronDown, ChevronUp,
-  Keyboard, Mail, BookOpen, ExternalLink,
+  HelpCircle, X, Search, ChevronDown, ChevronUp, Mail, BookOpen, ExternalLink,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'

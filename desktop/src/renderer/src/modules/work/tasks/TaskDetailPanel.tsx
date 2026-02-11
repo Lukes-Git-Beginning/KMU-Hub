@@ -13,7 +13,6 @@ import {
   Calendar,
   User,
   ListTree,
-  Plus,
   Send,
 } from 'lucide-react'
 import { cn } from '@/lib'

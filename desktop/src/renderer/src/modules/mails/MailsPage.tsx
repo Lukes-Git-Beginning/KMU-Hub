@@ -15,11 +15,8 @@ import {
   ReplyAll,
   Forward,
   AlertCircle,
-  FolderPlus,
   Eye,
   EyeOff,
-  ArrowRight,
-  Pencil,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMailsStore, type Email } from '@/stores/mails'
@@ -135,7 +132,7 @@ export default function MailsPage() {
       label: e.isRead ? 'Als ungelesen' : 'Als gelesen',
       icon: e.isRead ? EyeOff : Eye,
       onClick: () => {
-        e.isRead ? markUnread(e.id) : markRead(e.id)
+        if (e.isRead) { markUnread(e.id) } else { markRead(e.id) }
         toast.success(e.isRead ? 'Als ungelesen markiert' : 'Als gelesen markiert')
       },
     })

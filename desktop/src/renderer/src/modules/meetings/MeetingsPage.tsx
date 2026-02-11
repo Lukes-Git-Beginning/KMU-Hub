@@ -10,8 +10,6 @@ import {
   Copy,
   Pencil,
   Trash2,
-  FileText,
-  Presentation,
   Ban,
 } from 'lucide-react'
 import { toast } from 'sonner'

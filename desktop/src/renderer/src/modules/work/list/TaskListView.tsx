@@ -5,10 +5,10 @@
  * Each group is collapsible. Subtask nesting is reflected with
  * indentation and collapse/expand toggles at each level.
  */
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useTasks, useSubtasks } from '@/api/hooks/useTasks'
+import { useTasks } from '@/api/hooks/useTasks'
 import {
   useProjectMembers,
   useProjectPreference,

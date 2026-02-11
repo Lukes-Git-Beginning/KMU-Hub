@@ -13,7 +13,6 @@ import {
   Archive,
   File,
   Download,
-  X,
 } from 'lucide-react'
 import type { DocFile } from '@/stores/documents'
 

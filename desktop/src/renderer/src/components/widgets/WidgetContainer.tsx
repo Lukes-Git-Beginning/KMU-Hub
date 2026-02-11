@@ -29,7 +29,7 @@ function useDebouncedLayoutUpdate(
 ): (layout: Layout[]) => void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fnRef = useRef(fn)
-  fnRef.current = fn
+  useEffect(() => { fnRef.current = fn }, [fn])
 
   return useCallback(
     (layout: Layout[]) => {

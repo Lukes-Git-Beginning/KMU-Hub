@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Check, ChevronDown, Plus } from 'lucide-react'
-import { useProfileStore, type WorkProfile } from '@/stores/profile'
+import { useProfileStore } from '@/stores/profile'
 import { cn } from '@/lib/cn'
 
 export function ProfileSwitcher() {

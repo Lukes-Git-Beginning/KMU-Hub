@@ -5,10 +5,8 @@
  * due date range, and a completed tasks toggle. Composes filter values
  * into query parameters for search/list hooks.
  */
-import { useState } from 'react'
 import {
   FolderKanban,
-  User,
   CircleDot,
   AlertTriangle,
   Calendar,

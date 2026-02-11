@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
 import { useTimeTrackingStore } from '@/stores/timetracking'
 import {
-  getMonthDates, dateToStr, getMonthLabel, formatMinutes, formatHoursDecimal, isToday,
+  getMonthDates, dateToStr, getMonthLabel, formatMinutes, isToday,
 } from './time-utils'
 
 export default function MonthView() {

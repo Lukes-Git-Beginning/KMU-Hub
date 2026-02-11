@@ -7,7 +7,6 @@ import {
   Calendar,
   Clock,
   Shield,
-  X,
   PhoneCall,
 } from 'lucide-react'
 import { DetailPanel } from '@/components/shared'

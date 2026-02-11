@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import {
-  Play, Pause, Square, Clock, Calendar, BarChart3, Users, Tag, Plus, ChevronLeft, ChevronRight,
+  Play, Pause, Square, Clock, Calendar, BarChart3, Users, Tag,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/cn'
 import { useTimeTrackingStore } from '@/stores/timetracking'
 import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
-import { formatMinutes, todayStr, isToday } from './zeiterfassung/time-utils'
+import { formatMinutes, isToday } from './zeiterfassung/time-utils'
 import TodayView from './zeiterfassung/TodayView'
 import WeekView from './zeiterfassung/WeekView'
 import MonthView from './zeiterfassung/MonthView'

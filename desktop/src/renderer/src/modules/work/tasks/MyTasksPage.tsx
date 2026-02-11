@@ -16,8 +16,6 @@ import {
   ChevronRight,
   Plus,
   FolderKanban,
-  User,
-  Calendar,
   MoreHorizontal,
   ArrowRight,
 } from 'lucide-react'
@@ -39,7 +37,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
 
 const PAGE_SIZE = 50

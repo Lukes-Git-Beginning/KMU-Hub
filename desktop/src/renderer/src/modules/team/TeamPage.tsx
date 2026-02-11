@@ -12,9 +12,6 @@ import {
   Calendar,
   Users,
   Briefcase,
-  CheckCircle2,
-  XCircle,
-  MoreVertical,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTeamStore, type TeamMember, type HRRequest } from '@/stores/team'

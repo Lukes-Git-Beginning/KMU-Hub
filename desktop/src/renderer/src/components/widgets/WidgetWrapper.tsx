@@ -9,7 +9,7 @@ import { X, GripVertical } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { widgetRegistry, type WidgetProps } from './WidgetRegistry'
+import { widgetRegistry } from './WidgetRegistry'
 import { useDashboardStore } from '@/stores/dashboard'
 
 interface WidgetWrapperProps {

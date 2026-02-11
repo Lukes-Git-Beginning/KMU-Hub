@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Minimize2, Maximize2 } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Minimize2 } from 'lucide-react'
 import { cn } from '@/lib'
 
 interface CallOverlayProps {

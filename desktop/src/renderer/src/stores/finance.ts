@@ -114,7 +114,7 @@ interface FinanceStore {
   deleteExpense: (id: string) => void
 }
 
-let invoiceCounter = 43
+const invoiceCounter = 43
 
 const INITIAL_INVOICES: Invoice[] = [
   {

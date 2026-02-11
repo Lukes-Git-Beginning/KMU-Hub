@@ -330,7 +330,7 @@ export default function CommentThread({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
-                          comment.id && handleEditSave(comment.id)
+                          if (comment.id) handleEditSave(comment.id)
                         }
                         if (e.key === 'Escape') {
                           setEditingId(null)
@@ -352,9 +352,9 @@ export default function CommentThread({
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() =>
-                          comment.id && handleEditSave(comment.id)
-                        }
+                        onClick={() => {
+                          if (comment.id) handleEditSave(comment.id)
+                        }}
                         disabled={updateComment.isPending}
                       >
                         Speichern
