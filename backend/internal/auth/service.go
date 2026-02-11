@@ -18,6 +18,7 @@ const bcryptCost = 12
 type Service struct {
 	repo       Repository
 	tokenMaker *TokenMaker
+	vaultSvc   VaultEncryptor
 }
 
 func NewService(repo Repository, tokenMaker *TokenMaker) *Service {
