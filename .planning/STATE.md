@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 9 of 20 (Security & Compliance)
-Plan: 1 of 9 in current phase
+Plan: 7 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-11 -- Completed 09-01-PLAN.md (security data foundation)
+Last activity: 2026-02-11 -- Completed 09-07-PLAN.md (i18n framework setup)
 
-Progress: [███████████████████░░░░░] 63% (40/63 plans across phases 4-20)
+Progress: [████████████████████░░░░] 65% (41/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 40
+- Total plans completed: 41
 - Average duration: ~7 minutes
-- Total execution time: ~4h 50min
+- Total execution time: ~4h 56min
 
 **By Phase:**
 
@@ -33,10 +33,10 @@ Progress: [███████████████████░░░░
 | 07 | 9/9 | ~48min | ~5min |
 | 08 | 9/9 | ~45min | ~5min |
 
-| 09 | 1/9 | ~5min | ~5min |
+| 09 | 2/9 | ~11min | ~5.5min |
 
 **Recent Trend:**
-- Last 5 plans: 08-07 (~8min), 08-08 (~8min), 08-09 (~8min), 09-01 (~5min)
+- Last 5 plans: 08-08 (~8min), 08-09 (~8min), 09-01 (~5min), 09-07 (~6min)
 - Trend: Consistent ~5-8min per plan
 
 *Updated after each plan completion*
@@ -180,6 +180,11 @@ Recent decisions affecting current work:
 - [09-01]: BIGSERIAL sequence_num for audit hash chain ordering (more reliable than timestamp)
 - [09-01]: tools/security_deps.go retains otp+validator in go.mod before service code exists
 - [09-01]: gdpr_erasure_log.original_user_id has no FK (user row gets anonymized)
+- [09-07]: react-intl over i18next for native ICU message format (no plugin needed)
+- [09-07]: Static imports for all 4 locale bundles (small JSON, no async loading complexity)
+- [09-07]: Zustand persist for locale store (consistent with existing store patterns)
+- [09-07]: Fallback chain: user choice -> navigator.language -> DE default
+- [09-07]: MISSING_TRANSLATION errors suppressed in dev mode only
 
 ### Pending Todos
 
@@ -194,6 +199,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 09-01-PLAN.md (security data foundation)
+Stopped at: Completed 09-07-PLAN.md (i18n framework setup)
 Resume file: None
-Next: 09-02-PLAN.md
+Next: Continue Phase 9 plans
