@@ -1,0 +1,12 @@
+package recording
+
+import "errors"
+
+var (
+	ErrNotFound             = errors.New("recording not found")
+	ErrConsentPending       = errors.New("recording cannot start: not all participants have responded to consent")
+	ErrEgressNotConfigured  = errors.New("egress/recording is not configured")
+	ErrRecordingNotActive   = errors.New("recording is not in active state")
+	ErrInvalidStatus        = errors.New("invalid recording status transition")
+	ErrNoCallOrMeeting      = errors.New("recording must be associated with a call or meeting")
+)

@@ -1,0 +1,224 @@
+package recording
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// PostgresRepository implements Repository using PostgreSQL
+type PostgresRepository struct {
+	pool *pgxpool.Pool
+}
+
+// NewPostgresRepository creates a new PostgreSQL repository for recordings
+func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
+	return &PostgresRepository{pool: pool}
+}
+
+func (r *PostgresRepository) CreateRecording(ctx context.Context, rec *Recording) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO recordings (id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
+		  duration_seconds, retention_expires_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		rec.ID, rec.CallID, rec.MeetingID, rec.Status, rec.EgressID,
+		rec.FileURL, rec.FileSizeBytes, rec.DurationSeconds,
+		rec.RetentionExpiresAt, rec.CreatedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetRecording(ctx context.Context, id uuid.UUID) (*Recording, error) {
+	var rec Recording
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
+		        duration_seconds, retention_expires_at, created_at
+		 FROM recordings WHERE id = $1`,
+		id,
+	).Scan(&rec.ID, &rec.CallID, &rec.MeetingID, &rec.Status, &rec.EgressID,
+		&rec.FileURL, &rec.FileSizeBytes, &rec.DurationSeconds,
+		&rec.RetentionExpiresAt, &rec.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
+}
+
+func (r *PostgresRepository) UpdateRecording(ctx context.Context, rec *Recording) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE recordings SET status = $1, egress_id = $2, file_url = $3, file_size_bytes = $4,
+		  duration_seconds = $5, retention_expires_at = $6
+		 WHERE id = $7`,
+		rec.Status, rec.EgressID, rec.FileURL, rec.FileSizeBytes,
+		rec.DurationSeconds, rec.RetentionExpiresAt, rec.ID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListRecordingsByCall(ctx context.Context, callID uuid.UUID) ([]Recording, error) {
+	return r.listRecordings(ctx,
+		`SELECT id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
+		        duration_seconds, retention_expires_at, created_at
+		 FROM recordings WHERE call_id = $1 ORDER BY created_at DESC`,
+		callID,
+	)
+}
+
+func (r *PostgresRepository) ListRecordingsByMeeting(ctx context.Context, meetingID uuid.UUID) ([]Recording, error) {
+	return r.listRecordings(ctx,
+		`SELECT id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
+		        duration_seconds, retention_expires_at, created_at
+		 FROM recordings WHERE meeting_id = $1 ORDER BY created_at DESC`,
+		meetingID,
+	)
+}
+
+func (r *PostgresRepository) DeleteRecording(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM recordings WHERE id = $1`, id)
+	return err
+}
+
+func (r *PostgresRepository) SetConsent(ctx context.Context, consent *RecordingConsent) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO recording_consents (recording_id, user_id, consented, responded_at)
+		 VALUES ($1, $2, $3, $4)
+		 ON CONFLICT (recording_id, user_id) DO UPDATE SET consented = $3, responded_at = $4`,
+		consent.RecordingID, consent.UserID, consent.Consented, consent.RespondedAt,
+	)
+	return err
+}
+
+func (r *PostgresRepository) GetConsents(ctx context.Context, recordingID uuid.UUID) ([]RecordingConsent, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT recording_id, user_id, consented, responded_at
+		 FROM recording_consents WHERE recording_id = $1
+		 ORDER BY responded_at ASC`,
+		recordingID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var consents []RecordingConsent
+	for rows.Next() {
+		var c RecordingConsent
+		if scanErr := rows.Scan(&c.RecordingID, &c.UserID, &c.Consented, &c.RespondedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		consents = append(consents, c)
+	}
+	return consents, rows.Err()
+}
+
+func (r *PostgresRepository) CountPendingConsents(ctx context.Context, recordingID uuid.UUID, participantIDs []uuid.UUID) (int, error) {
+	// Count participants who have NOT responded to consent for this recording
+	var count int
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(*)
+		 FROM unnest($2::uuid[]) AS pid(id)
+		 WHERE NOT EXISTS (
+		   SELECT 1 FROM recording_consents
+		   WHERE recording_id = $1 AND user_id = pid.id
+		 )`,
+		recordingID, participantIDs,
+	).Scan(&count)
+	return count, err
+}
+
+func (r *PostgresRepository) ListExpiredRecordings(ctx context.Context, before time.Time) ([]Recording, error) {
+	return r.listRecordings(ctx,
+		`SELECT id, call_id, meeting_id, status, egress_id, file_url, file_size_bytes,
+		        duration_seconds, retention_expires_at, created_at
+		 FROM recordings
+		 WHERE retention_expires_at < $1 AND status = 'completed'
+		 ORDER BY retention_expires_at ASC`,
+		before,
+	)
+}
+
+func (r *PostgresRepository) ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error) {
+	// Returns recordings where the user was a participant (via call_participants or meeting_attendees)
+	// Optionally filtered by meeting ID
+	query := `
+		SELECT DISTINCT r.id, r.call_id, r.meeting_id, r.status, r.egress_id, r.file_url,
+		       r.file_size_bytes, r.duration_seconds, r.retention_expires_at, r.created_at
+		FROM recordings r
+		LEFT JOIN call_participants cp ON r.call_id = cp.call_id AND cp.user_id = $1
+		LEFT JOIN meeting_attendees ma ON r.meeting_id = ma.meeting_id AND ma.user_id = $1
+		WHERE (cp.user_id IS NOT NULL OR ma.user_id IS NOT NULL)
+		  AND r.status IN ('completed', 'processing')`
+
+	args := []any{userID}
+	argIdx := 2
+
+	if meetingID != nil {
+		query += fmt.Sprintf(" AND r.meeting_id = $%d", argIdx)
+		args = append(args, *meetingID)
+	}
+
+	query += " ORDER BY r.created_at DESC"
+
+	return r.listRecordings(ctx, query, args...)
+}
+
+func (r *PostgresRepository) GetRecordingParticipants(ctx context.Context, recordingID uuid.UUID) ([]uuid.UUID, error) {
+	// Returns user IDs who participated in the call or meeting associated with this recording
+	rows, err := r.pool.Query(ctx,
+		`SELECT DISTINCT u_id FROM (
+		   SELECT cp.user_id AS u_id
+		   FROM recordings r
+		   JOIN call_participants cp ON r.call_id = cp.call_id
+		   WHERE r.id = $1
+		   UNION
+		   SELECT ma.user_id AS u_id
+		   FROM recordings r
+		   JOIN meeting_attendees ma ON r.meeting_id = ma.meeting_id
+		   WHERE r.id = $1
+		 ) sub`,
+		recordingID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var userIDs []uuid.UUID
+	for rows.Next() {
+		var uid uuid.UUID
+		if scanErr := rows.Scan(&uid); scanErr != nil {
+			return nil, scanErr
+		}
+		userIDs = append(userIDs, uid)
+	}
+	return userIDs, rows.Err()
+}
+
+// listRecordings is a helper to scan recording rows
+func (r *PostgresRepository) listRecordings(ctx context.Context, query string, args ...any) ([]Recording, error) {
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var recordings []Recording
+	for rows.Next() {
+		var rec Recording
+		if scanErr := rows.Scan(&rec.ID, &rec.CallID, &rec.MeetingID, &rec.Status,
+			&rec.EgressID, &rec.FileURL, &rec.FileSizeBytes, &rec.DurationSeconds,
+			&rec.RetentionExpiresAt, &rec.CreatedAt); scanErr != nil {
+			return nil, scanErr
+		}
+		recordings = append(recordings, rec)
+	}
+	return recordings, rows.Err()
+}
