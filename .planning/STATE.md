@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 8 - Video, Voice & Meetings (Next)
+**Current focus:** Phase 8 - Video, Voice & Meetings
 
 ## Current Position
 
-Phase: 7 of 20 (Calendar & Scheduling) -- COMPLETE
-Plan: 9 of 9 in current phase (all complete)
-Status: Phase 7 complete, Phase 8 next
-Last activity: 2026-02-11 -- Phase 7 complete via design integration (Plans 07-06 to 07-09 replaced by Darien's UI merge)
+Phase: 8 of 20 (Video, Voice & Meetings)
+Plan: 1 of 9 in current phase
+Status: In progress
+Last activity: 2026-02-11 -- Completed 08-01-PLAN.md (Proto + Migrations + Models Foundation)
 
-Progress: [████████████░░░░░░░░░░░░] 42% (29/63 plans across phases 4-20)
+Progress: [█████████████░░░░░░░░░░░] 43% (30/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
+- Total plans completed: 25
 - Average duration: ~9 minutes
-- Total execution time: ~3h 43min
+- Total execution time: ~3h 49min
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [████████████░░░░░░░░░░░
 | 05 | 7/7 | ~66min | ~9min |
 | 06 | 10/10 | ~88min | ~8.8min |
 | 07 | 9/9 | ~48min | ~5min |
+| 08 | 1/9 | ~6min | ~6min |
 
 **Recent Trend:**
-- Last 5 plans: 07-01 (~7min), 07-02 (~5min), 07-03 (~8min), 07-04 (~8min), 07-05+UI (~20min)
-- Trend: Consistent ~5-10min per plan, design integration saved ~4 plans
+- Last 5 plans: 07-03 (~8min), 07-04 (~8min), 07-05+UI (~20min), 08-01 (~6min)
+- Trend: Consistent ~5-10min per plan
 
 *Updated after each plan completion*
 
@@ -134,6 +135,10 @@ Recent decisions affecting current work:
 - [07-UI]: Plans 07-06 to 07-09 made obsolete by design integration (saved ~4 plans)
 - [07-UI]: D2 color system (globals.css) merged from design/brainstorm
 - [07-UI]: New Radix UI components: alert-dialog, checkbox, dropdown-menu, sheet, switch
+- [08-01]: tools.go with //go:build tools constraint to retain server-sdk-go/v2 in go.mod before app code imports it
+- [08-01]: Domain-scoped model packages (internal/work/video/, meeting/, etc.) for Phase 8 models
+- [08-01]: 31 RPCs in single VideoService covering calls, recording, meetings, notes/actions, presence
+- [08-01]: Presence runtime state in Redis; only admin config (away_timeout_seconds) persisted in PostgreSQL
 
 ### Pending Todos
 
@@ -148,6 +153,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Phase 7 COMPLETE -- design integration merged, all 9 plans done
+Stopped at: Completed 08-01-PLAN.md (Proto + Migrations + Models Foundation)
 Resume file: None
-Next: Phase 8 - Video, Voice & Meetings
+Next: 08-02-PLAN.md
