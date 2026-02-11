@@ -41,17 +41,27 @@ func (s *AuthGRPCServer) Register(ctx context.Context, req *authv1.RegisterReque
 }
 
 func (s *AuthGRPCServer) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
-	user, tokens, err := s.authService.Login(ctx, req.Email, req.Password)
+	result, err := s.authService.Login(ctx, req.Email, req.Password)
 	if err != nil {
 		return nil, mapError(err)
 	}
 
-	_, roles, _ := s.authService.GetUser(ctx, user.ID)
+	if result.RequiresTwoFactor {
+		return &authv1.LoginResponse{
+			RequiresTwoFactor: true,
+			PendingToken:      result.PendingToken,
+		}, nil
+	}
+
+	var roles []string
+	if result.User != nil {
+		_, roles, _ = s.authService.GetUser(ctx, result.User.ID)
+	}
 
 	return &authv1.LoginResponse{
-		User:         toUserInfo(user, roles),
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
+		User:         toUserInfo(result.User, roles),
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
 	}, nil
 }
 
@@ -325,6 +335,20 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrInvitationExists):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, auth.ErrTwoFactorAlreadyEnabled):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrTwoFactorNotEnabled):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrNo2FASetupPending):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrInvalidTOTPCode), errors.Is(err, auth.ErrInvalidRecoveryCode):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, auth.ErrAllRecoveryCodesUsed):
+		return status.Error(codes.ResourceExhausted, err.Error())
+	case errors.Is(err, auth.ErrInvalidPendingToken), errors.Is(err, auth.ErrPendingTokenExpired):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, auth.Err2FAEnforcementRequired):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}

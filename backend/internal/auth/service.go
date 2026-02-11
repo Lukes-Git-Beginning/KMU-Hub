@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -67,18 +68,76 @@ func (s *Service) Register(ctx context.Context, email, password, firstName, last
 	return user, tokens, nil
 }
 
-func (s *Service) Login(ctx context.Context, email, password string) (*models.User, *models.TokenPair, error) {
+func (s *Service) Login(ctx context.Context, email, password string) (*models.LoginResult, error) {
 	user, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil {
-		return nil, nil, ErrInvalidCredentials
+		return nil, ErrInvalidCredentials
+	}
+
+	if !user.IsActive {
+		return nil, ErrUserInactive
+	}
+
+	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); compareErr != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	// If 2FA is enabled, issue a pending token instead of full tokens
+	if user.TwoFactorEnabled {
+		pendingToken, err := s.tokenMaker.CreatePendingToken(user.ID)
+		if err != nil {
+			return nil, fmt.Errorf("create pending token: %w", err)
+		}
+		slog.Info("login requires 2FA", "user_id", user.ID, "email", user.Email)
+		return &models.LoginResult{
+			RequiresTwoFactor: true,
+			PendingToken:      pendingToken,
+		}, nil
+	}
+
+	// Check 2FA enforcement: if required and grace expired, block login
+	enforcement, err := s.Check2FAEnforcement(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("check 2FA enforcement: %w", err)
+	}
+	if enforcement != nil && enforcement.Required && enforcement.GraceExpired {
+		return nil, Err2FAEnforcementRequired
+	}
+
+	tokens, err := s.createTokenPair(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info("user logged in", "user_id", user.ID, "email", user.Email)
+	return &models.LoginResult{
+		User:         user,
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	}, nil
+}
+
+// CompleteTwoFactorLogin validates the 2FA code after credential verification and issues full tokens.
+func (s *Service) CompleteTwoFactorLogin(ctx context.Context, pendingToken, code string, isRecoveryCode bool) (*models.User, *models.TokenPair, error) {
+	// Validate the pending token
+	userID, err := s.tokenMaker.ValidatePendingToken(pendingToken)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Validate the 2FA code
+	recoveryUsed, err := s.Validate2FALogin(ctx, userID, code, isRecoveryCode)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, nil, ErrUserNotFound
 	}
 
 	if !user.IsActive {
 		return nil, nil, ErrUserInactive
-	}
-
-	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); compareErr != nil {
-		return nil, nil, ErrInvalidCredentials
 	}
 
 	tokens, err := s.createTokenPair(ctx, user)
@@ -86,7 +145,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (*models.Us
 		return nil, nil, err
 	}
 
-	slog.Info("user logged in", "user_id", user.ID, "email", user.Email)
+	if recoveryUsed {
+		slog.Warn("2FA login completed with recovery code", "user_id", userID)
+	} else {
+		slog.Info("2FA login completed", "user_id", userID)
+	}
+
 	return user, tokens, nil
 }
 

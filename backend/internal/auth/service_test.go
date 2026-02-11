@@ -427,17 +427,18 @@ func TestService_Login(t *testing.T) {
 			svc, repo := newTestService()
 			tt.setup(repo)
 
-			user, tokens, err := svc.Login(context.Background(), tt.email, tt.password)
+			result, err := svc.Login(context.Background(), tt.email, tt.password)
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
-				assert.Nil(t, user)
-				assert.Nil(t, tokens)
+				assert.Nil(t, result)
 			} else {
 				require.NoError(t, err)
-				assert.NotNil(t, user)
-				assert.NotEmpty(t, tokens.AccessToken)
-				assert.NotEmpty(t, tokens.RefreshToken)
+				assert.NotNil(t, result)
+				assert.False(t, result.RequiresTwoFactor)
+				assert.NotNil(t, result.User)
+				assert.NotEmpty(t, result.AccessToken)
+				assert.NotEmpty(t, result.RefreshToken)
 			}
 		})
 	}
@@ -453,8 +454,8 @@ func TestService_RefreshToken(t *testing.T) {
 			name: "success",
 			setup: func(svc *Service, repo *mockRepository) string {
 				createTestUser(repo, "user@example.com", "pass", true)
-				_, tokens, _ := svc.Login(context.Background(), "user@example.com", "pass")
-				return tokens.RefreshToken
+				result, _ := svc.Login(context.Background(), "user@example.com", "pass")
+				return result.RefreshToken
 			},
 		},
 		{
@@ -528,8 +529,8 @@ func TestService_Logout(t *testing.T) {
 			name: "success",
 			setup: func(svc *Service, repo *mockRepository) string {
 				createTestUser(repo, "user@example.com", "pass", true)
-				_, tokens, _ := svc.Login(context.Background(), "user@example.com", "pass")
-				return tokens.RefreshToken
+				result, _ := svc.Login(context.Background(), "user@example.com", "pass")
+				return result.RefreshToken
 			},
 		},
 		{
@@ -700,14 +701,14 @@ func TestService_RefreshToken_InactiveUser(t *testing.T) {
 	user := createTestUser(repo, "user@example.com", "pass", true)
 
 	// Login while active
-	_, tokens, err := svc.Login(context.Background(), "user@example.com", "pass")
+	result, err := svc.Login(context.Background(), "user@example.com", "pass")
 	require.NoError(t, err)
 
 	// Deactivate user
 	user.IsActive = false
 
 	// Refresh should fail
-	_, err = svc.RefreshToken(context.Background(), tokens.RefreshToken)
+	_, err = svc.RefreshToken(context.Background(), result.RefreshToken)
 	assert.ErrorIs(t, err, ErrUserInactive)
 }
 
