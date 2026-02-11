@@ -1,0 +1,334 @@
+syntax = "proto3";
+
+package security.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/security/v1;securityv1";
+
+import "google/protobuf/timestamp.proto";
+
+service SecurityService {
+  // Audit
+  rpc CreateAuditEntry(CreateAuditEntryRequest) returns (CreateAuditEntryResponse);
+  rpc ListAuditEntries(ListAuditEntriesRequest) returns (ListAuditEntriesResponse);
+  rpc ExportAuditLog(ExportAuditLogRequest) returns (ExportAuditLogResponse);
+  rpc VerifyAuditChain(VerifyAuditChainRequest) returns (VerifyAuditChainResponse);
+
+  // Vault
+  rpc GetVaultSecret(GetVaultSecretRequest) returns (GetVaultSecretResponse);
+  rpc SetVaultSecret(SetVaultSecretRequest) returns (SetVaultSecretResponse);
+  rpc ListVaultSecrets(ListVaultSecretsRequest) returns (ListVaultSecretsResponse);
+  rpc DeleteVaultSecret(DeleteVaultSecretRequest) returns (DeleteVaultSecretResponse);
+
+  // GDPR
+  rpc RequestDataExport(RequestDataExportRequest) returns (RequestDataExportResponse);
+  rpc ListDataExports(ListDataExportsRequest) returns (ListDataExportsResponse);
+  rpc ApproveDataExport(ApproveDataExportRequest) returns (ApproveDataExportResponse);
+  rpc DenyDataExport(DenyDataExportRequest) returns (DenyDataExportResponse);
+  rpc GetExportDownload(GetExportDownloadRequest) returns (GetExportDownloadResponse);
+  rpc PreviewErasure(PreviewErasureRequest) returns (PreviewErasureResponse);
+  rpc ExecuteErasure(ExecuteErasureRequest) returns (ExecuteErasureResponse);
+
+  // Password Policy
+  rpc GetPasswordPolicy(GetPasswordPolicyRequest) returns (GetPasswordPolicyResponse);
+  rpc UpdatePasswordPolicy(UpdatePasswordPolicyRequest) returns (UpdatePasswordPolicyResponse);
+  rpc ValidatePassword(ValidatePasswordRequest) returns (ValidatePasswordResponse);
+
+  // IP Access Rules
+  rpc ListIPRules(ListIPRulesRequest) returns (ListIPRulesResponse);
+  rpc CreateIPRule(CreateIPRuleRequest) returns (CreateIPRuleResponse);
+  rpc DeleteIPRule(DeleteIPRuleRequest) returns (DeleteIPRuleResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+message AuditEntry {
+  string id = 1;
+  int64 sequence_num = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  string user_id = 4;
+  string action = 5;
+  string target = 6;
+  string target_type = 7;
+  string details = 8; // JSON string
+  string ip_address = 9;
+  string user_agent = 10;
+  string result = 11;
+  string previous_hash = 12;
+  string entry_hash = 13;
+}
+
+message AuditFilter {
+  google.protobuf.Timestamp date_from = 1;
+  google.protobuf.Timestamp date_to = 2;
+  string user_id = 3;
+  string action = 4;
+  string result = 5;
+  int32 offset = 6;
+  int32 limit = 7;
+}
+
+message CreateAuditEntryRequest {
+  string user_id = 1;
+  string action = 2;
+  string target = 3;
+  string target_type = 4;
+  string details = 5;
+  string ip_address = 6;
+  string user_agent = 7;
+  string result = 8;
+}
+
+message CreateAuditEntryResponse {
+  AuditEntry entry = 1;
+}
+
+message ListAuditEntriesRequest {
+  AuditFilter filter = 1;
+}
+
+message ListAuditEntriesResponse {
+  repeated AuditEntry entries = 1;
+  int32 total = 2;
+}
+
+message ExportAuditLogRequest {
+  AuditFilter filter = 1;
+  string format = 2; // "csv" or "json"
+}
+
+message ExportAuditLogResponse {
+  bytes data = 1;
+  string content_type = 2;
+  string filename = 3;
+}
+
+message VerifyAuditChainRequest {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+}
+
+message VerifyAuditChainResponse {
+  bool valid = 1;
+  int64 entries_checked = 2;
+  int64 first_invalid_sequence = 3; // 0 if all valid
+  string error_message = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Vault
+// ---------------------------------------------------------------------------
+
+message VaultSecret {
+  string id = 1;
+  string key_name = 2;
+  int32 key_version = 3;
+  string description = 4;
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message GetVaultSecretRequest {
+  string key_name = 1;
+}
+
+message GetVaultSecretResponse {
+  VaultSecret secret = 1;
+  string decrypted_value = 2;
+}
+
+message SetVaultSecretRequest {
+  string key_name = 1;
+  string plaintext_value = 2;
+  string description = 3;
+  string created_by = 4;
+}
+
+message SetVaultSecretResponse {
+  VaultSecret secret = 1;
+}
+
+message ListVaultSecretsRequest {}
+
+message ListVaultSecretsResponse {
+  repeated VaultSecret secrets = 1;
+}
+
+message DeleteVaultSecretRequest {
+  string key_name = 1;
+}
+
+message DeleteVaultSecretResponse {}
+
+// ---------------------------------------------------------------------------
+// GDPR
+// ---------------------------------------------------------------------------
+
+message GDPRExportRequest {
+  string id = 1;
+  string user_id = 2;
+  string status = 3;
+  google.protobuf.Timestamp requested_at = 4;
+  string reviewed_by = 5;
+  google.protobuf.Timestamp reviewed_at = 6;
+  string review_note = 7;
+  string download_token = 8;
+  google.protobuf.Timestamp download_expires_at = 9;
+}
+
+message RequestDataExportRequest {
+  string user_id = 1;
+}
+
+message RequestDataExportResponse {
+  GDPRExportRequest export_request = 1;
+}
+
+message ListDataExportsRequest {
+  string user_id = 1; // empty = all (admin)
+  string status = 2;  // empty = all statuses
+}
+
+message ListDataExportsResponse {
+  repeated GDPRExportRequest export_requests = 1;
+}
+
+message ApproveDataExportRequest {
+  string export_id = 1;
+  string reviewed_by = 2;
+  string review_note = 3;
+}
+
+message ApproveDataExportResponse {
+  GDPRExportRequest export_request = 1;
+}
+
+message DenyDataExportRequest {
+  string export_id = 1;
+  string reviewed_by = 2;
+  string review_note = 3;
+}
+
+message DenyDataExportResponse {
+  GDPRExportRequest export_request = 1;
+}
+
+message GetExportDownloadRequest {
+  string download_token = 1;
+}
+
+message GetExportDownloadResponse {
+  bytes data = 1;
+  string filename = 2;
+}
+
+message ModuleErasurePreview {
+  string module_name = 1;
+  int32 record_count = 2;
+  string action = 3; // "anonymize" or "delete"
+}
+
+message PreviewErasureRequest {
+  string user_id = 1;
+}
+
+message PreviewErasureResponse {
+  repeated ModuleErasurePreview modules = 1;
+  int32 total_records = 2;
+}
+
+message ExecuteErasureRequest {
+  string user_id = 1;
+  string executed_by = 2;
+  string admin_password = 3; // confirmation
+}
+
+message ExecuteErasureResponse {
+  string anonymized_label = 1;
+  string confirmation_hash = 2;
+  repeated ModuleErasurePreview modules_affected = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Password Policy
+// ---------------------------------------------------------------------------
+
+message PasswordPolicy {
+  string id = 1;
+  int32 min_length = 2;
+  bool require_uppercase = 3;
+  bool require_lowercase = 4;
+  bool require_digit = 5;
+  bool require_special = 6;
+  double min_entropy = 7;
+  int32 max_age_days = 8; // 0 = no expiration
+  int32 prevent_reuse_count = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  string updated_by = 11;
+}
+
+message GetPasswordPolicyRequest {}
+
+message GetPasswordPolicyResponse {
+  PasswordPolicy policy = 1;
+}
+
+message UpdatePasswordPolicyRequest {
+  PasswordPolicy policy = 1;
+  string updated_by = 2;
+}
+
+message UpdatePasswordPolicyResponse {
+  PasswordPolicy policy = 1;
+}
+
+message ValidatePasswordRequest {
+  string password = 1;
+  string user_id = 2; // for reuse checking
+}
+
+message ValidatePasswordResponse {
+  bool valid = 1;
+  repeated string violations = 2;
+  double entropy = 3;
+}
+
+// ---------------------------------------------------------------------------
+// IP Access Rules
+// ---------------------------------------------------------------------------
+
+message IPAccessRule {
+  string id = 1;
+  string ip_cidr = 2;
+  string rule_type = 3; // "allow" or "block"
+  string description = 4;
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message ListIPRulesRequest {
+  string rule_type = 1; // empty = all
+}
+
+message ListIPRulesResponse {
+  repeated IPAccessRule rules = 1;
+}
+
+message CreateIPRuleRequest {
+  string ip_cidr = 1;
+  string rule_type = 2;
+  string description = 3;
+  string created_by = 4;
+}
+
+message CreateIPRuleResponse {
+  IPAccessRule rule = 1;
+}
+
+message DeleteIPRuleRequest {
+  string rule_id = 1;
+}
+
+message DeleteIPRuleResponse {}
