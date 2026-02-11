@@ -12,6 +12,7 @@
 import { create } from 'zustand'
 import { apiClient } from '@/api/client'
 import { wsManager } from '@/api/websocket'
+import { validate2FALogin } from '@/api/security-client'
 import type { components } from '@/api/types'
 
 type UserInfo = components['schemas']['UserInfo']
@@ -34,11 +35,17 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
 
+  /** Pending 2FA token (set when login requires TOTP verification). */
+  pendingToken: string | null
+
   /** Initialize auth state from stored tokens (call on app startup). */
   initialize: () => Promise<void>
 
-  /** Log in with email and password. */
+  /** Log in with email and password. Throws '2FA_REQUIRED' if 2FA needed. */
   login: (email: string, password: string) => Promise<void>
+
+  /** Complete login by validating 2FA code with pending token. */
+  complete2FALogin: (pendingToken: string, code: string) => Promise<void>
 
   /** Log out: revoke token, clear storage, disconnect WebSocket. */
   logout: () => Promise<void>
@@ -93,6 +100,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   refreshTokenValue: null,
   isAuthenticated: false,
   isLoading: true,
+  pendingToken: null,
 
   async initialize() {
     set({ isLoading: true })
@@ -207,6 +215,14 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       throw new Error('Login failed. Please check your credentials.')
     }
 
+    // Check if 2FA is required (backend returns pending_token instead of tokens)
+    const requiresTwoFactor = (data as Record<string, unknown>).requires_two_factor === true
+    if (requiresTwoFactor) {
+      const pendingToken = (data as Record<string, unknown>).pending_token as string | null
+      set({ pendingToken })
+      throw new Error('2FA_REQUIRED')
+    }
+
     const accessToken = data.access_token ?? null
     const refreshToken = data.refresh_token ?? null
     const user = data.user ? toUser(data.user) : null
@@ -230,6 +246,46 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       refreshTokenValue: refreshToken,
       isAuthenticated: true,
       isLoading: false,
+      pendingToken: null,
+    })
+
+    // Establish WebSocket connection
+    wsManager.connect(accessToken)
+  },
+
+  async complete2FALogin(pendingToken: string, code: string) {
+    if (!navigator.onLine) {
+      throw new Error('Anmeldung erfordert eine Internetverbindung.')
+    }
+
+    const result = await validate2FALogin(pendingToken, code)
+
+    const accessToken = result.access_token
+    const refreshToken = result.refresh_token
+    const user: User = {
+      id: result.user.id,
+      email: result.user.email,
+      firstName: result.user.first_name,
+      lastName: result.user.last_name,
+      roles: result.user.roles,
+    }
+
+    // Persist tokens via Electron safeStorage
+    await window.electronAPI.auth.storeTokens({
+      accessToken,
+      refreshToken,
+    })
+
+    // Cache user for offline access
+    cacheUser(user)
+
+    set({
+      user,
+      accessToken,
+      refreshTokenValue: refreshToken,
+      isAuthenticated: true,
+      isLoading: false,
+      pendingToken: null,
     })
 
     // Establish WebSocket connection
