@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 8 of 20 (Video, Voice & Meetings)
-Plan: 3 of 9 in current phase
+Plan: 4 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-11 -- Completed 08-03-PLAN.md (Call + Recording Services)
+Last activity: 2026-02-11 -- Completed 08-04-PLAN.md (Meeting & Presence Services)
 
-Progress: [██████████████░░░░░░░░░░] 46% (32/63 plans across phases 4-20)
+Progress: [██████████████░░░░░░░░░░] 47% (33/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27
+- Total plans completed: 28
 - Average duration: ~9 minutes
-- Total execution time: ~3h 56min
+- Total execution time: ~4h 4min
 
 **By Phase:**
 
@@ -31,10 +31,10 @@ Progress: [██████████████░░░░░░░░░
 | 05 | 7/7 | ~66min | ~9min |
 | 06 | 10/10 | ~88min | ~8.8min |
 | 07 | 9/9 | ~48min | ~5min |
-| 08 | 3/9 | ~13min | ~4min |
+| 08 | 4/9 | ~21min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 07-05+UI (~20min), 08-01 (~6min), 08-02 (~2min), 08-03 (~5min)
+- Last 5 plans: 08-01 (~6min), 08-02 (~2min), 08-03 (~5min), 08-04 (~8min)
 - Trend: Consistent ~5-10min per plan
 
 *Updated after each plan completion*
@@ -147,6 +147,11 @@ Recent decisions affecting current work:
 - [08-03]: 30-day retention on every recording via RetentionExpiresAt
 - [08-03]: Phase 11 integration via ListRecordingsWithAccess (participant-only access via JOIN)
 - [08-03]: Call auto-ends when last participant leaves (HandleParticipantLeft webhook)
+- [08-04]: Lazy away detection on read instead of background worker for simplicity
+- [08-04]: Config cache with 60s refresh avoids DB hit on every heartbeat/presence check
+- [08-04]: Heartbeat respects manual DND/away and InCall - does not override
+- [08-04]: Notes saveable during in_progress AND completed meetings (post-meeting notes)
+- [08-04]: ConvertActionItemsToTasks returns unconverted items for caller to create tasks
 
 ### Pending Todos
 
@@ -161,6 +166,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 08-03-PLAN.md (Call + Recording Services)
+Stopped at: Completed 08-04-PLAN.md (Meeting & Presence Services)
 Resume file: None
-Next: 08-04-PLAN.md
+Next: 08-05-PLAN.md
