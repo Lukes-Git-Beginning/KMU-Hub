@@ -29,7 +29,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - [x] **Phase 4: Notifications + Gateway Modernization** - Centralized notification system and gateway refactoring for multi-service scale
 - [x] **Phase 5: Desktop App Shell** - Electron workspace with module loading, personalization, and role-based dashboards
 - [x] **Phase 6: Project Management** - Tasks, projects, Kanban boards, Gantt chart, task timer, subtasks, dependencies, templates, CRM integration, custom fields
-- [ ] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
+- [x] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
 - [ ] **Phase 8: Video, Voice & Meetings** - LiveKit-powered calls, screen sharing, recording, meeting management, emoji reactions, presence/online status
 
 ### Compliance & Comms (Phases 9-11)
@@ -396,7 +396,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
 | 5. Desktop App Shell | 7/7 | Complete | 2026-02-08 |
 | 6. Project Management | 10/10 | Complete | 2026-02-08 |
-| 7. Calendar & Scheduling | 0/9 | Not started | - |
+| 7. Calendar & Scheduling | 9/9 | Complete | 2026-02-11 |
 | 8. Video, Voice & Meetings | 0/9 | Not started | - |
 | 9. Security & Compliance | 0/4 | Not started | - |
 | 10. Email Integration | 0/4 | Not started | - |

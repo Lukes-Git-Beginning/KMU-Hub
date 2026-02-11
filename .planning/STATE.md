@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 7 - Calendar & Scheduling (In progress)
+**Current focus:** Phase 8 - Video, Voice & Meetings (Next)
 
 ## Current Position
 
-Phase: 7 of 20 (Calendar & Scheduling)
-Plan: 4 of 9 in current phase
-Status: In progress
-Last activity: 2026-02-10 -- Completed 07-04-PLAN.md (Resource, Holiday, and LiveKit Services)
+Phase: 7 of 20 (Calendar & Scheduling) -- COMPLETE
+Plan: 9 of 9 in current phase (all complete)
+Status: Phase 7 complete, Phase 8 next
+Last activity: 2026-02-11 -- Phase 7 complete via design integration (Plans 07-06 to 07-09 replaced by Darien's UI merge)
 
-Progress: [██████████░░░░░░░░░░░░░░] 38% (24/63 plans across phases 4-20)
+Progress: [████████████░░░░░░░░░░░░] 42% (29/63 plans across phases 4-20)
 
 ## Performance Metrics
 
@@ -30,11 +30,11 @@ Progress: [██████████░░░░░░░░░░░░░
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
 | 06 | 10/10 | ~88min | ~8.8min |
-| 07 | 4/9 | ~28min | ~7min |
+| 07 | 9/9 | ~48min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 06-10 (~10min), 07-01 (~7min), 07-02 (~5min), 07-03 (~8min), 07-04 (~8min)
-- Trend: Consistent ~5-10min per plan
+- Last 5 plans: 07-01 (~7min), 07-02 (~5min), 07-03 (~8min), 07-04 (~8min), 07-05+UI (~20min)
+- Trend: Consistent ~5-10min per plan, design integration saved ~4 plans
 
 *Updated after each plan completion*
 
@@ -125,10 +125,18 @@ Recent decisions affecting current work:
 - [07-04]: LiveKit disabled-by-default: empty config values = feature off
 - [07-04]: BookingConflictError carries alternative resource suggestions
 - [07-04]: Resource delete is soft-delete (is_active=false), bookings preserved
+- [07-05]: CalendarService registered in same binary as WorkService (shared gRPC port :50055)
+- [07-05]: CalendarRoutes uses ServiceName "work" to reuse existing gRPC connection from gateway
+- [07-05]: Proto fields Date/DueDate are strings (YYYY-MM-DD), not Timestamps
+- [07-UI]: Design integration: Darien's KalenderPage.tsx (1613 lines) merged from design/brainstorm
+- [07-UI]: Adapter layer (adapters.ts) transforms backend types to UI types bidirectionally
+- [07-UI]: Sonner toast system added to App.tsx (was pending todo)
+- [07-UI]: Plans 07-06 to 07-09 made obsolete by design integration (saved ~4 plans)
+- [07-UI]: D2 color system (globals.css) merged from design/brainstorm
+- [07-UI]: New Radix UI components: alert-dialog, checkbox, dropdown-menu, sheet, switch
 
 ### Pending Todos
 
-- Add toast notification system (sonner or similar) before CRUD forms phase
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
 
 ### Blockers/Concerns
@@ -139,6 +147,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-10
-Stopped at: Completed 07-03-PLAN.md (Calendar and Event Services) + 07-04-PLAN.md (Resource, Holiday, and LiveKit Services)
+Last session: 2026-02-11
+Stopped at: Phase 7 COMPLETE -- design integration merged, all 9 plans done
 Resume file: None
+Next: Phase 8 - Video, Voice & Meetings

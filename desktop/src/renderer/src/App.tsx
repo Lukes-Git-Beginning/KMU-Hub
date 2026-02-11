@@ -10,6 +10,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Toaster } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
 import { STALE_TIME, GC_TIME } from '@/lib/constants'
 import { AppShell } from '@/components/layout/AppShell'
@@ -21,7 +22,7 @@ const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
 const CRMLayout = lazy(() => import('@/modules/crm/CRMLayout'))
 const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const WorkLayout = lazy(() => import('@/modules/work/WorkLayout'))
-const CalendarLayout = lazy(() => import('@/modules/calendar/CalendarLayout'))
+const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
 const NotificationCenter = lazy(() => import('@/modules/notifications/NotificationCenter'))
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
 
@@ -140,10 +141,10 @@ const router = createHashRouter([
         ),
       },
       {
-        path: 'calendar/*',
+        path: 'calendar',
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
-            <CalendarLayout />
+            <KalenderPage />
           </Suspense>
         ),
       },
@@ -183,6 +184,7 @@ export default function App() {
     >
       <TooltipProvider>
         <RouterProvider router={router} />
+        <Toaster richColors position="bottom-right" />
       </TooltipProvider>
     </PersistQueryClientProvider>
   )

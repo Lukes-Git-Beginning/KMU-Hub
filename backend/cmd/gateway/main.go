@@ -120,6 +120,7 @@ func main() {
 		gateway.NewChatRoutes(registry),
 		gateway.NewNotificationRoutes(registry),
 		gateway.NewWorkRoutes(registry),
+		gateway.NewCalendarRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}
