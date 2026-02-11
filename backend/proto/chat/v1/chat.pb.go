@@ -3552,6 +3552,471 @@ func (x *SearchChatResponse) GetTotal() int32 {
 	return 0
 }
 
+type Reaction struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	MessageId string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	UserId    string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Emoji     string                 `protobuf:"bytes,3,opt,name=emoji,proto3" json:"emoji,omitempty"`
+	CreatedAt string                 `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Denormalized user info
+	FirstName     string `protobuf:"bytes,5,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
+	LastName      string `protobuf:"bytes,6,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Reaction) Reset() {
+	*x = Reaction{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Reaction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Reaction) ProtoMessage() {}
+
+func (x *Reaction) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Reaction.ProtoReflect.Descriptor instead.
+func (*Reaction) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *Reaction) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *Reaction) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *Reaction) GetEmoji() string {
+	if x != nil {
+		return x.Emoji
+	}
+	return ""
+}
+
+func (x *Reaction) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Reaction) GetFirstName() string {
+	if x != nil {
+		return x.FirstName
+	}
+	return ""
+}
+
+func (x *Reaction) GetLastName() string {
+	if x != nil {
+		return x.LastName
+	}
+	return ""
+}
+
+type ReactionSummary struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	MessageId          string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	Emoji              string                 `protobuf:"bytes,2,opt,name=emoji,proto3" json:"emoji,omitempty"`
+	Count              int32                  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	UserIds            []string               `protobuf:"bytes,4,rep,name=user_ids,json=userIds,proto3" json:"user_ids,omitempty"`
+	CurrentUserReacted bool                   `protobuf:"varint,5,opt,name=current_user_reacted,json=currentUserReacted,proto3" json:"current_user_reacted,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ReactionSummary) Reset() {
+	*x = ReactionSummary{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReactionSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReactionSummary) ProtoMessage() {}
+
+func (x *ReactionSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReactionSummary.ProtoReflect.Descriptor instead.
+func (*ReactionSummary) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *ReactionSummary) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *ReactionSummary) GetEmoji() string {
+	if x != nil {
+		return x.Emoji
+	}
+	return ""
+}
+
+func (x *ReactionSummary) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *ReactionSummary) GetUserIds() []string {
+	if x != nil {
+		return x.UserIds
+	}
+	return nil
+}
+
+func (x *ReactionSummary) GetCurrentUserReacted() bool {
+	if x != nil {
+		return x.CurrentUserReacted
+	}
+	return false
+}
+
+type ToggleReactionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Emoji         string                 `protobuf:"bytes,3,opt,name=emoji,proto3" json:"emoji,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleReactionRequest) Reset() {
+	*x = ToggleReactionRequest{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleReactionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleReactionRequest) ProtoMessage() {}
+
+func (x *ToggleReactionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleReactionRequest.ProtoReflect.Descriptor instead.
+func (*ToggleReactionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ToggleReactionRequest) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *ToggleReactionRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *ToggleReactionRequest) GetEmoji() string {
+	if x != nil {
+		return x.Emoji
+	}
+	return ""
+}
+
+type ToggleReactionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reactions     []*Reaction            `protobuf:"bytes,1,rep,name=reactions,proto3" json:"reactions,omitempty"`
+	Added         bool                   `protobuf:"varint,2,opt,name=added,proto3" json:"added,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleReactionResponse) Reset() {
+	*x = ToggleReactionResponse{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleReactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleReactionResponse) ProtoMessage() {}
+
+func (x *ToggleReactionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleReactionResponse.ProtoReflect.Descriptor instead.
+func (*ToggleReactionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *ToggleReactionResponse) GetReactions() []*Reaction {
+	if x != nil {
+		return x.Reactions
+	}
+	return nil
+}
+
+func (x *ToggleReactionResponse) GetAdded() bool {
+	if x != nil {
+		return x.Added
+	}
+	return false
+}
+
+type ListReactionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MessageId     string                 `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListReactionsRequest) Reset() {
+	*x = ListReactionsRequest{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListReactionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListReactionsRequest) ProtoMessage() {}
+
+func (x *ListReactionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListReactionsRequest.ProtoReflect.Descriptor instead.
+func (*ListReactionsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *ListReactionsRequest) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *ListReactionsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ListReactionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reactions     []*Reaction            `protobuf:"bytes,1,rep,name=reactions,proto3" json:"reactions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListReactionsResponse) Reset() {
+	*x = ListReactionsResponse{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListReactionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListReactionsResponse) ProtoMessage() {}
+
+func (x *ListReactionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListReactionsResponse.ProtoReflect.Descriptor instead.
+func (*ListReactionsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *ListReactionsResponse) GetReactions() []*Reaction {
+	if x != nil {
+		return x.Reactions
+	}
+	return nil
+}
+
+type GetReactionSummaryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MessageIds    []string               `protobuf:"bytes,1,rep,name=message_ids,json=messageIds,proto3" json:"message_ids,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetReactionSummaryRequest) Reset() {
+	*x = GetReactionSummaryRequest{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[63]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetReactionSummaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetReactionSummaryRequest) ProtoMessage() {}
+
+func (x *GetReactionSummaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[63]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetReactionSummaryRequest.ProtoReflect.Descriptor instead.
+func (*GetReactionSummaryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{63}
+}
+
+func (x *GetReactionSummaryRequest) GetMessageIds() []string {
+	if x != nil {
+		return x.MessageIds
+	}
+	return nil
+}
+
+func (x *GetReactionSummaryRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type GetReactionSummaryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Summaries     []*ReactionSummary     `protobuf:"bytes,1,rep,name=summaries,proto3" json:"summaries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetReactionSummaryResponse) Reset() {
+	*x = GetReactionSummaryResponse{}
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetReactionSummaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetReactionSummaryResponse) ProtoMessage() {}
+
+func (x *GetReactionSummaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_chat_v1_chat_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetReactionSummaryResponse.ProtoReflect.Descriptor instead.
+func (*GetReactionSummaryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *GetReactionSummaryResponse) GetSummaries() []*ReactionSummary {
+	if x != nil {
+		return x.Summaries
+	}
+	return nil
+}
+
 var File_proto_chat_v1_chat_proto protoreflect.FileDescriptor
 
 const file_proto_chat_v1_chat_proto_rawDesc = "" +
@@ -3864,11 +4329,48 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"_file_size\"d\n" +
 	"\x12SearchChatResponse\x128\n" +
 	"\aresults\x18\x01 \x03(\v2\x1e.chat.v1.ChatSearchResultProtoR\aresults\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total*Y\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xb3\x01\n" +
+	"\bReaction\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x14\n" +
+	"\x05emoji\x18\x03 \x01(\tR\x05emoji\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"first_name\x18\x05 \x01(\tR\tfirstName\x12\x1b\n" +
+	"\tlast_name\x18\x06 \x01(\tR\blastName\"\xa9\x01\n" +
+	"\x0fReactionSummary\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x14\n" +
+	"\x05emoji\x18\x02 \x01(\tR\x05emoji\x12\x14\n" +
+	"\x05count\x18\x03 \x01(\x05R\x05count\x12\x19\n" +
+	"\buser_ids\x18\x04 \x03(\tR\auserIds\x120\n" +
+	"\x14current_user_reacted\x18\x05 \x01(\bR\x12currentUserReacted\"e\n" +
+	"\x15ToggleReactionRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x14\n" +
+	"\x05emoji\x18\x03 \x01(\tR\x05emoji\"_\n" +
+	"\x16ToggleReactionResponse\x12/\n" +
+	"\treactions\x18\x01 \x03(\v2\x11.chat.v1.ReactionR\treactions\x12\x14\n" +
+	"\x05added\x18\x02 \x01(\bR\x05added\"N\n" +
+	"\x14ListReactionsRequest\x12\x1d\n" +
+	"\n" +
+	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"H\n" +
+	"\x15ListReactionsResponse\x12/\n" +
+	"\treactions\x18\x01 \x03(\v2\x11.chat.v1.ReactionR\treactions\"U\n" +
+	"\x19GetReactionSummaryRequest\x12\x1f\n" +
+	"\vmessage_ids\x18\x01 \x03(\tR\n" +
+	"messageIds\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"T\n" +
+	"\x1aGetReactionSummaryResponse\x126\n" +
+	"\tsummaries\x18\x01 \x03(\v2\x18.chat.v1.ReactionSummaryR\tsummaries*Y\n" +
 	"\vMentionType\x12\x15\n" +
 	"\x11MENTION_TYPE_USER\x10\x00\x12\x18\n" +
 	"\x14MENTION_TYPE_CHANNEL\x10\x01\x12\x19\n" +
-	"\x15MENTION_TYPE_EVERYONE\x10\x022\xf5\x0f\n" +
+	"\x15MENTION_TYPE_EVERYONE\x10\x022\xf7\x11\n" +
 	"\vChatService\x12N\n" +
 	"\rCreateChannel\x12\x1d.chat.v1.CreateChannelRequest\x1a\x1e.chat.v1.CreateChannelResponse\x12E\n" +
 	"\n" +
@@ -3897,7 +4399,10 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
 	"DeleteFile\x12\x1a.chat.v1.DeleteFileRequest\x1a\x1b.chat.v1.DeleteFileResponse\x12E\n" +
 	"\n" +
-	"SearchChat\x12\x1a.chat.v1.SearchChatRequest\x1a\x1b.chat.v1.SearchChatResponseB/Z-github.com/kmuhub/kmuhub/proto/chat/v1;chatv1b\x06proto3"
+	"SearchChat\x12\x1a.chat.v1.SearchChatRequest\x1a\x1b.chat.v1.SearchChatResponse\x12Q\n" +
+	"\x0eToggleReaction\x12\x1e.chat.v1.ToggleReactionRequest\x1a\x1f.chat.v1.ToggleReactionResponse\x12N\n" +
+	"\rListReactions\x12\x1d.chat.v1.ListReactionsRequest\x1a\x1e.chat.v1.ListReactionsResponse\x12]\n" +
+	"\x12GetReactionSummary\x12\".chat.v1.GetReactionSummaryRequest\x1a#.chat.v1.GetReactionSummaryResponseB/Z-github.com/kmuhub/kmuhub/proto/chat/v1;chatv1b\x06proto3"
 
 var (
 	file_proto_chat_v1_chat_proto_rawDescOnce sync.Once
@@ -3912,7 +4417,7 @@ func file_proto_chat_v1_chat_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_chat_v1_chat_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
+var file_proto_chat_v1_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
 var file_proto_chat_v1_chat_proto_goTypes = []any{
 	(MentionType)(0),                    // 0: chat.v1.MentionType
 	(*ChannelInfo)(nil),                 // 1: chat.v1.ChannelInfo
@@ -3972,7 +4477,15 @@ var file_proto_chat_v1_chat_proto_goTypes = []any{
 	(*SearchChatRequest)(nil),           // 55: chat.v1.SearchChatRequest
 	(*ChatSearchResultProto)(nil),       // 56: chat.v1.ChatSearchResultProto
 	(*SearchChatResponse)(nil),          // 57: chat.v1.SearchChatResponse
-	nil,                                 // 58: chat.v1.GetUnreadCountsResponse.UnreadCountsEntry
+	(*Reaction)(nil),                    // 58: chat.v1.Reaction
+	(*ReactionSummary)(nil),             // 59: chat.v1.ReactionSummary
+	(*ToggleReactionRequest)(nil),       // 60: chat.v1.ToggleReactionRequest
+	(*ToggleReactionResponse)(nil),      // 61: chat.v1.ToggleReactionResponse
+	(*ListReactionsRequest)(nil),        // 62: chat.v1.ListReactionsRequest
+	(*ListReactionsResponse)(nil),       // 63: chat.v1.ListReactionsResponse
+	(*GetReactionSummaryRequest)(nil),   // 64: chat.v1.GetReactionSummaryRequest
+	(*GetReactionSummaryResponse)(nil),  // 65: chat.v1.GetReactionSummaryResponse
+	nil,                                 // 66: chat.v1.GetUnreadCountsResponse.UnreadCountsEntry
 }
 var file_proto_chat_v1_chat_proto_depIdxs = []int32{
 	24, // 0: chat.v1.ChannelInfo.last_message:type_name -> chat.v1.MessageInfo
@@ -3994,66 +4507,75 @@ var file_proto_chat_v1_chat_proto_depIdxs = []int32{
 	1,  // 16: chat.v1.ListDMsResponse.channels:type_name -> chat.v1.ChannelInfo
 	24, // 17: chat.v1.GetThreadRepliesResponse.parent:type_name -> chat.v1.MessageInfo
 	24, // 18: chat.v1.GetThreadRepliesResponse.replies:type_name -> chat.v1.MessageInfo
-	58, // 19: chat.v1.GetUnreadCountsResponse.unread_counts:type_name -> chat.v1.GetUnreadCountsResponse.UnreadCountsEntry
+	66, // 19: chat.v1.GetUnreadCountsResponse.unread_counts:type_name -> chat.v1.GetUnreadCountsResponse.UnreadCountsEntry
 	0,  // 20: chat.v1.MentionDetail.mention_type:type_name -> chat.v1.MentionType
 	44, // 21: chat.v1.GetUserMentionsResponse.mentions:type_name -> chat.v1.MentionDetail
 	46, // 22: chat.v1.ListChannelFilesResponse.files:type_name -> chat.v1.FileInfo
 	56, // 23: chat.v1.SearchChatResponse.results:type_name -> chat.v1.ChatSearchResultProto
-	2,  // 24: chat.v1.ChatService.CreateChannel:input_type -> chat.v1.CreateChannelRequest
-	4,  // 25: chat.v1.ChatService.GetChannel:input_type -> chat.v1.GetChannelRequest
-	6,  // 26: chat.v1.ChatService.ListChannels:input_type -> chat.v1.ListChannelsRequest
-	8,  // 27: chat.v1.ChatService.UpdateChannel:input_type -> chat.v1.UpdateChannelRequest
-	10, // 28: chat.v1.ChatService.DeleteChannel:input_type -> chat.v1.DeleteChannelRequest
-	12, // 29: chat.v1.ChatService.ArchiveChannel:input_type -> chat.v1.ArchiveChannelRequest
-	15, // 30: chat.v1.ChatService.JoinChannel:input_type -> chat.v1.JoinChannelRequest
-	17, // 31: chat.v1.ChatService.LeaveChannel:input_type -> chat.v1.LeaveChannelRequest
-	19, // 32: chat.v1.ChatService.GetChannelMembers:input_type -> chat.v1.GetChannelMembersRequest
-	21, // 33: chat.v1.ChatService.UpdateMemberRole:input_type -> chat.v1.UpdateMemberRoleRequest
-	25, // 34: chat.v1.ChatService.SendMessage:input_type -> chat.v1.SendMessageRequest
-	27, // 35: chat.v1.ChatService.GetMessages:input_type -> chat.v1.GetMessagesRequest
-	29, // 36: chat.v1.ChatService.UpdateMessage:input_type -> chat.v1.UpdateMessageRequest
-	31, // 37: chat.v1.ChatService.DeleteMessage:input_type -> chat.v1.DeleteMessageRequest
-	33, // 38: chat.v1.ChatService.GetOrCreateDM:input_type -> chat.v1.GetOrCreateDMRequest
-	35, // 39: chat.v1.ChatService.ListDMs:input_type -> chat.v1.ListDMsRequest
-	37, // 40: chat.v1.ChatService.GetThreadReplies:input_type -> chat.v1.GetThreadRepliesRequest
-	39, // 41: chat.v1.ChatService.MarkChannelRead:input_type -> chat.v1.MarkChannelReadRequest
-	41, // 42: chat.v1.ChatService.GetUnreadCounts:input_type -> chat.v1.GetUnreadCountsRequest
-	43, // 43: chat.v1.ChatService.GetUserMentions:input_type -> chat.v1.GetUserMentionsRequest
-	47, // 44: chat.v1.ChatService.GetFileDownloadURL:input_type -> chat.v1.GetFileDownloadURLRequest
-	49, // 45: chat.v1.ChatService.GetFileThumbnailURL:input_type -> chat.v1.GetFileThumbnailURLRequest
-	51, // 46: chat.v1.ChatService.ListChannelFiles:input_type -> chat.v1.ListChannelFilesRequest
-	53, // 47: chat.v1.ChatService.DeleteFile:input_type -> chat.v1.DeleteFileRequest
-	55, // 48: chat.v1.ChatService.SearchChat:input_type -> chat.v1.SearchChatRequest
-	3,  // 49: chat.v1.ChatService.CreateChannel:output_type -> chat.v1.CreateChannelResponse
-	5,  // 50: chat.v1.ChatService.GetChannel:output_type -> chat.v1.GetChannelResponse
-	7,  // 51: chat.v1.ChatService.ListChannels:output_type -> chat.v1.ListChannelsResponse
-	9,  // 52: chat.v1.ChatService.UpdateChannel:output_type -> chat.v1.UpdateChannelResponse
-	11, // 53: chat.v1.ChatService.DeleteChannel:output_type -> chat.v1.DeleteChannelResponse
-	13, // 54: chat.v1.ChatService.ArchiveChannel:output_type -> chat.v1.ArchiveChannelResponse
-	16, // 55: chat.v1.ChatService.JoinChannel:output_type -> chat.v1.JoinChannelResponse
-	18, // 56: chat.v1.ChatService.LeaveChannel:output_type -> chat.v1.LeaveChannelResponse
-	20, // 57: chat.v1.ChatService.GetChannelMembers:output_type -> chat.v1.GetChannelMembersResponse
-	22, // 58: chat.v1.ChatService.UpdateMemberRole:output_type -> chat.v1.UpdateMemberRoleResponse
-	26, // 59: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
-	28, // 60: chat.v1.ChatService.GetMessages:output_type -> chat.v1.GetMessagesResponse
-	30, // 61: chat.v1.ChatService.UpdateMessage:output_type -> chat.v1.UpdateMessageResponse
-	32, // 62: chat.v1.ChatService.DeleteMessage:output_type -> chat.v1.DeleteMessageResponse
-	34, // 63: chat.v1.ChatService.GetOrCreateDM:output_type -> chat.v1.GetOrCreateDMResponse
-	36, // 64: chat.v1.ChatService.ListDMs:output_type -> chat.v1.ListDMsResponse
-	38, // 65: chat.v1.ChatService.GetThreadReplies:output_type -> chat.v1.GetThreadRepliesResponse
-	40, // 66: chat.v1.ChatService.MarkChannelRead:output_type -> chat.v1.MarkChannelReadResponse
-	42, // 67: chat.v1.ChatService.GetUnreadCounts:output_type -> chat.v1.GetUnreadCountsResponse
-	45, // 68: chat.v1.ChatService.GetUserMentions:output_type -> chat.v1.GetUserMentionsResponse
-	48, // 69: chat.v1.ChatService.GetFileDownloadURL:output_type -> chat.v1.GetFileDownloadURLResponse
-	50, // 70: chat.v1.ChatService.GetFileThumbnailURL:output_type -> chat.v1.GetFileThumbnailURLResponse
-	52, // 71: chat.v1.ChatService.ListChannelFiles:output_type -> chat.v1.ListChannelFilesResponse
-	54, // 72: chat.v1.ChatService.DeleteFile:output_type -> chat.v1.DeleteFileResponse
-	57, // 73: chat.v1.ChatService.SearchChat:output_type -> chat.v1.SearchChatResponse
-	49, // [49:74] is the sub-list for method output_type
-	24, // [24:49] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	58, // 24: chat.v1.ToggleReactionResponse.reactions:type_name -> chat.v1.Reaction
+	58, // 25: chat.v1.ListReactionsResponse.reactions:type_name -> chat.v1.Reaction
+	59, // 26: chat.v1.GetReactionSummaryResponse.summaries:type_name -> chat.v1.ReactionSummary
+	2,  // 27: chat.v1.ChatService.CreateChannel:input_type -> chat.v1.CreateChannelRequest
+	4,  // 28: chat.v1.ChatService.GetChannel:input_type -> chat.v1.GetChannelRequest
+	6,  // 29: chat.v1.ChatService.ListChannels:input_type -> chat.v1.ListChannelsRequest
+	8,  // 30: chat.v1.ChatService.UpdateChannel:input_type -> chat.v1.UpdateChannelRequest
+	10, // 31: chat.v1.ChatService.DeleteChannel:input_type -> chat.v1.DeleteChannelRequest
+	12, // 32: chat.v1.ChatService.ArchiveChannel:input_type -> chat.v1.ArchiveChannelRequest
+	15, // 33: chat.v1.ChatService.JoinChannel:input_type -> chat.v1.JoinChannelRequest
+	17, // 34: chat.v1.ChatService.LeaveChannel:input_type -> chat.v1.LeaveChannelRequest
+	19, // 35: chat.v1.ChatService.GetChannelMembers:input_type -> chat.v1.GetChannelMembersRequest
+	21, // 36: chat.v1.ChatService.UpdateMemberRole:input_type -> chat.v1.UpdateMemberRoleRequest
+	25, // 37: chat.v1.ChatService.SendMessage:input_type -> chat.v1.SendMessageRequest
+	27, // 38: chat.v1.ChatService.GetMessages:input_type -> chat.v1.GetMessagesRequest
+	29, // 39: chat.v1.ChatService.UpdateMessage:input_type -> chat.v1.UpdateMessageRequest
+	31, // 40: chat.v1.ChatService.DeleteMessage:input_type -> chat.v1.DeleteMessageRequest
+	33, // 41: chat.v1.ChatService.GetOrCreateDM:input_type -> chat.v1.GetOrCreateDMRequest
+	35, // 42: chat.v1.ChatService.ListDMs:input_type -> chat.v1.ListDMsRequest
+	37, // 43: chat.v1.ChatService.GetThreadReplies:input_type -> chat.v1.GetThreadRepliesRequest
+	39, // 44: chat.v1.ChatService.MarkChannelRead:input_type -> chat.v1.MarkChannelReadRequest
+	41, // 45: chat.v1.ChatService.GetUnreadCounts:input_type -> chat.v1.GetUnreadCountsRequest
+	43, // 46: chat.v1.ChatService.GetUserMentions:input_type -> chat.v1.GetUserMentionsRequest
+	47, // 47: chat.v1.ChatService.GetFileDownloadURL:input_type -> chat.v1.GetFileDownloadURLRequest
+	49, // 48: chat.v1.ChatService.GetFileThumbnailURL:input_type -> chat.v1.GetFileThumbnailURLRequest
+	51, // 49: chat.v1.ChatService.ListChannelFiles:input_type -> chat.v1.ListChannelFilesRequest
+	53, // 50: chat.v1.ChatService.DeleteFile:input_type -> chat.v1.DeleteFileRequest
+	55, // 51: chat.v1.ChatService.SearchChat:input_type -> chat.v1.SearchChatRequest
+	60, // 52: chat.v1.ChatService.ToggleReaction:input_type -> chat.v1.ToggleReactionRequest
+	62, // 53: chat.v1.ChatService.ListReactions:input_type -> chat.v1.ListReactionsRequest
+	64, // 54: chat.v1.ChatService.GetReactionSummary:input_type -> chat.v1.GetReactionSummaryRequest
+	3,  // 55: chat.v1.ChatService.CreateChannel:output_type -> chat.v1.CreateChannelResponse
+	5,  // 56: chat.v1.ChatService.GetChannel:output_type -> chat.v1.GetChannelResponse
+	7,  // 57: chat.v1.ChatService.ListChannels:output_type -> chat.v1.ListChannelsResponse
+	9,  // 58: chat.v1.ChatService.UpdateChannel:output_type -> chat.v1.UpdateChannelResponse
+	11, // 59: chat.v1.ChatService.DeleteChannel:output_type -> chat.v1.DeleteChannelResponse
+	13, // 60: chat.v1.ChatService.ArchiveChannel:output_type -> chat.v1.ArchiveChannelResponse
+	16, // 61: chat.v1.ChatService.JoinChannel:output_type -> chat.v1.JoinChannelResponse
+	18, // 62: chat.v1.ChatService.LeaveChannel:output_type -> chat.v1.LeaveChannelResponse
+	20, // 63: chat.v1.ChatService.GetChannelMembers:output_type -> chat.v1.GetChannelMembersResponse
+	22, // 64: chat.v1.ChatService.UpdateMemberRole:output_type -> chat.v1.UpdateMemberRoleResponse
+	26, // 65: chat.v1.ChatService.SendMessage:output_type -> chat.v1.SendMessageResponse
+	28, // 66: chat.v1.ChatService.GetMessages:output_type -> chat.v1.GetMessagesResponse
+	30, // 67: chat.v1.ChatService.UpdateMessage:output_type -> chat.v1.UpdateMessageResponse
+	32, // 68: chat.v1.ChatService.DeleteMessage:output_type -> chat.v1.DeleteMessageResponse
+	34, // 69: chat.v1.ChatService.GetOrCreateDM:output_type -> chat.v1.GetOrCreateDMResponse
+	36, // 70: chat.v1.ChatService.ListDMs:output_type -> chat.v1.ListDMsResponse
+	38, // 71: chat.v1.ChatService.GetThreadReplies:output_type -> chat.v1.GetThreadRepliesResponse
+	40, // 72: chat.v1.ChatService.MarkChannelRead:output_type -> chat.v1.MarkChannelReadResponse
+	42, // 73: chat.v1.ChatService.GetUnreadCounts:output_type -> chat.v1.GetUnreadCountsResponse
+	45, // 74: chat.v1.ChatService.GetUserMentions:output_type -> chat.v1.GetUserMentionsResponse
+	48, // 75: chat.v1.ChatService.GetFileDownloadURL:output_type -> chat.v1.GetFileDownloadURLResponse
+	50, // 76: chat.v1.ChatService.GetFileThumbnailURL:output_type -> chat.v1.GetFileThumbnailURLResponse
+	52, // 77: chat.v1.ChatService.ListChannelFiles:output_type -> chat.v1.ListChannelFilesResponse
+	54, // 78: chat.v1.ChatService.DeleteFile:output_type -> chat.v1.DeleteFileResponse
+	57, // 79: chat.v1.ChatService.SearchChat:output_type -> chat.v1.SearchChatResponse
+	61, // 80: chat.v1.ChatService.ToggleReaction:output_type -> chat.v1.ToggleReactionResponse
+	63, // 81: chat.v1.ChatService.ListReactions:output_type -> chat.v1.ListReactionsResponse
+	65, // 82: chat.v1.ChatService.GetReactionSummary:output_type -> chat.v1.GetReactionSummaryResponse
+	55, // [55:83] is the sub-list for method output_type
+	27, // [27:55] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_proto_chat_v1_chat_proto_init() }
@@ -4078,7 +4600,7 @@ func file_proto_chat_v1_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_chat_v1_chat_proto_rawDesc), len(file_proto_chat_v1_chat_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   58,
+			NumMessages:   66,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

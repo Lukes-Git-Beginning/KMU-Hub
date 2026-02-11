@@ -44,6 +44,9 @@ const (
 	ChatService_ListChannelFiles_FullMethodName    = "/chat.v1.ChatService/ListChannelFiles"
 	ChatService_DeleteFile_FullMethodName          = "/chat.v1.ChatService/DeleteFile"
 	ChatService_SearchChat_FullMethodName          = "/chat.v1.ChatService/SearchChat"
+	ChatService_ToggleReaction_FullMethodName      = "/chat.v1.ChatService/ToggleReaction"
+	ChatService_ListReactions_FullMethodName       = "/chat.v1.ChatService/ListReactions"
+	ChatService_GetReactionSummary_FullMethodName  = "/chat.v1.ChatService/GetReactionSummary"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -83,6 +86,10 @@ type ChatServiceClient interface {
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*DeleteFileResponse, error)
 	// Search (Sprint 4)
 	SearchChat(ctx context.Context, in *SearchChatRequest, opts ...grpc.CallOption) (*SearchChatResponse, error)
+	// Reactions (Phase 8)
+	ToggleReaction(ctx context.Context, in *ToggleReactionRequest, opts ...grpc.CallOption) (*ToggleReactionResponse, error)
+	ListReactions(ctx context.Context, in *ListReactionsRequest, opts ...grpc.CallOption) (*ListReactionsResponse, error)
+	GetReactionSummary(ctx context.Context, in *GetReactionSummaryRequest, opts ...grpc.CallOption) (*GetReactionSummaryResponse, error)
 }
 
 type chatServiceClient struct {
@@ -343,6 +350,36 @@ func (c *chatServiceClient) SearchChat(ctx context.Context, in *SearchChatReques
 	return out, nil
 }
 
+func (c *chatServiceClient) ToggleReaction(ctx context.Context, in *ToggleReactionRequest, opts ...grpc.CallOption) (*ToggleReactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ToggleReactionResponse)
+	err := c.cc.Invoke(ctx, ChatService_ToggleReaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListReactions(ctx context.Context, in *ListReactionsRequest, opts ...grpc.CallOption) (*ListReactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListReactionsResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListReactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetReactionSummary(ctx context.Context, in *GetReactionSummaryRequest, opts ...grpc.CallOption) (*GetReactionSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetReactionSummaryResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetReactionSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
@@ -380,6 +417,10 @@ type ChatServiceServer interface {
 	DeleteFile(context.Context, *DeleteFileRequest) (*DeleteFileResponse, error)
 	// Search (Sprint 4)
 	SearchChat(context.Context, *SearchChatRequest) (*SearchChatResponse, error)
+	// Reactions (Phase 8)
+	ToggleReaction(context.Context, *ToggleReactionRequest) (*ToggleReactionResponse, error)
+	ListReactions(context.Context, *ListReactionsRequest) (*ListReactionsResponse, error)
+	GetReactionSummary(context.Context, *GetReactionSummaryRequest) (*GetReactionSummaryResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -464,6 +505,15 @@ func (UnimplementedChatServiceServer) DeleteFile(context.Context, *DeleteFileReq
 }
 func (UnimplementedChatServiceServer) SearchChat(context.Context, *SearchChatRequest) (*SearchChatResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchChat not implemented")
+}
+func (UnimplementedChatServiceServer) ToggleReaction(context.Context, *ToggleReactionRequest) (*ToggleReactionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ToggleReaction not implemented")
+}
+func (UnimplementedChatServiceServer) ListReactions(context.Context, *ListReactionsRequest) (*ListReactionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListReactions not implemented")
+}
+func (UnimplementedChatServiceServer) GetReactionSummary(context.Context, *GetReactionSummaryRequest) (*GetReactionSummaryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetReactionSummary not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -936,6 +986,60 @@ func _ChatService_SearchChat_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_ToggleReaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ToggleReactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ToggleReaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ToggleReaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ToggleReaction(ctx, req.(*ToggleReactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListReactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListReactionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListReactions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListReactions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListReactions(ctx, req.(*ListReactionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetReactionSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetReactionSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetReactionSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetReactionSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetReactionSummary(ctx, req.(*GetReactionSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1042,6 +1146,18 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SearchChat",
 			Handler:    _ChatService_SearchChat_Handler,
+		},
+		{
+			MethodName: "ToggleReaction",
+			Handler:    _ChatService_ToggleReaction_Handler,
+		},
+		{
+			MethodName: "ListReactions",
+			Handler:    _ChatService_ListReactions_Handler,
+		},
+		{
+			MethodName: "GetReactionSummary",
+			Handler:    _ChatService_GetReactionSummary_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
