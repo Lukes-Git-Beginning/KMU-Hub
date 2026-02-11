@@ -16,3 +16,12 @@ export type { CallControlsProps } from './CallControls'
 
 export { ScreenShareView } from './ScreenShareView'
 export type { ScreenShareViewProps } from './ScreenShareView'
+
+export { FloatingCallBar } from './FloatingCallBar'
+export type { FloatingCallBarProps } from './FloatingCallBar'
+
+export { IncomingCallOverlay } from './IncomingCallOverlay'
+export type { IncomingCallOverlayProps } from './IncomingCallOverlay'
+
+export { RecordingConsentDialog } from './RecordingConsentDialog'
+export type { RecordingConsentDialogProps } from './RecordingConsentDialog'
