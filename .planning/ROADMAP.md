@@ -188,13 +188,18 @@ Plans:
   5. Admin can view and terminate active sessions with device/IP information
   6. Sensitive configuration (API keys, SMTP passwords) is stored encrypted at rest in a vault
   7. User can switch the UI between DE, FR, IT, and EN languages at runtime
-**Plans**: 4 plans (estimated)
+**Plans**: 9 plans
 
 Plans:
-- [ ] 09-01: Two-factor authentication (TOTP setup, verification, enforcement, recovery codes)
-- [ ] 09-02: Audit log + session management (tamper-evident log, search/filter UI, session listing/termination)
-- [ ] 09-03: DSGVO compliance (data export pipeline, data deletion with cascading anonymization, consent management)
-- [ ] 09-04: Secret vault + password policies + i18n framework (encrypted config storage, password rules, locale framework with DE/FR/IT/EN)
+- [ ] 09-01-PLAN.md -- Proto + migrations + models + Go deps (security.proto, auth.proto 2FA extension, 2 migrations for 10 tables + user columns, Go models, pquerna/otp + go-password-validator)
+- [ ] 09-02-PLAN.md -- Vault encryption + password policy services (AES-256-GCM with HKDF key derivation, entropy-based password validation, history checking)
+- [ ] 09-03-PLAN.md -- Audit log + session management backend (hash-chained tamper-evident log, CSV/JSON export, session tracking with device/IP)
+- [ ] 09-04-PLAN.md -- 2FA service (TOTP setup/verify with pquerna/otp, recovery codes, login pending token, per-role enforcement, admin reset)
+- [ ] 09-05-PLAN.md -- DSGVO compliance service (data export pipeline with per-module handlers, right-to-erasure with cascading anonymization)
+- [ ] 09-06-PLAN.md -- gRPC server + gateway routes + IP filter (SecurityService gRPC, ~32 HTTP endpoints, IP allowlist/blocklist middleware)
+- [ ] 09-07-PLAN.md -- i18n framework (react-intl with ICU format, 4-language translations, Zustand locale store, browser detection, App.tsx integration)
+- [ ] 09-08-PLAN.md -- Security UI (2FA setup wizard, TOTP login flow, audit log viewer, session management, vault admin page)
+- [ ] 09-09-PLAN.md -- Settings + admin pages (password policy, IP access, DSGVO export/erasure UI, settings tabs, sidebar navigation, routing)
 
 ### Phase 10: Email Integration
 **Goal**: Users can send and receive email within the Hub without switching to an external email client, with automatic CRM context, contact import/export, and two-level contact visibility
@@ -398,7 +403,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 6. Project Management | 10/10 | Complete | 2026-02-08 |
 | 7. Calendar & Scheduling | 9/9 | Complete | 2026-02-11 |
 | 8. Video, Voice & Meetings | 9/9 | Complete | 2026-02-11 |
-| 9. Security & Compliance | 0/4 | Not started | - |
+| 9. Security & Compliance | 0/9 | Not started | - |
 | 10. Email Integration | 0/4 | Not started | - |
 | 11. Documents & Files | 0/4 | Not started | - |
 | 12. Finance Module | 0/3 | Not started | - |
@@ -414,4 +419,4 @@ Decimal phases (if inserted) execute between their surrounding integers.
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-11 after Phase 8 completion (9/9 plans, verified 10/10 must-haves)*
+*Last updated: 2026-02-11 after Phase 9 planning (9 plans in 4 waves)*
