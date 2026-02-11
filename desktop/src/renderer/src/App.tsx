@@ -11,6 +11,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from 'sonner'
+import { I18nProvider } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { STALE_TIME, GC_TIME } from '@/lib/constants'
 import { AppShell } from '@/components/layout/AppShell'
@@ -200,10 +201,12 @@ export default function App() {
       client={queryClient}
       persistOptions={{ persister, maxAge: GC_TIME }}
     >
-      <TooltipProvider>
-        <RouterProvider router={router} />
-        <Toaster richColors position="bottom-right" />
-      </TooltipProvider>
+      <I18nProvider>
+        <TooltipProvider>
+          <RouterProvider router={router} />
+          <Toaster richColors position="bottom-right" />
+        </TooltipProvider>
+      </I18nProvider>
     </PersistQueryClientProvider>
   )
 }
