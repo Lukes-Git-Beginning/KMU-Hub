@@ -302,6 +302,11 @@ func (s *Service) GetTwoFactorPolicy(ctx context.Context, roleName string) (*mod
 	return s.repo.GetTwoFactorPolicy(ctx, roleName)
 }
 
+// ListTwoFactorPolicies returns all 2FA enforcement policies.
+func (s *Service) ListTwoFactorPolicies(ctx context.Context) ([]*models.TwoFactorPolicy, error) {
+	return s.repo.ListTwoFactorPolicies(ctx)
+}
+
 // UpdateTwoFactorPolicy creates or updates the 2FA enforcement policy for a role.
 func (s *Service) UpdateTwoFactorPolicy(ctx context.Context, roleName string, enforced bool, gracePeriodDays int, updatedBy uuid.UUID) (*models.TwoFactorPolicy, error) {
 	policy := &models.TwoFactorPolicy{

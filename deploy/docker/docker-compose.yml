@@ -84,6 +84,7 @@ services:
       REFRESH_TOKEN_EXPIRY: 168h
       AUTH_GRPC_PORT: ":50051"
       HEALTH_PORT: ":9091"
+      VAULT_MASTER_SECRET: docker-dev-vault-secret-minimum-32-characters-long
     ports:
       - "50051:50051"
       - "9091:9091"

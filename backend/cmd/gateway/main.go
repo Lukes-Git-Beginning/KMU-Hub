@@ -102,6 +102,10 @@ func main() {
 	r.Use(middleware.Logging)
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 
+	// IP filter middleware: reject blocked IPs before rate limiting
+	ipFilter := gateway.NewIPFilterMiddleware(registry)
+	r.Use(ipFilter.Middleware)
+
 	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS)
 	r.Use(rateLimiter.Middleware)
 
@@ -122,6 +126,7 @@ func main() {
 		gateway.NewWorkRoutes(registry),
 		gateway.NewCalendarRoutes(registry),
 		gateway.NewVideoRoutes(registry),
+		gateway.NewSecurityRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}

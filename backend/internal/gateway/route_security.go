@@ -1,0 +1,673 @@
+package gateway
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/server/response"
+	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
+)
+
+// SecurityRoutes handles HTTP routes for security services (audit, vault, GDPR, password, IP rules).
+// Security services run in the same binary as auth, so we reuse the "auth" gRPC connection.
+type SecurityRoutes struct {
+	registry *ServiceRegistry
+}
+
+// NewSecurityRoutes creates a new SecurityRoutes with the given service registry.
+func NewSecurityRoutes(registry *ServiceRegistry) *SecurityRoutes {
+	return &SecurityRoutes{registry: registry}
+}
+
+// ServiceName returns the backend service name (shares "auth" gRPC port).
+func (sr *SecurityRoutes) ServiceName() string { return "auth" }
+
+// getSecurityClient lazily obtains a gRPC client for the Security service.
+func (sr *SecurityRoutes) getSecurityClient() (securityv1.SecurityServiceClient, error) {
+	conn, err := sr.registry.GetConnection("auth")
+	if err != nil {
+		return nil, err
+	}
+	return securityv1.NewSecurityServiceClient(conn), nil
+}
+
+// RegisterRoutes registers all security HTTP routes.
+func (sr *SecurityRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	r.Route("/api/v1/security", func(r chi.Router) {
+		r.Use(authMiddleware)
+
+		// Audit log (admin only)
+		r.With(middleware.RequireRole("admin")).Get("/audit", sr.HandleListAuditEntries)
+		r.With(middleware.RequireRole("admin")).Get("/audit/export", sr.HandleExportAuditLog)
+		r.With(middleware.RequireRole("admin")).Post("/audit/verify", sr.HandleVerifyAuditChain)
+
+		// Vault (admin only)
+		r.With(middleware.RequireRole("admin")).Get("/vault", sr.HandleListVaultSecrets)
+		r.With(middleware.RequireRole("admin")).Get("/vault/{keyName}", sr.HandleGetVaultSecret)
+		r.With(middleware.RequireRole("admin")).Put("/vault", sr.HandleSetVaultSecret)
+		r.With(middleware.RequireRole("admin")).Delete("/vault/{keyName}", sr.HandleDeleteVaultSecret)
+
+		// GDPR
+		r.Post("/gdpr/export", sr.HandleRequestDataExport)
+		r.Get("/gdpr/exports", sr.HandleListDataExports)
+		r.With(middleware.RequireRole("admin")).Post("/gdpr/exports/{id}/approve", sr.HandleApproveDataExport)
+		r.With(middleware.RequireRole("admin")).Post("/gdpr/exports/{id}/deny", sr.HandleDenyDataExport)
+		r.Get("/gdpr/download/{token}", sr.HandleGetExportDownload)
+		r.With(middleware.RequireRole("admin")).Post("/gdpr/erasure/preview", sr.HandlePreviewErasure)
+		r.With(middleware.RequireRole("admin")).Post("/gdpr/erasure/execute", sr.HandleExecuteErasure)
+
+		// Password policy
+		r.Get("/password/policy", sr.HandleGetPasswordPolicy)
+		r.With(middleware.RequireRole("admin")).Put("/password/policy", sr.HandleUpdatePasswordPolicy)
+		r.Post("/password/validate", sr.HandleValidatePassword)
+
+		// IP access rules (admin only)
+		r.With(middleware.RequireRole("admin")).Get("/ip-rules", sr.HandleListIPRules)
+		r.With(middleware.RequireRole("admin")).Post("/ip-rules", sr.HandleCreateIPRule)
+		r.With(middleware.RequireRole("admin")).Delete("/ip-rules/{id}", sr.HandleDeleteIPRule)
+	})
+}
+
+// ============================================================================
+// Audit Handlers
+// ============================================================================
+
+func (sr *SecurityRoutes) HandleListAuditEntries(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	q := r.URL.Query()
+	filter := &securityv1.AuditFilter{
+		Action: q.Get("action"),
+		Result: q.Get("result"),
+		UserId: q.Get("user_id"),
+	}
+
+	page, pageSize := parsePagination(r, 1, 50)
+	filter.Offset = int32((page - 1) * pageSize)
+	filter.Limit = int32(pageSize)
+
+	resp, err := client.ListAuditEntries(r.Context(), &securityv1.ListAuditEntriesRequest{
+		Filter: filter,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleExportAuditLog(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	format := r.URL.Query().Get("format")
+	if format == "" {
+		format = "csv"
+	}
+
+	resp, err := client.ExportAuditLog(r.Context(), &securityv1.ExportAuditLogRequest{
+		Format: format,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", resp.ContentType)
+	w.Header().Set("Content-Disposition", "attachment; filename="+resp.Filename)
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp.Data)
+}
+
+func (sr *SecurityRoutes) HandleVerifyAuditChain(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	resp, err := client.VerifyAuditChain(r.Context(), &securityv1.VerifyAuditChainRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Vault Handlers
+// ============================================================================
+
+func (sr *SecurityRoutes) HandleListVaultSecrets(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	resp, err := client.ListVaultSecrets(r.Context(), &securityv1.ListVaultSecretsRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleGetVaultSecret(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	keyName := chi.URLParam(r, "keyName")
+	if keyName == "" {
+		response.Error(w, http.StatusBadRequest, "key name is required")
+		return
+	}
+
+	resp, err := client.GetVaultSecret(r.Context(), &securityv1.GetVaultSecretRequest{
+		KeyName: keyName,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type setVaultSecretRequest struct {
+	KeyName        string `json:"key_name"`
+	PlaintextValue string `json:"plaintext_value"`
+	Description    string `json:"description"`
+}
+
+func (sr *SecurityRoutes) HandleSetVaultSecret(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	var req setVaultSecretRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.KeyName == "" || req.PlaintextValue == "" {
+		response.Error(w, http.StatusBadRequest, "key_name and plaintext_value are required")
+		return
+	}
+
+	resp, err := client.SetVaultSecret(r.Context(), &securityv1.SetVaultSecretRequest{
+		KeyName:        req.KeyName,
+		PlaintextValue: req.PlaintextValue,
+		Description:    req.Description,
+		CreatedBy:      userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleDeleteVaultSecret(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	keyName := chi.URLParam(r, "keyName")
+	if keyName == "" {
+		response.Error(w, http.StatusBadRequest, "key name is required")
+		return
+	}
+
+	_, err = client.DeleteVaultSecret(r.Context(), &securityv1.DeleteVaultSecretRequest{
+		KeyName: keyName,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "secret deleted"})
+}
+
+// ============================================================================
+// GDPR Handlers
+// ============================================================================
+
+func (sr *SecurityRoutes) HandleRequestDataExport(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	resp, err := client.RequestDataExport(r.Context(), &securityv1.RequestDataExportRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (sr *SecurityRoutes) HandleListDataExports(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	// Non-admin users only see their own exports
+	userID := middleware.GetUserID(r.Context())
+	statusFilter := r.URL.Query().Get("status")
+
+	// Admin can filter by user_id
+	filterUserID := userID
+	if qUserID := r.URL.Query().Get("user_id"); qUserID != "" {
+		// Only admins can view other users' exports -- gateway trusts RBAC middleware
+		filterUserID = qUserID
+	}
+
+	resp, err := client.ListDataExports(r.Context(), &securityv1.ListDataExportsRequest{
+		UserId: filterUserID,
+		Status: statusFilter,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type approveExportRequest struct {
+	ReviewNote string `json:"review_note"`
+}
+
+func (sr *SecurityRoutes) HandleApproveDataExport(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	exportID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(exportID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid export id")
+		return
+	}
+
+	adminID := middleware.GetUserID(r.Context())
+
+	var req approveExportRequest
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	resp, err := client.ApproveDataExport(r.Context(), &securityv1.ApproveDataExportRequest{
+		ExportId:   exportID,
+		ReviewedBy: adminID,
+		ReviewNote: req.ReviewNote,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type denyExportRequest struct {
+	ReviewNote string `json:"review_note"`
+}
+
+func (sr *SecurityRoutes) HandleDenyDataExport(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	exportID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(exportID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid export id")
+		return
+	}
+
+	adminID := middleware.GetUserID(r.Context())
+
+	var req denyExportRequest
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	resp, err := client.DenyDataExport(r.Context(), &securityv1.DenyDataExportRequest{
+		ExportId:   exportID,
+		ReviewedBy: adminID,
+		ReviewNote: req.ReviewNote,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (sr *SecurityRoutes) HandleGetExportDownload(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		response.Error(w, http.StatusBadRequest, "download token is required")
+		return
+	}
+
+	resp, err := client.GetExportDownload(r.Context(), &securityv1.GetExportDownloadRequest{
+		DownloadToken: token,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename="+resp.Filename)
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp.Data)
+}
+
+type previewErasureRequest struct {
+	UserID string `json:"user_id"`
+}
+
+func (sr *SecurityRoutes) HandlePreviewErasure(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	var req previewErasureRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if _, err := uuid.Parse(req.UserID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid user_id")
+		return
+	}
+
+	resp, err := client.PreviewErasure(r.Context(), &securityv1.PreviewErasureRequest{
+		UserId: req.UserID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type executeErasureRequest struct {
+	UserID        string `json:"user_id"`
+	AdminPassword string `json:"admin_password"`
+}
+
+func (sr *SecurityRoutes) HandleExecuteErasure(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	adminID := middleware.GetUserID(r.Context())
+
+	var req executeErasureRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if _, err := uuid.Parse(req.UserID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid user_id")
+		return
+	}
+
+	resp, err := client.ExecuteErasure(r.Context(), &securityv1.ExecuteErasureRequest{
+		UserId:        req.UserID,
+		ExecutedBy:    adminID,
+		AdminPassword: req.AdminPassword,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Password Policy Handlers
+// ============================================================================
+
+func (sr *SecurityRoutes) HandleGetPasswordPolicy(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	resp, err := client.GetPasswordPolicy(r.Context(), &securityv1.GetPasswordPolicyRequest{})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updatePasswordPolicyRequest struct {
+	MinLength         int32   `json:"min_length"`
+	RequireUppercase  bool    `json:"require_uppercase"`
+	RequireLowercase  bool    `json:"require_lowercase"`
+	RequireDigit      bool    `json:"require_digit"`
+	RequireSpecial    bool    `json:"require_special"`
+	MinEntropy        float64 `json:"min_entropy"`
+	MaxAgeDays        int32   `json:"max_age_days"`
+	PreventReuseCount int32   `json:"prevent_reuse_count"`
+}
+
+func (sr *SecurityRoutes) HandleUpdatePasswordPolicy(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	adminID := middleware.GetUserID(r.Context())
+
+	var req updatePasswordPolicyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.UpdatePasswordPolicy(r.Context(), &securityv1.UpdatePasswordPolicyRequest{
+		Policy: &securityv1.PasswordPolicy{
+			MinLength:         req.MinLength,
+			RequireUppercase:  req.RequireUppercase,
+			RequireLowercase:  req.RequireLowercase,
+			RequireDigit:      req.RequireDigit,
+			RequireSpecial:    req.RequireSpecial,
+			MinEntropy:        req.MinEntropy,
+			MaxAgeDays:        req.MaxAgeDays,
+			PreventReuseCount: req.PreventReuseCount,
+		},
+		UpdatedBy: adminID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type validatePasswordHTTPRequest struct {
+	Password string `json:"password"`
+}
+
+func (sr *SecurityRoutes) HandleValidatePassword(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	var req validatePasswordHTTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Password == "" {
+		response.Error(w, http.StatusBadRequest, "password is required")
+		return
+	}
+
+	resp, err := client.ValidatePassword(r.Context(), &securityv1.ValidatePasswordRequest{
+		Password: req.Password,
+		UserId:   userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// IP Access Rule Handlers
+// ============================================================================
+
+func (sr *SecurityRoutes) HandleListIPRules(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	ruleType := r.URL.Query().Get("rule_type")
+
+	resp, err := client.ListIPRules(r.Context(), &securityv1.ListIPRulesRequest{
+		RuleType: ruleType,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type createIPRuleRequest struct {
+	IPCIDR      string `json:"ip_cidr"`
+	RuleType    string `json:"rule_type"`
+	Description string `json:"description"`
+}
+
+func (sr *SecurityRoutes) HandleCreateIPRule(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	var req createIPRuleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.IPCIDR == "" || req.RuleType == "" {
+		response.Error(w, http.StatusBadRequest, "ip_cidr and rule_type are required")
+		return
+	}
+
+	resp, err := client.CreateIPRule(r.Context(), &securityv1.CreateIPRuleRequest{
+		IpCidr:      req.IPCIDR,
+		RuleType:    req.RuleType,
+		Description: req.Description,
+		CreatedBy:   userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, resp)
+}
+
+func (sr *SecurityRoutes) HandleDeleteIPRule(w http.ResponseWriter, r *http.Request) {
+	client, err := sr.getSecurityClient()
+	if err != nil {
+		respondServiceUnavailable(w, sr.ServiceName())
+		return
+	}
+
+	ruleID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(ruleID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid rule id")
+		return
+	}
+
+	_, err = client.DeleteIPRule(r.Context(), &securityv1.DeleteIPRuleRequest{
+		RuleId: ruleID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "ip rule deleted"})
+}
