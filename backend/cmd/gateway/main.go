@@ -121,6 +121,7 @@ func main() {
 		gateway.NewNotificationRoutes(registry),
 		gateway.NewWorkRoutes(registry),
 		gateway.NewCalendarRoutes(registry),
+		gateway.NewVideoRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}
