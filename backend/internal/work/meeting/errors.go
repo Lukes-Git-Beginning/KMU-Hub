@@ -19,5 +19,4 @@ var (
 	ErrNotRecurring          = errors.New("meeting is not part of a recurring series")
 	ErrNoPreviousNotes       = errors.New("no previous meeting notes found")
 	ErrNoAttendeesProvided   = errors.New("at least one attendee is required")
-	ErrInvalidAwayTimeout    = errors.New("away timeout must be between 60 and 3600 seconds")
 )
