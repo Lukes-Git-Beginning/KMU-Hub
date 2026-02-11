@@ -23,6 +23,8 @@ const CRMLayout = lazy(() => import('@/modules/crm/CRMLayout'))
 const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const WorkLayout = lazy(() => import('@/modules/work/WorkLayout'))
 const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
+const VideoPage = lazy(() => import('@/modules/video/VideoPage'))
+const MeetingsPage = lazy(() => import('@/modules/meetings/MeetingsPage'))
 const NotificationCenter = lazy(() => import('@/modules/notifications/NotificationCenter'))
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
 
@@ -145,6 +147,22 @@ const router = createHashRouter([
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
             <KalenderPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'video/*',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <VideoPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'meetings/*',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <MeetingsPage />
           </Suspense>
         ),
       },

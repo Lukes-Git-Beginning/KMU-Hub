@@ -1,13 +1,14 @@
 /**
  * Compact header bar displayed above the main content area.
  *
- * Shows current module name, connection status dot, and the
- * notification bell with real-time unread count.
+ * Shows current module name, presence status picker, connection
+ * status dot, and the notification bell with real-time unread count.
  */
 import { useLocation } from 'react-router-dom'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
+import { PresenceStatusPicker } from '@/features/presence'
 import {
   Tooltip,
   TooltipContent,
@@ -19,6 +20,8 @@ function getModuleName(pathname: string): string {
   if (pathname === '/') return 'Dashboard'
   if (pathname.startsWith('/crm')) return 'CRM'
   if (pathname.startsWith('/chat')) return 'Chat'
+  if (pathname.startsWith('/video')) return 'Video & Anrufe'
+  if (pathname.startsWith('/meetings')) return 'Meetings'
   if (pathname.startsWith('/notifications')) return 'Benachrichtigungen'
   return 'KMU Hub'
 }
@@ -38,6 +41,9 @@ export function Header() {
 
       {/* Right: status indicators */}
       <div className="flex items-center gap-3">
+        {/* User presence status picker */}
+        <PresenceStatusPicker />
+
         {/* Connection status dot: green (online), red (offline) */}
         <Tooltip>
           <TooltipTrigger asChild>
