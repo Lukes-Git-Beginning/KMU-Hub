@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 8 - Video, Voice & Meetings
+**Current focus:** Phase 9 - Security & Compliance
 
 ## Current Position
 
-Phase: 8 of 20 (Video, Voice & Meetings)
-Plan: 7 of 9 in current phase
-Status: In progress
-Last activity: 2026-02-11 -- Completed 08-05-PLAN.md (gRPC + Gateway + WebSocket + Docker wiring)
+Phase: 8 of 20 (Video, Voice & Meetings) -- COMPLETE
+Plan: 9 of 9 in current phase
+Status: Complete
+Last activity: 2026-02-11 -- Phase 8 verified (10/10 must-haves), Pilot MVP milestone complete
 
-Progress: [████████████████░░░░░░░░] 51% (36/63 plans across phases 4-20)
+Progress: [██████████████████░░░░░░] 57% (39/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30
-- Average duration: ~8 minutes
-- Total execution time: ~4h 12min
+- Total plans completed: 39
+- Average duration: ~7 minutes
+- Total execution time: ~4h 45min
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [████████████████░░░░░░░
 | 05 | 7/7 | ~66min | ~9min |
 | 06 | 10/10 | ~88min | ~8.8min |
 | 07 | 9/9 | ~48min | ~5min |
-| 08 | 6/9 | ~29min | ~5min |
+| 08 | 9/9 | ~45min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 08-03 (~5min), 08-04 (~8min), 08-05-partial (~4min), 08-06 (~4min), 08-05-complete (~15min)
-- Trend: Consistent ~4-15min per plan (08-05 spanned context resets)
+- Last 5 plans: 08-05 (~15min), 08-06 (~4min), 08-07 (~8min), 08-08 (~8min), 08-09 (~8min)
+- Trend: Consistent ~5-15min per plan
 
 *Updated after each plan completion*
 
@@ -152,15 +152,27 @@ Recent decisions affecting current work:
 - [08-04]: Heartbeat respects manual DND/away and InCall - does not override
 - [08-04]: Notes saveable during in_progress AND completed meetings (post-meeting notes)
 - [08-04]: ConvertActionItemsToTasks returns unconverted items for caller to create tasks
+- [08-05]: VideoRoutes shares gRPC connection with WorkRoutes via ServiceName "work" (same binary)
+- [08-05]: Reaction HTTP endpoints return 501; reactions handled via WebSocket events only
+- [08-05]: WSPresenceService/WSVideoService interfaces injected post-construction to avoid circular imports
+- [08-05]: LiveKit SDK types in github.com/livekit/protocol/livekit, not in server-sdk-go/v2 package
 - [08-06]: video-client.ts mirrors calendar-client.ts fetch wrapper pattern (not openapi-fetch)
 - [08-06]: Video store ephemeral (no persist); presence store persists only myStatus
 - [08-06]: 33 hooks across 4 files (10 video, 15 meetings, 5 presence, 3 reactions)
 - [08-06]: Presence queries use 10s staleTime for near-real-time updates
 - [08-06]: Reaction toggle uses optimistic update via setQueryData
-- [08-05]: VideoRoutes shares gRPC connection with WorkRoutes via ServiceName "work" (same binary)
-- [08-05]: Reaction HTTP endpoints return 501; reactions handled via WebSocket events only
-- [08-05]: WSPresenceService/WSVideoService interfaces injected post-construction to avoid circular imports
-- [08-05]: LiveKit SDK types in github.com/livekit/protocol/livekit, not in server-sdk-go/v2 package
+- [08-07]: LiveKitRoom with GridLayout (gallery) + FocusLayout (speaker) view modes
+- [08-07]: Electron desktopCapturer for screen/window sharing via navigator.mediaDevices override
+- [08-07]: RecordingConsentDialog with DSGVO-compliant blur/mute for declined participants
+- [08-07]: FloatingCallBar fixed bottom-right z-50, IncomingCallOverlay fullscreen z-[100]
+- [08-08]: Darien's meeting components cherry-picked from design/brainstorm + wired to API hooks
+- [08-08]: MeetingNotesPanel with 30s debounced auto-save and visual indicator
+- [08-08]: MeetingActionItems batch conversion to tasks with project picker
+- [08-08]: MeetingLobby shows "Letzte Notizen" for recurring meetings
+- [08-09]: frimousse emoji picker per-message via Radix Popover (no global singleton)
+- [08-09]: 5-color presence: green (online), yellow (away), red (DND), purple (in_call), gray (offline)
+- [08-09]: PresenceProvider sends heartbeat every 30s, handles visibility-based away detection
+- [08-09]: Call-from-chat button in ChannelHeader for DM and group calls
 
 ### Pending Todos
 
@@ -175,6 +187,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 08-05-PLAN.md (gRPC + Gateway + WebSocket + Docker wiring)
+Stopped at: Phase 8 complete, verified 10/10 must-haves
 Resume file: None
-Next: Continue Phase 8 remaining plans
+Next: Phase 9 - Security & Compliance

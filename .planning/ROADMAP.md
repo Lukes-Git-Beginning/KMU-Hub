@@ -7,7 +7,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 ## Milestones
 
 - ✅ **Foundation** - Phases 1-3 (Auth/Infra, CRM Core, Chat & Messaging)
-- 📋 **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
+- ✅ **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
 - 📋 **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files -- enterprise-ready communication)
 - 📋 **Business Suite** - Phases 12-13 (Finance, HR -- operational and revenue tools)
 - 📋 **Integrations** - Phases 14-18 (CalDAV/CardDAV, Teams/Slack, Bexio, Abacus, Run my Accounts -- external connectivity)
@@ -30,7 +30,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - [x] **Phase 5: Desktop App Shell** - Electron workspace with module loading, personalization, and role-based dashboards
 - [x] **Phase 6: Project Management** - Tasks, projects, Kanban boards, Gantt chart, task timer, subtasks, dependencies, templates, CRM integration, custom fields
 - [x] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
-- [ ] **Phase 8: Video, Voice & Meetings** - LiveKit-powered calls, screen sharing, recording, meeting management, emoji reactions, presence/online status
+- [x] **Phase 8: Video, Voice & Meetings** - LiveKit-powered calls, screen sharing, recording, meeting management, emoji reactions, presence/online status
 
 ### Compliance & Comms (Phases 9-11)
 
@@ -166,15 +166,15 @@ Plans:
 **Plans**: 9 plans
 
 Plans:
-- [ ] 08-01-PLAN.md -- Proto + migrations + models + Go deps (Video proto, Chat proto reaction extension, 3 migrations for 9 tables, Go models, LiveKit SDK)
-- [ ] 08-02-PLAN.md -- Chat reaction service (reaction repository + service with toggle semantics, batch summaries, unit tests)
-- [ ] 08-03-PLAN.md -- Room + recording services (LiveKit room management, token generation, call lifecycle, Egress recording, DSGVO consent state machine)
-- [ ] 08-04-PLAN.md -- Meeting + presence services (meeting lifecycle with notes/action items, Redis presence with heartbeat/bulk queries)
-- [ ] 08-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (Video gRPC, Chat reaction gRPC, ~30 HTTP routes, WebSocket extensions, LiveKit + Egress Docker)
-- [ ] 08-06-PLAN.md -- Frontend foundation + API hooks + stores (LiveKit SDK install, TypeScript types, 5 TanStack Query hook files, 2 Zustand stores)
-- [ ] 08-07-PLAN.md -- Call UI + screen share (VideoCallView with LiveKit, PreJoin, CallControls, Electron desktopCapturer, incoming call notification, floating bar, recording consent)
-- [ ] 08-08-PLAN.md -- Meeting UI (MeetingListPage, MeetingScheduleForm, MeetingLobby, MeetingNotesEditor, MeetingActionItems, MeetingSummary)
-- [ ] 08-09-PLAN.md -- Reactions UI + presence + chat integration (ReactionPicker/Bar, PresenceIndicator/Provider, call-from-chat button, sidebar navigation, AppShell integration)
+- [x] 08-01-PLAN.md -- Proto + migrations + models + Go deps (Video proto, Chat proto reaction extension, 3 migrations for 9 tables, Go models, LiveKit SDK)
+- [x] 08-02-PLAN.md -- Chat reaction service (reaction repository + service with toggle semantics, batch summaries, unit tests)
+- [x] 08-03-PLAN.md -- Room + recording services (LiveKit room management, token generation, call lifecycle, Egress recording, DSGVO consent state machine)
+- [x] 08-04-PLAN.md -- Meeting + presence services (meeting lifecycle with notes/action items, Redis presence with heartbeat/bulk queries)
+- [x] 08-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (Video gRPC, Chat reaction gRPC, ~30 HTTP routes, WebSocket extensions, LiveKit + Egress Docker)
+- [x] 08-06-PLAN.md -- Frontend foundation + API hooks + stores (LiveKit SDK install, TypeScript types, 5 TanStack Query hook files, 2 Zustand stores)
+- [x] 08-07-PLAN.md -- Call UI + screen share (VideoCallView with LiveKit, PreJoin, CallControls, Electron desktopCapturer, incoming call notification, floating bar, recording consent)
+- [x] 08-08-PLAN.md -- Meeting UI (MeetingListPage, MeetingScheduleForm, MeetingLobby, MeetingNotesEditor, MeetingActionItems, MeetingSummary)
+- [x] 08-09-PLAN.md -- Reactions UI + presence + chat integration (ReactionPicker/Bar, PresenceIndicator/Provider, call-from-chat button, sidebar navigation, AppShell integration)
 
 ### Phase 9: Security & Compliance
 **Goal**: The Hub meets enterprise security requirements and DSGVO compliance obligations, with multi-language support for the Swiss market
@@ -397,7 +397,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 5. Desktop App Shell | 7/7 | Complete | 2026-02-08 |
 | 6. Project Management | 10/10 | Complete | 2026-02-08 |
 | 7. Calendar & Scheduling | 9/9 | Complete | 2026-02-11 |
-| 8. Video, Voice & Meetings | 0/9 | Not started | - |
+| 8. Video, Voice & Meetings | 9/9 | Complete | 2026-02-11 |
 | 9. Security & Compliance | 0/4 | Not started | - |
 | 10. Email Integration | 0/4 | Not started | - |
 | 11. Documents & Files | 0/4 | Not started | - |
@@ -414,4 +414,4 @@ Decimal phases (if inserted) execute between their surrounding integers.
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-10 after Phase 8 planning (9 plans in 4 waves)*
+*Last updated: 2026-02-11 after Phase 8 completion (9/9 plans, verified 10/10 must-haves)*
