@@ -13,6 +13,13 @@
  */
 import type { DeskTheme, MountPoint } from '@/types/desk-theme'
 
+// ── Room Scene Imports ──────────────────────────────────────────────────────
+import cozyRoomLight from '@/../assets/desk/cozy/room-scene-light.png'
+import dreamyRoomLight from '@/../assets/desk/dreamy/room-scene-light.png'
+import natureRoomLight from '@/../assets/desk/nature/room-scene-light.png'
+import raumstationRoomLight from '@/../assets/desk/raumstation/room-scene-light.png'
+import atelierRoomLight from '@/../assets/desk/atelier/room-scene-light.png'
+
 // ── SHARED MOUNT POINTS ────────────────────────────────────────────────────
 //
 // Standard 9-point layout used by most themes.
@@ -117,7 +124,7 @@ const cozy: DeskTheme = {
     innerPadding: '12px',
   },
 
-  roomScene: undefined,
+  roomScene: { light: cozyRoomLight, dark: cozyRoomLight },
   furniture: [],
   mountPoints: STANDARD_MOUNT_POINTS,
 
@@ -176,7 +183,7 @@ const dreamy: DeskTheme = {
     innerPadding: '12px',
   },
 
-  roomScene: undefined,
+  roomScene: { light: dreamyRoomLight, dark: dreamyRoomLight },
   furniture: [],
   mountPoints: STANDARD_MOUNT_POINTS,
 
@@ -237,7 +244,7 @@ const nature: DeskTheme = {
     innerPadding: '12px',
   },
 
-  roomScene: undefined,
+  roomScene: { light: natureRoomLight, dark: natureRoomLight },
   furniture: [],
   mountPoints: STANDARD_MOUNT_POINTS,
 
@@ -354,7 +361,7 @@ const raumstation: DeskTheme = {
     innerPadding: '10px',
   },
 
-  roomScene: undefined,
+  roomScene: { light: raumstationRoomLight, dark: raumstationRoomLight },
   furniture: [],
   mountPoints: RAUMSTATION_MOUNT_POINTS,
 
@@ -489,7 +496,7 @@ const atelier: DeskTheme = {
     innerPadding: '12px',
   },
 
-  roomScene: undefined,
+  roomScene: { light: atelierRoomLight, dark: atelierRoomLight },
   furniture: [],
   mountPoints: ATELIER_MOUNT_POINTS,
 
