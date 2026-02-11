@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 8 of 20 (Video, Voice & Meetings)
-Plan: 6 of 9 in current phase
+Plan: 7 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-11 -- Completed 08-06-PLAN.md (Frontend Data Layer)
+Last activity: 2026-02-11 -- Completed 08-05-PLAN.md (gRPC + Gateway + WebSocket + Docker wiring)
 
-Progress: [███████████████░░░░░░░░░] 49% (35/63 plans across phases 4-20)
+Progress: [████████████████░░░░░░░░] 51% (36/63 plans across phases 4-20)
 
 ## Performance Metrics
 
@@ -34,8 +34,8 @@ Progress: [███████████████░░░░░░░░
 | 08 | 6/9 | ~29min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 08-02 (~2min), 08-03 (~5min), 08-04 (~8min), 08-05 (~4min), 08-06 (~4min)
-- Trend: Consistent ~4-8min per plan
+- Last 5 plans: 08-03 (~5min), 08-04 (~8min), 08-05-partial (~4min), 08-06 (~4min), 08-05-complete (~15min)
+- Trend: Consistent ~4-15min per plan (08-05 spanned context resets)
 
 *Updated after each plan completion*
 
@@ -157,6 +157,10 @@ Recent decisions affecting current work:
 - [08-06]: 33 hooks across 4 files (10 video, 15 meetings, 5 presence, 3 reactions)
 - [08-06]: Presence queries use 10s staleTime for near-real-time updates
 - [08-06]: Reaction toggle uses optimistic update via setQueryData
+- [08-05]: VideoRoutes shares gRPC connection with WorkRoutes via ServiceName "work" (same binary)
+- [08-05]: Reaction HTTP endpoints return 501; reactions handled via WebSocket events only
+- [08-05]: WSPresenceService/WSVideoService interfaces injected post-construction to avoid circular imports
+- [08-05]: LiveKit SDK types in github.com/livekit/protocol/livekit, not in server-sdk-go/v2 package
 
 ### Pending Todos
 
@@ -171,6 +175,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 08-06-PLAN.md (Frontend Data Layer)
+Stopped at: Completed 08-05-PLAN.md (gRPC + Gateway + WebSocket + Docker wiring)
 Resume file: None
-Next: 08-07-PLAN.md
+Next: Continue Phase 8 remaining plans
