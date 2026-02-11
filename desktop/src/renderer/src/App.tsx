@@ -28,6 +28,16 @@ const VideoPage = lazy(() => import('@/modules/video/VideoPage'))
 const MeetingsPage = lazy(() => import('@/modules/meetings/MeetingsPage'))
 const NotificationCenter = lazy(() => import('@/modules/notifications/NotificationCenter'))
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
+const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
+
+// Security admin pages (lazy-loaded, admin-only)
+const AuditLogPage = lazy(() => import('@/modules/security/AuditLogPage'))
+const SessionsPage = lazy(() => import('@/modules/security/SessionsPage'))
+const VaultPage = lazy(() => import('@/modules/security/VaultPage'))
+const PasswordPolicyPage = lazy(() => import('@/modules/security/PasswordPolicyPage'))
+const IPAccessPage = lazy(() => import('@/modules/security/IPAccessPage'))
+const GDPRExportPage = lazy(() => import('@/modules/security/GDPRExportPage'))
+const GDPRErasurePage = lazy(() => import('@/modules/security/GDPRErasurePage'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -180,6 +190,71 @@ const router = createHashRouter([
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
             <DashboardSettings />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'settings',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <SettingsPage />
+          </Suspense>
+        ),
+      },
+      // Admin security routes
+      {
+        path: 'admin/security/audit',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <AuditLogPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'admin/security/sessions',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <SessionsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'admin/security/vault',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <VaultPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'admin/security/password-policy',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <PasswordPolicyPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'admin/security/ip-access',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <IPAccessPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'admin/security/gdpr/exports',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <GDPRExportPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'admin/security/gdpr/erasure',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <GDPRErasurePage />
           </Suspense>
         ),
       },

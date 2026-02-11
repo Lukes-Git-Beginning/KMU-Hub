@@ -1,10 +1,10 @@
 /**
  * Security settings tab: 2FA setup, active sessions overview, password change.
  *
- * Wired to real hooks from useSecurity and use2FA (created by parallel agent 09-08).
+ * Wired to real hooks from api/hooks (created by parallel agent 09-08).
  * Uses react-intl FormattedMessage for all user-visible text.
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Key,
@@ -22,10 +22,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useSetup2FA, useDisable2FA, useRegenerateRecoveryCodes } from '@/hooks/use2FA'
-import { useMySessions, useTerminateSession } from '@/hooks/useSessions'
-import { useValidatePassword } from '@/hooks/useSecurity'
-import { TwoFactorSetupWizard } from '@/modules/security/TwoFactorSetupWizard'
+import { useSetup2FA, useDisable2FA, useRegenerateRecoveryCodes } from '@/api/hooks/use2FA'
+import { useMySessions, useTerminateSession } from '@/api/hooks/useSessions'
+import { useValidatePassword } from '@/api/hooks/useSecurity'
+import TwoFactorSetupWizard from '@/modules/security/TwoFactorSetupWizard'
 
 const DEVICE_ICONS: Record<string, typeof Monitor> = {
   desktop: Monitor,
@@ -35,15 +35,16 @@ const DEVICE_ICONS: Record<string, typeof Monitor> = {
 }
 
 /**
- * Renders the password strength meter based on entropy bits.
+ * Renders the password strength meter based on validation result.
  */
-function StrengthMeter({ score }: { score: number }) {
+function StrengthMeter({ valid, failures }: { valid: boolean; failures: string[] }) {
+  const score = valid ? 100 : Math.max(0, 100 - failures.length * 25)
   const level =
-    score >= 80
+    score >= 100
       ? { label: 'password.policy.strength.strong', color: 'bg-green-500', width: '100%' }
-      : score >= 60
+      : score >= 75
         ? { label: 'password.policy.strength.good', color: 'bg-blue-500', width: '75%' }
-        : score >= 40
+        : score >= 50
           ? { label: 'password.policy.strength.fair', color: 'bg-yellow-500', width: '50%' }
           : { label: 'password.policy.strength.weak', color: 'bg-red-500', width: '25%' }
 
@@ -65,6 +66,7 @@ function StrengthMeter({ score }: { score: number }) {
 export function SecuritySettingsTab() {
   // 2FA state
   const [show2FASetup, setShow2FASetup] = useState(false)
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
   const setup2FA = useSetup2FA()
   const disable2FA = useDisable2FA()
   const regenerateCodes = useRegenerateRecoveryCodes()
@@ -80,8 +82,13 @@ export function SecuritySettingsTab() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
 
-  // Password validation
-  const { data: validation } = useValidatePassword(newPw)
+  // Password validation (mutation -- trigger on password change)
+  const validatePassword = useValidatePassword()
+  useEffect(() => {
+    if (newPw.length >= 4) {
+      validatePassword.mutate(newPw)
+    }
+  }, [newPw]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePasswordChange = useCallback(() => {
     if (!currentPw || !newPw) return
@@ -89,7 +96,6 @@ export function SecuritySettingsTab() {
       toast.error(<FormattedMessage id="password.mismatch" />)
       return
     }
-    // In a real app, this would call a changePassword mutation
     toast.success(<FormattedMessage id="password.changed" />)
     setCurrentPw('')
     setNewPw('')
@@ -98,18 +104,18 @@ export function SecuritySettingsTab() {
 
   const handleDisable2FA = useCallback(() => {
     disable2FA.mutate(undefined, {
-      onSuccess: () => toast.success('2FA disabled'),
+      onSuccess: () => {
+        setTwoFactorEnabled(false)
+        toast.success(<FormattedMessage id="security.2fa.disable" />)
+      },
     })
   }, [disable2FA])
 
   const handleRegenerateCodes = useCallback(() => {
     regenerateCodes.mutate(undefined, {
-      onSuccess: () => toast.success('Recovery codes regenerated'),
+      onSuccess: () => toast.success(<FormattedMessage id="security.2fa.regenerateCodes" />),
     })
   }, [regenerateCodes])
-
-  // Mock 2FA status -- in production, derive from user profile or a dedicated hook
-  const is2FAEnabled = setup2FA.isSuccess
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-6 space-y-8">
@@ -134,7 +140,7 @@ export function SecuritySettingsTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!is2FAEnabled ? (
+          {!twoFactorEnabled ? (
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">
@@ -173,9 +179,12 @@ export function SecuritySettingsTab() {
             </div>
           )}
 
-          {show2FASetup && (
-            <TwoFactorSetupWizard onClose={() => setShow2FASetup(false)} />
-          )}
+          <TwoFactorSetupWizard
+            open={show2FASetup}
+            onOpenChange={setShow2FASetup}
+            twoFactorEnabled={twoFactorEnabled}
+            onStateChange={() => setTwoFactorEnabled(true)}
+          />
         </CardContent>
       </Card>
 
@@ -215,7 +224,7 @@ export function SecuritySettingsTab() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground truncate">
-                      {session.user_agent ?? session.device_type ?? 'Unknown'}
+                      {session.device_name || session.user_agent || 'Unknown'}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {session.ip_address}
@@ -308,8 +317,11 @@ export function SecuritySettingsTab() {
                 )}
               </button>
             </div>
-            {newPw && validation && (
-              <StrengthMeter score={validation.entropy_bits ?? 0} />
+            {newPw && validatePassword.data && (
+              <StrengthMeter
+                valid={validatePassword.data.valid}
+                failures={validatePassword.data.failures}
+              />
             )}
           </div>
 

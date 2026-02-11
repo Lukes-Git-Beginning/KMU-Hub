@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/stores/auth'
-import { useGDPRExports, useRequestExport } from '@/hooks/useSecurity'
+import { useGDPRExports, useRequestExport } from '@/api/hooks/useSecurity'
 
 /** Map export status to badge variant and icon. */
 const STATUS_CONFIG: Record<
@@ -134,13 +134,13 @@ export function PrivacySettingsTab() {
                     <Badge variant="secondary" className={config.badgeClass}>
                       <FormattedMessage id={config.labelId} />
                     </Badge>
-                    {exp.status === 'ready' && exp.download_url && (
+                    {exp.status === 'ready' && exp.download_token && (
                       <Button
                         variant="outline"
                         size="sm"
                         asChild
                       >
-                        <a href={exp.download_url} download>
+                        <a href={`/api/v1/gdpr/exports/${exp.id}/download?token=${exp.download_token}`} download>
                           <Download className="mr-1 h-3 w-3" />
                           <FormattedMessage id="gdpr.downloadExport" />
                         </a>

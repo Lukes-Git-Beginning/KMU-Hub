@@ -15,6 +15,7 @@ import {
   Users2,
   Bell,
   Cog,
+  Shield,
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
@@ -51,7 +52,8 @@ const navItems: NavItem[] = [
   { to: '/video', icon: Video, label: 'Video & Anrufe' },
   { to: '/meetings', icon: Users2, label: 'Meetings' },
   { to: '/notifications', icon: Bell, label: 'Benachrichtigungen' },
-  { to: '/settings/dashboard', icon: Cog, label: 'Einstellungen', roles: ['admin'] },
+  { to: '/settings', icon: Cog, label: 'Einstellungen' },
+  { to: '/admin/security/audit', icon: Shield, label: 'Sicherheit', roles: ['admin'] },
 ]
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
