@@ -1,286 +1,369 @@
 # Phase 8: Video, Voice & Meetings - Research
 
-**Researched:** 2026-02-10
-**Domain:** LiveKit WebRTC video/voice, meeting management, presence system, emoji reactions
-**Confidence:** HIGH (LiveKit official docs verified, codebase patterns confirmed, architecture patterns from prior phases applied)
+**Researched:** 2026-02-11
+**Domain:** LiveKit video/voice, meeting lifecycle management, presence system, emoji reactions
+**Confidence:** HIGH (LiveKit SDK well-documented, patterns match existing codebase)
 
 ## Summary
 
-Phase 8 integrates LiveKit (self-hostable WebRTC SFU) into the KMU Hub for 1:1 and group video/audio calls, screen sharing, and DSGVO-compliant recording. Additionally, it builds meeting management (scheduling, lobby, notes, action items), adds emoji reactions to chat messages, and implements user presence/online status across the entire application.
+Phase 8 covers five major domains: (1) LiveKit-powered video/voice calls with room management, (2) meeting lifecycle with notes and action items, (3) DSGVO-compliant recording via LiveKit Egress, (4) presence/online-status via Redis + WebSocket, and (5) emoji reactions on chat messages. The existing codebase already has LiveKit token generation (`internal/work/livekit/service.go`), WebSocket hub (`internal/server/websocket.go`), and the `livekit/protocol` v1.44.0 dependency.
 
-The architecture approach is: (1) a new **Video microservice** (`cmd/video/main.go`) that wraps LiveKit server-sdk-go for room management, token generation, recording egress, and meeting CRUD; (2) extensions to the existing **Chat service** for emoji reactions; (3) a **presence system** built on Redis + WebSocket hub for real-time online/away/offline/in-a-call status; (4) a **LiveKit server** added to docker-compose as a self-hosted dependency alongside a **LiveKit Egress** service for recording; and (5) React frontend components using `@livekit/components-react` for the video UI with custom meeting management views.
+The standard approach uses `livekit/server-sdk-go/v2` for server-side room management and egress control, `@livekit/components-react` with `livekit-client` for the frontend, a custom egress template for DSGVO selective recording, Redis sorted sets for presence heartbeats, and a new `message_reactions` table for emoji reactions.
 
-The most complex aspects are: (1) LiveKit Egress configuration for recording to MinIO with DSGVO consent tracking, (2) Electron-specific screen sharing requiring `desktopCapturer` API instead of standard `getDisplayMedia`, (3) presence system design that scales and integrates with the existing WebSocket hub, and (4) meeting management linking to calendar events from Phase 7 and CRM entities.
+**Primary recommendation:** Extend the existing Work service (`:50055`) with a new `video.proto` for call/meeting RPCs, add `@livekit/components-react` to the desktop app, deploy LiveKit server + egress as Docker services, and use Redis for presence state with WebSocket broadcast.
 
-**Primary recommendation:** Create a dedicated Video microservice (gRPC on :50056) that owns room lifecycle, token generation, recording management, and meeting records. Use Redis sorted sets with TTL for presence. Extend the Chat proto with emoji reaction RPCs. Use `@livekit/components-react` PreJoin + VideoConference as the base UI, customized with KMU Hub styling. Deploy livekit-server and livekit-egress as Docker containers in docker-compose.
+<user_constraints>
+## User Constraints (from CONTEXT.md)
+
+### Locked Decisions
+
+#### Call Experience & Controls
+- **Video layout:** Gallery + Speaker view, switchable. Default Gallery-Grid (all equal size), click on participant or active speaker switches to Speaker-View (1 large + rest as thumbnails)
+- **Floating call bar:** Compact floating mini-bar (top or bottom) with Mute/Hangup/Camera-Toggle + duration timer when user navigates away. Call continues in background
+- **Incoming call:** Fullscreen overlay over the entire screen (like phone app) with avatar, name, accept/decline buttons
+- **Screen sharing:** Shared screen replaces the speaker area (main area), participant video thumbnails move to a sidebar
+
+#### Meeting Lifecycle
+- **Pre-meeting lobby:** Camera/microphone preview + check, shared meeting documents and agenda for reading before start
+- **Meeting notes:** During the meeting there is a notes panel. After end, an automatic summary draft is created, organizer reviews and finalizes
+- **Action items -> Tasks:** Batch conversion after the meeting: "Create all action items as tasks" button, creates tasks in one batch in the selected project
+- **Recurring meetings:** When opening a recurring meeting, shows a "Last Notes" panel with the summary from the previous meeting
+
+#### DSGVO Recording Consent
+- **Consent flow:** All participants are asked (Accept/Decline popup). Participants who accept are fully recorded (video + audio). Participants who decline are blurred (video) and muted (audio) in the recording -- selective consent
+- **Storage:** Recording appears in Meeting-Detail-Panel AND in central file manager (Phase 11) under a meeting folder. Only meeting participants have access
+- **Retention:** 30-day retention, then automatic deletion. DSGVO-compliant as priority
+
+#### Presence & Online-Status
+- **Detection:** Automatic based on activity + manually overridable. Away-timeout is admin-configurable (not hardcoded) -- maximally flexible for the customer
+- **Status levels:** 5 levels: Online (green), Away (yellow), Do Not Disturb (red), In Call (purple/blue, automatically set), Offline (gray)
+- **"In Call" status:** Automatically set when user is in an active call
+- **Visibility:** Presence dots only in chat participant lists/DMs and team overview -- not in CRM or calendar
+
+### Claude's Discretion
+- LiveKit SDK integration patterns (room management, token generation, track handling)
+- Exact floating bar positioning and animation
+- Summary auto-draft algorithm from meeting notes
+- Presence heartbeat interval and Redis data structure
+- Recording blur/mute technical approach (LiveKit Egress capabilities vs post-processing)
+- Emoji reaction picker component choice and animation style
+
+### Deferred Ideas (OUT OF SCOPE)
+- Whiteboard during calls (D8 in Darien's design roadmap, large scope) -- future phase
+- Meeting transcription (AI-powered) -- future phase or v2
+- Virtual background / background blur for user's own camera -- future enhancement
+- Meeting room booking from meeting form (already exists in Calendar Phase 7, just needs linking)
+</user_constraints>
 
 ## Standard Stack
 
-### Core (Backend - New Video Service + Chat Extension)
+### Core - Backend (Go)
 
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| github.com/livekit/server-sdk-go/v2 | v2.x (latest) | Room management, token generation, egress control | Official LiveKit Go SDK |
-| github.com/livekit/protocol | latest | LiveKit protobuf types, auth package for JWT token generation | Required companion to server-sdk-go |
-| google.golang.org/grpc | 1.78.0 | gRPC service for video/meeting domain | Already in use |
-| github.com/jackc/pgx/v5 | 5.8.0 | PostgreSQL for meeting records, reactions, recordings | Already in use |
-| github.com/redis/go-redis/v9 | 9.17.3 | Presence system (sorted sets with heartbeat TTL) | Already in use |
-| github.com/google/uuid | 1.6.0 | UUIDs for meetings, recordings, reactions | Already in use |
-| log/slog | stdlib | Structured logging | Already in use |
+| `livekit/server-sdk-go/v2` | latest | Room management, egress control, webhook validation | Official LiveKit Go server SDK, required for RoomServiceClient and EgressClient |
+| `livekit/protocol` | v1.44.0 (already installed) | Protocol types, auth token generation | Already in go.mod, provides `livekit.CreateRoomRequest`, `auth.VideoGrant`, webhook types |
+| `livekit/protocol/webhook` | (part of protocol) | Webhook event receiver and validation | Built-in webhook handler with JWT signature verification |
+| `jackc/pgx/v5` | v5.8.0 (already installed) | Database access for meetings, reactions, recordings | Standard PostgreSQL driver, already in use |
+| `redis/go-redis/v9` | v9.17.3 (already installed) | Presence heartbeat storage and pub/sub | Already in use for rate limiting, extend to presence |
 
-### Core (Frontend - React/TypeScript in Electron)
+### Core - Frontend (Electron/React)
 
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| @livekit/components-react | ^2.9.x | Pre-built video conference UI components (VideoConference, PreJoin, ControlBar, GridLayout) | Official LiveKit React components |
-| @livekit/components-styles | ^2.x | Default styles for LiveKit components (customizable with CSS variables) | Required companion to components-react |
-| livekit-client | ^2.17.x | Low-level LiveKit client SDK (Room, Track, Participant APIs) | Required peer dependency |
-| react | ^19.0.0 | UI framework | Already in use |
-| @tanstack/react-query | ^5.x | Server state for meetings, recordings, presence | Already in use |
-| zustand | ^5.x | Client state for call UI, presence cache | Already in use |
-| @radix-ui/react-popover | installed | Emoji picker popover, meeting action popovers | Already in use |
-| @radix-ui/react-dialog | installed | Meeting form dialog, recording consent dialog | Already in use |
-| lucide-react | ^0.470 | Icons (Video, Phone, PhoneOff, Monitor, Mic, MicOff, Smile) | Already in use |
+| `livekit-client` | latest | Core LiveKit client SDK | Required peer dependency, handles WebRTC connections |
+| `@livekit/components-react` | ~2.9.x | Pre-built React components for video conferencing | Official React SDK: VideoConference, GridLayout, FocusLayout, ControlBar, PreJoin |
+| `@livekit/components-styles` | latest | Default styles for LiveKit components | Peer dependency of components-react |
+| `frimousse` | latest | Emoji picker | Lightweight (~0 deps), unstyled, composable, works with Radix UI + Tailwind (already in stack) |
 
-### Infrastructure (New Docker Services)
+### Core - Infrastructure
 
-| Service | Image | Purpose | Why Needed |
-|---------|-------|---------|------------|
-| livekit-server | livekit/livekit-server:v1.9 | WebRTC SFU server for video/audio routing | Core video infrastructure |
-| livekit-egress | livekit/egress | Recording/export service (headless Chrome + GStreamer) | Call recording to MinIO |
+| Service | Version | Purpose | Why Standard |
+|---------|---------|---------|--------------|
+| `livekit/livekit-server` | latest | WebRTC SFU server | Self-hostable, EU-deployable, the core of the video platform |
+| `livekit/egress` | latest | Recording service | Handles room composite recording with custom templates, outputs to S3/MinIO |
 
 ### Supporting
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| emoji-mart (or similar) | latest | Emoji picker component for reactions | When building the reaction UI |
+| `coder/websocket` | v1.8.14 (already installed) | WebSocket for presence updates | Already used by chat WebSocket hub, extend for presence |
+| `minio/minio-go/v7` | v7.0.98 (already installed) | S3-compatible file storage | Already used for chat files, reuse for recordings |
 
 ### Alternatives Considered
 
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| LiveKit (self-hosted) | Twilio, Vonage, Daily.co | LiveKit is open-source, EU-hostable, no per-minute fees; alternatives are SaaS-only with US data processing |
-| New Video microservice | Extend Chat or Work service | Video has distinct lifecycle (rooms, recordings, egress), separate concerns warrant own service. Meeting records could live in Work but room management needs dedicated ownership |
-| Redis for presence | PostgreSQL polling | Redis sorted sets give O(log N) updates + O(1) TTL expiry; PostgreSQL polling is too slow for real-time presence |
-| @livekit/components-react | Custom WebRTC UI from scratch | Components provide grid layout, participant tiles, device selection, screen share controls out of the box. Customizable via CSS variables + composition |
+| `frimousse` | `emoji-picker-react` (4.18.x) | emoji-picker-react is 2.59MB vs frimousse ~0 deps; frimousse is unstyled and matches Radix UI + Tailwind stack better |
+| `@livekit/components-react` prefabs | Custom components with `livekit-client` hooks | Prefabs (VideoConference, PreJoin) save massive time; customize via composition not from scratch |
+| Redis for presence | PostgreSQL for presence | Redis is orders of magnitude faster for heartbeat writes (SET with TTL), presence is ephemeral data not suited for PostgreSQL |
 
-### Installation
-
+**Installation (Backend):**
 ```bash
-# Backend (new Go dependencies)
 cd backend
 go get github.com/livekit/server-sdk-go/v2
-go get github.com/livekit/protocol
+```
 
-# Frontend (new JS dependencies)
+**Installation (Frontend):**
+```bash
 cd desktop
-npm install @livekit/components-react @livekit/components-styles livekit-client
+npm install livekit-client @livekit/components-react @livekit/components-styles frimousse
 ```
 
 ## Architecture Patterns
 
-### Recommended Backend Structure (New Video Service)
+### Recommended Project Structure
 
 ```
 backend/
-  cmd/
-    video/
-      main.go                    # Video service entry point
-  internal/
-    video/
-      room/
-        errors.go
-        repository.go            # Call/room log persistence
-        postgres_repository.go
-        service.go               # LiveKit room create/delete, token generation
-        service_test.go
-      recording/
-        errors.go
-        repository.go            # Recording metadata persistence
-        postgres_repository.go
-        service.go               # Egress start/stop, consent tracking, MinIO config
-        service_test.go
-      meeting/
-        errors.go
-        repository.go            # Meeting CRUD, notes, action items
-        postgres_repository.go
-        service.go               # Meeting lifecycle, calendar linking
-        service_test.go
-      presence/
-        errors.go
-        service.go               # Redis presence updates, heartbeat processing
-        service_test.go
-    chat/
-      reaction/                  # NEW: extends Chat service
-        errors.go
-        repository.go            # Reaction CRUD
-        postgres_repository.go
-        service.go               # Add/remove reactions, aggregate counts
-        service_test.go
-  proto/
-    video/
-      v1/
-        video.proto              # New proto for video/meeting RPCs
-    chat/
-      v1/
-        chat.proto               # Extended with reaction RPCs
-  internal/
-    gateway/
-      route_video.go             # HTTP routes for video/meeting endpoints
-    models/
-      call.go                    # Call, CallParticipant
-      recording.go               # Recording, RecordingConsent
-      meeting.go                 # Meeting, MeetingNote, MeetingActionItem
-      reaction.go                # MessageReaction
-      presence.go                # UserPresence
-  Dockerfile.video               # Docker build for video service
+  proto/video/v1/video.proto              # New proto for calls, meetings, recordings
+  internal/work/video/
+    service.go                            # Call session management
+    repository.go                         # Repository interface
+    postgres_repository.go                # PostgreSQL implementation
+  internal/work/meeting/
+    service.go                            # Meeting lifecycle (notes, action items, summaries)
+    repository.go
+    postgres_repository.go
+  internal/work/recording/
+    service.go                            # Egress management, consent tracking, retention
+    repository.go
+    postgres_repository.go
+  internal/work/presence/
+    service.go                            # Presence heartbeat, status management
+    redis_store.go                        # Redis-backed presence storage
+  internal/work/reaction/
+    service.go                            # Emoji reactions on messages
+    repository.go
+    postgres_repository.go
+  internal/gateway/
+    route_video.go                        # HTTP routes for video/meeting/recording
+  internal/server/
+    video_grpc.go                         # gRPC handler for VideoService
+  cmd/work/main.go                        # Extended to register VideoService
+
+desktop/
+  src/renderer/src/features/meetings/     # Meeting pages (Darien's components)
+  src/renderer/src/features/video/        # Video call components (LiveKit integration)
+  src/renderer/src/features/presence/     # Presence indicators
+  src/renderer/src/hooks/useLiveKit.ts    # LiveKit connection hooks
+  src/renderer/src/hooks/usePresence.ts   # Presence WebSocket hooks
 ```
 
-### Recommended Frontend Structure
+### Pattern 1: VideoService in Work Binary (Service Consolidation)
 
-```
-desktop/src/renderer/src/
-  modules/
-    video/
-      VideoCallView.tsx           # Full-screen call UI (wraps LiveKit components)
-      PreJoinScreen.tsx           # Camera/mic preview before joining
-      CallControls.tsx            # Mute, camera, screen share, record, hang up
-      ParticipantGrid.tsx         # Gallery view for group calls
-      ScreenShareView.tsx         # Full-screen shared content + pip participants
-      RecordingConsentDialog.tsx  # DSGVO consent before recording starts
-      CallNotification.tsx        # Incoming call notification overlay
-      FloatingCallBar.tsx         # Minimized call indicator when navigating away
-    meetings/
-      MeetingScheduleForm.tsx     # Create/edit meeting (links to calendar)
-      MeetingLobby.tsx            # Pre-meeting view with agenda, attendees, docs
-      MeetingNotesEditor.tsx      # Shared/private notes during meeting
-      MeetingActionItems.tsx      # Action items list with assignees
-      MeetingSummary.tsx          # Post-meeting summary card
-      MeetingListPage.tsx         # All meetings list with filters
-    chat/
-      reactions/
-        ReactionPicker.tsx        # Emoji picker popover (on message hover)
-        ReactionBadge.tsx         # Individual reaction badge (+count)
-        ReactionBar.tsx           # Row of reactions under a message
-    presence/
-      PresenceIndicator.tsx       # Dot indicator (green/yellow/grey/red)
-      PresenceProvider.tsx        # Context provider managing presence state
-      usePresence.ts              # Hook for reading user presence
-  api/
-    hooks/
-      useCalls.ts                 # TanStack Query hooks for call operations
-      useMeetings.ts              # Meeting CRUD hooks
-      useRecordings.ts            # Recording management hooks
-      useReactions.ts             # Reaction CRUD hooks
-      usePresence.ts              # Presence subscription hooks
-  stores/
-    call.ts                       # Zustand: active call state, minimized state
-    presence.ts                   # Zustand: presence cache for all users
-```
-
-### Pattern 1: LiveKit Room Creation and Token Generation (Backend)
-
-**What:** Server creates LiveKit rooms and generates join tokens for participants.
-**When to use:** Any call initiation (1:1, group, from chat, from meeting).
-
+**What:** Register a new `VideoService` gRPC server alongside `WorkService` and `CalendarService` in the same `cmd/work/main.go` binary (port `:50055`).
+**When to use:** This follows the existing consolidation decision -- Work service already hosts Calendar, adding Video/Meeting maintains the pattern.
+**Example:**
 ```go
-// internal/video/room/service.go
-// Source: https://github.com/livekit/server-sdk-go (official README)
+// Source: Existing pattern from cmd/work/main.go
+videoGRPC := server.NewVideoGRPCServer(videoService, meetingService, recordingService, presenceService, reactionService)
+videov1.RegisterVideoServiceServer(grpcServer, videoGRPC)
+```
+
+### Pattern 2: LiveKit Room Management via Server SDK
+
+**What:** Use `livekit/server-sdk-go/v2` RoomServiceClient to create/manage rooms server-side, while clients connect via tokens.
+**When to use:** For all call initiation, room creation, and participant management.
+**Example:**
+```go
+// Source: https://docs.livekit.io/home/server/managing-rooms/
+import lksdk "github.com/livekit/server-sdk-go/v2"
+import "github.com/livekit/protocol/livekit"
+
+roomClient := lksdk.NewRoomServiceClient(s.wsURL, s.apiKey, s.apiSecret)
+
+room, err := roomClient.CreateRoom(ctx, &livekit.CreateRoomRequest{
+    Name:            roomName,
+    EmptyTimeout:    10 * 60, // 10 minutes
+    MaxParticipants: 25,      // matches VID-02 requirement
+})
+```
+
+### Pattern 3: LiveKit Webhook Handler for Room Events
+
+**What:** Receive LiveKit server webhooks for room lifecycle events (room_started, room_finished, participant_joined, participant_left) to update presence status and meeting records.
+**When to use:** For automatic "In Call" presence detection and meeting duration tracking.
+**Example:**
+```go
+// Source: https://docs.livekit.io/home/server/webhooks/
 import (
-    lksdk "github.com/livekit/server-sdk-go/v2"
     "github.com/livekit/protocol/auth"
-    "github.com/livekit/protocol/livekit"
+    "github.com/livekit/protocol/webhook"
 )
 
-type Service struct {
-    roomClient *lksdk.RoomServiceClient
-    apiKey     string
-    apiSecret  string
-    wsURL      string
-    repo       Repository
-}
-
-func NewService(host, apiKey, apiSecret string, repo Repository) *Service {
-    return &Service{
-        roomClient: lksdk.NewRoomServiceClient(host, apiKey, apiSecret),
-        apiKey:     apiKey,
-        apiSecret:  apiSecret,
-        wsURL:      host,
-        repo:       repo,
-    }
-}
-
-func (s *Service) CreateRoom(ctx context.Context, roomName string, maxParticipants uint32) (*livekit.Room, error) {
-    room, err := s.roomClient.CreateRoom(ctx, &livekit.CreateRoomRequest{
-        Name:            roomName,
-        MaxParticipants: maxParticipants,
-        EmptyTimeout:    300, // 5 min timeout when empty
-    })
+func (h *WebhookHandler) HandleLiveKitWebhook(w http.ResponseWriter, r *http.Request) {
+    authProvider := auth.NewSimpleKeyProvider(h.apiKey, h.apiSecret)
+    event, err := webhook.ReceiveWebhookEvent(r, authProvider)
     if err != nil {
-        return nil, fmt.Errorf("create livekit room: %w", err)
+        respondError(w, http.StatusUnauthorized, err)
+        return
     }
-    return room, nil
-}
-
-func (s *Service) GenerateJoinToken(roomName, userID, userName string) (string, error) {
-    at := auth.NewAccessToken(s.apiKey, s.apiSecret)
-    grant := &auth.VideoGrant{
-        RoomJoin: true,
-        Room:     roomName,
+    switch event.GetEvent() {
+    case "participant_joined":
+        h.presenceService.SetInCall(ctx, event.GetParticipant().GetIdentity())
+    case "participant_left":
+        h.presenceService.ClearInCall(ctx, event.GetParticipant().GetIdentity())
+    case "room_finished":
+        h.meetingService.EndMeeting(ctx, event.GetRoom().GetName())
     }
-    at.SetVideoGrant(grant).
-        SetIdentity(userID).
-        SetName(userName).
-        SetValidFor(4 * time.Hour)
-    return at.ToJWT()
-}
-
-// Room naming: "call-{initiatorID[:8]}-{timestamp}" for uniqueness
-func CallRoomName(initiatorID uuid.UUID) string {
-    return fmt.Sprintf("call-%s-%d", initiatorID.String()[:8], time.Now().Unix())
 }
 ```
 
-### Pattern 2: Recording with DSGVO Consent (Backend)
+### Pattern 4: Redis Presence with Heartbeat TTL
 
-**What:** Start/stop recordings only after all participants consent, store to MinIO.
-**When to use:** When any participant requests recording.
+**What:** Store presence as Redis keys with TTL. Client sends heartbeat via WebSocket every 30 seconds. Server sets `presence:{userId}` with 90-second TTL. If heartbeats stop, key expires and user is offline.
+**When to use:** For all presence tracking (online/away/offline/DND/in-call).
+**Recommended data structure:**
+```
+# Redis keys
+presence:{userId}          -> JSON: {"status":"online","manual":false,"updated_at":"..."}
+presence:away_timeout      -> int (seconds), admin-configurable, default 300
+presence:subscribers:{userId} -> SET of userIDs subscribed to this user's presence changes
+```
+**Heartbeat interval:** 30 seconds (client-side), 90-second TTL (server-side, 3x heartbeat).
+**Away detection:** Server tracks last activity timestamp. If `now - last_activity > away_timeout` and no manual override, status becomes "away".
 
+### Pattern 5: Egress with Custom Template for DSGVO Selective Recording
+
+**What:** Use LiveKit RoomCompositeEgress with a custom recording template that reads participant consent metadata and applies CSS blur filter + audio muting for non-consenting participants.
+**When to use:** For all meeting recordings (VID-07).
+**How it works:**
+1. Before recording starts, each participant sets metadata on their LiveKit participant object: `{"recording_consent": true|false}`
+2. Custom egress template (a React app served by the egress service) reads participant metadata
+3. For `recording_consent: false`, the template applies `filter: blur(20px)` on the video tile and mutes the audio element
+4. Egress renders the composite with consenting participants clear and non-consenting participants blurred/muted
+5. Recording is saved to MinIO via S3-compatible upload
+
+### Pattern 6: Emoji Reactions as Database + WebSocket Broadcast
+
+**What:** Store reactions in `message_reactions` table, broadcast via WebSocket for real-time updates.
+**When to use:** For CHAT-01 emoji reactions.
+**Schema pattern:**
+```sql
+CREATE TABLE message_reactions (
+    message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id),
+    emoji TEXT NOT NULL,          -- Unicode emoji character
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (message_id, user_id, emoji)
+);
+CREATE INDEX idx_message_reactions_message ON message_reactions(message_id);
+```
+
+### Anti-Patterns to Avoid
+
+- **Polling for presence:** Never poll the server for presence status. Use WebSocket push with Redis pub/sub for real-time updates.
+- **Storing recordings in PostgreSQL:** Recording files go to MinIO. Only metadata (URL, duration, consent records, retention date) goes to PostgreSQL.
+- **Running LiveKit in the same process:** LiveKit server is a separate Docker container. Do NOT embed WebRTC in the Go backend.
+- **Global emoji picker state:** Emoji picker should be per-message, not a global singleton. Use Radix Popover per message.
+- **Hardcoded away timeout:** Away timeout MUST be admin-configurable via system settings table, not a constant.
+
+## Don't Hand-Roll
+
+| Problem | Don't Build | Use Instead | Why |
+|---------|-------------|-------------|-----|
+| Video conferencing UI | Custom WebRTC components | `@livekit/components-react` VideoConference + GridLayout + FocusLayout | WebRTC layout, track management, reconnection are extremely complex |
+| WebRTC SFU server | Custom Go WebRTC server | `livekit/livekit-server` Docker image | SFU topology, TURN/STUN, bandwidth estimation = years of work |
+| Recording compositor | Custom ffmpeg pipeline | LiveKit Egress service with custom template | Chrome-based compositing handles layout, encoding, S3 upload automatically |
+| Emoji data/rendering | Custom emoji database | `frimousse` (picker) + native Unicode emoji rendering | Emoji data changes per Unicode version, cross-platform rendering is a minefield |
+| Screen sharing capture | Custom Electron screen capture | `livekit-client` built-in screen share via `localParticipant.setScreenShareEnabled(true)` | Electron's desktopCapturer integration is handled by livekit-client |
+| Token generation/validation | Custom JWT for LiveKit | `livekit/protocol/auth.NewAccessToken()` | Already using this in `internal/work/livekit/service.go` |
+
+**Key insight:** LiveKit provides the entire video infrastructure stack (SFU, client SDK, recording, webhooks). The backend's job is orchestration (room lifecycle, consent, meeting records), not media handling.
+
+## Common Pitfalls
+
+### Pitfall 1: LiveKit Egress Resource Requirements
+**What goes wrong:** Egress service crashes or produces low-quality recordings.
+**Why it happens:** RoomCompositeEgress runs headless Chrome and needs 4 CPUs + 4GB RAM minimum. Under-provisioning causes Chrome to struggle.
+**How to avoid:** Allocate dedicated CPU/memory in docker-compose. In development, limit to 1 concurrent egress. In production, use Kubernetes with egress autoscaling.
+**Warning signs:** Egress jobs timing out, choppy recordings, high CPU on egress container.
+
+### Pitfall 2: WebSocket Presence Thundering Herd
+**What goes wrong:** When many users come online simultaneously (e.g., morning login), a flood of presence updates overwhelms the WebSocket hub.
+**Why it happens:** Each user's status change broadcasts to all subscribers.
+**How to avoid:** Batch presence updates (aggregate changes over 2-3 second windows before broadcasting). Use Redis pub/sub for cross-instance propagation.
+**Warning signs:** WebSocket message queue backing up, gateway memory spike during peak hours.
+
+### Pitfall 3: DSGVO Recording Consent Race Condition
+**What goes wrong:** Recording starts before all participants have responded to consent popup.
+**Why it happens:** Egress is started immediately when organizer clicks "Record" without waiting for all consent responses.
+**How to avoid:** Recording can ONLY start after all current participants have responded. New joiners get the consent popup; recording of their tracks starts only after they respond.
+**Warning signs:** Participants recorded without consent (legal liability).
+
+### Pitfall 4: Stale Presence After Crash
+**What goes wrong:** User shows as "Online" even though their app crashed.
+**Why it happens:** No heartbeat = no TTL renewal, but TTL may be long.
+**How to avoid:** 30-second heartbeat with 90-second TTL means maximum 90 seconds of stale presence. WebSocket disconnect handler immediately removes presence. LiveKit webhook `participant_left` clears "In Call" status.
+**Warning signs:** Ghost users showing as online in chat member lists.
+
+### Pitfall 5: Meeting Notes Lost on Disconnect
+**What goes wrong:** Meeting notes typed during a call are lost when the WebSocket disconnects.
+**Why it happens:** Notes stored only in client state, not persisted until "save".
+**How to avoid:** Auto-save meeting notes every 30 seconds via API call. Store as draft in meeting_notes table. Optimistic UI with conflict resolution on reconnect.
+**Warning signs:** Users reporting lost notes after network issues.
+
+### Pitfall 6: LiveKit Server Configuration for Self-Hosting
+**What goes wrong:** Video calls fail to connect or have poor quality.
+**Why it happens:** LiveKit needs proper TURN/STUN configuration for NAT traversal, especially in corporate networks.
+**How to avoid:** Configure LiveKit with embedded TURN server for development. For production, use LiveKit's built-in TURN with proper TLS certificates. Test behind NAT/firewall.
+**Warning signs:** Calls failing to connect, one-way audio, high packet loss.
+
+### Pitfall 7: Emoji Reaction Count Consistency
+**What goes wrong:** Reaction counts become inconsistent between database and UI.
+**Why it happens:** Optimistic UI updates without proper conflict resolution.
+**How to avoid:** Use the composite primary key `(message_id, user_id, emoji)` to prevent duplicates. Toggle semantics: if reaction exists, remove it; if not, add it. Return the full reaction list after each toggle for consistency.
+**Warning signs:** Duplicate reactions from same user, counts not matching.
+
+## Code Examples
+
+### LiveKit Room Creation (Go Backend)
 ```go
-// internal/video/recording/service.go
-// Source: https://docs.livekit.io/home/egress/api/
-import (
-    lksdk "github.com/livekit/server-sdk-go/v2"
-    "github.com/livekit/protocol/livekit"
-)
+// Source: https://docs.livekit.io/home/server/managing-rooms/
+import lksdk "github.com/livekit/server-sdk-go/v2"
+import "github.com/livekit/protocol/livekit"
 
-type Service struct {
+type VideoService struct {
+    roomClient  *lksdk.RoomServiceClient
     egressClient *lksdk.EgressClient
-    repo         Repository
-    minioCfg     MinIOConfig
+    // ...
 }
 
-type MinIOConfig struct {
-    Endpoint  string
-    AccessKey string
-    SecretKey string
-    Bucket    string
+func NewVideoService(apiKey, apiSecret, wsURL string) *VideoService {
+    return &VideoService{
+        roomClient:   lksdk.NewRoomServiceClient(wsURL, apiKey, apiSecret),
+        egressClient: lksdk.NewEgressClient(wsURL, apiKey, apiSecret),
+    }
 }
 
-func (s *Service) StartRecording(ctx context.Context, roomName string, callID uuid.UUID) (*livekit.EgressInfo, error) {
+func (s *VideoService) CreateCallRoom(ctx context.Context, callID string, maxParticipants int) (*livekit.Room, error) {
+    return s.roomClient.CreateRoom(ctx, &livekit.CreateRoomRequest{
+        Name:            "call-" + callID[:8],
+        EmptyTimeout:    10 * 60,
+        MaxParticipants: uint32(maxParticipants),
+    })
+}
+```
+
+### LiveKit Egress to MinIO (Go Backend)
+```go
+// Source: https://docs.livekit.io/home/egress/examples/
+func (s *RecordingService) StartRecording(ctx context.Context, roomName string) (*livekit.EgressInfo, error) {
     req := &livekit.RoomCompositeEgressRequest{
-        RoomName: roomName,
-        Layout:   "grid",
+        RoomName:      roomName,
+        Layout:        "speaker",
+        CustomBaseUrl: s.customTemplateURL, // Custom DSGVO template
         FileOutputs: []*livekit.EncodedFileOutput{
             {
                 FileType: livekit.EncodedFileType_MP4,
-                Filepath: fmt.Sprintf("recordings/%s/%s.mp4", callID, time.Now().Format("2006-01-02")),
+                Filepath: fmt.Sprintf("recordings/%s/{room_name}-{time}.mp4", roomName),
                 Output: &livekit.EncodedFileOutput_S3{
                     S3: &livekit.S3Upload{
-                        AccessKey:      s.minioCfg.AccessKey,
-                        Secret:         s.minioCfg.SecretKey,
-                        Bucket:         s.minioCfg.Bucket,
-                        Endpoint:       s.minioCfg.Endpoint,
+                        AccessKey:      s.minioAccessKey,
+                        Secret:         s.minioSecret,
+                        Endpoint:       s.minioEndpoint,
+                        Bucket:         s.minioBucket,
                         ForcePathStyle: true, // Required for MinIO
                     },
                 },
@@ -289,662 +372,189 @@ func (s *Service) StartRecording(ctx context.Context, roomName string, callID uu
     }
     return s.egressClient.StartRoomCompositeEgress(ctx, req)
 }
+```
 
-func (s *Service) StopRecording(ctx context.Context, egressID string) (*livekit.EgressInfo, error) {
-    return s.egressClient.StopEgress(ctx, &livekit.StopEgressRequest{
-        EgressId: egressID,
+### Presence Redis Store (Go Backend)
+```go
+// Recommended Redis data structure for presence
+func (s *PresenceStore) SetPresence(ctx context.Context, userID, status string, manual bool) error {
+    data, _ := json.Marshal(map[string]interface{}{
+        "status":  status,
+        "manual":  manual,
+        "updated": time.Now().Unix(),
     })
-}
-```
-
-### Pattern 3: Presence via Redis Sorted Sets + WebSocket
-
-**What:** Track user online/away/offline/in-a-call status using Redis heartbeats.
-**When to use:** Presence indicator on every user avatar across the app.
-
-```go
-// internal/video/presence/service.go
-// Source: systemdesign.one/real-time-presence-platform-system-design (pattern), Redis docs (implementation)
-type Status string
-
-const (
-    StatusOnline  Status = "online"
-    StatusAway    Status = "away"
-    StatusOffline Status = "offline"
-    StatusInCall  Status = "in_call"
-)
-
-const (
-    presenceKey     = "presence:heartbeats"
-    presenceTimeout = 60 * time.Second  // Offline after 60s without heartbeat
-    awayTimeout     = 300 * time.Second // Away after 5 min idle
-)
-
-type Service struct {
-    redis *redis.Client
+    // 90-second TTL, renewed every 30 seconds by heartbeat
+    return s.redis.Set(ctx, "presence:"+userID, data, 90*time.Second).Err()
 }
 
-func (s *Service) Heartbeat(ctx context.Context, userID string) error {
-    return s.redis.ZAdd(ctx, presenceKey, redis.Z{
-        Score:  float64(time.Now().Unix()),
-        Member: userID,
-    }).Err()
-}
-
-func (s *Service) SetInCall(ctx context.Context, userID string, inCall bool) error {
-    key := fmt.Sprintf("presence:incall:%s", userID)
-    if inCall {
-        return s.redis.Set(ctx, key, "1", 4*time.Hour).Err()
-    }
-    return s.redis.Del(ctx, key).Err()
-}
-
-func (s *Service) GetBulkStatus(ctx context.Context, userIDs []string) (map[string]Status, error) {
-    result := make(map[string]Status, len(userIDs))
+func (s *PresenceStore) GetPresence(ctx context.Context, userIDs []string) (map[string]string, error) {
     pipe := s.redis.Pipeline()
-    cmds := make(map[string]*redis.FloatCmd, len(userIDs))
-    inCallCmds := make(map[string]*redis.IntCmd, len(userIDs))
-
-    for _, uid := range userIDs {
-        cmds[uid] = pipe.ZScore(ctx, presenceKey, uid)
-        inCallCmds[uid] = pipe.Exists(ctx, fmt.Sprintf("presence:incall:%s", uid))
+    cmds := make(map[string]*redis.StringCmd, len(userIDs))
+    for _, id := range userIDs {
+        cmds[id] = pipe.Get(ctx, "presence:"+id)
     }
-    pipe.Exec(ctx)
+    _, _ = pipe.Exec(ctx)
 
-    for _, uid := range userIDs {
-        if inCallCmds[uid].Val() > 0 {
-            result[uid] = StatusInCall
-            continue
-        }
-        score, err := cmds[uid].Result()
+    result := make(map[string]string, len(userIDs))
+    for id, cmd := range cmds {
+        val, err := cmd.Result()
         if err == redis.Nil {
-            result[uid] = StatusOffline
-            continue
-        }
-        lastSeen := time.Unix(int64(score), 0)
-        elapsed := time.Since(lastSeen)
-        switch {
-        case elapsed > presenceTimeout:
-            result[uid] = StatusOffline
-        case elapsed > awayTimeout:
-            result[uid] = StatusAway
-        default:
-            result[uid] = StatusOnline
-        }
-    }
-    return result, nil
-}
-```
-
-### Pattern 4: Emoji Reactions (Chat Service Extension)
-
-**What:** Add/remove emoji reactions on messages, aggregate counts.
-**When to use:** Any chat message.
-
-```go
-// internal/chat/reaction/service.go
-type ReactionSummary struct {
-    Emoji     string   `json:"emoji"`
-    Count     int      `json:"count"`
-    Users     []string `json:"users"`
-    MeReacted bool     `json:"me_reacted"`
-}
-
-func (s *Service) ToggleReaction(ctx context.Context, messageID, userID uuid.UUID, emoji string) (added bool, err error) {
-    existing, err := s.repo.GetReaction(ctx, messageID, userID, emoji)
-    if err != nil && !errors.Is(err, ErrReactionNotFound) {
-        return false, err
-    }
-    if existing != nil {
-        return false, s.repo.DeleteReaction(ctx, existing.ID)
-    }
-    _, err = s.repo.CreateReaction(ctx, messageID, userID, emoji)
-    return true, err
-}
-
-func (s *Service) GetReactionSummaries(ctx context.Context, messageID, currentUserID uuid.UUID) ([]ReactionSummary, error) {
-    reactions, err := s.repo.ListReactionsByMessage(ctx, messageID)
-    if err != nil {
-        return nil, err
-    }
-    // Group by emoji, count users, check if current user reacted
-    summaries := make(map[string]*ReactionSummary)
-    for _, r := range reactions {
-        if s, ok := summaries[r.Emoji]; ok {
-            s.Count++
-            s.Users = append(s.Users, r.UserID.String())
-            if r.UserID == currentUserID {
-                s.MeReacted = true
-            }
+            result[id] = "offline"
         } else {
-            summaries[r.Emoji] = &ReactionSummary{
-                Emoji:     r.Emoji,
-                Count:     1,
-                Users:     []string{r.UserID.String()},
-                MeReacted: r.UserID == currentUserID,
-            }
+            var p struct{ Status string `json:"status"` }
+            json.Unmarshal([]byte(val), &p)
+            result[id] = p.Status
         }
-    }
-    result := make([]ReactionSummary, 0, len(summaries))
-    for _, s := range summaries {
-        result = append(result, *s)
     }
     return result, nil
 }
 ```
 
-### Pattern 5: Electron Screen Sharing with desktopCapturer
-
-**What:** Electron does NOT support standard `getDisplayMedia`. Must use Electron's `desktopCapturer` API.
-**When to use:** Screen sharing in the Electron desktop app.
-
-```typescript
-// In Electron main process (preload)
-// Source: Electron documentation + LiveKit Electron integration guidance
-const { desktopCapturer } = require('electron');
-
-contextBridge.exposeInMainWorld('electronScreenShare', {
-  getSources: () => desktopCapturer.getSources({
-    types: ['window', 'screen'],
-    thumbnailSize: { width: 320, height: 180 },
-  }),
-});
-
-// In React renderer - custom screen share handler
-async function startScreenShare(room: Room) {
-  const sources = await window.electronScreenShare.getSources();
-  const selectedSource = await showScreenPickerDialog(sources);
-  if (!selectedSource) return;
-
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: false,
-    video: {
-      // @ts-ignore - Electron-specific constraint
-      mandatory: {
-        chromeMediaSource: 'desktop',
-        chromeMediaSourceId: selectedSource.id,
-      },
-    },
-  });
-
-  const track = stream.getVideoTracks()[0];
-  await room.localParticipant.publishTrack(track, {
-    name: 'screen_share',
-    source: Track.Source.ScreenShare,
-  });
-}
-```
-
-### Anti-Patterns to Avoid
-
-- **Running LiveKit in the same process as the Go backend**: LiveKit server is a separate binary. Deploy as a Docker container alongside your services.
-- **Storing presence in PostgreSQL**: Do NOT poll PostgreSQL for presence status. Use Redis with sorted sets.
-- **Starting recordings without consent tracking**: Do NOT start egress without verifying all participants have consented. Store consent records with timestamps for DSGVO audit trail.
-- **Using getDisplayMedia in Electron**: Electron does NOT support the standard browser `getDisplayMedia()` API. Use Electron's `desktopCapturer` API instead.
-- **Bundling call state in the Chat service**: Video calls have distinct lifecycle, recording, and participant management. Keep them in a separate Video service.
-- **Ignoring LiveKit room cleanup**: LiveKit rooms persist until empty_timeout. Track room lifecycle in your database and handle cleanup.
-
-## Don't Hand-Roll
-
-| Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
-| WebRTC SFU (media routing) | Custom WebRTC server | LiveKit server (livekit/livekit-server Docker image) | WebRTC SFU is extremely complex (ICE, DTLS, SRTP, simulcast, SVC). LiveKit handles all of this. |
-| Video conference UI | Custom video grid, device selector, controls | @livekit/components-react (VideoConference, PreJoin, ControlBar, GridLayout) | Layout algorithms, track subscription, reconnection handling are built-in |
-| Call recording/export | Custom ffmpeg pipeline | LiveKit Egress service (livekit/egress Docker image) | Headless Chrome compositor + GStreamer encoding with S3/MinIO output |
-| Access token generation | Custom JWT for video | github.com/livekit/protocol/auth | Token format must match LiveKit server expectations (VideoGrant structure) |
-| Presence heartbeat cleanup | Custom cron job | Redis sorted set TTL + ZRANGEBYSCORE cleanup | Redis handles expiry natively; sorted sets enable range queries |
-| Emoji picker UI | Custom emoji grid | emoji-mart or similar battle-tested picker | Unicode emoji rendering, search, categories, skin tone variants are complex |
-
-**Key insight:** Video/voice infrastructure is the most "don't hand-roll" domain in this entire project. LiveKit provides the SFU, recording, and UI components. The application code should focus on business logic: meeting management, consent tracking, presence, and integration with existing Chat/Calendar services.
-
-## Common Pitfalls
-
-### Pitfall 1: Electron Screen Sharing Incompatibility
-
-**What goes wrong:** Screen sharing silently fails or shows a blank stream in the Electron app.
-**Why it happens:** Electron's Chromium does not implement the standard `getDisplayMedia()` API. LiveKit's default screen share uses this API.
-**How to avoid:** Use Electron's `desktopCapturer` API to enumerate screens/windows, present a custom picker dialog, then create a MediaStream with `chromeMediaSource: 'desktop'` constraint. Publish the resulting track to LiveKit manually instead of using `setScreenShareEnabled(true)`.
-**Warning signs:** Black screen share, browser permission dialog not appearing, "NotAllowedError" in console.
-
-### Pitfall 2: LiveKit Egress Chrome Sandboxing in Docker
-
-**What goes wrong:** Recording fails to start, egress container crashes.
-**Why it happens:** Since egress v1.7.6, Chrome sandboxing requires `SYS_ADMIN` capability in Docker.
-**How to avoid:** Add `cap_add: [SYS_ADMIN]` to the egress service in docker-compose.yml. Allocate at least 4 CPUs and 4 GB RAM per egress instance.
-**Warning signs:** Egress container exits immediately, "Failed to move to new namespace" errors in logs.
-
-### Pitfall 3: DSGVO Recording Consent Race Condition
-
-**What goes wrong:** Recording starts before all participants have consented, violating GDPR/DSGVO.
-**Why it happens:** Consent is collected asynchronously via WebSocket. A participant might join after recording request but before consent check completes.
-**How to avoid:** Implement a consent state machine: (1) Recording requested -> (2) All current participants notified -> (3) Each participant responds (consent/deny) -> (4) If all consent, start egress -> (5) If any deny, cancel. New participants joining during an active recording must consent before their tracks are included. Store consent records with timestamps in `recording_consents` table.
-**Warning signs:** Recording starts with only partial consent, no audit trail for consent decisions.
-
-### Pitfall 4: Presence Heartbeat Flood
-
-**What goes wrong:** Hundreds of users sending heartbeats every 5 seconds overwhelm the gateway and Redis.
-**Why it happens:** Too-frequent heartbeats or heartbeats sent as HTTP requests instead of WebSocket messages.
-**How to avoid:** Send heartbeats via the existing WebSocket connection (not separate HTTP calls). Use 30-second intervals (not 5 seconds). Use Redis pipeline for bulk operations. Batch presence queries (get all user statuses for a channel in one call, not per-user).
-**Warning signs:** Redis CPU spikes, WebSocket message backlog, gateway memory growth.
-
-### Pitfall 5: LiveKit Room Persistence Mismatch
-
-**What goes wrong:** Application thinks a call is active but the LiveKit room was auto-deleted, or vice versa.
-**Why it happens:** LiveKit rooms have `empty_timeout` (auto-delete when empty). If the application DB says "call active" but LiveKit deleted the room, participants get errors.
-**How to avoid:** Use LiveKit webhooks or periodic `ListRooms` polling to sync room state. Set a reasonable `empty_timeout` (5 min). When a room is destroyed by LiveKit, update the call record in PostgreSQL. Treat LiveKit as the source of truth for room existence.
-**Warning signs:** "Room not found" errors when trying to join, stale "active call" indicators.
-
-### Pitfall 6: N+1 Presence Queries
-
-**What goes wrong:** Rendering a channel member list with presence indicators makes one Redis query per user.
-**Why it happens:** Presence is checked per-user instead of in bulk.
-**How to avoid:** Use Redis PIPELINE to fetch all member presence statuses in a single round-trip. Expose a bulk endpoint `GetBulkPresence(userIDs)`. Cache presence results on the frontend (zustand store, refresh every 30s).
-**Warning signs:** Channel view taking > 1 second to show presence, Redis connection pool exhaustion.
-
-### Pitfall 7: Missing Meeting-Calendar Link Consistency
-
-**What goes wrong:** A meeting is scheduled but no calendar event is created, or vice versa.
-**Why it happens:** Meeting and calendar are in different services (Video vs Work). No transactional guarantee across services.
-**How to avoid:** Use eventual consistency: meeting creation emits a pg_notify event, which the Work/Calendar service picks up to create the calendar event. Store the calendar_event_id on the meeting record. If calendar event creation fails, retry with backoff.
-**Warning signs:** Meetings without calendar events, orphaned calendar events after meeting deletion.
-
-## Code Examples
-
-### Database Migration: Calls and Recordings
-
-```sql
--- Migration: 000032_create_calls.up.sql
-
-CREATE TABLE calls (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    room_name VARCHAR(100) NOT NULL UNIQUE,
-    call_type VARCHAR(20) NOT NULL DEFAULT 'direct',
-    status VARCHAR(20) NOT NULL DEFAULT 'active',
-    initiated_by UUID NOT NULL REFERENCES users(id),
-    channel_id UUID REFERENCES channels(id) ON DELETE SET NULL,
-    meeting_id UUID,
-    max_participants INTEGER NOT NULL DEFAULT 25,
-    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    ended_at TIMESTAMPTZ,
-    duration_seconds INTEGER,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_calls_status ON calls (status) WHERE status = 'active';
-CREATE INDEX idx_calls_channel ON calls (channel_id) WHERE channel_id IS NOT NULL;
-CREATE INDEX idx_calls_initiated_by ON calls (initiated_by);
-
-CREATE TABLE call_participants (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    call_id UUID NOT NULL REFERENCES calls(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id),
-    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    left_at TIMESTAMPTZ,
-    had_video BOOLEAN NOT NULL DEFAULT false,
-    had_audio BOOLEAN NOT NULL DEFAULT true,
-    had_screen_share BOOLEAN NOT NULL DEFAULT false,
-    UNIQUE (call_id, user_id, joined_at)
-);
-
-CREATE INDEX idx_call_participants_call ON call_participants (call_id);
-CREATE INDEX idx_call_participants_user ON call_participants (user_id);
-
-CREATE TABLE call_recordings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    call_id UUID NOT NULL REFERENCES calls(id) ON DELETE CASCADE,
-    egress_id VARCHAR(100) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'recording',
-    file_path VARCHAR(500),
-    file_size BIGINT,
-    duration_seconds INTEGER,
-    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_call_recordings_call ON call_recordings (call_id);
-
-CREATE TABLE recording_consents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    call_id UUID NOT NULL REFERENCES calls(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id),
-    consented BOOLEAN NOT NULL,
-    responded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (call_id, user_id)
-);
-
-CREATE INDEX idx_recording_consents_call ON recording_consents (call_id);
-```
-
-### Database Migration: Meetings
-
-```sql
--- Migration: 000033_create_meetings.up.sql
-
-CREATE TABLE meetings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    title VARCHAR(500) NOT NULL,
-    description TEXT,
-    agenda TEXT,
-    meeting_type VARCHAR(20) NOT NULL DEFAULT 'standard',
-    status VARCHAR(20) NOT NULL DEFAULT 'scheduled',
-    scheduled_start TIMESTAMPTZ NOT NULL,
-    scheduled_end TIMESTAMPTZ NOT NULL,
-    actual_start TIMESTAMPTZ,
-    actual_end TIMESTAMPTZ,
-    calendar_event_id UUID,
-    call_id UUID REFERENCES calls(id) ON DELETE SET NULL,
-    channel_id UUID REFERENCES channels(id) ON DELETE SET NULL,
-    linked_entity_type VARCHAR(20),
-    linked_entity_id UUID,
-    livekit_room_name VARCHAR(100),
-    organized_by UUID NOT NULL REFERENCES users(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_meetings_status ON meetings (status);
-CREATE INDEX idx_meetings_scheduled ON meetings (scheduled_start, scheduled_end);
-CREATE INDEX idx_meetings_organized_by ON meetings (organized_by);
-CREATE INDEX idx_meetings_calendar_event ON meetings (calendar_event_id)
-    WHERE calendar_event_id IS NOT NULL;
-CREATE INDEX idx_meetings_linked_entity ON meetings (linked_entity_type, linked_entity_id)
-    WHERE linked_entity_type IS NOT NULL;
-
-CREATE TABLE meeting_attendees (
-    meeting_id UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    rsvp_status VARCHAR(10) NOT NULL DEFAULT 'pending',
-    role VARCHAR(20) NOT NULL DEFAULT 'attendee',
-    responded_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (meeting_id, user_id)
-);
-
-CREATE INDEX idx_meeting_attendees_user ON meeting_attendees (user_id);
-
-CREATE TABLE meeting_notes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    meeting_id UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
-    content TEXT NOT NULL,
-    is_private BOOLEAN NOT NULL DEFAULT false,
-    author_id UUID NOT NULL REFERENCES users(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_meeting_notes_meeting ON meeting_notes (meeting_id);
-
-CREATE TABLE meeting_action_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    meeting_id UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
-    title VARCHAR(500) NOT NULL,
-    description TEXT,
-    assigned_to UUID REFERENCES users(id),
-    due_date DATE,
-    is_completed BOOLEAN NOT NULL DEFAULT false,
-    completed_at TIMESTAMPTZ,
-    created_by UUID NOT NULL REFERENCES users(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_meeting_action_items_meeting ON meeting_action_items (meeting_id);
-CREATE INDEX idx_meeting_action_items_assigned ON meeting_action_items (assigned_to)
-    WHERE assigned_to IS NOT NULL;
-```
-
-### Database Migration: Emoji Reactions
-
-```sql
--- Migration: 000034_create_message_reactions.up.sql
-
-CREATE TABLE message_reactions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    emoji VARCHAR(32) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (message_id, user_id, emoji)
-);
-
-CREATE INDEX idx_message_reactions_message ON message_reactions (message_id);
-CREATE INDEX idx_message_reactions_user ON message_reactions (user_id);
-```
-
-### Docker Compose: LiveKit Server and Egress
-
-```yaml
-# Add to deploy/docker/docker-compose.yml
-
-  livekit:
-    image: livekit/livekit-server:v1.9
-    command: --dev --bind 0.0.0.0
-    ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "50100-50200:50100-50200/udp"
-    environment:
-      LIVEKIT_KEYS: "devkey: secret"
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:7880 || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  livekit-egress:
-    image: livekit/egress:latest
-    cap_add:
-      - SYS_ADMIN
-    environment:
-      EGRESS_CONFIG_BODY: |
-        api_key: devkey
-        api_secret: secret
-        ws_url: ws://livekit:7880
-        insecure: true
-        s3:
-          access_key: minioadmin
-          secret: minioadmin
-          endpoint: http://minio:9000
-          bucket: kmuhub-files
-          force_path_style: true
-        redis:
-          address: redis:6379
-    depends_on:
-      livekit:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-```
-
-### Config Extension for LiveKit
-
-```go
-// Add to backend/internal/config/config.go
-
-// LiveKit
-LiveKitHost      string `env:"LIVEKIT_HOST,default=http://localhost:7880"`
-LiveKitWSURL     string `env:"LIVEKIT_WS_URL,default=ws://localhost:7880"`
-LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default=devkey"`
-LiveKitAPISecret string `env:"LIVEKIT_API_SECRET,default=secret"`
-
-// Video Service
-VideoGRPCPort    string `env:"VIDEO_GRPC_PORT,default=:50056"`
-VideoGRPCAddress string `env:"VIDEO_GRPC_ADDRESS,default=localhost:50056"`
-VideoHealthPort  string `env:"VIDEO_HEALTH_PORT,default=:9096"`
-```
-
-### WebSocket Extensions for Presence and Calls
-
-```go
-// Add to WebSocket message types in websocket.go
-
-// Presence (Client -> Server)
-WSPresenceHeartbeat = "presence.heartbeat"
-
-// Presence (Server -> Client)
-WSPresenceUpdate = "presence.update"
-
-// Calls (Server -> Client)
-WSCallIncoming              = "call.incoming"
-WSCallAccepted              = "call.accepted"
-WSCallRejected              = "call.rejected"
-WSCallEnded                 = "call.ended"
-WSCallRecordingStarted      = "call.recording.started"
-WSCallRecordingConsentReq   = "call.recording.consent_required"
-
-// Reactions (Server -> Client)
-WSReactionAdded   = "reaction.added"
-WSReactionRemoved = "reaction.removed"
-```
-
-### Frontend: LiveKit Video Call View
-
-```typescript
-// modules/video/VideoCallView.tsx
-// Source: https://docs.livekit.io/home/quickstarts/react/
-import {
-  LiveKitRoom,
-  VideoConference,
-  RoomAudioRenderer,
-} from '@livekit/components-react';
+### LiveKit React Frontend Connection
+```tsx
+// Source: https://docs.livekit.io/reference/components/react/
+import { LiveKitRoom, VideoConference, GridLayout, FocusLayout, ControlBar, PreJoin } from '@livekit/components-react';
 import '@livekit/components-styles';
 
-interface VideoCallViewProps {
-  serverUrl: string;
-  token: string;
-  onDisconnected: () => void;
-}
-
-function VideoCallView({ serverUrl, token, onDisconnected }: VideoCallViewProps) {
+function CallRoom({ token, wsUrl }: { token: string; wsUrl: string }) {
   return (
     <LiveKitRoom
-      serverUrl={serverUrl}
       token={token}
-      onDisconnected={onDisconnected}
-      data-lk-theme="default"
-      style={{ height: '100vh' }}
+      serverUrl={wsUrl}
+      connect={true}
+      audio={true}
+      video={true}
     >
       <VideoConference />
-      <RoomAudioRenderer />
     </LiveKitRoom>
   );
 }
-```
 
-### Frontend: PreJoin Screen
-
-```typescript
-// modules/video/PreJoinScreen.tsx
-// Source: https://docs.livekit.io/reference/components/react/component/prejoin/
-import { PreJoin } from '@livekit/components-react';
-
-interface PreJoinScreenProps {
-  onSubmit: (values: { audioEnabled: boolean; videoEnabled: boolean }) => void;
-}
-
-function PreJoinScreen({ onSubmit }: PreJoinScreenProps) {
+// Pre-join lobby with camera/mic preview
+function MeetingLobby({ onJoin }: { onJoin: (audio: boolean, video: boolean) => void }) {
   return (
-    <div className="flex items-center justify-center h-full">
-      <PreJoin
-        onSubmit={(values) => {
-          onSubmit({
-            audioEnabled: values.audioEnabled,
-            videoEnabled: values.videoEnabled,
-          });
-        }}
-        defaults={{
-          username: '', // Set from auth context
-          videoEnabled: true,
-          audioEnabled: true,
-        }}
-      />
-    </div>
+    <PreJoin
+      onSubmit={(values) => onJoin(values.audioEnabled, values.videoEnabled)}
+    />
   );
 }
+```
+
+### Emoji Reaction Toggle (Go Backend)
+```go
+func (s *ReactionService) ToggleReaction(ctx context.Context, messageID, userID uuid.UUID, emoji string) (*ReactionResult, error) {
+    exists, err := s.repo.ReactionExists(ctx, messageID, userID, emoji)
+    if err != nil {
+        return nil, err
+    }
+    if exists {
+        if err := s.repo.RemoveReaction(ctx, messageID, userID, emoji); err != nil {
+            return nil, err
+        }
+    } else {
+        if err := s.repo.AddReaction(ctx, messageID, userID, emoji); err != nil {
+            return nil, err
+        }
+    }
+    // Return full reaction list for this message for consistency
+    reactions, err := s.repo.ListReactions(ctx, messageID)
+    return &ReactionResult{Reactions: reactions, Added: !exists}, err
+}
+```
+
+### WebSocket Presence Events
+```go
+// New WebSocket message types for presence
+const (
+    WSPresenceUpdate     = "presence.update"      // Server -> Client
+    WSPresenceHeartbeat  = "presence.heartbeat"    // Client -> Server
+    WSPresenceSubscribe  = "presence.subscribe"    // Client -> Server
+    WSPresenceStatus     = "presence.set_status"   // Client -> Server (manual override)
+
+    // Call events
+    WSCallIncoming       = "call.incoming"         // Server -> Client
+    WSCallAccepted       = "call.accepted"         // Client -> Server
+    WSCallDeclined       = "call.declined"         // Client -> Server
+    WSCallEnded          = "call.ended"            // Server -> Client
+
+    // Reaction events
+    WSReactionToggled    = "reaction.toggled"      // Server -> Client
+)
 ```
 
 ## State of the Art
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| Peer-to-peer WebRTC (no server) | SFU (Selective Forwarding Unit) via LiveKit | 2021+ | Scales beyond 4 participants, lower client bandwidth |
-| Custom recording with ffmpeg | LiveKit Egress (headless Chrome + GStreamer) | 2022+ | Handles composition, encoding, storage automatically |
-| Polling-based presence (HTTP) | WebSocket heartbeat + Redis sorted sets | Standard practice | Real-time presence with sub-second updates |
-| Per-message reaction column (JSON) | Separate reactions table with unique constraint | Standard practice | Efficient aggregation, proper indexing, toggle semantics |
-| getDisplayMedia for screen share | Electron desktopCapturer API | Electron requirement | Browser API not available in Electron context |
-| @livekit/react-components (old) | @livekit/components-react (current) | 2023+ | Rewritten component library with better composition |
+| `livekit/server-sdk-go` v1 | `livekit/server-sdk-go/v2` | 2024 | New import path: `github.com/livekit/server-sdk-go/v2`, uses Twirp HTTP instead of direct gRPC for server APIs |
+| `@livekit/react-components` (deprecated) | `@livekit/components-react` | 2023 | Complete rewrite with composable architecture, prefab components |
+| Manual egress configuration | Auto Egress (in CreateRoom) | 2024 | Can automatically start recording when room is created, but we need manual control for consent flow |
+| Track-level egress for selective recording | Room composite with custom template | Current | Custom templates give full control over which participants appear in recording |
 
 **Deprecated/outdated:**
-- `@livekit/react-components` (old package): Replaced by `@livekit/components-react`. Do not install the old package.
-- `livekit-react` (old package): Deprecated. Use `@livekit/components-react` instead.
-- LiveKit Egress without SYS_ADMIN: As of v1.7.6, Chrome sandboxing requires SYS_ADMIN Docker capability.
+- `@livekit/react-components`: Replaced by `@livekit/components-react` (completely different package)
+- `livekit/server-sdk-go` v1 (non-v2 import): Still works but v2 is recommended
+- Polling-based presence: WebSocket push is the standard approach
 
 ## Open Questions
 
-1. **LiveKit server version pinning for production**
-   - What we know: LiveKit server is at v1.9.11 (January 2026). The `--dev` flag provides default keys for local development.
-   - What's unclear: Production deployment requires SSL, TURN server, and proper key management.
-   - Recommendation: Use `--dev` mode for local development. Document production deployment requirements separately.
+1. **LiveKit server version for docker-compose**
+   - What we know: Latest image is `livekit/livekit-server:latest`, needs Redis for multi-instance
+   - What's unclear: Exact TURN configuration needed for Electron app behind corporate NATs
+   - Recommendation: Start with embedded TURN in development, document production TURN setup separately
 
-2. **Egress service scaling for concurrent recordings**
-   - What we know: Each egress instance records one room at a time. 4 CPUs + 4 GB RAM per instance.
-   - What's unclear: How many simultaneous recordings needed?
-   - Recommendation: Start with 1 egress instance in docker-compose. Production needs autoscaling.
+2. **Custom Egress Template Hosting**
+   - What we know: Egress loads a web app via URL for composite recording; the template can read participant metadata
+   - What's unclear: Whether the custom DSGVO template should be served from the gateway or a separate static file server
+   - Recommendation: Serve from gateway as a static route (`/recording-template/`) for simplicity; the egress service fetches it via HTTP
 
-3. **Emoji picker library choice**
-   - What we know: emoji-mart is the most popular. Lighter alternatives exist (emoji-picker-react).
-   - What's unclear: Whether emoji-mart works with React 19 and Electron.
-   - Recommendation: Test emoji-mart first. Fall back to emoji-picker-react. The picker is swappable.
+3. **Meeting Summary Auto-Draft Algorithm**
+   - What we know: User wants auto-summary from meeting notes after meeting ends
+   - What's unclear: Whether this should be a simple structural extraction (headings -> sections, bullet points -> action items) or something more sophisticated
+   - Recommendation: V1 = structural: extract lines starting with `- [ ]` or `TODO:` as action items, everything else as notes. V2 could add AI summarization.
 
-4. **Presence system and WebSocket hub scaling**
-   - What we know: Current WebSocket hub is in-memory (single gateway).
-   - What's unclear: When multi-gateway will be needed.
-   - Recommendation: Implement via existing single-gateway WebSocket hub. Design Redis store to be gateway-agnostic for future multi-gateway support.
+4. **livekit/server-sdk-go/v2 vs existing livekit/protocol**
+   - What we know: go.mod has `livekit/protocol v1.44.0`; server-sdk-go/v2 also depends on protocol
+   - What's unclear: Whether adding server-sdk-go/v2 will cause version conflicts with existing protocol dependency
+   - Recommendation: Run `go get` and check for conflicts. The protocol package should be compatible since server-sdk-go/v2 depends on it.
 
-5. **Call signaling: WebSocket vs LiveKit native**
-   - What we know: LiveKit handles WebRTC signaling. Call initiation (ring, accept, reject) is application-level.
-   - What's unclear: Best channel for application-level signaling.
-   - Recommendation: Use our WebSocket hub for call signaling (incoming, accept, reject, end). LiveKit handles WebRTC signaling separately.
-
-6. **@livekit/components-react React 19 compatibility**
-   - What we know: Package v2.9.19 was published January 2026. React 19 has been out since late 2024.
-   - What's unclear: Whether the package explicitly supports React 19 in peer dependencies.
-   - Recommendation: Test during installation. If peer dependency conflicts, use `--legacy-peer-deps` flag or check for newer version. LiveKit actively maintains this package.
+5. **Electron desktopCapturer for Screen Sharing**
+   - What we know: livekit-client handles screen sharing, but Electron needs `desktopCapturer` for screen/window selection
+   - What's unclear: Whether `@livekit/components-react` automatically uses Electron's desktopCapturer or needs manual integration
+   - Recommendation: Research during implementation. May need to pass `getDisplayMedia` override to LiveKitRoom or use Electron's IPC to provide screen sources.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- LiveKit official documentation (docs.livekit.io) - Egress API, room management, React components, screen sharing, self-hosting
-- LiveKit GitHub server-sdk-go README (github.com/livekit/server-sdk-go) - Go SDK API, token generation, room client
-- LiveKit components-react npm (v2.9.19) - React component library
-- livekit-client npm (v2.17.0) - Client SDK
-- LiveKit server GitHub releases (v1.9.11, January 2026) - Server version
-- Codebase analysis - All existing patterns (WebSocket hub, config, docker-compose, proto, models, gateway routes)
+- [LiveKit Room Management Docs](https://docs.livekit.io/home/server/managing-rooms/) - Room creation, listing, deletion Go examples
+- [LiveKit Egress Docs](https://docs.livekit.io/home/egress/overview/) - Egress types, architecture, self-hosting
+- [LiveKit Egress Examples](https://docs.livekit.io/home/egress/examples/) - Go SDK code for StartRoomCompositeEgress with S3
+- [LiveKit Custom Templates](https://docs.livekit.io/home/egress/custom-template/) - Custom recording layout architecture
+- [LiveKit Recording Consent Recipe](https://docs.livekit.io/recipes/recording-consent/) - Consent collection patterns
+- [LiveKit Webhooks](https://docs.livekit.io/home/server/webhooks/) - Event types, Go handler, configuration
+- [LiveKit React Components](https://docs.livekit.io/reference/components/react/) - VideoConference, GridLayout, FocusLayout, hooks
+- [LiveKit Self-Hosting Egress](https://docs.livekit.io/home/self-hosting/egress/) - Docker deployment, config YAML, resource requirements
+- [LiveKit Go Server SDK](https://github.com/livekit/server-sdk-go) - v2 import path, RoomServiceClient, EgressClient
+- Existing codebase: `backend/internal/work/livekit/service.go` - Token generation pattern already established
+- Existing codebase: `backend/internal/server/websocket.go` - WebSocket hub pattern for extending presence
 
 ### Secondary (MEDIUM confidence)
-- Presence system design articles (systemdesign.one) - Redis sorted set pattern for heartbeats
-- LiveKit Egress Docker configuration (docs.livekit.io/transport/self-hosting/egress/) - SYS_ADMIN requirement, config.yaml format
-- Electron desktopCapturer documentation - Screen sharing in Electron context
+- [Frimousse Emoji Picker](https://frimousse.liveblocks.io) - Lightweight, unstyled, composable React emoji picker
+- [Redis Presence Pattern](https://medium.com/tilt-engineering/redis-powered-user-session-tracking-with-heartbeat-based-expiration-c7308420489f) - Heartbeat TTL approach
+- [System Design Presence](https://systemdesign.one/real-time-presence-platform-system-design/) - Architecture patterns for presence systems
 
 ### Tertiary (LOW confidence)
-- emoji-mart React 19 compatibility - Not verified, needs testing
-- LiveKit + Electron integration specifics - Limited official documentation; pattern based on general Electron WebRTC guidance
-- Exact server-sdk-go/v2 version number - pkg.go.dev was not accessible; using "latest" with go get
+- npm version info for `@livekit/components-react` v2.9.19 (from search results, not verified via npm directly)
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH - LiveKit is explicitly chosen in CLAUDE.md tech stack; all SDK versions verified via npm/GitHub
-- Architecture: HIGH - New microservice follows exact same pattern as auth/crm/chat/notification/work services
-- LiveKit integration: HIGH - Official docs verified for Go SDK, React components, Egress, self-hosting
-- Presence system: MEDIUM - Redis sorted set pattern is well-established but timeout values need tuning
-- Electron screen sharing: MEDIUM - Electron limitation documented, but LiveKit-specific Electron integration has limited official docs
-- Meeting management: HIGH - Follows established CRM/Calendar patterns
-- Emoji reactions: HIGH - Simple extension to existing Chat service; standard database pattern
-- DSGVO recording consent: MEDIUM - Technical approach clear, legal specifics need validation
+- Standard stack: HIGH - LiveKit SDKs are well-documented, existing codebase already uses livekit/protocol
+- Architecture: HIGH - Follows existing patterns (Work service consolidation, WebSocket hub, gateway routes)
+- Pitfalls: MEDIUM - Based on documentation warnings and common WebRTC deployment issues
+- Egress DSGVO template: MEDIUM - Custom template approach is documented but selective blur/mute via metadata is our custom implementation
+- Presence system: HIGH - Redis heartbeat is a well-established pattern, fits existing Redis infrastructure
+- Emoji reactions: HIGH - Simple CRUD with WebSocket broadcast, follows existing chat patterns
 
-**Research date:** 2026-02-10
-**Valid until:** 2026-03-10 (LiveKit has frequent releases; verify SDK versions before implementation)
+**Research date:** 2026-02-11
+**Valid until:** 2026-03-11 (30 days - LiveKit SDKs are stable, patterns well-established)
