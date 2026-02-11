@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 8 of 20 (Video, Voice & Meetings)
-Plan: 4 of 9 in current phase
+Plan: 6 of 9 in current phase
 Status: In progress
-Last activity: 2026-02-11 -- Completed 08-04-PLAN.md (Meeting & Presence Services)
+Last activity: 2026-02-11 -- Completed 08-06-PLAN.md (Frontend Data Layer)
 
-Progress: [██████████████░░░░░░░░░░] 47% (33/63 plans across phases 4-20)
+Progress: [███████████████░░░░░░░░░] 49% (35/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28
-- Average duration: ~9 minutes
-- Total execution time: ~4h 4min
+- Total plans completed: 30
+- Average duration: ~8 minutes
+- Total execution time: ~4h 12min
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: [██████████████░░░░░░░░░
 | 05 | 7/7 | ~66min | ~9min |
 | 06 | 10/10 | ~88min | ~8.8min |
 | 07 | 9/9 | ~48min | ~5min |
-| 08 | 4/9 | ~21min | ~5min |
+| 08 | 6/9 | ~29min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 08-01 (~6min), 08-02 (~2min), 08-03 (~5min), 08-04 (~8min)
-- Trend: Consistent ~5-10min per plan
+- Last 5 plans: 08-02 (~2min), 08-03 (~5min), 08-04 (~8min), 08-05 (~4min), 08-06 (~4min)
+- Trend: Consistent ~4-8min per plan
 
 *Updated after each plan completion*
 
@@ -152,6 +152,11 @@ Recent decisions affecting current work:
 - [08-04]: Heartbeat respects manual DND/away and InCall - does not override
 - [08-04]: Notes saveable during in_progress AND completed meetings (post-meeting notes)
 - [08-04]: ConvertActionItemsToTasks returns unconverted items for caller to create tasks
+- [08-06]: video-client.ts mirrors calendar-client.ts fetch wrapper pattern (not openapi-fetch)
+- [08-06]: Video store ephemeral (no persist); presence store persists only myStatus
+- [08-06]: 33 hooks across 4 files (10 video, 15 meetings, 5 presence, 3 reactions)
+- [08-06]: Presence queries use 10s staleTime for near-real-time updates
+- [08-06]: Reaction toggle uses optimistic update via setQueryData
 
 ### Pending Todos
 
@@ -166,6 +171,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-11
-Stopped at: Completed 08-04-PLAN.md (Meeting & Presence Services)
+Stopped at: Completed 08-06-PLAN.md (Frontend Data Layer)
 Resume file: None
-Next: 08-05-PLAN.md
+Next: 08-07-PLAN.md
