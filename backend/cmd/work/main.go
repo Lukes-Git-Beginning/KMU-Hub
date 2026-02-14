@@ -18,10 +18,17 @@ import (
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/server"
+	"github.com/kmuhub/kmuhub/internal/work/calendar"
 	"github.com/kmuhub/kmuhub/internal/work/comment"
+	"github.com/kmuhub/kmuhub/internal/work/event"
+	"github.com/kmuhub/kmuhub/internal/work/holiday"
+	"github.com/kmuhub/kmuhub/internal/work/livekit"
 	"github.com/kmuhub/kmuhub/internal/work/project"
+	"github.com/kmuhub/kmuhub/internal/work/resource"
 	wstatus "github.com/kmuhub/kmuhub/internal/work/status"
 	"github.com/kmuhub/kmuhub/internal/work/task"
+	"github.com/kmuhub/kmuhub/internal/work/timeentry"
+	calv1 "github.com/kmuhub/kmuhub/proto/calendar/v1"
 	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
 
@@ -50,16 +57,33 @@ func main() {
 	statusRepo := wstatus.NewPostgresRepository(pool)
 	taskRepo := task.NewPostgresRepository(pool)
 	commentRepo := comment.NewPostgresRepository(pool)
+	timeEntryRepo := timeentry.NewPostgresRepository(pool)
 
 	// Initialize services
 	projectService := project.NewService(projectRepo)
 	statusService := wstatus.NewService(statusRepo)
 	taskService := task.NewService(taskRepo, projectRepo)
 	commentService := comment.NewService(commentRepo, taskRepo)
+	timeEntryService := timeentry.NewService(timeEntryRepo)
 
 	// Set event emitters for notification integration
 	taskService.SetEventEmitter(task.NewPGEventEmitter(pool))
 	commentService.SetEventEmitter(task.NewPGEventEmitter(pool))
+
+	// Calendar domain repositories
+	calendarRepo := calendar.NewPostgresRepository(pool)
+	eventRepo := event.NewPostgresRepository(pool)
+	resourceRepo := resource.NewPostgresRepository(pool)
+	holidayRepo := holiday.NewPostgresRepository(pool)
+
+	// Calendar domain services
+	calendarService := calendar.NewService(calendarRepo)
+	livekitService := livekit.NewService(cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL)
+	nagerClient := holiday.NewNagerClient()
+	holidayService := holiday.NewService(holidayRepo, nagerClient)
+	resourceService := resource.NewService(resourceRepo)
+	eventService := event.NewService(eventRepo, calendarRepo)
+	eventService.SetEventEmitter(event.NewPGEventEmitter(pool))
 
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
@@ -73,8 +97,12 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	workGRPC := server.NewWorkGRPCServer(projectService, statusService, taskService, taskRepo, commentService)
+	workGRPC := server.NewWorkGRPCServer(projectService, statusService, taskService, taskRepo, commentService, timeEntryService)
 	workv1.RegisterWorkServiceServer(grpcServer, workGRPC)
+
+	// Register CalendarService gRPC server (same binary, same port as WorkService)
+	calendarGRPC := server.NewCalendarGRPCServer(calendarService, eventService, resourceService, holidayService, livekitService)
+	calv1.RegisterCalendarServiceServer(grpcServer, calendarGRPC)
 
 	// Initialize gRPC metrics after service registration
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)

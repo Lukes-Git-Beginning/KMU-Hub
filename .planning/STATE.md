@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 6 - Project Management (in progress)
+**Current focus:** Phase 8 - Video, Voice & Meetings (Next)
 
 ## Current Position
 
-Phase: 6 of 20 (Project Management)
-Plan: 8 of 10 in current phase
-Status: In progress (plans 06-09, 06-10 need planning)
-Last activity: 2026-02-08 -- Completed 06-08-PLAN.md (CRM Linking + Search + Filters + Templates)
+Phase: 7 of 20 (Calendar & Scheduling) -- COMPLETE
+Plan: 9 of 9 in current phase (all complete)
+Status: Phase 7 complete, Phase 8 next
+Last activity: 2026-02-11 -- Phase 7 complete via design integration (Plans 07-06 to 07-09 replaced by Darien's UI merge)
 
-Progress: [██████░░░░░░░░░░░░░░░░░░] 28% (18/63 plans across phases 4-20)
+Progress: [████████████░░░░░░░░░░░░] 42% (29/63 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
-- Average duration: ~10 minutes
-- Total execution time: ~2h 57min
+- Total plans completed: 24
+- Average duration: ~9 minutes
+- Total execution time: ~3h 43min
 
 **By Phase:**
 
@@ -29,11 +29,12 @@ Progress: [██████░░░░░░░░░░░░░░░░░
 |-------|-------|-------|----------|
 | 04 | 3/3 | ~46min | ~15min |
 | 05 | 7/7 | ~66min | ~9min |
-| 06 | 8/10 | ~70min | ~8.75min |
+| 06 | 10/10 | ~88min | ~8.8min |
+| 07 | 9/9 | ~48min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 06-05 (~8min), 06-06 (~7min), 06-07 (~10min), 06-08 (~10min)
-- Trend: Consistent ~8-10min per frontend plan
+- Last 5 plans: 07-01 (~7min), 07-02 (~5min), 07-03 (~8min), 07-04 (~8min), 07-05+UI (~20min)
+- Trend: Consistent ~5-10min per plan, design integration saved ~4 plans
 
 *Updated after each plan completion*
 
@@ -98,10 +99,44 @@ Recent decisions affecting current work:
 - [06-08]: CRM search API reused for entity linking (no new backend search endpoint)
 - [06-08]: Custom fields reuse CRM engine with entity_type=task
 - [06-08]: Move-to-project updates project_id via existing task update API
+- [06-09]: Migration renumbered to 000031 to avoid collision with uncommitted time_entries migration
+- [06-09]: Batch dependency fetching via useQueries for tasks with has_blocked_deps flag
+- [06-09]: Gantt view is read-only in v1 (bars clickable, not draggable)
+- [06-09]: Critical path uses forward/backward pass CPM with Kahn's topological sort
+- [06-10]: Separate timeentry package under internal/work/ for clean separation of concerns
+- [06-10]: Auto-stop previous timer in service layer ensures single-timer invariant at DB level
+- [06-10]: Partial index idx_time_entries_active for O(1) active timer lookup
+- [06-10]: requestAnimationFrame for timer display (smoother, auto-pauses in background tabs)
+- [06-10]: Migration 000030 for time_entries (06-09 used 000031 for gantt view type)
+- [07-01]: Separate calendar.proto file rather than extending work.proto (cleaner separation, same binary)
+- [07-01]: Deferred FK constraints: resource_id FK added via ALTER TABLE in migration 000034 after resources table exists
+- [07-01]: Calendar-prefixed model naming (CalendarEvent, EventCategory) to avoid collision with notification Event model
+- [07-01]: 40 RPCs in CalendarService covering calendars, events, resources, bookings, holidays, preferences, LiveKit
+- [07-02]: Separate calendar-types.ts instead of modifying auto-generated types.ts (openapi-typescript)
+- [07-02]: calendar-client.ts fetch wrapper mirrors openapi-fetch auth/error patterns for pre-OpenAPI hooks
+- [07-02]: Set<string> serialized as array in Zustand persist localStorage adapter
+- [07-02]: CalendarLayout uses internal Routes/Route pattern (same as WorkLayout)
+- [07-03]: Calendar permission hierarchy: view < edit < admin numeric levels, owner implicit admin
+- [07-03]: EnsurePersonalCalendar on every ListByUser for auto-creation with DACH defaults
+- [07-03]: Three-way recurring edit: this=exception, this_and_future=split with SetUntil, all=update master
+- [07-03]: Event emitter optional via SetEventEmitter (same pattern as task service)
+- [07-03]: rrule-go v1.8.2 re-added to go.mod (was missing from working tree despite 07-01 commit)
+- [07-04]: HolidayFetcher interface abstracts Nager client for testability
+- [07-04]: LiveKit disabled-by-default: empty config values = feature off
+- [07-04]: BookingConflictError carries alternative resource suggestions
+- [07-04]: Resource delete is soft-delete (is_active=false), bookings preserved
+- [07-05]: CalendarService registered in same binary as WorkService (shared gRPC port :50055)
+- [07-05]: CalendarRoutes uses ServiceName "work" to reuse existing gRPC connection from gateway
+- [07-05]: Proto fields Date/DueDate are strings (YYYY-MM-DD), not Timestamps
+- [07-UI]: Design integration: Darien's KalenderPage.tsx (1613 lines) merged from design/brainstorm
+- [07-UI]: Adapter layer (adapters.ts) transforms backend types to UI types bidirectionally
+- [07-UI]: Sonner toast system added to App.tsx (was pending todo)
+- [07-UI]: Plans 07-06 to 07-09 made obsolete by design integration (saved ~4 plans)
+- [07-UI]: D2 color system (globals.css) merged from design/brainstorm
+- [07-UI]: New Radix UI components: alert-dialog, checkbox, dropdown-menu, sheet, switch
 
 ### Pending Todos
 
-- Add toast notification system (sonner or similar) before CRUD forms phase
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
 
 ### Blockers/Concerns
@@ -112,6 +147,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-08
-Stopped at: Completed 06-08-PLAN.md (CRM Linking + Search + Filters + Templates)
+Last session: 2026-02-11
+Stopped at: Phase 7 COMPLETE -- design integration merged, all 9 plans done
 Resume file: None
+Next: Phase 8 - Video, Voice & Meetings

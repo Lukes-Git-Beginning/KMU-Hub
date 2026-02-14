@@ -70,6 +70,9 @@ const (
 	TaskActionAttachmentAdded    = "attachment_added"
 	TaskActionLinked             = "linked"
 	TaskActionUnlinked           = "unlinked"
+	TaskActionTimerStarted       = "timer_started"
+	TaskActionTimerStopped       = "timer_stopped"
+	TaskActionTimeEntryAdded     = "time_entry_added"
 )
 
 // Task represents a work item within a project

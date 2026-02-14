@@ -59,6 +59,16 @@ tags:
     description: Task entity links (CRM integration)
   - name: work-search
     description: Full-text search across tasks
+  - name: time-tracking
+    description: Task timer and time entry management
+  - name: calendars
+    description: Calendar management (personal, shared, subscriptions, preferences)
+  - name: events
+    description: Calendar event CRUD, recurring events, attendees, RSVP, reminders
+  - name: resources
+    description: Resource management (rooms, equipment) and booking
+  - name: holidays
+    description: Public holiday management (DACH region)
 
 paths:
   /health:
@@ -4622,6 +4632,1313 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  /api/v1/tasks/{id}/timer/start:
+    post:
+      summary: Start timer on a task
+      tags: [time-tracking]
+      operationId: startTimer
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "201":
+          description: Timer started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/TimeEntryResponse"
+                  stopped_entry:
+                    $ref: "#/components/schemas/TimeEntryResponse"
+                    description: Previously running timer that was auto-stopped
+
+  /api/v1/timer/stop:
+    post:
+      summary: Stop the active timer for the current user
+      tags: [time-tracking]
+      operationId: stopTimer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Timer stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/TimeEntryResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/timer/active:
+    get:
+      summary: Get the active timer for the current user
+      tags: [time-tracking]
+      operationId: getActiveTimer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active timer (null if none)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timer:
+                    $ref: "#/components/schemas/ActiveTimerResponse"
+
+  /api/v1/tasks/{id}/time-entries:
+    get:
+      summary: List time entries for a task
+      tags: [time-tracking]
+      operationId: listTimeEntries
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Time entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TimeEntryResponse"
+                  total:
+                    type: integer
+    post:
+      summary: Add a manual time entry
+      tags: [time-tracking]
+      operationId: addManualTimeEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [started_at, duration_seconds]
+              properties:
+                started_at:
+                  type: string
+                  format: date-time
+                duration_seconds:
+                  type: integer
+                  minimum: 1
+                description:
+                  type: string
+                  maxLength: 2000
+      responses:
+        "201":
+          description: Time entry created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/TimeEntryResponse"
+
+  /api/v1/tasks/{id}/time-summary:
+    get:
+      summary: Get aggregated time summary for a task
+      tags: [time-tracking]
+      operationId: getTaskTimeSummary
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Time summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    $ref: "#/components/schemas/TimeSummaryResponse"
+
+  /api/v1/time-entries/{id}:
+    put:
+      summary: Update a time entry
+      tags: [time-tracking]
+      operationId: updateTimeEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                started_at:
+                  type: string
+                  format: date-time
+                duration_seconds:
+                  type: integer
+                  minimum: 1
+                description:
+                  type: string
+                  maxLength: 2000
+      responses:
+        "200":
+          description: Time entry updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/TimeEntryResponse"
+    delete:
+      summary: Delete a time entry
+      tags: [time-tracking]
+      operationId: deleteTimeEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Time entry deleted
+
+  # ===========================================================================
+  # Calendar – Calendar CRUD
+  # ===========================================================================
+
+  /api/v1/calendar/calendars:
+    post:
+      summary: Create a new calendar
+      tags: [calendars]
+      operationId: createCalendar
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCalendarRequest"
+      responses:
+        "201":
+          description: Calendar created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      summary: List calendars for current user
+      tags: [calendars]
+      operationId: listCalendars
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: include_hidden
+          in: query
+          description: Include calendars the user has hidden
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of calendars with member info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/calendar/calendars/{id}:
+    get:
+      summary: Get calendar by ID
+      tags: [calendars]
+      operationId: getCalendar
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Calendar details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Update a calendar
+      tags: [calendars]
+      operationId: updateCalendar
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalendarRequest"
+      responses:
+        "200":
+          description: Calendar updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete a calendar
+      tags: [calendars]
+      operationId: deleteCalendar
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Calendar deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Members
+  # ===========================================================================
+
+  /api/v1/calendar/calendars/{id}/members:
+    get:
+      summary: List calendar members
+      tags: [calendars]
+      operationId: listCalendarMembers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: List of calendar members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarMembersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      summary: Add a member to a calendar
+      tags: [calendars]
+      operationId: addCalendarMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCalendarMemberRequest"
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarMemberSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/calendar/calendars/{id}/members/{userId}:
+    delete:
+      summary: Remove a member from a calendar
+      tags: [calendars]
+      operationId: removeCalendarMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/calendar/calendars/{id}/members/{userId}/permission:
+    put:
+      summary: Update a calendar member's permission level
+      tags: [calendars]
+      operationId: updateCalendarMemberPermission
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalendarMemberPermissionRequest"
+      responses:
+        "200":
+          description: Permission updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarMemberSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Discovery & Subscriptions
+  # ===========================================================================
+
+  /api/v1/calendar/browse:
+    get:
+      summary: Browse subscribable calendars
+      tags: [calendars]
+      operationId: listBrowsableCalendars
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Filter calendars by name
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of browsable calendars
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/calendar/calendars/{id}/subscribe:
+    post:
+      summary: Subscribe to a calendar
+      tags: [calendars]
+      operationId: subscribeToCalendar
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Subscribed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarMemberSchema"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Unsubscribe from a calendar
+      tags: [calendars]
+      operationId: unsubscribeFromCalendar
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Unsubscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Preferences
+  # ===========================================================================
+
+  /api/v1/calendar/preferences:
+    get:
+      summary: Get calendar preferences for current user
+      tags: [calendars]
+      operationId: getCalendarPreferences
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Calendar preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarPreferencesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    put:
+      summary: Update calendar preferences for current user
+      tags: [calendars]
+      operationId: updateCalendarPreferences
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCalendarPreferencesRequest"
+      responses:
+        "200":
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarPreferencesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ===========================================================================
+  # Calendar – Event Categories
+  # ===========================================================================
+
+  /api/v1/calendar/categories:
+    get:
+      summary: List event categories for current user
+      tags: [events]
+      operationId: listEventCategories
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of event categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventCategoriesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Create an event category
+      tags: [events]
+      operationId: createEventCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventCategoryRequest"
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventCategorySchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/calendar/categories/{id}:
+    delete:
+      summary: Delete an event category
+      tags: [events]
+      operationId: deleteEventCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Category deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Events
+  # ===========================================================================
+
+  /api/v1/calendar/events:
+    post:
+      summary: Create a calendar event
+      tags: [events]
+      operationId: createEvent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventRequest"
+      responses:
+        "201":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      summary: List events in a date range
+      description: Returns expanded events (including recurring instances) within the given time range.
+      tags: [events]
+      operationId: listEventsInRange
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: start
+          in: query
+          required: true
+          description: Range start (ISO 8601 / RFC 3339)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          description: Range end (ISO 8601 / RFC 3339)
+          schema:
+            type: string
+            format: date-time
+        - name: calendar_ids
+          in: query
+          description: Filter by specific calendar IDs
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+      responses:
+        "200":
+          description: List of expanded events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpandedEventListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/calendar/events/{id}:
+    get:
+      summary: Get event by ID
+      tags: [events]
+      operationId: getEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEventResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Update a calendar event
+      tags: [events]
+      operationId: updateEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEventRequest"
+      responses:
+        "200":
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete a calendar event
+      tags: [events]
+      operationId: deleteEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Event deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Recurring Events
+  # ===========================================================================
+
+  /api/v1/calendar/events/{id}/recurring:
+    put:
+      summary: Update a recurring event with scope control
+      description: |
+        Edit a recurring event with three scope options:
+        - `this`: Creates an exception for the specific occurrence
+        - `this_and_future`: Splits the series, applying changes from the given date forward
+        - `all`: Updates the master recurring event
+      tags: [events]
+      operationId: updateRecurringEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecurringEventRequest"
+      responses:
+        "200":
+          description: Recurring event updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Event Attendees
+  # ===========================================================================
+
+  /api/v1/calendar/events/{id}/attendees:
+    get:
+      summary: List event attendees
+      tags: [events]
+      operationId: listEventAttendees
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: List of attendees
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAttendeesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – RSVP
+  # ===========================================================================
+
+  /api/v1/calendar/events/{id}/rsvp:
+    post:
+      summary: RSVP to an event
+      tags: [events]
+      operationId: rsvpToEvent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RSVPRequest"
+      responses:
+        "200":
+          description: RSVP recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAttendeeSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Reminders
+  # ===========================================================================
+
+  /api/v1/calendar/events/{id}/reminders:
+    get:
+      summary: List reminders for an event
+      tags: [events]
+      operationId: listEventReminders
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: List of reminders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventRemindersResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Set reminders for an event (replaces existing)
+      tags: [events]
+      operationId: setEventReminders
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetEventRemindersRequest"
+      responses:
+        "200":
+          description: Reminders updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventRemindersResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Resources
+  # ===========================================================================
+
+  /api/v1/calendar/resources:
+    post:
+      summary: Create a resource (room, equipment, vehicle)
+      tags: [resources]
+      operationId: createResource
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceRequest"
+      responses:
+        "201":
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      summary: List resources
+      tags: [resources]
+      operationId: listResources
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          description: Filter by resource type
+          schema:
+            type: string
+            enum: [room, equipment, vehicle]
+        - name: min_capacity
+          in: query
+          description: Minimum capacity filter
+          schema:
+            type: integer
+        - name: floor
+          in: query
+          description: Filter by floor
+          schema:
+            type: string
+        - name: tags
+          in: query
+          description: Comma-separated tag filter
+          schema:
+            type: string
+        - name: include_inactive
+          in: query
+          description: Include soft-deleted resources
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/calendar/resources/{id}:
+    get:
+      summary: Get resource by ID
+      tags: [resources]
+      operationId: getResource
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Resource details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      summary: Update a resource
+      tags: [resources]
+      operationId: updateResource
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateResourceRequest"
+      responses:
+        "200":
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete a resource (soft-delete)
+      tags: [resources]
+      operationId: deleteResource
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Resource Availability
+  # ===========================================================================
+
+  /api/v1/calendar/resources/{id}/availability:
+    get:
+      summary: Get resource availability in a date range
+      tags: [resources]
+      operationId: getResourceAvailability
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: start
+          in: query
+          required: true
+          description: Range start (ISO 8601 / RFC 3339)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          description: Range end (ISO 8601 / RFC 3339)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Availability information with existing bookings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceBookingsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Resource Bookings
+  # ===========================================================================
+
+  /api/v1/calendar/bookings:
+    post:
+      summary: Book a resource for an event
+      tags: [resources]
+      operationId: bookResource
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookResourceRequest"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceBookingSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/calendar/bookings/{id}:
+    delete:
+      summary: Cancel a resource booking
+      tags: [resources]
+      operationId: cancelBooking
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Calendar – Holidays
+  # ===========================================================================
+
+  /api/v1/calendar/holidays:
+    get:
+      summary: List public holidays
+      tags: [holidays]
+      operationId: listHolidays
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: country_code
+          in: query
+          required: true
+          description: ISO 3166-1 alpha-2 country code (e.g. DE, AT, CH)
+          schema:
+            type: string
+        - name: subdivision_code
+          in: query
+          description: Subdivision code (e.g. DE-BY for Bavaria)
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Filter start date (ISO 8601 / RFC 3339)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          description: Filter end date (ISO 8601 / RFC 3339)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: List of public holidays
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HolidayListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/calendar/holidays/seed:
+    post:
+      summary: Seed holidays for a country and year from Nager.Date API
+      tags: [holidays]
+      operationId: seedHolidays
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeedHolidaysRequest"
+      responses:
+        "201":
+          description: Holidays seeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HolidayListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ===========================================================================
+  # Calendar – Task Deadlines
+  # ===========================================================================
+
+  /api/v1/calendar/task-deadlines:
+    get:
+      summary: List task deadlines in a date range (calendar overlay)
+      tags: [events]
+      operationId: listTaskDeadlines
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: start
+          in: query
+          required: true
+          description: Range start (ISO 8601 / RFC 3339)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          description: Range end (ISO 8601 / RFC 3339)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: List of task deadline stubs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskDeadlinesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ===========================================================================
+  # Calendar – LiveKit Video
+  # ===========================================================================
+
+  /api/v1/calendar/events/{id}/join-token:
+    post:
+      summary: Generate a LiveKit join token for a video call event
+      tags: [events]
+      operationId: generateJoinToken
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateJoinTokenRequest"
+      responses:
+        "200":
+          description: Join token generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinTokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -6787,6 +8104,840 @@ components:
         created_at:
           type: string
           format: date-time
+
+    TimeEntryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        user_name:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+        duration_seconds:
+          type: integer
+        description:
+          type: string
+        is_manual:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ActiveTimerResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        task_title:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+
+    TimeSummaryResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        total_duration_seconds:
+          type: integer
+        entry_count:
+          type: integer
+
+    # =========================================================================
+    # Calendar schemas
+    # =========================================================================
+
+    CalendarSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        calendar_type:
+          type: string
+          enum: [personal, shared, resource]
+        color:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        is_default:
+          type: boolean
+        timezone:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CalendarWithMemberInfoSchema:
+      allOf:
+        - $ref: "#/components/schemas/CalendarSchema"
+        - type: object
+          properties:
+            permission:
+              type: string
+              enum: [view, edit, admin]
+            color_override:
+              type: string
+              nullable: true
+            is_visible:
+              type: boolean
+
+    CalendarMemberSchema:
+      type: object
+      properties:
+        calendar_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        permission:
+          type: string
+          enum: [view, edit, admin]
+        color_override:
+          type: string
+          nullable: true
+        is_visible:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        user_first_name:
+          type: string
+        user_last_name:
+          type: string
+
+    CalendarEventSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        calendar_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+          nullable: true
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        is_all_day:
+          type: boolean
+        timezone:
+          type: string
+        rrule:
+          type: string
+          nullable: true
+        recurrence_end:
+          type: string
+          format: date-time
+          nullable: true
+        has_video_call:
+          type: boolean
+        livekit_room_name:
+          type: string
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ExpandedEventSchema:
+      allOf:
+        - $ref: "#/components/schemas/CalendarEventSchema"
+        - type: object
+          properties:
+            original_event_id:
+              type: string
+              format: uuid
+              nullable: true
+            original_date:
+              type: string
+              nullable: true
+            calendar_name:
+              type: string
+            calendar_color:
+              type: string
+            display_color:
+              type: string
+            category_name:
+              type: string
+              nullable: true
+            category_color:
+              type: string
+              nullable: true
+            resource_name:
+              type: string
+              nullable: true
+            attendee_count:
+              type: integer
+            my_rsvp:
+              type: string
+              enum: [pending, accepted, declined, tentative]
+              nullable: true
+
+    EventAttendeeSchema:
+      type: object
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        rsvp_status:
+          type: string
+          enum: [pending, accepted, declined, tentative]
+        responded_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        user_first_name:
+          type: string
+        user_last_name:
+          type: string
+
+    EventExceptionSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        original_date:
+          type: string
+        is_cancelled:
+          type: boolean
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+        resource_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EventReminderSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        minutes_before:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    EventCategorySchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+        sort_order:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    ResourceSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        resource_type:
+          type: string
+          enum: [room, equipment, vehicle]
+        capacity:
+          type: integer
+          nullable: true
+        floor:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ResourceBookingSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        resource_id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        booked_by:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        resource_name:
+          type: string
+        event_title:
+          type: string
+
+    PublicHolidaySchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        name:
+          type: string
+        local_name:
+          type: string
+        country_code:
+          type: string
+        is_global:
+          type: boolean
+        subdivision_codes:
+          type: array
+          items:
+            type: string
+        holiday_type:
+          type: string
+        year:
+          type: integer
+
+    CalendarPreferencesSchema:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        default_view:
+          type: string
+          enum: [day, week, month]
+        week_days:
+          type: integer
+          enum: [5, 7]
+        default_reminder_minutes:
+          type: integer
+        default_allday_reminder_minutes:
+          type: integer
+        subdivision_code:
+          type: string
+          nullable: true
+        show_task_deadlines:
+          type: boolean
+
+    TaskDeadlineStubSchema:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        due_date:
+          type: string
+          format: date-time
+        project_key:
+          type: string
+          nullable: true
+        priority:
+          type: string
+
+    # =========================================================================
+    # Calendar request schemas
+    # =========================================================================
+
+    CreateCalendarRequest:
+      type: object
+      required: [name, calendar_type]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        calendar_type:
+          type: string
+          enum: [personal, shared, resource]
+        color:
+          type: string
+        timezone:
+          type: string
+
+    UpdateCalendarRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        timezone:
+          type: string
+
+    AddCalendarMemberRequest:
+      type: object
+      required: [user_id, permission]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        permission:
+          type: string
+          enum: [view, edit, admin]
+
+    UpdateCalendarMemberPermissionRequest:
+      type: object
+      required: [permission]
+      properties:
+        permission:
+          type: string
+          enum: [view, edit, admin]
+
+    CreateEventRequest:
+      type: object
+      required: [calendar_id, title, start_time, end_time]
+      properties:
+        calendar_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        is_all_day:
+          type: boolean
+          default: false
+        timezone:
+          type: string
+        rrule:
+          type: string
+          description: RFC 5545 RRULE string for recurring events
+        has_video_call:
+          type: boolean
+          default: false
+        category_id:
+          type: string
+          format: uuid
+        attendee_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UpdateEventRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+          nullable: true
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        is_all_day:
+          type: boolean
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        has_video_call:
+          type: boolean
+
+    UpdateRecurringEventRequest:
+      type: object
+      required: [scope, original_date, changes]
+      properties:
+        scope:
+          type: string
+          enum: [this, this_and_future, all]
+          description: "Scope of the recurring update: this (single exception), this_and_future (split series), all (update master)"
+        original_date:
+          type: string
+          description: The original occurrence date being edited (YYYY-MM-DD)
+        changes:
+          $ref: "#/components/schemas/UpdateEventRequest"
+
+    RSVPRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [accepted, declined, tentative]
+
+    SetEventRemindersRequest:
+      type: object
+      required: [minutes_before]
+      properties:
+        minutes_before:
+          type: array
+          items:
+            type: integer
+          description: List of reminder offsets in minutes before event start
+
+    CreateResourceRequest:
+      type: object
+      required: [name, resource_type]
+      properties:
+        name:
+          type: string
+        resource_type:
+          type: string
+          enum: [room, equipment, vehicle]
+        capacity:
+          type: integer
+        floor:
+          type: string
+        location:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    UpdateResourceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        resource_type:
+          type: string
+          enum: [room, equipment, vehicle]
+        capacity:
+          type: integer
+          nullable: true
+        floor:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+
+    BookResourceRequest:
+      type: object
+      required: [resource_id, event_id, start_time, end_time]
+      properties:
+        resource_id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+
+    SeedHolidaysRequest:
+      type: object
+      required: [year, country_code]
+      properties:
+        year:
+          type: integer
+        country_code:
+          type: string
+          description: ISO 3166-1 alpha-2 country code (DE, AT, CH)
+
+    CreateEventCategoryRequest:
+      type: object
+      required: [name, color]
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+
+    UpdateCalendarPreferencesRequest:
+      type: object
+      properties:
+        default_view:
+          type: string
+          enum: [day, week, month]
+        week_days:
+          type: integer
+          enum: [5, 7]
+        default_reminder_minutes:
+          type: integer
+        default_allday_reminder_minutes:
+          type: integer
+        subdivision_code:
+          type: string
+        show_task_deadlines:
+          type: boolean
+
+    GenerateJoinTokenRequest:
+      type: object
+      required: [display_name]
+      properties:
+        display_name:
+          type: string
+
+    # =========================================================================
+    # Calendar response schemas
+    # =========================================================================
+
+    CalendarResponse:
+      type: object
+      properties:
+        calendar:
+          $ref: "#/components/schemas/CalendarSchema"
+
+    CalendarListResponse:
+      type: object
+      properties:
+        calendars:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarWithMemberInfoSchema"
+
+    CalendarMembersResponse:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarMemberSchema"
+
+    CalendarEventResponse:
+      type: object
+      properties:
+        event:
+          $ref: "#/components/schemas/CalendarEventSchema"
+
+    ExpandedEventListResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpandedEventSchema"
+
+    EventAttendeesResponse:
+      type: object
+      properties:
+        attendees:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventAttendeeSchema"
+
+    EventRemindersResponse:
+      type: object
+      properties:
+        reminders:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventReminderSchema"
+
+    EventCategoriesResponse:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventCategorySchema"
+
+    ResourceResponse:
+      type: object
+      properties:
+        resource:
+          $ref: "#/components/schemas/ResourceSchema"
+
+    ResourceListResponse:
+      type: object
+      properties:
+        resources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceSchema"
+
+    ResourceBookingsResponse:
+      type: object
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceBookingSchema"
+
+    HolidayListResponse:
+      type: object
+      properties:
+        holidays:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicHolidaySchema"
+
+    CalendarPreferencesResponse:
+      type: object
+      properties:
+        preferences:
+          $ref: "#/components/schemas/CalendarPreferencesSchema"
+
+    TaskDeadlinesResponse:
+      type: object
+      properties:
+        deadlines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskDeadlineStubSchema"
+
+    JoinTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: LiveKit JWT join token
+        url:
+          type: string
+          description: LiveKit WebSocket URL
 
   responses:
     BadRequest:

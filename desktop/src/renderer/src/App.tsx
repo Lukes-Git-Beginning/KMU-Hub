@@ -24,6 +24,7 @@ const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
 const CRMLayout = lazy(() => import('@/modules/crm/CRMLayout'))
 const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const WorkLayout = lazy(() => import('@/modules/work/WorkLayout'))
+const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
 const NotificationCenter = lazy(() => import('@/modules/notifications/NotificationCenter'))
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
 const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
@@ -31,7 +32,6 @@ const MeetingsPage = lazy(() => import('@/modules/meetings/MeetingsPage'))
 const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
 const MailsPage = lazy(() => import('@/modules/mails/MailsPage'))
-const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
 const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
 const BuchhaltungPage = lazy(() => import('@/modules/buchhaltung/BuchhaltungPage'))
 const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage'))
@@ -158,6 +158,14 @@ const router = createHashRouter([
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
             <WorkLayout />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'calendar',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <KalenderPage />
           </Suspense>
         ),
       },

@@ -28,8 +28,8 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 - [x] **Phase 4: Notifications + Gateway Modernization** - Centralized notification system and gateway refactoring for multi-service scale
 - [x] **Phase 5: Desktop App Shell** - Electron workspace with module loading, personalization, and role-based dashboards
-- [ ] **Phase 6: Project Management** - Tasks, projects, Kanban boards, Gantt chart, task timer, subtasks, dependencies, templates, CRM integration, custom fields
-- [ ] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
+- [x] **Phase 6: Project Management** - Tasks, projects, Kanban boards, Gantt chart, task timer, subtasks, dependencies, templates, CRM integration, custom fields
+- [x] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
 - [ ] **Phase 8: Video, Voice & Meetings** - LiveKit-powered calls, screen sharing, recording, meeting management, emoji reactions, presence/online status
 
 ### Compliance & Comms (Phases 9-11)
@@ -120,8 +120,8 @@ Plans:
 - [x] 06-06-PLAN.md -- Task list view + Kanban board with @dnd-kit DnD (core views)
 - [x] 06-07-PLAN.md -- Task detail panel + comments + files + activity log (collaboration)
 - [x] 06-08-PLAN.md -- CRM linking + search + filters + My Tasks + templates (integration)
-- [ ] 06-09-PLAN.md -- Gantt chart view (read-only timeline with task bars, dependency arrows, date range scrolling, critical path)
-- [ ] 06-10-PLAN.md -- Task timer + time tracking (start/stop timer, manual time entry, time logs per task, summary views)
+- [x] 06-09-PLAN.md -- Gantt chart view (read-only timeline with task bars, dependency arrows, date range scrolling, critical path)
+- [x] 06-10-PLAN.md -- Task timer + time tracking (start/stop timer, manual time entry, time logs per task, summary views)
 
 ### Phase 7: Calendar & Scheduling
 **Goal**: Users can manage their schedules, book meetings, and coordinate team availability entirely within the Hub
@@ -135,12 +135,18 @@ Plans:
   5. User can book a meeting room or resource via dedicated resource calendars that show availability
   6. Creating a calendar event with a video call option auto-generates a LiveKit room link in the event details
   7. Calendar displays DACH public holidays for the user's configured Bundesland/Kanton, with weeks starting Monday
-**Plans**: TBD
+**Plans**: 9 plans
 
 Plans:
-- [ ] 07-01: Calendar backend (event models, RRULE recurring events, personal/shared calendars, RSVP)
-- [ ] 07-02: Calendar UI (day/week/month views, event creation, multi-calendar overlay)
-- [ ] 07-03: Resource booking + DACH features (room/resource calendars, holiday data, LiveKit link generation)
+- [ ] 07-01-PLAN.md -- Proto + migrations + models + Go deps (CalendarService proto, 4 migrations for 12 tables, Go models, rrule-go + LiveKit SDK)
+- [ ] 07-02-PLAN.md -- Frontend module shell + API hooks + stores (rrule npm, TypeScript types, TanStack Query hooks, Zustand calendar store, CalendarLayout)
+- [ ] 07-03-PLAN.md -- Calendar + Event service packages (CRUD, permissions, RRULE expansion, three-way recurring edit, RSVP, reminders, event emitter)
+- [ ] 07-04-PLAN.md -- Resource + Holiday + LiveKit service packages (booking with exclusion constraints, Nager.Date holiday seeding, LiveKit token generation)
+- [ ] 07-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (CalendarService gRPC, ~30 HTTP endpoints, Work service dual registration)
+- [ ] 07-06-PLAN.md -- Calendar views + grid components (CSS Grid TimeGrid, WeekView, DayView, MonthView, ViewToolbar, event layout algorithm)
+- [ ] 07-07-PLAN.md -- Event creation + editing UI (EventPopover, EventForm, RecurrenceEditor, RecurrenceEditScope, ReminderEditor, AttendeePicker)
+- [ ] 07-08-PLAN.md -- Shared calendars + sidebar (CalendarSidebar with day agenda, CalendarListSidebar, CalendarBrowsePage, CalendarSettingsDialog, permissions)
+- [ ] 07-09-PLAN.md -- Resource booking + DACH holidays + task deadlines (ResourcesPage, ResourceTimeline, HolidayBadge, TaskDeadlineLayer)
 
 ### Phase 8: Video, Voice & Meetings
 **Goal**: Users can make video/voice calls, manage meetings end-to-end, see colleague presence, and react to messages -- replacing Zoom/Teams
@@ -157,14 +163,18 @@ Plans:
   8. After a meeting, a summary record is created with notes and action items linkable as tasks
   9. Users can react to chat messages with emoji reactions (add, remove, reaction counts)
   10. Users see presence indicators (online/away/offline/in a call) for colleagues across the app
-**Plans**: 5 plans (estimated)
+**Plans**: 9 plans
 
 Plans:
-- [ ] 08-01: LiveKit infrastructure + call service (LiveKit Docker setup, room management, token generation, call metadata)
-- [ ] 08-02: Call UI + media controls (video/audio rendering, mute/camera toggle, screen sharing, gallery view)
-- [ ] 08-03: Call integration + recording (call-from-chat, call-from-calendar, DSGVO consent flow, recording to MinIO)
-- [ ] 08-04: Meeting management (scheduling, agenda, lobby, notes, post-meeting summary, action items, CRM linking)
-- [ ] 08-05: Emoji reactions + presence system (message reactions, WebSocket presence tracking, status indicators)
+- [ ] 08-01-PLAN.md -- Proto + migrations + models + Go deps (Video proto, Chat proto reaction extension, 3 migrations for 9 tables, Go models, LiveKit SDK)
+- [ ] 08-02-PLAN.md -- Chat reaction service (reaction repository + service with toggle semantics, batch summaries, unit tests)
+- [ ] 08-03-PLAN.md -- Room + recording services (LiveKit room management, token generation, call lifecycle, Egress recording, DSGVO consent state machine)
+- [ ] 08-04-PLAN.md -- Meeting + presence services (meeting lifecycle with notes/action items, Redis presence with heartbeat/bulk queries)
+- [ ] 08-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (Video gRPC, Chat reaction gRPC, ~30 HTTP routes, WebSocket extensions, LiveKit + Egress Docker)
+- [ ] 08-06-PLAN.md -- Frontend foundation + API hooks + stores (LiveKit SDK install, TypeScript types, 5 TanStack Query hook files, 2 Zustand stores)
+- [ ] 08-07-PLAN.md -- Call UI + screen share (VideoCallView with LiveKit, PreJoin, CallControls, Electron desktopCapturer, incoming call notification, floating bar, recording consent)
+- [ ] 08-08-PLAN.md -- Meeting UI (MeetingListPage, MeetingScheduleForm, MeetingLobby, MeetingNotesEditor, MeetingActionItems, MeetingSummary)
+- [ ] 08-09-PLAN.md -- Reactions UI + presence + chat integration (ReactionPicker/Bar, PresenceIndicator/Provider, call-from-chat button, sidebar navigation, AppShell integration)
 
 ### Phase 9: Security & Compliance
 **Goal**: The Hub meets enterprise security requirements and DSGVO compliance obligations, with multi-language support for the Swiss market
@@ -385,9 +395,9 @@ Decimal phases (if inserted) execute between their surrounding integers.
 |-------|----------------|--------|-----------|
 | 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
 | 5. Desktop App Shell | 7/7 | Complete | 2026-02-08 |
-| 6. Project Management | 8/10 | In progress | - |
-| 7. Calendar & Scheduling | 0/3 | Not started | - |
-| 8. Video, Voice & Meetings | 0/5 | Not started | - |
+| 6. Project Management | 10/10 | Complete | 2026-02-08 |
+| 7. Calendar & Scheduling | 9/9 | Complete | 2026-02-11 |
+| 8. Video, Voice & Meetings | 0/9 | Not started | - |
 | 9. Security & Compliance | 0/4 | Not started | - |
 | 10. Email Integration | 0/4 | Not started | - |
 | 11. Documents & Files | 0/4 | Not started | - |
@@ -404,4 +414,4 @@ Decimal phases (if inserted) execute between their surrounding integers.
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-08 after second feature gap analysis (expanded from 18 to 20 phases -- added Abacus, Run my Accounts, chat file permissions)*
+*Last updated: 2026-02-10 after Phase 8 planning (9 plans in 4 waves)*

@@ -1,0 +1,720 @@
+syntax = "proto3";
+
+package calendar.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/calendar/v1;calendarv1";
+
+import "google/protobuf/timestamp.proto";
+
+service CalendarService {
+  // Calendars
+  rpc CreateCalendar(CreateCalendarRequest) returns (CreateCalendarResponse);
+  rpc GetCalendar(GetCalendarRequest) returns (GetCalendarResponse);
+  rpc ListCalendars(ListCalendarsRequest) returns (ListCalendarsResponse);
+  rpc UpdateCalendar(UpdateCalendarRequest) returns (UpdateCalendarResponse);
+  rpc DeleteCalendar(DeleteCalendarRequest) returns (DeleteCalendarResponse);
+
+  // Calendar Members
+  rpc AddCalendarMember(AddCalendarMemberRequest) returns (AddCalendarMemberResponse);
+  rpc RemoveCalendarMember(RemoveCalendarMemberRequest) returns (RemoveCalendarMemberResponse);
+  rpc ListCalendarMembers(ListCalendarMembersRequest) returns (ListCalendarMembersResponse);
+  rpc UpdateCalendarMemberPermission(UpdateCalendarMemberPermissionRequest) returns (UpdateCalendarMemberPermissionResponse);
+
+  // Calendar Discovery / Subscription
+  rpc ListBrowsableCalendars(ListBrowsableCalendarsRequest) returns (ListBrowsableCalendarsResponse);
+  rpc SubscribeToCalendar(SubscribeToCalendarRequest) returns (SubscribeToCalendarResponse);
+  rpc UnsubscribeFromCalendar(UnsubscribeFromCalendarRequest) returns (UnsubscribeFromCalendarResponse);
+
+  // Events
+  rpc CreateEvent(CreateEventRequest) returns (CreateEventResponse);
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+  rpc ListEventsInRange(ListEventsInRangeRequest) returns (ListEventsInRangeResponse);
+  rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse);
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
+  rpc UpdateRecurringEvent(UpdateRecurringEventRequest) returns (UpdateRecurringEventResponse);
+  rpc RSVPToEvent(RSVPToEventRequest) returns (RSVPToEventResponse);
+  rpc ListEventAttendees(ListEventAttendeesRequest) returns (ListEventAttendeesResponse);
+
+  // Event Categories
+  rpc CreateEventCategory(CreateEventCategoryRequest) returns (CreateEventCategoryResponse);
+  rpc ListEventCategories(ListEventCategoriesRequest) returns (ListEventCategoriesResponse);
+  rpc DeleteEventCategory(DeleteEventCategoryRequest) returns (DeleteEventCategoryResponse);
+
+  // Event Reminders
+  rpc SetEventReminders(SetEventRemindersRequest) returns (SetEventRemindersResponse);
+  rpc ListEventReminders(ListEventRemindersRequest) returns (ListEventRemindersResponse);
+
+  // Resources
+  rpc CreateResource(CreateResourceRequest) returns (CreateResourceResponse);
+  rpc GetResource(GetResourceRequest) returns (GetResourceResponse);
+  rpc ListResources(ListResourcesRequest) returns (ListResourcesResponse);
+  rpc UpdateResource(UpdateResourceRequest) returns (UpdateResourceResponse);
+  rpc DeleteResource(DeleteResourceRequest) returns (DeleteResourceResponse);
+  rpc ListResourceAvailability(ListResourceAvailabilityRequest) returns (ListResourceAvailabilityResponse);
+
+  // Resource Booking
+  rpc BookResource(BookResourceRequest) returns (BookResourceResponse);
+  rpc CancelBooking(CancelBookingRequest) returns (CancelBookingResponse);
+  rpc ListResourceBookings(ListResourceBookingsRequest) returns (ListResourceBookingsResponse);
+
+  // Holidays
+  rpc ListHolidays(ListHolidaysRequest) returns (ListHolidaysResponse);
+  rpc SeedHolidays(SeedHolidaysRequest) returns (SeedHolidaysResponse);
+
+  // Preferences
+  rpc GetCalendarPreferences(GetCalendarPreferencesRequest) returns (GetCalendarPreferencesResponse);
+  rpc UpdateCalendarPreferences(UpdateCalendarPreferencesRequest) returns (UpdateCalendarPreferencesResponse);
+
+  // Task Deadlines (calendar overlay)
+  rpc ListTaskDeadlinesInRange(ListTaskDeadlinesInRangeRequest) returns (ListTaskDeadlinesInRangeResponse);
+
+  // LiveKit
+  rpc GenerateJoinToken(GenerateJoinTokenRequest) returns (GenerateJoinTokenResponse);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum RecurringEventScope {
+  RECURRING_EVENT_SCOPE_UNSPECIFIED = 0;
+  THIS_EVENT = 1;
+  THIS_AND_FUTURE = 2;
+  ALL_EVENTS = 3;
+}
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+message CalendarProto {
+  string id = 1;
+  string name = 2;
+  optional string description = 3;
+  string calendar_type = 4;  // "personal", "shared", "resource"
+  string color = 5;
+  string owner_id = 6;
+  bool is_default = 7;
+  string timezone = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message CalendarWithMemberInfoProto {
+  CalendarProto calendar = 1;
+  string permission = 2;      // user's permission: "view", "edit", "admin"
+  optional string color_override = 3;
+  bool is_visible = 4;
+}
+
+message CalendarMemberProto {
+  string calendar_id = 1;
+  string user_id = 2;
+  string permission = 3;  // "view", "edit", "admin"
+  optional string color_override = 4;
+  bool is_visible = 5;
+  google.protobuf.Timestamp created_at = 6;
+  string first_name = 7;
+  string last_name = 8;
+}
+
+message CalendarEventProto {
+  string id = 1;
+  string calendar_id = 2;
+  string title = 3;
+  optional string description = 4;
+  optional string location = 5;
+  optional string resource_id = 6;
+  google.protobuf.Timestamp start_time = 7;
+  google.protobuf.Timestamp end_time = 8;
+  bool is_all_day = 9;
+  string timezone = 10;
+  optional string rrule = 11;
+  optional google.protobuf.Timestamp recurrence_end = 12;
+  bool has_video_call = 13;
+  optional string livekit_room_name = 14;
+  optional string category_id = 15;
+  string created_by = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+}
+
+message ExpandedEventProto {
+  CalendarEventProto event = 1;
+  optional string original_event_id = 2;   // set for recurring instances
+  optional google.protobuf.Timestamp original_date = 3;
+  string calendar_name = 4;
+  string calendar_color = 5;
+  string display_color = 6;                 // COALESCE(color_override, calendar_color)
+  optional string category_name = 7;
+  optional string category_color = 8;
+  optional string resource_name = 9;
+  int32 attendee_count = 10;
+  optional string my_rsvp = 11;
+}
+
+message EventAttendeeProto {
+  string event_id = 1;
+  string user_id = 2;
+  string rsvp_status = 3;  // "pending", "accepted", "declined", "tentative"
+  optional google.protobuf.Timestamp responded_at = 4;
+  google.protobuf.Timestamp created_at = 5;
+  string first_name = 6;
+  string last_name = 7;
+}
+
+message EventExceptionProto {
+  string id = 1;
+  string event_id = 2;
+  string original_date = 3;  // DATE as YYYY-MM-DD string
+  bool is_cancelled = 4;
+  optional string title = 5;
+  optional string description = 6;
+  optional string location = 7;
+  optional google.protobuf.Timestamp start_time = 8;
+  optional google.protobuf.Timestamp end_time = 9;
+  optional string resource_id = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message EventReminderProto {
+  string id = 1;
+  string event_id = 2;
+  int32 minutes_before = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message ResourceProto {
+  string id = 1;
+  string name = 2;
+  string resource_type = 3;  // "room", "equipment", "vehicle"
+  optional int32 capacity = 4;
+  optional string floor = 5;
+  optional string location = 6;
+  optional string description = 7;
+  bool is_active = 8;
+  string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  repeated string tags = 12;
+}
+
+message ResourceBookingProto {
+  string id = 1;
+  string resource_id = 2;
+  string event_id = 3;
+  string booked_by = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  optional google.protobuf.Timestamp cancelled_at = 7;
+  google.protobuf.Timestamp created_at = 8;
+  string resource_name = 9;
+  string event_title = 10;
+}
+
+message PublicHolidayProto {
+  string id = 1;
+  string date = 2;  // DATE as YYYY-MM-DD string
+  string name = 3;
+  string local_name = 4;
+  string country_code = 5;
+  bool is_global = 6;
+  repeated string subdivision_codes = 7;
+  string holiday_type = 8;
+  int32 year = 9;
+}
+
+message EventCategoryProto {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  string color = 4;
+  int32 sort_order = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message CalendarPreferencesProto {
+  string user_id = 1;
+  string default_view = 2;  // "day", "week", "month"
+  int32 week_days = 3;      // 5 or 7
+  int32 default_reminder_minutes = 4;
+  int32 default_allday_reminder_minutes = 5;
+  optional string subdivision_code = 6;
+  bool show_task_deadlines = 7;
+}
+
+message TaskDeadlineStubProto {
+  string task_id = 1;
+  string title = 2;
+  string due_date = 3;  // DATE as YYYY-MM-DD string
+  optional string project_key = 4;
+  string priority = 5;
+}
+
+// ============================================================================
+// Calendar RPCs
+// ============================================================================
+
+message CreateCalendarRequest {
+  string name = 1;
+  optional string description = 2;
+  string calendar_type = 3;
+  optional string color = 4;
+  string owner_id = 5;
+  optional string timezone = 6;
+}
+
+message CreateCalendarResponse {
+  CalendarProto calendar = 1;
+}
+
+message GetCalendarRequest {
+  string id = 1;
+}
+
+message GetCalendarResponse {
+  CalendarProto calendar = 1;
+}
+
+message ListCalendarsRequest {
+  string user_id = 1;
+  bool include_hidden = 2;
+}
+
+message ListCalendarsResponse {
+  repeated CalendarWithMemberInfoProto calendars = 1;
+}
+
+message UpdateCalendarRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional string color = 4;
+  optional string timezone = 5;
+}
+
+message UpdateCalendarResponse {
+  CalendarProto calendar = 1;
+}
+
+message DeleteCalendarRequest {
+  string id = 1;
+}
+
+message DeleteCalendarResponse {}
+
+// ============================================================================
+// Calendar Member RPCs
+// ============================================================================
+
+message AddCalendarMemberRequest {
+  string calendar_id = 1;
+  string user_id = 2;
+  string permission = 3;
+}
+
+message AddCalendarMemberResponse {
+  CalendarMemberProto member = 1;
+}
+
+message RemoveCalendarMemberRequest {
+  string calendar_id = 1;
+  string user_id = 2;
+}
+
+message RemoveCalendarMemberResponse {}
+
+message ListCalendarMembersRequest {
+  string calendar_id = 1;
+}
+
+message ListCalendarMembersResponse {
+  repeated CalendarMemberProto members = 1;
+}
+
+message UpdateCalendarMemberPermissionRequest {
+  string calendar_id = 1;
+  string user_id = 2;
+  string permission = 3;
+}
+
+message UpdateCalendarMemberPermissionResponse {
+  CalendarMemberProto member = 1;
+}
+
+// ============================================================================
+// Calendar Discovery / Subscription RPCs
+// ============================================================================
+
+message ListBrowsableCalendarsRequest {
+  string user_id = 1;
+  optional string search = 2;
+}
+
+message ListBrowsableCalendarsResponse {
+  repeated CalendarProto calendars = 1;
+}
+
+message SubscribeToCalendarRequest {
+  string calendar_id = 1;
+  string user_id = 2;
+}
+
+message SubscribeToCalendarResponse {
+  CalendarMemberProto member = 1;
+}
+
+message UnsubscribeFromCalendarRequest {
+  string calendar_id = 1;
+  string user_id = 2;
+}
+
+message UnsubscribeFromCalendarResponse {}
+
+// ============================================================================
+// Event RPCs
+// ============================================================================
+
+message CreateEventRequest {
+  string calendar_id = 1;
+  string title = 2;
+  optional string description = 3;
+  optional string location = 4;
+  optional string resource_id = 5;
+  google.protobuf.Timestamp start_time = 6;
+  google.protobuf.Timestamp end_time = 7;
+  bool is_all_day = 8;
+  optional string timezone = 9;
+  optional string rrule = 10;
+  bool has_video_call = 11;
+  optional string category_id = 12;
+  string created_by = 13;
+  repeated string attendee_user_ids = 14;
+  repeated int32 reminder_minutes = 15;
+}
+
+message CreateEventResponse {
+  CalendarEventProto event = 1;
+}
+
+message GetEventRequest {
+  string id = 1;
+  string user_id = 2;  // for RSVP status lookup
+}
+
+message GetEventResponse {
+  ExpandedEventProto event = 1;
+}
+
+message ListEventsInRangeRequest {
+  repeated string calendar_ids = 1;
+  google.protobuf.Timestamp start = 2;
+  google.protobuf.Timestamp end = 3;
+  string user_id = 4;
+}
+
+message ListEventsInRangeResponse {
+  repeated ExpandedEventProto events = 1;
+}
+
+message UpdateEventRequest {
+  string id = 1;
+  optional string title = 2;
+  optional string description = 3;
+  optional string location = 4;
+  optional string resource_id = 5;
+  optional google.protobuf.Timestamp start_time = 6;
+  optional google.protobuf.Timestamp end_time = 7;
+  optional bool is_all_day = 8;
+  optional string timezone = 9;
+  optional string rrule = 10;
+  optional bool has_video_call = 11;
+  optional string category_id = 12;
+  string updated_by = 13;
+}
+
+message UpdateEventResponse {
+  CalendarEventProto event = 1;
+}
+
+message DeleteEventRequest {
+  string id = 1;
+}
+
+message DeleteEventResponse {}
+
+message UpdateRecurringEventRequest {
+  string event_id = 1;
+  RecurringEventScope scope = 2;
+  string original_date = 3;  // DATE as YYYY-MM-DD string -- the occurrence being edited
+  // Fields to update (only non-nil fields are applied)
+  optional string title = 4;
+  optional string description = 5;
+  optional string location = 6;
+  optional string resource_id = 7;
+  optional google.protobuf.Timestamp start_time = 8;
+  optional google.protobuf.Timestamp end_time = 9;
+  optional bool is_all_day = 10;
+  optional string rrule = 11;  // only for ALL_EVENTS scope
+  optional bool has_video_call = 12;
+  optional string category_id = 13;
+  string updated_by = 14;
+}
+
+message UpdateRecurringEventResponse {
+  CalendarEventProto event = 1;
+  optional CalendarEventProto new_series = 2;  // set when THIS_AND_FUTURE creates a new series
+}
+
+message RSVPToEventRequest {
+  string event_id = 1;
+  string user_id = 2;
+  string rsvp_status = 3;  // "accepted", "declined", "tentative"
+}
+
+message RSVPToEventResponse {
+  EventAttendeeProto attendee = 1;
+}
+
+message ListEventAttendeesRequest {
+  string event_id = 1;
+}
+
+message ListEventAttendeesResponse {
+  repeated EventAttendeeProto attendees = 1;
+}
+
+// ============================================================================
+// Event Category RPCs
+// ============================================================================
+
+message CreateEventCategoryRequest {
+  string user_id = 1;
+  string name = 2;
+  string color = 3;
+  optional int32 sort_order = 4;
+}
+
+message CreateEventCategoryResponse {
+  EventCategoryProto category = 1;
+}
+
+message ListEventCategoriesRequest {
+  string user_id = 1;
+}
+
+message ListEventCategoriesResponse {
+  repeated EventCategoryProto categories = 1;
+}
+
+message DeleteEventCategoryRequest {
+  string id = 1;
+}
+
+message DeleteEventCategoryResponse {}
+
+// ============================================================================
+// Event Reminder RPCs
+// ============================================================================
+
+message SetEventRemindersRequest {
+  string event_id = 1;
+  repeated int32 minutes_before = 2;  // batch set: replaces all existing reminders
+}
+
+message SetEventRemindersResponse {
+  repeated EventReminderProto reminders = 1;
+}
+
+message ListEventRemindersRequest {
+  string event_id = 1;
+}
+
+message ListEventRemindersResponse {
+  repeated EventReminderProto reminders = 1;
+}
+
+// ============================================================================
+// Resource RPCs
+// ============================================================================
+
+message CreateResourceRequest {
+  string name = 1;
+  string resource_type = 2;
+  optional int32 capacity = 3;
+  optional string floor = 4;
+  optional string location = 5;
+  optional string description = 6;
+  repeated string tags = 7;
+  string created_by = 8;
+}
+
+message CreateResourceResponse {
+  ResourceProto resource = 1;
+}
+
+message GetResourceRequest {
+  string id = 1;
+}
+
+message GetResourceResponse {
+  ResourceProto resource = 1;
+}
+
+message ListResourcesRequest {
+  optional string resource_type = 1;
+  optional int32 min_capacity = 2;
+  optional string floor = 3;
+  repeated string tags = 4;
+  bool include_inactive = 5;
+}
+
+message ListResourcesResponse {
+  repeated ResourceProto resources = 1;
+}
+
+message UpdateResourceRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string resource_type = 3;
+  optional int32 capacity = 4;
+  optional string floor = 5;
+  optional string location = 6;
+  optional string description = 7;
+  repeated string tags = 8;
+  optional bool is_active = 9;
+}
+
+message UpdateResourceResponse {
+  ResourceProto resource = 1;
+}
+
+message DeleteResourceRequest {
+  string id = 1;
+}
+
+message DeleteResourceResponse {}
+
+message ListResourceAvailabilityRequest {
+  string resource_id = 1;
+  google.protobuf.Timestamp start = 2;
+  google.protobuf.Timestamp end = 3;
+}
+
+message ListResourceAvailabilityResponse {
+  repeated ResourceBookingProto bookings = 1;
+}
+
+// ============================================================================
+// Resource Booking RPCs
+// ============================================================================
+
+message BookResourceRequest {
+  string resource_id = 1;
+  string event_id = 2;
+  string booked_by = 3;
+  google.protobuf.Timestamp start_time = 4;
+  google.protobuf.Timestamp end_time = 5;
+}
+
+message BookResourceResponse {
+  ResourceBookingProto booking = 1;
+}
+
+message CancelBookingRequest {
+  string id = 1;
+}
+
+message CancelBookingResponse {}
+
+message ListResourceBookingsRequest {
+  optional string resource_id = 1;
+  optional string event_id = 2;
+  google.protobuf.Timestamp start = 3;
+  google.protobuf.Timestamp end = 4;
+}
+
+message ListResourceBookingsResponse {
+  repeated ResourceBookingProto bookings = 1;
+}
+
+// ============================================================================
+// Holiday RPCs
+// ============================================================================
+
+message ListHolidaysRequest {
+  string country_code = 1;
+  optional string subdivision_code = 2;
+  google.protobuf.Timestamp start = 3;
+  google.protobuf.Timestamp end = 4;
+}
+
+message ListHolidaysResponse {
+  repeated PublicHolidayProto holidays = 1;
+}
+
+message SeedHolidaysRequest {
+  string country_code = 1;
+  int32 year = 2;
+}
+
+message SeedHolidaysResponse {
+  int32 count = 1;
+}
+
+// ============================================================================
+// Preference RPCs
+// ============================================================================
+
+message GetCalendarPreferencesRequest {
+  string user_id = 1;
+}
+
+message GetCalendarPreferencesResponse {
+  CalendarPreferencesProto preferences = 1;
+}
+
+message UpdateCalendarPreferencesRequest {
+  string user_id = 1;
+  optional string default_view = 2;
+  optional int32 week_days = 3;
+  optional int32 default_reminder_minutes = 4;
+  optional int32 default_allday_reminder_minutes = 5;
+  optional string subdivision_code = 6;
+  optional bool show_task_deadlines = 7;
+}
+
+message UpdateCalendarPreferencesResponse {
+  CalendarPreferencesProto preferences = 1;
+}
+
+// ============================================================================
+// Task Deadline RPCs
+// ============================================================================
+
+message ListTaskDeadlinesInRangeRequest {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+  string user_id = 3;
+}
+
+message ListTaskDeadlinesInRangeResponse {
+  repeated TaskDeadlineStubProto deadlines = 1;
+}
+
+// ============================================================================
+// LiveKit RPCs
+// ============================================================================
+
+message GenerateJoinTokenRequest {
+  string event_id = 1;
+  string user_id = 2;
+  string user_name = 3;  // display name in the video call
+}
+
+message GenerateJoinTokenResponse {
+  string token = 1;
+  string room_name = 2;
+  string ws_url = 3;
+}

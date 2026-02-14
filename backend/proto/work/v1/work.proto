@@ -75,6 +75,16 @@ service WorkService {
 
   // Search
   rpc SearchTasks(SearchTasksRequest) returns (SearchTasksResponse);
+
+  // Time Tracking
+  rpc StartTimer(StartTimerRequest) returns (StartTimerResponse);
+  rpc StopTimer(StopTimerRequest) returns (StopTimerResponse);
+  rpc GetActiveTimer(GetActiveTimerRequest) returns (GetActiveTimerResponse);
+  rpc AddManualTimeEntry(AddManualTimeEntryRequest) returns (AddManualTimeEntryResponse);
+  rpc UpdateTimeEntry(UpdateTimeEntryRequest) returns (UpdateTimeEntryResponse);
+  rpc DeleteTimeEntry(DeleteTimeEntryRequest) returns (DeleteTimeEntryResponse);
+  rpc ListTimeEntries(ListTimeEntriesRequest) returns (ListTimeEntriesResponse);
+  rpc GetTaskTimeSummary(GetTaskTimeSummaryRequest) returns (GetTaskTimeSummaryResponse);
 }
 
 // ============================================================================
@@ -705,4 +715,114 @@ message SearchTasksRequest {
 message SearchTasksResponse {
   repeated TaskProto tasks = 1;
   int32 total = 2;
+}
+
+// ============================================================================
+// Time Tracking Messages
+// ============================================================================
+
+message TimeEntryProto {
+  string id = 1;
+  string task_id = 2;
+  string user_id = 3;
+  string user_name = 4;
+  google.protobuf.Timestamp started_at = 5;
+  optional google.protobuf.Timestamp ended_at = 6;
+  optional int32 duration_seconds = 7;
+  optional string description = 8;
+  bool is_manual = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message ActiveTimerProto {
+  string id = 1;
+  string task_id = 2;
+  string task_title = 3;
+  string user_id = 4;
+  google.protobuf.Timestamp started_at = 5;
+}
+
+message TimeSummaryProto {
+  string task_id = 1;
+  int32 total_duration_seconds = 2;
+  int32 entry_count = 3;
+}
+
+// Time Tracking RPCs
+
+message StartTimerRequest {
+  string task_id = 1;
+  string user_id = 2;
+}
+
+message StartTimerResponse {
+  TimeEntryProto entry = 1;
+  optional TimeEntryProto stopped_entry = 2;  // Previously running timer that was auto-stopped
+}
+
+message StopTimerRequest {
+  string user_id = 1;
+}
+
+message StopTimerResponse {
+  TimeEntryProto entry = 1;
+}
+
+message GetActiveTimerRequest {
+  string user_id = 1;
+}
+
+message GetActiveTimerResponse {
+  optional ActiveTimerProto timer = 1;
+}
+
+message AddManualTimeEntryRequest {
+  string task_id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp started_at = 3;
+  int32 duration_seconds = 4;
+  optional string description = 5;
+}
+
+message AddManualTimeEntryResponse {
+  TimeEntryProto entry = 1;
+}
+
+message UpdateTimeEntryRequest {
+  string id = 1;
+  string user_id = 2;  // actor for permission check
+  optional google.protobuf.Timestamp started_at = 3;
+  optional int32 duration_seconds = 4;
+  optional string description = 5;
+}
+
+message UpdateTimeEntryResponse {
+  TimeEntryProto entry = 1;
+}
+
+message DeleteTimeEntryRequest {
+  string id = 1;
+  string user_id = 2;  // actor for permission check
+}
+
+message DeleteTimeEntryResponse {}
+
+message ListTimeEntriesRequest {
+  string task_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListTimeEntriesResponse {
+  repeated TimeEntryProto entries = 1;
+  int32 total = 2;
+}
+
+message GetTaskTimeSummaryRequest {
+  string task_id = 1;
+}
+
+message GetTaskTimeSummaryResponse {
+  TimeSummaryProto summary = 1;
 }

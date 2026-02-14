@@ -62,6 +62,14 @@ const (
 	WorkService_GetUserProjectPreference_FullMethodName  = "/work.v1.WorkService/GetUserProjectPreference"
 	WorkService_SetUserProjectPreference_FullMethodName  = "/work.v1.WorkService/SetUserProjectPreference"
 	WorkService_SearchTasks_FullMethodName               = "/work.v1.WorkService/SearchTasks"
+	WorkService_StartTimer_FullMethodName                = "/work.v1.WorkService/StartTimer"
+	WorkService_StopTimer_FullMethodName                 = "/work.v1.WorkService/StopTimer"
+	WorkService_GetActiveTimer_FullMethodName            = "/work.v1.WorkService/GetActiveTimer"
+	WorkService_AddManualTimeEntry_FullMethodName        = "/work.v1.WorkService/AddManualTimeEntry"
+	WorkService_UpdateTimeEntry_FullMethodName           = "/work.v1.WorkService/UpdateTimeEntry"
+	WorkService_DeleteTimeEntry_FullMethodName           = "/work.v1.WorkService/DeleteTimeEntry"
+	WorkService_ListTimeEntries_FullMethodName           = "/work.v1.WorkService/ListTimeEntries"
+	WorkService_GetTaskTimeSummary_FullMethodName        = "/work.v1.WorkService/GetTaskTimeSummary"
 )
 
 // WorkServiceClient is the client API for WorkService service.
@@ -124,6 +132,15 @@ type WorkServiceClient interface {
 	SetUserProjectPreference(ctx context.Context, in *SetUserProjectPreferenceRequest, opts ...grpc.CallOption) (*SetUserProjectPreferenceResponse, error)
 	// Search
 	SearchTasks(ctx context.Context, in *SearchTasksRequest, opts ...grpc.CallOption) (*SearchTasksResponse, error)
+	// Time Tracking
+	StartTimer(ctx context.Context, in *StartTimerRequest, opts ...grpc.CallOption) (*StartTimerResponse, error)
+	StopTimer(ctx context.Context, in *StopTimerRequest, opts ...grpc.CallOption) (*StopTimerResponse, error)
+	GetActiveTimer(ctx context.Context, in *GetActiveTimerRequest, opts ...grpc.CallOption) (*GetActiveTimerResponse, error)
+	AddManualTimeEntry(ctx context.Context, in *AddManualTimeEntryRequest, opts ...grpc.CallOption) (*AddManualTimeEntryResponse, error)
+	UpdateTimeEntry(ctx context.Context, in *UpdateTimeEntryRequest, opts ...grpc.CallOption) (*UpdateTimeEntryResponse, error)
+	DeleteTimeEntry(ctx context.Context, in *DeleteTimeEntryRequest, opts ...grpc.CallOption) (*DeleteTimeEntryResponse, error)
+	ListTimeEntries(ctx context.Context, in *ListTimeEntriesRequest, opts ...grpc.CallOption) (*ListTimeEntriesResponse, error)
+	GetTaskTimeSummary(ctx context.Context, in *GetTaskTimeSummaryRequest, opts ...grpc.CallOption) (*GetTaskTimeSummaryResponse, error)
 }
 
 type workServiceClient struct {
@@ -564,6 +581,86 @@ func (c *workServiceClient) SearchTasks(ctx context.Context, in *SearchTasksRequ
 	return out, nil
 }
 
+func (c *workServiceClient) StartTimer(ctx context.Context, in *StartTimerRequest, opts ...grpc.CallOption) (*StartTimerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartTimerResponse)
+	err := c.cc.Invoke(ctx, WorkService_StartTimer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) StopTimer(ctx context.Context, in *StopTimerRequest, opts ...grpc.CallOption) (*StopTimerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopTimerResponse)
+	err := c.cc.Invoke(ctx, WorkService_StopTimer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) GetActiveTimer(ctx context.Context, in *GetActiveTimerRequest, opts ...grpc.CallOption) (*GetActiveTimerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetActiveTimerResponse)
+	err := c.cc.Invoke(ctx, WorkService_GetActiveTimer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) AddManualTimeEntry(ctx context.Context, in *AddManualTimeEntryRequest, opts ...grpc.CallOption) (*AddManualTimeEntryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddManualTimeEntryResponse)
+	err := c.cc.Invoke(ctx, WorkService_AddManualTimeEntry_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) UpdateTimeEntry(ctx context.Context, in *UpdateTimeEntryRequest, opts ...grpc.CallOption) (*UpdateTimeEntryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTimeEntryResponse)
+	err := c.cc.Invoke(ctx, WorkService_UpdateTimeEntry_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) DeleteTimeEntry(ctx context.Context, in *DeleteTimeEntryRequest, opts ...grpc.CallOption) (*DeleteTimeEntryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteTimeEntryResponse)
+	err := c.cc.Invoke(ctx, WorkService_DeleteTimeEntry_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) ListTimeEntries(ctx context.Context, in *ListTimeEntriesRequest, opts ...grpc.CallOption) (*ListTimeEntriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTimeEntriesResponse)
+	err := c.cc.Invoke(ctx, WorkService_ListTimeEntries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workServiceClient) GetTaskTimeSummary(ctx context.Context, in *GetTaskTimeSummaryRequest, opts ...grpc.CallOption) (*GetTaskTimeSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskTimeSummaryResponse)
+	err := c.cc.Invoke(ctx, WorkService_GetTaskTimeSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkServiceServer is the server API for WorkService service.
 // All implementations must embed UnimplementedWorkServiceServer
 // for forward compatibility.
@@ -624,6 +721,15 @@ type WorkServiceServer interface {
 	SetUserProjectPreference(context.Context, *SetUserProjectPreferenceRequest) (*SetUserProjectPreferenceResponse, error)
 	// Search
 	SearchTasks(context.Context, *SearchTasksRequest) (*SearchTasksResponse, error)
+	// Time Tracking
+	StartTimer(context.Context, *StartTimerRequest) (*StartTimerResponse, error)
+	StopTimer(context.Context, *StopTimerRequest) (*StopTimerResponse, error)
+	GetActiveTimer(context.Context, *GetActiveTimerRequest) (*GetActiveTimerResponse, error)
+	AddManualTimeEntry(context.Context, *AddManualTimeEntryRequest) (*AddManualTimeEntryResponse, error)
+	UpdateTimeEntry(context.Context, *UpdateTimeEntryRequest) (*UpdateTimeEntryResponse, error)
+	DeleteTimeEntry(context.Context, *DeleteTimeEntryRequest) (*DeleteTimeEntryResponse, error)
+	ListTimeEntries(context.Context, *ListTimeEntriesRequest) (*ListTimeEntriesResponse, error)
+	GetTaskTimeSummary(context.Context, *GetTaskTimeSummaryRequest) (*GetTaskTimeSummaryResponse, error)
 	mustEmbedUnimplementedWorkServiceServer()
 }
 
@@ -762,6 +868,30 @@ func (UnimplementedWorkServiceServer) SetUserProjectPreference(context.Context, 
 }
 func (UnimplementedWorkServiceServer) SearchTasks(context.Context, *SearchTasksRequest) (*SearchTasksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchTasks not implemented")
+}
+func (UnimplementedWorkServiceServer) StartTimer(context.Context, *StartTimerRequest) (*StartTimerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartTimer not implemented")
+}
+func (UnimplementedWorkServiceServer) StopTimer(context.Context, *StopTimerRequest) (*StopTimerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StopTimer not implemented")
+}
+func (UnimplementedWorkServiceServer) GetActiveTimer(context.Context, *GetActiveTimerRequest) (*GetActiveTimerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetActiveTimer not implemented")
+}
+func (UnimplementedWorkServiceServer) AddManualTimeEntry(context.Context, *AddManualTimeEntryRequest) (*AddManualTimeEntryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddManualTimeEntry not implemented")
+}
+func (UnimplementedWorkServiceServer) UpdateTimeEntry(context.Context, *UpdateTimeEntryRequest) (*UpdateTimeEntryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTimeEntry not implemented")
+}
+func (UnimplementedWorkServiceServer) DeleteTimeEntry(context.Context, *DeleteTimeEntryRequest) (*DeleteTimeEntryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteTimeEntry not implemented")
+}
+func (UnimplementedWorkServiceServer) ListTimeEntries(context.Context, *ListTimeEntriesRequest) (*ListTimeEntriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTimeEntries not implemented")
+}
+func (UnimplementedWorkServiceServer) GetTaskTimeSummary(context.Context, *GetTaskTimeSummaryRequest) (*GetTaskTimeSummaryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTaskTimeSummary not implemented")
 }
 func (UnimplementedWorkServiceServer) mustEmbedUnimplementedWorkServiceServer() {}
 func (UnimplementedWorkServiceServer) testEmbeddedByValue()                     {}
@@ -1558,6 +1688,150 @@ func _WorkService_SearchTasks_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkService_StartTimer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartTimerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).StartTimer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_StartTimer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).StartTimer(ctx, req.(*StartTimerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_StopTimer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopTimerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).StopTimer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_StopTimer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).StopTimer(ctx, req.(*StopTimerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_GetActiveTimer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetActiveTimerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).GetActiveTimer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_GetActiveTimer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).GetActiveTimer(ctx, req.(*GetActiveTimerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_AddManualTimeEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddManualTimeEntryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).AddManualTimeEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_AddManualTimeEntry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).AddManualTimeEntry(ctx, req.(*AddManualTimeEntryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_UpdateTimeEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTimeEntryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).UpdateTimeEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_UpdateTimeEntry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).UpdateTimeEntry(ctx, req.(*UpdateTimeEntryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_DeleteTimeEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTimeEntryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).DeleteTimeEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_DeleteTimeEntry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).DeleteTimeEntry(ctx, req.(*DeleteTimeEntryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_ListTimeEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTimeEntriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).ListTimeEntries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_ListTimeEntries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).ListTimeEntries(ctx, req.(*ListTimeEntriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkService_GetTaskTimeSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTaskTimeSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).GetTaskTimeSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_GetTaskTimeSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).GetTaskTimeSummary(ctx, req.(*GetTaskTimeSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkService_ServiceDesc is the grpc.ServiceDesc for WorkService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1736,6 +2010,38 @@ var WorkService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SearchTasks",
 			Handler:    _WorkService_SearchTasks_Handler,
+		},
+		{
+			MethodName: "StartTimer",
+			Handler:    _WorkService_StartTimer_Handler,
+		},
+		{
+			MethodName: "StopTimer",
+			Handler:    _WorkService_StopTimer_Handler,
+		},
+		{
+			MethodName: "GetActiveTimer",
+			Handler:    _WorkService_GetActiveTimer_Handler,
+		},
+		{
+			MethodName: "AddManualTimeEntry",
+			Handler:    _WorkService_AddManualTimeEntry_Handler,
+		},
+		{
+			MethodName: "UpdateTimeEntry",
+			Handler:    _WorkService_UpdateTimeEntry_Handler,
+		},
+		{
+			MethodName: "DeleteTimeEntry",
+			Handler:    _WorkService_DeleteTimeEntry_Handler,
+		},
+		{
+			MethodName: "ListTimeEntries",
+			Handler:    _WorkService_ListTimeEntries_Handler,
+		},
+		{
+			MethodName: "GetTaskTimeSummary",
+			Handler:    _WorkService_GetTaskTimeSummary_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

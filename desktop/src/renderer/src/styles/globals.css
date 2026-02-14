@@ -147,6 +147,12 @@
 
   /* DESK ROOM DEFAULTS (overridden per theme via inline style) */
   --desk-room-bg: hsl(35 20% 88%);
+  --desk-wall-bg: hsl(35 20% 88%);
+  --desk-wall-texture: none;
+  --desk-deco-bg: hsl(35 18% 85%);
+  --desk-surface-bg: hsl(30 25% 65%);
+  --desk-surface-texture: none;
+  --desk-surface-border: hsl(30 20% 55%);
   --desk-window-radius: 12px;
   --desk-window-shadow: 0 4px 30px rgba(0,0,0,0.18);
   --desk-window-border: hsl(210 10% 70%);
@@ -292,6 +298,10 @@
 
   /* DESK ROOM DARK DEFAULTS */
   --desk-room-bg: hsl(220 15% 12%);
+  --desk-wall-bg: hsl(220 15% 12%);
+  --desk-deco-bg: hsl(220 12% 14%);
+  --desk-surface-bg: hsl(25 20% 18%);
+  --desk-surface-border: hsl(25 15% 25%);
   --desk-window-shadow: 0 4px 30px rgba(0,0,0,0.4);
   --desk-window-border: hsl(220 10% 25%);
   --desk-sidebar-bg: hsl(222.2 84% 6%);

@@ -41,6 +41,7 @@
     "react-dom": "^19.0.0",
     "react-grid-layout": "^1.5.0",
     "react-router-dom": "^7.0.0",
+    "rrule": "^2.8.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.0.0",
     "zustand": "^5.0.0"
