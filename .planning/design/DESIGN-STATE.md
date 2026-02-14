@@ -2,14 +2,14 @@
 
 ## Current Position
 
-Phase: D7 of D11 (Interaktions-Tiefe — next up)
-Last completed: D6 — Module Screens (2026-02-08)
+Phase: BETA READY (D1-D8 complete, D9 paused for manual design)
+Last completed: D8 — Widgets & Overlays (2026-02-13)
 Branch: design/brainstorm (merged with main, Luke's Phase 6 included)
 
 ## NEXT SESSION TODO
-1. D7 starten — Modul fuer Modul Tiefe einbauen (Detail-Views, Modals, Formulare, Kontextmenues, Empty States)
-2. Jedes Modul gruendlich fertigstellen bevor zum naechsten
-3. In 3-4 Tagen: Nico-Review (gesamte App, Flaw-Liste)
+1. D9 Desk Polish — manuelle Bild-Generierung (Darien separat)
+2. D10 Visual Polish — Animationen, Accessibility
+3. D11 Nico-Review — Gesamte App durchgehen lassen
 
 ## Progress
 
@@ -19,28 +19,38 @@ Branch: design/brainstorm (merged with main, Luke's Phase 6 included)
 - [x] D4: Header Redesign (2026-02-08)
 - [x] D5: Dashboard (2026-02-08)
 - [x] D6: Module Screens (2026-02-08)
-- [ ] D7: Interaktions-Tiefe (GROSS — alle Module bekommen Tiefe)
-- [ ] D8: Widgets & Overlays (TimeTracker, HelpWidget, Onboarding)
-- [ ] D9: Desk Polish (Theme Picker, Cozy/Minimal/Dreamy)
-- [ ] D10: Visual Polish (Animationen, Empty States, Accessibility)
+- [x] D7: Interaktions-Tiefe (2026-02-13) — ALL sub-phases complete
+- [x] D8: Widgets & Overlays (2026-02-13) — Already existed: TimeTracker, HelpWidget, Onboarding, DailyPlanner
+- [ ] D9: Desk Polish (PAUSED — manual design by Darien)
+- [ ] D10: Visual Polish (Animationen, Accessibility)
 - [ ] D11: Nico-Review Fixes
 
-## D7 — Interaktions-Tiefe (Sub-Phasen)
+## D7 — Interaktions-Tiefe (Sub-Phasen) — COMPLETE
 
-Jedes Modul bekommt: Detail-Ansicht, Erstellen-Formular, Bearbeiten, Kontext-Menue (3-Punkte), Bestaetigungs-Dialoge, Empty States.
+| Sub-Phase | Modul | Status | Key Files |
+|-----------|-------|--------|-----------|
+| D7.1 | Meetings | DONE (2026-02-13) | MeetingsPage (color stripes, timeline, countdown), MeetingDetailPanel (gradient header, 3-tab, agenda), MeetingFormDialog (color picker, agenda editor) |
+| D7.2 | Kontakte | DONE (2026-02-13) | ContactDetailPanel, ContactFormDialog, ImportContactsDialog (CSV parser), GroupManagerDialog, store (groups, bulkAdd) |
+| D7.3 | Dokumente | DONE (pre-existing) | FileDetailPanel, FilePreviewModal, FolderCreateDialog, RenameDialog, ShareDialog (6 files) |
+| D7.4 | Mails | DONE (pre-existing) | ComposeModal (new/reply/forward), ItemActions, folder management |
+| D7.5 | Kalender | DONE (pre-existing) | Day/Week/Month views, EventForm, EventDetail, RoomBooking, CategoryManager (4 files) |
+| D7.6 | Team & HR | DONE (pre-existing) | MemberDetailPanel, InviteMemberDialog, EditMemberDialog, HRApprovalDialog, AbsenceCalendar (6 files) |
+| D7.7 | Buchhaltung | DONE (pre-existing) | InvoiceDetailPanel, InvoiceFormDialog, ExpenseFormDialog, PaymentRecordDialog, ExportDialog (6 files) |
+| D7.8 | Einstellungen | DONE (pre-existing) | 7 files incl. 5 tab components, desk theme picker, 2FA setup, notification matrix |
+| D7.9 | Profil & Header | DONE (pre-existing) | ProfilPage (3 tabs: Profil/Zeiterfassung/Abwesenheiten), ProfileMenu, NotificationBell+Center |
+| D7.10 | Desk & Deko | SKIPPED | Deko removed from rendering, desk design handled separately by Darien |
 
-| Sub-Phase | Modul | Was fehlt |
-|-----------|-------|-----------|
-| D7.1 | Meetings | Detail-View, Create-Modal, 3-Punkte-Menue (Bearbeiten/Loeschen/Teilen), Join-Flow, leerer Zustand |
-| D7.2 | Kontakte | Kontakt-Detail (Profil-Ansicht), Create/Edit-Formular, Kontext-Menue, Import-Dialog, Gruppen |
-| D7.3 | Dokumente | Datei-Vorschau, Upload-Modal, Ordner-Verwaltung, Sharing-Dialog, Kontext-Menue |
-| D7.4 | Mails | Compose-Modal, Reply/Forward, Attachment-Preview, Ordner-Management |
-| D7.5 | Kalender | (Bereits mit Tiefe!) Raum-Buchungsseite, Kategorie-Verwaltung, Kalender-Browse |
-| D7.6 | Team & HR | Mitglied-Detail, Einladen-Dialog, Rollen-Verwaltung, HR-Antraege-Detail |
-| D7.7 | Buchhaltung | Rechnungs-Detail, Erstellen-Formular, Transaktions-Detail, Export |
-| D7.8 | Einstellungen | Alle Toggles funktional, Profil-Bearbeitung, Sicherheit (2FA Flow), Benachrichtigungs-Prefs |
-| D7.9 | Profil & Header | Detailliertes Profil-Overlay, Profil-Bearbeitung, Notification-Panel mit Actions |
-| D7.10 | Desk & Deko | Deko-Picker Overlay, Drag-to-Place, Theme-Vorschau |
+## D8 — Widgets & Overlays — COMPLETE (pre-existing)
+
+| Widget | File | Status |
+|--------|------|--------|
+| TimeTrackerWidget | header/TimeTrackerWidget.tsx | DONE — Timer controls, categories, today's entries, progress bar |
+| DailyPlannerWidget | header/DailyPlannerWidget.tsx | DONE — Task planner with priority, tabs (Heute/Morgen/Spaeter) |
+| HelpWidget | components/widgets/HelpWidget.tsx | DONE — Floating button, FAQ, shortcuts, contact, docs |
+| OnboardingWizard | components/onboarding/OnboardingWizard.tsx | DONE — 6-step wizard, confetti, profile setup |
+| SearchBar | header/SearchBar.tsx | DONE — Ctrl+K global search with category filters |
+| NotificationBell | notifications/NotificationBell.tsx | DONE — Header popover with unread count |
+| Dashboard Widgets | components/widgets/ | DONE — WidgetRegistry, WidgetContainer (react-grid-layout), WidgetWrapper |
 
 ## D6 Module Screens — Completed
 
@@ -80,6 +90,9 @@ Wichtigste Dateien:
 | D4 | 2026-02-08 | 1 | Header redesign: SearchBar, DailyPlanner, LanguageSwitcher, ProfileSwitcher, ProfileMenu |
 | D5 | 2026-02-08 | 1 | Dashboard: Greeting, Alerts, NotificationsFeed, ModulesGrid, Activity, QuickStats |
 | D6 | 2026-02-08 | - | 8 new module screens + router wiring + sidebar update (all 12 nav items enabled) |
+| D7.1 | 2026-02-13 | - | Meetings polish: color stripes, countdown badges, Grid/Timeline toggle, gradient detail header, 3-tab (Details/Agenda/Notizen), form color picker + agenda editor |
+| D7.2 | 2026-02-13 | - | Kontakte: ImportContactsDialog (CSV parser), GroupManagerDialog, groups in sidebar, store extensions (bulkAdd, groups CRUD) |
+| D9 | 2026-02-12/13 | - | Room scene pipeline (paused), 6 desk themes with room scenes, DeskDecorations removed |
 
 ## Accumulated Decisions
 

@@ -13,11 +13,18 @@ export interface MeetingFile {
   size: string
 }
 
+export interface AgendaItem {
+  id: string
+  text: string
+  done: boolean
+}
+
 export interface Meeting {
   id: string
   title: string
   status: 'live' | 'scheduled' | 'past' | 'cancelled'
   project: string
+  color: string
   date: string
   startTime: string
   duration: number
@@ -27,6 +34,9 @@ export interface Meeting {
   reminder: '15min' | '30min' | '1h' | 'none'
   description: string
   participants: MeetingParticipant[]
+  organizerId: string
+  agenda: AgendaItem[]
+  notes: string
   files: MeetingFile[]
   whiteboardLink: string
   projectLink: string
@@ -42,6 +52,11 @@ interface MeetingsState {
   deleteMeeting: (id: string) => void
   cancelMeeting: (id: string) => void
   duplicateMeeting: (id: string) => void
+  toggleAgendaItem: (meetingId: string, agendaItemId: string) => void
+  addAgendaItem: (meetingId: string, text: string) => void
+  removeAgendaItem: (meetingId: string, agendaItemId: string) => void
+  reorderAgendaItem: (meetingId: string, agendaItemId: string, direction: 'up' | 'down') => void
+  updateNotes: (meetingId: string, notes: string) => void
   setActiveMeeting: (id: string | null) => void
   startCall: (contactId: string, contactName: string) => void
   endCall: () => void
@@ -53,6 +68,7 @@ const mockMeetings: Meeting[] = [
     title: 'Sprint Planning Q1',
     status: 'live',
     project: 'Website Relaunch',
+    color: '#3B82F6',
     date: '2026-02-09',
     startTime: '10:00',
     duration: 45,
@@ -66,6 +82,14 @@ const mockMeetings: Meeting[] = [
       { id: 'p2', name: 'Michael Berg', initials: 'MB' },
       { id: 'p3', name: 'Sarah Klein', initials: 'SK' },
     ],
+    organizerId: 'p1',
+    agenda: [
+      { id: 'a1', text: 'Review offener Tasks aus letztem Sprint', done: true },
+      { id: 'a2', text: 'Neue User Stories priorisieren', done: false },
+      { id: 'a3', text: 'Kapazitaetsplanung Team', done: false },
+      { id: 'a4', text: 'Blocker und Risiken besprechen', done: false },
+    ],
+    notes: 'Sprint 12 war erfolgreich — 18/20 Story Points abgeschlossen.\nFokus diese Woche: Landing Page Redesign + Performance-Optimierung.',
     files: [{ id: 'f1', name: 'Sprint-Backlog.xlsx', size: '245 KB' }],
     whiteboardLink: '',
     projectLink: 'website-relaunch',
@@ -75,6 +99,7 @@ const mockMeetings: Meeting[] = [
     title: 'Design Review',
     status: 'live',
     project: 'Mobile App',
+    color: '#8B5CF6',
     date: '2026-02-09',
     startTime: '10:30',
     duration: 30,
@@ -87,6 +112,13 @@ const mockMeetings: Meeting[] = [
       { id: 'p3', name: 'Sarah Klein', initials: 'SK' },
       { id: 'p4', name: 'Lisa Schmidt', initials: 'LS' },
     ],
+    organizerId: 'p3',
+    agenda: [
+      { id: 'a5', text: 'Onboarding-Flow Mockups praesentieren', done: true },
+      { id: 'a6', text: 'Feedback zum Dashboard-Layout', done: false },
+      { id: 'a7', text: 'Farb- und Icon-Konsistenz pruefen', done: false },
+    ],
+    notes: '',
     files: [{ id: 'f2', name: 'Mockups-v3.fig', size: '12 MB' }],
     whiteboardLink: '',
     projectLink: 'mobile-app',
@@ -96,6 +128,7 @@ const mockMeetings: Meeting[] = [
     title: 'Kundenpraesentation Meier AG',
     status: 'scheduled',
     project: 'CRM Integration',
+    color: '#10B981',
     date: '2026-02-09',
     startTime: '14:00',
     duration: 60,
@@ -109,6 +142,14 @@ const mockMeetings: Meeting[] = [
       { id: 'p5', name: 'Peter Koch', initials: 'PK' },
       { id: 'p2', name: 'Michael Berg', initials: 'MB' },
     ],
+    organizerId: 'p1',
+    agenda: [
+      { id: 'a8', text: 'Aktuelle Meilensteine vorstellen', done: false },
+      { id: 'a9', text: 'Live-Demo der Integration', done: false },
+      { id: 'a10', text: 'Zeitplan Q2 besprechen', done: false },
+      { id: 'a11', text: 'Offene Fragen klaeren', done: false },
+    ],
+    notes: '',
     files: [
       { id: 'f3', name: 'Praesentation-CRM.pptx', size: '8.4 MB' },
       { id: 'f4', name: 'Zeitplan-Q1.pdf', size: '156 KB' },
@@ -121,6 +162,7 @@ const mockMeetings: Meeting[] = [
     title: 'Team Standup',
     status: 'scheduled',
     project: 'Allgemein',
+    color: '#6B7280',
     date: '2026-02-10',
     startTime: '09:00',
     duration: 15,
@@ -136,6 +178,13 @@ const mockMeetings: Meeting[] = [
       { id: 'p6', name: 'Jonas Diaz', initials: 'JD' },
       { id: 'p4', name: 'Lisa Schmidt', initials: 'LS' },
     ],
+    organizerId: 'p1',
+    agenda: [
+      { id: 'a12', text: 'Was habe ich gestern gemacht?', done: false },
+      { id: 'a13', text: 'Was mache ich heute?', done: false },
+      { id: 'a14', text: 'Gibt es Blocker?', done: false },
+    ],
+    notes: '',
     files: [],
     whiteboardLink: '',
     projectLink: '',
@@ -145,6 +194,7 @@ const mockMeetings: Meeting[] = [
     title: 'Retrospektive Sprint 12',
     status: 'scheduled',
     project: 'Website Relaunch',
+    color: '#3B82F6',
     date: '2026-02-11',
     startTime: '15:00',
     duration: 45,
@@ -157,6 +207,13 @@ const mockMeetings: Meeting[] = [
       { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
       { id: 'p2', name: 'Michael Berg', initials: 'MB' },
     ],
+    organizerId: 'p2',
+    agenda: [
+      { id: 'a15', text: 'Was lief gut?', done: false },
+      { id: 'a16', text: 'Was koennen wir verbessern?', done: false },
+      { id: 'a17', text: 'Massnahmen fuer naechsten Sprint', done: false },
+    ],
+    notes: '',
     files: [],
     whiteboardLink: '',
     projectLink: 'website-relaunch',
@@ -166,6 +223,7 @@ const mockMeetings: Meeting[] = [
     title: 'Budget-Planung 2026',
     status: 'scheduled',
     project: 'Finanzen',
+    color: '#F59E0B',
     date: '2026-02-12',
     startTime: '10:00',
     duration: 90,
@@ -179,6 +237,15 @@ const mockMeetings: Meeting[] = [
       { id: 'p5', name: 'Peter Koch', initials: 'PK' },
       { id: 'p7', name: 'Thomas Weber', initials: 'TW' },
     ],
+    organizerId: 'p5',
+    agenda: [
+      { id: 'a18', text: 'Jahresuebersicht 2025 praesentieren', done: false },
+      { id: 'a19', text: 'Investitionsplaene 2026', done: false },
+      { id: 'a20', text: 'Personalkosten und Neueinstellungen', done: false },
+      { id: 'a21', text: 'IT-Infrastruktur Budget', done: false },
+      { id: 'a22', text: 'Freigabe und naechste Schritte', done: false },
+    ],
+    notes: '',
     files: [{ id: 'f5', name: 'Budget-Vorlage-2026.xlsx', size: '1.2 MB' }],
     whiteboardLink: '',
     projectLink: '',
@@ -188,6 +255,7 @@ const mockMeetings: Meeting[] = [
     title: 'API Review',
     status: 'past',
     project: 'Mobile App',
+    color: '#8B5CF6',
     date: '2026-02-07',
     startTime: '11:00',
     duration: 30,
@@ -200,6 +268,13 @@ const mockMeetings: Meeting[] = [
       { id: 'p6', name: 'Jonas Diaz', initials: 'JD' },
       { id: 'p5', name: 'Peter Koch', initials: 'PK' },
     ],
+    organizerId: 'p6',
+    agenda: [
+      { id: 'a23', text: 'Auth-Endpoints durchgehen', done: true },
+      { id: 'a24', text: 'Datenmodell validieren', done: true },
+      { id: 'a25', text: 'Rate Limiting besprechen', done: true },
+    ],
+    notes: 'Alle Endpoints abgenommen. Rate Limiting wird auf 100 req/min gesetzt.\nJonas uebernimmt die Dokumentation bis Freitag.',
     files: [{ id: 'f6', name: 'API-Spezifikation.yaml', size: '45 KB' }],
     whiteboardLink: '',
     projectLink: 'mobile-app',
@@ -209,6 +284,7 @@ const mockMeetings: Meeting[] = [
     title: 'Security Briefing',
     status: 'past',
     project: 'Security Audit',
+    color: '#EF4444',
     date: '2026-02-06',
     startTime: '14:00',
     duration: 60,
@@ -222,6 +298,14 @@ const mockMeetings: Meeting[] = [
       { id: 'p6', name: 'Jonas Diaz', initials: 'JD' },
       { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
     ],
+    organizerId: 'p5',
+    agenda: [
+      { id: 'a26', text: 'Audit-Ergebnisse praesentieren', done: true },
+      { id: 'a27', text: 'Kritische Findings priorisieren', done: true },
+      { id: 'a28', text: 'Massnahmenplan erstellen', done: true },
+      { id: 'a29', text: 'Verantwortlichkeiten zuteilen', done: true },
+    ],
+    notes: '3 kritische Findings identifiziert:\n1. SQL Injection in Legacy-Modul → Patch bis 15.02.\n2. Fehlende 2FA fuer Admin-Accounts → Sofort umsetzen\n3. Veraltete Dependencies → Sprint 13 einplanen',
     files: [{ id: 'f7', name: 'Audit-Report-2026.pdf', size: '2.3 MB' }],
     whiteboardLink: '',
     projectLink: '',
@@ -274,6 +358,54 @@ export const useMeetingsStore = create<MeetingsState>()(
         }
         set((state) => ({ meetings: [duplicate, ...state.meetings] }))
       },
+
+      toggleAgendaItem: (meetingId, agendaItemId) =>
+        set((state) => ({
+          meetings: state.meetings.map((m) =>
+            m.id === meetingId
+              ? { ...m, agenda: m.agenda.map((a) => a.id === agendaItemId ? { ...a, done: !a.done } : a) }
+              : m
+          ),
+        })),
+
+      addAgendaItem: (meetingId, text) =>
+        set((state) => ({
+          meetings: state.meetings.map((m) =>
+            m.id === meetingId
+              ? { ...m, agenda: [...m.agenda, { id: `a${Date.now()}`, text, done: false }] }
+              : m
+          ),
+        })),
+
+      removeAgendaItem: (meetingId, agendaItemId) =>
+        set((state) => ({
+          meetings: state.meetings.map((m) =>
+            m.id === meetingId
+              ? { ...m, agenda: m.agenda.filter((a) => a.id !== agendaItemId) }
+              : m
+          ),
+        })),
+
+      reorderAgendaItem: (meetingId, agendaItemId, direction) =>
+        set((state) => ({
+          meetings: state.meetings.map((m) => {
+            if (m.id !== meetingId) return m
+            const idx = m.agenda.findIndex((a) => a.id === agendaItemId)
+            if (idx === -1) return m
+            const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+            if (swapIdx < 0 || swapIdx >= m.agenda.length) return m
+            const newAgenda = [...m.agenda]
+            ;[newAgenda[idx], newAgenda[swapIdx]] = [newAgenda[swapIdx], newAgenda[idx]]
+            return { ...m, agenda: newAgenda }
+          }),
+        })),
+
+      updateNotes: (meetingId, notes) =>
+        set((state) => ({
+          meetings: state.meetings.map((m) =>
+            m.id === meetingId ? { ...m, notes } : m
+          ),
+        })),
 
       setActiveMeeting: (id) => set({ activeMeetingId: id }),
 

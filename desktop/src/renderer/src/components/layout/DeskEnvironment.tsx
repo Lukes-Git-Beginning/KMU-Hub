@@ -15,7 +15,6 @@ import { useMemo, useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores/ui'
 import { DESK_THEMES, DEFAULT_DESK_THEME_ID } from '@/config/desk-themes'
 import { DeskFrame } from './DeskFrame'
-import { DeskDecorations } from '@/components/desk/DeskDecorations'
 import { AppShell } from './AppShell'
 
 // Detect system dark mode preference reactively
@@ -31,8 +30,6 @@ function getSystemIsDark() {
 export function DeskEnvironment() {
   const deskMaximized = useUIStore((s) => s.deskMaximized)
   const deskThemeId = useUIStore((s) => s.deskThemeId)
-  const deskDecorations = useUIStore((s) => s.deskDecorations)
-  const deskDecorationsVisible = useUIStore((s) => s.deskDecorationsVisible)
   const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
   const storeTheme = useUIStore((s) => s.theme)
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
@@ -110,7 +107,6 @@ export function DeskEnvironment() {
   }, [handleKeyDown])
 
   const showFrame = !activeTheme.isMinimal
-  const showDecorations = showFrame && deskDecorationsVisible && !deskMaximized
 
   return (
     <div
@@ -120,15 +116,9 @@ export function DeskEnvironment() {
         backgroundColor: 'var(--desk-room-bg)',
       }}
     >
-      {/* Room scene (L1 room bg, L2 furniture, L3 decorations) */}
+      {/* Room scene (L1 room bg, L2 furniture) */}
       {showFrame && (
-        <DeskFrame visible={!deskMaximized} theme={activeTheme} isDark={isDark}>
-          <DeskDecorations
-            theme={activeTheme}
-            placements={deskDecorations}
-            visible={showDecorations}
-          />
-        </DeskFrame>
+        <DeskFrame visible={!deskMaximized} theme={activeTheme} isDark={isDark} />
       )}
 
       {/* Work area — the "window" containing all functional UI */}

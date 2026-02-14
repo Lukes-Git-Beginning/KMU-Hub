@@ -16,6 +16,9 @@ import {
   Copy,
   Download,
   ArrowUpDown,
+  Upload,
+  FolderOpen,
+  Settings2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useContactsStore, type Contact } from '@/stores/contacts'
@@ -24,9 +27,11 @@ import { useMeetingsStore } from '@/stores/meetings'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
 import { ContactFormDialog } from './ContactFormDialog'
 import { ContactDetailPanel } from './ContactDetailPanel'
+import { ImportContactsDialog } from './ImportContactsDialog'
+import { GroupManagerDialog } from './GroupManagerDialog'
 import { CallOverlay } from '@/modules/meetings/CallOverlay'
 
-type CategoryFilter = 'all' | 'employee' | 'customer' | 'partner'
+type CategoryFilter = 'all' | 'employee' | 'customer' | 'partner' | `group:${string}`
 type SortField = 'name' | 'company' | 'lastContact'
 
 const categoryLabels: Record<string, string> = {
@@ -48,7 +53,7 @@ const statusLabels: Record<string, string> = {
 }
 
 export default function KontaktePage() {
-  const { contacts, addContact, updateContact, deleteContact, toggleFavorite, duplicateContact } =
+  const { contacts, groups, addContact, bulkAddContacts, updateContact, deleteContact, toggleFavorite, duplicateContact } =
     useContactsStore()
   const { startCall, endCall, activeCallContactId, activeCallContactName } = useMeetingsStore()
   const navigate = useNavigate()
@@ -63,10 +68,18 @@ export default function KontaktePage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editContact, setEditContact] = useState<Contact | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [groupManagerOpen, setGroupManagerOpen] = useState(false)
 
   const filtered = contacts
     .filter((c) => {
-      if (categoryFilter !== 'all' && c.category !== categoryFilter) return false
+      if (categoryFilter.startsWith('group:')) {
+        const groupId = categoryFilter.slice(6)
+        const group = groups.find((g) => g.id === groupId)
+        if (group && !group.contactIds.includes(c.id)) return false
+      } else if (categoryFilter !== 'all' && c.category !== categoryFilter) {
+        return false
+      }
       if (search) {
         const q = search.toLowerCase()
         return (
@@ -224,6 +237,42 @@ export default function KontaktePage() {
           })}
         </nav>
 
+        {/* Groups section */}
+        {groups.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center justify-between px-2 mb-2">
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <FolderOpen className="h-3.5 w-3.5" />
+                Gruppen
+              </h3>
+              <button
+                onClick={() => setGroupManagerOpen(true)}
+                className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                title="Gruppen verwalten"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <nav className="space-y-0.5">
+              {groups.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => setCategoryFilter(`group:${g.id}`)}
+                  className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                    categoryFilter === `group:${g.id}`
+                      ? 'bg-primary-light text-primary font-medium'
+                      : 'text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
+                  <span className="flex-1 text-left truncate">{g.name}</span>
+                  <span className="text-xs text-muted-foreground">{g.contactIds.length}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
+
         {/* Favorites section */}
         {contacts.some((c) => c.isFavorite) && (
           <div className="mt-6">
@@ -282,6 +331,13 @@ export default function KontaktePage() {
             title={`Sortierung: ${sortField === 'name' ? 'Name' : sortField === 'company' ? 'Firma' : 'Letzter Kontakt'}`}
           >
             <ArrowUpDown className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setImportOpen(true)}
+            className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            title="Kontakte importieren"
+          >
+            <Upload className="h-4 w-4" />
           </button>
           <button
             onClick={() => {
@@ -411,6 +467,23 @@ export default function KontaktePage() {
         confirmLabel="Loeschen"
         variant="destructive"
         onConfirm={handleDelete}
+      />
+
+      {/* Import Dialog */}
+      <ImportContactsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImport={(data) => {
+          const count = bulkAddContacts(data)
+          toast.success(`${count} Kontakte importiert`)
+          return count
+        }}
+      />
+
+      {/* Group Manager */}
+      <GroupManagerDialog
+        open={groupManagerOpen}
+        onOpenChange={setGroupManagerOpen}
       />
 
       {/* Call Overlay */}

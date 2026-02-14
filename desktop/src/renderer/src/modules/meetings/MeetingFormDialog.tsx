@@ -18,8 +18,24 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { ChevronDown, ChevronUp, Paperclip, Plus, X } from 'lucide-react'
-import type { Meeting } from '@/stores/meetings'
+import {
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  FolderOpen,
+  ListChecks,
+  MapPin,
+  Paperclip,
+  Plus,
+  Repeat,
+  Bell,
+  Users,
+  Video,
+  X,
+  FileText,
+} from 'lucide-react'
+import type { Meeting, AgendaItem } from '@/stores/meetings'
 
 interface MeetingFormDialogProps {
   open: boolean
@@ -43,6 +59,17 @@ const reminderOptions = [
   { value: '1h', label: '1 Stunde vorher' },
 ]
 const projects = ['Website Relaunch', 'Mobile App', 'CRM Integration', 'Security Audit', 'Finanzen', 'Allgemein']
+
+const PRESET_COLORS = [
+  '#3B82F6', // blue
+  '#8B5CF6', // violet
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#EC4899', // pink
+  '#6B7280', // gray
+  '#06B6D4', // cyan
+]
 
 const availableParticipants = [
   { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
@@ -68,9 +95,12 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
   const [reminder, setReminder] = useState<'15min' | '30min' | '1h' | 'none'>('15min')
   const [description, setDescription] = useState('')
   const [project, setProject] = useState('')
+  const [color, setColor] = useState(PRESET_COLORS[0])
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([])
   const [showExtras, setShowExtras] = useState(false)
   const [participantSearch, setParticipantSearch] = useState('')
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
+  const [newAgendaText, setNewAgendaText] = useState('')
 
   useEffect(() => {
     if (meeting) {
@@ -84,7 +114,10 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setReminder(meeting.reminder)
       setDescription(meeting.description)
       setProject(meeting.project)
+      setColor(meeting.color || PRESET_COLORS[0])
       setSelectedParticipants(meeting.participants.map((p) => p.id))
+      setAgendaItems(meeting.agenda.map((a) => ({ ...a })))
+      setShowExtras(meeting.recurrence !== 'none' || !!meeting.description || meeting.agenda.length > 0)
     } else {
       setTitle('')
       setDate(new Date().toISOString().split('T')[0])
@@ -96,8 +129,11 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setReminder('15min')
       setDescription('')
       setProject('')
+      setColor(PRESET_COLORS[0])
       setSelectedParticipants([])
       setShowExtras(false)
+      setAgendaItems([])
+      setNewAgendaText('')
     }
   }, [meeting, open])
 
@@ -106,6 +142,29 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       !selectedParticipants.includes(p.id) &&
       p.name.toLowerCase().includes(participantSearch.toLowerCase())
   )
+
+  const handleAddAgenda = () => {
+    const text = newAgendaText.trim()
+    if (!text) return
+    setAgendaItems((prev) => [...prev, { id: `a${Date.now()}`, text, done: false }])
+    setNewAgendaText('')
+  }
+
+  const handleRemoveAgenda = (id: string) => {
+    setAgendaItems((prev) => prev.filter((a) => a.id !== id))
+  }
+
+  const handleReorderAgenda = (id: string, direction: 'up' | 'down') => {
+    setAgendaItems((prev) => {
+      const idx = prev.findIndex((a) => a.id === id)
+      if (idx === -1) return prev
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
+      return next
+    })
+  }
 
   const handleSubmit = () => {
     if (!title.trim()) return
@@ -116,6 +175,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       title: title.trim(),
       status: meeting?.status || 'scheduled',
       project: project || 'Allgemein',
+      color,
       date,
       startTime,
       duration,
@@ -125,6 +185,9 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       reminder,
       description,
       participants,
+      organizerId: meeting?.organizerId || selectedParticipants[0] || '',
+      agenda: agendaItems,
+      notes: meeting?.notes || '',
       files: meeting?.files || [],
       whiteboardLink: meeting?.whiteboardLink || '',
       projectLink: project.toLowerCase().replace(/\s+/g, '-'),
@@ -139,10 +202,13 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
           <DialogTitle>{isEdit ? 'Meeting bearbeiten' : 'Neues Meeting'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Title */}
+        <div className="space-y-5 py-2">
+          {/* ── Title ── */}
           <div className="space-y-1.5">
-            <Label>Titel *</Label>
+            <Label className="flex items-center gap-1.5">
+              <Video className="h-3.5 w-3.5 text-[var(--muted)]" />
+              Titel *
+            </Label>
             <Input
               placeholder="z.B. Sprint Planning"
               value={title}
@@ -151,18 +217,43 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
             />
           </div>
 
-          {/* Date + Time + Duration */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label>Datum</Label>
+          {/* ── Color Picker ── */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Farbe</Label>
+            <div className="flex items-center gap-2">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`h-7 w-7 rounded-full transition-all ${
+                    color === c
+                      ? 'ring-2 ring-offset-2 ring-primary scale-110'
+                      : 'hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* ── Date + Time + Duration ── */}
+          <div>
+            <Label className="flex items-center gap-1.5 mb-1.5">
+              <Calendar className="h-3.5 w-3.5 text-[var(--muted)]" />
+              Termin
+            </Label>
+            <div className="grid grid-cols-3 gap-3">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Uhrzeit</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Dauer</Label>
+              <div className="relative">
+                <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--muted)] pointer-events-none" />
+                <Input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
               <Select value={String(duration)} onValueChange={(v) => setDuration(Number(v))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -176,10 +267,13 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
             </div>
           </div>
 
-          {/* Room + Video */}
+          {/* ── Room + Video ── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Raum</Label>
+              <Label className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-[var(--muted)]" />
+                Raum
+              </Label>
               <Select value={room} onValueChange={setRoom}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -192,14 +286,20 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
             <div className="flex items-end gap-3 pb-0.5">
               <div className="flex items-center gap-2">
                 <Switch checked={isVideoCall} onCheckedChange={setIsVideoCall} id="video-toggle" />
-                <Label htmlFor="video-toggle" className="cursor-pointer">Video-Call</Label>
+                <Label htmlFor="video-toggle" className="cursor-pointer flex items-center gap-1.5">
+                  <Video className="h-3.5 w-3.5 text-[var(--muted)]" />
+                  Video-Call
+                </Label>
               </div>
             </div>
           </div>
 
-          {/* Participants */}
+          {/* ── Participants ── */}
           <div className="space-y-1.5">
-            <Label>Teilnehmer</Label>
+            <Label className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-[var(--muted)]" />
+              Teilnehmer
+            </Label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {selectedParticipants.map((pId) => {
                 const p = availableParticipants.find((x) => x.id === pId)
@@ -247,9 +347,12 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
             )}
           </div>
 
-          {/* Project */}
+          {/* ── Project ── */}
           <div className="space-y-1.5">
-            <Label>Projekt</Label>
+            <Label className="flex items-center gap-1.5">
+              <FolderOpen className="h-3.5 w-3.5 text-[var(--muted)]" />
+              Projekt
+            </Label>
             <Select value={project} onValueChange={setProject}>
               <SelectTrigger><SelectValue placeholder="Projekt zuordnen..." /></SelectTrigger>
               <SelectContent>
@@ -260,7 +363,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
             </Select>
           </div>
 
-          {/* Expandable extras */}
+          {/* ── Expandable Extras ── */}
           <button
             onClick={() => setShowExtras(!showExtras)}
             className="flex items-center gap-1 text-sm text-primary hover:underline"
@@ -274,7 +377,10 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
               {/* Recurrence + Reminder */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Wiederholung</Label>
+                  <Label className="flex items-center gap-1.5">
+                    <Repeat className="h-3.5 w-3.5 text-[var(--muted)]" />
+                    Wiederholung
+                  </Label>
                   <Select value={recurrence} onValueChange={(v) => setRecurrence(v as typeof recurrence)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -285,7 +391,10 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Erinnerung</Label>
+                  <Label className="flex items-center gap-1.5">
+                    <Bell className="h-3.5 w-3.5 text-[var(--muted)]" />
+                    Erinnerung
+                  </Label>
                   <Select value={reminder} onValueChange={(v) => setReminder(v as typeof reminder)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -299,18 +408,92 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
 
               {/* Description */}
               <div className="space-y-1.5">
-                <Label>Beschreibung</Label>
+                <Label className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-[var(--muted)]" />
+                  Beschreibung
+                </Label>
                 <Textarea
-                  placeholder="Agenda, Notizen..."
+                  placeholder="Kontext, Ziele, Vorbereitung..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
                 />
               </div>
 
+              {/* ── Agenda Editor ── */}
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  <ListChecks className="h-3.5 w-3.5 text-[var(--muted)]" />
+                  Agenda
+                </Label>
+                {agendaItems.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {agendaItems.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        className="group flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm"
+                      >
+                        <span className="text-xs text-[var(--muted)] w-4 text-center shrink-0">
+                          {idx + 1}.
+                        </span>
+                        <span className="flex-1 text-[var(--body)] truncate">
+                          {item.text}
+                        </span>
+                        <div className="hidden group-hover:flex items-center gap-0.5">
+                          {idx > 0 && (
+                            <button
+                              onClick={() => handleReorderAgenda(item.id, 'up')}
+                              className="rounded p-0.5 text-[var(--muted)] hover:text-[var(--body)]"
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {idx < agendaItems.length - 1 && (
+                            <button
+                              onClick={() => handleReorderAgenda(item.id, 'down')}
+                              className="rounded p-0.5 text-[var(--muted)] hover:text-[var(--body)]"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveAgenda(item.id)}
+                            className="rounded p-0.5 text-[var(--muted)] hover:text-red-500"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newAgendaText}
+                    onChange={(e) => setNewAgendaText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddAgenda()}
+                    placeholder="Neuen Agenda-Punkt hinzufuegen..."
+                    className="text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={handleAddAgenda}
+                    disabled={!newAgendaText.trim()}
+                    type="button"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
               {/* Files placeholder */}
               <div className="space-y-1.5">
-                <Label>Dateien</Label>
+                <Label className="flex items-center gap-1.5">
+                  <Paperclip className="h-3.5 w-3.5 text-[var(--muted)]" />
+                  Dateien
+                </Label>
                 <button className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors w-full">
                   <Paperclip className="h-4 w-4" />
                   Dateien anhaengen...

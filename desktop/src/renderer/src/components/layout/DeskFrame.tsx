@@ -46,8 +46,7 @@ export function DeskFrame({ visible, theme, isDark, children }: DeskFrameProps) 
           ...(roomImg
             ? {
                 backgroundImage: `url(${roomImg})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
+                backgroundSize: '100% 100%',
               }
             : {}),
         }}

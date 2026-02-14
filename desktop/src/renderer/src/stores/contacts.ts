@@ -46,13 +46,27 @@ export interface Contact {
   activities: ContactActivity[]
 }
 
+export interface ContactGroup {
+  id: string
+  name: string
+  color: string
+  contactIds: string[]
+}
+
 interface ContactsState {
   contacts: Contact[]
+  groups: ContactGroup[]
   addContact: (contact: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>) => void
+  bulkAddContacts: (contacts: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>[]) => number
   updateContact: (id: string, updates: Partial<Contact>) => void
   deleteContact: (id: string) => void
   toggleFavorite: (id: string) => void
   duplicateContact: (id: string) => void
+  addGroup: (name: string, color: string) => void
+  updateGroup: (id: string, updates: Partial<Omit<ContactGroup, 'id'>>) => void
+  deleteGroup: (id: string) => void
+  addContactToGroup: (groupId: string, contactId: string) => void
+  removeContactFromGroup: (groupId: string, contactId: string) => void
 }
 
 const mockContacts: Contact[] = [
@@ -457,6 +471,11 @@ export const useContactsStore = create<ContactsState>()(
   persist(
     (set, get) => ({
       contacts: mockContacts,
+      groups: [
+        { id: 'g1', name: 'VIP-Kunden', color: '#F59E0B', contactIds: ['c4', 'c12'] },
+        { id: 'g2', name: 'Entwicklerteam', color: '#3B82F6', contactIds: ['c2', 'c6', 'c10'] },
+        { id: 'g3', name: 'Externe Partner', color: '#8B5CF6', contactIds: ['c3', 'c8', 'c11', 'c14'] },
+      ],
 
       addContact: (contact) => {
         const id = `c${nextId++}`
@@ -473,6 +492,18 @@ export const useContactsStore = create<ContactsState>()(
             ...state.contacts,
           ],
         }))
+      },
+
+      bulkAddContacts: (contacts) => {
+        const newContacts = contacts.map((c) => ({
+          ...c,
+          id: `c${nextId++}`,
+          initials: `${c.firstName[0] || ''}${c.lastName[0] || ''}`.toUpperCase(),
+          createdAt: new Date().toISOString().split('T')[0],
+          activities: [] as ContactActivity[],
+        }))
+        set((state) => ({ contacts: [...newContacts, ...state.contacts] }))
+        return newContacts.length
       },
 
       updateContact: (id, updates) =>
@@ -493,6 +524,10 @@ export const useContactsStore = create<ContactsState>()(
       deleteContact: (id) =>
         set((state) => ({
           contacts: state.contacts.filter((c) => c.id !== id),
+          groups: state.groups.map((g) => ({
+            ...g,
+            contactIds: g.contactIds.filter((cId) => cId !== id),
+          })),
         })),
 
       toggleFavorite: (id) =>
@@ -520,6 +555,39 @@ export const useContactsStore = create<ContactsState>()(
           ],
         }))
       },
+
+      addGroup: (name, color) =>
+        set((state) => ({
+          groups: [...state.groups, { id: `g${Date.now()}`, name, color, contactIds: [] }],
+        })),
+
+      updateGroup: (id, updates) =>
+        set((state) => ({
+          groups: state.groups.map((g) => (g.id === id ? { ...g, ...updates } : g)),
+        })),
+
+      deleteGroup: (id) =>
+        set((state) => ({
+          groups: state.groups.filter((g) => g.id !== id),
+        })),
+
+      addContactToGroup: (groupId, contactId) =>
+        set((state) => ({
+          groups: state.groups.map((g) =>
+            g.id === groupId && !g.contactIds.includes(contactId)
+              ? { ...g, contactIds: [...g.contactIds, contactId] }
+              : g
+          ),
+        })),
+
+      removeContactFromGroup: (groupId, contactId) =>
+        set((state) => ({
+          groups: state.groups.map((g) =>
+            g.id === groupId
+              ? { ...g, contactIds: g.contactIds.filter((id) => id !== contactId) }
+              : g
+          ),
+        })),
     }),
     { name: 'kmuhub-contacts' }
   )

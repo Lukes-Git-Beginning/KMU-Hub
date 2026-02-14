@@ -19,6 +19,7 @@ import dreamyRoomLight from '@/../assets/desk/dreamy/room-scene-light.png'
 import natureRoomLight from '@/../assets/desk/nature/room-scene-light.png'
 import raumstationRoomLight from '@/../assets/desk/raumstation/room-scene-light.png'
 import atelierRoomLight from '@/../assets/desk/atelier/room-scene-light.png'
+import cleanRoomLight from '@/../assets/desk/clean/room-scene-light.png'
 
 // ── SHARED MOUNT POINTS ────────────────────────────────────────────────────
 //
@@ -118,7 +119,7 @@ const cozy: DeskTheme = {
   window: {
     top: '8%',
     right: '12%',
-    bottom: '22%',
+    bottom: '25%',
     left: '12%',
     borderRadius: '12px',
     innerPadding: '12px',
@@ -177,7 +178,7 @@ const dreamy: DeskTheme = {
   window: {
     top: '8%',
     right: '12%',
-    bottom: '22%',
+    bottom: '25%',
     left: '12%',
     borderRadius: '16px',
     innerPadding: '12px',
@@ -238,7 +239,7 @@ const nature: DeskTheme = {
   window: {
     top: '8%',
     right: '12%',
-    bottom: '22%',
+    bottom: '25%',
     left: '12%',
     borderRadius: '10px',
     innerPadding: '12px',
@@ -353,12 +354,12 @@ const raumstation: DeskTheme = {
   isMinimal: false,
 
   window: {
-    top: '6%',
-    right: '10%',
-    bottom: '18%',
-    left: '10%',
+    top: '8%',
+    right: '12%',
+    bottom: '25%',
+    left: '12%',
     borderRadius: '8px',
-    innerPadding: '10px',
+    innerPadding: '12px',
   },
 
   roomScene: { light: raumstationRoomLight, dark: raumstationRoomLight },
@@ -490,7 +491,7 @@ const atelier: DeskTheme = {
   window: {
     top: '8%',
     right: '12%',
-    bottom: '22%',
+    bottom: '25%',
     left: '12%',
     borderRadius: '8px',
     innerPadding: '12px',
@@ -538,7 +539,66 @@ const atelier: DeskTheme = {
   viewDescription: 'Stadtblick ueber Daecher mit warmem Abendlicht',
 }
 
-// ── 6. MINIMAL ─────────────────────────────────────────────────────────────
+// ── 6. CLEAN (Neutral base) ────────────────────────────────────────────────
+
+const clean: DeskTheme = {
+  id: 'clean',
+  name: 'Neutral',
+  description: 'Neutrale Clean-Base — weisse Waende, Holz-Desk, Landschaftsblick',
+  isMinimal: false,
+
+  window: {
+    top: '8%',
+    right: '12%',
+    bottom: '25%',
+    left: '12%',
+    borderRadius: '10px',
+    innerPadding: '12px',
+  },
+
+  roomScene: { light: cleanRoomLight, dark: cleanRoomLight },
+  furniture: [],
+  mountPoints: STANDARD_MOUNT_POINTS,
+
+  roomVariables: {
+    'desk-room-bg':
+      'linear-gradient(180deg, hsl(0 0% 90%) 0%, hsl(0 0% 85%) 70%, hsl(30 15% 65%) 70%, hsl(30 12% 60%) 100%)',
+    'desk-window-radius': '10px',
+    'desk-window-shadow': '0 4px 30px rgba(0,0,0,0.12)',
+    'desk-window-border': 'hsl(0 0% 80%)',
+    'desk-transition-duration': TRANSITION_DURATION,
+    'desk-transition-easing': TRANSITION_EASING,
+  },
+  roomVariablesDark: {
+    'desk-room-bg':
+      'linear-gradient(180deg, hsl(0 0% 10%) 0%, hsl(0 0% 8%) 70%, hsl(30 10% 14%) 70%, hsl(30 8% 12%) 100%)',
+    'desk-window-shadow': '0 4px 30px rgba(0,0,0,0.35)',
+    'desk-window-border': 'hsl(0 0% 22%)',
+  },
+
+  uiSkin: {
+    variables: {
+      'skin-card-bg': 'hsl(0 0% 98%)',
+      'skin-card-border': 'hsl(0 0% 88%)',
+      'skin-card-shadow': '0 1px 3px rgba(0,0,0,0.05)',
+      'skin-radius': '10px',
+      'skin-sidebar-bg': 'hsl(0 0% 96%)',
+      'skin-sidebar-border': 'hsl(0 0% 88%)',
+    },
+    variablesDark: {
+      'skin-card-bg': 'hsl(0 0% 12%)',
+      'skin-card-border': 'hsl(0 0% 20%)',
+      'skin-card-shadow': '0 1px 3px rgba(0,0,0,0.2)',
+      'skin-sidebar-bg': 'hsl(0 0% 8%)',
+      'skin-sidebar-border': 'hsl(0 0% 16%)',
+    },
+  },
+
+  sidebar: { background: 'solid', integratedWithFrame: true },
+  viewDescription: 'Huegel-Landschaft mit See und blauem Himmel',
+}
+
+// ── 7. MINIMAL ─────────────────────────────────────────────────────────────
 
 const minimal: DeskTheme = {
   id: 'minimal',
@@ -592,6 +652,7 @@ export const DESK_THEMES: Record<string, DeskTheme> = {
   nature,
   raumstation,
   atelier,
+  clean,
   minimal,
 }
 
@@ -602,6 +663,7 @@ export const DESK_THEME_ORDER = [
   'nature',
   'raumstation',
   'atelier',
+  'clean',
   'minimal',
 ] as const
 

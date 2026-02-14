@@ -53,81 +53,119 @@ const THEMES: ThemeConfig[] = [
   {
     id: 'cozy',
     name: 'Cozy (Gemuetlich)',
-    wallMaterial: 'warm beige/cream plaster with subtle linen texture',
-    deskMaterial: 'light oak wood with visible grain',
-    windowFrame: 'light oak or warm off-white, minimal thickness',
-    brief: `THEME: Cozy (Gemuetlich)
-- Warm home office with natural materials
-- Light oak wood, ceramic, linen, cotton textures
-- Muted earth tones with subtle teal accents
-- Warm beige and cream base colors
-- Feeling of soft afternoon sunlight through the window
-- Window view: Sunny garden with flowers, gentle green hills, blue sky with light clouds
-- Handcrafted artisan quality, slightly imperfect warmth
-- Overall: hygge, warm, inviting, calm — a place you want to work in all day`,
+    wallMaterial: 'warm off-white Scandinavian plaster wall, subtle trowel marks, soft mottling, clean matte finish with gentle light gradients',
+    deskMaterial: 'light ash/oak desktop with fine grain fibers, satin varnish sheen, subtle edge wear, visible wood pores',
+    windowFrame: 'light oak slim frame or painted white slim frame, minimal modern profile, thin bezel',
+    brief: `THEME: Cozy (Gemuetlich) — A Sunlit Scandinavian Home Office
+
+WORLD FANTASY: You are working in a beautiful Scandinavian-inspired home office. Afternoon sunlight streams in through the window, casting warm golden light across natural materials. Everything feels handcrafted, warm, and lived-in — like a Danish architect's personal workspace.
+
+MATERIALS & TEXTURES (render with rich detail):
+- Walls: Cream/warm white plaster with subtle organic texture variations — not flat paint, but plaster with depth and warmth. Soft sunlight creates gentle light/shadow gradients across the wall surface.
+- Desk: Honey oak wood — the grain must be BEAUTIFUL and detailed. Individual wood fibers, subtle knots, warm golden-brown tones. The surface has a soft satin finish with gentle light reflections.
+- Window frame: Thin, elegant oak frame. Minimal thickness — just a refined border.
+
+COLOR PALETTE: Warm cream (#e8e3dd), honey oak, soft golden light, with the outdoor view providing greens and sky blue as accent colors.
+
+LIGHTING: Warm afternoon sunlight from the window, creating a gentle golden glow on the desk surface and soft light gradients on the walls. Subtle volumetric light atmosphere.
+
+WINDOW VIEW: Idyllic garden landscape — lush green rolling hills with wildflowers (subtle poppies, daisies), mature trees with detailed foliage, gentle blue sky with soft white clouds. The view should feel like countryside in Tuscany or southern Germany. LUSH, detailed, inviting.
+
+MOOD: Hygge, warmth, calm productivity. "I never want to leave this desk."`,
   },
   {
     id: 'dreamy',
     name: 'Dreamy (Vertraeumt)',
-    wallMaterial: 'soft lavender/lilac plaster with subtle shimmer',
-    deskMaterial: 'light birch wood with a faint pearlescent sheen',
-    windowFrame: 'white with subtle silver/pearl accent, elegant thin frame',
+    wallMaterial: 'pale lavender-tinted plaster over stone, subtle magical shimmer (very subtle), fine micro-texture, gentle mottling',
+    deskMaterial: 'smooth pale stone sill/ledge (limestone) with faint speckle and soft polished sheen — enchanted tower ledge, not ordinary wood',
+    windowFrame: 'thin brushed silver or pale stone edge trim, minimal profile, slightly rounded corners — architectural tower opening, not picture frame',
     extraRefImage: 'Farben Vibe inspo - Dreamy.webp',
     extraRefCaption: '(Above: COLOR/VIBE reference for Dreamy theme — lavender/purple palette, floating orbs, ethereal golden leaves, magical atmosphere. Use this for the color direction and magical mood.)',
-    brief: `THEME: Dreamy (Vertraeumt)
-- Magical, ethereal workspace with soft fantasy elements
-- Lavender, lilac, soft purple, pearl white, touches of gold
-- Soft birch wood desk, walls with subtle shimmer/iridescence
-- Feeling of twilight — soft purple sky with gentle glow
-- Window view: Magical landscape — floating crystal formations, soft luminous clouds, distant glowing mountains, golden leaves drifting, ethereal mist, aurora-like light ribbons in the sky
-- Dreamy particle effects in the view (subtle floating lights)
-- Overall: magical, serene, wonder, fantasy — like working in an enchanted tower`,
+    brief: `THEME: Dreamy (Vertraeumt) — An Enchanted Tower Study
+
+WORLD FANTASY: You are working in a study at the top of an enchanted tower. This is where an elven scholar or a gentle wizard would work. Everything has a soft magical quality — surfaces shimmer faintly, the light has an ethereal purple-gold quality, and the world outside the window is a magical landscape. This is NOT just a purple room — it is a MAGICAL workspace.
+
+MATERIALS & TEXTURES (render with rich detail):
+- Walls: Soft lavender plaster that seems to have a faint inner luminescence — like moonstone or opal. Subtle shimmer particles catch the light. The texture has depth and a dreamy, almost liquid quality.
+- Desk: Pale silvery-white birch wood with an opalescent sheen. The wood grain has a pearlescent quality, as if enchanted. Smooth, luminous, otherworldly.
+- Window frame: Thin, elegant, silver-white — almost like it's made of crystallized light. Subtle inner glow along the edges.
+
+COLOR PALETTE: Lavender, soft lilac, pearl white, touches of rose gold and warm amber. The overall tone is cool purple with warm golden accents from the magical light.
+
+LIGHTING: Soft ethereal twilight glow — the light comes from the magical sky outside and seems to have a warm purple-gold quality. Surfaces catch this light with subtle iridescent reflections. Gentle, dreamy, never harsh.
+
+WINDOW VIEW: Magical twilight landscape — a vast ethereal sky in purple and rose-gold gradients, luminous clouds, distant crystal formations or floating islands catching golden light, aurora-like ribbons of light across the sky, tiny floating particles of light (like fireflies or magic dust). The landscape below shows mystical terrain — maybe a silver lake reflecting the sky, enchanted forests with glowing canopy.
+
+MOOD: Wonder, serenity, magic. "I'm working in a fairytale." The image must feel SHARP and richly detailed despite the dreamy mood — dreamy means magical atmosphere, NOT blurry/out-of-focus.`,
   },
   {
     id: 'nature',
     name: 'Nature (Natur)',
-    wallMaterial: 'warm stone/earth plaster with subtle moss texture at edges',
-    deskMaterial: 'dark walnut wood with rich natural grain, slightly rough-hewn',
-    windowFrame: 'dark wood frame, rustic but refined',
-    brief: `THEME: Nature (Natur)
-- Forest cabin workspace, grounded and organic
-- Dark walnut wood, stone, moss, earth tones
-- Deep greens, warm browns, forest floor colors
-- Warm amber/golden light filtering through trees
-- Window view: Dense deciduous forest, sunlight filtering through canopy, forest floor with ferns and moss, maybe a small stream or woodland path visible, misty depth between trees
-- Feeling of being in a woodland retreat
-- Overall: grounded, organic, peaceful, connected to nature — like a ranger station in an old forest`,
+    wallMaterial: 'warm cabin interior: vertical timber boards or lightly weathered pine planks, visible seams, knots, subtle wear — refined forest cabin',
+    deskMaterial: 'medium-toned rustic wood ledge with visible grain, slight dents, matte-oil finish, warm amber highlights where light catches',
+    windowFrame: 'thin dark-stained wood frame, slim profile, clean rectangular opening — handcrafted cabin joinery',
+    brief: `THEME: Nature (Natur) — A Forest Ranger's Cabin Study
+
+WORLD FANTASY: You are working in a beautifully crafted cabin deep in an ancient forest. This is the study of a forest ranger or nature scholar — refined but deeply connected to the surrounding woods. Through the window, an old-growth forest glows with filtered sunlight. The cabin materials are natural, rich, and grounding.
+
+MATERIALS & TEXTURES (render with rich detail):
+- Walls: Natural stone with warm earth tones — think refined cabin interior. Subtle texture variations, tiny moss traces where wall meets ceiling or at edges. The stone has depth, individual stones or texture patterns visible. Warm amber/brown undertones.
+- Desk: Dark walnut wood — RICH, deep grain patterns with amber highlights where light catches the surface. The wood has character: subtle variations in tone, visible growth rings, a polished but natural finish.
+- Window frame: Dark stained wood, thin and elegant — handcrafted quality, like fine cabin joinery.
+
+COLOR PALETTE: Deep forest greens, warm walnut browns, amber/golden light tones, moss accents. Rich and earthy without being dark or muddy.
+
+LIGHTING: Warm amber-golden light filtering through the forest canopy outside, creating beautiful dappled light patterns. The light enters through the window and creates a warm glow on the desk surface. Volumetric light rays visible in the forest view.
+
+WINDOW VIEW: Ancient deciduous forest in golden hour — massive old trees with detailed bark and lush canopy, sunlight filtering through leaves creating god-rays, forest floor with ferns and moss, a gentle woodland path disappearing into misty depth. Maybe a small stream visible. The forest should feel OLD, LUSH, and MAGICAL in a natural way.
+
+MOOD: Grounded, peaceful, connected to nature. "Working in perfect harmony with the forest."`,
   },
   {
     id: 'raumstation',
     name: 'Raumstation (Space Station)',
-    wallMaterial: 'sleek dark gray metallic panels with subtle blue LED edge lighting',
-    deskMaterial: 'dark carbon fiber or matte black composite surface with subtle reflections',
-    windowFrame: 'thin brushed steel/titanium frame with subtle blue-white glow at edges',
-    brief: `THEME: Raumstation (Space Station)
-- Futuristic space station workspace, high-tech but livable
-- Dark grays, deep navy, brushed steel, subtle blue/cyan LED accents
-- Carbon fiber desk, metallic wall panels (not industrial-dirty, but sleek sci-fi)
-- Cool blue-white ambient lighting, reflections on surfaces
-- Window view: Deep space panorama — stars, distant nebula with soft purple/blue colors, maybe a planet or moon partially visible at the edge, the curvature of a ringed planet, cosmic dust clouds
-- NOT Star Wars/aggressive — more like ISS luxury upgrade, clean and premium
-- Overall: futuristic, awe-inspiring, calm vastness — like working on an observation deck in space`,
+    wallMaterial: 'sleek sci-fi wall panels, matte graphite composite with subtle seams and tiny fasteners, micro-scratches, soft ambient occlusion in panel gaps',
+    deskMaterial: 'dark composite ledge with fine texture, slight satin sheen, clean edges — advanced material, subtle blue LED reflection',
+    windowFrame: 'thin titanium/aluminum viewport bezel, single minimal border, subtle inner glow reflection — NOT nested triple-border',
+    brief: `THEME: Raumstation (Space Station) — An Orbital Observatory Deck
+
+WORLD FANTASY: You are working at a personal workstation on a luxury space station's observation deck. This is NOT military/aggressive sci-fi — think premium civilian space station, like a research institute in orbit. The interior is sleek, clean, and beautifully engineered. Through the viewport, the majesty of deep space unfolds.
+
+MATERIALS & TEXTURES (render with rich detail):
+- Walls: Spacecraft interior panels — dark gunmetal gray with precision panel lines/seams visible. Subtle blue-white LED accent strips along panel edges create soft ambient glow. The panels have a machined metal quality — brushed texture, subtle reflections. Think premium spacecraft interior design.
+- Desk: Dark matte composite — carbon fiber or advanced material with ultra-smooth finish. Subtle reflections of the blue ambient lighting on the surface. The material looks advanced and expensive.
+- Window frame: Thin titanium/steel bezel with subtle blue-white luminous edge line — like a high-tech viewport frame.
+
+COLOR PALETTE: Dark gunmetal gray, deep navy, brushed steel silver, with blue-white and cyan LED accents providing the color highlights. The space view adds purple nebula colors and warm star light.
+
+LIGHTING: Cool blue-white ambient LED lighting from panel edges. The deep space view provides additional subtle illumination — nebula colors reflecting faintly on the desk surface. Clean, cool, but not cold — premium and calming.
+
+WINDOW VIEW: Deep space panorama — a stunning vista of stars, a colorful nebula (soft purple, blue, teal gradients), maybe a planet or moon partially visible at the edge with atmospheric glow, distant cosmic dust clouds lit by starlight. The view should inspire AWE and serenity. Stars should be crisp points of light, the nebula should have beautiful color depth.
+
+MOOD: Awe, calm vastness, premium technology. "Working at the edge of the cosmos." NOT Star Wars/aggressive — more Interstellar/The Expanse luxury aesthetic.`,
   },
   {
     id: 'atelier',
     name: 'Atelier (Kuenstler-Werkstatt)',
-    wallMaterial: 'warm exposed brick (soft terracotta/salmon tones) with white mortar',
-    deskMaterial: 'thick reclaimed wood plank surface with paint splatters and character',
-    windowFrame: 'black industrial steel frame, thin and elegant (loft-style)',
-    brief: `THEME: Atelier (Kuenstler-Werkstatt)
-- Creative artist loft workspace, bohemian and inspiring
-- Exposed brick walls (warm terracotta), reclaimed wood, black steel accents
-- Warm cream, terracotta, sage green, muted mustard accents
-- Large industrial-style window (loft aesthetic)
-- Natural light flooding in, warm golden hour feeling
-- Window view: European city rooftops — old terracotta/slate roofs, chimneys, church spire in distance, warm sunset/golden hour sky, a few birds, maybe distant hills
-- The view should feel like Paris/Vienna/Prague rooftops
-- Overall: creative, bohemian, inspiring, urban — like working in a Montmartre studio`,
+    wallMaterial: 'aged Paris loft brick wall, varied bricks with chips and mortar irregularity, warm sun grazing highlights, realistic depth and patina',
+    deskMaterial: 'warm worn wooden ledge with visible grain, slight dustiness, soft sheen — reclaimed timber character',
+    windowFrame: 'thin black metal window frame, minimal modern profile — industrial loft architectural opening',
+    brief: `THEME: Atelier (Kuenstler-Werkstatt) — A Montmartre Artist's Loft
+
+WORLD FANTASY: You are working in a beautiful artist's loft in an old European building — think top floor of a Parisian or Viennese building from the 1890s, converted into a creative workspace. Warm exposed brick, large industrial windows, and through them a stunning view of historic rooftops bathed in golden sunset light.
+
+MATERIALS & TEXTURES (render with rich detail):
+- Walls: Exposed brick — each brick individually visible with warm terracotta/salmon tones, white mortar lines, subtle age variations. The brick has character: slightly different colors between bricks, some darker, some lighter. Century-old patina. Rich, warm, characterful.
+- Desk: Thick reclaimed wood plank — beautiful aged patina, warm honey-brown tones. The wood grain is prominent and detailed, with the character of reclaimed timber. Smooth from years of use, warm under the light.
+- Window frame: Thin black steel, industrial loft style — elegant and minimal profile. The frame should feel architectural and refined.
+
+COLOR PALETTE: Warm terracotta/brick, honey wood, black steel accents, golden sunset light. The view adds warm oranges, slate roof grays, and sky gradients.
+
+LIGHTING: Warm golden hour sunlight streaming through the window, casting beautiful warm light across the brick wall and desk. The light creates rich shadows and warm highlights on the textured surfaces. This is the most dramatically lit theme — sunset atmosphere.
+
+WINDOW VIEW: European city rooftops at golden hour — terracotta and slate rooftops receding into the distance, ornate chimneys, a church spire or dome in the mid-distance, warm sunset sky with orange/pink/gold gradients, a few birds in flight. The view should feel like looking out over Paris, Vienna, or Prague from an attic studio. Romantic, warm, inspiring.
+
+MOOD: Creative, bohemian, inspiring, romantic. "I could paint masterpieces at this desk."`,
   },
 ]
 
@@ -154,49 +192,71 @@ function buildArtDirectorSystem(theme: ThemeConfig): string {
   return `You are the Art Director for KMU Hub, a CRM desktop application. Your job is to write the PERFECT image generation prompt for our room scene backgrounds.
 
 ## The Concept
-The app uses a "desk workspace" metaphor. The user looks at a PAINTED ROOM with a LARGE WINDOW. The functional app UI is positioned INSIDE the window area using CSS. Everything around the window (walls, desk, shelves, decorations) creates atmosphere.
+The app uses a "desk workspace" metaphor. The user sees a beautifully illustrated ROOM with a LARGE WINDOW. A software UI is displayed INSIDE the window area (via CSS overlay). Everything around the window — walls, desk surface, window frame — creates immersive atmosphere.
 
 ## 5-Layer Architecture
-- Layer 1 (your job): ROOM SCENE — the full painted room background (wall + window + view + desk)
-- Layer 2: Furniture overlays (transparent PNGs, positioned on top — NOT your job)
-- Layer 3: Decorations (small objects at mount points — NOT your job)
-- Layer 4: Mount points (data only)
-- Layer 5: UI skin (CSS variables)
+- Layer 1 (YOUR JOB): ROOM SCENE — the full illustrated room background (wall + window + view + desk surface)
+- Layer 2–5: Furniture, decorations, UI — added separately, NOT your concern
 
 ## Your Task
-You receive reference images and a theme description. You must output a DETAILED prompt for GPT-Image that will generate the room scene.
+Write a DETAILED image generation prompt that produces a premium-quality room scene. You receive reference images for layout and style quality.
 
-## Critical Rules
-- The window must be centered and VERY LARGE (roughly 75-80% width of the image) — zoom out enough so the window dominates the wall. The side walls should be narrow strips (10-12% each side)
-- The window has NO muntins, NO crossbars, NO grid lines inside — it is ONE clean open rectangle. Only a subtle thin frame around the outer edge.
-- The UI will sit INSIDE the window — so the window area should show the VIEW (landscape, space, city, etc.)
-- The walls on either side of the window must be COMPLETELY EMPTY — no shelves, no artwork, no decorations, no objects. Just clean wall surface. (Shelves and decorations are added as separate transparent PNG overlays in a different layer)
-- The desk surface spans the bottom ~20-25% of the image and must be COMPLETELY EMPTY — no cups, no notebooks, no objects at all. Just a clean desk surface. (Objects are added separately)
-- Frontal perspective — looking straight at the wall
-- The desk must be COMPLETELY EMPTY — no mugs, pens, notebooks, books, plants, nothing. Just the surface material.
-- The walls must be COMPLETELY EMPTY — no shelves, frames, artwork, hooks, nothing. Just wall texture.
+## EXACT COMPOSITION (MANDATORY — every theme MUST match this layout)
+These proportions are non-negotiable. Every theme must produce images with identical spatial layout:
+
+- CAMERA: Frontal view, straight at the wall. Slight distance (1.5m back from desk) — natural working perspective, NOT pressed against desk.
+- IMAGE SIZE: 1536x1024 pixels (landscape).
+- EXACT PIXEL LAYOUT (non-negotiable):
+  - WALL OPENING (not a framed window!): left edge at x=184px (12% from left), right edge at x=1352px (12% from right), top edge at y=82px (8% from top), bottom edge at y=799px (78% from top).
+  - This means: wall opening is 1168px wide × 717px tall, centered horizontally.
+  - LEFT WALL STRIP: 0–184px (narrow, ~12% of width)
+  - RIGHT WALL STRIP: 1352–1536px (narrow, ~12% of width)
+  - CEILING STRIP: 0–82px (thin, ~8% of height)
+  - DESK SURFACE: 799–1024px (bottom 22% of image, ~225px tall)
+- The opening in the wall is NOT a window with a frame. It is a CLEAN RECTANGULAR OPENING cut directly into the wall. Think of it as an architectural wall cutout — the wall simply ends and the view begins. There may be a very thin edge/reveal where the wall meets the opening (2-4px, just ambient occlusion/shadow), but NO decorative frame, NO wooden frame, NO picture frame, NO molding, NO border. The transition from wall to view should be almost seamless — just a subtle shadow line.
+- WINDOW INTERIOR: ONE clean uninterrupted rectangle showing the view. NO muntins, NO crossbars, NO grid, NO divided panes.
+- WALLS: COMPLETELY EMPTY — no shelves, no artwork, no decorations, no hooks. Clean uninterrupted surface with rich micro-texture. (Decorations overlaid separately.)
+- DESK: COMPLETELY EMPTY flat surface — no objects, no ledges, no raised edges, no rear board. Clean stage, no props. Just bare surface material extending to the wall. (Objects added separately.)
 
 ## Theme-Specific Materials
 - Wall: ${theme.wallMaterial}
 - Desk: ${theme.deskMaterial}
 - Window frame: ${theme.windowFrame}
 
-## Art Style (VERY IMPORTANT)
-- Modern, warm, inviting — like a high-end interior design rendering
-- A touch realistic but still slightly stylized/illustrated — NOT pure watercolor/gouache, NOT overly painterly
-- Think: modern digital illustration with realistic lighting and materials but soft atmosphere
-- NOT cold or clinical — inviting and atmospheric
-- NOT photorealistic either — still has artistic charm
-- Rich detail in materials (wood grain, wall texture, surface reflections) but soft overall mood
-- Theme-appropriate lighting: warm for cozy/nature/atelier, cool ambient for raumstation, soft twilight for dreamy
+## Art Style (CRITICAL — this defines the quality bar)
+Premium illustrated interior background, cinematic background art quality:
+
+- Style: Makoto Shinkai background art meets modern interior design visualization
+- SHARP, DETAILED — material study quality: visible wood pores/fibers, plaster trowel marks, micro-texture variations, subtle edge wear, contact shadows, ambient occlusion
+- Lighting is KEY — soft global illumination, gentle bloom, motivated light direction, color bounce from outside view onto interior surfaces, atmospheric perspective
+- NOT photorealistic — illustrated/artistic but with AAA game concept painting detail
+- NOT flat, NOT blurry, NOT cheap. Every surface has depth, variation, specular response
+
+## Theme Identity (IMPORTANT)
+Each theme is a COMPLETELY DIFFERENT WORLD, not a "color swap":
+- Since walls/desk must be empty, immersion comes from: material language, lighting color + bounce, architectural detailing (frame reveal, sill material)
+- Commit fully to the theme fantasy
 
 ## About the Reference Images
-- The LAYOUT reference is a rough concept sketch from the Cozy theme. The yellow frame and blue UI frame were just annotations — IGNORE those colors
-- Use the STYLE reference for the art quality and rendering approach
-- Adapt the materials, colors, and mood to match the THEME DESCRIPTION — do NOT copy the Cozy colors for other themes
+- LAYOUT reference: spatial arrangement only — IGNORE colors, frame thickness, style quality
+- STYLE reference: art quality baseline — aim HIGHER in detail and richness
+- Adapt everything to the CURRENT THEME — never copy Cozy materials for other themes
 
-## Output Format
-Output ONLY the image generation prompt. No explanations, no markdown, just the prompt text.`
+## OUTPUT RULES (CRITICAL)
+Your output prompt MUST follow this exact structure and order:
+1. **Composition + layout** (hard constraints — window size, desk height, thin frame)
+2. **Materials** (wall, frame, desk with micro-detail keywords)
+3. **Lighting & atmosphere** (bounce light, bloom, volumetric where appropriate)
+4. **Outside view** (foreground/midground/background depth, atmospheric perspective)
+5. **Style anchor** ("premium illustrated interior background, cinematic background art, Makoto Shinkai atmosphere")
+6. **DO NOT block** (explicit negatives — MUST include all of these):
+   - "no furniture, no chair, no lamp, no shelves, no frames, no posters, no plants, no books, no objects, no props"
+   - "no window muntins, no crossbars, no grid, no divided panes, no French window, no sash window"
+   - "no text, no logos, no UI, no people"
+   - "not a picture frame, not a framed artwork, not ornate molding, not chunky frame"
+   - "no curtains, no blinds, no extra windows"
+
+Output ONLY the prompt. No explanations, no markdown. Target length: **150-220 words** (concise but specific — too long and the model averages constraints).`
 }
 
 // ── Step 1: Art Director prompt optimization ─────────────────────
