@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -48,11 +48,11 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
   const [reference, setReference] = useState('')
 
   // Reset when opening
-  useState(() => {
+  useEffect(() => {
     if (open && invoice) {
       setAmount(calcRemainingAmount(invoice))
     }
-  })
+  }, [open, invoice])
 
   if (!invoice) return null
 

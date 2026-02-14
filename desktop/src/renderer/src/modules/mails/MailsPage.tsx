@@ -17,12 +17,17 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  Printer,
+  Download,
+  FolderOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMailsStore, type Email } from '@/stores/mails'
 import { useNavigationStore } from '@/stores/navigation'
+import { useDocumentsStore } from '@/stores/documents'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
-import { ComposeModal, type ComposeMode } from './ComposeModal'
+import type { ComposeMode } from './ComposeModal'
+import { ComposeInline } from './ComposeInline'
 
 const folderIcons: Record<string, typeof Inbox> = {
   inbox: Inbox,
@@ -40,6 +45,7 @@ export default function MailsPage() {
     addFolder, emptyTrash,
   } = useMailsStore()
   const consumeIntent = useNavigationStore((s) => s.consumeIntent)
+  const addFile = useDocumentsStore((s) => s.addFile)
 
   const [activeFolder, setActiveFolder] = useState('inbox')
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
@@ -82,6 +88,7 @@ export default function MailsPage() {
 
   const handleSelectEmail = (email: Email) => {
     setSelectedEmailId(email.id)
+    if (composeOpen) setComposeOpen(false)
     if (!email.isRead) markRead(email.id)
   }
 
@@ -90,6 +97,11 @@ export default function MailsPage() {
     setComposeReplyTo(email || null)
     setComposePrefillTo(undefined)
     setComposeOpen(true)
+    setSelectedEmailId(null)
+  }
+
+  const handleCloseInlineCompose = () => {
+    setComposeOpen(false)
   }
 
   const handleDelete = () => {
@@ -105,6 +117,33 @@ export default function MailsPage() {
     emptyTrash()
     setEmptyTrashConfirm(false)
     toast.success('Papierkorb geleert')
+  }
+
+  const handlePrint = () => {
+    toast.success('Druckvorschau wird geoeffnet...')
+  }
+
+  const handleExport = () => {
+    toast.success('PDF Export wird vorbereitet...')
+  }
+
+  const handleSaveToFiles = (email: Email) => {
+    const dateStr = new Date(email.date).toLocaleDateString('de-CH').replace(/\./g, '-')
+    addFile({
+      name: `Email_${email.subject.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 40)}_${dateStr}.pdf`,
+      type: 'pdf',
+      size: '42 KB',
+      sizeBytes: 43008,
+      date: new Date().toISOString().split('T')[0],
+      folderId: 'root',
+      tags: ['email'],
+      createdBy: 'System',
+      isFavorite: false,
+      isShared: false,
+      isVault: false,
+      sharedWith: [],
+    })
+    toast.success('E-Mail in Dateien gespeichert')
   }
 
   const getEmailActions = (e: Email): ActionItem[] => {
@@ -151,11 +190,30 @@ export default function MailsPage() {
     }
 
     actions.push({
+      label: 'Drucken',
+      icon: Printer,
+      onClick: handlePrint,
+      separator: true,
+    })
+
+    actions.push({
+      label: 'Exportieren',
+      icon: Download,
+      onClick: handleExport,
+    })
+
+    actions.push({
+      label: 'In Dateien speichern',
+      icon: FolderOpen,
+      onClick: () => handleSaveToFiles(e),
+    })
+
+    actions.push({
       label: 'Loeschen',
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(e.id),
-      separator: e.folderId === 'archive',
+      separator: true,
     })
 
     return actions
@@ -165,6 +223,10 @@ export default function MailsPage() {
     ...f,
     unread: emails.filter((e) => e.folderId === f.id && !e.isRead).length,
   }))
+
+  // Determine what to show in the detail area
+  const showInlineCompose = composeOpen
+  const showEmailDetail = selectedEmail && !showInlineCompose
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -222,7 +284,7 @@ export default function MailsPage() {
         {/* Email list */}
         <div
           className={`flex flex-col border-r border-border overflow-hidden ${
-            selectedEmail ? 'hidden md:flex w-80' : 'flex-1'
+            (showEmailDetail || showInlineCompose) ? 'hidden md:flex w-80' : 'flex-1'
           }`}
         >
           {/* Search bar */}
@@ -298,8 +360,15 @@ export default function MailsPage() {
           </div>
         </div>
 
-        {/* Detail view */}
-        {selectedEmail ? (
+        {/* Detail area: email detail OR inline compose OR empty state */}
+        {showInlineCompose ? (
+          <ComposeInline
+            mode={composeMode}
+            replyTo={composeReplyTo}
+            prefillTo={composePrefillTo}
+            onClose={handleCloseInlineCompose}
+          />
+        ) : showEmailDetail ? (
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Detail header */}
             <div className="flex items-center gap-3 border-b border-border px-6 py-3">
@@ -360,6 +429,28 @@ export default function MailsPage() {
                   title="Loeschen"
                 >
                   <Trash2 className="h-4 w-4" />
+                </button>
+                <span className="mx-1 h-5 w-px bg-border" />
+                <button
+                  onClick={handlePrint}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  title="Drucken"
+                >
+                  <Printer className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleExport}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  title="Exportieren"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => handleSaveToFiles(selectedEmail)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  title="In Dateien speichern"
+                >
+                  <FolderOpen className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -431,15 +522,6 @@ export default function MailsPage() {
           </div>
         )}
       </div>
-
-      {/* Compose Modal */}
-      <ComposeModal
-        open={composeOpen}
-        onOpenChange={setComposeOpen}
-        mode={composeMode}
-        replyTo={composeReplyTo}
-        prefillTo={composePrefillTo}
-      />
 
       {/* Delete Confirm */}
       <ConfirmDialog

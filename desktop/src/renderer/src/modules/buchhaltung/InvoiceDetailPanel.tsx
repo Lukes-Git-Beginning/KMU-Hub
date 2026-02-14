@@ -32,7 +32,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
   const isQuote = invoice.type === 'quote'
 
   return (
-    <DetailPanel title={isQuote ? 'Angebots-Details' : 'Rechnungs-Details'} onClose={onClose}>
+    <DetailPanel open={true} title={isQuote ? 'Angebots-Details' : 'Rechnungs-Details'} onClose={onClose}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">

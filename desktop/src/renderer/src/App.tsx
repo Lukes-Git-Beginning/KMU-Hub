@@ -36,6 +36,7 @@ const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
 const BuchhaltungPage = lazy(() => import('@/modules/buchhaltung/BuchhaltungPage'))
 const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage'))
 const ProfilPage = lazy(() => import('@/modules/profil/ProfilPage'))
+const ComposeWindowPage = lazy(() => import('@/modules/mails/ComposeWindowPage'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -264,6 +265,14 @@ const router = createHashRouter([
       <GuestRoute>
         <LoginPage />
       </GuestRoute>
+    ),
+  },
+  {
+    path: '/compose-window',
+    element: (
+      <Suspense fallback={<ModuleLoadingFallback />}>
+        <ComposeWindowPage />
+      </Suspense>
     ),
   },
 ])

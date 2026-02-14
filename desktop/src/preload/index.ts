@@ -34,6 +34,10 @@ const api: ElectronAPI = {
         ipcRenderer.removeListener('deep-link', handler)
       }
     }
+  },
+
+  compose: {
+    openWindow: () => ipcRenderer.invoke('compose:open-window')
   }
 }
 

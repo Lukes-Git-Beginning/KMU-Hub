@@ -281,7 +281,7 @@ export default function BuchhaltungPage() {
                     <StatusIcon className="h-3 w-3" />
                     {sc.label}
                   </span>
-                  <ItemActions actions={getInvoiceActions(inv)} />
+                  <ItemActions items={getInvoiceActions(inv)} />
                 </div>
               )
             })}
@@ -312,7 +312,7 @@ export default function BuchhaltungPage() {
                     <StatusIcon className="h-3 w-3" />
                     {sc.label}
                   </span>
-                  <ItemActions actions={getInvoiceActions(inv)} />
+                  <ItemActions items={getInvoiceActions(inv)} />
                 </div>
               )
             })}
@@ -344,7 +344,7 @@ export default function BuchhaltungPage() {
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[exp.status]}`}>
                     {statusLabels[exp.status]}
                   </span>
-                  <ItemActions actions={[
+                  <ItemActions items={[
                     ...(exp.status === 'pending' ? [
                       { label: 'Genehmigen', onClick: () => { approveExpense(exp.id); toast.success('Genehmigt') } },
                       { label: 'Ablehnen', onClick: () => { rejectExpense(exp.id); toast.success('Abgelehnt') } },
@@ -380,7 +380,7 @@ export default function BuchhaltungPage() {
                 {tx.type === 'income' ? '+' : ''}{formatCHF(tx.amount)}
               </span>
               <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-CH')}</span>
-              <ItemActions actions={[
+              <ItemActions items={[
                 { label: 'Loeschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
               ]} />
             </div>

@@ -31,9 +31,20 @@ export interface MailFolder {
   unread: number
 }
 
+export interface ComposeDraft {
+  to: string[]
+  cc: string[]
+  bcc: string[]
+  subject: string
+  body: string
+  mode: 'compose' | 'reply' | 'reply-all' | 'forward'
+}
+
 interface MailsState {
   emails: Email[]
   folders: MailFolder[]
+  composeDraft: ComposeDraft | null
+  setComposeDraft: (draft: ComposeDraft | null) => void
   addEmail: (email: Omit<Email, 'id'>) => void
   deleteEmail: (id: string) => void
   markRead: (id: string) => void
@@ -201,6 +212,8 @@ export const useMailsStore = create<MailsState>()(
     (set, get) => ({
       emails: mockEmails,
       folders: mockFolders,
+      composeDraft: null,
+      setComposeDraft: (draft) => set({ composeDraft: draft }),
 
       addEmail: (email) =>
         set((state) => ({
