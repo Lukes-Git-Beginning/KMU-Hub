@@ -1,446 +1,481 @@
 # Backend Requirements Audit — KMU Hub Desktop App
 
 > Exhaustive audit of every frontend feature, the backend APIs it needs, what already exists, and what is missing.
-> Generated: 2026-02-10
+> Updated: 2026-02-14 (rev 2 — includes D7-D9 new features)
 
 ---
 
-## Table of Contents
-1. [Module-by-Module Frontend Needs](#1-module-by-module-frontend-needs)
-2. [Existing Backend Endpoints](#2-existing-backend-endpoints)
-3. [Gap Analysis](#3-gap-analysis)
-4. [Priority List](#4-priority-list)
+## Quick Summary
+
+| Status | Count |
+|--------|-------|
+| Backend BUILT + Frontend wired | Auth, CRM, Chat, Notifications, Dashboard, Work |
+| Backend BUILT but Frontend NOT wired yet | CRM hooks, Work hooks, Chat hooks, Notification hooks |
+| Frontend BUILT, NO backend (mock data) | ~180 endpoints across 10 modules |
 
 ---
 
-## 1. Module-by-Module Frontend Needs
+## 1. FULLY BUILT (Backend + Frontend Connected)
 
-### 1.1 Authentication (auth)
+### 1.1 Auth
+- Login, Logout, Refresh, Register, Me — all wired
+- WebSocket at `/api/v1/ws` — wired
+- 5 roles: admin, manager, member, hr, it_support
 
-**Files:**
-- `stores/auth.ts`
-- `modules/auth/LoginPage.tsx`
-- `api/client.ts`
-- `api/websocket.ts`
+### 1.2 Dashboard Layout
+- GET/PUT/DELETE `/api/v1/dashboard/layout` — wired
+- Role default layouts — wired
+- **But:** Widget data inside dashboard is still MOCK (see Section 3)
 
-**Data Model (User):**
-- id, email, firstName, lastName, roles[]
+### 1.3 CRM (Contacts, Companies, Deals, Pipeline, Activities, Search)
+- ~30 endpoints BUILT in backend
+- TanStack Query hooks exist in `api/hooks/`
+- **But:** UI still uses Zustand stores, NOT the hooks yet. Luke's backend works, Darien hasn't wired it.
 
-**API Endpoints USED:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| POST | `/api/v1/auth/login` | Login with email/password | BUILT |
-| POST | `/api/v1/auth/logout` | Revoke refresh token | BUILT |
-| POST | `/api/v1/auth/refresh` | Refresh access token | BUILT |
-| GET | `/api/v1/auth/me` | Get current user profile | BUILT |
-| POST | `/api/v1/auth/register` | Register new user | BUILT |
-
-**Real-time:** WebSocket connection at `/api/v1/ws?token={accessToken}` (BUILT)
-
-**Auth/Roles:** 5 roles defined in frontend: admin, manager, member, hr, it_support. Backend needs to return these in `user.roles[]`.
-
-**Electron IPC:** `window.electronAPI.auth.getStoredTokens()`, `storeTokens()`, `clearTokens()` -- this is Electron-side, not backend.
-
----
-
-### 1.2 Dashboard
-
-**Files:**
-- `stores/dashboard.ts`
-- `modules/dashboard/DashboardPage.tsx`
-- `modules/dashboard/widgets/ActivityFeed.tsx`
-- `modules/dashboard/widgets/DealPipeline.tsx`
-- `modules/dashboard/widgets/NotificationSummary.tsx`
-- `modules/dashboard/widgets/QuickActions.tsx`
-- `modules/dashboard/widgets/RecentContacts.tsx`
-- `modules/dashboard/widgets/UnreadMessages.tsx`
-- `modules/settings/DashboardSettings.tsx`
-- `api/hooks/useDashboard.ts`
-
-**API Endpoints USED:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/dashboard/layout` | Fetch user's dashboard layout | BUILT |
-| PUT | `/api/v1/dashboard/layout` | Save user's dashboard layout | BUILT |
-| DELETE | `/api/v1/dashboard/layout` | Reset to role defaults | BUILT |
-| GET | `/api/v1/dashboard/defaults/{role}` | Get role default layout (admin) | BUILT |
-| PUT | `/api/v1/dashboard/defaults/{role}` | Set role default layout (admin) | BUILT |
-
-**Widget Data Sources (each widget calls its own APIs):**
-- RecentContacts: Needs `GET /api/v1/contacts` (BUILT)
-- DealPipeline: Needs `GET /api/v1/deals` + `GET /api/v1/pipeline-stages` (BUILT)
-- UnreadMessages: Needs `GET /api/v1/channels/unread` (BUILT)
-- ActivityFeed: Needs `GET /api/v1/activities` (BUILT)
-- QuickActions: Navigation only, no API
-- NotificationSummary: Needs `GET /api/v1/notifications/unread-count` (BUILT)
-
-**Roles:** All authenticated users can view dashboard. Admin can edit role defaults.
-
----
-
-### 1.3 CRM Module (Contacts, Companies, Deals, Activities, Pipeline, Search)
-
-**Files:**
-- `api/hooks/useContacts.ts`, `api/hooks/useCompanies.ts`, `api/hooks/useDeals.ts`
-- `api/hooks/useActivities.ts`, `api/hooks/usePipelineStages.ts`, `api/hooks/useSearch.ts`
-- `modules/crm/contacts/ContactsListPage.tsx`, `ContactDetailPage.tsx`
-- `modules/crm/companies/CompaniesListPage.tsx`, `CompanyDetailPage.tsx`
-- `modules/crm/deals/DealsListPage.tsx`, `DealDetailPage.tsx`, `DealPipelineView.tsx`
-- `modules/crm/activities/ActivitiesListPage.tsx`
-- `modules/crm/search/CRMSearchPage.tsx`
-- `modules/crm/CRMLayout.tsx`
-
-**API Endpoints USED:**
-
-**Contacts:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/contacts` | List contacts (paginated, search, filters) | BUILT |
-| GET | `/api/v1/contacts/{id}` | Get contact detail | BUILT |
-| POST | `/api/v1/contacts` | Create contact | BUILT |
-| PATCH | `/api/v1/contacts/{id}` | Update contact | BUILT |
-| DELETE | `/api/v1/contacts/{id}` | Delete contact | BUILT |
-
-**Companies:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/companies` | List companies | BUILT |
-| GET | `/api/v1/companies/{id}` | Get company detail | BUILT |
-| GET | `/api/v1/companies/{id}/contacts` | Get company's contacts | BUILT |
-| POST | `/api/v1/companies` | Create company | BUILT |
-| PATCH | `/api/v1/companies/{id}` | Update company | BUILT |
-| DELETE | `/api/v1/companies/{id}` | Delete company | BUILT |
-
-**Deals:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/deals` | List deals (with filters) | BUILT |
-| GET | `/api/v1/deals/{id}` | Get deal detail | BUILT |
-| POST | `/api/v1/deals` | Create deal | BUILT |
-| PATCH | `/api/v1/deals/{id}` | Update deal | BUILT |
-| DELETE | `/api/v1/deals/{id}` | Delete deal | BUILT |
-| POST | `/api/v1/deals/{id}/stage` | Move deal to pipeline stage | BUILT |
-
-**Pipeline Stages:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/pipeline-stages` | List all pipeline stages | BUILT |
-| POST | `/api/v1/pipeline-stages` | Create pipeline stage | BUILT |
-| PATCH | `/api/v1/pipeline-stages/{id}` | Update pipeline stage | BUILT |
-| DELETE | `/api/v1/pipeline-stages/{id}` | Delete pipeline stage | BUILT |
-| POST | `/api/v1/pipeline-stages/reorder` | Reorder pipeline stages | BUILT |
-
-**Activities:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/activities` | List activities (filterable) | BUILT |
-| GET | `/api/v1/activities/{id}` | Get activity detail | BUILT |
-| POST | `/api/v1/activities` | Create activity | BUILT |
-| PUT | `/api/v1/activities/{id}` | Update activity | BUILT |
-| DELETE | `/api/v1/activities/{id}` | Delete activity | BUILT |
-| POST | `/api/v1/activities/{id}/complete` | Mark activity complete | BUILT |
-
-**Search:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/search` | Global CRM search (contacts, companies, deals, activities) | BUILT |
-
----
-
-### 1.4 Chat Module
-
-**Files:**
-- `api/hooks/useChannels.ts`, `api/hooks/useMessages.ts`
-- `modules/chat/ChatLayout.tsx`
-- `modules/chat/channels/ChannelList.tsx`, `ChannelHeader.tsx`, `CreateChannelDialog.tsx`
-- `modules/chat/messages/MessageBubble.tsx`, `MessageInput.tsx`, `MessageList.tsx`
-- `modules/chat/threads/ThreadPanel.tsx`
-
-**API Endpoints USED:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/channels` | List user's channels | BUILT |
-| GET | `/api/v1/channels/{id}` | Get channel detail | BUILT |
-| GET | `/api/v1/channels/{id}/members` | Get channel members | BUILT |
-| POST | `/api/v1/channels` | Create channel | BUILT |
-| POST | `/api/v1/channels/{id}/join` | Join public channel | BUILT |
-| POST | `/api/v1/channels/{id}/leave` | Leave channel | BUILT |
-| GET | `/api/v1/channels/dm` | List DM conversations | BUILT |
-| POST | `/api/v1/channels/dm` | Create/get DM | BUILT |
-| GET | `/api/v1/channels/unread` | Get unread counts | BUILT |
-| POST | `/api/v1/channels/{id}/read` | Mark channel as read | BUILT |
-| GET | `/api/v1/channels/{id}/messages` | List messages (cursor pagination) | BUILT |
-| POST | `/api/v1/channels/{id}/messages` | Send message | BUILT |
-| PUT | `/api/v1/messages/{id}` | Edit message | BUILT |
-| DELETE | `/api/v1/messages/{id}` | Delete message | BUILT |
-| GET | `/api/v1/messages/{id}/thread` | Get thread replies | BUILT |
-
-**WebSocket Events (Real-time):**
-- `message.new` -- new message in channel
-- `message.updated` -- message edited
-- `message.deleted` -- message deleted
-- `thread.reply.new` -- new thread reply
-- `typing.start` / `typing.stop` -- typing indicators
-- `channel.subscribe` / `channel.unsubscribe` -- channel presence
-
-All WebSocket events: BUILT
-
----
+### 1.4 Chat (Channels, Messages, Threads)
+- ~17 endpoints BUILT + WebSocket events
+- TanStack Query hooks exist
+- **But:** UI not wired yet
 
 ### 1.5 Notifications
+- ~7 endpoints BUILT + WebSocket events
+- TanStack Query hooks exist
+- **But:** UI not wired yet
 
-**Files:**
-- `api/hooks/useNotifications.ts`
-- `modules/notifications/NotificationBell.tsx`, `NotificationCenter.tsx`
-
-**API Endpoints USED:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/notifications` | List notifications (paginated, filterable) | BUILT |
-| GET | `/api/v1/notifications/unread-count` | Get unread count | BUILT |
-| POST | `/api/v1/notifications/{id}/read` | Mark notification as read | BUILT |
-| POST | `/api/v1/notifications/read-all` | Mark all as read | BUILT |
-| GET | `/api/v1/notifications/preferences` | Get notification preferences | BUILT |
-| PUT | `/api/v1/notifications/preferences` | Update notification preference | BUILT |
-| GET | `/api/v1/notifications/event-types` | List notification event types | BUILT |
-
-**WebSocket Events:**
-- `notification.new` -- new notification arrived
-- `notification.unread_count` -- updated unread count
+### 1.6 Work (Projects, Tasks, Kanban, Comments, Files, Dependencies)
+- ~35 endpoints BUILT (missing: Gantt + Timer)
+- TanStack Query hooks exist
+- **But:** UI not wired yet
 
 ---
 
-### 1.6 Work Module (Projects, Tasks, Kanban, Comments, Files, Dependencies)
+## 2. FRONTEND BUILT, NO BACKEND — Module Details
 
-**Files:**
-- `api/hooks/useProjects.ts`, `api/hooks/useTasks.ts`
-- `api/hooks/useTaskComments.ts`, `api/hooks/useTaskActivities.ts`, `api/hooks/useTaskFiles.ts`
-- `stores/work.ts`
-- `modules/work/` (20+ component files)
+### 2.1 E-Mail Module (NEW features since D7+)
 
-**API Endpoints USED:**
+**Store:** `stores/mails.ts` — 13 mock emails, 6 folders, composeDraft state
+**Files:** `MailsPage.tsx`, `ComposeModal.tsx`, `ComposeInline.tsx`, `ComposeWindowPage.tsx`, `compose-shared.tsx`
 
-**Projects:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/projects` | List projects | BUILT |
-| GET | `/api/v1/projects/{id}` | Get project detail | BUILT |
-| POST | `/api/v1/projects` | Create project | BUILT |
-| PUT | `/api/v1/projects/{id}` | Update project | BUILT |
-| POST | `/api/v1/projects/{id}/archive` | Archive project | BUILT |
-| GET | `/api/v1/projects/{id}/members` | List project members | BUILT |
-| POST | `/api/v1/projects/{id}/members` | Add member | BUILT |
-| DELETE | `/api/v1/projects/{id}/members/{userId}` | Remove member | BUILT |
-| GET/POST/PUT/DELETE | `/api/v1/projects/{id}/statuses` | Status CRUD | BUILT |
-| POST | `/api/v1/projects/{id}/statuses/reorder` | Reorder statuses | BUILT |
-| GET/PUT | `/api/v1/projects/{id}/preferences` | User preferences | BUILT |
-| POST | `/api/v1/projects/{id}/template` | Save as template | BUILT |
-| POST | `/api/v1/projects/from-template` | Create from template | BUILT |
+**Frontend Features:**
+- 3-column layout: folders / email list / detail
+- Compose: inline panel in detail area + pop-out to separate OS window (Electron BrowserWindow)
+- Reply, Reply-All, Forward
+- Send, Save Draft
+- Mark read/unread, Star, Archive, Move to folder
+- Delete → Trash → Permanent delete, Empty trash
+- Custom folders (CRUD)
+- Drucken (print email)
+- Exportieren (PDF export)
+- In Dateien speichern (save email to Documents store)
+- Contact suggestions in compose (autocomplete)
 
-**Tasks:**
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| GET | `/api/v1/tasks` | List tasks (filterable) | BUILT |
-| GET/POST/PUT/DELETE | `/api/v1/tasks/{id}` | Task CRUD | BUILT |
-| POST | `/api/v1/tasks/{id}/move` | Move task (status + order) | BUILT |
-| GET | `/api/v1/tasks/{id}/subtasks` | List subtasks | BUILT |
-| GET/POST/DELETE | `/api/v1/tasks/{id}/dependencies` | Dependencies | BUILT |
-| GET/POST/DELETE | `/api/v1/tasks/{id}/links` | Entity links | BUILT |
-| GET/PUT | `/api/v1/tasks/{id}/custom-fields` | Custom fields | BUILT |
-| GET/POST/PUT/DELETE | `/api/v1/tasks/{id}/comments` | Comments | BUILT |
-| GET | `/api/v1/tasks/{id}/activities` | Activity log | BUILT |
-| GET/POST/DELETE | `/api/v1/tasks/{id}/files` | File attachments | BUILT |
-| GET | `/api/v1/work/search` | Search tasks | BUILT |
+**Endpoints NEEDED:**
 
----
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/mails` | List emails (folder filter, search, pagination) |
+| GET | `/api/v1/mails/{id}` | Get email detail |
+| POST | `/api/v1/mails/send` | Send email (SMTP) |
+| POST | `/api/v1/mails/drafts` | Save draft |
+| PATCH | `/api/v1/mails/{id}` | Update flags (read, starred) |
+| POST | `/api/v1/mails/{id}/archive` | Archive email |
+| POST | `/api/v1/mails/{id}/move` | Move to folder |
+| DELETE | `/api/v1/mails/{id}` | Delete (trash or permanent) |
+| POST | `/api/v1/mails/trash/empty` | Empty trash |
+| GET | `/api/v1/mails/folders` | List folders |
+| POST | `/api/v1/mails/folders` | Create custom folder |
+| PATCH | `/api/v1/mails/folders/{id}` | Rename folder |
+| DELETE | `/api/v1/mails/folders/{id}` | Delete folder |
+| GET | `/api/v1/mails/{id}/pdf` | Export email as PDF |
+| POST | `/api/v1/mails/{id}/save-to-files` | Save email to Documents |
+| POST | `/api/v1/mails/sync` | Trigger IMAP sync |
 
-### 1.7 Kontakte (D7 Extended Contacts — Zustand mock store)
-
-**Files:** `stores/contacts.ts`, `modules/kontakte/`
-
-**IMPORTANT:** Separate from CRM contacts. Uses Zustand localStorage, NOT CRM API hooks.
-
-**Data Model (Contact):**
-- id, salutation, firstName, lastName, initials, email, phone, mobile, company, jobTitle, department
-- address: { street, zip, city, country }
-- website, category (employee/customer/partner), status (active/prospect/inactive)
-- tags[], notes, socialMedia: { linkedin, xing }
-- lastContact, projects[], createdAt, isFavorite, activities[]
-
-**GAP:** CRM contacts API exists but uses simpler model. D7 needs: salutation, mobile, department, address object, website, category, status, tags[], socialMedia, lastContact, projects[], isFavorite, activities[]. These need to be added to the CRM contact model or handled via custom_fields.
+**Complexity:** HIGH — requires IMAP sync service + SMTP relay
+**Note:** Compose pop-out window is Electron-only (IPC), no backend needed for that.
 
 ---
 
-### 1.8 Meetings
+### 2.2 Buchhaltung / Finance
 
-**Files:** `stores/meetings.ts`, `modules/meetings/`
+**Store:** `stores/finance.ts` — 5 invoices, 10 transactions, 5 expenses
+**Files:** `BuchhaltungPage.tsx`, `InvoiceFormDialog.tsx`, `InvoiceDetailPanel.tsx`, `ExpenseFormDialog.tsx`, `PaymentRecordDialog.tsx`, `ExportDialog.tsx`
 
-**Data Model:** id, title, status, project, date, startTime, duration, room, isVideoCall, recurrence, reminder, description, participants[], files[], whiteboardLink
+**Frontend Features:**
+- Invoices + Quotes CRUD (with line items: description, qty, unit price, discount, VAT)
+- Payment recording (partial payments, multiple methods)
+- Invoice send, cancel, duplicate
+- Expenses CRUD with approve/reject workflow
+- Transactions list
+- Financial reports (bar chart, category breakdown)
+- DATEV export dialog
+- Stats dashboard (Einnahmen, Ausgaben, Saldo, Offene Rechnungen)
 
-**API Endpoints NEEDED:** ~9 endpoints (list, detail, CRUD, cancel, duplicate, participants, join room)
+**Endpoints NEEDED:**
 
-**GAP:** NO meeting service. Phase 8.
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/finance/invoices` | List invoices/quotes (filter, search) |
+| POST | `/api/v1/finance/invoices` | Create invoice/quote |
+| GET | `/api/v1/finance/invoices/{id}` | Get invoice detail |
+| PATCH | `/api/v1/finance/invoices/{id}` | Update invoice |
+| DELETE | `/api/v1/finance/invoices/{id}` | Delete invoice (draft only) |
+| POST | `/api/v1/finance/invoices/{id}/send` | Send invoice via email |
+| POST | `/api/v1/finance/invoices/{id}/cancel` | Cancel invoice |
+| POST | `/api/v1/finance/invoices/{id}/duplicate` | Duplicate invoice |
+| POST | `/api/v1/finance/invoices/{id}/payments` | Record payment |
+| GET | `/api/v1/finance/invoices/{id}/pdf` | Generate PDF |
+| GET | `/api/v1/finance/transactions` | List transactions |
+| POST | `/api/v1/finance/transactions` | Create transaction |
+| DELETE | `/api/v1/finance/transactions/{id}` | Delete transaction |
+| GET | `/api/v1/finance/expenses` | List expenses |
+| POST | `/api/v1/finance/expenses` | Create expense |
+| POST | `/api/v1/finance/expenses/{id}/approve` | Approve expense |
+| POST | `/api/v1/finance/expenses/{id}/reject` | Reject expense |
+| DELETE | `/api/v1/finance/expenses/{id}` | Delete expense |
+| GET | `/api/v1/finance/export/datev` | DATEV CSV export |
+| GET | `/api/v1/finance/reports` | Financial reports (date range) |
 
----
-
-### 1.9 Dokumente
-
-**Files:** `stores/documents.ts`, `modules/dokumente/`
-
-**Data Model:** DocFile (id, name, type, size, tags, versions, sharing) + DocFolder (id, name, parentId)
-
-**API Endpoints NEEDED:** ~16 endpoints (CRUD, upload, download, preview, versioning, sharing, folders)
-
-**GAP:** NO document service. Phase 11.
-
----
-
-### 1.10 E-Mail
-
-**Files:** `stores/mails.ts`, `modules/mails/`
-
-**Data Model:** Email (from, to, cc, bcc, subject, body, attachments) + MailFolder
-
-**API Endpoints NEEDED:** ~16 endpoints (folders, messages, send, drafts, read/unread, star, move, archive, delete)
-
-**GAP:** NO email service. Phase 10. Requires IMAP sync + SMTP.
-
----
-
-### 1.11 Kalender
-
-**Files:** `modules/kalender/`
-
-**API Endpoints NEEDED:** ~15 endpoints (events CRUD, calendars, categories, rooms, availability, holidays)
-
-**GAP:** NO calendar service. Phase 7.
+**Complexity:** HIGH — GoBD compliance, PDF generation, DATEV format
 
 ---
 
-### 1.12 Team / HR
+### 2.3 Kontakte (Extended Contacts)
 
-**Files:** `stores/team.ts`, `modules/team/`
+**Store:** `stores/contacts.ts` — 14 contacts, 3 groups
+**Note:** Separate from CRM contacts API. Uses richer data model.
 
-**Data Model:** TeamMember (with department, status, contractType, workload) + HRRequest (vacation, sick, etc.)
+**Frontend Features:**
+- CRUD contacts (with address, social media, tags, notes, activities)
+- Favorite toggle
+- Duplicate contact
+- Bulk import (CSV)
+- Contact groups (CRUD + member management)
+- Quick actions: Email, Call (LiveKit), Message (Chat)
+- Category filter (employee/customer/partner)
+- Activity history per contact
 
-**API Endpoints NEEDED:** ~13 endpoints (members, departments, HR requests, absences)
+**Endpoints NEEDED:**
 
-**GAP:** NO team/HR service. Phase 13.
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/contacts` | List (paginated, filters, search) |
+| POST | `/api/v1/contacts` | Create contact |
+| GET | `/api/v1/contacts/{id}` | Get detail |
+| PATCH | `/api/v1/contacts/{id}` | Update contact |
+| DELETE | `/api/v1/contacts/{id}` | Delete contact |
+| POST | `/api/v1/contacts/{id}/favorite` | Toggle favorite |
+| POST | `/api/v1/contacts/{id}/duplicate` | Duplicate |
+| POST | `/api/v1/contacts/import` | Bulk import (CSV) |
+| GET | `/api/v1/contacts/groups` | List groups |
+| POST | `/api/v1/contacts/groups` | Create group |
+| PATCH | `/api/v1/contacts/groups/{id}` | Update group |
+| DELETE | `/api/v1/contacts/groups/{id}` | Delete group |
+| POST | `/api/v1/contacts/groups/{id}/members` | Add to group |
+| DELETE | `/api/v1/contacts/groups/{id}/members/{cid}` | Remove from group |
 
----
-
-### 1.13 Buchhaltung (Finance)
-
-**Files:** `stores/finance.ts`, `modules/buchhaltung/`
-
-**Data Model:** Invoice (with line items, payments) + Transaction + Expense
-
-**API Endpoints NEEDED:** ~22 endpoints (invoices, transactions, expenses, PDF gen, DATEV export, reports)
-
-**GAP:** NO finance service. Phase 12. GoBD compliance needed.
-
----
-
-### 1.14 Time Tracking
-
-**Files:** `stores/timetracking.ts`, `modules/profil/tabs/zeiterfassung/`
-
-**Data Model:** TimeEntry, TimeCategory, TimeTemplate, WorkTarget, AbsenceRequest, TeamActivity, ActiveTimer
-
-**API Endpoints NEEDED:** ~28 endpoints (timer, entries, categories, templates, targets, team activity, reports, absences)
-
-**GAP:** Phase 6 has partial timer plans. Full time tracking is Phase 13.
-
----
-
-### 1.15 Settings
-
-**Files:** `stores/settings.ts`, `modules/settings/`
-
-**11 Tabs:** Profile, Appearance, Language, Security (2FA), Notifications (7x3 matrix), Mail, Calendar, Finance, Team/HR, Privacy (DSGVO), About
-
-**API Endpoints NEEDED:** ~24 endpoints
-
-**GAP:** Notification prefs partially exist. Everything else saves to localStorage only.
+**Note:** CRM contacts API exists but needs extended fields: salutation, mobile, department, address, website, category, status, tags, socialMedia, lastContact, projects, isFavorite, activities. Either extend CRM model or create separate service.
 
 ---
 
-### 1.16 Infrastruktur (Admin)
+### 2.4 Dokumente
 
-**Files:** `modules/admin/InfrastrukturPage.tsx`
+**Store:** `stores/documents.ts` — 12 files, 9 folders (including system: root, shared, favorites, vault)
 
-**7 Tabs:** Overview, Services, Backups, Storage, Security, Updates, Logs
+**Frontend Features:**
+- Upload files (drag & drop)
+- Download, rename, move, delete files
+- Favorite toggle
+- Share with users (view/edit permissions)
+- Version history
+- CRUD folders
+- File preview (PDF, images)
+- Search & filter (tags, type, folder)
+- Vault (secure storage)
+- Storage usage display
+- **NEW:** Emails can be saved as documents from Mails module
 
-**API Endpoints NEEDED:** ~11 endpoints
+**Endpoints NEEDED:**
 
-**GAP:** NO admin infrastructure API. Late-stage operational tooling.
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/documents` | List files (filter, search) |
+| POST | `/api/v1/documents/upload` | Upload file (multipart) |
+| GET | `/api/v1/documents/{id}` | Get file metadata |
+| GET | `/api/v1/documents/{id}/download` | Download file |
+| PATCH | `/api/v1/documents/{id}` | Rename/move/tag file |
+| DELETE | `/api/v1/documents/{id}` | Delete file |
+| POST | `/api/v1/documents/{id}/favorite` | Toggle favorite |
+| POST | `/api/v1/documents/{id}/share` | Share with users |
+| GET | `/api/v1/documents/{id}/versions` | Get version history |
+| GET | `/api/v1/folders` | List folders |
+| POST | `/api/v1/folders` | Create folder |
+| PATCH | `/api/v1/folders/{id}` | Rename/move folder |
+| DELETE | `/api/v1/folders/{id}` | Delete folder |
+| GET | `/api/v1/storage/usage` | Storage usage stats |
 
----
-
-## 2. Existing Backend Summary
-
-| Service | Status | Phase |
-|---------|--------|-------|
-| Auth | DONE | 1 |
-| CRM | DONE | 2 |
-| Chat | DONE | 3 |
-| Notification | DONE | 4 |
-| Gateway | DONE | 4-5 |
-| Dashboard | DONE | 5 |
-| Work | 80% DONE (missing Gantt + Timer) | 6 |
-
----
-
-## 3. Gap Analysis Summary
-
-### FULLY BUILT (Frontend wired to backend):
-- Auth, CRM, Chat, Notifications, Dashboard, Work/Projects
-
-### FRONTEND BUILT, NO BACKEND (Mock data):
-| Module | Endpoints Needed | Luke's Phase | Priority |
-|--------|-----------------|--------------|----------|
-| Kontakte (extended) | ~2 | Phase 10 | HIGH |
-| Calendar | ~15 | Phase 7 | HIGH |
-| Meetings | ~9 | Phase 8 | HIGH |
-| Time Tracking | ~28 | Phase 6/13 | HIGH |
-| Documents | ~16 | Phase 11 | MEDIUM |
-| Email | ~16 | Phase 10 | MEDIUM |
-| Team/HR | ~13 | Phase 13 | MEDIUM |
-| Finance | ~22 | Phase 12 | MEDIUM |
-| Settings | ~24 | Phase 9+ | LOW |
-| Infrastruktur | ~11 | - | LOW |
-| **TOTAL** | **~159** | | |
+**Complexity:** HIGH — file upload/download, versioning, vault encryption
 
 ---
 
-## 4. Priority List for Luke
+### 2.5 Team / HR
 
-### Tier 1 — BLOCKING:
-1. **Phase 6: Task Timer** — Frontend TimeTrackerWidget already in header
-2. **Phase 6: Gantt Chart** — Frontend may need read-only view first
-3. **Extended Contact Fields** — D7 KontaktePage needs more fields than CRM API has
+**Store:** `stores/team.ts` — 12 members, 7 HR requests, 6 departments
 
-### Tier 2 — HIGH PRIORITY:
-4. **Phase 7: Calendar** — KalenderPage fully built
-5. **Phase 8: Meetings + Video** — MeetingsPage fully built
+**Frontend Features:**
+- Team member list with status (active/away/offline)
+- CRUD members (with contract type, workload, skills, projects)
+- Invite member (email)
+- Deactivate member
+- HR requests: vacation, sick leave, overtime, homeoffice
+- Approve/reject requests
+- Absence calendar view
+- Department management
+
+**Endpoints NEEDED:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/team/members` | List members |
+| POST | `/api/v1/team/members` | Add/invite member |
+| PATCH | `/api/v1/team/members/{id}` | Update member |
+| POST | `/api/v1/team/members/{id}/deactivate` | Deactivate |
+| DELETE | `/api/v1/team/members/{id}` | Delete member |
+| GET | `/api/v1/team/requests` | List HR requests |
+| POST | `/api/v1/team/requests` | Create request |
+| POST | `/api/v1/team/requests/{id}/approve` | Approve |
+| POST | `/api/v1/team/requests/{id}/reject` | Reject |
+| DELETE | `/api/v1/team/requests/{id}` | Delete request |
+| GET | `/api/v1/team/departments` | List departments |
+
+---
+
+### 2.6 Zeiterfassung (Time Tracking)
+
+**Store:** `stores/timetracking.ts` — 15 entries, 6 categories, 4 templates, 6 team activities, 4 absences
+
+**Frontend Features:**
+- Active timer (start/pause/resume/stop) — persistent in header widget
+- Manual time entries (CRUD)
+- Categories (CRUD)
+- Templates for quick entry
+- Team activity overview (who's tracking what)
+- Absence requests (CRUD + approve/reject)
+- 6 sub-views: Overview, Timer, Entries, Team, Reports, Absences
+- Work target tracking (Soll vs. Ist hours)
+- CSV/PDF report export
+
+**Endpoints NEEDED:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/v1/timetracking/timer/start` | Start timer |
+| POST | `/api/v1/timetracking/timer/pause` | Pause |
+| POST | `/api/v1/timetracking/timer/resume` | Resume |
+| POST | `/api/v1/timetracking/timer/stop` | Stop (creates entry) |
+| GET | `/api/v1/timetracking/entries` | List entries (date filter) |
+| POST | `/api/v1/timetracking/entries` | Create manual entry |
+| PATCH | `/api/v1/timetracking/entries/{id}` | Update entry |
+| DELETE | `/api/v1/timetracking/entries/{id}` | Delete entry |
+| GET | `/api/v1/timetracking/categories` | List categories |
+| POST | `/api/v1/timetracking/categories` | Create category |
+| PATCH | `/api/v1/timetracking/categories/{id}` | Update |
+| DELETE | `/api/v1/timetracking/categories/{id}` | Delete |
+| GET | `/api/v1/timetracking/templates` | List templates |
+| POST | `/api/v1/timetracking/templates` | Create template |
+| DELETE | `/api/v1/timetracking/templates/{id}` | Delete |
+| GET | `/api/v1/timetracking/team-activity` | Team activity status |
+| GET | `/api/v1/timetracking/absences` | List absences |
+| POST | `/api/v1/timetracking/absences` | Request absence |
+| POST | `/api/v1/timetracking/absences/{id}/approve` | Approve |
+| POST | `/api/v1/timetracking/absences/{id}/reject` | Reject |
+| DELETE | `/api/v1/timetracking/absences/{id}` | Delete |
+| GET | `/api/v1/timetracking/reports` | Generate report (CSV/PDF) |
+
+**Complexity:** HIGH — timer state sync, team activity real-time, report generation
+
+---
+
+### 2.7 Meetings
+
+**Store:** `stores/meetings.ts` — 8 meetings with agenda, files, participants
+
+**Frontend Features:**
+- CRUD meetings (with agenda items, participants, room, recurrence)
+- Cancel/duplicate meeting
+- Agenda items (add, toggle, remove)
+- Notes editing
+- Join meeting (LiveKit video room)
+- Start 1:1 call (LiveKit)
+- Call overlay (in-call UI)
+- File attachments per meeting
+
+**Endpoints NEEDED:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/meetings` | List meetings (date filter) |
+| POST | `/api/v1/meetings` | Create meeting |
+| PATCH | `/api/v1/meetings/{id}` | Update meeting |
+| DELETE | `/api/v1/meetings/{id}` | Delete |
+| POST | `/api/v1/meetings/{id}/cancel` | Cancel |
+| POST | `/api/v1/meetings/{id}/duplicate` | Duplicate |
+| POST | `/api/v1/meetings/{id}/agenda` | Add agenda item |
+| PATCH | `/api/v1/meetings/{id}/agenda/{item}` | Toggle agenda |
+| DELETE | `/api/v1/meetings/{id}/agenda/{item}` | Remove agenda |
+| PATCH | `/api/v1/meetings/{id}/notes` | Update notes |
+| POST | `/api/v1/meetings/{id}/join` | Get LiveKit token |
+| POST | `/api/v1/calls/start` | Start 1:1 call |
+| POST | `/api/v1/calls/end` | End call |
+
+**Complexity:** HIGH — LiveKit integration, room management
+
+---
+
+### 2.8 Kalender
+
+**Files:** `modules/kalender/` — KalenderPage, RoomBookingView, CategoryManager, CalendarBrowse
+
+**Frontend Features:**
+- Month/Week/Day/Agenda views
+- CRUD calendar events (with recurrence, reminders, categories)
+- Room booking
+- Category management (colors, labels)
+- Import/export (.ics)
+- Public holidays (region-based)
+- Work hours configuration
+
+**Endpoints NEEDED:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/calendar/events` | List events (date range) |
+| POST | `/api/v1/calendar/events` | Create event |
+| PATCH | `/api/v1/calendar/events/{id}` | Update event |
+| DELETE | `/api/v1/calendar/events/{id}` | Delete event |
+| GET | `/api/v1/calendar/categories` | List categories |
+| POST | `/api/v1/calendar/categories` | Create category |
+| PATCH | `/api/v1/calendar/categories/{id}` | Update |
+| DELETE | `/api/v1/calendar/categories/{id}` | Delete |
+| GET | `/api/v1/calendar/rooms` | List rooms |
+| POST | `/api/v1/calendar/rooms/{id}/book` | Book room |
+| GET | `/api/v1/calendar/rooms/{id}/availability` | Check availability |
+| GET | `/api/v1/calendar/holidays` | Public holidays (by region) |
+| POST | `/api/v1/calendar/import` | Import .ics |
+| GET | `/api/v1/calendar/export` | Export .ics |
+
+---
+
+### 2.9 Settings
+
+**Store:** `stores/settings.ts` — all settings as localStorage defaults
+
+**11 Tabs:** Profile, Appearance, Language, Security (2FA), Notifications (7x3 matrix), Mail (IMAP/SMTP), Calendar, Finance, Team/HR, Privacy (DSGVO), About
+
+**Endpoints NEEDED:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/settings` | Get all user settings |
+| PATCH | `/api/v1/settings/profile` | Update profile |
+| PATCH | `/api/v1/settings/appearance` | Theme, desk theme |
+| PATCH | `/api/v1/settings/language` | Locale, timezone |
+| PATCH | `/api/v1/settings/notifications` | Notification matrix |
+| PATCH | `/api/v1/settings/mail` | IMAP/SMTP config |
+| PATCH | `/api/v1/settings/calendar` | Calendar config |
+| PATCH | `/api/v1/settings/finance` | Finance config |
+| PATCH | `/api/v1/settings/team-admin` | Team admin settings |
+| POST | `/api/v1/settings/security/enable-2fa` | Enable 2FA |
+| POST | `/api/v1/settings/security/disable-2fa` | Disable 2FA |
+| POST | `/api/v1/settings/avatar` | Upload avatar |
+
+---
+
+### 2.10 Infrastruktur (Admin)
+
+**Files:** `modules/admin/InfrastrukturPage.tsx` — 7 tabs
+
+**Endpoints NEEDED:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/admin/status` | System overview (CPU, RAM, disk) |
+| GET | `/api/v1/admin/services` | Service health (API, DB, Redis, LiveKit) |
+| POST | `/api/v1/admin/services/{id}/restart` | Restart service |
+| GET | `/api/v1/admin/backups` | List backups |
+| POST | `/api/v1/admin/backups` | Create backup |
+| GET | `/api/v1/admin/logs` | System logs |
+| GET | `/api/v1/admin/users/active` | Active users count |
+
+---
+
+## 3. Dashboard Widget Data (Still Mock)
+
+The dashboard layout API works, but widget data is not wired:
+
+| Widget | Data Source | Status |
+|--------|-----------|--------|
+| RecentContacts | `stores/contacts.ts` | MOCK — needs contacts API |
+| DealPipeline | Hardcoded | MOCK — needs deals API |
+| UnreadMessages | `stores/mails.ts` | MOCK — needs mails API |
+| ActivityFeed | Hardcoded | MOCK — needs activities API |
+| QuickActions | Navigation only | OK |
+| NotificationSummary | Hardcoded | MOCK — needs notifications API |
+
+---
+
+## 4. Endpoint Count Summary
+
+| Module | Endpoints | Luke's Phase | Priority |
+|--------|----------|-------------|----------|
+| Kontakte (extended) | 14 | Phase 10 | HIGH |
+| Calendar | 14 | Phase 7 | HIGH |
+| Meetings | 13 | Phase 8 | HIGH |
+| Time Tracking | 22 | Phase 6/13 | HIGH |
+| Documents | 14 | Phase 11 | MEDIUM |
+| Email | 16 | Phase 10 | MEDIUM |
+| Team/HR | 11 | Phase 13 | MEDIUM |
+| Finance | 20 | Phase 12 | MEDIUM |
+| Settings | 12 | Phase 9+ | LOW |
+| Infrastruktur | 7 | — | LOW |
+| Work Profiles | 5 | Phase 6 | LOW |
+| **TOTAL** | **~148 new** | | |
+
+Plus: CRM (~30), Chat (~17), Work (~35), Notifications (~7) endpoints are BUILT but UI not wired yet.
+
+**Grand total:** ~148 new + ~89 existing-but-unwired = **~237 endpoint integrations**
+
+---
+
+## 5. Priority List for Luke
+
+### Tier 1 — BLOCKING (already planned):
+1. **Phase 6: Task Timer** — TimeTrackerWidget in header needs real-time sync
+2. **Phase 6: Gantt Chart** — Frontend may need read-only view
+3. **Extended Contact Fields** — D7 KontaktePage needs more fields than CRM has
+
+### Tier 2 — HIGH VALUE:
+4. **Phase 7: Calendar** — KalenderPage fully built (4 views + room booking)
+5. **Phase 8: Meetings + Video** — MeetingsPage + LiveKit integration
 6. **Phase 8: Presence System** — Team page shows online/away status
 
-### Tier 3 — MEDIUM PRIORITY:
-7. **Phase 10: Email** — MailsPage fully built
-8. **Phase 11: Documents** — DokumentePage fully built
-9. **Phase 12: Finance** — BuchhaltungPage fully built
-10. **Phase 13: HR + Time Tracking** — TeamPage + Zeiterfassung (6 views!) fully built
+### Tier 3 — MEDIUM VALUE:
+7. **Phase 10: Email** — MailsPage fully built (inline compose, pop-out window, print/export/save)
+8. **Phase 11: Documents** — DokumentePage fully built (upload, share, vault, versions)
+9. **Phase 12: Finance** — BuchhaltungPage fully built (invoices, payments, expenses, DATEV)
+10. **Phase 13: HR + Time Tracking** — TeamPage + Zeiterfassung (6 sub-views) fully built
 
 ### Tier 4 — LOW PRIORITY:
-11. Settings persistence
-12. User Profile persistence
-13. Infrastructure admin
+11. Settings persistence (all 11 tabs)
+12. Infrastructure admin (7 tabs)
+13. Work Profiles
+14. Wire existing CRM/Chat/Work/Notification hooks to UI
 
 ### Key Insight:
-Frontend is SIGNIFICANTLY ahead of backend. When Luke builds each service, Zustand stores need to be replaced with TanStack Query hooks (same pattern as CRM/Chat/Work).
+Frontend is **significantly ahead** of backend. When Luke builds each service, Zustand mock stores need to be replaced with TanStack Query hooks (same pattern as existing CRM/Chat/Work hooks in `api/hooks/`).
 
-### Recommended Approach:
-1. Luke finishes Phase 6 (Gantt + Timer)
-2. Phase 7 (Calendar) — frontend ready
-3. Phase 8 (Meetings/Video) — frontend ready
-4. For D7 modules, Luke builds backend per roadmap (Phases 10-13), then Darien wires frontend to real APIs
+### Migration Pattern:
+1. Luke builds Go service + endpoints
+2. Luke updates OpenAPI spec
+3. Darien creates TanStack Query hooks (following existing patterns)
+4. Darien replaces Zustand store calls with hook calls in UI
+5. Keep Zustand for UI-only state (sidebar, compose panel, etc.)
