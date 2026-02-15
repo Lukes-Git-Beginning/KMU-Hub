@@ -97,7 +97,7 @@ export default function TeamPage() {
 
   // Cross-module actions
   const handleEmail = (member: TeamMember) => {
-    setIntent({ type: 'compose-email', data: { email: member.email, name: `${member.firstName} ${member.lastName}` } })
+    setIntent({ type: 'compose-email', data: { to: member.email, name: `${member.firstName} ${member.lastName}` } })
     navigate('/mails')
   }
 
@@ -361,7 +361,7 @@ function MemberCard({ member, actions, onEmail, onMessage, onCall, onClick }: Me
             <p className="text-xs text-muted-foreground">{member.role}</p>
           </div>
         </button>
-        <ItemActions actions={actions} />
+        <ItemActions items={actions} />
       </div>
 
       <div className="space-y-1.5 text-xs text-muted-foreground mb-3">
@@ -454,7 +454,7 @@ function MemberRow({ member, actions, onEmail, onMessage, onClick }: MemberRowPr
         <button onClick={onMessage} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title="Nachricht">
           <MessageSquare className="h-4 w-4" />
         </button>
-        <ItemActions actions={actions} />
+        <ItemActions items={actions} />
       </div>
     </div>
   )

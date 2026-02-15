@@ -38,7 +38,8 @@ interface UIState {
   sidebarWidth: number
   sidebarMobileOpen: boolean
   locale: string
-  theme: 'light' | 'dark'
+  theme: 'light' | 'dark' | 'auto'
+  uiLook: 'solid' | 'glass' | 'crystal'
 
   // Desk environment
   deskMaximized: boolean
@@ -54,7 +55,8 @@ interface UIState {
   setSidebarMobileOpen: (open: boolean) => void
   toggleSidebarMobile: () => void
   setLocale: (locale: string) => void
-  setTheme: (theme: 'light' | 'dark') => void
+  setTheme: (theme: 'light' | 'dark' | 'auto') => void
+  setUILook: (look: 'solid' | 'glass' | 'crystal') => void
 
   // Onboarding
   setOnboardingCompleted: (completed: boolean) => void
@@ -76,6 +78,7 @@ export const useUIStore = create<UIState>()(
       sidebarMobileOpen: false,
       locale: 'de',
       theme: 'light',
+      uiLook: 'solid',
 
       // Desk defaults
       deskMaximized: false,
@@ -102,8 +105,11 @@ export const useUIStore = create<UIState>()(
       setLocale: (locale: string) =>
         set({ locale }),
 
-      setTheme: (theme: 'light' | 'dark') =>
+      setTheme: (theme: 'light' | 'dark' | 'auto') =>
         set({ theme }),
+
+      setUILook: (look: 'solid' | 'glass') =>
+        set({ uiLook: look }),
 
       toggleDeskMaximized: () =>
         set((state) => ({ deskMaximized: !state.deskMaximized })),

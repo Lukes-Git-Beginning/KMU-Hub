@@ -308,6 +308,141 @@
   --desk-sidebar-border: hsl(217.2 32.6% 17.5%);
 }
 
+/* ===== FROSTED GLASS MODE — Light ===== */
+.ui-glass {
+  --card: rgba(245, 239, 232, 0.55);
+  --card-hover: rgba(238, 231, 224, 0.6);
+  --card-border: rgba(213, 202, 192, 0.45);
+  --popover: rgba(245, 239, 232, 0.7);
+  --sidebar: rgba(232, 227, 221, 0.5);
+  --sidebar-accent: rgba(237, 232, 225, 0.5);
+  --sidebar-active: rgba(224, 213, 203, 0.5);
+  --sidebar-border: rgba(213, 202, 192, 0.35);
+  --header-background: rgba(245, 239, 232, 0.5);
+  --header-border: rgba(213, 202, 192, 0.35);
+  --background: rgba(232, 227, 221, 0.4);
+  --secondary: rgba(237, 232, 225, 0.5);
+  --muted: rgba(237, 232, 225, 0.45);
+  --input-background: rgba(237, 232, 225, 0.5);
+  --shadow-card: 0 2px 8px rgba(44, 36, 32, 0.04);
+  --shadow-card-hover: 0 4px 16px rgba(44, 36, 32, 0.08);
+}
+
+/* ===== FROSTED GLASS MODE — Dark ===== */
+.dark.ui-glass {
+  --card: rgba(30, 32, 38, 0.5);
+  --card-hover: rgba(35, 37, 44, 0.55);
+  --card-border: rgba(50, 53, 62, 0.4);
+  --popover: rgba(30, 32, 38, 0.65);
+  --sidebar: rgba(22, 24, 30, 0.45);
+  --sidebar-accent: rgba(35, 37, 44, 0.45);
+  --sidebar-active: rgba(42, 44, 52, 0.45);
+  --sidebar-border: rgba(50, 53, 62, 0.3);
+  --header-background: rgba(30, 32, 38, 0.45);
+  --header-border: rgba(50, 53, 62, 0.3);
+  --background: rgba(22, 24, 30, 0.35);
+  --secondary: rgba(35, 37, 44, 0.45);
+  --muted: rgba(35, 37, 44, 0.4);
+  --input-background: rgba(26, 28, 34, 0.5);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Blur target — only active when .ui-glass is on <html> */
+.ui-glass .glass-surface {
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+
+/* ===== CRYSTAL MODE — Light (extra transparent) ===== */
+.ui-crystal {
+  --card: rgba(245, 239, 232, 0.35);
+  --card-hover: rgba(238, 231, 224, 0.4);
+  --card-border: rgba(213, 202, 192, 0.3);
+  --popover: rgba(245, 239, 232, 0.45);
+  --sidebar: rgba(232, 227, 221, 0.3);
+  --sidebar-accent: rgba(237, 232, 225, 0.3);
+  --sidebar-active: rgba(224, 213, 203, 0.35);
+  --sidebar-border: rgba(213, 202, 192, 0.25);
+  --header-background: rgba(245, 239, 232, 0.3);
+  --header-border: rgba(213, 202, 192, 0.25);
+  --background: rgba(232, 227, 221, 0.25);
+  --secondary: rgba(237, 232, 225, 0.3);
+  --muted: rgba(237, 232, 225, 0.3);
+  --input-background: rgba(237, 232, 225, 0.35);
+  --shadow-card: 0 2px 8px rgba(44, 36, 32, 0.03);
+  --shadow-card-hover: 0 4px 16px rgba(44, 36, 32, 0.06);
+}
+
+/* ===== CRYSTAL MODE — Dark ===== */
+.dark.ui-crystal {
+  --card: rgba(30, 32, 38, 0.3);
+  --card-hover: rgba(35, 37, 44, 0.35);
+  --card-border: rgba(50, 53, 62, 0.25);
+  --popover: rgba(30, 32, 38, 0.4);
+  --sidebar: rgba(22, 24, 30, 0.25);
+  --sidebar-accent: rgba(35, 37, 44, 0.25);
+  --sidebar-active: rgba(42, 44, 52, 0.3);
+  --sidebar-border: rgba(50, 53, 62, 0.2);
+  --header-background: rgba(30, 32, 38, 0.25);
+  --header-border: rgba(50, 53, 62, 0.2);
+  --background: rgba(22, 24, 30, 0.2);
+  --secondary: rgba(35, 37, 44, 0.3);
+  --muted: rgba(35, 37, 44, 0.25);
+  --input-background: rgba(26, 28, 34, 0.35);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Crystal blur — stronger than glass */
+.ui-crystal .glass-surface {
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+}
+
+/* ===== ELEVATED OVERLAYS — opaque enough to read in glass/crystal ===== */
+/* Radix popovers, dropdowns, selects, tooltips */
+:is(.ui-glass, .ui-crystal) [data-radix-popper-content-wrapper] > * {
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+  isolation: isolate;
+}
+
+/* Radix dialogs, alert dialogs, sheets */
+:is(.ui-glass, .ui-crystal) [role="dialog"],
+:is(.ui-glass, .ui-crystal) [role="alertdialog"],
+:is(.ui-glass, .ui-crystal) .glass-elevated {
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+  isolation: isolate;
+}
+
+/* Glass mode elevated — more opaque than base surfaces */
+.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+  --popover: rgba(245, 239, 232, 0.88);
+  --background: rgba(245, 239, 232, 0.88);
+  --card: rgba(245, 239, 232, 0.88);
+}
+
+.dark.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+  --popover: rgba(30, 32, 38, 0.88);
+  --background: rgba(30, 32, 38, 0.88);
+  --card: rgba(30, 32, 38, 0.88);
+}
+
+/* Crystal mode elevated — slightly more transparent than glass elevated */
+.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+  --popover: rgba(245, 239, 232, 0.82);
+  --background: rgba(245, 239, 232, 0.82);
+  --card: rgba(245, 239, 232, 0.82);
+}
+
+.dark.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+  --popover: rgba(30, 32, 38, 0.82);
+  --background: rgba(30, 32, 38, 0.82);
+  --card: rgba(30, 32, 38, 0.82);
+}
+
 /* Map CSS custom properties to Tailwind utility classes */
 @theme inline {
   --color-background: var(--background);
@@ -517,6 +652,68 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* ===== CUSTOM SCROLLBARS ===== */
+/* Light mode */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(180, 170, 160, 0.45);
+  border-radius: 100px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 148, 136, 0.65);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Dark mode scrollbars */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(100, 105, 115, 0.4);
+  background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 125, 135, 0.6);
+  background-clip: padding-box;
+}
+
+/* Glass mode scrollbars — thinner, more subtle */
+:is(.ui-glass, .ui-crystal) ::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+:is(.ui-glass, .ui-crystal) ::-webkit-scrollbar-thumb {
+  background: rgba(180, 170, 160, 0.3);
+  border-radius: 100px;
+  border: none;
+}
+
+:is(.ui-glass, .ui-crystal) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 148, 136, 0.5);
+}
+
+:is(.dark.ui-glass, .dark.ui-crystal) ::-webkit-scrollbar-thumb {
+  background: rgba(120, 125, 140, 0.3);
+}
+
+:is(.dark.ui-glass, .dark.ui-crystal) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 145, 160, 0.5);
 }
 
 /* ═══════════════════════════════════════════════════════

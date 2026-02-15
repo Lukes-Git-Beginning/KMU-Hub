@@ -32,15 +32,21 @@ export function DeskEnvironment() {
   const deskThemeId = useUIStore((s) => s.deskThemeId)
   const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
   const storeTheme = useUIStore((s) => s.theme)
+  const uiLook = useUIStore((s) => s.uiLook)
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
 
-  const isDark = storeTheme === 'dark' || systemIsDark
+  const isDark = storeTheme === 'auto' ? systemIsDark : storeTheme === 'dark'
   const activeTheme = DESK_THEMES[deskThemeId] ?? DESK_THEMES[DEFAULT_DESK_THEME_ID]
 
-  // Sync .dark class on <html> for CSS dark mode variables
+  // Sync .dark and .ui-glass classes on <html>
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
   }, [isDark])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('ui-glass', uiLook === 'glass')
+    document.documentElement.classList.toggle('ui-crystal', uiLook === 'crystal')
+  }, [uiLook])
 
   // Build room-level CSS variables from active theme
   const roomStyle = useMemo(() => {
@@ -118,7 +124,12 @@ export function DeskEnvironment() {
     >
       {/* Room scene (L1 room bg, L2 furniture) */}
       {showFrame && (
-        <DeskFrame visible={!deskMaximized} theme={activeTheme} isDark={isDark} />
+        <DeskFrame
+          visible={!deskMaximized || uiLook !== 'solid'}
+          theme={activeTheme}
+          isDark={isDark}
+          zoomToWindow={deskMaximized && uiLook !== 'solid'}
+        />
       )}
 
       {/* Work area — the "window" containing all functional UI */}

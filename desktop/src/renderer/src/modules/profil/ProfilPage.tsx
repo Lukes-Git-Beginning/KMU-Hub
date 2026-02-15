@@ -1,17 +1,19 @@
 import { lazy, Suspense, useState } from 'react'
-import { User, Clock, Calendar } from 'lucide-react'
+import { User, Clock, Calendar, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const ProfilTab = lazy(() => import('./tabs/ProfilTab'))
 const ZeiterfassungTab = lazy(() => import('./tabs/ZeiterfassungTab'))
 const AbwesenheitenTab = lazy(() => import('./tabs/AbwesenheitenTab'))
+const DokumenteTab = lazy(() => import('./tabs/DokumenteTab'))
 
-type TabKey = 'profil' | 'zeiterfassung' | 'abwesenheiten'
+type TabKey = 'profil' | 'zeiterfassung' | 'abwesenheiten' | 'dokumente'
 
 const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: 'profil', label: 'Mein Profil', icon: User },
   { key: 'zeiterfassung', label: 'Zeiterfassung', icon: Clock },
   { key: 'abwesenheiten', label: 'Abwesenheiten', icon: Calendar },
+  { key: 'dokumente', label: 'Dokumente', icon: FolderOpen },
 ]
 
 export default function ProfilPage() {
@@ -58,6 +60,7 @@ export default function ProfilPage() {
           {activeTab === 'profil' && <ProfilTab />}
           {activeTab === 'zeiterfassung' && <ZeiterfassungTab />}
           {activeTab === 'abwesenheiten' && <AbwesenheitenTab />}
+          {activeTab === 'dokumente' && <DokumenteTab />}
         </Suspense>
       </div>
     </div>

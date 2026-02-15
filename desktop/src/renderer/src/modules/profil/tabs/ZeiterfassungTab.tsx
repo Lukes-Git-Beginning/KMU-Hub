@@ -11,6 +11,7 @@ import { cn } from '@/lib/cn'
 import { useTimeTrackingStore } from '@/stores/timetracking'
 import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
 import { formatMinutes, isToday } from './zeiterfassung/time-utils'
+import OverviewView from './zeiterfassung/OverviewView'
 import TodayView from './zeiterfassung/TodayView'
 import WeekView from './zeiterfassung/WeekView'
 import MonthView from './zeiterfassung/MonthView'
@@ -18,9 +19,10 @@ import ReportsView from './zeiterfassung/ReportsView'
 import TeamView from './zeiterfassung/TeamView'
 import CategoriesView from './zeiterfassung/CategoriesView'
 
-type ViewKey = 'today' | 'week' | 'month' | 'reports' | 'team' | 'categories'
+type ViewKey = 'overview' | 'today' | 'week' | 'month' | 'reports' | 'team' | 'categories'
 
 const VIEWS: { key: ViewKey; label: string; icon: typeof Clock }[] = [
+  { key: 'overview', label: 'Uebersicht', icon: BarChart3 },
   { key: 'today', label: 'Heute', icon: Clock },
   { key: 'week', label: 'Woche', icon: Calendar },
   { key: 'month', label: 'Monat', icon: BarChart3 },
@@ -30,7 +32,7 @@ const VIEWS: { key: ViewKey; label: string; icon: typeof Clock }[] = [
 ]
 
 export default function ZeiterfassungTab() {
-  const [activeView, setActiveView] = useState<ViewKey>('today')
+  const [activeView, setActiveView] = useState<ViewKey>('overview')
   const [timerCategory, setTimerCategory] = useState('')
   const [timerDescription, setTimerDescription] = useState('')
 
@@ -206,6 +208,7 @@ export default function ZeiterfassungTab() {
 
       {/* Active View */}
       <div className="flex-1 overflow-auto">
+        {activeView === 'overview' && <OverviewView onNavigate={(v) => setActiveView(v as ViewKey)} />}
         {activeView === 'today' && <TodayView />}
         {activeView === 'week' && <WeekView />}
         {activeView === 'month' && <MonthView />}

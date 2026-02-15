@@ -234,9 +234,12 @@ function ProfileTab() {
 // ============================================================
 function AppearanceTab() {
   const { appearance, updateAppearance } = useSettingsStore()
-  const [theme, setTheme] = useState(appearance.theme)
   const [fontSize, setFontSize] = useState(appearance.fontSize)
 
+  const theme = useUIStore((s) => s.theme)
+  const setTheme = useUIStore((s) => s.setTheme)
+  const uiLook = useUIStore((s) => s.uiLook)
+  const setUILook = useUIStore((s) => s.setUILook)
   const deskThemeId = useUIStore((s) => s.deskThemeId)
   const setDeskThemeAndDecorations = useUIStore((s) => s.setDeskThemeAndDecorations)
   const deskDecorations = useUIStore((s) => s.deskDecorations)
@@ -247,6 +250,11 @@ function AppearanceTab() {
     { id: 'dark' as const, label: 'Dunkel', desc: 'Augenfreundlich bei wenig Licht' },
     { id: 'auto' as const, label: 'System', desc: 'Folgt den Systemeinstellungen' },
   ]
+
+  const handleThemeChange = (t: 'light' | 'dark' | 'auto') => {
+    setTheme(t)
+    updateAppearance({ theme: t })
+  }
 
   const handleSave = () => {
     updateAppearance({ theme, fontSize })
@@ -296,7 +304,7 @@ function AppearanceTab() {
         {themes.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTheme(t.id)}
+            onClick={() => handleThemeChange(t.id)}
             className={`relative rounded-lg border p-4 text-center transition-colors ${
               theme === t.id
                 ? 'border-primary bg-primary-light'
@@ -315,6 +323,45 @@ function AppearanceTab() {
             }`} />
             <p className="text-sm font-medium text-foreground">{t.label}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{t.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* ── UI LOOK PICKER ──────────────────────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Oberflaechenstil</h3>
+      <div className="grid grid-cols-3 gap-3 mb-8">
+        {([
+          { id: 'solid' as const, label: 'Standard', desc: 'Solide, opake Oberflaechen' },
+          { id: 'glass' as const, label: 'Milchglas', desc: 'Halbtransparent mit Blur' },
+          { id: 'crystal' as const, label: 'Kristall', desc: 'Maximal durchsichtig' },
+        ]).map((look) => (
+          <button
+            key={look.id}
+            onClick={() => setUILook(look.id)}
+            className={`relative rounded-lg border p-4 text-center transition-colors ${
+              uiLook === look.id
+                ? 'border-primary bg-primary-light'
+                : 'border-border bg-card hover:bg-secondary'
+            }`}
+          >
+            {uiLook === look.id && (
+              <span className="absolute top-2 right-2">
+                <Check className="h-4 w-4 text-primary" />
+              </span>
+            )}
+            <div className={`mx-auto mb-2 h-10 w-16 rounded border ${
+              look.id === 'solid'
+                ? 'bg-card border-card-border'
+                : 'border-card-border/40'
+            }`} style={look.id === 'glass' ? {
+              background: 'linear-gradient(135deg, rgba(245,239,232,0.5) 0%, rgba(232,227,221,0.3) 100%)',
+              backdropFilter: 'blur(4px)',
+            } : look.id === 'crystal' ? {
+              background: 'linear-gradient(135deg, rgba(245,239,232,0.25) 0%, rgba(232,227,221,0.15) 100%)',
+              backdropFilter: 'blur(6px)',
+            } : undefined} />
+            <p className="text-sm font-medium text-foreground">{look.label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{look.desc}</p>
           </button>
         ))}
       </div>

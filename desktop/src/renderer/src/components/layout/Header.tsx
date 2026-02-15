@@ -32,7 +32,7 @@ export function Header() {
   useNotificationWebSocket()
 
   return (
-    <header className="flex h-16 items-center border-b border-header-border bg-header-background px-4 md:px-6">
+    <header className="flex h-16 items-center border-b border-header-border bg-header-background px-4 md:px-6 glass-surface">
       {/* Left: mobile menu + compact search + clock */}
       <div className="flex items-center gap-3 md:gap-4">
         <button

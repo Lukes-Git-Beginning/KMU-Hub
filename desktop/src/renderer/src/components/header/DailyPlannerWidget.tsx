@@ -149,18 +149,18 @@ export function DailyPlannerWidget() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-slate-700 bg-[#1e293b] shadow-2xl z-50">
+        <div className="absolute right-0 top-full mt-2 w-96 rounded-xl border border-border bg-card shadow-2xl z-50">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-700 p-4">
+          <div className="flex items-center justify-between border-b border-border p-4">
             <div className="flex items-center gap-2">
-              <Check className="h-5 w-5 text-emerald-400" />
-              <h3 className="font-semibold text-white">Meine Tagesplanung</h3>
+              <Check className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Meine Tagesplanung</h3>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="rounded p-1 transition-colors hover:bg-slate-700"
+              className="rounded p-1 transition-colors hover:bg-secondary"
             >
-              <X className="h-4 w-4 text-slate-400" />
+              <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
 
@@ -169,7 +169,7 @@ export function DailyPlannerWidget() {
             {!showAddForm && (
               <button
                 onClick={() => setShowAddForm(true)}
-                className="mx-4 my-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-lg border border-dashed border-emerald-500 p-3 text-sm font-medium text-emerald-400 transition-colors hover:bg-emerald-500/10"
+                className="mx-4 my-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-lg border border-dashed border-primary p-3 text-sm font-medium text-primary transition-colors hover:bg-primary-light"
               >
                 <Plus className="h-4 w-4" />
                 Neue Aufgabe hinzufuegen
@@ -178,16 +178,15 @@ export function DailyPlannerWidget() {
 
             {/* Add Form */}
             {showAddForm && (
-              <div className="m-4 space-y-3 rounded-lg border border-emerald-500 bg-[#0f172a] p-4">
+              <div className="m-4 space-y-3 rounded-lg border border-primary bg-secondary p-4">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">
+                  <label className="mb-1 block text-xs text-muted-foreground">
                     Aufgabe hinzufuegen:
                   </label>
                   <Input
                     value={newText}
                     onChange={(e) => setNewText(e.target.value)}
                     placeholder="z.B. Meeting-Notizen schreiben..."
-                    className="border-slate-700 bg-[#1e293b] text-white"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') addTask()
                       if (e.key === 'Escape') setShowAddForm(false)
@@ -196,31 +195,31 @@ export function DailyPlannerWidget() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">
+                  <label className="mb-1 block text-xs text-muted-foreground">
                     Prioritaet (optional):
                   </label>
                   <Select value={newPriority} onValueChange={(v) => setNewPriority(v as PlannerTask['priority'])}>
-                    <SelectTrigger className="border-slate-700 bg-[#1e293b] text-white">
+                    <SelectTrigger>
                       <SelectValue placeholder="Prioritaet..." />
                     </SelectTrigger>
-                    <SelectContent className="border-slate-700 bg-[#1e293b]">
-                      <SelectItem value="high" className="text-white">Hoch</SelectItem>
-                      <SelectItem value="medium" className="text-white">Mittel</SelectItem>
-                      <SelectItem value="low" className="text-white">Niedrig</SelectItem>
-                      <SelectItem value="none" className="text-white">Keine</SelectItem>
+                    <SelectContent>
+                      <SelectItem value="high">Hoch</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="none">Keine</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setShowAddForm(false)}
-                    className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-600"
+                    className="rounded-lg bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
                   >
                     Abbrechen
                   </button>
                   <button
                     onClick={addTask}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white transition-colors hover:bg-emerald-700"
+                    className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:opacity-90"
                   >
                     Hinzufuegen
                   </button>
@@ -231,7 +230,7 @@ export function DailyPlannerWidget() {
             {/* Tabs + Tasks */}
             <div className="px-4 pb-4">
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   {activeTab === 'today'
                     ? `HEUTE (${todayTasks.length})`
                     : activeTab === 'tomorrow'
@@ -243,8 +242,8 @@ export function DailyPlannerWidget() {
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`rounded border border-slate-600 px-2 py-1 text-xs text-slate-400 transition-colors hover:border-emerald-500 hover:text-emerald-400 ${
-                        activeTab === tab ? 'bg-emerald-500/20' : ''
+                      className={`rounded border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary ${
+                        activeTab === tab ? 'bg-primary-light text-primary' : ''
                       }`}
                     >
                       {tab === 'today'
@@ -261,10 +260,10 @@ export function DailyPlannerWidget() {
                 {currentTasks.length === 0 && !showAddForm && (
                   <div className="py-8 text-center">
                     <div className="mb-2 text-4xl">&#10003;</div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-foreground">
                       Keine Aufgaben!
                     </p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-muted-foreground">
                       Fuege Tasks hinzu, die du erledigen moechtest.
                     </p>
                   </div>
@@ -284,14 +283,14 @@ export function DailyPlannerWidget() {
 
             {/* Completed Section */}
             {completedTasks.length > 0 && (
-              <div className="border-t border-slate-700 px-4 pb-4 pt-4">
+              <div className="border-t border-border px-4 pb-4 pt-4">
                 <div className="mb-2 flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     ERLEDIGT ({completedTasks.length})
                   </h4>
                   <button
                     onClick={() => setShowCompleted(!showCompleted)}
-                    className="text-xs text-emerald-400 hover:text-emerald-300"
+                    className="text-xs text-primary hover:opacity-80"
                   >
                     {showCompleted ? 'Ausblenden' : 'Anzeigen'}
                   </button>
@@ -301,18 +300,18 @@ export function DailyPlannerWidget() {
                     {completedTasks.slice(0, 3).map((task) => (
                       <div
                         key={task.id}
-                        className="rounded-lg border border-slate-700 bg-[#0f172a] p-3"
+                        className="rounded-lg border border-border bg-secondary p-3"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-emerald-500">
-                            <Check className="h-3 w-3 text-white" />
+                          <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary">
+                            <Check className="h-3 w-3 text-primary-foreground" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-slate-500 line-through">
+                            <p className="text-sm text-muted-foreground line-through">
                               {task.text}
                             </p>
                             {task.completedAt && (
-                              <div className="mt-1 flex items-center gap-1 text-xs text-slate-600">
+                              <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                                 <Check className="h-3 w-3" />
                                 <span>{task.completedAt}</span>
                               </div>
@@ -320,9 +319,9 @@ export function DailyPlannerWidget() {
                           </div>
                           <button
                             onClick={() => deleteTask(task.id)}
-                            className="rounded p-1 transition-colors hover:bg-red-500/20"
+                            className="rounded p-1 transition-colors hover:bg-error-light"
                           >
-                            <X className="h-4 w-4 text-slate-600 hover:text-red-400" />
+                            <X className="h-4 w-4 text-muted-foreground hover:text-error" />
                           </button>
                         </div>
                       </div>
@@ -350,24 +349,24 @@ function TaskItem({
   onMoveToTomorrow: (id: string) => void
 }) {
   return (
-    <div className="rounded-lg border border-slate-700 bg-[#0f172a] p-3 transition-colors hover:border-emerald-500/50">
+    <div className="rounded-lg border border-border bg-secondary p-3 transition-colors hover:border-primary/50">
       <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(task.id)}
-          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-emerald-500 transition-colors hover:bg-emerald-500/20"
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 border-primary transition-colors hover:bg-primary-light"
         >
-          {task.completed && <Check className="h-3 w-3 text-emerald-500" />}
+          {task.completed && <Check className="h-3 w-3 text-primary" />}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-slate-200">{task.text}</p>
+          <p className="text-sm text-foreground">{task.text}</p>
           {task.reminder?.time && (
-            <div className="mt-1 flex items-center gap-1 text-xs text-yellow-500">
+            <div className="mt-1 flex items-center gap-1 text-xs text-warning">
               <Clock className="h-3 w-3" />
               <span>{task.reminder.time}</span>
             </div>
           )}
           {task.date && (
-            <div className="mt-1 flex items-center gap-1 text-xs text-yellow-500">
+            <div className="mt-1 flex items-center gap-1 text-xs text-warning">
               <Calendar className="h-3 w-3" />
               <span>{task.date}</span>
             </div>
@@ -376,16 +375,16 @@ function TaskItem({
         <div className="flex items-center gap-1">
           <button
             onClick={() => onMoveToTomorrow(task.id)}
-            className="flex items-center gap-1 rounded border border-slate-600 px-2 py-1 text-xs text-slate-400 transition-colors hover:border-emerald-500 hover:text-emerald-400"
+            className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
             <ArrowRight className="h-3 w-3" />
             Morgen
           </button>
           <button
             onClick={() => onDelete(task.id)}
-            className="rounded p-1 transition-colors hover:bg-red-500/20"
+            className="rounded p-1 transition-colors hover:bg-error-light"
           >
-            <X className="h-4 w-4 text-slate-500 hover:text-red-400" />
+            <X className="h-4 w-4 text-muted-foreground hover:text-error" />
           </button>
         </div>
       </div>

@@ -14,10 +14,10 @@
 import type { DeskTheme, MountPoint } from '@/types/desk-theme'
 
 // ── Room Scene Imports ──────────────────────────────────────────────────────
-import cozyRoomLight from '@/../assets/desk/cozy/room-scene-light.png'
+import cozyRoomLight from '@/../assets/desk/cozy/room-scene-light-v7.png'
 import dreamyRoomLight from '@/../assets/desk/dreamy/room-scene-light.png'
 import natureRoomLight from '@/../assets/desk/nature/room-scene-light.png'
-import raumstationRoomLight from '@/../assets/desk/raumstation/room-scene-light.png'
+import raumstationRoomLight from '@/../assets/desk/raumstation/b1939468-3d5d-4503-a128-f9a8f7e60e12.png'
 import atelierRoomLight from '@/../assets/desk/atelier/room-scene-light.png'
 import cleanRoomLight from '@/../assets/desk/clean/room-scene-light.png'
 
@@ -117,10 +117,10 @@ const cozy: DeskTheme = {
   isMinimal: false,
 
   window: {
-    top: '8%',
-    right: '12%',
-    bottom: '25%',
-    left: '12%',
+    top: '10%',
+    right: '13%',
+    bottom: '27%',
+    left: '13%',
     borderRadius: '12px',
     innerPadding: '12px',
   },
@@ -176,10 +176,10 @@ const dreamy: DeskTheme = {
   isMinimal: false,
 
   window: {
-    top: '8%',
-    right: '12%',
-    bottom: '25%',
-    left: '12%',
+    top: '10%',
+    right: '13%',
+    bottom: '27%',
+    left: '13%',
     borderRadius: '16px',
     innerPadding: '12px',
   },
@@ -237,10 +237,10 @@ const nature: DeskTheme = {
   isMinimal: false,
 
   window: {
-    top: '8%',
-    right: '12%',
-    bottom: '25%',
-    left: '12%',
+    top: '10%',
+    right: '13%',
+    bottom: '27%',
+    left: '13%',
     borderRadius: '10px',
     innerPadding: '12px',
   },
@@ -354,10 +354,10 @@ const raumstation: DeskTheme = {
   isMinimal: false,
 
   window: {
-    top: '8%',
-    right: '12%',
-    bottom: '25%',
-    left: '12%',
+    top: '14.9%',
+    right: '13%',
+    bottom: '25.6%',
+    left: '13%',
     borderRadius: '8px',
     innerPadding: '12px',
   },
@@ -489,10 +489,10 @@ const atelier: DeskTheme = {
   isMinimal: false,
 
   window: {
-    top: '8%',
-    right: '12%',
-    bottom: '25%',
-    left: '12%',
+    top: '10%',
+    right: '13%',
+    bottom: '27%',
+    left: '13%',
     borderRadius: '8px',
     innerPadding: '12px',
   },
@@ -548,10 +548,10 @@ const clean: DeskTheme = {
   isMinimal: false,
 
   window: {
-    top: '8%',
-    right: '12%',
-    bottom: '25%',
-    left: '12%',
+    top: '10%',
+    right: '13%',
+    bottom: '27%',
+    left: '13%',
     borderRadius: '10px',
     innerPadding: '12px',
   },

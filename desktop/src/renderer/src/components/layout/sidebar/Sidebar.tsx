@@ -54,7 +54,7 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
   return (
     <aside
       className={cn(
-        'flex flex-col bg-sidebar border-r border-sidebar-border',
+        'flex flex-col bg-sidebar border-r border-sidebar-border glass-surface',
         'fixed lg:static inset-y-0 left-0 z-50',
         'transform transition-all duration-300 ease-in-out',
         isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',

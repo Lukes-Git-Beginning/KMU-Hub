@@ -31,7 +31,7 @@ export function AppShell() {
   useKeyboardShortcuts()
 
   return (
-    <div className="flex h-full bg-background overflow-hidden">
+    <div className="flex h-full bg-background overflow-hidden glass-surface">
       {/* Mobile overlay */}
       {sidebarMobileOpen && (
         <div
