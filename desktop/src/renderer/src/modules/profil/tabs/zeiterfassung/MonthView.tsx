@@ -127,7 +127,7 @@ export default function MonthView() {
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
                   <div className="bg-popover border border-border text-popover-foreground text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
                     <p className="font-medium">{date.getDate()}. {getMonthLabel(monthOffset).split(' ')[0]}</p>
-                    <p>{data.total > 0 ? formatMinutes(data.total) : 'Keine Eintraege'}</p>
+                    <p>{data.total > 0 ? formatMinutes(data.total) : 'Keine Einträge'}</p>
                   </div>
                 </div>
               </div>

@@ -122,7 +122,7 @@ export default function DokumentePage() {
     // Mock file upload
     const mockNames = [
       'Dokument_Neu.pdf', 'Tabelle_Import.xlsx', 'Bild_Upload.png',
-      'Praesentation_Draft.pptx', 'Notizen_Meeting.docx',
+      'Präsentation_Draft.pptx', 'Notizen_Meeting.docx',
     ]
     const mockTypes: Record<string, DocFile['type']> = {
       pdf: 'pdf', xlsx: 'excel', png: 'image', pptx: 'other', docx: 'word',
@@ -152,7 +152,7 @@ export default function DokumentePage() {
   const handleDeleteFile = () => {
     if (deleteConfirmId) {
       removeFile(deleteConfirmId)
-      toast.success('Datei geloescht')
+      toast.success('Datei gelöscht')
       if (detailFile?.id === deleteConfirmId) setDetailFile(null)
       setDeleteConfirmId(null)
     }
@@ -161,7 +161,7 @@ export default function DokumentePage() {
   const handleDeleteFolder = () => {
     if (deleteFolderConfirmId) {
       deleteFolder(deleteFolderConfirmId)
-      toast.success('Ordner geloescht')
+      toast.success('Ordner gelöscht')
       if (activeFolder === deleteFolderConfirmId) setActiveFolder('root')
       setDeleteFolderConfirmId(null)
     }
@@ -209,7 +209,7 @@ export default function DokumentePage() {
       },
     },
     {
-      label: 'Loeschen',
+      label: 'Löschen',
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(f.id),
@@ -243,7 +243,7 @@ export default function DokumentePage() {
         separator: true,
       },
       {
-        label: 'Loeschen',
+        label: 'Löschen',
         icon: Trash2,
         variant: 'destructive',
         onClick: () => setDeleteFolderConfirmId(folder.id),
@@ -394,7 +394,7 @@ export default function DokumentePage() {
             <div className="space-y-1">
               <div className="grid grid-cols-[1fr_100px_100px_120px_40px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
                 <span>Name</span>
-                <span>Groesse</span>
+                <span>Größe</span>
                 <span>Typ</span>
                 <span>Datum</span>
                 <span />
@@ -480,9 +480,9 @@ export default function DokumentePage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Datei loeschen?"
-        description={`"${deleteTarget?.name}" wird unwiderruflich geloescht.`}
-        confirmLabel="Loeschen"
+        title="Datei löschen?"
+        description={`"${deleteTarget?.name}" wird unwiderruflich gelöscht.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDeleteFile}
       />
@@ -491,9 +491,9 @@ export default function DokumentePage() {
       <ConfirmDialog
         open={!!deleteFolderConfirmId}
         onOpenChange={(open) => !open && setDeleteFolderConfirmId(null)}
-        title="Ordner loeschen?"
+        title="Ordner löschen?"
         description={`"${deleteFolderTarget?.name}" und alle enthaltenen Dateien werden verschoben nach "Alle Dateien".`}
-        confirmLabel="Loeschen"
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDeleteFolder}
       />
@@ -578,7 +578,7 @@ function FolderTreeItem({
                 onClick: () => {},
               },
               {
-                label: 'Loeschen',
+                label: 'Löschen',
                 icon: Trash2,
                 variant: 'destructive',
                 onClick: () => {},

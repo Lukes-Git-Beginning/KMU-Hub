@@ -70,7 +70,7 @@ export function ShareDialog({ open, onOpenChange, fileName, currentShares }: Sha
         <div className="space-y-4 py-2">
           {/* Add person */}
           <div className="space-y-1.5">
-            <Label>Person hinzufuegen</Label>
+            <Label>Person hinzufügen</Label>
             <div className="flex gap-2">
               <Input
                 placeholder="Name suchen..."

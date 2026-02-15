@@ -204,7 +204,7 @@ export default function AbwesenheitenTab() {
 
         {/* Yearly Overview */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Jahresuebersicht 2026</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">Jahresübersicht 2026</h3>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Krankheitstage</span>
@@ -258,7 +258,7 @@ export default function AbwesenheitenTab() {
                 value={formReason}
                 onChange={(e) => setFormReason(e.target.value)}
                 rows={3}
-                placeholder="Beschreibe den Grund fuer deine Abwesenheit..."
+                placeholder="Beschreibe den Grund für deine Abwesenheit..."
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>

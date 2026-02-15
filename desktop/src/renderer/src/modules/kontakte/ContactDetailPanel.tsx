@@ -98,7 +98,7 @@ export function ContactDetailPanel({
             <button
               onClick={() => onDelete(contact.id)}
               className="rounded-md p-1.5 text-primary-foreground/70 hover:text-red-300 transition-colors"
-              title="Loeschen"
+              title="Löschen"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -288,7 +288,7 @@ export function ContactDetailPanel({
           <>
             <Separator />
             <section>
-              <h3 className="text-sm font-medium text-foreground mb-3">Letzte Aktivitaeten</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">Letzte Aktivitäten</h3>
               <div className="space-y-3">
                 {contact.activities.slice(0, 5).map((activity) => {
                   const Icon = activityIcons[activity.type] || FileText

@@ -44,8 +44,8 @@ const statusConfig = {
 
 const recurrenceLabels: Record<string, string> = {
   none: 'Einmalig',
-  daily: 'Taeglich',
-  weekly: 'Woechentlich',
+  daily: 'Täglich',
+  weekly: 'Wöchentlich',
   monthly: 'Monatlich',
 }
 
@@ -173,7 +173,7 @@ export function MeetingDetailPanel({
               <button
                 onClick={() => onDelete(meeting.id)}
                 className="rounded-md p-1.5 text-white/70 hover:text-red-300 transition-colors"
-                title="Loeschen"
+                title="Löschen"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -572,7 +572,7 @@ function AgendaTab({
           value={newText}
           onChange={(e) => onNewTextChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && onAdd()}
-          placeholder="Neuen Punkt hinzufuegen..."
+          placeholder="Neuen Punkt hinzufügen..."
           className="flex-1 rounded-md border border-border bg-transparent px-3 py-1.5 text-sm text-[var(--body)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <Button
@@ -594,7 +594,7 @@ function AgendaTab({
             Noch keine Agenda-Punkte
           </p>
           <p className="text-xs text-[var(--muted)] mt-1">
-            Fuege Punkte ueber das Eingabefeld hinzu
+            Fuege Punkte über das Eingabefeld hinzu
           </p>
         </div>
       )}
@@ -622,7 +622,7 @@ function NotesTab({
         className="w-full min-h-[300px] resize-none rounded-md border border-border bg-transparent p-3 text-sm text-[var(--body)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
       />
       <p className="mt-2 text-[10px] text-[var(--muted)]">
-        Aenderungen werden automatisch gespeichert
+        Änderungen werden automatisch gespeichert
       </p>
     </div>
   )

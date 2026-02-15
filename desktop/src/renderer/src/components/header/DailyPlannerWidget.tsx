@@ -22,9 +22,9 @@ interface PlannerTask {
 type TabType = 'today' | 'tomorrow' | 'later'
 
 const INITIAL_TASKS: PlannerTask[] = [
-  { id: '1', text: 'Kundenpraesentation vorbereiten', completed: false, priority: 'high', reminder: { day: 'today', time: '10:00' } },
+  { id: '1', text: 'Kundenpräsentation vorbereiten', completed: false, priority: 'high', reminder: { day: 'today', time: '10:00' } },
   { id: '2', text: 'E-Mail an Lieferant schreiben', completed: false, priority: 'medium' },
-  { id: '3', text: 'Code Review fuer PR #234', completed: false, priority: 'low', reminder: { day: 'today', time: '14:30' } },
+  { id: '3', text: 'Code Review für PR #234', completed: false, priority: 'low', reminder: { day: 'today', time: '14:30' } },
   { id: '4', text: 'Sprint Planning Meeting', completed: true, priority: 'none', completedAt: 'Heute, 11:15' },
   { id: '5', text: 'Projekt-Deadline abschliessen', completed: false, priority: 'high', reminder: { day: 'tomorrow', time: '09:00' } },
   { id: '6', text: 'Team-Standup vorbereiten', completed: false, priority: 'low', reminder: { day: 'tomorrow', time: '' } },
@@ -172,7 +172,7 @@ export function DailyPlannerWidget() {
                 className="mx-4 my-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-lg border border-dashed border-primary p-3 text-sm font-medium text-primary transition-colors hover:bg-primary-light"
               >
                 <Plus className="h-4 w-4" />
-                Neue Aufgabe hinzufuegen
+                Neue Aufgabe hinzufügen
               </button>
             )}
 
@@ -181,7 +181,7 @@ export function DailyPlannerWidget() {
               <div className="m-4 space-y-3 rounded-lg border border-primary bg-secondary p-4">
                 <div>
                   <label className="mb-1 block text-xs text-muted-foreground">
-                    Aufgabe hinzufuegen:
+                    Aufgabe hinzufügen:
                   </label>
                   <Input
                     value={newText}
@@ -196,11 +196,11 @@ export function DailyPlannerWidget() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-muted-foreground">
-                    Prioritaet (optional):
+                    Priorität (optional):
                   </label>
                   <Select value={newPriority} onValueChange={(v) => setNewPriority(v as PlannerTask['priority'])}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Prioritaet..." />
+                      <SelectValue placeholder="Priorität..." />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="high">Hoch</SelectItem>
@@ -250,7 +250,7 @@ export function DailyPlannerWidget() {
                         ? 'Heute'
                         : tab === 'tomorrow'
                           ? 'Morgen'
-                          : 'Spaeter'}
+                          : 'Später'}
                     </button>
                   ))}
                 </div>
@@ -264,7 +264,7 @@ export function DailyPlannerWidget() {
                       Keine Aufgaben!
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Fuege Tasks hinzu, die du erledigen moechtest.
+                      Fuege Tasks hinzu, die du erledigen möchtest.
                     </p>
                   </div>
                 )}

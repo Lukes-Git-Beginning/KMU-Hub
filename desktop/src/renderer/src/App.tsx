@@ -38,6 +38,15 @@ const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage')
 const ProfilPage = lazy(() => import('@/modules/profil/ProfilPage'))
 const ComposeWindowPage = lazy(() => import('@/modules/mails/ComposeWindowPage'))
 
+// Industry-specific module pages
+const InventarPage = lazy(() => import('@/modules/inventar/InventarPage'))
+const SchichtenPage = lazy(() => import('@/modules/schichten/SchichtenPage'))
+const EinkaufPage = lazy(() => import('@/modules/einkauf/EinkaufPage'))
+const HelpdeskPage = lazy(() => import('@/modules/helpdesk/HelpdeskPage'))
+const FuhrparkPage = lazy(() => import('@/modules/fuhrpark/FuhrparkPage'))
+const ProduktionPage = lazy(() => import('@/modules/produktion/ProduktionPage'))
+const BerichtePage = lazy(() => import('@/modules/berichte/BerichtePage'))
+
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -262,6 +271,63 @@ const router = createHashRouter([
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
             <ProfilPage />
+          </Suspense>
+        ),
+      },
+      // Industry-specific modules
+      {
+        path: 'inventar',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <InventarPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'schichten',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <SchichtenPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'einkauf',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <EinkaufPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'helpdesk',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <HelpdeskPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'fuhrpark',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <FuhrparkPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'produktion',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <ProduktionPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'berichte',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <BerichtePage />
           </Suspense>
         ),
       },

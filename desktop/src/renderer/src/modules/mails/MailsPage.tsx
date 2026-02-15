@@ -109,7 +109,7 @@ export default function MailsPage() {
       deleteEmail(deleteConfirmId)
       if (selectedEmailId === deleteConfirmId) setSelectedEmailId(null)
       setDeleteConfirmId(null)
-      toast.success('E-Mail geloescht')
+      toast.success('E-Mail gelöscht')
     }
   }
 
@@ -120,7 +120,7 @@ export default function MailsPage() {
   }
 
   const handlePrint = () => {
-    toast.success('Druckvorschau wird geoeffnet...')
+    toast.success('Druckvorschau wird geöffnet...')
   }
 
   const handleExport = () => {
@@ -209,7 +209,7 @@ export default function MailsPage() {
     })
 
     actions.push({
-      label: 'Loeschen',
+      label: 'Löschen',
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(e.id),
@@ -350,7 +350,7 @@ export default function MailsPage() {
                 title="Keine E-Mails"
                 description={
                   search
-                    ? 'Keine E-Mails fuer diesen Suchbegriff'
+                    ? 'Keine E-Mails für diesen Suchbegriff'
                     : activeFolder === 'inbox'
                       ? 'Dein Posteingang ist leer'
                       : `Keine E-Mails in "${folderUnreadCounts.find((f) => f.id === activeFolder)?.name || activeFolder}"`
@@ -426,7 +426,7 @@ export default function MailsPage() {
                 <button
                   onClick={() => setDeleteConfirmId(selectedEmail.id)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-red-500"
-                  title="Loeschen"
+                  title="Löschen"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -481,7 +481,7 @@ export default function MailsPage() {
               {selectedEmail.attachments.length > 0 && (
                 <div className="mt-6 border-t border-border pt-4">
                   <p className="text-xs font-medium text-muted-foreground mb-2">
-                    Anhaenge ({selectedEmail.attachments.length})
+                    Anhänge ({selectedEmail.attachments.length})
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {selectedEmail.attachments.map((att, i) => (
@@ -517,7 +517,7 @@ export default function MailsPage() {
           <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
             <div className="text-center">
               <Mail className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Waehle eine E-Mail aus</p>
+              <p className="text-sm">Wähle eine E-Mail aus</p>
             </div>
           </div>
         )}
@@ -527,13 +527,13 @@ export default function MailsPage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="E-Mail loeschen?"
+        title="E-Mail löschen?"
         description={
           deleteTarget?.folderId === 'trash'
-            ? `"${deleteTarget?.subject}" wird endgueltig geloescht.`
+            ? `"${deleteTarget?.subject}" wird endgültig gelöscht.`
             : `"${deleteTarget?.subject}" wird in den Papierkorb verschoben.`
         }
-        confirmLabel="Loeschen"
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />
@@ -543,7 +543,7 @@ export default function MailsPage() {
         open={emptyTrashConfirm}
         onOpenChange={setEmptyTrashConfirm}
         title="Papierkorb leeren?"
-        description="Alle E-Mails im Papierkorb werden endgueltig geloescht. Diese Aktion kann nicht rueckgaengig gemacht werden."
+        description="Alle E-Mails im Papierkorb werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden."
         confirmLabel="Papierkorb leeren"
         variant="destructive"
         onConfirm={handleEmptyTrash}

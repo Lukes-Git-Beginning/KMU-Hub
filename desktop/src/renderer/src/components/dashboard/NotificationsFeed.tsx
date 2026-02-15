@@ -36,7 +36,7 @@ const feedData: Record<TabId, FeedNotification[]> = {
   mails: [
     { id: '1', title: 'Neue E-Mail von Achim Weber', description: 'Betreff: Website Relaunch - Deadline Update', time: 'Vor 10 Minuten', avatar: 'AW' },
     { id: '2', title: 'Neue E-Mail von Lisa Meier', description: 'Betreff: Budget-Freigabe Q2 2025', time: 'Vor 45 Minuten', avatar: 'LM' },
-    { id: '3', title: 'Neue E-Mail von Thomas Klein', description: 'Betreff: Team Meeting naechste Woche', time: 'Vor 2 Stunden', avatar: 'TK' },
+    { id: '3', title: 'Neue E-Mail von Thomas Klein', description: 'Betreff: Team Meeting nächste Woche', time: 'Vor 2 Stunden', avatar: 'TK' },
   ],
   calendar: [
     { id: '1', title: 'Neuer Termin eingetragen', description: 'Sprint Planning - Projekt "Mobile App" am 23.12. um 14:00', time: 'Vor 20 Minuten', avatar: 'SK' },
@@ -49,13 +49,13 @@ const feedData: Record<TabId, FeedNotification[]> = {
     { id: '3', title: 'Anna Mueller in #allgemein', description: 'Reminder: Team Lunch morgen um 12:30', time: 'Vor 2 Stunden', avatar: 'AM' },
   ],
   projects: [
-    { id: '1', title: 'Projekt "Website Relaunch" aktualisiert', description: 'Status geaendert: In Progress → Review', time: 'Vor 15 Minuten', avatar: 'MB' },
+    { id: '1', title: 'Projekt "Website Relaunch" aktualisiert', description: 'Status geändert: In Progress → Review', time: 'Vor 15 Minuten', avatar: 'MB' },
     { id: '2', title: 'Neues Projekt erstellt', description: '"Mobile App Development" von Sarah Klein erstellt', time: 'Vor 1 Stunde', avatar: 'SK' },
     { id: '3', title: 'Projekt-Deadline Warnung', description: '"Brand Refresh" endet in 3 Tagen', time: 'Vor 4 Stunden', avatar: 'TK' },
   ],
   tasks: [
     { id: '1', title: 'Neue Aufgabe zugewiesen', description: 'Sarah hat dir "API Dokumentation schreiben" zugewiesen', time: 'Vor 8 Minuten', avatar: 'SK' },
-    { id: '2', title: 'Aufgabe faellig bald', description: '"Design Review vorbereiten" faellig morgen', time: 'Vor 25 Minuten', avatar: 'MB' },
+    { id: '2', title: 'Aufgabe fällig bald', description: '"Design Review vorbereiten" fällig morgen', time: 'Vor 25 Minuten', avatar: 'MB' },
     { id: '3', title: 'Aufgabe abgeschlossen', description: 'Michael hat "Logo Redesign" als erledigt markiert', time: 'Vor 1 Stunde', avatar: 'MB' },
   ],
 }

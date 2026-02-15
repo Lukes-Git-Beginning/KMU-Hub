@@ -73,7 +73,7 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
   }, [editMessage])
 
   const handleDelete = useCallback((messageId: string) => {
-    if (window.confirm('Nachricht wirklich loeschen?')) {
+    if (window.confirm('Nachricht wirklich löschen?')) {
       deleteMessage.mutate(messageId)
     }
   }, [deleteMessage])

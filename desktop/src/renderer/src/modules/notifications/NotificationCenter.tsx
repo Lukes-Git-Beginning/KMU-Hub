@@ -271,7 +271,7 @@ function PreferencesPanel() {
       <CardHeader>
         <CardTitle className="text-lg">Benachrichtigungseinstellungen</CardTitle>
         <CardDescription>
-          Konfiguriere, welche Benachrichtigungen du erhalten moechtest.
+          Konfiguriere, welche Benachrichtigungen du erhalten möchtest.
         </CardDescription>
       </CardHeader>
       <CardContent>

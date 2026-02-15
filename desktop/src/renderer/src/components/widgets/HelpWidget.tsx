@@ -13,12 +13,12 @@ interface FAQItem {
 const FAQ_ITEMS: FAQItem[] = [
   { question: 'Wie erstelle ich ein neues Projekt?', answer: 'Gehe zu Projekte in der Sidebar und klicke auf "+ Neues Projekt". Gib den Projektnamen, die Beschreibung und das Team ein.' },
   { question: 'Wie tracke ich meine Arbeitszeit?', answer: 'Nutze den Timer im Header oder gehe zu deinem Profil → Zeiterfassung. Dort kannst du auch manuell Zeiten nachtragen.' },
-  { question: 'Wie erstelle ich eine Rechnung?', answer: 'Gehe zu Buchhaltung → Rechnungen und klicke auf "Neue Rechnung". Waehle den Kunden, fuege Positionen hinzu und versende die Rechnung.' },
-  { question: 'Wie lade ich Teammitglieder ein?', answer: 'Gehe zu Team in der Sidebar. Als Admin oder Manager kannst du ueber "Mitglied hinzufuegen" neue Personen einladen.' },
-  { question: 'Wie funktioniert der Chat?', answer: 'Klicke auf Chat in der Sidebar. Du kannst Direktnachrichten senden oder Gruppenkanale fuer Projekte erstellen.' },
-  { question: 'Wie beantrage ich Urlaub?', answer: 'Gehe zu deinem Profil → Abwesenheiten und klicke auf "Neue Anfrage". Waehle den Zeitraum und den Grund aus.' },
-  { question: 'Wie aendere ich mein Passwort?', answer: 'Gehe zu Einstellungen → Sicherheit. Dort kannst du dein Passwort aendern und Zwei-Faktor-Authentifizierung aktivieren.' },
-  { question: 'Wie exportiere ich Daten?', answer: 'In den meisten Modulen gibt es einen Export-Button. Zeiterfassung, Kontakte und Rechnungen koennen als CSV oder PDF exportiert werden.' },
+  { question: 'Wie erstelle ich eine Rechnung?', answer: 'Gehe zu Buchhaltung → Rechnungen und klicke auf "Neue Rechnung". Wähle den Kunden, fuege Positionen hinzu und versende die Rechnung.' },
+  { question: 'Wie lade ich Teammitglieder ein?', answer: 'Gehe zu Team in der Sidebar. Als Admin oder Manager kannst du über "Mitglied hinzufügen" neue Personen einladen.' },
+  { question: 'Wie funktioniert der Chat?', answer: 'Klicke auf Chat in der Sidebar. Du kannst Direktnachrichten senden oder Gruppenkanale für Projekte erstellen.' },
+  { question: 'Wie beantrage ich Urlaub?', answer: 'Gehe zu deinem Profil → Abwesenheiten und klicke auf "Neue Anfrage". Wähle den Zeitraum und den Grund aus.' },
+  { question: 'Wie ändere ich mein Passwort?', answer: 'Gehe zu Einstellungen → Sicherheit. Dort kannst du dein Passwort ändern und Zwei-Faktor-Authentifizierung aktivieren.' },
+  { question: 'Wie exportiere ich Daten?', answer: 'In den meisten Modulen gibt es einen Export-Button. Zeiterfassung, Kontakte und Rechnungen können als CSV oder PDF exportiert werden.' },
 ]
 
 const SHORTCUTS = [
@@ -112,13 +112,13 @@ export function HelpWidget() {
           <div className="overflow-y-auto max-h-[360px]">
             {/* FAQ Section */}
             <Section
-              title="Haeufige Fragen"
+              title="Häufige Fragen"
               sectionKey="faq"
               isOpen={openSections.has('faq')}
               onToggle={toggleSection}
             >
               {filteredFAQ.length === 0 && (
-                <p className="text-xs text-muted-foreground px-4 py-2">Keine Ergebnisse fuer "{search}"</p>
+                <p className="text-xs text-muted-foreground px-4 py-2">Keine Ergebnisse für "{search}"</p>
               )}
               {filteredFAQ.map((item, i) => (
                 <FAQAccordion key={i} item={item} />

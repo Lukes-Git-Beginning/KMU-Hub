@@ -42,7 +42,7 @@ const invoiceStatusConfig: Record<string, { label: string; colors: string; icon:
   draft: { label: 'Entwurf', colors: 'bg-secondary text-muted-foreground', icon: FileText },
   sent: { label: 'Gesendet', colors: 'bg-info-light text-info', icon: Clock },
   paid: { label: 'Bezahlt', colors: 'bg-success-light text-success', icon: CheckCircle2 },
-  overdue: { label: 'Ueberfaellig', colors: 'bg-error-light text-error', icon: AlertCircle },
+  overdue: { label: 'Überfällig', colors: 'bg-error-light text-error', icon: AlertCircle },
   cancelled: { label: 'Storniert', colors: 'bg-secondary text-muted-foreground', icon: XCircle },
 }
 
@@ -131,7 +131,7 @@ export default function BuchhaltungPage() {
     } else if (confirmDelete.type === 'expense') {
       deleteExpense(confirmDelete.id)
     }
-    toast.success(`${confirmDelete.label} geloescht`)
+    toast.success(`${confirmDelete.label} gelöscht`)
     setConfirmDelete(null)
   }
 
@@ -152,7 +152,7 @@ export default function BuchhaltungPage() {
       actions.push({ label: 'Stornieren', variant: 'destructive' as const, onClick: () => { cancelInvoice(inv.id); toast.success(`${inv.number} storniert`) } })
     }
     if (inv.status === 'draft') {
-      actions.push({ label: 'Loeschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'invoice', id: inv.id, label: inv.number }) })
+      actions.push({ label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'invoice', id: inv.id, label: inv.number }) })
     }
     return actions
   }
@@ -261,7 +261,7 @@ export default function BuchhaltungPage() {
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Faellig</span><span>Offen</span><span>Status</span><span />
+              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Fällig</span><span>Offen</span><span>Status</span><span />
             </div>
             {filteredInvoices.map((inv) => {
               const sc = invoiceStatusConfig[inv.status]
@@ -349,7 +349,7 @@ export default function BuchhaltungPage() {
                       { label: 'Genehmigen', onClick: () => { approveExpense(exp.id); toast.success('Genehmigt') } },
                       { label: 'Ablehnen', onClick: () => { rejectExpense(exp.id); toast.success('Abgelehnt') } },
                     ] : []),
-                    { label: 'Loeschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'expense', id: exp.id, label: exp.description }) },
+                    { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'expense', id: exp.id, label: exp.description }) },
                   ]} />
                 </div>
               )
@@ -381,7 +381,7 @@ export default function BuchhaltungPage() {
               </span>
               <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-CH')}</span>
               <ItemActions items={[
-                { label: 'Loeschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
+                { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
               ]} />
             </div>
           ))}
@@ -485,9 +485,9 @@ export default function BuchhaltungPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Eintrag loeschen?"
-        description={`"${confirmDelete?.label}" wird dauerhaft geloescht.`}
-        confirmLabel="Loeschen"
+        title="Eintrag löschen?"
+        description={`"${confirmDelete?.label}" wird dauerhaft gelöscht.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDeleteConfirm}
       />

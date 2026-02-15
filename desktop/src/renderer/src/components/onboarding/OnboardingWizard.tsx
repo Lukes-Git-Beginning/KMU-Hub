@@ -25,7 +25,7 @@ const STEPS: OnboardingStep[] = [
     iconColor: 'text-primary',
     iconBg: 'bg-primary/10',
     title: 'Willkommen bei KMU Hub!',
-    description: 'Dein All-in-One Arbeitsplatz fuer dein Unternehmen. Lass uns die wichtigsten Funktionen entdecken.',
+    description: 'Dein All-in-One Arbeitsplatz für dein Unternehmen. Lass uns die wichtigsten Funktionen entdecken.',
   },
   {
     id: 'profile',
@@ -35,9 +35,9 @@ const STEPS: OnboardingStep[] = [
     title: 'Dein Profil',
     description: 'Richte dein Profil ein, damit dein Team dich erkennen kann.',
     features: [
-      'Profilbild und persoenliche Informationen',
-      'Zeiterfassung und Stundenuebersicht',
-      'Abwesenheiten und Urlaubsantraege',
+      'Profilbild und persönliche Informationen',
+      'Zeiterfassung und Stundenübersicht',
+      'Abwesenheiten und Urlaubsanträge',
     ],
   },
   {
@@ -63,10 +63,10 @@ const STEPS: OnboardingStep[] = [
     title: 'Navigation',
     description: 'Finde dich schnell in KMU Hub zurecht.',
     features: [
-      'Sidebar links fuer alle Module',
-      'Ctrl+K fuer die globale Suche',
+      'Sidebar links für alle Module',
+      'Ctrl+K für die globale Suche',
       'Tagesplanung direkt im Header',
-      'Schreibtisch-Ansicht mit persoenlichem Touch',
+      'Schreibtisch-Ansicht mit persönlichem Touch',
     ],
   },
   {
@@ -78,9 +78,9 @@ const STEPS: OnboardingStep[] = [
     description: 'Tracke deine Arbeitszeit direkt im Header — einfach und schnell.',
     features: [
       'Ein-Klick Timer mit Kategorien',
-      'Vorlagen fuer wiederkehrende Aufgaben',
-      'Soll/Ist Vergleich und Ueberstunden',
-      'Team-Uebersicht: Wer arbeitet woran?',
+      'Vorlagen für wiederkehrende Aufgaben',
+      'Soll/Ist Vergleich und Überstunden',
+      'Team-Übersicht: Wer arbeitet woran?',
     ],
   },
   {
@@ -193,7 +193,7 @@ export function OnboardingWizard() {
               onClick={handleSkip}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              Ueberspringen
+              Überspringen
             </button>
           </div>
         )}

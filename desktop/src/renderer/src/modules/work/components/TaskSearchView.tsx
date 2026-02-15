@@ -116,7 +116,7 @@ export default function TaskSearchView() {
         <div className="flex flex-col items-center justify-center py-16">
           <Search className="h-10 w-10 text-muted-foreground" />
           <p className="mt-4 text-base font-medium text-foreground">
-            Keine Ergebnisse fuer &apos;{debouncedQuery}&apos;
+            Keine Ergebnisse für &apos;{debouncedQuery}&apos;
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Versuche andere Suchbegriffe oder weniger Filter.
@@ -125,7 +125,7 @@ export default function TaskSearchView() {
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            {total} Ergebnis{total !== 1 ? 'se' : ''} fuer &quot;{debouncedQuery}&quot;
+            {total} Ergebnis{total !== 1 ? 'se' : ''} für &quot;{debouncedQuery}&quot;
           </p>
 
           <div className="space-y-1">

@@ -21,7 +21,7 @@ export function SidebarBranding({ collapsed, onToggle }: SidebarBrandingProps) {
         ) : (
           <div>
             <h1 className="text-sm font-bold text-sidebar-foreground">KMU Digital Hub</h1>
-            <p className="text-xs text-sidebar-muted">Schweizer Loesung</p>
+            <p className="text-xs text-sidebar-muted">Schweizer Lösung</p>
           </div>
         )}
       </div>

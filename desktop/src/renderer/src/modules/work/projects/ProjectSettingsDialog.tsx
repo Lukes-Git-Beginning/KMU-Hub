@@ -229,7 +229,7 @@ export default function ProjectSettingsDialog({
                     size="icon"
                     className="h-7 w-7 text-destructive"
                     onClick={() => {
-                      if (confirm(`Status "${status.name}" loeschen?`)) {
+                      if (confirm(`Status "${status.name}" löschen?`)) {
                         deleteStatus.mutate(status.id ?? '')
                       }
                     }}

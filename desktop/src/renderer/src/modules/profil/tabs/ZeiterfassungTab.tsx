@@ -22,7 +22,7 @@ import CategoriesView from './zeiterfassung/CategoriesView'
 type ViewKey = 'overview' | 'today' | 'week' | 'month' | 'reports' | 'team' | 'categories'
 
 const VIEWS: { key: ViewKey; label: string; icon: typeof Clock }[] = [
-  { key: 'overview', label: 'Uebersicht', icon: BarChart3 },
+  { key: 'overview', label: 'Übersicht', icon: BarChart3 },
   { key: 'today', label: 'Heute', icon: Clock },
   { key: 'week', label: 'Woche', icon: Calendar },
   { key: 'month', label: 'Monat', icon: BarChart3 },

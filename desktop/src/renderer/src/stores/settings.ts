@@ -125,7 +125,7 @@ export const useSettingsStore = create<SettingsState>()(
         email: 'darien@firma.ch',
         phone: '+41 79 123 45 67',
         position: 'UI/UX Designer',
-        bio: 'Designer mit Leidenschaft fuer schoene und funktionale Interfaces.',
+        bio: 'Designer mit Leidenschaft für schöne und funktionale Interfaces.',
         avatarUrl: null,
       },
 
@@ -159,7 +159,7 @@ export const useSettingsStore = create<SettingsState>()(
         username: 'darien@firma.ch',
         signature: '<p>Mit freundlichen Gruessen<br/>Darien Morales<br/>UI/UX Designer</p>',
         autoReplyEnabled: false,
-        autoReplyMessage: 'Vielen Dank fuer Ihre Nachricht. Ich bin derzeit nicht im Buero und werde mich nach meiner Rueckkehr bei Ihnen melden.',
+        autoReplyMessage: 'Vielen Dank für Ihre Nachricht. Ich bin derzeit nicht im Büro und werde mich nach meiner Rückkehr bei Ihnen melden.',
       },
 
       calendar: {
@@ -173,7 +173,7 @@ export const useSettingsStore = create<SettingsState>()(
 
       finance: {
         companyName: 'Morales Design GmbH',
-        companyAddress: 'Bahnhofstrasse 42, 8001 Zuerich',
+        companyAddress: 'Bahnhofstrasse 42, 8001 Zürich',
         bankName: 'Zuercher Kantonalbank',
         iban: 'CH93 0070 0110 0000 5000 6',
         bic: 'ZKBKCHZZ80A',

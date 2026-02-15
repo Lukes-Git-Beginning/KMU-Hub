@@ -43,7 +43,7 @@ export default function CategoriesView() {
     addCategory({ name: newCatName, color: newCatColor, icon: 'Tag', isDefault: false })
     setNewCatName('')
     setShowAddCat(false)
-    toast.success('Kategorie hinzugefuegt')
+    toast.success('Kategorie hinzugefügt')
   }
 
   const handleSaveEdit = (id: string) => {
@@ -64,7 +64,7 @@ export default function CategoriesView() {
     setNewTplName('')
     setNewTplDesc('')
     setShowAddTpl(false)
-    toast.success('Vorlage hinzugefuegt')
+    toast.success('Vorlage hinzugefügt')
   }
 
   const handleSaveTargets = () => {
@@ -132,7 +132,7 @@ export default function CategoriesView() {
                     </button>
                     {!cat.isDefault && (
                       <button
-                        onClick={() => { deleteCategory(cat.id); toast.success('Kategorie geloescht') }}
+                        onClick={() => { deleteCategory(cat.id); toast.success('Kategorie gelöscht') }}
                         className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -202,7 +202,7 @@ export default function CategoriesView() {
                   </p>
                 </div>
                 <button
-                  onClick={() => { deleteTemplate(tpl.id); toast.success('Vorlage geloescht') }}
+                  onClick={() => { deleteTemplate(tpl.id); toast.success('Vorlage gelöscht') }}
                   className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

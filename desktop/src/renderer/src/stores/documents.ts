@@ -47,7 +47,7 @@ interface DocumentsState {
 const mockFolders: DocFolder[] = [
   { id: 'root', name: 'Alle Dateien', parentId: null, icon: 'folder', isSystem: true },
   { id: 'projects', name: 'Projekte', parentId: 'root', icon: 'folder', isSystem: false },
-  { id: 'contracts', name: 'Vertraege', parentId: 'root', icon: 'folder', isSystem: false },
+  { id: 'contracts', name: 'Verträge', parentId: 'root', icon: 'folder', isSystem: false },
   { id: 'invoices', name: 'Rechnungen', parentId: 'root', icon: 'folder', isSystem: false },
   { id: 'marketing', name: 'Marketing', parentId: 'root', icon: 'folder', isSystem: false },
   { id: 'hr', name: 'HR', parentId: 'root', icon: 'folder', isSystem: false },

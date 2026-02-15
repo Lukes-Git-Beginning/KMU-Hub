@@ -225,7 +225,7 @@ export function TimeTrackerWidget() {
             <div className="px-4 py-2">
               {todayEntries.length === 0 && activeTimer.status === 'idle' && (
                 <p className="text-xs text-muted-foreground text-center py-4">
-                  Noch keine Eintraege heute
+                  Noch keine Einträge heute
                 </p>
               )}
               {todayEntries.slice(-5).map((entry) => {

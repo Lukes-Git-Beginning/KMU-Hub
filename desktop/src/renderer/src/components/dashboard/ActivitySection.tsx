@@ -45,7 +45,7 @@ export function ActivitySection() {
     <div className="rounded-lg border border-border bg-card p-6">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">
-          Letzte Aktivitaeten
+          Letzte Aktivitäten
         </h2>
         <Clock className="h-5 w-5 text-muted-foreground" />
       </div>

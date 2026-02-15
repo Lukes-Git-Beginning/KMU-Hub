@@ -56,10 +56,10 @@ export default function ChatLayout() {
             <div className="text-center">
               <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <h2 className="mt-4 text-lg font-semibold text-foreground">
-                Waehle einen Channel
+                Wähle einen Channel
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Waehle einen Channel oder eine Direktnachricht aus der Liste, um zu chatten.
+                Wähle einen Channel oder eine Direktnachricht aus der Liste, um zu chatten.
               </p>
             </div>
           </div>

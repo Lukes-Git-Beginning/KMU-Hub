@@ -109,7 +109,7 @@ export function Header() {
             <TooltipContent>
               {deskMaximized
                 ? 'Schreibtisch anzeigen'
-                : 'Arbeitsflaeche maximieren'}
+                : 'Arbeitsfläche maximieren'}
             </TooltipContent>
           </Tooltip>
         )}

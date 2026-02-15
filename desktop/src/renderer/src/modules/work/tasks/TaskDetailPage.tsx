@@ -278,7 +278,7 @@ export default function TaskDetailPage() {
                 onClick={() => setEditingDesc(true)}
                 title="Klicken zum Bearbeiten"
               >
-                {task.description || 'Beschreibung hinzufuegen...'}
+                {task.description || 'Beschreibung hinzufügen...'}
               </div>
             )}
           </div>
@@ -398,7 +398,7 @@ export default function TaskDetailPage() {
                 )}
                 onClick={() => setActiveTab('activity')}
               >
-                Aktivitaet
+                Aktivität
               </button>
             </div>
 
@@ -458,7 +458,7 @@ export default function TaskDetailPage() {
           {/* Priority */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Prioritaet
+              Priorität
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -500,7 +500,7 @@ export default function TaskDetailPage() {
           {/* Assignee */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Zustaendig
+              Zuständig
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -547,7 +547,7 @@ export default function TaskDetailPage() {
           {/* Due date */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Faellig am
+              Fällig am
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -591,7 +591,7 @@ export default function TaskDetailPage() {
           {/* Dependencies */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Abhaengigkeiten
+              Abhängigkeiten
             </label>
             <DependencyList
               taskId={taskId ?? ''}
@@ -657,7 +657,7 @@ export default function TaskDetailPage() {
           {/* Time entries */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Zeiteintraege
+              Zeiteinträge
             </label>
             <TimeEntryList taskId={taskId ?? ''} />
           </div>

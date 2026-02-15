@@ -77,7 +77,7 @@ export function FilePreviewModal({ file, open, onOpenChange }: FilePreviewModalP
                 <p className="text-sm font-medium text-foreground mb-1">PDF-Dokument</p>
                 <p className="text-xs text-muted-foreground mb-4">{file.name} · {file.size}</p>
                 <p className="text-xs text-muted-foreground italic">
-                  PDF-Vorschau wird in der finalen Version unterstuetzt
+                  PDF-Vorschau wird in der finalen Version unterstützt
                 </p>
               </div>
             </div>

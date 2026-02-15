@@ -24,7 +24,7 @@ function formatCHF(n: number): string {
 }
 
 const PAYMENT_METHODS = [
-  'Bankueberweisung',
+  'Banküberweisung',
   'Kreditkarte',
   'Twint',
   'PayPal',
@@ -44,7 +44,7 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
   const remaining = invoice ? calcRemainingAmount(invoice) : 0
   const [amount, setAmount] = useState(remaining)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [method, setMethod] = useState('Bankueberweisung')
+  const [method, setMethod] = useState('Banküberweisung')
   const [reference, setReference] = useState('')
 
   // Reset when opening

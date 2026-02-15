@@ -67,11 +67,11 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
       <SidebarNav items={mainItems} collapsed={collapsed} onItemClick={onMobileClose} />
 
       {/* Bottom: Settings + User */}
-      <div className="mt-auto border-t border-sidebar-border">
+      <div className="mt-auto border-t border-sidebar-border glass-elevated">
         {bottomItems.map((item) => {
           const Icon = item.icon
           return (
-            <div key={item.id} className="p-3 pb-0">
+            <div key={item.id} className="p-3 pb-1">
               <Tooltip delayDuration={collapsed ? 100 : 999999}>
                 <TooltipTrigger asChild>
                   <NavLink

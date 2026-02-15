@@ -2,7 +2,7 @@
  * Search-and-link component for CRM entity linking on tasks.
  *
  * Features:
- * - "Verknuepfung hinzufuegen" button opens search popover
+ * - "Verknuepfung hinzufügen" button opens search popover
  * - Entity type tabs: Alle, Kontakte, Unternehmen, Deals
  * - CRM search via /api/v1/search with type filtering
  * - Context-aware auto-suggest based on task title/description
@@ -235,7 +235,7 @@ export default function TaskLinkField({
                       link.entity_id ?? ''
                     )
                   }
-                  title={`${config?.label ?? link.entity_type} oeffnen`}
+                  title={`${config?.label ?? link.entity_type} öffnen`}
                 >
                   <Icon className="h-3 w-3 text-muted-foreground" />
                   <span className="truncate max-w-[120px]">
@@ -265,7 +265,7 @@ export default function TaskLinkField({
             className="h-7 gap-1 text-xs text-muted-foreground"
           >
             <Plus className="h-3.5 w-3.5" />
-            Verknuepfung hinzufuegen
+            Verknuepfung hinzufügen
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="start">

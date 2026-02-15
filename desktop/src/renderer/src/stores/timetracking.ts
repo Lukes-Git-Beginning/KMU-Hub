@@ -128,8 +128,8 @@ const INITIAL_CATEGORIES: TimeCategory[] = [
 const INITIAL_TEMPLATES: TimeTemplate[] = [
   { id: 'tpl-1', name: 'Sprint Planning', categoryId: 'cat-meeting', description: 'Sprint Planning Session', estimatedMinutes: 60 },
   { id: 'tpl-2', name: 'Code Review', categoryId: 'cat-dev', description: 'Pull Request Review', estimatedMinutes: 30 },
-  { id: 'tpl-3', name: 'Daily Standup', categoryId: 'cat-meeting', description: 'Taegliches Team-Meeting', estimatedMinutes: 15 },
-  { id: 'tpl-4', name: 'Kundendemo', categoryId: 'cat-client', description: 'Produkt-Demo fuer Kunden', estimatedMinutes: 45 },
+  { id: 'tpl-3', name: 'Daily Standup', categoryId: 'cat-meeting', description: 'Tägliches Team-Meeting', estimatedMinutes: 15 },
+  { id: 'tpl-4', name: 'Kundendemo', categoryId: 'cat-client', description: 'Produkt-Demo für Kunden', estimatedMinutes: 45 },
 ]
 
 function todayStr(): string {

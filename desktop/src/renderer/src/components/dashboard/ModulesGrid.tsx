@@ -10,10 +10,19 @@ import {
   ChevronDown,
   Minimize2,
   Maximize2,
+  Package,
+  CalendarClock,
+  ShoppingCart,
+  Headphones,
+  Truck,
+  Factory,
+  BarChart3,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/cn'
+import { isModuleAllowedForProfile } from '@/config/business-profiles'
+import { useProfileStore } from '@/stores/profile'
 
 type ViewState = 'minimized' | 'half' | 'full'
 
@@ -31,7 +40,7 @@ interface ModuleConfig {
   badge?: string
 }
 
-const modules: ModuleConfig[] = [
+const ALL_MODULES: ModuleConfig[] = [
   {
     id: 'projects',
     name: 'Projektverwaltung',
@@ -61,7 +70,7 @@ const modules: ModuleConfig[] = [
     name: 'Dokumentenmanagement',
     description: 'Zentrale Ablage mit Versionierung',
     icon: FileText,
-    path: '/documents',
+    path: '/dokumente',
     color: 'bg-purple-500',
     bgColor: 'bg-purple-500/10',
     iconColor: 'text-purple-500',
@@ -69,20 +78,20 @@ const modules: ModuleConfig[] = [
     isActive: true,
   },
   {
-    id: 'accounting',
+    id: 'finance',
     name: 'Buchhaltung',
     description: 'Bexio, Abacus & Run my Accounts Integration',
     icon: Calculator,
-    path: '/finance',
+    path: '/buchhaltung',
     color: 'bg-orange-500',
     bgColor: 'bg-orange-500/10',
     iconColor: 'text-orange-500',
-    stats: { label: 'Integrationen', value: 0 },
-    isActive: false,
+    stats: { label: 'Rechnungen', value: 18 },
+    isActive: true,
     badge: 'Neu',
   },
   {
-    id: 'communication',
+    id: 'chat',
     name: 'Kommunikation',
     description: 'Team-Chat & Channels',
     icon: MessageSquare,
@@ -94,7 +103,7 @@ const modules: ModuleConfig[] = [
     isActive: true,
   },
   {
-    id: 'team',
+    id: 'crm',
     name: 'Team & CRM',
     description: 'Mitarbeiterverwaltung & Kontakte',
     icon: Users,
@@ -105,17 +114,110 @@ const modules: ModuleConfig[] = [
     stats: { label: 'Team-Mitglieder', value: 12 },
     isActive: true,
   },
+  // -- New industry modules --
+  {
+    id: 'inventar',
+    name: 'Inventar',
+    description: 'Lagerverwaltung mit Barcode-Scanning',
+    icon: Package,
+    path: '/inventar',
+    color: 'bg-amber-500',
+    bgColor: 'bg-amber-500/10',
+    iconColor: 'text-amber-500',
+    stats: { label: 'Artikel', value: 245 },
+    isActive: true,
+  },
+  {
+    id: 'schichten',
+    name: 'Schichtplanung',
+    description: 'Wochenpläne, Vorlagen & Tausch-Anfragen',
+    icon: CalendarClock,
+    path: '/schichten',
+    color: 'bg-indigo-500',
+    bgColor: 'bg-indigo-500/10',
+    iconColor: 'text-indigo-500',
+    stats: { label: 'Diese Woche', value: 32 },
+    isActive: true,
+  },
+  {
+    id: 'einkauf',
+    name: 'Einkauf',
+    description: 'Lieferanten, Bestellungen & Liefertracking',
+    icon: ShoppingCart,
+    path: '/einkauf',
+    color: 'bg-lime-600',
+    bgColor: 'bg-lime-600/10',
+    iconColor: 'text-lime-600',
+    stats: { label: 'Offene Bestellungen', value: 7 },
+    isActive: true,
+  },
+  {
+    id: 'helpdesk',
+    name: 'Helpdesk',
+    description: 'Tickets, SLA-Tracking & Wissensdatenbank',
+    icon: Headphones,
+    path: '/helpdesk',
+    color: 'bg-violet-500',
+    bgColor: 'bg-violet-500/10',
+    iconColor: 'text-violet-500',
+    stats: { label: 'Offene Tickets', value: 15 },
+    isActive: true,
+  },
+  {
+    id: 'fuhrpark',
+    name: 'Fuhrpark',
+    description: 'Fahrzeuge, Wartung & Tankprotokoll',
+    icon: Truck,
+    path: '/fuhrpark',
+    color: 'bg-sky-600',
+    bgColor: 'bg-sky-600/10',
+    iconColor: 'text-sky-600',
+    stats: { label: 'Fahrzeuge', value: 6 },
+    isActive: true,
+  },
+  {
+    id: 'produktion',
+    name: 'Produktion',
+    description: 'Stücklisten, Aufträge & Qualitätskontrolle',
+    icon: Factory,
+    path: '/produktion',
+    color: 'bg-yellow-600',
+    bgColor: 'bg-yellow-600/10',
+    iconColor: 'text-yellow-600',
+    stats: { label: 'Aufträge', value: 8 },
+    isActive: true,
+  },
+  {
+    id: 'berichte',
+    name: 'Berichte',
+    description: 'KPI-Dashboard, Diagramme & Exporte',
+    icon: BarChart3,
+    path: '/berichte',
+    color: 'bg-fuchsia-500',
+    bgColor: 'bg-fuchsia-500/10',
+    iconColor: 'text-fuchsia-500',
+    stats: { label: 'Berichte', value: 3 },
+    isActive: true,
+  },
 ]
 
 export function ModulesGrid() {
   const [viewState, setViewState] = useState<ViewState>('full')
+  const businessProfileId = useProfileStore((s) => s.businessProfileId)
+  const devShowAll = useProfileStore((s) => s.devShowAllModules)
+  const enabledOptionals = useProfileStore((s) => s.enabledOptionalModules)
+
+  const filteredModules = ALL_MODULES.filter((mod) => {
+    if (devShowAll) return true
+    return isModuleAllowedForProfile(mod.id, businessProfileId, enabledOptionals)
+  })
 
   const display =
     viewState === 'minimized'
       ? []
       : viewState === 'half'
-        ? modules.slice(0, 3)
-        : modules
+        ? filteredModules.slice(0, 3)
+        : filteredModules
 
   return (
     <div className="mb-8">

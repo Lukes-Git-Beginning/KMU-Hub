@@ -16,7 +16,7 @@ const statusLabels: Record<string, string> = {
   online: 'Online',
   away: 'Abwesend',
   offline: 'Offline',
-  dnd: 'Nicht stoeren',
+  dnd: 'Nicht stören',
 }
 
 const statusColors: Record<string, string> = {

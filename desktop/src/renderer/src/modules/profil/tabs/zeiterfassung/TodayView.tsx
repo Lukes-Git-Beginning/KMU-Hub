@@ -67,7 +67,7 @@ export default function TodayView() {
                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                 : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
             )}>
-              {activeTimer.status === 'running' ? 'Laeuft' : 'Pausiert'}
+              {activeTimer.status === 'running' ? 'Läuft' : 'Pausiert'}
             </span>
           </div>
         </div>
@@ -77,7 +77,7 @@ export default function TodayView() {
       <div className="space-y-2">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground">
-            Eintraege heute ({todayEntries.length})
+            Einträge heute ({todayEntries.length})
           </h3>
           <Button size="sm" variant="outline" onClick={() => setShowManualForm(true)} className="gap-2">
             <Plus className="h-3.5 w-3.5" />
@@ -88,7 +88,7 @@ export default function TodayView() {
         {todayEntries.length === 0 && activeTimer.status === 'idle' && (
           <div className="text-center py-12 text-muted-foreground">
             <Clock className="h-10 w-10 mx-auto mb-3 opacity-50" />
-            <p className="font-medium">Noch keine Eintraege heute</p>
+            <p className="font-medium">Noch keine Einträge heute</p>
             <p className="text-sm">Starte den Timer oder erstelle einen manuellen Eintrag</p>
           </div>
         )}
@@ -162,7 +162,7 @@ export default function TodayView() {
         </div>
         {totalMinutes > targetMinutes && (
           <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-            +{formatMinutes(totalMinutes - targetMinutes)} Ueberstunden
+            +{formatMinutes(totalMinutes - targetMinutes)} Überstunden
           </p>
         )}
         {totalMinutes < targetMinutes && totalMinutes > 0 && (

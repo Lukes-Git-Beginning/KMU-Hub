@@ -148,7 +148,7 @@ export default function ComposeWindowPage() {
             onClick={() => setShowCcBcc(true)}
             className="text-xs text-primary hover:underline ml-1"
           >
-            Cc/Bcc hinzufuegen
+            Cc/Bcc hinzufügen
           </button>
         )}
 
@@ -239,7 +239,7 @@ export default function ComposeWindowPage() {
           </Button>
         </div>
         <div className="flex items-center gap-1">
-          <button className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors" title="Datei anhaengen">
+          <button className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors" title="Datei anhängen">
             <Paperclip className="h-4 w-4" />
           </button>
           <button

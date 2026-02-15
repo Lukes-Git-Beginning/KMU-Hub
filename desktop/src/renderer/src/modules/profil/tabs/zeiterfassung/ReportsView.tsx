@@ -150,7 +150,7 @@ export default function ReportsView() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-2">Ueberstundensaldo</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-2">Überstundensaldo</h3>
           <div className="flex items-end gap-2 mb-2">
             <span className={cn(
               'text-3xl font-bold',

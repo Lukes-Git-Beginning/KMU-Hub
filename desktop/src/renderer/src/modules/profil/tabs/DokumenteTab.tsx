@@ -24,7 +24,7 @@ type DocumentCategory = 'payslips' | 'contracts' | 'certificates' | 'application
 
 const CATEGORIES: { key: DocumentCategory; label: string; icon: typeof FileText; description: string }[] = [
   { key: 'payslips', label: 'Lohnabrechnungen', icon: Receipt, description: 'Monatliche Gehaltsabrechnungen' },
-  { key: 'contracts', label: 'Arbeitsvertraege', icon: FileCheck, description: 'Vertraege, Nachtraege, Vereinbarungen' },
+  { key: 'contracts', label: 'Arbeitsverträge', icon: FileCheck, description: 'Verträge, Nachträge, Vereinbarungen' },
   { key: 'certificates', label: 'Zeugnisse & Zertifikate', icon: Briefcase, description: 'Arbeitszeugnisse, Schulungen, Zertifikate' },
   { key: 'applications', label: 'Bewerbungsunterlagen', icon: Files, description: 'Lebenslauf, Anschreiben, Portfolio' },
   { key: 'other', label: 'Sonstige Dokumente', icon: FolderOpen, description: 'Weitere arbeitsrelevante Unterlagen' },
@@ -42,7 +42,7 @@ const MOCK_DOCUMENTS: Document[] = [
   { id: 'd6', name: 'Lohnabrechnung_2025_08.pdf', category: 'payslips', date: '2025-08-31', size: '237 KB', type: 'pdf', uploadedBy: 'hr' },
   // Contracts
   { id: 'd7', name: 'Arbeitsvertrag_KMU_Hub_AG.pdf', category: 'contracts', date: '2025-03-01', size: '1.2 MB', type: 'pdf', uploadedBy: 'hr' },
-  { id: 'd8', name: 'Nachtrag_Gehaltserhoehung_2026.pdf', category: 'contracts', date: '2026-01-01', size: '156 KB', type: 'pdf', uploadedBy: 'hr' },
+  { id: 'd8', name: 'Nachtrag_Gehaltserhöhung_2026.pdf', category: 'contracts', date: '2026-01-01', size: '156 KB', type: 'pdf', uploadedBy: 'hr' },
   { id: 'd9', name: 'Datenschutzvereinbarung.pdf', category: 'contracts', date: '2025-03-01', size: '89 KB', type: 'pdf', uploadedBy: 'hr' },
   { id: 'd10', name: 'Homeoffice_Vereinbarung.pdf', category: 'contracts', date: '2025-06-15', size: '134 KB', type: 'pdf', uploadedBy: 'hr' },
   // Certificates
@@ -162,7 +162,7 @@ export default function DokumenteTab() {
               size="sm"
               variant="outline"
               className="gap-2"
-              onClick={() => toast.success('Upload-Funktion wird spaeter aktiviert')}
+              onClick={() => toast.success('Upload-Funktion wird später aktiviert')}
             >
               <Upload className="h-4 w-4" />
               Hochladen
@@ -235,7 +235,7 @@ export default function DokumenteTab() {
                   {/* Actions */}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => toast.info('Vorschau wird geoeffnet...')}
+                      onClick={() => toast.info('Vorschau wird geöffnet...')}
                       className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
                       title="Vorschau"
                     >
@@ -250,9 +250,9 @@ export default function DokumenteTab() {
                     </button>
                     {doc.uploadedBy === 'self' && (
                       <button
-                        onClick={() => toast.success('Dokument geloescht')}
+                        onClick={() => toast.success('Dokument gelöscht')}
                         className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        title="Loeschen"
+                        title="Löschen"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

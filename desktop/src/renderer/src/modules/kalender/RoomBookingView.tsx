@@ -236,7 +236,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
   const handleDeleteBooking = (id: string) => {
     setBookings((prev) => prev.filter((b) => b.id !== id))
     setSelectedBooking(null)
-    toast.success('Buchung geloescht')
+    toast.success('Buchung gelöscht')
   }
 
   const slotWidth = 80

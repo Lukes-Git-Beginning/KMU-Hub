@@ -20,7 +20,7 @@ export default function TeamView() {
     <div className="p-6 max-w-3xl mx-auto space-y-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-foreground">
-          Team-Aktivitaet ({teamActivity.length} Mitglieder)
+          Team-Aktivität ({teamActivity.length} Mitglieder)
         </h3>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">

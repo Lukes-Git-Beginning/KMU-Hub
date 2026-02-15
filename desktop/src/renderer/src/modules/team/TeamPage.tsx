@@ -36,7 +36,7 @@ const statusColors: Record<string, string> = {
 const requestTypeLabels: Record<string, string> = {
   vacation: 'Urlaub',
   sick: 'Krankheit',
-  overtime: 'Ueberstunden',
+  overtime: 'Überstunden',
   doctor: 'Arzttermin',
   homeoffice: 'Homeoffice',
   education: 'Weiterbildung',
@@ -319,7 +319,7 @@ export default function TeamPage() {
         open={!!confirmDeactivate}
         onOpenChange={() => setConfirmDeactivate(null)}
         title="Mitglied deaktivieren?"
-        description={`${confirmDeactivate?.firstName} ${confirmDeactivate?.lastName} wird deaktiviert. Das Konto kann spaeter reaktiviert werden.`}
+        description={`${confirmDeactivate?.firstName} ${confirmDeactivate?.lastName} wird deaktiviert. Das Konto kann später reaktiviert werden.`}
         confirmLabel="Deaktivieren"
         variant="destructive"
         onConfirm={() => confirmDeactivate && handleDeactivate(confirmDeactivate)}

@@ -29,8 +29,8 @@ const allSearchData: SearchResult[] = [
   { id: 'p2', title: 'Mobile App Development', category: 'Projekte', categoryIcon: FolderKanban, path: '/work/projects', description: 'Planning', iconColor: 'text-blue-600', bgColor: 'bg-blue-500/10' },
   { id: 'p3', title: 'Brand Refresh', category: 'Projekte', categoryIcon: FolderKanban, path: '/work/projects', description: 'Review', iconColor: 'text-blue-600', bgColor: 'bg-blue-500/10' },
   { id: 'p4', title: 'API Integration', category: 'Projekte', categoryIcon: FolderKanban, path: '/work/projects', description: 'Testing', iconColor: 'text-blue-600', bgColor: 'bg-blue-500/10' },
-  { id: 't1', title: 'API Dokumentation schreiben', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'Faellig morgen', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
-  { id: 't2', title: 'Design Review vorbereiten', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'Hohe Prioritaet', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
+  { id: 't1', title: 'API Dokumentation schreiben', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'Fällig morgen', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
+  { id: 't2', title: 'Design Review vorbereiten', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'Hohe Priorität', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
   { id: 't3', title: 'Logo Redesign', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'In Bearbeitung', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
   { id: 't4', title: 'Testing Sprint vorbereiten', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'Diese Woche', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
   { id: 'd1', title: 'Q1 Budget.xlsx', category: 'Dokumente', categoryIcon: FileText, path: '/dokumente', description: 'Finanzen', iconColor: 'text-purple-600', bgColor: 'bg-purple-500/10' },
@@ -216,7 +216,7 @@ export function SearchBar() {
               {query.trim() && results.length === 0 && (
                 <div className="py-10 text-center">
                   <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">Keine Ergebnisse fuer &ldquo;{query}&rdquo;</p>
+                  <p className="text-sm text-muted-foreground">Keine Ergebnisse für &ldquo;{query}&rdquo;</p>
                 </div>
               )}
 

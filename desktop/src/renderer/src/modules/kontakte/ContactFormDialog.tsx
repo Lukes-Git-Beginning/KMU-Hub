@@ -243,7 +243,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
             <div className="space-y-1.5">
               <Label>Position</Label>
               <Input
-                placeholder="Geschaeftsfuehrer"
+                placeholder="Geschäftsführer"
                 value={jobTitle}
                 onChange={(e) => setJobTitle(e.target.value)}
               />
@@ -304,7 +304,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
               ))}
             </div>
             <Input
-              placeholder="Tag suchen oder hinzufuegen..."
+              placeholder="Tag suchen oder hinzufügen..."
               value={tagSearch}
               onChange={(e) => setTagSearch(e.target.value)}
               onKeyDown={(e) => {

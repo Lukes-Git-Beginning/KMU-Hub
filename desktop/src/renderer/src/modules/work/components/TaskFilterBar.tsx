@@ -171,7 +171,7 @@ export default function TaskFilterBar({
             )}
           >
             <AlertTriangle className="h-3.5 w-3.5" />
-            Prioritaet
+            Priorität
             {filters.priorities.length > 0 && (
               <Badge
                 variant="secondary"
@@ -230,7 +230,7 @@ export default function TaskFilterBar({
             )}
           >
             <Calendar className="h-3.5 w-3.5" />
-            Faellig
+            Fällig
             {(filters.dueDateFrom || filters.dueDateTo) && (
               <Badge
                 variant="secondary"
@@ -317,7 +317,7 @@ export default function TaskFilterBar({
           onClick={resetFilters}
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Zuruecksetzen
+          Zurücksetzen
         </Button>
       )}
     </div>

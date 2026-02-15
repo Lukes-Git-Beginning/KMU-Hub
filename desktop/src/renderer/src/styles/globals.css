@@ -354,50 +354,68 @@
   backdrop-filter: blur(16px) saturate(1.4);
 }
 
-/* ===== CRYSTAL MODE — Light (extra transparent) ===== */
+/* ===== TRANSPARENT MODE — Light ===== */
+/* Base: very transparent. Cards/content: milky-frosted for readability */
 .ui-crystal {
-  --card: rgba(245, 239, 232, 0.35);
-  --card-hover: rgba(238, 231, 224, 0.4);
-  --card-border: rgba(213, 202, 192, 0.3);
-  --popover: rgba(245, 239, 232, 0.45);
-  --sidebar: rgba(232, 227, 221, 0.3);
-  --sidebar-accent: rgba(237, 232, 225, 0.3);
-  --sidebar-active: rgba(224, 213, 203, 0.35);
-  --sidebar-border: rgba(213, 202, 192, 0.25);
-  --header-background: rgba(245, 239, 232, 0.3);
-  --header-border: rgba(213, 202, 192, 0.25);
-  --background: rgba(232, 227, 221, 0.25);
-  --secondary: rgba(237, 232, 225, 0.3);
-  --muted: rgba(237, 232, 225, 0.3);
-  --input-background: rgba(237, 232, 225, 0.35);
-  --shadow-card: 0 2px 8px rgba(44, 36, 32, 0.03);
-  --shadow-card-hover: 0 4px 16px rgba(44, 36, 32, 0.06);
+  --card: rgba(245, 239, 232, 0.22);
+  --card-hover: rgba(238, 231, 224, 0.28);
+  --card-border: rgba(213, 202, 192, 0.15);
+  --popover: rgba(245, 239, 232, 0.3);
+  --sidebar: rgba(232, 227, 221, 0.08);
+  --sidebar-accent: rgba(237, 232, 225, 0.12);
+  --sidebar-active: rgba(224, 213, 203, 0.18);
+  --sidebar-border: rgba(213, 202, 192, 0.08);
+  --header-background: rgba(245, 239, 232, 0.08);
+  --header-border: rgba(213, 202, 192, 0.08);
+  --background: rgba(232, 227, 221, 0.05);
+  --secondary: rgba(237, 232, 225, 0.15);
+  --muted: rgba(237, 232, 225, 0.15);
+  --input-background: rgba(237, 232, 225, 0.25);
+  --shadow-card: 0 2px 8px rgba(44, 36, 32, 0.02);
+  --shadow-card-hover: 0 4px 16px rgba(44, 36, 32, 0.04);
 }
 
-/* ===== CRYSTAL MODE — Dark ===== */
+/* ===== TRANSPARENT MODE — Dark ===== */
 .dark.ui-crystal {
-  --card: rgba(30, 32, 38, 0.3);
-  --card-hover: rgba(35, 37, 44, 0.35);
-  --card-border: rgba(50, 53, 62, 0.25);
-  --popover: rgba(30, 32, 38, 0.4);
-  --sidebar: rgba(22, 24, 30, 0.25);
-  --sidebar-accent: rgba(35, 37, 44, 0.25);
-  --sidebar-active: rgba(42, 44, 52, 0.3);
-  --sidebar-border: rgba(50, 53, 62, 0.2);
-  --header-background: rgba(30, 32, 38, 0.25);
-  --header-border: rgba(50, 53, 62, 0.2);
-  --background: rgba(22, 24, 30, 0.2);
-  --secondary: rgba(35, 37, 44, 0.3);
-  --muted: rgba(35, 37, 44, 0.25);
-  --input-background: rgba(26, 28, 34, 0.35);
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --card: rgba(30, 32, 38, 0.2);
+  --card-hover: rgba(35, 37, 44, 0.25);
+  --card-border: rgba(50, 53, 62, 0.12);
+  --popover: rgba(30, 32, 38, 0.25);
+  --sidebar: rgba(22, 24, 30, 0.06);
+  --sidebar-accent: rgba(35, 37, 44, 0.1);
+  --sidebar-active: rgba(42, 44, 52, 0.14);
+  --sidebar-border: rgba(50, 53, 62, 0.06);
+  --header-background: rgba(30, 32, 38, 0.06);
+  --header-border: rgba(50, 53, 62, 0.06);
+  --background: rgba(22, 24, 30, 0.04);
+  --secondary: rgba(35, 37, 44, 0.15);
+  --muted: rgba(35, 37, 44, 0.12);
+  --input-background: rgba(26, 28, 34, 0.22);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
-/* Crystal blur — stronger than glass */
+/* Crystal blur — lighter than glass so room shows through more */
 .ui-crystal .glass-surface {
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+}
+
+/* Crystal: content areas get milky frosted treatment for readability */
+.ui-crystal :is(.bg-card, [class*="bg-card"]) {
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+}
+
+.ui-crystal :is(input, textarea, select) {
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.ui-crystal table th,
+.ui-crystal table td {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 /* ===== ELEVATED OVERLAYS — opaque enough to read in glass/crystal ===== */
@@ -430,17 +448,17 @@
   --card: rgba(30, 32, 38, 0.88);
 }
 
-/* Crystal mode elevated — slightly more transparent than glass elevated */
+/* Crystal/Transparent mode elevated — nearly solid so content behind is hidden */
 .ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
-  --popover: rgba(245, 239, 232, 0.82);
-  --background: rgba(245, 239, 232, 0.82);
-  --card: rgba(245, 239, 232, 0.82);
+  --popover: rgba(245, 239, 232, 0.95);
+  --background: rgba(245, 239, 232, 0.95);
+  --card: rgba(245, 239, 232, 0.95);
 }
 
 .dark.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
-  --popover: rgba(30, 32, 38, 0.82);
-  --background: rgba(30, 32, 38, 0.82);
-  --card: rgba(30, 32, 38, 0.82);
+  --popover: rgba(30, 32, 38, 0.95);
+  --background: rgba(30, 32, 38, 0.95);
+  --card: rgba(30, 32, 38, 0.95);
 }
 
 /* Map CSS custom properties to Tailwind utility classes */

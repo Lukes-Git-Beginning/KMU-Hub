@@ -112,7 +112,7 @@ export default function InfrastrukturPage() {
   const [showRestartConfirm, setShowRestartConfirm] = useState<string | null>(null)
 
   const tabs: { id: Tab; label: string; icon: typeof Server }[] = [
-    { id: 'overview', label: 'Uebersicht', icon: Activity },
+    { id: 'overview', label: 'Übersicht', icon: Activity },
     { id: 'services', label: 'Dienste', icon: Server },
     { id: 'backups', label: 'Backups', icon: Database },
     { id: 'storage', label: 'Speicher', icon: HardDrive },
@@ -128,7 +128,7 @@ export default function InfrastrukturPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold text-foreground">Infrastruktur</h1>
-            <p className="text-sm text-muted-foreground">Server-Verwaltung und Systemuebersicht</p>
+            <p className="text-sm text-muted-foreground">Server-Verwaltung und Systemübersicht</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5">
@@ -191,7 +191,7 @@ export default function InfrastrukturPage() {
         open={showRestoreConfirm !== null}
         onOpenChange={(open) => { if (!open) setShowRestoreConfirm(null) }}
         title="Backup wiederherstellen?"
-        description="Das aktuelle System wird mit dem ausgewaehlten Backup ueberschrieben. Dieser Vorgang kann nicht rueckgaengig gemacht werden."
+        description="Das aktuelle System wird mit dem ausgewählten Backup überschrieben. Dieser Vorgang kann nicht rückgängig gemacht werden."
         confirmLabel="Wiederherstellen"
         variant="destructive"
         onConfirm={() => {
@@ -203,12 +203,12 @@ export default function InfrastrukturPage() {
       <ConfirmDialog
         open={showDeleteConfirm !== null}
         onOpenChange={(open) => { if (!open) setShowDeleteConfirm(null) }}
-        title="Backup loeschen?"
-        description="Das ausgewaehlte Backup wird unwiderruflich geloescht."
-        confirmLabel="Loeschen"
+        title="Backup löschen?"
+        description="Das ausgewählte Backup wird unwiderruflich gelöscht."
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={() => {
-          toast.success('Backup geloescht')
+          toast.success('Backup gelöscht')
           setShowDeleteConfirm(null)
         }}
       />
@@ -217,7 +217,7 @@ export default function InfrastrukturPage() {
         open={showRestartConfirm !== null}
         onOpenChange={(open) => { if (!open) setShowRestartConfirm(null) }}
         title="Dienst neustarten?"
-        description="Der Dienst wird kurzzeitig nicht verfuegbar sein. Laufende Verbindungen werden unterbrochen."
+        description="Der Dienst wird kurzzeitig nicht verfügbar sein. Laufende Verbindungen werden unterbrochen."
         confirmLabel="Neustarten"
         onConfirm={() => {
           toast.success('Dienst wird neugestartet...')
@@ -310,7 +310,7 @@ function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-medium text-foreground">Dienste-Verwaltung</h2>
-          <p className="text-sm text-muted-foreground">Starte, stoppe und ueberwache einzelne Dienste</p>
+          <p className="text-sm text-muted-foreground">Starte, stoppe und überwache einzelne Dienste</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => toast.success('Alle Dienste werden neugestartet...')}>
           <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
@@ -379,7 +379,7 @@ function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
                         Starten
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" onClick={() => toast.info(`Logs fuer ${svc.name} werden geladen...`)}>
+                    <Button size="sm" variant="outline" onClick={() => toast.info(`Logs für ${svc.name} werden geladen...`)}>
                       <FileText className="mr-1.5 h-3.5 w-3.5" />
                       Logs
                     </Button>
@@ -415,7 +415,7 @@ function BackupsTab({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-foreground">Automatisches Backup</p>
-              <p className="text-xs text-muted-foreground">Taeglich um 03:00 Uhr</p>
+              <p className="text-xs text-muted-foreground">Täglich um 03:00 Uhr</p>
             </div>
             <Switch checked={autoBackup} onCheckedChange={setAutoBackup} />
           </div>
@@ -431,7 +431,7 @@ function BackupsTab({
               <p className="text-sm text-foreground">Speicherort</p>
               <p className="text-xs text-muted-foreground">/var/backups/kmuhub/</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.info('Speicherort-Konfiguration wird geoeffnet...')}>
+            <Button variant="outline" size="sm" onClick={() => toast.info('Speicherort-Konfiguration wird geöffnet...')}>
               <Settings className="mr-1.5 h-3.5 w-3.5" />
               Aendern
             </Button>
@@ -491,7 +491,7 @@ function BackupsTab({
                   variant="ghost"
                   size="sm"
                   onClick={() => onDelete(backup.id)}
-                  title="Loeschen"
+                  title="Löschen"
                   className="text-muted-foreground hover:text-error"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -728,7 +728,7 @@ function UpdatesTab() {
         <div className="flex items-center justify-between py-2">
           <div>
             <p className="text-sm text-foreground">Update-Benachrichtigungen</p>
-            <p className="text-xs text-muted-foreground">Per E-Mail ueber neue Versionen informieren</p>
+            <p className="text-xs text-muted-foreground">Per E-Mail über neue Versionen informieren</p>
           </div>
           <Switch defaultChecked />
         </div>
@@ -750,7 +750,7 @@ function UpdatesTab() {
 
       {/* Changelog */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-foreground mb-3">Aenderungsprotokoll</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">Änderungsprotokoll</h3>
         <div className="space-y-4">
           {[
             { version: 'v0.1.0', date: '01.02.2026', changes: ['Erstinstallation', 'CRM, Chat, Projekte, Auth', 'Desktop-App (Electron)', 'Self-Hosted Deployment'] },
@@ -833,7 +833,7 @@ function LogsTab() {
           ))}
           {filteredLogs.length === 0 && (
             <div className="p-8 text-center text-sm text-muted-foreground">
-              Keine Logs fuer diesen Filter gefunden.
+              Keine Logs für diesen Filter gefunden.
             </div>
           )}
         </div>

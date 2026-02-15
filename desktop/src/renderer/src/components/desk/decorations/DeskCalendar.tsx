@@ -49,7 +49,7 @@ export function DeskCalendar({ size = 64 }: DeskCalendarProps) {
     <button
       onClick={() => navigate('/kalender')}
       className="select-none cursor-pointer hover:scale-105 transition-transform"
-      title="Klick: Kalender oeffnen"
+      title="Klick: Kalender öffnen"
       style={{ width: size, height: size * 1.15 }}
     >
       <div

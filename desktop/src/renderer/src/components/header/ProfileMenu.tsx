@@ -51,7 +51,7 @@ export function ProfileMenu() {
   }
 
   const handleHelp = () => {
-    toast.info('Nutze das ? Symbol unten rechts fuer Hilfe')
+    toast.info('Nutze das ? Symbol unten rechts für Hilfe')
     setIsOpen(false)
   }
 
@@ -96,7 +96,7 @@ export function ProfileMenu() {
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="absolute top-full right-0 mt-2 w-80 md:w-96 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+          <div className="absolute top-full right-0 mt-2 w-80 md:w-96 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden glass-elevated">
             {/* User Info */}
             <button
               onClick={handleProfile}
@@ -186,7 +186,7 @@ export function ProfileMenu() {
         open={showLogout}
         onOpenChange={setShowLogout}
         title="Abmelden?"
-        description="Du wirst von KMU Hub abgemeldet. Alle nicht gespeicherten Aenderungen gehen verloren."
+        description="Du wirst von KMU Hub abgemeldet. Alle nicht gespeicherten Änderungen gehen verloren."
         confirmLabel="Abmelden"
         variant="destructive"
         onConfirm={confirmLogout}

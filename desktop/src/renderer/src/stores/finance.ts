@@ -126,7 +126,7 @@ const INITIAL_INVOICES: Invoice[] = [
       { id: 'li3', description: 'UI/UX Design', quantity: 16, unitPrice: 160, vatRate: 8.1, discount: 5 },
     ],
     notes: 'Projekt: Website Relaunch Phase 1', paymentTerms: '30 Tage netto',
-    payments: [{ date: '2026-02-08', amount: 15400, method: 'Bankueberweisung', reference: 'BELEG-042' }],
+    payments: [{ date: '2026-02-08', amount: 15400, method: 'Banküberweisung', reference: 'BELEG-042' }],
     createdAt: '2026-02-01',
   },
   {
@@ -144,8 +144,8 @@ const INITIAL_INVOICES: Invoice[] = [
     items: [
       { id: 'li6', description: 'Infrastruktur-Beratung', quantity: 16, unitPrice: 200, vatRate: 8.1, discount: 0 },
     ],
-    notes: 'Partnerschafts-Rabatt 5% auf naechste Rechnung', paymentTerms: '30 Tage netto',
-    payments: [{ date: '2026-02-03', amount: 3459.20, method: 'Bankueberweisung' }],
+    notes: 'Partnerschafts-Rabatt 5% auf nächste Rechnung', paymentTerms: '30 Tage netto',
+    payments: [{ date: '2026-02-03', amount: 3459.20, method: 'Banküberweisung' }],
     createdAt: '2026-01-20',
   },
   {
@@ -179,15 +179,15 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   { id: 'tx4', type: 'expense', description: 'Figma Team (Jahreslizenz)', amount: -540, date: '2026-02-05', category: 'Software', status: 'completed', reference: 'EXP-127' },
   { id: 'tx5', type: 'expense', description: 'Team Lunch — Retrospektive', amount: -186.30, date: '2026-02-04', category: 'Verpflegung', status: 'completed', reference: 'EXP-126' },
   { id: 'tx6', type: 'expense', description: 'GitHub Enterprise', amount: -252, date: '2026-02-01', category: 'Software', status: 'completed', reference: 'EXP-125' },
-  { id: 'tx7', type: 'expense', description: 'Bueromoebel Steiner GmbH', amount: -3200, date: '2026-01-28', category: 'Buero', status: 'completed', reference: 'EXP-124' },
+  { id: 'tx7', type: 'expense', description: 'Büromöbel Steiner GmbH', amount: -3200, date: '2026-01-28', category: 'Büro', status: 'completed', reference: 'EXP-124' },
   { id: 'tx8', type: 'income', description: 'Partnerschaft Q1 — Marketing AG', amount: 4500, date: '2026-01-25', category: 'Partnerschaft', status: 'completed', reference: 'PART-Q1' },
   { id: 'tx9', type: 'expense', description: 'SBB Halbtax alle Mitarbeiter', amount: -1080, date: '2026-01-20', category: 'Reise', status: 'completed', reference: 'EXP-122' },
-  { id: 'tx10', type: 'expense', description: 'Strom & Internet Januar', amount: -320, date: '2026-01-15', category: 'Buero', status: 'completed', reference: 'EXP-121' },
+  { id: 'tx10', type: 'expense', description: 'Strom & Internet Januar', amount: -320, date: '2026-01-15', category: 'Büro', status: 'completed', reference: 'EXP-121' },
 ]
 
 const INITIAL_EXPENSES: Expense[] = [
   { id: 'exp1', description: 'Neue Tastatur Logitech MX Keys', amount: 129, date: '2026-02-08', category: 'Hardware', supplier: 'Digitec', project: 'IT-Ausstattung', receipt: true, status: 'pending' },
-  { id: 'exp2', description: 'Bahnticket Zuerich-Bern (Kundentermin)', amount: 51, date: '2026-02-07', category: 'Reise', supplier: 'SBB', project: 'CRM Integration', receipt: true, status: 'approved' },
+  { id: 'exp2', description: 'Bahnticket Zürich-Bern (Kundentermin)', amount: 51, date: '2026-02-07', category: 'Reise', supplier: 'SBB', project: 'CRM Integration', receipt: true, status: 'approved' },
   { id: 'exp3', description: 'PostFinance Kontogebuehren', amount: 25, date: '2026-02-01', category: 'Bankgebuehren', supplier: 'PostFinance', receipt: false, status: 'approved' },
   { id: 'exp4', description: 'Rechtsberatung Vertragsvorlage', amount: 480, date: '2026-01-30', category: 'Beratung', supplier: 'Kanzlei Huber', receipt: true, status: 'pending' },
   { id: 'exp5', description: 'Google Workspace (12 Lizenzen)', amount: 168, date: '2026-02-01', category: 'Software', supplier: 'Google', receipt: true, status: 'approved' },

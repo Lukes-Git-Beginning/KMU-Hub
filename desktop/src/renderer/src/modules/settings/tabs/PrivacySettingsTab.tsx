@@ -16,19 +16,19 @@ export function PrivacySettingsTab() {
     setIsExporting(true)
     setTimeout(() => {
       setIsExporting(false)
-      toast.success('Datenexport wird vorbereitet. Du erhaeltst eine E-Mail mit dem Download-Link.')
+      toast.success('Datenexport wird vorbereitet. Du erhältst eine E-Mail mit dem Download-Link.')
     }, 2000)
   }
 
   const handleDeleteRequest = () => {
-    toast.success('Loeschantrag eingereicht. Du erhaeltst eine Bestaetigung per E-Mail innerhalb von 72 Stunden.')
+    toast.success('Löschantrag eingereicht. Du erhältst eine Bestätigung per E-Mail innerhalb von 72 Stunden.')
     setShowDeleteConfirm(false)
   }
 
   return (
     <div className="max-w-2xl">
       <h2 className="text-foreground mb-1">Datenschutz</h2>
-      <p className="text-sm text-muted-foreground mb-6">DSGVO-Einstellungen, Datenexport und Datenloesch-Antraege</p>
+      <p className="text-sm text-muted-foreground mb-6">DSGVO-Einstellungen, Datenexport und Datenlösch-Antraege</p>
 
       {/* GDPR info */}
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 mb-8">
@@ -38,7 +38,7 @@ export function PrivacySettingsTab() {
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
           KMU Hub speichert alle Daten auf EU-Servern (Hetzner, Deutschland). Deine Daten werden nie an Dritte
-          ausserhalb der EU uebermittelt. Du hast jederzeit das Recht auf Auskunft, Berichtigung und Loeschung
+          außerhalb der EU übermittelt. Du hast jederzeit das Recht auf Auskunft, Berichtigung und Löschung
           deiner personenbezogenen Daten.
         </p>
       </div>
@@ -94,7 +94,7 @@ export function PrivacySettingsTab() {
         </div>
         <p className="text-xs text-muted-foreground mb-3">
           Fordere eine Kopie aller deiner personenbezogenen Daten an (Art. 20 DSGVO).
-          Der Export umfasst Profil, Kontakte, E-Mails, Dokumente und Aktivitaeten.
+          Der Export umfasst Profil, Kontakte, E-Mails, Dokumente und Aktivitäten.
         </p>
         <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -114,18 +114,18 @@ export function PrivacySettingsTab() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Trash2 className="h-4 w-4 text-error" />
-          <h3 className="text-sm font-medium text-error">Konto loeschen</h3>
+          <h3 className="text-sm font-medium text-error">Konto löschen</h3>
         </div>
         <div className="rounded-lg border border-error/20 bg-error/5 p-4">
-          <p className="text-sm text-foreground mb-2">Loeschantrag stellen (Art. 17 DSGVO)</p>
+          <p className="text-sm text-foreground mb-2">Löschantrag stellen (Art. 17 DSGVO)</p>
           <p className="text-xs text-muted-foreground mb-4">
-            Alle deine personenbezogenen Daten werden innerhalb von 30 Tagen unwiderruflich geloescht.
-            Gemeinsam genutzte Daten (Projekte, Team-Dokumente) bleiben fuer andere Nutzer erhalten,
+            Alle deine personenbezogenen Daten werden innerhalb von 30 Tagen unwiderruflich gelöscht.
+            Gemeinsam genutzte Daten (Projekte, Team-Dokumente) bleiben für andere Nutzer erhalten,
             werden aber anonymisiert.
           </p>
           <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)}>
             <Trash2 className="mr-1.5 h-4 w-4" />
-            Konto-Loeschung beantragen
+            Konto-Löschung beantragen
           </Button>
         </div>
       </section>
@@ -133,9 +133,9 @@ export function PrivacySettingsTab() {
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Konto wirklich loeschen?"
-        description="Dieser Vorgang kann nicht rueckgaengig gemacht werden. Alle deine persoenlichen Daten werden innerhalb von 30 Tagen unwiderruflich geloescht. Du erhaeltst eine Bestaetigungs-E-Mail."
-        confirmLabel="Ja, Konto loeschen"
+        title="Konto wirklich löschen?"
+        description="Dieser Vorgang kann nicht rückgängig gemacht werden. Alle deine persönlichen Daten werden innerhalb von 30 Tagen unwiderruflich gelöscht. Du erhältst eine Bestätigungs-E-Mail."
+        confirmLabel="Ja, Konto löschen"
         variant="destructive"
         onConfirm={handleDeleteRequest}
       />

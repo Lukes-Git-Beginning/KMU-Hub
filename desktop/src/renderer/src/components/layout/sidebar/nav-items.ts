@@ -12,6 +12,13 @@ import {
   Cog,
   Video,
   Server,
+  Package,
+  CalendarClock,
+  ShoppingCart,
+  Headphones,
+  Truck,
+  Factory,
+  BarChart3,
 } from 'lucide-react'
 
 export interface NavBadge {
@@ -31,7 +38,7 @@ export interface NavItemConfig {
 
 export const navItems: NavItemConfig[] = [
   // -- Visible to ALL roles --
-  { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Uebersicht', enabled: true, section: 'main' },
+  { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Übersicht', enabled: true, section: 'main' },
   { id: 'projects', to: '/work/projects', icon: FolderKanban, label: 'Projekte', enabled: true, section: 'main' },
   { id: 'tasks', to: '/work/my-tasks', icon: CheckSquare, label: 'Aufgaben', enabled: true, section: 'main', badge: { type: 'text', value: '5' } },
   { id: 'chat', to: '/chat', icon: MessageSquare, label: 'Nachrichten', enabled: true, section: 'main', badge: { type: 'text', value: '3' } },
@@ -49,6 +56,15 @@ export const navItems: NavItemConfig[] = [
   // -- Role-restricted --
   { id: 'finance', to: '/buchhaltung', icon: Calculator, label: 'Buchhaltung', enabled: true, section: 'main', badge: { type: 'text', value: 'Neu' } },
   { id: 'infrastructure', to: '/infrastruktur', icon: Server, label: 'Infrastruktur', enabled: true, section: 'main' },
+
+  // -- Industry-specific modules (filtered by business profile) --
+  { id: 'inventar', to: '/inventar', icon: Package, label: 'Inventar', enabled: true, section: 'main' },
+  { id: 'schichten', to: '/schichten', icon: CalendarClock, label: 'Schichtplanung', enabled: true, section: 'main' },
+  { id: 'einkauf', to: '/einkauf', icon: ShoppingCart, label: 'Einkauf', enabled: true, section: 'main' },
+  { id: 'helpdesk', to: '/helpdesk', icon: Headphones, label: 'Helpdesk', enabled: true, section: 'main' },
+  { id: 'fuhrpark', to: '/fuhrpark', icon: Truck, label: 'Fuhrpark', enabled: true, section: 'main' },
+  { id: 'produktion', to: '/produktion', icon: Factory, label: 'Produktion', enabled: true, section: 'main' },
+  { id: 'berichte', to: '/berichte', icon: BarChart3, label: 'Berichte', enabled: true, section: 'main' },
 
   // -- Bottom: Admin/IT only in sidebar --
   { id: 'settings', to: '/settings', icon: Cog, label: 'Einstellungen', enabled: true, section: 'bottom' },

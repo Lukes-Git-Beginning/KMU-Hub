@@ -19,7 +19,7 @@ const alerts: Alert[] = [
   },
   {
     id: 2,
-    title: 'Buchhaltungs-Integration verfuegbar',
+    title: 'Buchhaltungs-Integration verfügbar',
     type: 'info',
     action: 'Jetzt verbinden',
     path: '/finance',

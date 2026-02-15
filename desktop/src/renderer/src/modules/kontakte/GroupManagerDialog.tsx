@@ -113,14 +113,14 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
               return (
                 <div key={group.id} className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
                   <p className="text-sm text-red-700 dark:text-red-400 mb-2">
-                    Gruppe &quot;{group.name}&quot; loeschen? Die Kontakte bleiben erhalten.
+                    Gruppe &quot;{group.name}&quot; löschen? Die Kontakte bleiben erhalten.
                   </p>
                   <div className="flex justify-end gap-1.5">
                     <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(null)}>
                       Abbrechen
                     </Button>
                     <Button variant="destructive" size="sm" onClick={() => handleDelete(group.id)}>
-                      Loeschen
+                      Löschen
                     </Button>
                   </div>
                 </div>

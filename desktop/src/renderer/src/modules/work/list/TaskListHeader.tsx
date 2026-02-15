@@ -39,16 +39,16 @@ interface TaskListHeaderProps {
 
 const GROUP_OPTIONS: Array<{ value: GroupBy; label: string }> = [
   { value: 'status', label: 'Status' },
-  { value: 'assignee', label: 'Zustaendig' },
-  { value: 'priority', label: 'Prioritaet' },
-  { value: 'due_date', label: 'Faelligkeitsdatum' },
+  { value: 'assignee', label: 'Zuständig' },
+  { value: 'priority', label: 'Priorität' },
+  { value: 'due_date', label: 'Fälligkeitsdatum' },
   { value: 'none', label: 'Keine Gruppierung' },
 ]
 
 const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
   { value: 'created_at', label: 'Erstellt' },
-  { value: 'due_date', label: 'Faellig am' },
-  { value: 'priority', label: 'Prioritaet' },
+  { value: 'due_date', label: 'Fällig am' },
+  { value: 'priority', label: 'Priorität' },
   { value: 'title', label: 'Titel' },
   { value: 'task_number', label: 'Aufgabennummer' },
 ]
@@ -147,7 +147,7 @@ export default function TaskListHeader({
         <PopoverContent className="w-72 space-y-3" align="start">
           {/* Priority quick filters */}
           <div className="space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Prioritaet</span>
+            <span className="text-xs font-medium text-muted-foreground">Priorität</span>
             <div className="flex flex-wrap gap-1">
               {PRIORITY_PILLS.map((pill) => (
                 <button

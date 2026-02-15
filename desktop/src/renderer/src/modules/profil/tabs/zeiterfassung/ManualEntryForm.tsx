@@ -48,7 +48,7 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
       durationMinutes: duration,
     })
 
-    toast.success('Eintrag hinzugefuegt')
+    toast.success('Eintrag hinzugefügt')
     onOpenChange(false)
     setDescription('')
     setStartTime('09:00')
@@ -107,7 +107,7 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
             <label className="text-sm font-medium text-foreground">Kategorie</label>
             <Select value={categoryId} onValueChange={setCategoryId}>
               <SelectTrigger>
-                <SelectValue placeholder="Kategorie waehlen..." />
+                <SelectValue placeholder="Kategorie wählen..." />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat) => (

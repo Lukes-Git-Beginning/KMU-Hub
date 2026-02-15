@@ -18,9 +18,9 @@ interface ExportDialogProps {
 }
 
 const FORMATS = [
-  { id: 'csv', label: 'CSV', icon: Table2, description: 'Komma-getrennte Werte fuer Excel/Google Sheets' },
+  { id: 'csv', label: 'CSV', icon: Table2, description: 'Komma-getrennte Werte für Excel/Google Sheets' },
   { id: 'pdf', label: 'PDF', icon: FileText, description: 'Druckfertiger Bericht' },
-  { id: 'datev', label: 'DATEV', icon: FileSpreadsheet, description: 'Export fuer Steuerberater (DATEV-Format)' },
+  { id: 'datev', label: 'DATEV', icon: FileSpreadsheet, description: 'Export für Steuerberater (DATEV-Format)' },
 ]
 
 export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {

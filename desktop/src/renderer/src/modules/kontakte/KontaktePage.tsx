@@ -122,7 +122,7 @@ export default function KontaktePage() {
   const handleDelete = () => {
     if (deleteConfirmId) {
       deleteContact(deleteConfirmId)
-      toast.success('Kontakt geloescht')
+      toast.success('Kontakt gelöscht')
       if (selectedContactId === deleteConfirmId) setSelectedContactId(null)
       setDeleteConfirmId(null)
     }
@@ -152,7 +152,7 @@ export default function KontaktePage() {
   }
 
   const handleExportVCard = (contact: Contact) => {
-    toast.success(`vCard fuer ${contact.firstName} ${contact.lastName} exportiert`)
+    toast.success(`vCard für ${contact.firstName} ${contact.lastName} exportiert`)
   }
 
   const getContactActions = (c: Contact): ActionItem[] => [
@@ -177,7 +177,7 @@ export default function KontaktePage() {
       icon: Star,
       onClick: () => {
         toggleFavorite(c.id)
-        toast.success(c.isFavorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten hinzugefuegt')
+        toast.success(c.isFavorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten hinzugefügt')
       },
     },
     {
@@ -203,7 +203,7 @@ export default function KontaktePage() {
       separator: true,
     },
     {
-      label: 'Loeschen',
+      label: 'Löschen',
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(c.id),
@@ -439,7 +439,7 @@ export default function KontaktePage() {
         <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
           <div className="text-center">
             <User className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Waehle einen Kontakt aus</p>
+            <p className="text-sm">Wähle einen Kontakt aus</p>
             <p className="text-xs mt-1 text-muted-foreground/60">
               oder erstelle einen neuen mit dem + Button
             </p>
@@ -462,9 +462,9 @@ export default function KontaktePage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Kontakt loeschen?"
-        description={`"${deleteTarget ? `${deleteTarget.firstName} ${deleteTarget.lastName}` : ''}" wird unwiderruflich geloescht.`}
-        confirmLabel="Loeschen"
+        title="Kontakt löschen?"
+        description={`"${deleteTarget ? `${deleteTarget.firstName} ${deleteTarget.lastName}` : ''}" wird unwiderruflich gelöscht.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

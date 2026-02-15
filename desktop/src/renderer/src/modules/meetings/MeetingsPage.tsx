@@ -37,7 +37,7 @@ function getRelativeTime(date: string, startTime: string, duration: number, stat
   if (status === 'live') {
     const elapsedMin = Math.round((now.getTime() - meetingStart.getTime()) / 60_000)
     if (elapsedMin <= 0) return 'Startet jetzt'
-    return `Laeuft seit ${elapsedMin} Min`
+    return `Läuft seit ${elapsedMin} Min`
   }
 
   if (status === 'cancelled' || status === 'past') return null
@@ -125,7 +125,7 @@ export default function MeetingsPage() {
   const handleDelete = () => {
     if (deleteConfirmId) {
       deleteMeeting(deleteConfirmId)
-      toast.success('Meeting geloescht')
+      toast.success('Meeting gelöscht')
       setDeleteConfirmId(null)
       if (selectedMeetingId === deleteConfirmId) setSelectedMeetingId(null)
     }
@@ -162,7 +162,7 @@ export default function MeetingsPage() {
       })
     }
     actions.push({
-      label: 'Loeschen',
+      label: 'Löschen',
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(m.id),
@@ -366,9 +366,9 @@ export default function MeetingsPage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Meeting loeschen?"
-        description={`"${deleteTarget?.title}" wird unwiderruflich geloescht.`}
-        confirmLabel="Loeschen"
+        title="Meeting löschen?"
+        description={`"${deleteTarget?.title}" wird unwiderruflich gelöscht.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

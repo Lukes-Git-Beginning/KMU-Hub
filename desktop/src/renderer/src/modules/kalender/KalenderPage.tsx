@@ -18,7 +18,13 @@ import {
   Settings2,
   Layers,
   DoorOpen,
+  CalendarCheck,
+  Scissors,
+  Euro,
+  User,
+  FileText,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { RoomBookingView } from './RoomBookingView'
 import { CategoryManagerDialog } from './CategoryManagerDialog'
 import { CalendarBrowseDialog } from './CalendarBrowseDialog'
@@ -27,6 +33,7 @@ import { CalendarBrowseDialog } from './CalendarBrowseDialog'
 // Types
 // ============================================================
 
+type TopTab = 'kalender' | 'terminbuchung'
 type ViewMode = 'week' | 'day' | 'month'
 type RSVPStatus = 'accepted' | 'declined' | 'maybe' | 'pending'
 
@@ -127,7 +134,7 @@ const MONTHS_DE = [
   'Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
 ]
-const RECURRENCE_OPTIONS = ['Keine', 'Taeglich', 'Woechentlich', 'Monatlich', 'Jaehrlich', 'Benutzerdefiniert...']
+const RECURRENCE_OPTIONS = ['Keine', 'Täglich', 'Wöchentlich', 'Monatlich', 'Jaehrlich', 'Benutzerdefiniert...']
 const REMINDER_OPTIONS = ['Keine', '5 Minuten', '10 Minuten', '15 Minuten', '30 Minuten', '1 Stunde', '2 Stunden', '1 Tag']
 
 const HOUR_HEIGHT = 60
@@ -141,28 +148,28 @@ const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + ST
 
 const MOCK_EVENTS: CalendarEvent[] = [
   // Monday Feb 9
-  { id: 'e1', title: 'Daily Standup', date: '2026-02-09', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Woechentlich', participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }] },
+  { id: 'e1', title: 'Daily Standup', date: '2026-02-09', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich', participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }] },
   { id: 'e2', title: 'Sprint Planning', date: '2026-02-09', startTime: '10:00', endTime: '11:30', isAllDay: false, categoryId: 'meeting', calendarId: 'team', location: 'Meeting Room A', room: 'Raum A — Besprechung', participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'maybe' }, { name: 'Jonas Diaz', initials: 'JD', rsvp: 'accepted' }] },
   { id: 'e3', title: 'Fokuszeit: API Design', date: '2026-02-09', startTime: '13:00', endTime: '15:00', isAllDay: false, categoryId: 'focus', calendarId: 'personal' },
   { id: 'e4', title: 'Design Review', date: '2026-02-09', startTime: '15:30', endTime: '16:30', isAllDay: false, categoryId: 'meeting', calendarId: 'work', videoCall: true, participants: [{ name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }, { name: 'Jonas Diaz', initials: 'JD', rsvp: 'accepted' }] },
   // Tuesday Feb 10
-  { id: 'e5', title: 'Daily Standup', date: '2026-02-10', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Woechentlich' },
-  { id: 'e6', title: 'Kundentermin Meier AG', date: '2026-02-10', startTime: '10:30', endTime: '11:30', isAllDay: false, categoryId: 'client', calendarId: 'personal', location: 'Buero Zuerich', participants: [{ name: 'Peter Keller', initials: 'PK', rsvp: 'accepted' }, { name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }] },
+  { id: 'e5', title: 'Daily Standup', date: '2026-02-10', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich' },
+  { id: 'e6', title: 'Kundentermin Meier AG', date: '2026-02-10', startTime: '10:30', endTime: '11:30', isAllDay: false, categoryId: 'client', calendarId: 'personal', location: 'Büro Zürich', participants: [{ name: 'Peter Keller', initials: 'PK', rsvp: 'accepted' }, { name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }] },
   { id: 'e7', title: '1:1 mit Sarah', date: '2026-02-10', startTime: '14:00', endTime: '15:00', isAllDay: false, categoryId: 'meeting', calendarId: 'work', videoCall: true, participants: [{ name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }] },
   { id: 'e8', title: 'Product Roadmap', date: '2026-02-10', startTime: '16:00', endTime: '17:00', isAllDay: false, categoryId: 'meeting', calendarId: 'team', room: 'Raum B — Klein', videoCall: true, participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'declined' }] },
   // Wednesday Feb 11
-  { id: 'e9', title: 'Daily Standup', date: '2026-02-11', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Woechentlich' },
-  { id: 'e10', title: 'HR Quartalsgespreach', date: '2026-02-11', startTime: '10:00', endTime: '11:00', isAllDay: false, categoryId: 'meeting', calendarId: 'work', location: 'HR Buero' },
+  { id: 'e9', title: 'Daily Standup', date: '2026-02-11', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich' },
+  { id: 'e10', title: 'HR Quartalsgespreach', date: '2026-02-11', startTime: '10:00', endTime: '11:00', isAllDay: false, categoryId: 'meeting', calendarId: 'work', location: 'HR Büro' },
   { id: 'e11', title: 'Lunch & Learn: TypeScript', date: '2026-02-11', startTime: '12:30', endTime: '13:30', isAllDay: false, categoryId: 'meeting', calendarId: 'team', room: 'Raum A — Besprechung', participants: [{ name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Tom Brunner', initials: 'TB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'maybe' }] },
   { id: 'e12', title: 'Fokuszeit: Frontend', date: '2026-02-11', startTime: '14:00', endTime: '17:00', isAllDay: false, categoryId: 'focus', calendarId: 'personal' },
   { id: 'td1', title: 'Homepage Design abschliessen', date: '2026-02-11', startTime: '18:00', endTime: '18:30', isAllDay: false, categoryId: 'meeting', calendarId: 'deadlines', isTaskDeadline: true },
   // Thursday Feb 12
-  { id: 'e13', title: 'Daily Standup', date: '2026-02-12', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Woechentlich' },
+  { id: 'e13', title: 'Daily Standup', date: '2026-02-12', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich' },
   { id: 'e14', title: 'Code Review', date: '2026-02-12', startTime: '10:00', endTime: '11:00', isAllDay: false, categoryId: 'meeting', calendarId: 'work', videoCall: true, participants: [{ name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Tom Brunner', initials: 'TB', rsvp: 'accepted' }] },
   { id: 'e15', title: 'Quick Sync Marketing', date: '2026-02-12', startTime: '11:00', endTime: '11:30', isAllDay: false, categoryId: 'meeting', calendarId: 'team', videoCall: true },
   { id: 'e16', title: 'Zahnarzt', date: '2026-02-12', startTime: '14:00', endTime: '14:30', isAllDay: false, categoryId: 'private', calendarId: 'personal', location: 'Praxis Dr. Mueller' },
   // Friday Feb 13
-  { id: 'e17', title: 'Daily Standup', date: '2026-02-13', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Woechentlich' },
+  { id: 'e17', title: 'Daily Standup', date: '2026-02-13', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich' },
   { id: 'e18', title: 'Sprint Demo', date: '2026-02-13', startTime: '10:00', endTime: '11:00', isAllDay: false, categoryId: 'meeting', calendarId: 'team', room: 'Raum A — Besprechung', participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }, { name: 'Jonas Diaz', initials: 'JD', rsvp: 'accepted' }, { name: 'Peter Keller', initials: 'PK', rsvp: 'maybe' }] },
   { id: 'e19', title: 'Team Lunch', date: '2026-02-13', startTime: '12:00', endTime: '13:00', isAllDay: false, categoryId: 'private', calendarId: 'team', location: 'Restaurant Bellevue' },
   { id: 'e20', title: 'Sprint Retro', date: '2026-02-13', startTime: '15:00', endTime: '16:00', isAllDay: false, categoryId: 'meeting', calendarId: 'team', room: 'Raum B — Klein' },
@@ -171,6 +178,61 @@ const MOCK_EVENTS: CalendarEvent[] = [
   { id: 'h1', title: 'Fasnacht (Luzern)', date: '2026-02-16', startTime: '00:00', endTime: '23:59', isAllDay: true, categoryId: 'meeting', calendarId: 'holidays', isHoliday: true },
   // Saturday
   { id: 'e22', title: 'Brunch mit Freunden', date: '2026-02-14', startTime: '10:00', endTime: '12:00', isAllDay: false, categoryId: 'private', calendarId: 'personal', location: 'Cafe am See' },
+]
+
+// ============================================================
+// Terminbuchung Types & Mock Data
+// ============================================================
+
+interface BookingService {
+  id: string
+  name: string
+  dauer: number  // minutes
+  preis: number  // CHF
+  color: string
+  personal: string[]
+}
+
+interface BookingAppointment {
+  id: string
+  serviceId: string
+  kunde: string
+  datum: string
+  startTime: string
+  endTime: string
+  personal: string
+  notizen?: string
+  status: 'bestaetigt' | 'ausstehend' | 'abgesagt'
+}
+
+const BOOKING_SERVICES: BookingService[] = [
+  { id: 'bs1', name: 'Haarschnitt Herren', dauer: 30, preis: 45, color: '#3d7cc9', personal: ['Lena Huber', 'Marco Roth'] },
+  { id: 'bs2', name: 'Haarschnitt Damen', dauer: 45, preis: 65, color: '#d4619b', personal: ['Lena Huber', 'Nina Frei'] },
+  { id: 'bs3', name: 'Faerben komplett', dauer: 90, preis: 120, color: '#8b5fc7', personal: ['Nina Frei'] },
+  { id: 'bs4', name: 'Bartpflege', dauer: 20, preis: 25, color: '#3da356', personal: ['Marco Roth'] },
+  { id: 'bs5', name: 'Beratungsgespraech', dauer: 60, preis: 80, color: '#d48c3d', personal: ['Lena Huber', 'Marco Roth', 'Nina Frei'] },
+  { id: 'bs6', name: 'Massage 30min', dauer: 30, preis: 55, color: '#1e7e74', personal: ['Sandra Wyss'] },
+  { id: 'bs7', name: 'Massage 60min', dauer: 60, preis: 95, color: '#1e7e74', personal: ['Sandra Wyss'] },
+  { id: 'bs8', name: 'Manikuere', dauer: 45, preis: 50, color: '#c75a8b', personal: ['Nina Frei', 'Sandra Wyss'] },
+]
+
+const BOOKING_STAFF = ['Lena Huber', 'Marco Roth', 'Nina Frei', 'Sandra Wyss']
+
+const MOCK_BOOKINGS: BookingAppointment[] = [
+  // Today (2026-02-09 as mock "today")
+  { id: 'bk1', serviceId: 'bs1', kunde: 'Anna Weber', datum: '2026-02-09', startTime: '09:00', endTime: '09:30', personal: 'Marco Roth', status: 'bestaetigt' },
+  { id: 'bk2', serviceId: 'bs2', kunde: 'Markus Steiner', datum: '2026-02-09', startTime: '09:30', endTime: '10:15', personal: 'Lena Huber', status: 'bestaetigt' },
+  { id: 'bk3', serviceId: 'bs6', kunde: 'Sarah Keller', datum: '2026-02-09', startTime: '10:00', endTime: '10:30', personal: 'Sandra Wyss', status: 'bestaetigt' },
+  { id: 'bk4', serviceId: 'bs3', kunde: 'Julia Meier', datum: '2026-02-09', startTime: '11:00', endTime: '12:30', personal: 'Nina Frei', status: 'ausstehend' },
+  { id: 'bk5', serviceId: 'bs5', kunde: 'Thomas Brunner', datum: '2026-02-09', startTime: '13:00', endTime: '14:00', personal: 'Lena Huber', status: 'bestaetigt' },
+  { id: 'bk6', serviceId: 'bs7', kunde: 'Elena Fischer', datum: '2026-02-09', startTime: '14:00', endTime: '15:00', personal: 'Sandra Wyss', status: 'bestaetigt' },
+  { id: 'bk7', serviceId: 'bs4', kunde: 'Peter Zimmermann', datum: '2026-02-09', startTime: '15:00', endTime: '15:20', personal: 'Marco Roth', status: 'bestaetigt' },
+  { id: 'bk8', serviceId: 'bs8', kunde: 'Claudia Berger', datum: '2026-02-09', startTime: '15:30', endTime: '16:15', personal: 'Nina Frei', status: 'ausstehend' },
+  // Past days
+  { id: 'bk9', serviceId: 'bs1', kunde: 'David Mueller', datum: '2026-02-07', startTime: '10:00', endTime: '10:30', personal: 'Lena Huber', status: 'bestaetigt' },
+  { id: 'bk10', serviceId: 'bs2', kunde: 'Monika Schwarz', datum: '2026-02-07', startTime: '11:00', endTime: '11:45', personal: 'Nina Frei', status: 'bestaetigt' },
+  { id: 'bk11', serviceId: 'bs6', kunde: 'Hans Kaufmann', datum: '2026-02-08', startTime: '09:00', endTime: '09:30', personal: 'Sandra Wyss', status: 'bestaetigt' },
+  { id: 'bk12', serviceId: 'bs3', kunde: 'Ursula Schmid', datum: '2026-02-08', startTime: '13:00', endTime: '14:30', personal: 'Nina Frei', status: 'abgesagt' },
 ]
 
 // ============================================================
@@ -287,6 +349,7 @@ function layoutOverlappingEvents(events: CalendarEvent[]): EventLayout[] {
 // ============================================================
 
 export default function KalenderPage() {
+  const [topTab, setTopTab] = useState<TopTab>('kalender')
   const [view, setView] = useState<ViewMode>('week')
   const [currentDate, setCurrentDate] = useState(new Date(2026, 1, 9))
   const [selectedDate, setSelectedDate] = useState(new Date(2026, 1, 9))
@@ -347,119 +410,587 @@ export default function KalenderPage() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left sidebar */}
-      <CalendarSidebar
-        selectedDate={selectedDate}
-        events={visibleEvents}
-        calendars={calendars}
-        onToggleCalendar={toggleCalendar}
-        onSelectEvent={setSelectedEvent}
-      />
-
-      {/* Main area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <CalendarToolbar
-          view={view}
-          currentDate={currentDate}
-          onViewChange={setView}
-          onNavigate={navigate}
-          onToday={goToToday}
-          onNewEvent={() => handleOpenFullForm()}
-          onOpenRooms={() => setShowRoomBooking(true)}
-          onOpenCategories={() => setShowCategoryManager(true)}
-          onOpenCalendarBrowse={() => setShowCalendarBrowse(true)}
-        />
-
-        <div className="flex-1 overflow-auto bg-card">
-          {view === 'week' && (
-            <WeekView
-              currentDate={currentDate}
-              getEventsForDate={getEventsForDate}
-              calendars={calendars}
-              onSelectEvent={setSelectedEvent}
-              onSlotClick={handleSlotClick}
-              onDateClick={handleDateClick}
-            />
-          )}
-          {view === 'day' && (
-            <DayView
-              currentDate={currentDate}
-              events={getEventsForDate(currentDate)}
-              calendars={calendars}
-              onSelectEvent={setSelectedEvent}
-              onSlotClick={handleSlotClick}
-            />
-          )}
-          {view === 'month' && (
-            <MonthView
-              currentDate={currentDate}
-              getEventsForDate={getEventsForDate}
-              calendars={calendars}
-              onSelectEvent={setSelectedEvent}
-              onDateClick={handleDateClick}
-            />
-          )}
-        </div>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Top-level tabs */}
+      <div className="flex items-center gap-6 border-b border-border bg-card px-6 pt-3">
+        <button
+          onClick={() => setTopTab('kalender')}
+          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'kalender' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          <Calendar className="mr-1.5 inline h-4 w-4" />
+          Kalender
+        </button>
+        <button
+          onClick={() => setTopTab('terminbuchung')}
+          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'terminbuchung' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          <CalendarCheck className="mr-1.5 inline h-4 w-4" />
+          Terminbuchung
+        </button>
       </div>
 
-      {/* Quick-create popover */}
-      {quickCreate && (
-        <QuickCreatePopover
-          state={quickCreate}
-          onClose={() => setQuickCreate(null)}
-          onMoreOptions={() =>
-            handleOpenFullForm({
-              date: quickCreate.date,
-              startTime: `${String(quickCreate.hour).padStart(2, '0')}:${String(quickCreate.minute).padStart(2, '0')}`,
-              endTime: `${String(quickCreate.hour + 1).padStart(2, '0')}:${String(quickCreate.minute).padStart(2, '0')}`,
-            })
-          }
+      {/* Tab content */}
+      {topTab === 'kalender' ? (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left sidebar */}
+          <CalendarSidebar
+            selectedDate={selectedDate}
+            events={visibleEvents}
+            calendars={calendars}
+            onToggleCalendar={toggleCalendar}
+            onSelectEvent={setSelectedEvent}
+          />
+
+          {/* Main area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <CalendarToolbar
+              view={view}
+              currentDate={currentDate}
+              onViewChange={setView}
+              onNavigate={navigate}
+              onToday={goToToday}
+              onNewEvent={() => handleOpenFullForm()}
+              onOpenRooms={() => setShowRoomBooking(true)}
+              onOpenCategories={() => setShowCategoryManager(true)}
+              onOpenCalendarBrowse={() => setShowCalendarBrowse(true)}
+            />
+
+            <div className="flex-1 overflow-auto bg-card">
+              {view === 'week' && (
+                <WeekView
+                  currentDate={currentDate}
+                  getEventsForDate={getEventsForDate}
+                  calendars={calendars}
+                  onSelectEvent={setSelectedEvent}
+                  onSlotClick={handleSlotClick}
+                  onDateClick={handleDateClick}
+                />
+              )}
+              {view === 'day' && (
+                <DayView
+                  currentDate={currentDate}
+                  events={getEventsForDate(currentDate)}
+                  calendars={calendars}
+                  onSelectEvent={setSelectedEvent}
+                  onSlotClick={handleSlotClick}
+                />
+              )}
+              {view === 'month' && (
+                <MonthView
+                  currentDate={currentDate}
+                  getEventsForDate={getEventsForDate}
+                  calendars={calendars}
+                  onSelectEvent={setSelectedEvent}
+                  onDateClick={handleDateClick}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Quick-create popover */}
+          {quickCreate && (
+            <QuickCreatePopover
+              state={quickCreate}
+              onClose={() => setQuickCreate(null)}
+              onMoreOptions={() =>
+                handleOpenFullForm({
+                  date: quickCreate.date,
+                  startTime: `${String(quickCreate.hour).padStart(2, '0')}:${String(quickCreate.minute).padStart(2, '0')}`,
+                  endTime: `${String(quickCreate.hour + 1).padStart(2, '0')}:${String(quickCreate.minute).padStart(2, '0')}`,
+                })
+              }
+            />
+          )}
+
+          {/* Full event form */}
+          {showEventForm && (
+            <EventFormModal
+              defaults={eventFormDefaults}
+              onClose={() => setShowEventForm(false)}
+            />
+          )}
+
+          {/* Event detail panel */}
+          {selectedEvent && (
+            <EventDetailPanel
+              event={selectedEvent}
+              calendars={calendars}
+              onClose={() => setSelectedEvent(null)}
+              onEdit={() => {
+                setEventFormDefaults(selectedEvent)
+                setSelectedEvent(null)
+                setShowEventForm(true)
+              }}
+            />
+          )}
+
+          {/* Room booking view */}
+          {showRoomBooking && (
+            <RoomBookingView onClose={() => setShowRoomBooking(false)} />
+          )}
+
+          {/* Category manager */}
+          <CategoryManagerDialog
+            open={showCategoryManager}
+            onOpenChange={setShowCategoryManager}
+            categories={categories}
+            onCategoriesChange={setCategories}
+          />
+
+          {/* Calendar browse */}
+          <CalendarBrowseDialog
+            open={showCalendarBrowse}
+            onOpenChange={setShowCalendarBrowse}
+            calendars={calendars}
+            onToggleCalendar={toggleCalendar}
+          />
+        </div>
+      ) : (
+        <TerminbuchungTab />
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// Terminbuchung Tab
+// ============================================================
+
+function TerminbuchungTab() {
+  const [showNewBooking, setShowNewBooking] = useState(false)
+  const [bookingDate, setBookingDate] = useState('2026-02-09')
+  const [bookings, setBookings] = useState(MOCK_BOOKINGS)
+
+  const bookingsForDate = useMemo(
+    () => bookings
+      .filter((b) => b.datum === bookingDate)
+      .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime)),
+    [bookings, bookingDate],
+  )
+
+  const getServiceById = (id: string) => BOOKING_SERVICES.find((s) => s.id === id)
+
+  const statusLabel = (status: BookingAppointment['status']) => {
+    switch (status) {
+      case 'bestaetigt': return { text: 'Bestaetigt', cls: 'bg-success/15 text-success' }
+      case 'ausstehend': return { text: 'Ausstehend', cls: 'bg-warning/15 text-warning' }
+      case 'abgesagt': return { text: 'Abgesagt', cls: 'bg-error/15 text-error' }
+    }
+  }
+
+  const handleCreateBooking = (newBooking: Omit<BookingAppointment, 'id'>) => {
+    const id = `bk${Date.now()}`
+    setBookings((prev) => [...prev, { ...newBooking, id }])
+    setShowNewBooking(false)
+    toast.success('Termin erfolgreich erstellt')
+  }
+
+  const todayBookingCount = bookings.filter((b) => b.datum === '2026-02-09' && b.status !== 'abgesagt').length
+  const todayRevenue = bookings
+    .filter((b) => b.datum === '2026-02-09' && b.status !== 'abgesagt')
+    .reduce((sum, b) => sum + (getServiceById(b.serviceId)?.preis ?? 0), 0)
+
+  return (
+    <div className="flex-1 overflow-auto bg-card">
+      <div className="mx-auto max-w-6xl p-6 space-y-6">
+        {/* Header row with stats and action */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Terminbuchung</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Heute: {todayBookingCount} Termine &middot; CHF {todayRevenue.toFixed(0)} Umsatz
+            </p>
+          </div>
+          <button
+            onClick={() => setShowNewBooking(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Neuer Termin
+          </button>
+        </div>
+
+        {/* Service Catalog */}
+        <div>
+          <h3 className="text-sm font-medium text-foreground mb-3">Service-Katalog</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {BOOKING_SERVICES.map((service) => (
+              <div key={service.id} className="rounded-lg border border-border bg-card p-4 hover:shadow-sm transition-shadow">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: service.color }} />
+                    <h4 className="text-sm font-medium text-foreground">{service.name}</h4>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>{service.dauer} Min.</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Euro className="h-3 w-3" />
+                    <span className="font-medium text-foreground">CHF {service.preis.toFixed(0)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <User className="h-3 w-3" />
+                    <span>{service.personal.join(', ')}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Day Overview (Timeline) */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-foreground">Tagesuebersicht</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const d = new Date(bookingDate)
+                  d.setDate(d.getDate() - 1)
+                  setBookingDate(formatDateKey(d))
+                }}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <input
+                type="date"
+                value={bookingDate}
+                onChange={(e) => setBookingDate(e.target.value)}
+                className="rounded-lg border border-input-border bg-input-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+              />
+              <button
+                onClick={() => {
+                  const d = new Date(bookingDate)
+                  d.setDate(d.getDate() + 1)
+                  setBookingDate(formatDateKey(d))
+                }}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {bookingsForDate.length === 0 ? (
+            <div className="rounded-lg border border-border bg-card p-8 text-center">
+              <CalendarCheck className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">Keine Termine an diesem Tag</p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              {/* Timeline header */}
+              <div className="grid grid-cols-[80px_1fr_120px_120px_100px] gap-3 border-b border-border bg-secondary/30 px-4 py-2">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Zeit</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Termin</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Personal</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Kunde</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Status</span>
+              </div>
+
+              {/* Timeline rows */}
+              {bookingsForDate.map((booking) => {
+                const service = getServiceById(booking.serviceId)
+                const status = statusLabel(booking.status)
+                return (
+                  <div
+                    key={booking.id}
+                    className="grid grid-cols-[80px_1fr_120px_120px_100px] gap-3 border-b border-border-muted px-4 py-3 hover:bg-secondary/20 transition-colors items-center"
+                  >
+                    {/* Time */}
+                    <div className="text-xs font-medium text-foreground">
+                      {booking.startTime} – {booking.endTime}
+                    </div>
+
+                    {/* Service */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: service?.color ?? '#888' }}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{service?.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{service?.dauer} Min. &middot; CHF {service?.preis}</p>
+                      </div>
+                    </div>
+
+                    {/* Staff */}
+                    <span className="text-xs text-muted-foreground truncate">{booking.personal}</span>
+
+                    {/* Client */}
+                    <span className="text-xs text-foreground truncate">{booking.kunde}</span>
+
+                    {/* Status */}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium text-center ${status.cls}`}>
+                      {status.text}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Visual timeline blocks */}
+        {bookingsForDate.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-3">Zeitleiste</h3>
+            <div className="rounded-lg border border-border bg-card p-4">
+              {/* Staff rows */}
+              {BOOKING_STAFF.map((staff) => {
+                const staffBookings = bookingsForDate.filter((b) => b.personal === staff)
+                return (
+                  <div key={staff} className="flex items-center gap-3 mb-3 last:mb-0">
+                    <div className="w-28 shrink-0">
+                      <p className="text-xs font-medium text-foreground truncate">{staff}</p>
+                    </div>
+                    <div className="flex-1 relative h-8 rounded bg-secondary/40">
+                      {/* Hour markers */}
+                      {Array.from({ length: 10 }, (_, i) => i + 8).map((h) => (
+                        <div
+                          key={h}
+                          className="absolute top-0 bottom-0 border-l border-border-muted/60"
+                          style={{ left: `${((h - 8) / 10) * 100}%` }}
+                        >
+                          <span className="text-[8px] text-muted-foreground ml-0.5">{h}:00</span>
+                        </div>
+                      ))}
+                      {/* Booking blocks */}
+                      {staffBookings.map((b) => {
+                        const service = getServiceById(b.serviceId)
+                        const startMin = timeToMinutes(b.startTime) - 8 * 60 // start from 08:00
+                        const endMin = timeToMinutes(b.endTime) - 8 * 60
+                        const totalMin = 10 * 60 // 08:00-18:00
+                        const leftPct = Math.max(0, (startMin / totalMin) * 100)
+                        const widthPct = Math.max(2, ((endMin - startMin) / totalMin) * 100)
+                        return (
+                          <div
+                            key={b.id}
+                            className="absolute top-0.5 bottom-0.5 rounded-[3px] flex items-center px-1.5 overflow-hidden"
+                            style={{
+                              left: `${leftPct}%`,
+                              width: `${widthPct}%`,
+                              backgroundColor: `${service?.color ?? '#888'}30`,
+                              borderLeft: `3px solid ${service?.color ?? '#888'}`,
+                            }}
+                            title={`${b.startTime}-${b.endTime} ${b.kunde} (${service?.name})`}
+                          >
+                            <span className="text-[9px] font-medium truncate" style={{ color: service?.color }}>
+                              {b.kunde}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* New Booking Dialog */}
+      {showNewBooking && (
+        <NewBookingDialog
+          onClose={() => setShowNewBooking(false)}
+          onSave={handleCreateBooking}
         />
       )}
+    </div>
+  )
+}
 
-      {/* Full event form */}
-      {showEventForm && (
-        <EventFormModal
-          defaults={eventFormDefaults}
-          onClose={() => setShowEventForm(false)}
-        />
-      )}
+// ============================================================
+// New Booking Dialog
+// ============================================================
 
-      {/* Event detail panel */}
-      {selectedEvent && (
-        <EventDetailPanel
-          event={selectedEvent}
-          calendars={calendars}
-          onClose={() => setSelectedEvent(null)}
-          onEdit={() => {
-            setEventFormDefaults(selectedEvent)
-            setSelectedEvent(null)
-            setShowEventForm(true)
-          }}
-        />
-      )}
+function NewBookingDialog({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void
+  onSave: (booking: Omit<BookingAppointment, 'id'>) => void
+}) {
+  const [serviceId, setServiceId] = useState(BOOKING_SERVICES[0].id)
+  const [kunde, setKunde] = useState('')
+  const [datum, setDatum] = useState('2026-02-09')
+  const [startTime, setStartTime] = useState('09:00')
+  const [personal, setPersonal] = useState(BOOKING_STAFF[0])
+  const [notizen, setNotizen] = useState('')
 
-      {/* Room booking view */}
-      {showRoomBooking && (
-        <RoomBookingView onClose={() => setShowRoomBooking(false)} />
-      )}
+  const selectedService = BOOKING_SERVICES.find((s) => s.id === serviceId)!
 
-      {/* Category manager */}
-      <CategoryManagerDialog
-        open={showCategoryManager}
-        onOpenChange={setShowCategoryManager}
-        categories={categories}
-        onCategoriesChange={setCategories}
-      />
+  // Compute end time from service duration
+  const endTime = useMemo(() => {
+    const startMin = timeToMinutes(startTime)
+    const endMin = startMin + selectedService.dauer
+    const h = Math.floor(endMin / 60)
+    const m = endMin % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }, [startTime, selectedService.dauer])
 
-      {/* Calendar browse */}
-      <CalendarBrowseDialog
-        open={showCalendarBrowse}
-        onOpenChange={setShowCalendarBrowse}
-        calendars={calendars}
-        onToggleCalendar={toggleCalendar}
-      />
+  const availableStaff = selectedService.personal
+
+  const handleSubmit = () => {
+    if (!kunde.trim()) {
+      toast.error('Bitte Kundenname eingeben')
+      return
+    }
+    onSave({
+      serviceId,
+      kunde: kunde.trim(),
+      datum,
+      startTime,
+      endTime,
+      personal,
+      notizen: notizen.trim() || undefined,
+      status: 'bestaetigt',
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative w-full max-w-md max-h-[85vh] rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h3 className="text-sm font-medium text-foreground">Neuer Termin</h3>
+          <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-secondary">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="overflow-y-auto flex-1 p-5 space-y-4">
+          {/* Service */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+              <Scissors className="h-3 w-3 inline mr-1" />
+              Service
+            </label>
+            <select
+              value={serviceId}
+              onChange={(e) => {
+                setServiceId(e.target.value)
+                const svc = BOOKING_SERVICES.find((s) => s.id === e.target.value)
+                if (svc && !svc.personal.includes(personal)) {
+                  setPersonal(svc.personal[0])
+                }
+              }}
+              className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+            >
+              {BOOKING_SERVICES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} — {s.dauer} Min. — CHF {s.preis}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Kunde */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+              <User className="h-3 w-3 inline mr-1" />
+              Kunde
+            </label>
+            <input
+              type="text"
+              placeholder="Name des Kunden..."
+              value={kunde}
+              onChange={(e) => setKunde(e.target.value)}
+              className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
+            />
+          </div>
+
+          {/* Date & Time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Datum</label>
+              <input
+                type="date"
+                value={datum}
+                onChange={(e) => setDatum(e.target.value)}
+                className="w-full rounded-lg border border-input-border bg-input-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Zeitslot</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="flex-1 rounded-lg border border-input-border bg-input-background px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+                />
+                <span className="text-xs text-muted-foreground">bis</span>
+                <span className="text-xs text-foreground font-medium">{endTime}</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Dauer: {selectedService.dauer} Min.</p>
+            </div>
+          </div>
+
+          {/* Personal */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+              <Users className="h-3 w-3 inline mr-1" />
+              Personal
+            </label>
+            <select
+              value={personal}
+              onChange={(e) => setPersonal(e.target.value)}
+              className="w-full rounded-lg border border-input-border bg-input-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+            >
+              {availableStaff.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Notizen */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+              <FileText className="h-3 w-3 inline mr-1" />
+              Notizen
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Optionale Notizen zum Termin..."
+              value={notizen}
+              onChange={(e) => setNotizen(e.target.value)}
+              className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-xs text-foreground placeholder:text-input-placeholder outline-none resize-none focus:border-primary"
+            />
+          </div>
+
+          {/* Price preview */}
+          <div className="rounded-lg bg-secondary/50 px-4 py-3 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Preis</span>
+            <span className="text-sm font-semibold text-foreground">CHF {selectedService.preis.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="rounded-lg bg-primary px-4 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            Termin erstellen
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1114,7 +1645,7 @@ function QuickCreatePopover({
           <input
             autoFocus
             type="text"
-            placeholder="Titel hinzufuegen..."
+            placeholder="Titel hinzufügen..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none border-b border-border-muted pb-2"
@@ -1306,7 +1837,7 @@ function EventFormModal({
               <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input
                 type="text"
-                placeholder="z.B. Buero Zuerich, externe Adresse..."
+                placeholder="z.B. Büro Zürich, externe Adresse..."
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="flex-1 bg-transparent text-xs text-foreground placeholder:text-input-placeholder outline-none"

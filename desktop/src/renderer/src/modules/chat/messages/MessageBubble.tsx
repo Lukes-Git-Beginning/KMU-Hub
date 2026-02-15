@@ -63,7 +63,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }
             <span className="text-xs text-muted-foreground">{timeAgo}</span>
           </div>
           <p className="text-sm italic text-muted-foreground">
-            Diese Nachricht wurde geloescht.
+            Diese Nachricht wurde gelöscht.
           </p>
         </div>
       </div>
@@ -152,7 +152,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Loeschen</TooltipContent>
+                <TooltipContent>Löschen</TooltipContent>
               </Tooltip>
             </>
           )}

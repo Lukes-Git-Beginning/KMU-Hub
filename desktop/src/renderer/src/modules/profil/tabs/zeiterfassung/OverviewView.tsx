@@ -161,7 +161,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
             {todayMinutes >= dailyTarget
-              ? `+${formatMinutes(todayMinutes - dailyTarget)} ueber Soll`
+              ? `+${formatMinutes(todayMinutes - dailyTarget)} über Soll`
               : `Noch ${formatMinutes(dailyTarget - todayMinutes)}`}
           </p>
         </button>
@@ -199,7 +199,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors group"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ueberstunden</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Überstunden</span>
             {overtime >= 0 ? (
               <TrendingUp className="h-4 w-4 text-emerald-500" />
             ) : (
@@ -252,7 +252,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
         {/* Daily Bar Chart */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground">Woche im Ueberblick</h3>
+            <h3 className="text-sm font-semibold text-foreground">Woche im Überblick</h3>
             <button
               onClick={() => onNavigate('week')}
               className="text-xs text-primary hover:underline flex items-center gap-1"
@@ -327,7 +327,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             </button>
           </div>
           {weekCategoryStats.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Keine Eintraege diese Woche</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">Keine Einträge diese Woche</p>
           ) : (
             <div className="space-y-3">
               {weekCategoryStats.map((cat) => {
@@ -393,7 +393,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
         {/* Recent Activity */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground">Letzte Eintraege</h3>
+            <h3 className="text-sm font-semibold text-foreground">Letzte Einträge</h3>
             <button
               onClick={() => onNavigate('today')}
               className="text-xs text-primary hover:underline flex items-center gap-1"
@@ -402,7 +402,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             </button>
           </div>
           {recentEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Noch keine Eintraege</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">Noch keine Einträge</p>
           ) : (
             <div className="space-y-2">
               {recentEntries.map((entry) => {

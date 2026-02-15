@@ -24,7 +24,7 @@ interface CalendarBrowseDialogProps {
 }
 
 const GROUP_META: Record<string, { label: string; icon: typeof User; description: string }> = {
-  mine: { label: 'Meine Kalender', icon: User, description: 'Persoenliche und Arbeitskalender' },
+  mine: { label: 'Meine Kalender', icon: User, description: 'Persönliche und Arbeitskalender' },
   shared: { label: 'Geteilte Kalender', icon: Users, description: 'Team- und Projektkalender' },
   other: { label: 'Andere', icon: Globe, description: 'Feiertage, Deadlines und externe Kalender' },
 }

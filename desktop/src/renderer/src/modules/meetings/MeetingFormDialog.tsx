@@ -48,8 +48,8 @@ const rooms = ['Konferenzraum A', 'Konferenzraum B', 'Huddle Space', 'Besprechun
 const durations = [15, 30, 45, 60, 90, 120]
 const recurrenceOptions = [
   { value: 'none', label: 'Keine Wiederholung' },
-  { value: 'daily', label: 'Taeglich' },
-  { value: 'weekly', label: 'Woechentlich' },
+  { value: 'daily', label: 'Täglich' },
+  { value: 'weekly', label: 'Wöchentlich' },
   { value: 'monthly', label: 'Monatlich' },
 ]
 const reminderOptions = [
@@ -472,7 +472,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                     value={newAgendaText}
                     onChange={(e) => setNewAgendaText(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddAgenda()}
-                    placeholder="Neuen Agenda-Punkt hinzufuegen..."
+                    placeholder="Neuen Agenda-Punkt hinzufügen..."
                     className="text-sm"
                   />
                   <Button
@@ -496,7 +496,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                 </Label>
                 <button className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors w-full">
                   <Paperclip className="h-4 w-4" />
-                  Dateien anhaengen...
+                  Dateien anhängen...
                 </button>
               </div>
             </div>

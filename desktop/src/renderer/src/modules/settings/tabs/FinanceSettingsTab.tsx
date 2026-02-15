@@ -122,11 +122,11 @@ export function FinanceSettingsTab() {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Rechnungs-Praefix</Label>
+              <Label>Rechnungs-Präfix</Label>
               <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} placeholder="RE-" />
             </div>
             <div className="space-y-1.5">
-              <Label>Naechste Nummer</Label>
+              <Label>Nächste Nummer</Label>
               <Input type="number" value={nextInvoiceNumber} onChange={(e) => setNextInvoiceNumber(Number(e.target.value))} />
             </div>
           </div>
@@ -149,7 +149,7 @@ export function FinanceSettingsTab() {
               <Select value={defaultPaymentTerms} onValueChange={setDefaultPaymentTerms}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Sofort faellig">Sofort faellig</SelectItem>
+                  <SelectItem value="Sofort fällig">Sofort fällig</SelectItem>
                   <SelectItem value="10 Tage netto">10 Tage netto</SelectItem>
                   <SelectItem value="30 Tage netto">30 Tage netto</SelectItem>
                   <SelectItem value="60 Tage netto">60 Tage netto</SelectItem>
@@ -161,7 +161,7 @@ export function FinanceSettingsTab() {
 
           <div className="rounded-lg border border-border bg-secondary/30 p-3">
             <p className="text-xs text-muted-foreground">
-              Vorschau naechste Rechnung: <span className="font-mono font-medium text-foreground">{invoicePrefix}{nextInvoiceNumber}</span>
+              Vorschau nächste Rechnung: <span className="font-mono font-medium text-foreground">{invoicePrefix}{nextInvoiceNumber}</span>
             </p>
           </div>
         </div>
@@ -179,7 +179,7 @@ export function FinanceSettingsTab() {
           <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-medium text-foreground">DATEV-Export</h3>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">Fuer den automatischen Export an deinen Steuerberater</p>
+        <p className="text-xs text-muted-foreground mb-3">Für den automatischen Export an deinen Steuerberater</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Mandanten-Nummer</Label>

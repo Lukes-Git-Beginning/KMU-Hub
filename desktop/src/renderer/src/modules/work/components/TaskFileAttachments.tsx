@@ -138,7 +138,7 @@ export default function TaskFileAttachments({
           ) : (
             <>
               <Upload className="h-4 w-4" />
-              Datei anhaengen
+              Datei anhängen
             </>
           )}
         </Button>

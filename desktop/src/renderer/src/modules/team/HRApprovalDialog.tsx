@@ -15,7 +15,7 @@ import type { HRRequest } from '@/stores/team'
 const requestTypeLabels: Record<string, string> = {
   vacation: 'Urlaub',
   sick: 'Krankheit',
-  overtime: 'Ueberstunden',
+  overtime: 'Überstunden',
   doctor: 'Arzttermin',
   homeoffice: 'Homeoffice',
   education: 'Weiterbildung',
@@ -104,7 +104,7 @@ export function HRApprovalDialog({
           <div className="space-y-1.5">
             <Label>Kommentar (optional)</Label>
             <Textarea
-              placeholder="Anmerkung fuer den Mitarbeiter..."
+              placeholder="Anmerkung für den Mitarbeiter..."
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}

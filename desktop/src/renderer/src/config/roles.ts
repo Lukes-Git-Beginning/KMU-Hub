@@ -31,6 +31,7 @@ export const SETTINGS_TAB_ROLES: Record<string, RoleId[]> = {
   mail:     ['admin', 'manager', 'member', 'hr'],
   calendar: ['admin', 'manager', 'member', 'hr'],
   finance:  ['admin'],
+  business: ['admin'],
   team:     ['admin', 'hr'],
   privacy:  ['admin', 'it_support'],
 }
@@ -70,7 +71,7 @@ export const DEV_PROFILES: DevProfile[] = [
       roles: ['manager'],
     },
     label: 'Projektleiterin',
-    description: 'Projekte, Team-Uebersicht, Kalender — kein Finance/Infra',
+    description: 'Projekte, Team-Übersicht, Kalender — kein Finance/Infra',
     color: 'hsl(217 91% 60%)',
     initials: 'SM',
   },

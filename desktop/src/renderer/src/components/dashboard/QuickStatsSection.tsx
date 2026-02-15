@@ -47,7 +47,7 @@ export function QuickStatsSection() {
 
       {/* Support CTA */}
       <div className="rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 text-white">
-        <h3 className="mb-2 text-lg font-semibold">Benoetigen Sie Hilfe?</h3>
+        <h3 className="mb-2 text-lg font-semibold">Benötigen Sie Hilfe?</h3>
         <p className="mb-4 text-sm text-emerald-100">
           Unser Support-Team steht Ihnen zur Verfuegung
         </p>

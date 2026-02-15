@@ -117,7 +117,7 @@ export const DECO_ASSETS: DecoAsset[] = [
   { id: 'pine-cone', name: 'Kiefernzapfen', image: decoPineCone, themes: ['nature'], animation: null },
   { id: 'carved-fox', name: 'Geschnitzter Fuchs', image: decoCarvedFox, themes: ['nature'], animation: null },
   { id: 'forest-lantern', name: 'Waldlaterne', image: decoForestLantern, themes: ['nature'], animation: 'desk-anim-flicker' },
-  { id: 'dried-herbs', name: 'Kraeuterbund', image: decoDriedHerbs, themes: ['nature'], animation: 'desk-anim-sway' },
+  { id: 'dried-herbs', name: 'Kräuterbund', image: decoDriedHerbs, themes: ['nature'], animation: 'desk-anim-sway' },
 
   // Raumstation (tech/sci-fi — reuses some industrial assets + shares compass/gear)
   { id: 'vintage-compass', name: 'Navigations-Kompass', image: decoVintageCompass, themes: ['raumstation'], animation: 'desk-anim-sparkle' },
@@ -125,7 +125,7 @@ export const DECO_ASSETS: DecoAsset[] = [
 
   // Atelier (creative workshop — reuses lamp, planter, blueprint)
   { id: 'desk-lamp', name: 'Atelier-Lampe', image: decoDeskLamp, themes: ['atelier'], animation: 'desk-anim-glow' },
-  { id: 'concrete-planter', name: 'Beton-Pflanzgefaess', image: decoConcretePlanter, themes: ['atelier'], animation: null },
+  { id: 'concrete-planter', name: 'Beton-Pflanzgefäß', image: decoConcretePlanter, themes: ['atelier'], animation: null },
   { id: 'blueprint-roll', name: 'Bauplan-Rolle', image: decoBlueprintRoll, themes: ['atelier'], animation: null },
 ]
 

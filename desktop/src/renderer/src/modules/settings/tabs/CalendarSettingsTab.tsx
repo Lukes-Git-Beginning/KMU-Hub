@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { useSettingsStore } from '@/stores/settings'
 
 const HOLIDAY_REGIONS = [
-  { id: 'CH-ZH', label: 'Zuerich' },
+  { id: 'CH-ZH', label: 'Zürich' },
   { id: 'CH-BE', label: 'Bern' },
   { id: 'CH-LU', label: 'Luzern' },
   { id: 'CH-SG', label: 'St. Gallen' },

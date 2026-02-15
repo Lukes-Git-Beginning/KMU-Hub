@@ -134,7 +134,7 @@ export default function WeekView() {
             {activeCats.length === 0 && (
               <tr>
                 <td colSpan={9} className="text-center py-8 text-muted-foreground">
-                  Keine Eintraege in dieser Woche
+                  Keine Einträge in dieser Woche
                 </td>
               </tr>
             )}

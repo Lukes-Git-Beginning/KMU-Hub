@@ -69,7 +69,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
   if (isLoading) {
     return (
       <div className="text-xs text-muted-foreground py-2">
-        Zeiteintraege werden geladen...
+        Zeiteinträge werden geladen...
       </div>
     )
   }
@@ -77,7 +77,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
   if (entries.length === 0) {
     return (
       <div className="text-xs text-muted-foreground py-2">
-        Keine Zeiteintraege vorhanden.
+        Keine Zeiteinträge vorhanden.
       </div>
     )
   }
@@ -115,7 +115,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
                   <span className="font-mono font-medium">
                     {isRunning ? (
                       <span className="text-green-600 dark:text-green-400">
-                        Laeuft...
+                        Läuft...
                       </span>
                     ) : (
                       formatDuration(entry.duration_seconds)
@@ -154,7 +154,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    title="Loeschen"
+                    title="Löschen"
                     onClick={() => {
                       if (entry.id) {
                         deleteEntry.mutate({

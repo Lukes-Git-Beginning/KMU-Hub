@@ -10,7 +10,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   draft: { label: 'Entwurf', color: 'text-muted-foreground', bg: 'bg-secondary', icon: FileText },
   sent: { label: 'Gesendet', color: 'text-info', bg: 'bg-info-light', icon: Clock },
   paid: { label: 'Bezahlt', color: 'text-success', bg: 'bg-success-light', icon: CheckCircle2 },
-  overdue: { label: 'Ueberfaellig', color: 'text-error', bg: 'bg-error-light', icon: AlertCircle },
+  overdue: { label: 'Überfällig', color: 'text-error', bg: 'bg-error-light', icon: AlertCircle },
   cancelled: { label: 'Storniert', color: 'text-muted-foreground', bg: 'bg-secondary', icon: XCircle },
 }
 
@@ -58,7 +58,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Faellig</p>
+              <p className="text-[10px] text-muted-foreground">Fällig</p>
               <p className="text-foreground">{new Date(invoice.dueDate).toLocaleDateString('de-CH')}</p>
             </div>
           </div>

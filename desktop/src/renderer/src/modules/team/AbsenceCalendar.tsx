@@ -185,7 +185,7 @@ export function AbsenceCalendar({ members, requests }: AbsenceCalendarProps) {
           return (
             <div key={key} className="flex items-center gap-1.5">
               <span className="h-3 w-3 rounded" style={{ backgroundColor: colors.bg }} />
-              <span className="text-[10px] text-muted-foreground">{label === 'UE' ? 'Ueberstunden' : label === 'HO' ? 'Homeoffice' : label === 'WB' ? 'Weiterbildung' : label}</span>
+              <span className="text-[10px] text-muted-foreground">{label === 'UE' ? 'Überstunden' : label === 'HO' ? 'Homeoffice' : label === 'WB' ? 'Weiterbildung' : label}</span>
             </div>
           )
         })}

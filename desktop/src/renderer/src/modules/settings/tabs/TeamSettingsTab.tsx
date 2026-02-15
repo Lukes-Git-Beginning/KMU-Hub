@@ -212,7 +212,7 @@ export function TeamSettingsTab() {
 
         <Button variant="outline" size="sm" onClick={addLeaveType}>
           <Plus className="mr-1.5 h-4 w-4" />
-          Abwesenheitsart hinzufuegen
+          Abwesenheitsart hinzufügen
         </Button>
 
         <Button onClick={handleSaveLeave} className="mt-3 ml-2" size="sm">
@@ -245,8 +245,8 @@ export function TeamSettingsTab() {
 
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
             <div>
-              <p className="text-sm text-foreground">Ueberstunden-Erfassung</p>
-              <p className="text-xs text-muted-foreground">Mitarbeiter koennen Ueberstunden rapportieren</p>
+              <p className="text-sm text-foreground">Überstunden-Erfassung</p>
+              <p className="text-xs text-muted-foreground">Mitarbeiter können Überstunden rapportieren</p>
             </div>
             <Switch checked={overtimeEnabled} onCheckedChange={setOvertimeEnabled} />
           </div>
@@ -262,9 +262,9 @@ export function TeamSettingsTab() {
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
-        title="Eintrag loeschen?"
-        description="Dieser Eintrag wird entfernt. Die Aenderung wird erst beim Speichern wirksam."
-        confirmLabel="Loeschen"
+        title="Eintrag löschen?"
+        description="Dieser Eintrag wird entfernt. Die Änderung wird erst beim Speichern wirksam."
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={() => {
           if (!deleteTarget) return

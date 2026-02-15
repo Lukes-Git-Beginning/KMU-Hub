@@ -2,6 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/stores/auth'
 import { canSeeNavItem } from '@/config/roles'
+import { isModuleAllowedForProfile } from '@/config/business-profiles'
+import { useProfileStore } from '@/stores/profile'
 import {
   Tooltip,
   TooltipContent,
@@ -18,8 +20,17 @@ interface SidebarNavProps {
 
 export function SidebarNav({ items, collapsed, onItemClick }: SidebarNavProps) {
   const user = useAuthStore((s) => s.user)
+  const businessProfileId = useProfileStore((s) => s.businessProfileId)
+  const devShowAll = useProfileStore((s) => s.devShowAllModules)
+  const enabledOptionals = useProfileStore((s) => s.enabledOptionalModules)
 
-  const visibleItems = items.filter((item) => canSeeNavItem(user, item.id))
+  const visibleItems = items.filter((item) => {
+    // Layer 1: Role-based filtering (RBAC)
+    if (!canSeeNavItem(user, item.id)) return false
+    // Layer 2: Business profile filtering (skip if dev override)
+    if (devShowAll) return true
+    return isModuleAllowedForProfile(item.id, businessProfileId, enabledOptionals)
+  })
 
   return (
     <nav className="flex-1 overflow-y-auto p-3">
@@ -69,7 +80,7 @@ function NavItem({
           </div>
         </TooltipTrigger>
         <TooltipContent side={collapsed ? 'right' : 'top'}>
-          {item.label} — Bald verfuegbar
+          {item.label} — Bald verfügbar
         </TooltipContent>
       </Tooltip>
     )

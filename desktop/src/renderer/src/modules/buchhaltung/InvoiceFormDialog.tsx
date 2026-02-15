@@ -42,7 +42,7 @@ const PAYMENT_TERMS = [
   '30 Tage netto',
   '60 Tage netto',
   '50% Anzahlung, 50% bei Abnahme',
-  'Sofort faellig',
+  'Sofort fällig',
 ]
 
 export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType = 'invoice' }: InvoiceFormDialogProps) {
@@ -164,7 +164,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Faellig am</Label>
+              <Label>Fällig am</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
@@ -250,7 +250,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
                 className="flex items-center gap-1.5 w-full px-3 py-2 text-xs text-primary hover:bg-primary/5 transition-colors border-t border-border-muted"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Position hinzufuegen
+                Position hinzufügen
               </button>
             </div>
           </div>
@@ -276,7 +276,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
           {/* Notes */}
           <div className="space-y-1.5">
             <Label>Notizen</Label>
-            <Textarea placeholder="Zusaetzliche Informationen..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            <Textarea placeholder="Zusätzliche Informationen..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
         </div>
 

@@ -1,31 +1,48 @@
 /**
- * Floating dev tool for switching between role profiles.
+ * Floating dev tool for switching between role profiles and business profiles.
  *
  * Shows a small button in the bottom-left corner. Clicking opens
- * a panel with 5 mock profiles. Switching sets the auth store
- * user directly (Zustand external setState).
+ * a panel with:
+ * - 5 mock role profiles (RBAC testing)
+ * - 10 business/industry profiles (module visibility)
+ * - "Show all modules" dev toggle
  *
  * Only visible when DEV_BYPASS_AUTH is enabled.
  */
 import { useState } from 'react'
-import { Users, ChevronUp, Check, X } from 'lucide-react'
+import { Users, ChevronUp, Check, X, Building2, Eye } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { DEV_PROFILES, type DevProfile } from '@/config/roles'
+import { BUSINESS_PROFILES, type BusinessProfileId } from '@/config/business-profiles'
+import { useProfileStore } from '@/stores/profile'
+
+type PanelTab = 'roles' | 'business'
 
 export function ProfileSwitcher() {
   const [isOpen, setIsOpen] = useState(false)
+  const [tab, setTab] = useState<PanelTab>('roles')
   const currentUser = useAuthStore((s) => s.user)
 
-  const currentProfileId = DEV_PROFILES.find(
+  const businessProfileId = useProfileStore((s) => s.businessProfileId)
+  const devShowAll = useProfileStore((s) => s.devShowAllModules)
+  const setBusinessProfile = useProfileStore((s) => s.setBusinessProfile)
+  const toggleDevShowAll = useProfileStore((s) => s.toggleDevShowAll)
+
+  const currentRoleId = DEV_PROFILES.find(
     (p) => p.user.id === currentUser?.id
   )?.id
 
-  const switchProfile = (profile: DevProfile) => {
+  const currentBusinessProfile = BUSINESS_PROFILES.find((p) => p.id === businessProfileId)
+
+  const switchRoleProfile = (profile: DevProfile) => {
     useAuthStore.setState({
       user: profile.user,
       isAuthenticated: true,
     })
-    setIsOpen(false)
+  }
+
+  const switchBusinessProfile = (id: BusinessProfileId | null) => {
+    setBusinessProfile(id)
   }
 
   return (
@@ -33,24 +50,29 @@ export function ProfileSwitcher() {
       {/* Floating trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 left-4 z-[100] flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-lg hover:shadow-xl transition-all hover:scale-105"
+        className="fixed bottom-4 left-4 z-[100] flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-lg hover:shadow-xl transition-all hover:scale-105 glass-elevated"
         title="Profil wechseln (Dev-Tool)"
       >
-        {currentProfileId ? (
+        {currentRoleId ? (
           <div
             className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white"
-            style={{ background: DEV_PROFILES.find((p) => p.id === currentProfileId)?.color }}
+            style={{ background: DEV_PROFILES.find((p) => p.id === currentRoleId)?.color }}
           >
-            {DEV_PROFILES.find((p) => p.id === currentProfileId)?.initials}
+            {DEV_PROFILES.find((p) => p.id === currentRoleId)?.initials}
           </div>
         ) : (
           <Users className="h-4 w-4 text-muted-foreground" />
         )}
         <span className="text-xs font-medium text-foreground hidden sm:inline">
-          {currentProfileId
-            ? DEV_PROFILES.find((p) => p.id === currentProfileId)?.label
-            : 'Profil waehlen'}
+          {currentRoleId
+            ? DEV_PROFILES.find((p) => p.id === currentRoleId)?.label
+            : 'Profil wählen'}
         </span>
+        {currentBusinessProfile && (
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            | {currentBusinessProfile.emoji}
+          </span>
+        )}
         <ChevronUp className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
@@ -61,57 +83,137 @@ export function ProfileSwitcher() {
           <div className="fixed inset-0 z-[99]" onClick={() => setIsOpen(false)} />
 
           {/* Panel */}
-          <div className="fixed bottom-16 left-4 z-[100] w-80 rounded-xl border border-border bg-card shadow-2xl overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-border bg-secondary/30 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Rollen-Ansicht</p>
-                <p className="text-[10px] text-muted-foreground">Wechsle die Perspektive — Sidebar & Einstellungen passen sich an</p>
+          <div className="fixed bottom-16 left-4 z-[100] w-80 rounded-xl border border-border bg-card shadow-2xl overflow-hidden glass-elevated">
+            {/* Header with tabs */}
+            <div className="border-b border-border bg-secondary/30">
+              <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                <p className="text-sm font-medium text-foreground">Dev-Tools</p>
+                <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex px-2 gap-1 pb-2">
+                <button
+                  onClick={() => setTab('roles')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    tab === 'roles' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  Rollen
+                </button>
+                <button
+                  onClick={() => setTab('business')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    tab === 'business' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  Branche
+                </button>
+              </div>
             </div>
 
-            {/* Profiles */}
-            <div className="p-2 space-y-1">
-              {DEV_PROFILES.map((profile) => {
-                const isActive = currentProfileId === profile.id
-                return (
+            {/* Tab content */}
+            <div className="max-h-80 overflow-y-auto">
+              {tab === 'roles' ? (
+                <div className="p-2 space-y-1">
+                  {DEV_PROFILES.map((profile) => {
+                    const isActive = currentRoleId === profile.id
+                    return (
+                      <button
+                        key={profile.id}
+                        onClick={() => switchRoleProfile(profile)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all ${
+                          isActive
+                            ? 'bg-primary/8 ring-1 ring-primary/30'
+                            : 'hover:bg-secondary/70'
+                        }`}
+                      >
+                        <div
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                          style={{ background: profile.color }}
+                        >
+                          {profile.initials}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                              {profile.label}
+                            </p>
+                            {isActive && <Check className="h-3.5 w-3.5 text-primary" />}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate">{profile.description}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="p-2 space-y-1">
+                  {/* No profile option */}
                   <button
-                    key={profile.id}
-                    onClick={() => switchProfile(profile)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all ${
-                      isActive
+                    onClick={() => switchBusinessProfile(null)}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-all ${
+                      !businessProfileId
                         ? 'bg-primary/8 ring-1 ring-primary/30'
                         : 'hover:bg-secondary/70'
                     }`}
                   >
-                    <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                      style={{ background: profile.color }}
-                    >
-                      {profile.initials}
-                    </div>
+                    <span className="text-xl w-8 text-center shrink-0">&#x2699;&#xFE0F;</span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                          {profile.label}
-                        </p>
-                        {isActive && <Check className="h-3.5 w-3.5 text-primary" />}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground truncate">{profile.description}</p>
+                      <p className={`text-sm font-medium ${!businessProfileId ? 'text-primary' : 'text-foreground'}`}>
+                        Kein Profil (alle Module)
+                      </p>
                     </div>
+                    {!businessProfileId && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
                   </button>
-                )
-              })}
+
+                  {BUSINESS_PROFILES.map((profile) => {
+                    const isActive = businessProfileId === profile.id
+                    return (
+                      <button
+                        key={profile.id}
+                        onClick={() => switchBusinessProfile(profile.id)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-all ${
+                          isActive
+                            ? 'bg-primary/8 ring-1 ring-primary/30'
+                            : 'hover:bg-secondary/70'
+                        }`}
+                      >
+                        <span className="text-xl w-8 text-center shrink-0">{profile.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                              {profile.name}
+                            </p>
+                            {isActive && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {profile.examples.slice(0, 3).join(', ')}
+                          </p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Footer hint */}
-            <div className="border-t border-border px-4 py-2 bg-secondary/20">
-              <p className="text-[10px] text-muted-foreground text-center">
-                Dev-Tool — nur sichtbar im Design-Modus
-              </p>
+            {/* Footer with dev toggle */}
+            <div className="border-t border-border px-4 py-2.5 bg-secondary/20">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={devShowAll}
+                  onChange={toggleDevShowAll}
+                  className="rounded border-border"
+                />
+                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground">
+                  Alle Module anzeigen (Dev)
+                </span>
+              </label>
             </div>
           </div>
         </>

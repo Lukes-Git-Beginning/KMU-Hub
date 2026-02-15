@@ -20,6 +20,7 @@ import {
   EyeOff,
   X,
   Plus,
+  Building2,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -37,8 +38,10 @@ import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
 import { TeamSettingsTab } from './tabs/TeamSettingsTab'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
+import { useProfileStore } from '@/stores/profile'
+import { BUSINESS_PROFILES } from '@/config/business-profiles'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'team' | 'privacy' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'team' | 'privacy' | 'business' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -48,20 +51,21 @@ interface TabConfig {
 }
 
 const ALL_TABS: TabConfig[] = [
-  { key: 'profile', label: 'Profil', icon: User, group: 'Persoenlich' },
-  { key: 'appearance', label: 'Darstellung', icon: Palette, group: 'Persoenlich' },
-  { key: 'language', label: 'Sprache & Region', icon: Globe, group: 'Persoenlich' },
-  { key: 'security', label: 'Sicherheit', icon: Shield, group: 'Persoenlich' },
-  { key: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'Persoenlich' },
+  { key: 'profile', label: 'Profil', icon: User, group: 'Persönlich' },
+  { key: 'appearance', label: 'Darstellung', icon: Palette, group: 'Persönlich' },
+  { key: 'language', label: 'Sprache & Region', icon: Globe, group: 'Persönlich' },
+  { key: 'security', label: 'Sicherheit', icon: Shield, group: 'Persönlich' },
+  { key: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'Persönlich' },
   { key: 'mail', label: 'E-Mail', icon: Mail, group: 'Module' },
   { key: 'calendar', label: 'Kalender', icon: Calendar, group: 'Module' },
   { key: 'finance', label: 'Buchhaltung', icon: Receipt, group: 'Module' },
+  { key: 'business', label: 'Branchenprofil', icon: Building2, group: 'Admin' },
   { key: 'team', label: 'Team & HR', icon: Users, group: 'Admin' },
   { key: 'privacy', label: 'Datenschutz', icon: Lock, group: 'Admin' },
-  { key: 'about', label: 'Ueber KMU Hub', icon: Info, group: 'Sonstiges' },
+  { key: 'about', label: 'Über KMU Hub', icon: Info, group: 'Sonstiges' },
 ]
 
-const TAB_GROUPS = ['Persoenlich', 'Module', 'Admin', 'Sonstiges']
+const TAB_GROUPS = ['Persönlich', 'Module', 'Admin', 'Sonstiges']
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('profile')
@@ -123,6 +127,7 @@ export default function SettingsPage() {
         {effectiveTab === 'finance' && <FinanceSettingsTab />}
         {effectiveTab === 'team' && <TeamSettingsTab />}
         {effectiveTab === 'privacy' && <PrivacySettingsTab />}
+        {effectiveTab === 'business' && <BusinessProfileTab />}
         {effectiveTab === 'about' && <AboutTab />}
       </div>
     </div>
@@ -159,7 +164,7 @@ function ProfileTab() {
   return (
     <div className="max-w-2xl">
       <h2 className="text-foreground mb-1">Profil</h2>
-      <p className="text-sm text-muted-foreground mb-6">Verwalte deine persoenlichen Informationen</p>
+      <p className="text-sm text-muted-foreground mb-6">Verwalte deine persönlichen Informationen</p>
 
       {/* Avatar */}
       <div className="flex items-center gap-4 mb-8">
@@ -168,7 +173,7 @@ function ProfileTab() {
         </div>
         <div>
           <Button variant="outline" size="sm" onClick={handlePhotoChange}>
-            Foto aendern
+            Foto ändern
           </Button>
           <p className="text-xs text-muted-foreground mt-1">JPG, PNG oder GIF, max. 5 MB</p>
         </div>
@@ -246,7 +251,7 @@ function AppearanceTab() {
   const setDeskDecoration = useUIStore((s) => s.setDeskDecoration)
 
   const themes = [
-    { id: 'light' as const, label: 'Hell', desc: 'Warme, helle Oberflaeche' },
+    { id: 'light' as const, label: 'Hell', desc: 'Warme, helle Oberfläche' },
     { id: 'dark' as const, label: 'Dunkel', desc: 'Augenfreundlich bei wenig Licht' },
     { id: 'auto' as const, label: 'System', desc: 'Folgt den Systemeinstellungen' },
   ]
@@ -275,7 +280,7 @@ function AppearanceTab() {
 
   const handleAddDeco = (decoId: string) => {
     if (freeImageSlots.length === 0) {
-      toast.error('Alle Plaetze belegt — entferne erst eine Deko')
+      toast.error('Alle Plätze belegt — entferne erst eine Deko')
       return
     }
     const mp = freeImageSlots[0]
@@ -328,12 +333,12 @@ function AppearanceTab() {
       </div>
 
       {/* ── UI LOOK PICKER ──────────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Oberflaechenstil</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">Oberflächenstil</h3>
       <div className="grid grid-cols-3 gap-3 mb-8">
         {([
-          { id: 'solid' as const, label: 'Standard', desc: 'Solide, opake Oberflaechen' },
+          { id: 'solid' as const, label: 'Standard', desc: 'Solide, opake Oberflächen' },
           { id: 'glass' as const, label: 'Milchglas', desc: 'Halbtransparent mit Blur' },
-          { id: 'crystal' as const, label: 'Kristall', desc: 'Maximal durchsichtig' },
+          { id: 'crystal' as const, label: 'Transparent', desc: 'Durchsichtig, Inhalte milchig' },
         ]).map((look) => (
           <button
             key={look.id}
@@ -368,7 +373,7 @@ function AppearanceTab() {
 
       {/* ── DESK THEME PICKER ─────────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Arbeitsplatz-Theme</h3>
-      <p className="text-xs text-muted-foreground mb-3">Waehle das Ambiente deines virtuellen Schreibtischs</p>
+      <p className="text-xs text-muted-foreground mb-3">Wähle das Ambiente deines virtuellen Schreibtischs</p>
       <div className="grid grid-cols-3 gap-3 mb-8">
         {DESK_THEME_ORDER.map((id) => {
           const dt = DESK_THEMES[id]
@@ -486,7 +491,7 @@ function AppearanceTab() {
 
       <div className="mt-8 mb-4 border-t border-border" />
 
-      <h3 className="text-sm font-medium text-foreground mb-3">Schriftgroesse</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">Schriftgröße</h3>
       <div className="flex items-center gap-3 mb-2">
         <span className="text-xs text-muted-foreground">Klein</span>
         <input
@@ -597,22 +602,22 @@ function SecurityTab() {
   const [showRevokeSession, setShowRevokeSession] = useState<number | null>(null)
 
   const mockSessions = [
-    { id: 1, device: 'Desktop — Windows', location: 'Zuerich, CH', lastActive: 'Jetzt aktiv', isCurrent: true, icon: Monitor },
-    { id: 2, device: 'iPhone 15 Pro', location: 'Zuerich, CH', lastActive: 'Vor 2 Stunden', isCurrent: false, icon: Smartphone },
+    { id: 1, device: 'Desktop — Windows', location: 'Zürich, CH', lastActive: 'Jetzt aktiv', isCurrent: true, icon: Monitor },
+    { id: 2, device: 'iPhone 15 Pro', location: 'Zürich, CH', lastActive: 'Vor 2 Stunden', isCurrent: false, icon: Smartphone },
     { id: 3, device: 'MacBook Pro', location: 'Bern, CH', lastActive: 'Vor 3 Tagen', isCurrent: false, icon: Monitor },
   ]
 
   const handlePasswordChange = () => {
     if (!currentPw || !newPw) return
     if (newPw !== confirmPw) {
-      toast.error('Passwoerter stimmen nicht ueberein')
+      toast.error('Passwörter stimmen nicht überein')
       return
     }
     if (newPw.length < 8) {
       toast.error('Passwort muss mindestens 8 Zeichen haben')
       return
     }
-    toast.success('Passwort geaendert')
+    toast.success('Passwort geändert')
     setCurrentPw('')
     setNewPw('')
     setConfirmPw('')
@@ -642,7 +647,7 @@ function SecurityTab() {
 
       {/* Password */}
       <section className="mb-8">
-        <h3 className="text-sm font-medium text-foreground mb-3">Passwort aendern</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">Passwort ändern</h3>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">Aktuelles Passwort</label>
@@ -677,12 +682,12 @@ function SecurityTab() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Passwort bestaetigen</label>
+            <label className="block text-sm font-medium text-foreground">Passwort bestätigen</label>
             <Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
           </div>
         </div>
         <Button onClick={handlePasswordChange} className="mt-3" size="sm" disabled={!currentPw || !newPw || !confirmPw}>
-          Passwort aendern
+          Passwort ändern
         </Button>
       </section>
 
@@ -836,7 +841,7 @@ function SecurityTab() {
         open={showRevokeSession !== null}
         onOpenChange={(open) => { if (!open) setShowRevokeSession(null) }}
         title="Sitzung beenden?"
-        description="Das Geraet wird abgemeldet und muss sich erneut anmelden."
+        description="Das Gerät wird abgemeldet und muss sich erneut anmelden."
         confirmLabel="Abmelden"
         variant="destructive"
         onConfirm={handleRevokeSession}
@@ -850,12 +855,12 @@ function SecurityTab() {
 // ============================================================
 const NOTIFICATION_MODULES: { key: NotificationModule; label: string; desc: string }[] = [
   { key: 'messages', label: 'Nachrichten', desc: 'Chat-Nachrichten und DMs' },
-  { key: 'tasks', label: 'Aufgaben', desc: 'Zuweisung, Status-Aenderungen' },
+  { key: 'tasks', label: 'Aufgaben', desc: 'Zuweisung, Status-Änderungen' },
   { key: 'meetings', label: 'Meetings', desc: 'Erinnerungen und Einladungen' },
   { key: 'mails', label: 'E-Mails', desc: 'Neue E-Mails und Antworten' },
-  { key: 'calendar', label: 'Kalender', desc: 'Termine und Aenderungen' },
+  { key: 'calendar', label: 'Kalender', desc: 'Termine und Änderungen' },
   { key: 'team', label: 'Team', desc: 'HR-Antraege und Mitglieder-Updates' },
-  { key: 'finance', label: 'Buchhaltung', desc: 'Zahlungen und Faelligkeiten' },
+  { key: 'finance', label: 'Buchhaltung', desc: 'Zahlungen und Fälligkeiten' },
 ]
 
 function NotificationsTab() {
@@ -870,7 +875,7 @@ function NotificationsTab() {
   return (
     <div className="max-w-2xl">
       <h2 className="text-foreground mb-1">Benachrichtigungen</h2>
-      <p className="text-sm text-muted-foreground mb-6">Stelle ein, wie du pro Modul benachrichtigt werden moechtest</p>
+      <p className="text-sm text-muted-foreground mb-6">Stelle ein, wie du pro Modul benachrichtigt werden möchtest</p>
 
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Header */}
@@ -900,7 +905,7 @@ function NotificationsTab() {
         ))}
       </div>
 
-      <p className="text-xs text-muted-foreground mt-3">Aenderungen werden automatisch gespeichert.</p>
+      <p className="text-xs text-muted-foreground mt-3">Änderungen werden automatisch gespeichert.</p>
     </div>
   )
 }
@@ -914,7 +919,7 @@ function AboutTab() {
       <div className="rounded-lg bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
         <h2 className="text-primary-foreground text-xl mb-2">KMU Hub</h2>
         <p className="text-primary-foreground/80 text-sm">
-          All-in-One CRM fuer DACH-KMUs mit EU-Datensouveraenitaet
+          All-in-One CRM für DACH-KMUs mit EU-Datensouveränität
         </p>
       </div>
 
@@ -932,9 +937,9 @@ function AboutTab() {
       <h3 className="text-sm font-medium text-foreground mb-3">Features</h3>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         {[
-          { title: 'EU-Datensouveraenitaet', desc: 'Hosting nur auf EU-Servern' },
-          { title: 'KMU-optimiert', desc: 'Fuer 5-200 Mitarbeiter' },
-          { title: 'Self-Hosted Option', desc: 'Volle Kontrolle ueber deine Daten' },
+          { title: 'EU-Datensouveränität', desc: 'Hosting nur auf EU-Servern' },
+          { title: 'KMU-optimiert', desc: 'Für 5-200 Mitarbeiter' },
+          { title: 'Self-Hosted Option', desc: 'Volle Kontrolle über deine Daten' },
         ].map((f) => (
           <div key={f.title} className="rounded-lg border border-border bg-card p-3">
             <p className="text-sm font-medium text-foreground mb-0.5">{f.title}</p>
@@ -950,4 +955,111 @@ function AboutTab() {
       </div>
     </div>
   )
+}
+
+// ============================================================
+// Business Profile Tab — industry profile + optional modules
+// ============================================================
+function BusinessProfileTab() {
+  const { businessProfileId, enabledOptionalModules, setBusinessProfile, enableModule, disableModule } = useProfileStore()
+  const selectedProfile = BUSINESS_PROFILES.find((p) => p.id === businessProfileId)
+
+  return (
+    <div className="max-w-3xl">
+      <h2 className="text-lg font-semibold text-foreground mb-1">Branchenprofil</h2>
+      <p className="text-sm text-muted-foreground mb-6">
+        Wählen Sie das Profil das am besten zu Ihrem Unternehmen passt. Module werden entsprechend angezeigt.
+      </p>
+
+      {/* Profile grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+        {BUSINESS_PROFILES.map((profile) => {
+          const isActive = businessProfileId === profile.id
+          return (
+            <button
+              key={profile.id}
+              onClick={() => setBusinessProfile(profile.id)}
+              className={`flex items-start gap-3 rounded-lg border-2 p-4 text-left transition-all ${
+                isActive
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              <span className="text-2xl shrink-0">{profile.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                    {profile.name}
+                  </p>
+                  {isActive && <Check className="h-4 w-4 text-primary shrink-0" />}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{profile.description}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  z.B. {profile.examples.slice(0, 3).join(', ')}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {profile.defaultModules.length} Module · {profile.optionalModules.length} optional
+                </p>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Optional modules */}
+      {selectedProfile && selectedProfile.optionalModules.length > 0 && (
+        <>
+          <h3 className="text-sm font-medium text-foreground mb-1">Optionale Module</h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Erweitern Sie Ihr &quot;{selectedProfile.name}&quot;-Profil mit zusätzlichen Modulen.
+          </p>
+          <div className="space-y-2">
+            {selectedProfile.optionalModules.map((moduleId) => {
+              const isEnabled = enabledOptionalModules.includes(moduleId)
+              const moduleLabel = MODULE_LABELS[moduleId] ?? moduleId
+              return (
+                <div
+                  key={moduleId}
+                  className="flex items-center justify-between rounded-lg border border-border p-3"
+                >
+                  <span className="text-sm text-foreground">{moduleLabel}</span>
+                  <Switch
+                    checked={isEnabled}
+                    onCheckedChange={(checked: boolean) => {
+                      if (checked) enableModule(moduleId)
+                      else disableModule(moduleId)
+                      toast.success(checked ? `${moduleLabel} aktiviert` : `${moduleLabel} deaktiviert`)
+                    }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Label map for module IDs used in the optional modules list */
+const MODULE_LABELS: Record<string, string> = {
+  crm: 'CRM',
+  projects: 'Projekte',
+  tasks: 'Aufgaben',
+  chat: 'Nachrichten',
+  calendar: 'Kalender',
+  meetings: 'Meetings',
+  documents: 'Dokumente',
+  mail: 'E-Mail',
+  contacts: 'Kontakte',
+  team: 'Team',
+  finance: 'Buchhaltung',
+  infrastructure: 'Infrastruktur',
+  inventar: 'Inventar',
+  schichten: 'Schichtplanung',
+  einkauf: 'Einkauf',
+  helpdesk: 'Helpdesk',
+  fuhrpark: 'Fuhrpark',
+  produktion: 'Produktion',
+  berichte: 'Berichte',
 }

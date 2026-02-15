@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { BusinessProfileId } from '@/config/business-profiles'
+
+// ---- Work Profiles (focus views within the app) ----
 
 export interface WorkProfile {
   id: string
@@ -8,16 +11,6 @@ export interface WorkProfile {
   icon: string
   color: string
   isDefault: boolean
-}
-
-interface ProfileState {
-  profiles: WorkProfile[]
-  activeProfileId: string
-
-  switchProfile: (profileId: string) => void
-  createProfile: (profile: Omit<WorkProfile, 'id'>) => void
-  deleteProfile: (profileId: string) => void
-  setDefaultProfile: (profileId: string) => void
 }
 
 const DEFAULT_PROFILES: WorkProfile[] = [
@@ -47,9 +40,31 @@ const DEFAULT_PROFILES: WorkProfile[] = [
   },
 ]
 
+// ---- Combined State ----
+
+interface ProfileState {
+  // Work profiles (focus views)
+  profiles: WorkProfile[]
+  activeProfileId: string
+  switchProfile: (profileId: string) => void
+  createProfile: (profile: Omit<WorkProfile, 'id'>) => void
+  deleteProfile: (profileId: string) => void
+  setDefaultProfile: (profileId: string) => void
+
+  // Business profile (industry — determines which modules are visible)
+  businessProfileId: BusinessProfileId | null
+  devShowAllModules: boolean
+  enabledOptionalModules: string[]
+  setBusinessProfile: (id: BusinessProfileId | null) => void
+  toggleDevShowAll: () => void
+  enableModule: (moduleId: string) => void
+  disableModule: (moduleId: string) => void
+}
+
 export const useProfileStore = create<ProfileState>()(
   persist(
     (set, get) => ({
+      // ---- Work Profiles ----
       profiles: DEFAULT_PROFILES,
       activeProfileId: 'default',
 
@@ -88,6 +103,24 @@ export const useProfileStore = create<ProfileState>()(
           })),
         }))
       },
+
+      // ---- Business Profile (Industry) ----
+      businessProfileId: null,
+      devShowAllModules: false,
+      enabledOptionalModules: [],
+
+      setBusinessProfile: (id) => set({ businessProfileId: id, enabledOptionalModules: [] }),
+      toggleDevShowAll: () => set((s) => ({ devShowAllModules: !s.devShowAllModules })),
+      enableModule: (moduleId) =>
+        set((s) => ({
+          enabledOptionalModules: s.enabledOptionalModules.includes(moduleId)
+            ? s.enabledOptionalModules
+            : [...s.enabledOptionalModules, moduleId],
+        })),
+      disableModule: (moduleId) =>
+        set((s) => ({
+          enabledOptionalModules: s.enabledOptionalModules.filter((id) => id !== moduleId),
+        })),
     }),
     {
       name: 'kmuhub-profiles',

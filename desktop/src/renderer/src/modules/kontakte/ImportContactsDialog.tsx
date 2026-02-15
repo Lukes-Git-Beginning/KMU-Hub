@@ -163,7 +163,7 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
     setImported(false)
 
     if (!f.name.endsWith('.csv')) {
-      setError('Nur CSV-Dateien werden unterstuetzt. Bitte eine .csv Datei waehlen.')
+      setError('Nur CSV-Dateien werden unterstützt. Bitte eine .csv Datei wählen.')
       return
     }
 
@@ -214,7 +214,7 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
               {importCount} Kontakte importiert
             </p>
             <p className="text-sm text-[var(--muted)] mt-1">
-              Die Kontakte wurden erfolgreich hinzugefuegt.
+              Die Kontakte wurden erfolgreich hinzugefügt.
             </p>
           </div>
         ) : (
@@ -231,7 +231,7 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
                 CSV-Datei hierher ziehen
               </p>
               <p className="text-xs text-[var(--muted)] mt-1">
-                oder klicken zum Auswaehlen
+                oder klicken zum Auswählen
               </p>
               <input
                 id="csv-upload"

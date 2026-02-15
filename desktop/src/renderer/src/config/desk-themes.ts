@@ -171,8 +171,8 @@ const cozy: DeskTheme = {
 
 const dreamy: DeskTheme = {
   id: 'dreamy',
-  name: 'Vertraeumt',
-  description: 'Magische Atmosphaere mit Kristallen und Lichtpartikeln',
+  name: 'Verträumt',
+  description: 'Magische Atmosphäre mit Kristallen und Lichtpartikeln',
   isMinimal: false,
 
   window: {
@@ -233,7 +233,7 @@ const dreamy: DeskTheme = {
 const nature: DeskTheme = {
   id: 'nature',
   name: 'Waldhuette',
-  description: 'Erdige Toene mit Stein, dunklem Holz und Moos',
+  description: 'Erdige Töne mit Stein, dunklem Holz und Moos',
   isMinimal: false,
 
   window: {
@@ -536,7 +536,7 @@ const atelier: DeskTheme = {
   },
 
   sidebar: { background: 'solid', integratedWithFrame: true },
-  viewDescription: 'Stadtblick ueber Daecher mit warmem Abendlicht',
+  viewDescription: 'Stadtblick über Daecher mit warmem Abendlicht',
 }
 
 // ── 6. CLEAN (Neutral base) ────────────────────────────────────────────────

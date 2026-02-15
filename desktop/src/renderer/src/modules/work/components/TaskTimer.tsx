@@ -174,7 +174,7 @@ export default function TaskTimer({ taskId }: TaskTimerProps) {
         <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <div>
-            <span className="font-medium">Timer laeuft auf anderer Aufgabe.</span>{' '}
+            <span className="font-medium">Timer läuft auf anderer Aufgabe.</span>{' '}
             Starten wechselt den Timer hierher.
           </div>
         </div>
@@ -185,7 +185,7 @@ export default function TaskTimer({ taskId }: TaskTimerProps) {
         <Clock className="h-3 w-3" />
         <span>Gesamt: {formatDuration(totalSeconds)}</span>
         {summary && summary.entry_count > 0 && (
-          <span>({summary.entry_count} Eintraege)</span>
+          <span>({summary.entry_count} Einträge)</span>
         )}
       </div>
     </div>

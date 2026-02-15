@@ -299,7 +299,7 @@ export default function TaskDetailPanel() {
                   {/* Priority */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Prioritaet
+                      Priorität
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -345,7 +345,7 @@ export default function TaskDetailPanel() {
                   {/* Assignee */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Zustaendig
+                      Zuständig
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -394,7 +394,7 @@ export default function TaskDetailPanel() {
                   {/* Due date */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Faellig am
+                      Fällig am
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -477,7 +477,7 @@ export default function TaskDetailPanel() {
                       onClick={() => setEditingDesc(true)}
                       title="Klicken zum Bearbeiten"
                     >
-                      {task.description || 'Beschreibung hinzufuegen...'}
+                      {task.description || 'Beschreibung hinzufügen...'}
                     </div>
                   )}
                 </div>

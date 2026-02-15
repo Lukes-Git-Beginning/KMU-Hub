@@ -76,7 +76,7 @@ export function ProfileSwitcher() {
               Arbeitsprofile wechseln
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ctrl + Shift + [1-9] fuer Schnellwechsel
+              Ctrl + Shift + [1-9] für Schnellwechsel
             </p>
           </div>
 
