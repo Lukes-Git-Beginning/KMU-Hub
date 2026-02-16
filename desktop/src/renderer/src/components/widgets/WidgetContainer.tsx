@@ -29,7 +29,7 @@ function useDebouncedLayoutUpdate(
 ): (layout: Layout[]) => void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fnRef = useRef(fn)
-  fnRef.current = fn
+  useEffect(() => { fnRef.current = fn }, [fn])
 
   return useCallback(
     (layout: Layout[]) => {
@@ -119,7 +119,7 @@ export default function WidgetContainer() {
             className="shadow-lg"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Widget hinzufuegen
+            Widget hinzufügen
           </Button>
         </div>
       )}
@@ -128,9 +128,9 @@ export default function WidgetContainer() {
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Widget hinzufuegen</DialogTitle>
+            <DialogTitle>Widget hinzufügen</DialogTitle>
             <DialogDescription>
-              Waehlen Sie ein Widget fuer Ihr Dashboard aus.
+              Wählen Sie ein Widget für Ihr Dashboard aus.
             </DialogDescription>
           </DialogHeader>
 

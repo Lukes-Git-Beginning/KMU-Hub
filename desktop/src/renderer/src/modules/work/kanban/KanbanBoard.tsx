@@ -6,7 +6,7 @@
  * Uses closestCorners collision detection for multi-container scenarios.
  * Fractional ordering for sort_order between neighbors.
  */
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import {
   DndContext,
   DragOverlay,

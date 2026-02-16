@@ -11,7 +11,6 @@ import { de } from 'date-fns/locale'
 import { Loader2 } from 'lucide-react'
 import { useMessages, useMessageWebSocket, useEditMessage, useDeleteMessage, type MessageInfo } from '@/api/hooks/useMessages'
 import { useAuthStore } from '@/stores/auth'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { MessageBubble } from './MessageBubble'
 
 interface MessageListProps {
@@ -74,7 +73,7 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
   }, [editMessage])
 
   const handleDelete = useCallback((messageId: string) => {
-    if (window.confirm('Nachricht wirklich loeschen?')) {
+    if (window.confirm('Nachricht wirklich löschen?')) {
       deleteMessage.mutate(messageId)
     }
   }, [deleteMessage])

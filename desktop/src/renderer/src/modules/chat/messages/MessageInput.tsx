@@ -85,7 +85,7 @@ export function MessageInput({ channelId, parentMessageId, placeholder }: Messag
               <Paperclip className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Datei anhaengen (bald verfuegbar)</TooltipContent>
+          <TooltipContent>Datei anhängen (bald verfügbar)</TooltipContent>
         </Tooltip>
 
         <Textarea

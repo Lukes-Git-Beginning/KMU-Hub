@@ -2,7 +2,7 @@
  * Individual message bubble component.
  *
  * Displays sender avatar, name, timestamp, content, thread indicator,
- * reactions bar, and hover actions (reply, react, edit, delete for own messages).
+ * and hover actions (reply, edit, delete for own messages).
  */
 import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
@@ -16,8 +16,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { ReactionPicker } from '@/components/chat/ReactionPicker'
-import { ReactionBar } from '@/components/chat/ReactionBar'
 import type { components } from '@/api/types'
 
 type MessageInfo = components['schemas']['MessageInfo']
@@ -65,7 +63,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }
             <span className="text-xs text-muted-foreground">{timeAgo}</span>
           </div>
           <p className="text-sm italic text-muted-foreground">
-            Diese Nachricht wurde geloescht.
+            Diese Nachricht wurde gelöscht.
           </p>
         </div>
       </div>
@@ -108,17 +106,11 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }
             {replyCount} {replyCount === 1 ? 'Antwort' : 'Antworten'}
           </button>
         )}
-
-        {/* Reactions */}
-        {message.id && <ReactionBar messageId={message.id} />}
       </div>
 
       {/* Hover actions */}
       {showActions && (
         <div className="absolute right-2 top-0 -translate-y-1/2 flex items-center gap-0.5 rounded-md border border-border bg-card px-1 py-0.5 shadow-sm">
-          {/* Reaction picker */}
-          {message.id && <ReactionPicker messageId={message.id} />}
-
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -160,7 +152,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Loeschen</TooltipContent>
+                <TooltipContent>Löschen</TooltipContent>
               </Tooltip>
             </>
           )}

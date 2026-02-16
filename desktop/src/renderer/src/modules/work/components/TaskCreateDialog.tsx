@@ -137,7 +137,7 @@ export default function TaskCreateDialog({
           </DialogTitle>
           <DialogDescription>
             {parentTaskId
-              ? 'Erstelle eine Unteraufgabe fuer die ausgewaehlte Aufgabe.'
+              ? 'Erstelle eine Unteraufgabe für die ausgewählte Aufgabe.'
               : 'Erstelle eine neue Aufgabe in diesem Projekt.'}
           </DialogDescription>
         </DialogHeader>
@@ -161,7 +161,7 @@ export default function TaskCreateDialog({
               <Label>Status</Label>
               <Select value={statusId} onValueChange={setStatusId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Status waehlen" />
+                  <SelectValue placeholder="Status wählen" />
                 </SelectTrigger>
                 <SelectContent>
                   {statuses
@@ -182,7 +182,7 @@ export default function TaskCreateDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Prioritaet</Label>
+              <Label>Priorität</Label>
               <Select
                 value={priority}
                 onValueChange={(v) => setPriority(v as Priority)}
@@ -203,7 +203,7 @@ export default function TaskCreateDialog({
           {/* Assignee + Due date row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Zustaendig</Label>
+              <Label>Zuständig</Label>
               <Select
                 value={assigneeId || '__none__'}
                 onValueChange={(v) => setAssigneeId(v === '__none__' ? '' : v)}
@@ -225,7 +225,7 @@ export default function TaskCreateDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="task-due-date">Faellig am</Label>
+              <Label htmlFor="task-due-date">Fällig am</Label>
               <Input
                 id="task-due-date"
                 type="date"
@@ -254,7 +254,7 @@ export default function TaskCreateDialog({
               onClick={() => setShowDescription(true)}
             >
               <ChevronDown className="h-3 w-3" />
-              Beschreibung hinzufuegen
+              Beschreibung hinzufügen
             </button>
           )}
 

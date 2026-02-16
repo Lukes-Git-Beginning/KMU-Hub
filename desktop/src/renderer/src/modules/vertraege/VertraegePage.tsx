@@ -1,0 +1,1234 @@
+import { useState, useMemo } from 'react'
+import {
+  Search,
+  Plus,
+  FileSignature,
+  Building,
+  Truck,
+  Wrench,
+  UserCheck,
+  KeyRound,
+  Shield,
+  Eye,
+  Edit,
+  Trash2,
+  X,
+  ChevronDown,
+  Filter,
+  AlertTriangle,
+  CalendarClock,
+  Clock,
+  RefreshCw,
+  Ban,
+  Archive,
+  Wallet,
+  Coins,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { useVertraegeStore, type Contract, type ContractType, type ContractStatus } from '@/stores/vertraege'
+import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+
+// ─── Type Config ─────────────────────────────────────────────────
+
+type TabKey = 'aktiv' | 'auslaufend' | 'archiv'
+type TypeFilter = 'all' | ContractType
+
+const contractTypeConfig: Record<ContractType, { label: string; icon: typeof Building; colorClass: string }> = {
+  mietvertrag: { label: 'Mietvertrag', icon: Building, colorClass: 'bg-info-light text-info' },
+  liefervertrag: { label: 'Liefervertrag', icon: Truck, colorClass: 'bg-warning-light text-warning' },
+  servicevertrag: { label: 'Servicevertrag', icon: Wrench, colorClass: 'bg-success-light text-success' },
+  arbeitsvertrag: { label: 'Arbeitsvertrag', icon: UserCheck, colorClass: 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400' },
+  lizenz: { label: 'Lizenz', icon: KeyRound, colorClass: 'bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400' },
+  versicherung: { label: 'Versicherung', icon: Shield, colorClass: 'bg-error-light text-error' },
+}
+
+const statusConfig: Record<ContractStatus, { label: string; colorClass: string }> = {
+  active: { label: 'Aktiv', colorClass: 'bg-success-light text-success' },
+  expiring: { label: 'Auslaufend', colorClass: 'bg-warning-light text-warning' },
+  terminated: { label: 'Gekuendigt', colorClass: 'bg-secondary text-muted-foreground' },
+  expired: { label: 'Abgelaufen', colorClass: 'bg-error-light text-error' },
+}
+
+const renewalLabels: Record<string, string> = {
+  auto: 'Automatisch',
+  manual: 'Manuell',
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────
+
+const chf = new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' })
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return 'Unbefristet'
+  return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-CH')
+}
+
+function daysUntil(dateStr: string): number {
+  if (!dateStr) return Infinity
+  const end = new Date(dateStr + 'T00:00:00')
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function daysFromStart(startStr: string, endStr: string): { elapsed: number; total: number; pct: number } {
+  if (!endStr) return { elapsed: 0, total: 0, pct: 0 }
+  const start = new Date(startStr + 'T00:00:00')
+  const end = new Date(endStr + 'T00:00:00')
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const total = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)))
+  const elapsed = Math.ceil((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  const pct = Math.min(100, Math.max(0, (elapsed / total) * 100))
+  return { elapsed, total, pct }
+}
+
+// ─── Contract Form Dialog ────────────────────────────────────────
+
+interface ContractFormData {
+  title: string
+  type: ContractType
+  partner: string
+  contractNumber: string
+  startDate: string
+  endDate: string
+  noticePeriodDays: number
+  renewal: 'auto' | 'manual'
+  monthlyCost: number
+  notes: string
+}
+
+function ContractDialog({
+  open,
+  onClose,
+  initial,
+}: {
+  open: boolean
+  onClose: () => void
+  initial?: Contract | null
+}) {
+  const addContract = useVertraegeStore((s) => s.addContract)
+  const updateContract = useVertraegeStore((s) => s.updateContract)
+
+  const [form, setForm] = useState<ContractFormData>({
+    title: initial?.title ?? '',
+    type: initial?.type ?? 'servicevertrag',
+    partner: initial?.partner ?? '',
+    contractNumber: initial?.contractNumber ?? '',
+    startDate: initial?.startDate ?? '',
+    endDate: initial?.endDate ?? '',
+    noticePeriodDays: initial?.noticePeriodDays ?? 30,
+    renewal: initial?.renewal ?? 'auto',
+    monthlyCost: initial?.monthlyCost ?? 0,
+    notes: initial?.notes ?? '',
+  })
+
+  const isEdit = !!initial
+
+  const handleSave = () => {
+    if (!form.title.trim()) {
+      toast.error('Bitte einen Titel eingeben')
+      return
+    }
+    if (!form.partner.trim()) {
+      toast.error('Bitte einen Partner eingeben')
+      return
+    }
+    if (!form.contractNumber.trim()) {
+      toast.error('Bitte eine Vertragsnummer eingeben')
+      return
+    }
+    if (!form.startDate) {
+      toast.error('Bitte ein Startdatum eingeben')
+      return
+    }
+
+    if (isEdit && initial) {
+      updateContract(initial.id, {
+        ...form,
+        totalValue: form.endDate
+          ? form.monthlyCost * Math.max(1, Math.ceil(
+              (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
+            ))
+          : 0,
+        history: [
+          ...initial.history,
+          { date: new Date().toISOString().split('T')[0], action: 'Vertrag aktualisiert', user: 'Aktueller Benutzer' },
+        ],
+      })
+      toast.success(`"${form.title}" wurde aktualisiert`)
+    } else {
+      const months = form.endDate
+        ? Math.max(1, Math.ceil(
+            (new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
+          ))
+        : 0
+      addContract({
+        id: `v-${Date.now()}`,
+        ...form,
+        status: 'active',
+        totalValue: form.monthlyCost * months,
+        history: [
+          { date: new Date().toISOString().split('T')[0], action: 'Vertrag angelegt', user: 'Aktueller Benutzer' },
+        ],
+      })
+      toast.success(`"${form.title}" wurde angelegt`)
+    }
+    onClose()
+  }
+
+  if (!open) return null
+
+  const typeOptions: { key: ContractType; label: string; icon: typeof Building }[] = [
+    { key: 'mietvertrag', label: 'Mietvertrag', icon: Building },
+    { key: 'liefervertrag', label: 'Liefervertrag', icon: Truck },
+    { key: 'servicevertrag', label: 'Servicevertrag', icon: Wrench },
+    { key: 'arbeitsvertrag', label: 'Arbeitsvertrag', icon: UserCheck },
+    { key: 'lizenz', label: 'Lizenz', icon: KeyRound },
+    { key: 'versicherung', label: 'Versicherung', icon: Shield },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-foreground">
+            {isEdit ? 'Vertrag bearbeiten' : 'Neuen Vertrag anlegen'}
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Titel */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Titel <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              placeholder="z.B. Buero-Mietvertrag Zuerich"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+          </div>
+
+          {/* Typ */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Typ</label>
+            <div className="grid grid-cols-3 gap-2">
+              {typeOptions.map((opt) => {
+                const Icon = opt.icon
+                const isActive = form.type === opt.key
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => setForm((f) => ({ ...f, type: opt.key }))}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                      isActive
+                        ? 'border-primary bg-primary-light text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Partner + Vertragsnummer */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Partner <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.partner}
+                onChange={(e) => setForm((f) => ({ ...f, partner: e.target.value }))}
+                placeholder="z.B. Swisscom AG"
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Vertragsnummer <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.contractNumber}
+                onChange={(e) => setForm((f) => ({ ...f, contractNumber: e.target.value }))}
+                placeholder="z.B. SV-2026-001"
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
+              />
+            </div>
+          </div>
+
+          {/* Start / Ende */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Startdatum <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Enddatum <span className="text-xs text-muted-foreground font-normal">(leer = unbefristet)</span>
+              </label>
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+          </div>
+
+          {/* Kuendigungsfrist + Verlaengerung */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Kuendigungsfrist (Tage)</label>
+              <input
+                type="number"
+                min={0}
+                value={form.noticePeriodDays}
+                onChange={(e) => setForm((f) => ({ ...f, noticePeriodDays: Number(e.target.value) }))}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring tabular-nums"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Verlaengerung</label>
+              <div className="flex gap-2">
+                {(['auto', 'manual'] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setForm((f) => ({ ...f, renewal: r }))}
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors ${
+                      form.renewal === r
+                        ? 'border-primary bg-primary-light text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    {r === 'auto' ? <RefreshCw className="h-3 w-3" /> : <CalendarClock className="h-3 w-3" />}
+                    {r === 'auto' ? 'Automatisch' : 'Manuell'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Monatliche Kosten */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Monatliche Kosten (CHF)</label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={form.monthlyCost}
+              onChange={(e) => setForm((f) => ({ ...f, monthlyCost: Number(e.target.value) }))}
+              placeholder="0.00"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring tabular-nums"
+            />
+          </div>
+
+          {/* Notizen */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Notizen <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              placeholder="Zusaetzliche Informationen zum Vertrag..."
+              rows={3}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={handleSave}
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            {isEdit ? 'Speichern' : 'Anlegen'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Termination Dialog ──────────────────────────────────────────
+
+function TerminationDialog({
+  open,
+  onClose,
+  contract,
+}: {
+  open: boolean
+  onClose: () => void
+  contract: Contract | null
+}) {
+  const terminateContract = useVertraegeStore((s) => s.terminateContract)
+  const [terminationDate, setTerminationDate] = useState('')
+  const [reason, setReason] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
+
+  const handleTerminate = () => {
+    if (!terminationDate) {
+      toast.error('Bitte ein Kuendigungsdatum angeben')
+      return
+    }
+    if (!reason.trim()) {
+      toast.error('Bitte einen Grund angeben')
+      return
+    }
+    if (!confirmed) {
+      toast.error('Bitte die Kuendigung bestaetigen')
+      return
+    }
+    if (contract) {
+      terminateContract(contract.id, reason, terminationDate)
+      toast.success(`Kuendigung fuer "${contract.title}" eingeleitet`)
+    }
+    setTerminationDate('')
+    setReason('')
+    setConfirmed(false)
+    onClose()
+  }
+
+  if (!open || !contract) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Kuendigung einleiten</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{contract.title}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="rounded-lg border border-warning/30 bg-warning-light/30 p-3 mb-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+            <div className="text-xs text-warning">
+              <p className="font-medium">Achtung</p>
+              <p>Die Kuendigung kann nicht rueckgaengig gemacht werden. Der Vertrag wird als "Gekuendigt" markiert.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Kuendigungsdatum */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Kuendigungsdatum <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={terminationDate}
+              onChange={(e) => setTerminationDate(e.target.value)}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+            {contract.noticePeriodDays > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Kuendigungsfrist: {contract.noticePeriodDays} Tage
+              </p>
+            )}
+          </div>
+
+          {/* Grund */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Grund <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Grund fuer die Kuendigung..."
+              rows={3}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
+            />
+          </div>
+
+          {/* Bestaetigung */}
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+              className="mt-0.5 rounded border-border"
+            />
+            <span className="text-sm text-foreground">
+              Ich bestatige, dass ich die Kuendigung des Vertrags <strong>"{contract.title}"</strong> einleiten moechte.
+            </span>
+          </label>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={handleTerminate}
+            disabled={!confirmed}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Kuendigung einleiten
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Contract Duration Bar ───────────────────────────────────────
+
+function DurationBar({ contract }: { contract: Contract }) {
+  if (!contract.endDate) {
+    return <span className="text-xs text-muted-foreground">Unbefristet</span>
+  }
+
+  const { pct } = daysFromStart(contract.startDate, contract.endDate)
+  const remaining = daysUntil(contract.endDate)
+  const isExpiring = remaining <= 90 && remaining > 0
+  const isExpired = remaining <= 0
+
+  const barColor = isExpired
+    ? 'bg-error'
+    : isExpiring
+      ? 'bg-warning'
+      : 'bg-primary'
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="space-y-1 min-w-[100px]">
+            <div className="relative h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full ${barColor} transition-all`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>{formatDate(contract.startDate)}</span>
+              <span>{formatDate(contract.endDate)}</span>
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">
+            {remaining > 0
+              ? `Noch ${remaining} Tage (${Math.round(pct)}% abgelaufen)`
+              : `Seit ${Math.abs(remaining)} Tagen abgelaufen`}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+// ─── Stat Card ───────────────────────────────────────────────────
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  iconColor,
+  iconBg,
+}: {
+  icon: typeof FileSignature
+  label: string
+  value: string | number
+  iconColor: string
+  iconBg: string
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-3 mb-2">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}>
+          <Icon className={`h-5 w-5 ${iconColor}`} />
+        </div>
+      </div>
+      <p className="text-2xl font-semibold text-foreground tabular-nums">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1">{label}</p>
+    </div>
+  )
+}
+
+// ─── Main Page ───────────────────────────────────────────────────
+
+export default function VertraegePage() {
+  const { contracts, deleteContract } = useVertraegeStore()
+
+  const [tab, setTab] = useState<TabKey>('aktiv')
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+
+  // Detail panel
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
+
+  // Dialogs
+  const [contractDialogOpen, setContractDialogOpen] = useState(false)
+  const [editContract, setEditContract] = useState<Contract | null>(null)
+  const [terminationDialogOpen, setTerminationDialogOpen] = useState(false)
+  const [terminationContract, setTerminationContract] = useState<Contract | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<Contract | null>(null)
+
+  // ── Computed ──
+
+  const activeContracts = useMemo(
+    () => contracts.filter((c) => c.status === 'active'),
+    [contracts],
+  )
+
+  const expiringContracts = useMemo(
+    () => contracts.filter((c) => {
+      if (c.status === 'terminated' || c.status === 'expired') return false
+      if (!c.endDate) return false
+      const days = daysUntil(c.endDate)
+      return days <= 90 && days > 0
+    }),
+    [contracts],
+  )
+
+  const archivedContracts = useMemo(
+    () => contracts.filter((c) => c.status === 'terminated' || c.status === 'expired'),
+    [contracts],
+  )
+
+  const expiring30 = useMemo(
+    () => contracts.filter((c) => {
+      if (c.status === 'terminated' || c.status === 'expired') return false
+      if (!c.endDate) return false
+      const days = daysUntil(c.endDate)
+      return days <= 30 && days > 0
+    }),
+    [contracts],
+  )
+
+  const totalMonthlyCost = useMemo(
+    () => activeContracts.reduce((sum, c) => sum + c.monthlyCost, 0),
+    [activeContracts],
+  )
+
+  const totalContractValue = useMemo(
+    () => contracts.filter((c) => c.status !== 'terminated' && c.status !== 'expired').reduce((sum, c) => sum + c.totalValue, 0),
+    [contracts],
+  )
+
+  // Get base list for current tab
+  const baseContracts = useMemo(() => {
+    if (tab === 'aktiv') return activeContracts
+    if (tab === 'auslaufend') return expiringContracts
+    return archivedContracts
+  }, [tab, activeContracts, expiringContracts, archivedContracts])
+
+  // Filter + search
+  const filteredContracts = useMemo(() => {
+    let result = [...baseContracts]
+
+    if (typeFilter !== 'all') {
+      result = result.filter((c) => c.type === typeFilter)
+    }
+
+    if (search) {
+      const q = search.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.title.toLowerCase().includes(q) ||
+          c.partner.toLowerCase().includes(q) ||
+          c.contractNumber.toLowerCase().includes(q),
+      )
+    }
+
+    return result.sort((a, b) => {
+      // Sort by end date ascending (soonest first)
+      if (a.endDate && b.endDate) return a.endDate.localeCompare(b.endDate)
+      if (!a.endDate) return 1
+      if (!b.endDate) return -1
+      return 0
+    })
+  }, [baseContracts, typeFilter, search])
+
+  // ── Actions ──
+
+  const openContractDialog = (contract?: Contract) => {
+    setEditContract(contract ?? null)
+    setContractDialogOpen(true)
+  }
+
+  const openTerminationDialog = (contract: Contract) => {
+    setTerminationContract(contract)
+    setTerminationDialogOpen(true)
+  }
+
+  const getContractActions = (contract: Contract) => [
+    { label: 'Details anzeigen', icon: Eye, onClick: () => setSelectedContract(contract) },
+    { label: 'Bearbeiten', icon: Edit, onClick: () => openContractDialog(contract) },
+    ...(contract.status === 'active' || contract.status === 'expiring'
+      ? [{ label: 'Kuendigung einleiten', icon: Ban, onClick: () => openTerminationDialog(contract), separator: true }]
+      : []),
+    { separator: true, label: 'Loeschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(contract) },
+  ]
+
+  const handleDelete = (contract: Contract) => {
+    deleteContract(contract.id)
+    setConfirmDelete(null)
+    if (selectedContract?.id === contract.id) setSelectedContract(null)
+    toast.success(`"${contract.title}" wurde geloescht`)
+  }
+
+  // Tab labels for empty states
+  const tabEmptyConfig = {
+    aktiv: { icon: FileSignature, title: 'Keine aktiven Vertraege', desc: 'Legen Sie Ihren ersten Vertrag an' },
+    auslaufend: { icon: Clock, title: 'Keine auslaufenden Vertraege', desc: 'Kein Vertrag laeuft in den naechsten 90 Tagen aus' },
+    archiv: { icon: Archive, title: 'Kein Archiv vorhanden', desc: 'Gekuendigte und abgelaufene Vertraege erscheinen hier' },
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-foreground">Vertraege</h1>
+          <p className="text-sm text-muted-foreground">
+            {activeContracts.length} aktive Vertraege
+            {expiringContracts.length > 0 && (
+              <span className="text-warning"> &middot; {expiringContracts.length} auslaufend</span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={() => openContractDialog()}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          Vertrag anlegen
+        </button>
+      </div>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          icon={FileSignature}
+          label="Aktive Vertraege"
+          value={activeContracts.length}
+          iconColor="text-primary"
+          iconBg="bg-primary-light"
+        />
+        <StatCard
+          icon={Coins}
+          label="Monatliche Gesamtkosten"
+          value={chf.format(totalMonthlyCost)}
+          iconColor="text-success"
+          iconBg="bg-success-light"
+        />
+        <StatCard
+          icon={AlertTriangle}
+          label="Auslaufend (30 Tage)"
+          value={expiring30.length}
+          iconColor="text-warning"
+          iconBg="bg-warning-light"
+        />
+        <StatCard
+          icon={Wallet}
+          label="Gesamtvertragswert"
+          value={chf.format(totalContractValue)}
+          iconColor="text-info"
+          iconBg="bg-info-light"
+        />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-4 border-b border-border mb-6">
+        {([
+          { key: 'aktiv' as const, label: 'Aktiv', count: activeContracts.length },
+          { key: 'auslaufend' as const, label: 'Auslaufend', count: expiringContracts.length },
+          { key: 'archiv' as const, label: 'Archiv', count: archivedContracts.length },
+        ]).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => { setTab(t.key); setSearch(''); setTypeFilter('all') }}
+            className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
+              tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t.label} ({t.count})
+          </button>
+        ))}
+      </div>
+
+      {/* Search + Filters */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Vertrag suchen (Partner, Titel, Nr.)..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          />
+        </div>
+
+        <div className="relative">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+            className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          >
+            <option value="all">Alle Typen</option>
+            <option value="mietvertrag">Mietvertrag</option>
+            <option value="liefervertrag">Liefervertrag</option>
+            <option value="servicevertrag">Servicevertrag</option>
+            <option value="arbeitsvertrag">Arbeitsvertrag</option>
+            <option value="lizenz">Lizenz</option>
+            <option value="versicherung">Versicherung</option>
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        </div>
+
+        {(typeFilter !== 'all' || search) && (
+          <button
+            onClick={() => { setTypeFilter('all'); setSearch('') }}
+            className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Filter zuruecksetzen
+          </button>
+        )}
+      </div>
+
+      {/* ─── CONTRACT TABLE ──────────────────────────────────── */}
+      {filteredContracts.length === 0 ? (
+        <EmptyState
+          icon={tabEmptyConfig[tab].icon}
+          title={tabEmptyConfig[tab].title}
+          description={
+            search || typeFilter !== 'all'
+              ? 'Passe deine Suche oder Filter an'
+              : tabEmptyConfig[tab].desc
+          }
+        />
+      ) : (
+        <TooltipProvider delayDuration={300}>
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-card">
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Vertragsnr.</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Titel</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Partner</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Typ</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Laufzeit</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Monatl. Kosten</th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContracts.map((contract) => {
+                  const typeConf = contractTypeConfig[contract.type]
+                  const statusConf = statusConfig[contract.status]
+                  const TypeIcon = typeConf.icon
+                  const isSelected = selectedContract?.id === contract.id
+
+                  return (
+                    <tr
+                      key={contract.id}
+                      onClick={() => setSelectedContract(contract)}
+                      className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
+                        isSelected ? 'bg-primary-light/30' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
+                        {contract.contractNumber}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">
+                        {contract.title}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {contract.partner}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${typeConf.colorClass}`}>
+                          <TypeIcon className="h-3 w-3" />
+                          {typeConf.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <DurationBar contract={contract} />
+                      </td>
+                      <td className="px-4 py-3 text-right text-foreground tabular-nums">
+                        {chf.format(contract.monthlyCost)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusConf.colorClass}`}>
+                          {statusConf.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <ItemActions items={getContractActions(contract)} />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </TooltipProvider>
+      )}
+
+      {/* ─── DETAIL PANEL ────────────────────────────────────── */}
+      <DetailPanel
+        open={!!selectedContract}
+        onClose={() => setSelectedContract(null)}
+        title={selectedContract?.title}
+        subtitle={selectedContract ? `${selectedContract.contractNumber} · ${selectedContract.partner}` : undefined}
+        badge={
+          selectedContract ? (
+            <span className={`ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+              statusConfig[selectedContract.status].colorClass
+            }`}>
+              {statusConfig[selectedContract.status].label}
+            </span>
+          ) : undefined
+        }
+        width="w-[400px]"
+        footer={
+          selectedContract ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => openContractDialog(selectedContract)}
+                className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                Bearbeiten
+              </button>
+              {(selectedContract.status === 'active' || selectedContract.status === 'expiring') && (
+                <button
+                  onClick={() => openTerminationDialog(selectedContract)}
+                  className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700 transition-colors"
+                >
+                  Kuendigen
+                </button>
+              )}
+            </div>
+          ) : undefined
+        }
+      >
+        {selectedContract && (
+          <DetailPanelContent contract={selectedContract} />
+        )}
+      </DetailPanel>
+
+      {/* ─── DIALOGS ─────────────────────────────────────────── */}
+      <ContractDialog
+        open={contractDialogOpen}
+        onClose={() => {
+          setContractDialogOpen(false)
+          setEditContract(null)
+        }}
+        initial={editContract}
+      />
+
+      <TerminationDialog
+        open={terminationDialogOpen}
+        onClose={() => {
+          setTerminationDialogOpen(false)
+          setTerminationContract(null)
+        }}
+        contract={terminationContract}
+      />
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={() => setConfirmDelete(null)}
+        title="Vertrag loeschen?"
+        description={`"${confirmDelete?.title}" wird unwiderruflich geloescht. Diese Aktion kann nicht rueckgaengig gemacht werden.`}
+        confirmLabel="Loeschen"
+        variant="destructive"
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+      />
+    </div>
+  )
+}
+
+// ─── Detail Panel Content ────────────────────────────────────────
+
+function DetailPanelContent({ contract }: { contract: Contract }) {
+  const typeConf = contractTypeConfig[contract.type]
+  const TypeIcon = typeConf.icon
+  const remaining = contract.endDate ? daysUntil(contract.endDate) : Infinity
+  const { pct } = contract.endDate
+    ? daysFromStart(contract.startDate, contract.endDate)
+    : { pct: 0 }
+
+  // Calculate notice period deadline
+  const noticeDateStr = contract.endDate
+    ? (() => {
+        const end = new Date(contract.endDate + 'T00:00:00')
+        end.setDate(end.getDate() - contract.noticePeriodDays)
+        return end.toISOString().split('T')[0]
+      })()
+    : null
+
+  const daysUntilNoticeDeadline = noticeDateStr ? daysUntil(noticeDateStr) : Infinity
+
+  return (
+    <div className="space-y-5">
+      {/* Type badge + Partner */}
+      <div className="space-y-3">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Vertragsdetails</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Partner</p>
+            <p className="text-sm text-foreground font-medium">{contract.partner}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Vertragsnummer</p>
+            <p className="text-sm text-foreground font-mono">{contract.contractNumber}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Typ</p>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${typeConf.colorClass}`}>
+              <TypeIcon className="h-3 w-3" />
+              {typeConf.label}
+            </span>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Status</p>
+            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusConfig[contract.status].colorClass}`}>
+              {statusConfig[contract.status].label}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Duration visualization */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Laufzeit</h4>
+        <div className="rounded-lg border border-border bg-secondary/30 p-3">
+          {contract.endDate ? (
+            <>
+              <div className="flex items-baseline justify-between mb-2">
+                <span className="text-sm font-medium text-foreground">
+                  {formatDate(contract.startDate)} &mdash; {formatDate(contract.endDate)}
+                </span>
+              </div>
+              {/* Bar with notice period marker */}
+              <div className="relative h-2.5 w-full rounded-full bg-secondary overflow-hidden mb-1">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full transition-all ${
+                    remaining <= 0
+                      ? 'bg-error'
+                      : remaining <= 90
+                        ? 'bg-warning'
+                        : 'bg-primary'
+                  }`}
+                  style={{ width: `${pct}%` }}
+                />
+                {/* Notice period marker */}
+                {noticeDateStr && (
+                  <div
+                    className="absolute inset-y-0 w-0.5 bg-foreground/40"
+                    style={{ left: `${Math.max(0, 100 - (contract.noticePeriodDays / Math.max(1, (new Date(contract.endDate + 'T00:00:00').getTime() - new Date(contract.startDate + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))) * 100)}%` }}
+                    title={`Kuendigungsfrist ab ${formatDate(noticeDateStr)}`}
+                  />
+                )}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Start</span>
+                <span>Heute ({Math.round(pct)}%)</span>
+                <span>Ende</span>
+              </div>
+              {remaining > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Noch <span className="font-medium text-foreground">{remaining} Tage</span> bis zum Vertragsende
+                </p>
+              )}
+              {remaining <= 0 && (
+                <p className="text-xs text-error mt-2 font-medium">
+                  Vertrag seit {Math.abs(remaining)} Tagen abgelaufen
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-foreground">
+              Unbefristeter Vertrag seit {formatDate(contract.startDate)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Financial info */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Wert</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-border p-3">
+            <p className="text-xs text-muted-foreground">Monatlich</p>
+            <p className="text-lg font-semibold text-foreground tabular-nums">{chf.format(contract.monthlyCost)}</p>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <p className="text-xs text-muted-foreground">Gesamtwert</p>
+            <p className="text-lg font-semibold text-foreground tabular-nums">
+              {contract.totalValue > 0 ? chf.format(contract.totalValue) : '—'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Contract terms */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Konditionen</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Verlaengerung</p>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+              contract.renewal === 'auto'
+                ? 'bg-success-light text-success'
+                : 'bg-secondary text-muted-foreground'
+            }`}>
+              {contract.renewal === 'auto' ? <RefreshCw className="h-3 w-3" /> : <CalendarClock className="h-3 w-3" />}
+              {renewalLabels[contract.renewal]}
+            </span>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Kuendigungsfrist</p>
+            <p className="text-sm text-foreground font-medium">{contract.noticePeriodDays} Tage</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Next action hint */}
+      {contract.endDate && (contract.status === 'active' || contract.status === 'expiring') && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Naechste Aktion</h4>
+          <div className={`rounded-lg border p-3 ${
+            daysUntilNoticeDeadline <= 30
+              ? 'border-warning/30 bg-warning-light/30'
+              : 'border-border bg-secondary/30'
+          }`}>
+            {daysUntilNoticeDeadline > 0 ? (
+              <div className="flex items-start gap-2">
+                <Clock className={`h-4 w-4 mt-0.5 shrink-0 ${daysUntilNoticeDeadline <= 30 ? 'text-warning' : 'text-muted-foreground'}`} />
+                <div>
+                  <p className="text-sm text-foreground">
+                    Kuendigung moeglich bis <span className="font-medium">{formatDate(noticeDateStr!)}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Noch {daysUntilNoticeDeadline} Tage bis zum Ende der Kuendigungsfrist
+                  </p>
+                </div>
+              </div>
+            ) : contract.renewal === 'auto' ? (
+              <div className="flex items-start gap-2">
+                <RefreshCw className="h-4 w-4 text-success mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm text-foreground">Automatische Verlaengerung</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Kuendigungsfrist abgelaufen. Vertrag wird automatisch verlaengert.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm text-foreground">Manuelle Verlaengerung erforderlich</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Kuendigungsfrist abgelaufen. Bitte Verlaengerung pruefen.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Notes */}
+      {contract.notes && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notizen</h4>
+          <p className="text-sm text-foreground leading-relaxed">{contract.notes}</p>
+        </div>
+      )}
+
+      {/* Document reference */}
+      {contract.documentRef && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dokument</h4>
+          <p className="text-sm text-foreground font-mono">{contract.documentRef}</p>
+        </div>
+      )}
+
+      {/* History timeline */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Aenderungshistorie ({contract.history.length})
+        </h4>
+        {contract.history.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2">Keine Eintraege vorhanden</p>
+        ) : (
+          <div className="space-y-0">
+            {[...contract.history].reverse().map((entry, idx) => (
+              <div key={idx} className="flex gap-3 pb-3 last:pb-0">
+                {/* Timeline line */}
+                <div className="flex flex-col items-center">
+                  <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${idx === 0 ? 'bg-primary' : 'bg-border'}`} />
+                  {idx < contract.history.length - 1 && (
+                    <div className="w-px flex-1 bg-border" />
+                  )}
+                </div>
+                {/* Content */}
+                <div className="min-w-0 pb-1">
+                  <p className="text-sm text-foreground">{entry.action}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-muted-foreground">{formatDate(entry.date)}</span>
+                    <span className="text-[10px] text-muted-foreground">&middot;</span>
+                    <span className="text-[10px] text-muted-foreground">{entry.user}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

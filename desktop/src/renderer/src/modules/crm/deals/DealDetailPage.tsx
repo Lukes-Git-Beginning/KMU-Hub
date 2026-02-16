@@ -161,7 +161,7 @@ export default function DealDetailPage() {
             onClick={showComingSoon}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Loeschen
+            Löschen
           </Button>
         </div>
       </div>
@@ -330,7 +330,7 @@ export default function DealDetailPage() {
               )}
               onClick={() => setActiveSection('activities')}
             >
-              Aktivitaeten
+              Aktivitäten
               {activities.length > 0 && (
                 <span className="ml-1.5 text-xs text-muted-foreground">
                   ({activities.length})
@@ -361,7 +361,7 @@ export default function DealDetailPage() {
             <>
               {activities.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Keine Aktivitaeten fuer diesen Deal.
+                  Keine Aktivitäten für diesen Deal.
                 </p>
               ) : (
                 <div className="space-y-3">

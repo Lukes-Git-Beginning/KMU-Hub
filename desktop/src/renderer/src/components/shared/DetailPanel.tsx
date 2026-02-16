@@ -33,7 +33,7 @@ export function DetailPanel({
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     },
-    [onClose],
+    [onClose]
   )
 
   useEffect(() => {
@@ -56,10 +56,10 @@ export function DetailPanel({
       {/* Panel */}
       <div
         className={cn(
-          'fixed right-0 top-0 z-50 flex h-full flex-col border-l bg-[var(--card)] shadow-xl',
+          'fixed right-0 top-0 z-50 flex h-full flex-col border-l bg-[var(--card)] shadow-xl glass-elevated',
           'animate-in slide-in-from-right duration-200',
           width,
-          className,
+          className
         )}
       >
         {/* Header */}

@@ -75,7 +75,7 @@ export function CategoryManagerDialog({
   const handleDelete = (cat: EventCategory) => {
     onCategoriesChange(categories.filter((c) => c.id !== cat.id))
     setConfirmDelete(null)
-    toast.success(`"${cat.name}" geloescht`)
+    toast.success(`"${cat.name}" gelöscht`)
   }
 
   return (
@@ -210,9 +210,9 @@ export function CategoryManagerDialog({
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Kategorie loeschen?"
-        description={`"${confirmDelete?.name}" wird dauerhaft geloescht. Bestehende Events behalten ihre Farbe.`}
-        confirmLabel="Loeschen"
+        title="Kategorie löschen?"
+        description={`"${confirmDelete?.name}" wird dauerhaft gelöscht. Bestehende Events behalten ihre Farbe.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />

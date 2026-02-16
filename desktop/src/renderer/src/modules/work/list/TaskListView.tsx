@@ -5,10 +5,10 @@
  * Each group is collapsible. Subtask nesting is reflected with
  * indentation and collapse/expand toggles at each level.
  */
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useTasks, useSubtasks } from '@/api/hooks/useTasks'
+import { useTasks } from '@/api/hooks/useTasks'
 import {
   useProjectMembers,
   useProjectPreference,
@@ -122,7 +122,7 @@ function groupTasks(
 
           if (diffDays < 0) {
             key = '__overdue__'
-            label = 'Ueberfaellig'
+            label = 'Überfällig'
             color = '#ef4444'
           } else if (diffDays === 0) {
             key = '__today__'
@@ -134,7 +134,7 @@ function groupTasks(
             color = '#3b82f6'
           } else {
             key = '__later__'
-            label = 'Spaeter'
+            label = 'Später'
             color = '#6b7280'
           }
         }

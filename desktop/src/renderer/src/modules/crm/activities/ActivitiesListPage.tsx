@@ -54,7 +54,7 @@ export default function ActivitiesListPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Aktivitaeten
+            Fehler beim Laden der Aktivitäten
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
@@ -70,10 +70,10 @@ export default function ActivitiesListPage() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Aktivitaeten</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Aktivitäten</h1>
         <Button onClick={showComingSoon} className="gap-2">
           <Plus className="h-4 w-4" />
-          Neue Aktivitaet
+          Neue Aktivität
         </Button>
       </div>
 
@@ -102,12 +102,12 @@ export default function ActivitiesListPage() {
         <div className="flex flex-col items-center justify-center py-16">
           <Activity className="h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-lg font-medium text-foreground">
-            Keine Aktivitaeten gefunden
+            Keine Aktivitäten gefunden
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {typeFilter !== 'all'
-              ? `Keine ${activityTypeLabel(typeFilter)}-Aktivitaeten vorhanden.`
-              : 'Erstelle deine erste Aktivitaet, um loszulegen.'}
+              ? `Keine ${activityTypeLabel(typeFilter)}-Aktivitäten vorhanden.`
+              : 'Erstelle deine erste Aktivität, um loszulegen.'}
           </p>
         </div>
       ) : (
@@ -161,7 +161,7 @@ export default function ActivitiesListPage() {
                       )}
                       {activity.due_date && (
                         <span>
-                          Faellig:{' '}
+                          Fällig:{' '}
                           {new Date(activity.due_date).toLocaleDateString(
                             'de-DE'
                           )}
@@ -200,7 +200,7 @@ export default function ActivitiesListPage() {
 
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {total} Aktivitaet{total !== 1 ? 'en' : ''} gesamt
+              {total} Aktivität{total !== 1 ? 'en' : ''} gesamt
             </p>
             <div className="flex items-center gap-2">
               <Button

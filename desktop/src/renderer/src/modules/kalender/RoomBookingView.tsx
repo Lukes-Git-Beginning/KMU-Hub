@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Users, Monitor, X, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Users, Monitor, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 
 // ============================================================
@@ -236,7 +236,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
   const handleDeleteBooking = (id: string) => {
     setBookings((prev) => prev.filter((b) => b.id !== id))
     setSelectedBooking(null)
-    toast.success('Buchung geloescht')
+    toast.success('Buchung gelöscht')
   }
 
   const slotWidth = 80

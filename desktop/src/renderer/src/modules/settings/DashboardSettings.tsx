@@ -20,9 +20,9 @@ import { widgetList } from '@/components/widgets/WidgetRegistry'
 type RoleKey = 'admin' | 'manager' | 'member'
 
 const ROLES: { key: RoleKey; label: string; description: string }[] = [
-  { key: 'admin', label: 'Admin', description: 'Administratoren sehen Pipeline und Aktivitaeten.' },
+  { key: 'admin', label: 'Admin', description: 'Administratoren sehen Pipeline und Aktivitäten.' },
   { key: 'manager', label: 'Manager', description: 'Manager fokussieren auf Pipeline und Kommunikation.' },
-  { key: 'member', label: 'Mitarbeiter', description: 'Mitarbeiter sehen Nachrichten und eigene Aktivitaeten.' },
+  { key: 'member', label: 'Mitarbeiter', description: 'Mitarbeiter sehen Nachrichten und eigene Aktivitäten.' },
 ]
 
 /** Widget toggle card for the widget selector. */
@@ -184,7 +184,7 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
         <CardHeader>
           <CardTitle className="text-lg">Widgets</CardTitle>
           <CardDescription>
-            Waehlen Sie die Widgets aus, die im Standard-Dashboard fuer diese Rolle angezeigt werden.
+            Wählen Sie die Widgets aus, die im Standard-Dashboard für diese Rolle angezeigt werden.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -246,8 +246,8 @@ export default function DashboardSettings() {
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-foreground">Dashboard-Einstellungen</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Konfigurieren Sie die Standard-Dashboards fuer jede Benutzerrolle.
-            Benutzer koennen ihr Dashboard individuell anpassen; hier legen Sie die Ausgangsbasis fest.
+            Konfigurieren Sie die Standard-Dashboards für jede Benutzerrolle.
+            Benutzer können ihr Dashboard individuell anpassen; hier legen Sie die Ausgangsbasis fest.
           </p>
         </div>
 

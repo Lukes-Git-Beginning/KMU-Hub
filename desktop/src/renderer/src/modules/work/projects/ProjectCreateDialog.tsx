@@ -189,7 +189,7 @@ export default function ProjectCreateDialog({
               className="font-mono uppercase"
             />
             <p className="text-xs text-muted-foreground">
-              Wird als Prefix fuer Aufgabennummern verwendet (z.B. {key || 'KEY'}-1)
+              Wird als Prefix für Aufgabennummern verwendet (z.B. {key || 'KEY'}-1)
             </p>
           </div>
 
@@ -211,7 +211,7 @@ export default function ProjectCreateDialog({
               <Label>Status</Label>
               <Button type="button" variant="ghost" size="sm" onClick={addStatus}>
                 <Plus className="h-3 w-3 mr-1" />
-                Status hinzufuegen
+                Status hinzufügen
               </Button>
             </div>
             <div className="space-y-2">
@@ -224,7 +224,7 @@ export default function ProjectCreateDialog({
                       value={status.color}
                       onChange={(e) => updateStatus(index, { color: e.target.value })}
                       className="h-8 w-8 cursor-pointer rounded border border-border"
-                      title="Farbe waehlen"
+                      title="Farbe wählen"
                     />
                   </div>
                   {/* Name */}

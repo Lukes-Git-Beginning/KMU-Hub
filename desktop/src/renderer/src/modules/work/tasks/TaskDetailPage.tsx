@@ -5,7 +5,7 @@
  * Left column: breadcrumb, title, description, subtasks, activity+comments feed.
  * Right column: status, priority, assignee, due date, dependencies, files, metadata.
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -31,14 +31,12 @@ import {
   useTask,
   useUpdateTask,
   useSubtasks,
-  useTaskEntityLinks,
 } from '@/api/hooks/useTasks'
 import {
   useProject,
   useProjectStatuses,
   useProjectMembers,
 } from '@/api/hooks/useProjects'
-import { useWorkStore } from '@/stores/work'
 import StatusBadge from '../components/StatusBadge'
 import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
@@ -280,7 +278,7 @@ export default function TaskDetailPage() {
                 onClick={() => setEditingDesc(true)}
                 title="Klicken zum Bearbeiten"
               >
-                {task.description || 'Beschreibung hinzufuegen...'}
+                {task.description || 'Beschreibung hinzufügen...'}
               </div>
             )}
           </div>
@@ -400,7 +398,7 @@ export default function TaskDetailPage() {
                 )}
                 onClick={() => setActiveTab('activity')}
               >
-                Aktivitaet
+                Aktivität
               </button>
             </div>
 
@@ -460,7 +458,7 @@ export default function TaskDetailPage() {
           {/* Priority */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Prioritaet
+              Priorität
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -502,7 +500,7 @@ export default function TaskDetailPage() {
           {/* Assignee */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Zustaendig
+              Zuständig
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -549,7 +547,7 @@ export default function TaskDetailPage() {
           {/* Due date */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Faellig am
+              Fällig am
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -593,7 +591,7 @@ export default function TaskDetailPage() {
           {/* Dependencies */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Abhaengigkeiten
+              Abhängigkeiten
             </label>
             <DependencyList
               taskId={taskId ?? ''}
@@ -659,7 +657,7 @@ export default function TaskDetailPage() {
           {/* Time entries */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Zeiteintraege
+              Zeiteinträge
             </label>
             <TimeEntryList taskId={taskId ?? ''} />
           </div>

@@ -36,7 +36,7 @@ const entityTypeConfig: Record<
     color: 'text-green-600',
   },
   activity: {
-    label: 'Aktivitaet',
+    label: 'Aktivität',
     icon: Activity,
     route: '/crm/activities',
     color: 'text-orange-600',
@@ -133,7 +133,7 @@ export default function CRMSearchPage() {
             Keine Ergebnisse
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Keine Treffer fuer &ldquo;{debouncedQuery}&rdquo;. Versuche einen
+            Keine Treffer für &ldquo;{debouncedQuery}&rdquo;. Versuche einen
             anderen Suchbegriff.
           </p>
         </div>

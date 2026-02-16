@@ -17,7 +17,6 @@ import {
   Upload,
   Loader2,
 } from 'lucide-react'
-import { cn } from '@/lib'
 import { Button } from '@/components/ui/button'
 import {
   useTaskFiles,
@@ -139,7 +138,7 @@ export default function TaskFileAttachments({
           ) : (
             <>
               <Upload className="h-4 w-4" />
-              Datei anhaengen
+              Datei anhängen
             </>
           )}
         </Button>

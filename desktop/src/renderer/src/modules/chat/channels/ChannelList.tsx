@@ -5,7 +5,7 @@
  * Active channel is highlighted. Unread badges shown for channels with new messages.
  */
 import { useState, useMemo } from 'react'
-import { Hash, Plus, MessageCircle, Search } from 'lucide-react'
+import { Hash, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useChannels, useDMs, useUnreadCounts, type ChannelInfo } from '@/api/hooks/useChannels'
 import { Button } from '@/components/ui/button'

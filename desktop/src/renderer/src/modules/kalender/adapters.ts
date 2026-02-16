@@ -118,8 +118,8 @@ function getInitials(firstName: string, lastName: string): string {
 function rruleToDisplay(rrule: string | null): string | undefined {
   if (!rrule) return undefined
   const upper = rrule.toUpperCase()
-  if (upper.includes('FREQ=DAILY')) return 'Taeglich'
-  if (upper.includes('FREQ=WEEKLY')) return 'Woechentlich'
+  if (upper.includes('FREQ=DAILY')) return 'Täglich'
+  if (upper.includes('FREQ=WEEKLY')) return 'Wöchentlich'
   if (upper.includes('FREQ=MONTHLY')) return 'Monatlich'
   if (upper.includes('FREQ=YEARLY')) return 'Jaehrlich'
   return 'Benutzerdefiniert...'
@@ -262,8 +262,8 @@ export function deadlineToUI(deadline: TaskDeadlineStub): CalendarEvent {
 function displayToRrule(display: string | undefined): string | undefined {
   if (!display || display === 'Keine') return undefined
   switch (display) {
-    case 'Taeglich': return 'FREQ=DAILY'
-    case 'Woechentlich': return 'FREQ=WEEKLY'
+    case 'Täglich': return 'FREQ=DAILY'
+    case 'Wöchentlich': return 'FREQ=WEEKLY'
     case 'Monatlich': return 'FREQ=MONTHLY'
     case 'Jaehrlich': return 'FREQ=YEARLY'
     default: return undefined

@@ -2,7 +2,7 @@
  * My Tasks page showing tasks assigned to the current user across all projects.
  *
  * Features:
- * - Groups tasks by project (with standalone tasks in "Persoenlich" section)
+ * - Groups tasks by project (with standalone tasks in "Persönlich" section)
  * - Standalone task creation (no project required)
  * - Filter controls: priority, due date, show completed
  * - Move standalone tasks to a project
@@ -16,8 +16,6 @@ import {
   ChevronRight,
   Plus,
   FolderKanban,
-  User,
-  Calendar,
   MoreHorizontal,
   ArrowRight,
 } from 'lucide-react'
@@ -39,7 +37,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
 
 const PAGE_SIZE = 50
@@ -136,7 +133,7 @@ export default function MyTasksPage() {
     const standaloneKey = '__standalone__'
     map.set(standaloneKey, {
       projectId: null,
-      projectName: 'Persoenlich',
+      projectName: 'Persönlich',
       projectKey: '',
       tasks: [],
     })
@@ -175,7 +172,7 @@ export default function MyTasksPage() {
     const diffMs = date.getTime() - now.getTime()
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
 
-    if (diffDays < 0) return `${Math.abs(diffDays)} Tage ueberfaellig`
+    if (diffDays < 0) return `${Math.abs(diffDays)} Tage überfällig`
     if (diffDays === 0) return 'Heute'
     if (diffDays === 1) return 'Morgen'
     return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
@@ -267,7 +264,7 @@ export default function MyTasksPage() {
                 priorityFilter.length > 0 && 'border-primary text-primary'
               )}
             >
-              Prioritaet
+              Priorität
               {priorityFilter.length > 0 && (
                 <Badge
                   variant="secondary"
@@ -529,7 +526,7 @@ export default function MyTasksPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Prioritaet</label>
+              <label className="text-sm font-medium">Priorität</label>
               <div className="flex gap-2">
                 {PRIORITY_OPTIONS.map((opt) => (
                   <button
@@ -550,7 +547,7 @@ export default function MyTasksPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Diese Aufgabe wird ohne Projekt erstellt. Du kannst sie spaeter in ein Projekt verschieben.
+              Diese Aufgabe wird ohne Projekt erstellt. Du kannst sie später in ein Projekt verschieben.
             </p>
 
             <div className="flex justify-end gap-2">

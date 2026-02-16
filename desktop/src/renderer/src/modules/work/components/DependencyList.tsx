@@ -164,7 +164,7 @@ export default function DependencyList({
   if (isLoading) {
     return (
       <div className="py-2 text-center text-xs text-muted-foreground">
-        Abhaengigkeiten laden...
+        Abhängigkeiten laden...
       </div>
     )
   }
@@ -229,7 +229,7 @@ export default function DependencyList({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground text-center py-2">
-          Keine Abhaengigkeiten
+          Keine Abhängigkeiten
         </p>
       )}
 
@@ -242,7 +242,7 @@ export default function DependencyList({
             className="mt-2 w-full gap-1 text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
-            Abhaengigkeit hinzufuegen
+            Abhängigkeit hinzufügen
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-3" align="start">
