@@ -250,6 +250,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Design integration merged (PR #1), Plans 10-01 to 10-03 complete
-Resume file: None
-Next: Phase 10 email backend (Plans 10-04 to 10-07: IMAP sync, SMTP send, Email UI, contact import/export)
+Stopped at: Phase 10 context gathered
+Resume file: .planning/phases/10-email-integration/10-CONTEXT.md
+Next: /gsd:plan-phase 10 (research + plan email backend)
