@@ -108,7 +108,7 @@ export const useUIStore = create<UIState>()(
       setTheme: (theme: 'light' | 'dark' | 'auto') =>
         set({ theme }),
 
-      setUILook: (look: 'solid' | 'glass') =>
+      setUILook: (look: 'solid' | 'glass' | 'crystal') =>
         set({ uiLook: look }),
 
       toggleDeskMaximized: () =>
