@@ -246,50 +246,52 @@ File: `.planning/design/BACKEND-REQUIREMENTS-AUDIT.md` (Rev 3, 2026-02-15)
 
 - Pending external review feedback
 
-### 7.3 Issues in Luke's Code (Fix List)
+### 7.3 Compatibility Updates Needed (Shared Responsibility)
 
-The following issues were found exclusively in Luke's modules during the audit. They do NOT block anything — all modules work. But they should be fixed for dark mode, glass/crystal mode, and code quality.
+The following items were found during the audit. Most are NOT bugs — they are pre-existing code that needs updating to work with our new Glass/Crystal mode and semantic color system. Some are code quality items.
 
-#### 7.3.1 CRITICAL — Hardcoded Colors (Break in Dark/Glass Mode)
+#### 7.3.1 Glass/Crystal Mode Compatibility (Our new feature → his components need updating)
 
-| File | Line(s) | Issue | Fix |
-|------|---------|-------|-----|
-| `modules/meetings/components/MeetingRoomView.tsx` | Multiple | `bg-gray-900`, `text-gray-*` hardcoded | Replace with `bg-background`, `text-foreground`, `text-muted-foreground` |
-| `modules/meetings/components/CallOverlay.tsx` | Multiple | `bg-gray-900`, `text-gray-*` hardcoded | Same — use semantic color tokens |
+These files were written before Glass/Crystal mode existed. The hardcoded colors worked fine in Solid mode but need semantic tokens now to support all 3 UI modes.
 
-These files render solid gray backgrounds that completely ignore the user's theme, dark mode, and glass/crystal mode. In glass mode the meeting UI looks like a broken overlay.
+| File | Issue | Suggested Fix |
+|------|-------|---------------|
+| `modules/meetings/components/MeetingRoomView.tsx` | `bg-gray-900`, `text-gray-*` hardcoded | Replace with `bg-background`, `text-foreground`, `text-muted-foreground` |
+| `modules/meetings/components/CallOverlay.tsx` | `bg-gray-900`, `text-gray-*` hardcoded | Same — use semantic color tokens |
 
-#### 7.3.2 HIGH — Dark Mode Broken Colors
+> **Note:** This is not a bug in Luke's code. Glass/Crystal mode is a new design feature (D9). These components just need a color token update to be compatible.
 
-| File | Issue | Fix |
-|------|-------|-----|
-| `components/PriorityBadge.tsx` | `bg-red-50`, `bg-yellow-50`, `bg-green-50` hardcoded | Use `bg-destructive/10`, `bg-warning/10`, `bg-success/10` or similar semantic tokens |
-| `modules/crm/components/ContactDetailPanel.tsx` | `bg-white/20` hardcoded | Use `bg-card` or `bg-secondary` |
+#### 7.3.2 Dark Mode Color Tokens
 
-#### 7.3.3 MEDIUM — Form Validation Colors
+| File | Issue | Suggested Fix |
+|------|-------|---------------|
+| `components/PriorityBadge.tsx` | `bg-red-50`, `bg-yellow-50`, `bg-green-50` — invisible in dark mode | Use `bg-destructive/10`, `bg-warning/10`, `bg-success/10` or similar semantic tokens |
+| `modules/crm/components/ContactDetailPanel.tsx` | `bg-white/20` — looks off in dark mode | Use `bg-card` or `bg-secondary` |
 
-| Pattern | Files (~6) | Fix |
-|---------|-----------|-----|
+#### 7.3.3 Minor Color Consistency
+
+| Pattern | Files (~6) | Suggested Fix |
+|---------|-----------|---------------|
 | `text-red-500` for required fields | Various form components | Use `text-destructive` instead |
 | `bg-black/50` for modal backdrops | ~11 files | Use `bg-background/50` or Radix default |
 
-#### 7.3.4 LOW — Code Quality
+#### 7.3.4 Code Quality (Low Priority)
 
-| File | Issue | Fix |
-|------|-------|-----|
+| File | Issue | Suggested Fix |
+|------|-------|---------------|
 | `modules/work/components/GanttChart.tsx` | 5x `any` type usage | Define proper interfaces for Gantt data |
 | `modules/team/TeamPage.tsx` | 2x `any` type usage | Define interfaces |
 | `modules/work/components/GanttChart.tsx` | Hardcoded hex colors in SVG | Use CSS variables |
 
-#### 7.3.5 LOW — CRM Placeholders
+#### 7.3.5 CRM Placeholders (Pending Backend)
 
 | File | Issue |
 |------|-------|
-| CRM Edit dialogs | "Kommt bald" placeholder — needs real implementation |
-| CRM Delete dialogs | "Kommt bald" placeholder — needs real implementation |
+| CRM Edit dialogs | "Kommt bald" placeholder — needs real implementation when backend ready |
+| CRM Delete dialogs | "Kommt bald" placeholder — needs real implementation when backend ready |
 | CRM Activities | Missing search bar |
 
-#### 7.3.6 LOW — Duplicate Route
+#### 7.3.6 Duplicate Route (Cleanup)
 
 | Issue | Details |
 |-------|---------|
