@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { toast } from 'sonner'
 
 export interface TeamMember {
   id: string
@@ -45,10 +46,47 @@ export interface Department {
   color: string
 }
 
+export interface PayrollEntry {
+  id: string
+  memberId: string
+  memberName: string
+  department: string
+  employmentType: 'fulltime' | 'parttime' | 'hourly'
+  grossSalary: number
+  deductions: { ahv: number; pension: number; tax: number; other: number }
+  netSalary: number
+  month: string // '2026-01' format
+  status: 'draft' | 'approved' | 'paid'
+}
+
+export interface Training {
+  id: string
+  name: string
+  type: 'safety' | 'technical' | 'soft_skills' | 'compliance' | 'certification'
+  duration: string // e.g. '2 Tage', '4 Stunden'
+  mandatory: boolean
+  provider: string
+  validityMonths: number // 0 = no expiry
+}
+
+export interface TrainingParticipation {
+  id: string
+  trainingId: string
+  memberId: string
+  memberName: string
+  status: 'completed' | 'pending' | 'expired' | 'scheduled'
+  completedAt?: string
+  expiresAt?: string
+  certificateId?: string
+}
+
 interface TeamStore {
   members: TeamMember[]
   requests: HRRequest[]
   departments: Department[]
+  payroll: PayrollEntry[]
+  trainings: Training[]
+  trainingParticipations: TrainingParticipation[]
 
   addMember: (member: Omit<TeamMember, 'id' | 'initials' | 'isActive'>) => void
   updateMember: (id: string, updates: Partial<TeamMember>) => void
@@ -59,6 +97,10 @@ interface TeamStore {
   approveRequest: (id: string, comment?: string) => void
   rejectRequest: (id: string, comment?: string) => void
   deleteRequest: (id: string) => void
+
+  startPayrollRun: () => void
+  addTraining: (training: Omit<Training, 'id'>) => void
+  recordParticipation: (participation: Omit<TrainingParticipation, 'id'>) => void
 }
 
 function getInitials(first: string, last: string): string {
@@ -206,12 +248,90 @@ const INITIAL_REQUESTS: HRRequest[] = [
   { id: 'hr7', type: 'education', memberId: 'm8', memberName: 'Tom Brunner', memberInitials: 'TB', startDate: '2026-02-24', endDate: '2026-02-25', days: 2, status: 'pending', reason: 'React Advanced Kurs', createdAt: '2026-02-06' },
 ]
 
+const INITIAL_PAYROLL: PayrollEntry[] = [
+  {
+    id: 'pay1', memberId: 'm1', memberName: 'Anna Mueller', department: 'Management',
+    employmentType: 'fulltime', grossSalary: 8500, month: '2026-01', status: 'paid',
+    deductions: { ahv: 1105, pension: 595, tax: 1020, other: 45 },
+    netSalary: 5735,
+  },
+  {
+    id: 'pay2', memberId: 'm2', memberName: 'Michael Berg', department: 'Entwicklung',
+    employmentType: 'fulltime', grossSalary: 8200, month: '2026-01', status: 'paid',
+    deductions: { ahv: 1066, pension: 574, tax: 984, other: 45 },
+    netSalary: 5531,
+  },
+  {
+    id: 'pay3', memberId: 'm3', memberName: 'Sarah Klein', department: 'Design',
+    employmentType: 'parttime', grossSalary: 5600, month: '2026-01', status: 'approved',
+    deductions: { ahv: 728, pension: 392, tax: 672, other: 35 },
+    netSalary: 3773,
+  },
+  {
+    id: 'pay4', memberId: 'm4', memberName: 'Jonas Diaz', department: 'Entwicklung',
+    employmentType: 'fulltime', grossSalary: 7200, month: '2026-01', status: 'approved',
+    deductions: { ahv: 936, pension: 504, tax: 864, other: 40 },
+    netSalary: 4856,
+  },
+  {
+    id: 'pay5', memberId: 'm5', memberName: 'Lisa Schmidt', department: 'Marketing',
+    employmentType: 'fulltime', grossSalary: 7000, month: '2026-01', status: 'draft',
+    deductions: { ahv: 910, pension: 490, tax: 840, other: 40 },
+    netSalary: 4720,
+  },
+  {
+    id: 'pay6', memberId: 'm6', memberName: 'Peter Koch', department: 'Entwicklung',
+    employmentType: 'fulltime', grossSalary: 7800, month: '2026-01', status: 'draft',
+    deductions: { ahv: 1014, pension: 546, tax: 936, other: 42 },
+    netSalary: 5262,
+  },
+  {
+    id: 'pay7', memberId: 'm7', memberName: 'Eva Brunner', department: 'Marketing',
+    employmentType: 'parttime', grossSalary: 4500, month: '2026-01', status: 'draft',
+    deductions: { ahv: 585, pension: 315, tax: 540, other: 30 },
+    netSalary: 3030,
+  },
+  {
+    id: 'pay8', memberId: 'm8', memberName: 'Tom Brunner', department: 'Entwicklung',
+    employmentType: 'fulltime', grossSalary: 5800, month: '2026-01', status: 'draft',
+    deductions: { ahv: 754, pension: 406, tax: 696, other: 35 },
+    netSalary: 3909,
+  },
+]
+
+const INITIAL_TRAININGS: Training[] = [
+  { id: 'tr1', name: 'Erste Hilfe', type: 'safety', duration: '1 Tag', mandatory: true, provider: 'Schweizerisches Rotes Kreuz', validityMonths: 24 },
+  { id: 'tr2', name: 'Arbeitssicherheit', type: 'safety', duration: '4 Stunden', mandatory: true, provider: 'SUVA', validityMonths: 12 },
+  { id: 'tr3', name: 'Excel Advanced', type: 'technical', duration: '2 Tage', mandatory: false, provider: 'Digicomp', validityMonths: 0 },
+  { id: 'tr4', name: 'Datenschutz DSGVO', type: 'compliance', duration: '3 Stunden', mandatory: true, provider: 'SwissLegal Academy', validityMonths: 12 },
+  { id: 'tr5', name: 'Gabelstapler-Schein', type: 'certification', duration: '3 Tage', mandatory: false, provider: 'TÜV Schweiz', validityMonths: 60 },
+  { id: 'tr6', name: 'Führungskompetenz', type: 'soft_skills', duration: '2 Tage', mandatory: false, provider: 'HSG Executive Education', validityMonths: 0 },
+]
+
+const INITIAL_PARTICIPATIONS: TrainingParticipation[] = [
+  { id: 'tp1', trainingId: 'tr1', memberId: 'm1', memberName: 'Anna Mueller', status: 'completed', completedAt: '2025-06-15', expiresAt: '2027-06-15', certificateId: 'CERT-EH-2025-001' },
+  { id: 'tp2', trainingId: 'tr2', memberId: 'm1', memberName: 'Anna Mueller', status: 'completed', completedAt: '2025-09-10', expiresAt: '2026-09-10', certificateId: 'CERT-AS-2025-014' },
+  { id: 'tp3', trainingId: 'tr4', memberId: 'm2', memberName: 'Michael Berg', status: 'completed', completedAt: '2025-11-20', expiresAt: '2026-11-20', certificateId: 'CERT-DS-2025-088' },
+  { id: 'tp4', trainingId: 'tr1', memberId: 'm3', memberName: 'Sarah Klein', status: 'expired', completedAt: '2024-01-10', expiresAt: '2026-01-10' },
+  { id: 'tp5', trainingId: 'tr3', memberId: 'm4', memberName: 'Jonas Diaz', status: 'completed', completedAt: '2025-08-22', certificateId: 'CERT-EX-2025-045' },
+  { id: 'tp6', trainingId: 'tr6', memberId: 'm1', memberName: 'Anna Mueller', status: 'completed', completedAt: '2025-10-05', certificateId: 'CERT-FK-2025-012' },
+  { id: 'tp7', trainingId: 'tr2', memberId: 'm6', memberName: 'Peter Koch', status: 'expired', completedAt: '2024-12-01', expiresAt: '2025-12-01' },
+  { id: 'tp8', trainingId: 'tr5', memberId: 'm10', memberName: 'Markus Steiner', status: 'completed', completedAt: '2025-04-18', expiresAt: '2030-04-18', certificateId: 'CERT-GS-2025-007' },
+  { id: 'tp9', trainingId: 'tr4', memberId: 'm5', memberName: 'Lisa Schmidt', status: 'pending', },
+  { id: 'tp10', trainingId: 'tr1', memberId: 'm8', memberName: 'Tom Brunner', status: 'scheduled', },
+  { id: 'tp11', trainingId: 'tr2', memberId: 'm4', memberName: 'Jonas Diaz', status: 'scheduled', },
+  { id: 'tp12', trainingId: 'tr6', memberId: 'm11', memberName: 'Laura Weber', status: 'pending', },
+]
+
 export const useTeamStore = create<TeamStore>()(
   persist(
     (set) => ({
       members: INITIAL_MEMBERS,
       requests: INITIAL_REQUESTS,
       departments: INITIAL_DEPARTMENTS,
+      payroll: INITIAL_PAYROLL,
+      trainings: INITIAL_TRAININGS,
+      trainingParticipations: INITIAL_PARTICIPATIONS,
 
       addMember: (member) =>
         set((state) => ({
@@ -278,6 +398,37 @@ export const useTeamStore = create<TeamStore>()(
       deleteRequest: (id) =>
         set((state) => ({
           requests: state.requests.filter((r) => r.id !== id),
+        })),
+
+      startPayrollRun: () =>
+        set((state) => {
+          const drafts = state.payroll.filter((p) => p.status === 'draft')
+          if (drafts.length === 0) {
+            toast.info('Keine Entwürfe vorhanden')
+            return state
+          }
+          toast.success(`${drafts.length} Lohnabrechnungen freigegeben`)
+          return {
+            payroll: state.payroll.map((p) =>
+              p.status === 'draft' ? { ...p, status: 'approved' as const } : p,
+            ),
+          }
+        }),
+
+      addTraining: (training) =>
+        set((state) => ({
+          trainings: [
+            ...state.trainings,
+            { ...training, id: `tr${Date.now()}` },
+          ],
+        })),
+
+      recordParticipation: (participation) =>
+        set((state) => ({
+          trainingParticipations: [
+            ...state.trainingParticipations,
+            { ...participation, id: `tp${Date.now()}` },
+          ],
         })),
     }),
     { name: 'kmuhub-team' },

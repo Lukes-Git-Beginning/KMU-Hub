@@ -12,6 +12,11 @@ import {
   TrendingUp,
   Droplets,
   FileText,
+  MapPin,
+  Navigation,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailPanel, EmptyState } from '@/components/shared'
@@ -21,7 +26,7 @@ import { useFuhrparkStore, type Vehicle, type MaintenanceRecord, type FuelRecord
 // Types & Constants
 // ---------------------------------------------------------------------------
 
-type TabKey = 'fahrzeuge' | 'wartung' | 'tankprotokoll'
+type TabKey = 'fahrzeuge' | 'wartung' | 'tankprotokoll' | 'tracking'
 type DialogKey = 'addVehicle' | 'addMaintenance' | 'addFuel' | null
 
 const vehicleTypeLabels: Record<string, string> = {
@@ -89,6 +94,42 @@ function formatKm(val: number): string {
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+const trackingStatusDot: Record<string, string> = {
+  driving: 'bg-success',
+  parked: 'bg-muted-foreground/40',
+  unknown: 'bg-warning',
+}
+
+const trackingStatusLabel: Record<string, string> = {
+  driving: 'Unterwegs',
+  parked: 'Geparkt',
+  unknown: 'Unbekannt',
+}
+
+const trackingStatusTextColor: Record<string, string> = {
+  driving: 'text-success',
+  parked: 'text-muted-foreground',
+  unknown: 'text-warning',
+}
+
+function formatRelativeTime(timestamp: string): string {
+  const now = new Date()
+  const then = new Date(timestamp)
+  const diffMs = now.getTime() - then.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+
+  if (diffMin < 1) return 'gerade eben'
+  if (diffMin < 60) return `vor ${diffMin} Min`
+  const diffHrs = Math.floor(diffMin / 60)
+  if (diffHrs < 24) return `vor ${diffHrs} Std`
+  const diffDays = Math.floor(diffHrs / 24)
+  return `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`
+}
+
+function formatTime(timestamp: string): string {
+  return new Date(timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
 }
 
 // ---------------------------------------------------------------------------
@@ -762,7 +803,7 @@ function VehicleDetailContent({
 // ---------------------------------------------------------------------------
 
 export default function FuhrparkPage() {
-  const { vehicles, maintenanceRecords, fuelRecords } = useFuhrparkStore()
+  const { vehicles, maintenanceRecords, fuelRecords, vehicleRoutes, refreshTracking } = useFuhrparkStore()
 
   const [tab, setTab] = useState<TabKey>('fahrzeuge')
   const [search, setSearch] = useState('')
@@ -771,6 +812,8 @@ export default function FuhrparkPage() {
   const [dialog, setDialog] = useState<DialogKey>(null)
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [dialogPreselectedVehicleId, setDialogPreselectedVehicleId] = useState<string | undefined>()
+  const [expandedRouteId, setExpandedRouteId] = useState<string | null>(null)
+  const [trackingRefreshing, setTrackingRefreshing] = useState(false)
 
   // Filtered vehicles with search + type + status filters
   const filteredVehicles = useMemo(() => {
@@ -898,13 +941,42 @@ export default function FuhrparkPage() {
     []
   )
 
+  // Tracking stats
+  const trackingDrivingCount = vehicleRoutes.filter((r) => r.status === 'driving').length
+  const trackingParkedCount = vehicleRoutes.filter((r) => r.status === 'parked').length
+  const trackingUnknownCount = vehicleRoutes.filter((r) => r.status === 'unknown').length
+  const trackingTotalKm = vehicleRoutes.reduce((sum, r) => sum + r.dailyKm, 0)
+
+  // Filtered tracking routes
+  const filteredRoutes = useMemo(() => {
+    if (!search) return vehicleRoutes
+    const q = search.toLowerCase()
+    return vehicleRoutes.filter(
+      (r) =>
+        r.vehicleName.toLowerCase().includes(q) ||
+        r.driver.toLowerCase().includes(q) ||
+        r.positions.some((p) => p.address.toLowerCase().includes(q))
+    )
+  }, [vehicleRoutes, search])
+
+  // Handle refresh tracking
+  const handleRefreshTracking = useCallback(() => {
+    setTrackingRefreshing(true)
+    setTimeout(() => {
+      refreshTracking()
+      setTrackingRefreshing(false)
+    }, 800)
+  }, [refreshTracking])
+
   // Search placeholder based on tab
   const searchPlaceholder =
     tab === 'fahrzeuge'
       ? 'Fahrzeug, Fahrer suchen...'
       : tab === 'wartung'
         ? 'Wartung suchen...'
-        : 'Tankprotokoll suchen...'
+        : tab === 'tracking'
+          ? 'Fahrzeug, Fahrer, Ort suchen...'
+          : 'Tankprotokoll suchen...'
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -938,6 +1010,16 @@ export default function FuhrparkPage() {
               Tanken eintragen
             </button>
           )}
+          {tab === 'tracking' && (
+            <button
+              onClick={handleRefreshTracking}
+              disabled={trackingRefreshing}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${trackingRefreshing ? 'animate-spin' : ''}`} />
+              Aktualisieren
+            </button>
+          )}
           <button
             onClick={openAddVehicle}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
@@ -951,19 +1033,21 @@ export default function FuhrparkPage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'fahrzeuge' as const, label: `Fahrzeuge (${vehicles.length})` },
-          { key: 'wartung' as const, label: `Wartung (${maintenanceRecords.length})` },
-          { key: 'tankprotokoll' as const, label: `Tankprotokoll (${fuelRecords.length})` },
+          { key: 'fahrzeuge' as const, label: `Fahrzeuge (${vehicles.length})`, icon: null },
+          { key: 'wartung' as const, label: `Wartung (${maintenanceRecords.length})`, icon: null },
+          { key: 'tankprotokoll' as const, label: `Tankprotokoll (${fuelRecords.length})`, icon: null },
+          { key: 'tracking' as const, label: 'Tracking', icon: MapPin },
         ]).map((t) => (
           <button
             key={t.key}
-            onClick={() => { setTab(t.key); setSearch('') }}
-            className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
+            onClick={() => { setTab(t.key); setSearch(''); setExpandedRouteId(null) }}
+            className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
               tab === t.key
                 ? 'border-primary text-primary font-medium'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
+            {t.icon && <t.icon className="h-3.5 w-3.5" />}
             {t.label}
           </button>
         ))}
@@ -1269,6 +1353,214 @@ export default function FuhrparkPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ================================================================= */}
+      {/* Tracking Tab                                                       */}
+      {/* ================================================================= */}
+      {tab === 'tracking' && (
+        <>
+          {/* Stats row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="h-2.5 w-2.5 rounded-full bg-success" />
+                <span className="text-xs text-muted-foreground">Unterwegs</span>
+              </div>
+              <p className="text-lg font-semibold text-foreground">{trackingDrivingCount}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
+                <span className="text-xs text-muted-foreground">Geparkt</span>
+              </div>
+              <p className="text-lg font-semibold text-foreground">{trackingParkedCount}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="h-2.5 w-2.5 rounded-full bg-warning" />
+                <span className="text-xs text-muted-foreground">Unbekannt</span>
+              </div>
+              <p className="text-lg font-semibold text-foreground">{trackingUnknownCount}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Navigation className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs text-muted-foreground">Gesamt-km heute</span>
+              </div>
+              <p className="text-lg font-semibold text-foreground">{formatKm(trackingTotalKm)}</p>
+            </div>
+          </div>
+
+          {/* Vehicle list */}
+          {filteredRoutes.length === 0 ? (
+            <EmptyState
+              icon={MapPin}
+              title="Keine Tracking-Daten"
+              description={search ? 'Passe deine Suche an' : 'Keine Fahrzeuge mit GPS-Daten'}
+            />
+          ) : (
+            <div className="space-y-3">
+              {filteredRoutes.map((route) => {
+                const vehicle = vehicles.find((v) => v.id === route.vehicleId)
+                const lastPos = route.positions[route.positions.length - 1]
+                const isExpanded = expandedRouteId === route.id
+
+                return (
+                  <div key={route.id} className="rounded-lg border border-border bg-card overflow-hidden">
+                    {/* Card header — clickable */}
+                    <button
+                      onClick={() => setExpandedRouteId(isExpanded ? null : route.id)}
+                      className="w-full text-left p-4 hover:bg-secondary/30 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        {/* Left: status + vehicle info */}
+                        <div className="flex items-start gap-3 min-w-0">
+                          <span
+                            className={`mt-1 h-3 w-3 shrink-0 rounded-full ${trackingStatusDot[route.status]} ${
+                              route.status === 'driving' ? 'animate-pulse' : ''
+                            }`}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-medium text-foreground">
+                                {route.vehicleName}
+                              </p>
+                              {vehicle && (
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  {vehicle.licensePlate}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {route.driver}
+                              </span>
+                              <span className={`font-medium ${trackingStatusTextColor[route.status]}`}>
+                                {trackingStatusLabel[route.status]}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: km + last update + chevron */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-foreground tabular-nums">
+                              {formatKm(route.dailyKm)} km
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {formatRelativeTime(lastPos.timestamp)}
+                            </p>
+                          </div>
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Last known position */}
+                      <div className="flex items-center gap-1.5 mt-2 ml-6 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{lastPos.address}</span>
+                      </div>
+                    </button>
+
+                    {/* Expanded route detail */}
+                    {isExpanded && (
+                      <div className="border-t border-border px-4 py-4">
+                        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                          Routenverlauf — {formatDate(route.date)}
+                        </h4>
+                        <div className="relative ml-1.5">
+                          {route.positions.map((pos, idx) => {
+                            const isFirst = idx === 0
+                            const isLast = idx === route.positions.length - 1
+                            const isCurrent = isLast && route.status === 'driving'
+
+                            // Determine stop duration if parked at same location
+                            let stopDuration: string | null = null
+                            if (idx < route.positions.length - 1) {
+                              const next = route.positions[idx + 1]
+                              if (pos.address === next.address || next.address.includes('geparkt')) {
+                                const diffMin = Math.floor(
+                                  (new Date(next.timestamp).getTime() - new Date(pos.timestamp).getTime()) / 60000
+                                )
+                                if (diffMin > 0) {
+                                  stopDuration = diffMin >= 60
+                                    ? `${Math.floor(diffMin / 60)} Std ${diffMin % 60} Min Stopp`
+                                    : `${diffMin} Min Stopp`
+                                }
+                              }
+                            }
+
+                            return (
+                              <div key={idx} className="flex gap-3 relative">
+                                {/* Timeline line + dot */}
+                                <div className="flex flex-col items-center shrink-0">
+                                  <span
+                                    className={`relative z-10 h-3 w-3 rounded-full border-2 ${
+                                      isFirst
+                                        ? 'border-success bg-success'
+                                        : isCurrent
+                                          ? 'border-primary bg-primary animate-pulse'
+                                          : 'border-border bg-secondary'
+                                    }`}
+                                  />
+                                  {!isLast && (
+                                    <span className="w-0.5 flex-1 bg-border" />
+                                  )}
+                                </div>
+
+                                {/* Content */}
+                                <div className={`pb-4 min-w-0 ${isLast ? 'pb-0' : ''}`}>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-foreground tabular-nums">
+                                      {formatTime(pos.timestamp)}
+                                    </span>
+                                    {isFirst && (
+                                      <span className="rounded-full bg-success-light px-1.5 py-0.5 text-[9px] font-medium text-success">
+                                        Start
+                                      </span>
+                                    )}
+                                    {isCurrent && (
+                                      <span className="rounded-full bg-primary-light px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                                        Aktuell
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                    {pos.address}
+                                  </p>
+                                  {stopDuration && (
+                                    <p className="text-[10px] text-warning mt-0.5">
+                                      {stopDuration}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {/* Total distance */}
+                        <div className="mt-3 pt-3 border-t border-border-muted flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Gesamtstrecke</span>
+                          <span className="text-sm font-semibold text-foreground tabular-nums">
+                            {formatKm(route.dailyKm)} km
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </>

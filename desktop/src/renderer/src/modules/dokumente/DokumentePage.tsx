@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import {
   FileText,
   FolderOpen,
@@ -22,15 +22,43 @@ import {
   Trash2,
   Plus,
   Pencil,
+  BookOpen,
+  ArrowLeft,
+  Clock,
+  Users,
+  Monitor,
+  GitBranch,
+  Tag,
+  Hash,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useDocumentsStore, type DocFile, type DocFolder } from '@/stores/documents'
+import { useDocumentsStore, type DocFile, type DocFolder, type WikiArticle } from '@/stores/documents'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
 import { FilePreviewModal } from './FilePreviewModal'
 import { FileDetailPanel } from './FileDetailPanel'
 import { FolderCreateDialog } from './FolderCreateDialog'
 import { RenameDialog } from './RenameDialog'
 import { ShareDialog } from './ShareDialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+type TabKey = 'dateien' | 'wiki'
 
 const fileTypeIcons: Record<string, typeof FileText> = {
   pdf: FileText,
@@ -69,6 +97,14 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`
 }
 
+const wikiCategoryIcons: Record<string, typeof BookOpen> = {
+  BookOpen: BookOpen,
+  Monitor: Monitor,
+  Users: Users,
+  GitBranch: GitBranch,
+  FileText: FileText,
+}
+
 export default function DokumentePage() {
   const {
     files, folders,
@@ -76,6 +112,7 @@ export default function DokumentePage() {
     addFolder, renameFolder, deleteFolder, totalStorageUsed,
   } = useDocumentsStore()
 
+  const [activeTab, setActiveTab] = useState<TabKey>('dateien')
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [search, setSearch] = useState('')
   const [activeFolder, setActiveFolder] = useState('root')
@@ -253,253 +290,816 @@ export default function DokumentePage() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={handleFileSelect}
-        multiple
-      />
-
-      {/* Sidebar */}
-      {sidebarOpen && (
-        <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-foreground">Ordner</h3>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Tab bar */}
+      <div className="flex items-center gap-4 border-b border-border px-6 pt-3">
+        {([
+          { key: 'dateien' as const, label: 'Dateien', icon: FileText },
+          { key: 'wiki' as const, label: 'Wiki', icon: BookOpen },
+        ]).map((t) => {
+          const Icon = t.icon
+          return (
             <button
-              onClick={() => {
-                setFolderCreateParentId(null)
-                setFolderCreateOpen(true)
-              }}
-              className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              title="Neuer Ordner"
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
+                activeTab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
             >
-              <Plus className="h-4 w-4" />
+              <Icon className="h-4 w-4" />
+              {t.label}
             </button>
-          </div>
-          <nav className="space-y-0.5">
-            {rootFolders.map((folder) => (
-              <FolderTreeItem
-                key={folder.id}
-                folder={folder}
-                allFolders={folders}
-                activeFolder={activeFolder}
-                onSelect={setActiveFolder}
-                actions={getFolderActions(folder)}
-                depth={0}
-              />
-            ))}
-          </nav>
+          )
+        })}
+      </div>
 
-          {/* Storage */}
-          <div className="mt-6 rounded-lg border border-border p-3">
-            <p className="text-xs font-medium text-foreground mb-1">Speicher</p>
-            <div className="h-1.5 rounded-full bg-secondary mb-1">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${Math.min(storagePercent, 100)}%` }}
-              />
+      {/* Dateien tab */}
+      {activeTab === 'dateien' && (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileSelect}
+            multiple
+          />
+
+          {/* Sidebar */}
+          {sidebarOpen && (
+            <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-foreground">Ordner</h3>
+                <button
+                  onClick={() => {
+                    setFolderCreateParentId(null)
+                    setFolderCreateOpen(true)
+                  }}
+                  className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                  title="Neuer Ordner"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <nav className="space-y-0.5">
+                {rootFolders.map((folder) => (
+                  <FolderTreeItem
+                    key={folder.id}
+                    folder={folder}
+                    allFolders={folders}
+                    activeFolder={activeFolder}
+                    onSelect={setActiveFolder}
+                    actions={getFolderActions(folder)}
+                    depth={0}
+                  />
+                ))}
+              </nav>
+
+              {/* Storage */}
+              <div className="mt-6 rounded-lg border border-border p-3">
+                <p className="text-xs font-medium text-foreground mb-1">Speicher</p>
+                <div className="h-1.5 rounded-full bg-secondary mb-1">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${Math.min(storagePercent, 100)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {formatBytes(storageUsed)} von {formatBytes(storageTotal)} verwendet
+                </p>
+              </div>
+            </aside>
+          )}
+
+          {/* Main */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Toolbar */}
+            <div className="flex items-center gap-3 border-b border-border px-6 py-3">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary"
+              >
+                <FolderOpen className="h-4 w-4" />
+              </button>
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Dateien suchen..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground hidden sm:block">
+                {filtered.length} Dateien
+              </span>
+              <div className="flex items-center gap-1 ml-auto">
+                <button
+                  onClick={() => setView('grid')}
+                  className={`rounded-md p-1.5 transition-colors ${view === 'grid' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setView('list')}
+                  className={`rounded-md p-1.5 transition-colors ${view === 'list' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
+                >
+                  <List className="h-4 w-4" />
+                </button>
+              </div>
+              <button
+                onClick={handleUpload}
+                className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Upload className="h-4 w-4" />
+                Hochladen
+              </button>
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              {formatBytes(storageUsed)} von {formatBytes(storageTotal)} verwendet
-            </p>
+
+            {/* Content with drag overlay */}
+            <div
+              className="flex-1 overflow-y-auto p-6 relative"
+              onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true) }}
+              onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false) }}
+              onDrop={(e) => {
+                e.preventDefault()
+                setIsDragOver(false)
+                handleFileSelect()
+              }}
+            >
+              {/* Drag overlay */}
+              {isDragOver && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
+                  <div className="text-center">
+                    <Upload className="h-12 w-12 mx-auto mb-3 text-primary opacity-60" />
+                    <p className="text-sm font-medium text-primary">Dateien hierhin ziehen</p>
+                    <p className="text-xs text-muted-foreground mt-1">in "{activeFolderName}" hochladen</p>
+                  </div>
+                </div>
+              )}
+
+              {view === 'grid' ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {filtered.map((file) => (
+                    <FileGridCard
+                      key={file.id}
+                      file={file}
+                      actions={getFileActions(file)}
+                      onDoubleClick={() => setPreviewFile(file)}
+                      onClick={() => setDetailFile(file)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="grid grid-cols-[1fr_100px_100px_120px_40px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                    <span>Name</span>
+                    <span>Größe</span>
+                    <span>Typ</span>
+                    <span>Datum</span>
+                    <span />
+                  </div>
+                  {filtered.map((file) => (
+                    <FileListRow
+                      key={file.id}
+                      file={file}
+                      actions={getFileActions(file)}
+                      onDoubleClick={() => setPreviewFile(file)}
+                      onClick={() => setDetailFile(file)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {filtered.length === 0 && (
+                <EmptyState
+                  icon={FolderOpen}
+                  title="Keine Dateien gefunden"
+                  description={search ? 'Versuche einen anderen Suchbegriff' : 'Lade deine erste Datei hoch'}
+                  action={
+                    !search
+                      ? { label: 'Datei hochladen', onClick: handleUpload }
+                      : undefined
+                  }
+                />
+              )}
+            </div>
           </div>
-        </aside>
+
+          {/* Preview Modal */}
+          <FilePreviewModal
+            file={previewFile}
+            open={!!previewFile}
+            onOpenChange={(open) => !open && setPreviewFile(null)}
+          />
+
+          {/* Detail Panel */}
+          <FileDetailPanel
+            file={detailFile}
+            open={!!detailFile}
+            onClose={() => setDetailFile(null)}
+            onPreview={setPreviewFile}
+            onRename={(f) => setRenameTarget({ id: f.id, name: f.name, type: 'file' })}
+            onShare={setShareTarget}
+            onDelete={setDeleteConfirmId}
+            onToggleFavorite={(id) => {
+              toggleFavorite(id)
+              toast.success('Favoriten aktualisiert')
+            }}
+          />
+
+          {/* Folder Create Dialog */}
+          <FolderCreateDialog
+            open={folderCreateOpen}
+            onOpenChange={setFolderCreateOpen}
+            parentName={folderCreateParentId ? folders.find((f) => f.id === folderCreateParentId)?.name : undefined}
+            onSubmit={(name) => {
+              addFolder(name, folderCreateParentId)
+              toast.success(`Ordner "${name}" erstellt`)
+            }}
+          />
+
+          {/* Rename Dialog */}
+          <RenameDialog
+            open={!!renameTarget}
+            onOpenChange={(open) => !open && setRenameTarget(null)}
+            currentName={renameTarget?.name || ''}
+            itemType={renameTarget?.type || 'file'}
+            onSubmit={handleRenameSubmit}
+          />
+
+          {/* Share Dialog */}
+          <ShareDialog
+            open={!!shareTarget}
+            onOpenChange={(open) => !open && setShareTarget(null)}
+            fileName={shareTarget?.name || ''}
+            currentShares={shareTarget?.sharedWith || []}
+          />
+
+          {/* Delete File Confirm */}
+          <ConfirmDialog
+            open={!!deleteConfirmId}
+            onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+            title="Datei löschen?"
+            description={`"${deleteTarget?.name}" wird unwiderruflich gelöscht.`}
+            confirmLabel="Löschen"
+            variant="destructive"
+            onConfirm={handleDeleteFile}
+          />
+
+          {/* Delete Folder Confirm */}
+          <ConfirmDialog
+            open={!!deleteFolderConfirmId}
+            onOpenChange={(open) => !open && setDeleteFolderConfirmId(null)}
+            title="Ordner löschen?"
+            description={`"${deleteFolderTarget?.name}" und alle enthaltenen Dateien werden verschoben nach "Alle Dateien".`}
+            confirmLabel="Löschen"
+            variant="destructive"
+            onConfirm={handleDeleteFolder}
+          />
+        </div>
       )}
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Toolbar */}
-        <div className="flex items-center gap-3 border-b border-border px-6 py-3">
+      {/* Wiki tab */}
+      {activeTab === 'wiki' && <WikiTab />}
+    </div>
+  )
+}
+
+/* ===== Wiki Tab ===== */
+
+function WikiTab() {
+  const {
+    wikiArticles, wikiCategories,
+    addWikiArticle, updateWikiArticle, deleteWikiArticle,
+  } = useDocumentsStore()
+
+  const [wikiSearch, setWikiSearch] = useState('')
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [selectedArticle, setSelectedArticle] = useState<WikiArticle | null>(null)
+  const [activeTag, setActiveTag] = useState<string | null>(null)
+
+  // Dialogs
+  const [showArticleForm, setShowArticleForm] = useState(false)
+  const [editArticle, setEditArticle] = useState<WikiArticle | null>(null)
+  const [deleteArticleConfirm, setDeleteArticleConfirm] = useState<WikiArticle | null>(null)
+
+  // Form state
+  const [formTitle, setFormTitle] = useState('')
+  const [formCategory, setFormCategory] = useState('')
+  const [formContent, setFormContent] = useState('')
+  const [formTags, setFormTags] = useState('')
+
+  // Derived
+  const filteredArticles = useMemo(() => {
+    let result = [...wikiArticles]
+    if (activeCategory) {
+      result = result.filter((a) => a.categoryId === activeCategory)
+    }
+    if (activeTag) {
+      result = result.filter((a) => a.tags.includes(activeTag))
+    }
+    if (wikiSearch) {
+      const q = wikiSearch.toLowerCase()
+      result = result.filter(
+        (a) =>
+          a.title.toLowerCase().includes(q) ||
+          a.content.toLowerCase().includes(q) ||
+          a.tags.some((t) => t.toLowerCase().includes(q))
+      )
+    }
+    return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }, [wikiArticles, activeCategory, activeTag, wikiSearch])
+
+  const allTags = useMemo(() => {
+    const tagMap: Record<string, number> = {}
+    wikiArticles.forEach((a) => a.tags.forEach((t) => { tagMap[t] = (tagMap[t] || 0) + 1 }))
+    return Object.entries(tagMap).sort((a, b) => b[1] - a[1])
+  }, [wikiArticles])
+
+  const recentlyUpdated = useMemo(
+    () => [...wikiArticles].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5),
+    [wikiArticles]
+  )
+
+  const latestUpdate = recentlyUpdated[0]?.updatedAt
+    ? new Date(recentlyUpdated[0].updatedAt).toLocaleDateString('de-CH')
+    : '-'
+
+  const getCategoryName = (id: string) => wikiCategories.find((c) => c.id === id)?.name || 'Unbekannt'
+
+  const openNewArticle = () => {
+    setEditArticle(null)
+    setFormTitle('')
+    setFormCategory(wikiCategories[0]?.id || '')
+    setFormContent('')
+    setFormTags('')
+    setShowArticleForm(true)
+  }
+
+  const openEditArticle = (article: WikiArticle) => {
+    setEditArticle(article)
+    setFormTitle(article.title)
+    setFormCategory(article.categoryId)
+    setFormContent(article.content)
+    setFormTags(article.tags.join(', '))
+    setShowArticleForm(true)
+  }
+
+  const handleArticleSubmit = () => {
+    if (!formTitle.trim() || !formCategory) return
+    const tags = formTags.split(',').map((t) => t.trim()).filter(Boolean)
+    const now = new Date().toISOString().split('T')[0]
+
+    if (editArticle) {
+      updateWikiArticle(editArticle.id, {
+        title: formTitle.trim(),
+        categoryId: formCategory,
+        content: formContent.trim(),
+        tags,
+        updatedAt: now,
+      })
+      // Update the selected article view if it's the same
+      if (selectedArticle?.id === editArticle.id) {
+        setSelectedArticle({
+          ...editArticle,
+          title: formTitle.trim(),
+          categoryId: formCategory,
+          content: formContent.trim(),
+          tags,
+          updatedAt: now,
+        })
+      }
+      toast.success('Artikel aktualisiert')
+    } else {
+      addWikiArticle({
+        title: formTitle.trim(),
+        categoryId: formCategory,
+        content: formContent.trim(),
+        tags,
+        author: 'Du',
+        createdAt: now,
+        updatedAt: now,
+        views: 0,
+      })
+      toast.success('Artikel erstellt')
+    }
+    setShowArticleForm(false)
+  }
+
+  const handleDeleteArticle = () => {
+    if (!deleteArticleConfirm) return
+    deleteWikiArticle(deleteArticleConfirm.id)
+    if (selectedArticle?.id === deleteArticleConfirm.id) setSelectedArticle(null)
+    setDeleteArticleConfirm(null)
+    toast.success('Artikel gelöscht')
+  }
+
+  return (
+    <div className="flex flex-1 overflow-hidden">
+      {/* Left Sidebar — Categories */}
+      <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-medium text-foreground">Kategorien</h3>
+        </div>
+        <nav className="space-y-0.5">
+          {/* All articles */}
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary"
+            onClick={() => { setActiveCategory(null); setActiveTag(null); setSelectedArticle(null) }}
+            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+              !activeCategory && !activeTag
+                ? 'bg-primary-light text-primary font-medium'
+                : 'text-foreground hover:bg-secondary'
+            }`}
           >
-            <FolderOpen className="h-4 w-4" />
+            <BookOpen className="h-4 w-4 shrink-0" />
+            <span className="truncate">Alle Artikel</span>
+            <span className="ml-auto text-xs text-muted-foreground">{wikiArticles.length}</span>
           </button>
+
+          {/* Category list */}
+          {wikiCategories
+            .sort((a, b) => a.order - b.order)
+            .map((cat) => {
+              const CatIcon = wikiCategoryIcons[cat.icon] || BookOpen
+              const count = wikiArticles.filter((a) => a.categoryId === cat.id).length
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => { setActiveCategory(cat.id); setActiveTag(null); setSelectedArticle(null) }}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                    activeCategory === cat.id
+                      ? 'bg-primary-light text-primary font-medium'
+                      : 'text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <CatIcon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{cat.name}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">{count}</span>
+                </button>
+              )
+            })}
+        </nav>
+
+        {/* Stats */}
+        <div className="mt-6 rounded-lg border border-border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">Artikel gesamt</span>
+            <span className="text-xs font-medium text-foreground">{wikiArticles.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">Kategorien</span>
+            <span className="text-xs font-medium text-foreground">{wikiCategories.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">Letzte Änderung</span>
+            <span className="text-xs font-medium text-foreground">{latestUpdate}</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Search bar + actions */}
+        <div className="flex items-center gap-3 border-b border-border px-6 py-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Dateien suchen..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Wiki durchsuchen..."
+              value={wikiSearch}
+              onChange={(e) => setWikiSearch(e.target.value)}
               className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
+          {activeTag && (
+            <button
+              onClick={() => setActiveTag(null)}
+              className="flex items-center gap-1 rounded-full bg-primary-light px-2.5 py-1 text-xs text-primary"
+            >
+              <Tag className="h-3 w-3" />
+              {activeTag}
+              <span className="ml-1 font-medium">&times;</span>
+            </button>
+          )}
           <span className="text-xs text-muted-foreground hidden sm:block">
-            {filtered.length} Dateien
+            {filteredArticles.length} Artikel
           </span>
-          <div className="flex items-center gap-1 ml-auto">
-            <button
-              onClick={() => setView('grid')}
-              className={`rounded-md p-1.5 transition-colors ${view === 'grid' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setView('list')}
-              className={`rounded-md p-1.5 transition-colors ${view === 'list' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
           <button
-            onClick={handleUpload}
-            className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            onClick={openNewArticle}
+            className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            <Upload className="h-4 w-4" />
-            Hochladen
+            <Plus className="h-4 w-4" />
+            Neuer Artikel
           </button>
         </div>
 
-        {/* Content with drag overlay */}
-        <div
-          className="flex-1 overflow-y-auto p-6 relative"
-          onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true) }}
-          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
-          onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false) }}
-          onDrop={(e) => {
-            e.preventDefault()
-            setIsDragOver(false)
-            handleFileSelect()
-          }}
-        >
-          {/* Drag overlay */}
-          {isDragOver && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
-              <div className="text-center">
-                <Upload className="h-12 w-12 mx-auto mb-3 text-primary opacity-60" />
-                <p className="text-sm font-medium text-primary">Dateien hierhin ziehen</p>
-                <p className="text-xs text-muted-foreground mt-1">in "{activeFolderName}" hochladen</p>
-              </div>
-            </div>
-          )}
-
-          {view === 'grid' ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filtered.map((file) => (
-                <FileGridCard
-                  key={file.id}
-                  file={file}
-                  actions={getFileActions(file)}
-                  onDoubleClick={() => setPreviewFile(file)}
-                  onClick={() => setDetailFile(file)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <div className="grid grid-cols-[1fr_100px_100px_120px_40px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
-                <span>Name</span>
-                <span>Größe</span>
-                <span>Typ</span>
-                <span>Datum</span>
-                <span />
-              </div>
-              {filtered.map((file) => (
-                <FileListRow
-                  key={file.id}
-                  file={file}
-                  actions={getFileActions(file)}
-                  onDoubleClick={() => setPreviewFile(file)}
-                  onClick={() => setDetailFile(file)}
-                />
-              ))}
-            </div>
-          )}
-
-          {filtered.length === 0 && (
-            <EmptyState
-              icon={FolderOpen}
-              title="Keine Dateien gefunden"
-              description={search ? 'Versuche einen anderen Suchbegriff' : 'Lade deine erste Datei hoch'}
-              action={
-                !search
-                  ? { label: 'Datei hochladen', onClick: handleUpload }
-                  : undefined
-              }
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {selectedArticle ? (
+            <WikiArticleDetail
+              article={selectedArticle}
+              categoryName={getCategoryName(selectedArticle.categoryId)}
+              onBack={() => setSelectedArticle(null)}
+              onEdit={() => openEditArticle(selectedArticle)}
+              onDelete={() => setDeleteArticleConfirm(selectedArticle)}
             />
+          ) : filteredArticles.length === 0 ? (
+            <EmptyState
+              icon={BookOpen}
+              title="Keine Artikel gefunden"
+              description={wikiSearch ? 'Versuche einen anderen Suchbegriff' : 'Erstelle deinen ersten Wiki-Artikel'}
+              action={!wikiSearch ? { label: 'Neuer Artikel', onClick: openNewArticle } : undefined}
+            />
+          ) : (
+            <div className="grid gap-3">
+              {filteredArticles.map((article) => (
+                <WikiArticleCard
+                  key={article.id}
+                  article={article}
+                  categoryName={getCategoryName(article.categoryId)}
+                  onClick={() => setSelectedArticle(article)}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Preview Modal */}
-      <FilePreviewModal
-        file={previewFile}
-        open={!!previewFile}
-        onOpenChange={(open) => !open && setPreviewFile(null)}
-      />
+      {/* Right Sidebar — Recent + Tags */}
+      <aside className="w-48 shrink-0 border-l border-border bg-card p-4 overflow-y-auto hidden lg:block">
+        {/* Recent changes */}
+        <h4 className="text-xs font-medium text-foreground mb-3">Letzte Änderungen</h4>
+        <div className="space-y-2 mb-6">
+          {recentlyUpdated.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => setSelectedArticle(a)}
+              className="block w-full text-left group"
+            >
+              <p className="text-xs text-foreground truncate group-hover:text-primary transition-colors">{a.title}</p>
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Clock className="h-2.5 w-2.5" />
+                {new Date(a.updatedAt).toLocaleDateString('de-CH')}
+              </p>
+            </button>
+          ))}
+        </div>
 
-      {/* Detail Panel */}
-      <FileDetailPanel
-        file={detailFile}
-        open={!!detailFile}
-        onClose={() => setDetailFile(null)}
-        onPreview={setPreviewFile}
-        onRename={(f) => setRenameTarget({ id: f.id, name: f.name, type: 'file' })}
-        onShare={setShareTarget}
-        onDelete={setDeleteConfirmId}
-        onToggleFavorite={(id) => {
-          toggleFavorite(id)
-          toast.success('Favoriten aktualisiert')
-        }}
-      />
+        {/* Tags cloud */}
+        <h4 className="text-xs font-medium text-foreground mb-3">Tags</h4>
+        <div className="flex flex-wrap gap-1.5">
+          {allTags.map(([tag, count]) => (
+            <button
+              key={tag}
+              onClick={() => {
+                setActiveTag(activeTag === tag ? null : tag)
+                setActiveCategory(null)
+                setSelectedArticle(null)
+              }}
+              className={`rounded-full px-2 py-0.5 text-[10px] transition-colors ${
+                activeTag === tag
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tag} ({count})
+            </button>
+          ))}
+        </div>
+      </aside>
 
-      {/* Folder Create Dialog */}
-      <FolderCreateDialog
-        open={folderCreateOpen}
-        onOpenChange={setFolderCreateOpen}
-        parentName={folderCreateParentId ? folders.find((f) => f.id === folderCreateParentId)?.name : undefined}
-        onSubmit={(name) => {
-          addFolder(name, folderCreateParentId)
-          toast.success(`Ordner "${name}" erstellt`)
-        }}
-      />
+      {/* Article Form Dialog */}
+      <Dialog open={showArticleForm} onOpenChange={setShowArticleForm}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editArticle ? 'Artikel bearbeiten' : 'Neuer Artikel'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Titel</Label>
+              <Input
+                placeholder="Artikelname"
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Kategorie</Label>
+              <Select value={formCategory} onValueChange={setFormCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Kategorie wählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {wikiCategories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Inhalt</Label>
+              <Textarea
+                placeholder="Artikelinhalt..."
+                value={formContent}
+                onChange={(e) => setFormContent(e.target.value)}
+                rows={6}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tags (kommagetrennt)</Label>
+              <Input
+                placeholder="z.B. Anleitung, IT, Wichtig"
+                value={formTags}
+                onChange={(e) => setFormTags(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowArticleForm(false)}>Abbrechen</Button>
+            <Button onClick={handleArticleSubmit} disabled={!formTitle.trim() || !formCategory}>
+              {editArticle ? 'Speichern' : 'Erstellen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Rename Dialog */}
-      <RenameDialog
-        open={!!renameTarget}
-        onOpenChange={(open) => !open && setRenameTarget(null)}
-        currentName={renameTarget?.name || ''}
-        itemType={renameTarget?.type || 'file'}
-        onSubmit={handleRenameSubmit}
-      />
-
-      {/* Share Dialog */}
-      <ShareDialog
-        open={!!shareTarget}
-        onOpenChange={(open) => !open && setShareTarget(null)}
-        fileName={shareTarget?.name || ''}
-        currentShares={shareTarget?.sharedWith || []}
-      />
-
-      {/* Delete File Confirm */}
+      {/* Delete article confirm */}
       <ConfirmDialog
-        open={!!deleteConfirmId}
-        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Datei löschen?"
-        description={`"${deleteTarget?.name}" wird unwiderruflich gelöscht.`}
+        open={!!deleteArticleConfirm}
+        onOpenChange={(open) => !open && setDeleteArticleConfirm(null)}
+        title="Artikel löschen?"
+        description={`"${deleteArticleConfirm?.title}" wird unwiderruflich gelöscht.`}
         confirmLabel="Löschen"
         variant="destructive"
-        onConfirm={handleDeleteFile}
-      />
-
-      {/* Delete Folder Confirm */}
-      <ConfirmDialog
-        open={!!deleteFolderConfirmId}
-        onOpenChange={(open) => !open && setDeleteFolderConfirmId(null)}
-        title="Ordner löschen?"
-        description={`"${deleteFolderTarget?.name}" und alle enthaltenen Dateien werden verschoben nach "Alle Dateien".`}
-        confirmLabel="Löschen"
-        variant="destructive"
-        onConfirm={handleDeleteFolder}
+        onConfirm={handleDeleteArticle}
       />
     </div>
   )
 }
+
+/* ===== Wiki Article Card (list item) ===== */
+
+function WikiArticleCard({
+  article,
+  categoryName,
+  onClick,
+}: {
+  article: WikiArticle
+  categoryName: string
+  onClick: () => void
+}) {
+  const firstLine = article.content.split('\n')[0].slice(0, 120)
+
+  return (
+    <div
+      onClick={onClick}
+      className="group rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+              {article.title}
+            </h3>
+            <span className="shrink-0 rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">
+              {categoryName}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{firstLine}</p>
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {article.author}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {new Date(article.updatedAt).toLocaleDateString('de-CH')}
+            </span>
+            <span className="flex items-center gap-1">
+              <Eye className="h-3 w-3" />
+              {article.views}
+            </span>
+          </div>
+        </div>
+      </div>
+      {article.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2.5">
+          {article.tags.slice(0, 4).map((tag) => (
+            <span key={tag} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+              {tag}
+            </span>
+          ))}
+          {article.tags.length > 4 && (
+            <span className="text-[10px] text-muted-foreground">+{article.tags.length - 4}</span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ===== Wiki Article Detail View ===== */
+
+function WikiArticleDetail({
+  article,
+  categoryName,
+  onBack,
+  onEdit,
+  onDelete,
+}: {
+  article: WikiArticle
+  categoryName: string
+  onBack: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div className="max-w-3xl">
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Zurück zur Übersicht
+      </button>
+
+      {/* Title */}
+      <h1 className="text-xl font-semibold text-foreground mb-3">{article.title}</h1>
+
+      {/* Meta */}
+      <div className="flex flex-wrap items-center gap-3 mb-4 text-xs text-muted-foreground">
+        <span className="rounded-full bg-primary-light px-2.5 py-0.5 text-[11px] font-medium text-primary">
+          {categoryName}
+        </span>
+        <span className="flex items-center gap-1">
+          <Users className="h-3.5 w-3.5" />
+          {article.author}
+        </span>
+        <span className="flex items-center gap-1">
+          <Clock className="h-3.5 w-3.5" />
+          Erstellt: {new Date(article.createdAt).toLocaleDateString('de-CH')}
+        </span>
+        <span className="flex items-center gap-1">
+          <Clock className="h-3.5 w-3.5" />
+          Aktualisiert: {new Date(article.updatedAt).toLocaleDateString('de-CH')}
+        </span>
+        <span className="flex items-center gap-1">
+          <Eye className="h-3.5 w-3.5" />
+          {article.views} Aufrufe
+        </span>
+      </div>
+
+      {/* Tags */}
+      {article.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-6">
+          {article.tags.map((tag) => (
+            <span key={tag} className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] text-muted-foreground flex items-center gap-1">
+              <Hash className="h-3 w-3" />
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="rounded-lg border border-border bg-card p-5 mb-6">
+        {article.content.split('\n').map((paragraph, i) => (
+          <p
+            key={i}
+            className={`text-sm text-foreground leading-relaxed ${paragraph.trim() === '' ? 'h-3' : i > 0 ? 'mt-2' : ''}`}
+          >
+            {paragraph}
+          </p>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onEdit}
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+        >
+          <Pencil className="h-4 w-4" />
+          Bearbeiten
+        </button>
+        <button
+          onClick={onDelete}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-error hover:bg-error-light transition-colors"
+        >
+          <Trash2 className="h-4 w-4" />
+          Löschen
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ===== File Manager Sub-Components (unchanged) ===== */
 
 function FolderTreeItem({
   folder,

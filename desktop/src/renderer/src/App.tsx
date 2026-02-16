@@ -46,6 +46,11 @@ const HelpdeskPage = lazy(() => import('@/modules/helpdesk/HelpdeskPage'))
 const FuhrparkPage = lazy(() => import('@/modules/fuhrpark/FuhrparkPage'))
 const ProduktionPage = lazy(() => import('@/modules/produktion/ProduktionPage'))
 const BerichtePage = lazy(() => import('@/modules/berichte/BerichtePage'))
+const VertraegePage = lazy(() => import('@/modules/vertraege/VertraegePage'))
+const FormularePage = lazy(() => import('@/modules/formulare/FormularePage'))
+const VermietungPage = lazy(() => import('@/modules/vermietung/VermietungPage'))
+const RapportePage = lazy(() => import('@/modules/rapporte/RapportePage'))
+const ZeiterfassungPage = lazy(() => import('@/modules/zeiterfassung/ZeiterfassungPage'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -328,6 +333,46 @@ const router = createHashRouter([
         element: (
           <Suspense fallback={<ModuleLoadingFallback />}>
             <BerichtePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'vertraege',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <VertraegePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'formulare',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <FormularePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'vermietung',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <VermietungPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'rapporte',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <RapportePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'zeiterfassung',
+        element: (
+          <Suspense fallback={<ModuleLoadingFallback />}>
+            <ZeiterfassungPage />
           </Suspense>
         ),
       },

@@ -13,15 +13,20 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  AlertTriangle,
   BarChart3,
   PieChart,
   Receipt,
   XCircle,
+  Gavel,
+  Send,
+  ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useFinanceStore,
   type Invoice,
+  type Dunning,
   calcInvoiceTotal,
   calcRemainingAmount,
 } from '@/stores/finance'
@@ -32,7 +37,7 @@ import { PaymentRecordDialog } from './PaymentRecordDialog'
 import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { ExportDialog } from './ExportDialog'
 
-type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'reports'
+type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'mahnungen' | 'reports'
 
 function formatCHF(amount: number) {
   return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(amount)
@@ -48,9 +53,10 @@ const invoiceStatusConfig: Record<string, { label: string; colors: string; icon:
 
 export default function BuchhaltungPage() {
   const {
-    invoices, transactions, expenses,
+    invoices, transactions, expenses, dunnings,
     deleteInvoice, duplicateInvoice, sendInvoice, cancelInvoice,
     deleteTransaction, deleteExpense, approveExpense, rejectExpense,
+    sendDunning, escalateDunning,
   } = useFinanceStore()
 
   const [tab, setTab] = useState<TabKey>('invoices')
@@ -65,6 +71,8 @@ export default function BuchhaltungPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
   const [showExport, setShowExport] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; label: string } | null>(null)
+  const [dunningLevelFilter, setDunningLevelFilter] = useState<'all' | 1 | 2 | 3>('all')
+  const [dunningStatusFilter, setDunningStatusFilter] = useState<'all' | 'pending' | 'sent' | 'inkasso'>('all')
 
   // Stats from actual data
   const totalIncome = transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
@@ -74,11 +82,14 @@ export default function BuchhaltungPage() {
     .filter((i) => i.type === 'invoice' && i.status !== 'paid' && i.status !== 'cancelled')
     .reduce((sum, i) => sum + calcRemainingAmount(i), 0)
 
+  const openDunningCount = dunnings.filter((d) => d.status !== 'paid').length
+
   const stats = [
     { label: 'Einnahmen', value: formatCHF(totalIncome), icon: TrendingUp, color: 'text-success', bg: 'bg-success-light' },
     { label: 'Ausgaben', value: formatCHF(totalExpense), icon: TrendingDown, color: 'text-error', bg: 'bg-error-light' },
     { label: 'Saldo', value: formatCHF(balance), icon: DollarSign, color: 'text-primary', bg: 'bg-primary-light' },
     { label: 'Offene Rechnungen', value: formatCHF(openInvoiceAmount), icon: CreditCard, color: 'text-warning', bg: 'bg-warning-light' },
+    { label: 'Offene Mahnungen', value: String(openDunningCount), icon: AlertTriangle, color: 'text-error', bg: 'bg-error-light' },
   ]
 
   // Filtered data
@@ -184,7 +195,7 @@ export default function BuchhaltungPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
@@ -207,6 +218,7 @@ export default function BuchhaltungPage() {
           { key: 'invoices' as const, label: `Rechnungen (${invoices.filter((i) => i.type === 'invoice').length})`, icon: FileText },
           { key: 'quotes' as const, label: `Angebote (${invoices.filter((i) => i.type === 'quote').length})`, icon: FileText },
           { key: 'expenses' as const, label: `Ausgaben (${expenses.length})`, icon: Receipt },
+          { key: 'mahnungen' as const, label: `Mahnungen (${dunnings.length})`, icon: Gavel },
           { key: 'transactions' as const, label: `Transaktionen (${transactions.length})`, icon: Receipt },
           { key: 'reports' as const, label: 'Berichte', icon: BarChart3 },
         ]).map((t) => {
@@ -227,7 +239,7 @@ export default function BuchhaltungPage() {
       </div>
 
       {/* Search (for non-reports tabs) */}
-      {tab !== 'reports' && (
+      {tab !== 'reports' && tab !== 'mahnungen' && (
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -387,6 +399,173 @@ export default function BuchhaltungPage() {
           ))}
         </div>
       )}
+
+      {/* Mahnungen Tab */}
+      {tab === 'mahnungen' && (() => {
+        const filtered = dunnings
+          .filter((d) => dunningLevelFilter === 'all' || d.level === dunningLevelFilter)
+          .filter((d) => {
+            if (dunningStatusFilter === 'all') return true
+            return d.status === dunningStatusFilter
+          })
+
+        const totalDueAmount = dunnings.filter((d) => d.status !== 'paid').reduce((s, d) => s + d.dueAmount, 0)
+        const inkassoCount = dunnings.filter((d) => d.status === 'inkasso').length
+        const avgOverdueDays = Math.round(
+          dunnings
+            .filter((d) => d.status !== 'paid')
+            .reduce((s, d) => {
+              const sent = new Date(d.sentAt).getTime()
+              const now = Date.now()
+              return s + Math.max(0, Math.floor((now - sent) / (1000 * 60 * 60 * 24)))
+            }, 0) / Math.max(1, dunnings.filter((d) => d.status !== 'paid').length),
+        )
+
+        const dunningStats = [
+          { label: 'Offene Mahnungen', value: String(openDunningCount) },
+          { label: 'Mahnbetrag gesamt', value: formatCHF(totalDueAmount) },
+          { label: 'Inkasso-Fälle', value: String(inkassoCount) },
+          { label: 'Ø Verzugstage', value: `${avgOverdueDays} Tage` },
+        ]
+
+        const levelColors: Record<number, string> = {
+          1: 'bg-warning-light text-warning',
+          2: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
+          3: 'bg-error-light text-error',
+        }
+
+        const statusConfig: Record<string, { label: string; colors: string }> = {
+          pending: { label: 'Ausstehend', colors: 'bg-warning-light text-warning' },
+          sent: { label: 'Gesendet', colors: 'bg-info-light text-info' },
+          reminded: { label: 'Erinnert', colors: 'bg-primary-light text-primary' },
+          paid: { label: 'Bezahlt', colors: 'bg-success-light text-success' },
+          inkasso: { label: 'Inkasso', colors: 'bg-error-light text-error' },
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Dunning stats row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {dunningStats.map((ds) => (
+                <div key={ds.label} className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-[10px] text-muted-foreground mb-1">{ds.label}</p>
+                  <p className="text-lg font-semibold text-foreground">{ds.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Filter bar */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Mahnstufe:</span>
+                {(['all', 1, 2, 3] as const).map((lvl) => (
+                  <button
+                    key={String(lvl)}
+                    onClick={() => setDunningLevelFilter(lvl)}
+                    className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                      dunningLevelFilter === lvl
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {lvl === 'all' ? 'Alle' : `Stufe ${lvl}`}
+                  </button>
+                ))}
+              </div>
+              <div className="h-4 w-px bg-border" />
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Status:</span>
+                {(['all', 'pending', 'sent', 'inkasso'] as const).map((st) => {
+                  const labels: Record<string, string> = { all: 'Alle', pending: 'Ausstehend', sent: 'Gesendet', inkasso: 'Inkasso' }
+                  return (
+                    <button
+                      key={st}
+                      onClick={() => setDunningStatusFilter(st)}
+                      className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                        dunningStatusFilter === st
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {labels[st]}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Dunning table */}
+            {filtered.length === 0 ? (
+              <EmptyState icon={Gavel} title="Keine Mahnungen" description="Keine Mahnungen mit diesen Filtern gefunden" />
+            ) : (
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_160px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+                  <span>Rechnung</span><span>Kunde</span><span>Betrag</span><span>Mahnstufe</span><span>Gesendet</span><span>Status</span><span className="text-right">Aktionen</span>
+                </div>
+                {filtered.map((d) => {
+                  const sc = statusConfig[d.status]
+                  return (
+                    <div key={d.id} className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_160px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
+                      <span className="text-sm font-mono text-primary">{d.invoiceNumber}</span>
+                      <span className="text-sm text-foreground truncate">{d.client}</span>
+                      <span className="text-sm font-medium text-foreground">{formatCHF(d.dueAmount)}</span>
+                      {/* Mahnstufe visualization */}
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${levelColors[d.level]}`}>
+                          Stufe {d.level}
+                        </span>
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3].map((step) => (
+                            <div key={step} className="flex items-center">
+                              <div
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  step <= d.level
+                                    ? step === 3 ? 'bg-error' : step === 2 ? 'bg-orange-500' : 'bg-warning'
+                                    : 'bg-secondary'
+                                }`}
+                              />
+                              {step < 3 && (
+                                <ChevronRight className={`h-2.5 w-2.5 ${step < d.level ? 'text-muted-foreground' : 'text-secondary'}`} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{new Date(d.sentAt).toLocaleDateString('de-CH')}</span>
+                      <span className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
+                        {sc.label}
+                      </span>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {d.status === 'pending' && (
+                          <button
+                            onClick={() => { sendDunning(d.id); toast.success(`Mahnung ${d.invoiceNumber} gesendet`) }}
+                            className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[10px] text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                          >
+                            <Send className="h-3 w-3" />
+                            Senden
+                          </button>
+                        )}
+                        {d.level < 3 && d.status !== 'paid' && (
+                          <button
+                            onClick={() => { escalateDunning(d.id); toast.success(`${d.invoiceNumber} eskaliert auf Stufe ${Math.min(d.level + 1, 3)}`) }}
+                            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-secondary transition-colors"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            Eskalieren
+                          </button>
+                        )}
+                        {d.status === 'inkasso' && (
+                          <span className="text-[10px] text-error font-medium">Inkasso aktiv</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Reports Tab */}
       {tab === 'reports' && (

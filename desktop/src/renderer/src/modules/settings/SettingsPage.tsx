@@ -1062,4 +1062,9 @@ const MODULE_LABELS: Record<string, string> = {
   fuhrpark: 'Fuhrpark',
   produktion: 'Produktion',
   berichte: 'Berichte',
+  vertraege: 'Vertraege',
+  rapporte: 'Rapporte',
+  zeiterfassung: 'Zeiterfassung',
+  formulare: 'Formulare',
+  vermietung: 'Vermietung',
 }

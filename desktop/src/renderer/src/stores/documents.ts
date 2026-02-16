@@ -28,9 +28,31 @@ export interface DocFolder {
   isSystem: boolean
 }
 
+export interface WikiArticle {
+  id: string
+  title: string
+  categoryId: string
+  content: string
+  tags: string[]
+  author: string
+  createdAt: string
+  updatedAt: string
+  views: number
+}
+
+export interface WikiCategory {
+  id: string
+  name: string
+  icon: string
+  parentId: string | null
+  order: number
+}
+
 interface DocumentsState {
   files: DocFile[]
   folders: DocFolder[]
+  wikiArticles: WikiArticle[]
+  wikiCategories: WikiCategory[]
   addFile: (file: Omit<DocFile, 'id' | 'versions'>) => void
   removeFile: (id: string) => void
   renameFile: (id: string, name: string) => void
@@ -42,6 +64,10 @@ interface DocumentsState {
   renameFolder: (id: string, name: string) => void
   deleteFolder: (id: string) => void
   totalStorageUsed: () => number
+  addWikiArticle: (article: Omit<WikiArticle, 'id'>) => void
+  updateWikiArticle: (id: string, updates: Partial<Omit<WikiArticle, 'id'>>) => void
+  deleteWikiArticle: (id: string) => void
+  addWikiCategory: (category: Omit<WikiCategory, 'id'>) => void
 }
 
 const mockFolders: DocFolder[] = [
@@ -139,14 +165,139 @@ const mockFiles: DocFile[] = [
   },
 ]
 
+const mockWikiCategories: WikiCategory[] = [
+  { id: 'wc-general', name: 'Allgemein', icon: 'BookOpen', parentId: null, order: 1 },
+  { id: 'wc-tech', name: 'IT & Technik', icon: 'Monitor', parentId: null, order: 2 },
+  { id: 'wc-hr', name: 'Personal & HR', icon: 'Users', parentId: null, order: 3 },
+  { id: 'wc-process', name: 'Prozesse', icon: 'GitBranch', parentId: null, order: 4 },
+  { id: 'wc-templates', name: 'Vorlagen', icon: 'FileText', parentId: null, order: 5 },
+]
+
+const mockWikiArticles: WikiArticle[] = [
+  {
+    id: 'wa-1',
+    title: 'Willkommen im KMU Hub Wiki',
+    categoryId: 'wc-general',
+    content: 'Das KMU Hub Wiki ist die zentrale Wissensdatenbank unseres Unternehmens. Hier findest du alle wichtigen Informationen, Anleitungen und Richtlinien, die du fuer deine taegliche Arbeit brauchst.\n\nAlle Mitarbeiter sind eingeladen, aktiv zum Wiki beizutragen. Wenn du neues Wissen hast oder bestehende Artikel aktualisieren moechtest, nutze einfach die Bearbeitungsfunktion.\n\nBei Fragen zum Wiki wende dich bitte an das IT-Team oder deinen Vorgesetzten.',
+    tags: ['Einstieg', 'Uebersicht', 'Willkommen'],
+    author: 'Anna Mueller',
+    createdAt: '2026-01-10',
+    updatedAt: '2026-02-01',
+    views: 342,
+  },
+  {
+    id: 'wa-2',
+    title: 'Onboarding neuer Mitarbeiter',
+    categoryId: 'wc-hr',
+    content: 'Checkliste fuer das Onboarding neuer Mitarbeiter:\n\n1. Arbeitsvertrag unterschreiben und Personalbogen ausfuellen\n2. IT-Zugaenge beantragen (E-Mail, VPN, KMU Hub)\n3. Arbeitsplatz einrichten und Schluessel uebergeben\n4. Einweisungen durchfuehren (Datenschutz, Arbeitssicherheit)\n5. Mentor zuweisen und Einarbeitungsplan erstellen\n6. Probezeitgespraech nach 3 Monaten terminieren',
+    tags: ['Onboarding', 'Checkliste', 'Neue Mitarbeiter'],
+    author: 'Lisa Schmidt',
+    createdAt: '2026-01-12',
+    updatedAt: '2026-02-05',
+    views: 189,
+  },
+  {
+    id: 'wa-3',
+    title: 'VPN-Zugang einrichten',
+    categoryId: 'wc-tech',
+    content: 'Anleitung zum Einrichten des VPN-Zugangs:\n\n1. WireGuard Client herunterladen (wireguard.com/install)\n2. Konfigurationsdatei beim IT-Team anfordern\n3. Konfiguration importieren: WireGuard oeffnen > Tunnel hinzufuegen > Datei importieren\n4. Verbindung aktivieren und Zugang testen\n5. Bei Problemen: IT-Helpdesk kontaktieren (Ticket erstellen)\n\nWichtig: VPN-Zugang ist Pflicht fuer Remote-Arbeit und den Zugriff auf interne Systeme.',
+    tags: ['VPN', 'Anleitung', 'Remote'],
+    author: 'Jonas Diaz',
+    createdAt: '2026-01-15',
+    updatedAt: '2026-01-28',
+    views: 256,
+  },
+  {
+    id: 'wa-4',
+    title: 'Urlaubsantrag stellen',
+    categoryId: 'wc-hr',
+    content: 'So stellst du einen Urlaubsantrag:\n\nMelde dich im KMU Hub an und navigiere zum Modul "Personal". Waehle dort "Urlaubsantrag" und gib den gewuenschten Zeitraum ein. Der Antrag wird automatisch an deinen Vorgesetzten weitergeleitet. Die Bearbeitung dauert in der Regel 2 Werktage. Bei dringenden Anfragen sprich bitte direkt mit deiner Fuehrungskraft. Resturlaub muss bis zum 31. Maerz des Folgejahres genommen werden.',
+    tags: ['Urlaub', 'Antrag', 'Personal'],
+    author: 'Lisa Schmidt',
+    createdAt: '2026-01-18',
+    updatedAt: '2026-02-10',
+    views: 412,
+  },
+  {
+    id: 'wa-5',
+    title: 'IT-Sicherheitsrichtlinien',
+    categoryId: 'wc-tech',
+    content: 'Verbindliche IT-Sicherheitsrichtlinien fuer alle Mitarbeiter:\n\nPasswoerter muessen mindestens 12 Zeichen lang sein und Gross-/Kleinbuchstaben, Zahlen sowie Sonderzeichen enthalten. Passwoerter alle 90 Tage aendern. Zwei-Faktor-Authentifizierung ist fuer alle Systeme Pflicht. Verdaechtige E-Mails nicht oeffnen und sofort an security@firma.ch weiterleiten. USB-Sticks duerfen nicht an Firmengeraete angeschlossen werden. Software darf nur durch das IT-Team installiert werden.',
+    tags: ['Sicherheit', 'Richtlinien', 'Passwort'],
+    author: 'Jonas Diaz',
+    createdAt: '2026-01-20',
+    updatedAt: '2026-02-08',
+    views: 178,
+  },
+  {
+    id: 'wa-6',
+    title: 'Reisekostenabrechnung',
+    categoryId: 'wc-process',
+    content: 'Anleitung zur Reisekostenabrechnung:\n\nAlle Belege muessen als Scan oder Foto eingereicht werden. Die Abrechnung erfolgt ueber das Buchhaltungsmodul unter "Ausgaben > Reisekosten". Tagespauschalen: Inland CHF 45, EU CHF 60, uebrige Laender CHF 80. Hotelkosten werden bis max. CHF 180/Nacht erstattet. Fahrtkosten mit Privatfahrzeug: CHF 0.70/km. Einreichungsfrist: 30 Tage nach Reiseende.',
+    tags: ['Reisekosten', 'Abrechnung', 'Spesen'],
+    author: 'Michael Berg',
+    createdAt: '2026-01-22',
+    updatedAt: '2026-02-03',
+    views: 134,
+  },
+  {
+    id: 'wa-7',
+    title: 'E-Mail Signaturen',
+    categoryId: 'wc-tech',
+    content: 'Vorlage fuer einheitliche E-Mail-Signaturen:\n\nMit freundlichen Gruessen\n[Vorname Nachname]\n[Position/Abteilung]\n\nFirma GmbH\nMusterstrasse 42 | 8001 Zuerich\nTel: +41 44 123 45 67\nwww.firma.ch\n\nDie Signatur muss in allen geschaeftlichen E-Mails verwendet werden. Persoenliche Zitate oder Bilder sind nicht gestattet. Bei Fragen zur Einrichtung hilft das IT-Team.',
+    tags: ['E-Mail', 'Signatur', 'Vorlage'],
+    author: 'Sarah Klein',
+    createdAt: '2026-01-25',
+    updatedAt: '2026-01-25',
+    views: 98,
+  },
+  {
+    id: 'wa-8',
+    title: 'Datenschutz (DSGVO)',
+    categoryId: 'wc-general',
+    content: 'Uebersicht zu den Datenschutzrichtlinien gemaess DSGVO und Schweizer DSG:\n\nPersonenbezogene Daten duerfen nur zweckgebunden erhoben und verarbeitet werden. Jeder Mitarbeiter ist verpflichtet, die Datenschutzschulung jaehrlich zu absolvieren. Datenpannen muessen innerhalb von 72 Stunden gemeldet werden. Kundenanfragen zur Datenauskunft oder Loeschung sind umgehend an den Datenschutzbeauftragten weiterzuleiten. Dokumente mit personenbezogenen Daten muessen im Tresor-Bereich gespeichert werden.',
+    tags: ['Datenschutz', 'DSGVO', 'Compliance'],
+    author: 'Peter Koch',
+    createdAt: '2026-01-28',
+    updatedAt: '2026-02-12',
+    views: 267,
+  },
+  {
+    id: 'wa-9',
+    title: 'Meeting-Protokoll Vorlage',
+    categoryId: 'wc-templates',
+    content: 'Vorlage fuer Meeting-Protokolle:\n\nDatum: [TT.MM.JJJJ]\nTeilnehmer: [Namen]\nProtokollant: [Name]\n\nAgenda:\n1. [Thema 1]\n2. [Thema 2]\n\nBeschlossene Massnahmen:\n- [Massnahme] — Verantwortlich: [Name] — Frist: [Datum]\n\nNaechster Termin: [Datum/Uhrzeit]\n\nDas Protokoll ist innerhalb von 24 Stunden nach dem Meeting an alle Teilnehmer zu versenden.',
+    tags: ['Meeting', 'Protokoll', 'Vorlage'],
+    author: 'Anna Mueller',
+    createdAt: '2026-02-01',
+    updatedAt: '2026-02-01',
+    views: 76,
+  },
+  {
+    id: 'wa-10',
+    title: 'Notfallkontakte',
+    categoryId: 'wc-general',
+    content: 'Wichtige Notfallkontakte:\n\nIT-Notfall (Systemausfall, Sicherheitsvorfall): +41 44 123 45 00 / it-notfall@firma.ch\nGebaeudemanagement (Wasser, Strom, Einbruch): +41 44 123 45 10\nGeschaeftsfuehrung: +41 79 234 56 78\nDatenschutzbeauftragter: datenschutz@firma.ch\nBetriebsarzt: +41 44 987 65 43\n\nBei lebensbedrohlichen Notfaellen immer zuerst 144 (Sanitaet) oder 117 (Polizei) anrufen.',
+    tags: ['Notfall', 'Kontakte', 'Wichtig'],
+    author: 'Peter Koch',
+    createdAt: '2026-02-05',
+    updatedAt: '2026-02-14',
+    views: 523,
+  },
+]
+
 let nextFileId = 13
 let nextFolderId = 12
+let nextWikiArticleId = 11
+let nextWikiCategoryId = 6
 
 export const useDocumentsStore = create<DocumentsState>()(
   persist(
     (set, get) => ({
       files: mockFiles,
       folders: mockFolders,
+      wikiArticles: mockWikiArticles,
+      wikiCategories: mockWikiCategories,
 
       addFile: (file) =>
         set((state) => ({
@@ -205,6 +356,34 @@ export const useDocumentsStore = create<DocumentsState>()(
         set((state) => ({
           folders: state.folders.filter((f) => f.id !== id),
           files: state.files.map((f) => (f.folderId === id ? { ...f, folderId: 'root' } : f)),
+        })),
+
+      addWikiArticle: (article) =>
+        set((state) => ({
+          wikiArticles: [
+            { ...article, id: `wa-${nextWikiArticleId++}` },
+            ...state.wikiArticles,
+          ],
+        })),
+
+      updateWikiArticle: (id, updates) =>
+        set((state) => ({
+          wikiArticles: state.wikiArticles.map((a) =>
+            a.id === id ? { ...a, ...updates } : a
+          ),
+        })),
+
+      deleteWikiArticle: (id) =>
+        set((state) => ({
+          wikiArticles: state.wikiArticles.filter((a) => a.id !== id),
+        })),
+
+      addWikiCategory: (category) =>
+        set((state) => ({
+          wikiCategories: [
+            ...state.wikiCategories,
+            { ...category, id: `wc-${nextWikiCategoryId++}` },
+          ],
         })),
 
       totalStorageUsed: () => get().files.reduce((sum, f) => sum + f.sizeBytes, 0),

@@ -51,6 +51,17 @@ export interface Expense {
   status: 'pending' | 'approved' | 'rejected'
 }
 
+export interface Dunning {
+  id: string
+  invoiceId: string
+  invoiceNumber: string
+  client: string
+  level: 1 | 2 | 3
+  sentAt: string
+  dueAmount: number
+  status: 'pending' | 'sent' | 'reminded' | 'paid' | 'inkasso'
+}
+
 // Helpers
 export function calcLineTotal(item: LineItem): number {
   const base = item.quantity * item.unitPrice
@@ -94,6 +105,7 @@ interface FinanceStore {
   invoices: Invoice[]
   transactions: Transaction[]
   expenses: Expense[]
+  dunnings: Dunning[]
   nextInvoiceNum: number
 
   addInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt' | 'payments'>) => void
@@ -112,6 +124,9 @@ interface FinanceStore {
   approveExpense: (id: string) => void
   rejectExpense: (id: string) => void
   deleteExpense: (id: string) => void
+
+  sendDunning: (id: string) => void
+  escalateDunning: (id: string) => void
 }
 
 const invoiceCounter = 43
@@ -193,12 +208,24 @@ const INITIAL_EXPENSES: Expense[] = [
   { id: 'exp5', description: 'Google Workspace (12 Lizenzen)', amount: 168, date: '2026-02-01', category: 'Software', supplier: 'Google', receipt: true, status: 'approved' },
 ]
 
+const INITIAL_DUNNINGS: Dunning[] = [
+  { id: 'dun1', invoiceId: 'inv-d1', invoiceNumber: 'INV-2024-001', client: 'Müller GmbH', level: 1, sentAt: '2026-01-28', dueAmount: 3450, status: 'sent' },
+  { id: 'dun2', invoiceId: 'inv-d2', invoiceNumber: 'INV-2024-003', client: 'Weber AG', level: 2, sentAt: '2026-01-15', dueAmount: 8900, status: 'reminded' },
+  { id: 'dun3', invoiceId: 'inv-d3', invoiceNumber: 'INV-2024-007', client: 'Schneider & Co', level: 1, sentAt: '2026-02-01', dueAmount: 1250, status: 'pending' },
+  { id: 'dun4', invoiceId: 'inv-d4', invoiceNumber: 'INV-2024-009', client: 'Huber Technik', level: 3, sentAt: '2025-12-20', dueAmount: 12500, status: 'inkasso' },
+  { id: 'dun5', invoiceId: 'inv-d5', invoiceNumber: 'INV-2024-012', client: 'Fischer Bau AG', level: 2, sentAt: '2026-01-10', dueAmount: 5750, status: 'sent' },
+  { id: 'dun6', invoiceId: 'inv-d6', invoiceNumber: 'INV-2024-015', client: 'Brunner Consulting', level: 1, sentAt: '2026-02-05', dueAmount: 2800, status: 'pending' },
+  { id: 'dun7', invoiceId: 'inv-d7', invoiceNumber: 'INV-2024-018', client: 'Meier Logistik', level: 3, sentAt: '2025-11-28', dueAmount: 15200, status: 'inkasso' },
+  { id: 'dun8', invoiceId: 'inv-d8', invoiceNumber: 'INV-2024-020', client: 'Koch Sanitär', level: 1, sentAt: '2026-02-10', dueAmount: 4100, status: 'sent' },
+]
+
 export const useFinanceStore = create<FinanceStore>()(
   persist(
     (set, get) => ({
       invoices: INITIAL_INVOICES,
       transactions: INITIAL_TRANSACTIONS,
       expenses: INITIAL_EXPENSES,
+      dunnings: INITIAL_DUNNINGS,
       nextInvoiceNum: invoiceCounter,
 
       addInvoice: (invoice) =>
@@ -323,6 +350,28 @@ export const useFinanceStore = create<FinanceStore>()(
       deleteExpense: (id) =>
         set((state) => ({
           expenses: state.expenses.filter((e) => e.id !== id),
+        })),
+
+      sendDunning: (id) =>
+        set((state) => ({
+          dunnings: state.dunnings.map((d) =>
+            d.id === id && d.status === 'pending'
+              ? { ...d, status: 'sent' as const, sentAt: new Date().toISOString().split('T')[0] }
+              : d,
+          ),
+        })),
+
+      escalateDunning: (id) =>
+        set((state) => ({
+          dunnings: state.dunnings.map((d) => {
+            if (d.id !== id || d.level >= 3) return d
+            const nextLevel = (d.level + 1) as 1 | 2 | 3
+            return {
+              ...d,
+              level: nextLevel,
+              status: nextLevel === 3 ? 'inkasso' as const : d.status,
+            }
+          }),
         })),
     }),
     { name: 'kmuhub-finance' },

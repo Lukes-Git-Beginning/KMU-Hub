@@ -32,7 +32,7 @@ export interface BusinessProfile {
 }
 
 /** Always-visible modules that every profile includes implicitly */
-export const ALWAYS_VISIBLE_MODULES = ['dashboard', 'settings', 'profil', 'notifications']
+export const ALWAYS_VISIBLE_MODULES = ['dashboard', 'settings', 'profil', 'notifications', 'contacts']
 
 export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
@@ -43,9 +43,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(217 91% 60%)',
     defaultModules: [
       'crm', 'projects', 'tasks', 'chat', 'calendar', 'meetings',
-      'documents', 'mail', 'contacts', 'team', 'finance',
+      'documents', 'mail', 'contacts', 'team', 'finance', 'zeiterfassung',
     ],
-    optionalModules: ['berichte', 'helpdesk'],
+    optionalModules: ['berichte', 'helpdesk', 'vertraege', 'formulare'],
     examples: ['Beratungsfirmen', 'Agenturen', 'Kanzleien', 'Treuhänder'],
   },
   {
@@ -56,9 +56,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(25 95% 53%)',
     defaultModules: [
       'crm', 'projects', 'calendar', 'einkauf', 'inventar',
-      'fuhrpark', 'documents', 'team', 'finance',
+      'fuhrpark', 'documents', 'team', 'finance', 'rapporte', 'zeiterfassung',
     ],
-    optionalModules: ['schichten', 'chat', 'meetings'],
+    optionalModules: ['schichten', 'chat', 'meetings', 'vertraege', 'vermietung', 'formulare'],
     examples: ['Elektriker', 'Sanitär', 'Schreiner', 'Maler', 'HVAC'],
   },
   {
@@ -69,9 +69,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(0 72% 51%)',
     defaultModules: [
       'inventar', 'schichten', 'einkauf',
-      'team', 'finance', 'calendar',
+      'team', 'finance', 'calendar', 'zeiterfassung',
     ],
-    optionalModules: ['crm', 'chat', 'berichte'],
+    optionalModules: ['crm', 'chat', 'berichte', 'vertraege', 'formulare'],
     examples: ['Restaurants', 'Cafes', 'Catering', 'Bäckereien', 'Hotels'],
   },
   {
@@ -82,9 +82,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(262 83% 58%)',
     defaultModules: [
       'inventar', 'crm', 'einkauf', 'schichten',
-      'team', 'finance',
+      'team', 'finance', 'zeiterfassung',
     ],
-    optionalModules: ['chat', 'berichte', 'meetings'],
+    optionalModules: ['chat', 'berichte', 'meetings', 'vertraege', 'vermietung', 'formulare'],
     examples: ['Elektronik', 'Boutique', 'Möbel', 'Buchhandlung'],
   },
   {
@@ -95,9 +95,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(330 81% 60%)',
     defaultModules: [
       'calendar', 'crm', 'mail', 'documents',
-      'team', 'finance', 'chat',
+      'team', 'finance', 'chat', 'zeiterfassung', 'vertraege',
     ],
-    optionalModules: ['projects', 'meetings', 'helpdesk', 'berichte'],
+    optionalModules: ['projects', 'meetings', 'helpdesk', 'berichte', 'vermietung', 'formulare', 'rapporte'],
     examples: ['Friseursalon', 'Kosmetik', 'Reinigung', 'Berater'],
   },
   {
@@ -108,9 +108,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(142 71% 45%)',
     defaultModules: [
       'crm', 'projects', 'tasks', 'helpdesk', 'chat', 'meetings',
-      'documents', 'mail', 'team', 'infrastructure', 'finance',
+      'documents', 'mail', 'team', 'infrastructure', 'finance', 'zeiterfassung', 'vertraege',
     ],
-    optionalModules: ['berichte', 'inventar'],
+    optionalModules: ['berichte', 'inventar', 'formulare'],
     examples: ['Softwarefirmen', 'IT-Support', 'SaaS', 'Web-Agenturen'],
   },
   {
@@ -121,9 +121,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(45 93% 47%)',
     defaultModules: [
       'produktion', 'inventar', 'einkauf', 'schichten',
-      'team', 'finance', 'calendar',
+      'team', 'finance', 'calendar', 'zeiterfassung',
     ],
-    optionalModules: ['crm', 'fuhrpark', 'berichte', 'documents'],
+    optionalModules: ['crm', 'fuhrpark', 'berichte', 'documents', 'rapporte', 'formulare'],
     examples: ['Lebensmittel', 'Metallbau', 'Textil', 'Elektronik-Montage'],
   },
   {
@@ -134,9 +134,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(199 89% 48%)',
     defaultModules: [
       'fuhrpark', 'inventar', 'schichten', 'crm',
-      'team', 'finance', 'calendar',
+      'team', 'finance', 'calendar', 'zeiterfassung',
     ],
-    optionalModules: ['einkauf', 'chat', 'berichte', 'documents'],
+    optionalModules: ['einkauf', 'chat', 'berichte', 'documents', 'rapporte', 'vermietung', 'formulare'],
     examples: ['Kurierdienste', 'Speditionen', 'Lagerhaltung'],
   },
   {
@@ -147,9 +147,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(174 62% 47%)',
     defaultModules: [
       'calendar', 'crm', 'documents',
-      'team', 'finance', 'mail',
+      'team', 'finance', 'mail', 'zeiterfassung', 'vertraege',
     ],
-    optionalModules: ['schichten', 'inventar', 'meetings', 'helpdesk', 'berichte'],
+    optionalModules: ['schichten', 'inventar', 'meetings', 'helpdesk', 'berichte', 'formulare'],
     examples: ['Arztpraxen', 'Zahnärzte', 'Physiotherapie', 'Tierärzte'],
   },
   {
@@ -160,9 +160,9 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(32 95% 44%)',
     defaultModules: [
       'projects', 'inventar', 'einkauf', 'fuhrpark',
-      'team', 'schichten', 'finance', 'calendar',
+      'team', 'schichten', 'finance', 'calendar', 'rapporte', 'zeiterfassung',
     ],
-    optionalModules: ['crm', 'documents', 'chat', 'berichte'],
+    optionalModules: ['crm', 'documents', 'chat', 'berichte', 'vermietung', 'formulare'],
     examples: ['Bauunternehmen', 'Renovation', 'Landschaftsbau'],
   },
 ]

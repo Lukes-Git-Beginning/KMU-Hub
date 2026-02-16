@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { toast } from 'sonner'
 
 export interface Vehicle {
   id: string
@@ -36,10 +37,30 @@ export interface FuelRecord {
   mileage: number
 }
 
+export interface VehiclePosition {
+  lat: number
+  lng: number
+  address: string
+  timestamp: string
+}
+
+export interface VehicleRoute {
+  id: string
+  vehicleId: string
+  vehicleName: string
+  date: string
+  positions: VehiclePosition[]
+  dailyKm: number
+  status: 'driving' | 'parked' | 'unknown'
+  driver: string
+}
+
 interface FuhrparkStore {
   vehicles: Vehicle[]
   maintenanceRecords: MaintenanceRecord[]
   fuelRecords: FuelRecord[]
+  vehicleRoutes: VehicleRoute[]
+  refreshTracking: () => void
 }
 
 const MOCK_VEHICLES: Vehicle[] = [
@@ -75,12 +96,107 @@ const MOCK_FUEL_RECORDS: FuelRecord[] = [
   { id: 'fuel-10', vehicleId: 'veh-3', vehiclePlate: 'BE 456 789', date: '2026-01-29', liters: 60.8, cost: 115.52, mileage: 66300 },
 ]
 
+const MOCK_VEHICLE_ROUTES: VehicleRoute[] = [
+  {
+    id: 'route-1',
+    vehicleId: 'veh-3',
+    vehicleName: 'Mercedes-Benz Sprinter 314',
+    date: '2026-02-15',
+    dailyKm: 142,
+    status: 'driving',
+    driver: 'Thomas Berger',
+    positions: [
+      { lat: 47.3769, lng: 8.5417, address: 'Bahnhofstrasse 42, 8001 Zuerich', timestamp: '2026-02-15T07:15:00' },
+      { lat: 47.4245, lng: 8.6507, address: 'Industriestrasse 18, 8404 Winterthur', timestamp: '2026-02-15T08:05:00' },
+      { lat: 47.4979, lng: 8.7271, address: 'Muensterplatz 1, 8200 Schaffhausen', timestamp: '2026-02-15T09:30:00' },
+      { lat: 47.4508, lng: 8.6843, address: 'Zuerich Flughafen, Cargo-Terminal', timestamp: '2026-02-15T11:20:00' },
+      { lat: 47.3895, lng: 8.5185, address: 'Hardstrasse 201, 8005 Zuerich', timestamp: '2026-02-15T12:45:00' },
+    ],
+  },
+  {
+    id: 'route-2',
+    vehicleId: 'veh-1',
+    vehicleName: 'VW Caddy Cargo',
+    date: '2026-02-15',
+    dailyKm: 95,
+    status: 'parked',
+    driver: 'Sarah Weber',
+    positions: [
+      { lat: 46.9480, lng: 7.4474, address: 'Bundesplatz 3, 3011 Bern', timestamp: '2026-02-15T07:45:00' },
+      { lat: 46.7580, lng: 7.6280, address: 'Allmendstrasse 20, 3600 Thun', timestamp: '2026-02-15T08:40:00' },
+      { lat: 46.6863, lng: 7.8632, address: 'Hoehematte, 3800 Interlaken', timestamp: '2026-02-15T10:15:00' },
+      { lat: 46.6863, lng: 7.8632, address: 'Hoehematte, 3800 Interlaken (geparkt)', timestamp: '2026-02-15T10:20:00' },
+    ],
+  },
+  {
+    id: 'route-3',
+    vehicleId: 'veh-5',
+    vehicleName: 'Toyota Proace City',
+    date: '2026-02-15',
+    dailyKm: 118,
+    status: 'driving',
+    driver: 'Marco Fischer',
+    positions: [
+      { lat: 47.5596, lng: 7.5886, address: 'Steinenvorstadt 12, 4051 Basel', timestamp: '2026-02-15T06:50:00' },
+      { lat: 47.4840, lng: 7.7302, address: 'Rheinstrasse 25, 4410 Liestal', timestamp: '2026-02-15T07:30:00' },
+      { lat: 47.3925, lng: 8.0441, address: 'Bahnhofplatz 2, 5000 Aarau', timestamp: '2026-02-15T09:10:00' },
+      { lat: 47.3521, lng: 7.9075, address: 'Hauptgasse 68, 4600 Olten', timestamp: '2026-02-15T10:45:00' },
+      { lat: 47.3740, lng: 7.9570, address: 'Industriepark Olten-West', timestamp: '2026-02-15T11:55:00' },
+    ],
+  },
+  {
+    id: 'route-4',
+    vehicleId: 'veh-4',
+    vehicleName: 'Renault Kangoo E-Tech',
+    date: '2026-02-15',
+    dailyKm: 12,
+    status: 'parked',
+    driver: 'Anna Mueller',
+    positions: [
+      { lat: 47.0502, lng: 8.3093, address: 'Pilatusstrasse 15, 6003 Luzern', timestamp: '2026-02-15T08:00:00' },
+      { lat: 47.0378, lng: 8.3080, address: 'Bundesplatz 14, 6003 Luzern', timestamp: '2026-02-15T08:10:00' },
+      { lat: 47.0378, lng: 8.3080, address: 'Bundesplatz 14, 6003 Luzern (geparkt seit 08:15)', timestamp: '2026-02-15T08:15:00' },
+    ],
+  },
+  {
+    id: 'route-5',
+    vehicleId: 'veh-2',
+    vehicleName: 'Skoda Octavia Combi',
+    date: '2026-02-15',
+    dailyKm: 87,
+    status: 'driving',
+    driver: 'David Keller',
+    positions: [
+      { lat: 47.4245, lng: 9.3767, address: 'Marktplatz 5, 9000 St. Gallen', timestamp: '2026-02-15T07:30:00' },
+      { lat: 47.4489, lng: 9.2750, address: 'Gossau SG, Wilerstrasse 10', timestamp: '2026-02-15T08:15:00' },
+      { lat: 47.5571, lng: 8.8981, address: 'Bahnhofstrasse 33, 8500 Frauenfeld', timestamp: '2026-02-15T09:45:00' },
+      { lat: 47.6633, lng: 9.1756, address: 'Hussenstrasse 2, 78462 Konstanz (DE)', timestamp: '2026-02-15T11:10:00' },
+    ],
+  },
+  {
+    id: 'route-6',
+    vehicleId: 'veh-6',
+    vehicleName: 'Iveco Daily 35S14',
+    date: '2026-02-14',
+    dailyKm: 0,
+    status: 'unknown',
+    driver: '\u2014',
+    positions: [
+      { lat: 47.3769, lng: 8.5417, address: 'Lagerstrasse 104, 8004 Zuerich (letzte Position)', timestamp: '2026-02-14T17:30:00' },
+    ],
+  },
+]
+
 export const useFuhrparkStore = create<FuhrparkStore>()(
   persist(
-    () => ({
+    (_set) => ({
       vehicles: MOCK_VEHICLES,
       maintenanceRecords: MOCK_MAINTENANCE,
       fuelRecords: MOCK_FUEL_RECORDS,
+      vehicleRoutes: MOCK_VEHICLE_ROUTES,
+      refreshTracking: () => {
+        toast.success('Tracking-Daten aktualisiert')
+      },
     }),
     { name: 'kmuhub-fuhrpark' },
   ),
