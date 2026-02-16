@@ -11,20 +11,57 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from 'sonner'
+import { I18nProvider } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { STALE_TIME, GC_TIME } from '@/lib/constants'
 import { AppShell } from '@/components/layout/AppShell'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import LoginPage from '@/modules/auth/LoginPage'
 
-// Lazy-loaded module pages
+// Lazy-loaded module pages — existing (backend-connected)
 const DashboardPage = lazy(() => import('@/modules/dashboard/DashboardPage'))
 const CRMLayout = lazy(() => import('@/modules/crm/CRMLayout'))
 const ChatLayout = lazy(() => import('@/modules/chat/ChatLayout'))
 const WorkLayout = lazy(() => import('@/modules/work/WorkLayout'))
 const KalenderPage = lazy(() => import('@/modules/kalender/KalenderPage'))
+const VideoPage = lazy(() => import('@/modules/video/VideoPage'))
+const MeetingsPage = lazy(() => import('@/modules/meetings/MeetingsPage'))
 const NotificationCenter = lazy(() => import('@/modules/notifications/NotificationCenter'))
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
+const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
+
+// Security admin pages (lazy-loaded, admin-only)
+const AuditLogPage = lazy(() => import('@/modules/security/AuditLogPage'))
+const SessionsPage = lazy(() => import('@/modules/security/SessionsPage'))
+const VaultPage = lazy(() => import('@/modules/security/VaultPage'))
+const PasswordPolicyPage = lazy(() => import('@/modules/security/PasswordPolicyPage'))
+const IPAccessPage = lazy(() => import('@/modules/security/IPAccessPage'))
+const GDPRExportPage = lazy(() => import('@/modules/security/GDPRExportPage'))
+const GDPRErasurePage = lazy(() => import('@/modules/security/GDPRErasurePage'))
+
+// New module pages from design integration (mock data, Zustand stores)
+const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
+const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
+const MailsPage = lazy(() => import('@/modules/mails/MailsPage'))
+const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
+const BuchhaltungPage = lazy(() => import('@/modules/buchhaltung/BuchhaltungPage'))
+const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage'))
+const ProfilPage = lazy(() => import('@/modules/profil/ProfilPage'))
+const ComposeWindowPage = lazy(() => import('@/modules/mails/ComposeWindowPage'))
+
+// Industry-specific module pages
+const InventarPage = lazy(() => import('@/modules/inventar/InventarPage'))
+const SchichtenPage = lazy(() => import('@/modules/schichten/SchichtenPage'))
+const EinkaufPage = lazy(() => import('@/modules/einkauf/EinkaufPage'))
+const HelpdeskPage = lazy(() => import('@/modules/helpdesk/HelpdeskPage'))
+const FuhrparkPage = lazy(() => import('@/modules/fuhrpark/FuhrparkPage'))
+const ProduktionPage = lazy(() => import('@/modules/produktion/ProduktionPage'))
+const BerichtePage = lazy(() => import('@/modules/berichte/BerichtePage'))
+const VertraegePage = lazy(() => import('@/modules/vertraege/VertraegePage'))
+const FormularePage = lazy(() => import('@/modules/formulare/FormularePage'))
+const VermietungPage = lazy(() => import('@/modules/vermietung/VermietungPage'))
+const RapportePage = lazy(() => import('@/modules/rapporte/RapportePage'))
+const ZeiterfassungPage = lazy(() => import('@/modules/zeiterfassung/ZeiterfassungPage'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -97,6 +134,15 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/** Helper to wrap a lazy page in Suspense */
+function lazyRoute(Component: React.LazyExoticComponent<() => JSX.Element>) {
+  return (
+    <Suspense fallback={<ModuleLoadingFallback />}>
+      <Component />
+    </Suspense>
+  )
+}
+
 // Hash router -- Electron loads from file:// in production, which
 // breaks HTML5 history API. Hash routing (#/crm, #/chat) works everywhere.
 const router = createHashRouter([
@@ -108,62 +154,49 @@ const router = createHashRouter([
       </ProtectedRoute>
     ),
     children: [
-      {
-        index: true,
-        element: (
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <DashboardPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'crm/*',
-        element: (
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <CRMLayout />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'chat/*',
-        element: (
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <ChatLayout />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'work/*',
-        element: (
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <WorkLayout />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'calendar',
-        element: (
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <KalenderPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'notifications',
-        element: (
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <NotificationCenter />
-          </Suspense>
-        ),
-      },
-      {
-        path: 'settings/dashboard',
-        element: (
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <DashboardSettings />
-          </Suspense>
-        ),
-      },
+      // Core modules (backend-connected)
+      { index: true, element: lazyRoute(DashboardPage) },
+      { path: 'crm/*', element: lazyRoute(CRMLayout) },
+      { path: 'chat/*', element: lazyRoute(ChatLayout) },
+      { path: 'work/*', element: lazyRoute(WorkLayout) },
+      { path: 'calendar', element: lazyRoute(KalenderPage) },
+      { path: 'video/*', element: lazyRoute(VideoPage) },
+      { path: 'meetings/*', element: lazyRoute(MeetingsPage) },
+      { path: 'notifications', element: lazyRoute(NotificationCenter) },
+      { path: 'settings/dashboard', element: lazyRoute(DashboardSettings) },
+      { path: 'settings', element: lazyRoute(SettingsPage) },
+
+      // Admin security routes
+      { path: 'admin/security/audit', element: lazyRoute(AuditLogPage) },
+      { path: 'admin/security/sessions', element: lazyRoute(SessionsPage) },
+      { path: 'admin/security/vault', element: lazyRoute(VaultPage) },
+      { path: 'admin/security/password-policy', element: lazyRoute(PasswordPolicyPage) },
+      { path: 'admin/security/ip-access', element: lazyRoute(IPAccessPage) },
+      { path: 'admin/security/gdpr/exports', element: lazyRoute(GDPRExportPage) },
+      { path: 'admin/security/gdpr/erasure', element: lazyRoute(GDPRErasurePage) },
+
+      // New modules from design integration (UI with mock data)
+      { path: 'kontakte', element: lazyRoute(KontaktePage) },
+      { path: 'dokumente', element: lazyRoute(DokumentePage) },
+      { path: 'mails', element: lazyRoute(MailsPage) },
+      { path: 'team', element: lazyRoute(TeamPage) },
+      { path: 'buchhaltung', element: lazyRoute(BuchhaltungPage) },
+      { path: 'infrastruktur', element: lazyRoute(InfrastrukturPage) },
+      { path: 'profil', element: lazyRoute(ProfilPage) },
+
+      // Industry-specific modules
+      { path: 'inventar', element: lazyRoute(InventarPage) },
+      { path: 'schichten', element: lazyRoute(SchichtenPage) },
+      { path: 'einkauf', element: lazyRoute(EinkaufPage) },
+      { path: 'helpdesk', element: lazyRoute(HelpdeskPage) },
+      { path: 'fuhrpark', element: lazyRoute(FuhrparkPage) },
+      { path: 'produktion', element: lazyRoute(ProduktionPage) },
+      { path: 'berichte', element: lazyRoute(BerichtePage) },
+      { path: 'vertraege', element: lazyRoute(VertraegePage) },
+      { path: 'formulare', element: lazyRoute(FormularePage) },
+      { path: 'vermietung', element: lazyRoute(VermietungPage) },
+      { path: 'rapporte', element: lazyRoute(RapportePage) },
+      { path: 'zeiterfassung', element: lazyRoute(ZeiterfassungPage) },
     ],
   },
   {
@@ -174,6 +207,10 @@ const router = createHashRouter([
       </GuestRoute>
     ),
   },
+  {
+    path: '/compose-window',
+    element: lazyRoute(ComposeWindowPage),
+  },
 ])
 
 export default function App() {
@@ -182,10 +219,12 @@ export default function App() {
       client={queryClient}
       persistOptions={{ persister, maxAge: GC_TIME }}
     >
-      <TooltipProvider>
-        <RouterProvider router={router} />
-        <Toaster richColors position="bottom-right" />
-      </TooltipProvider>
+      <I18nProvider>
+        <TooltipProvider>
+          <RouterProvider router={router} />
+          <Toaster richColors position="bottom-right" closeButton />
+        </TooltipProvider>
+      </I18nProvider>
     </PersistQueryClientProvider>
   )
 }

@@ -34,4 +34,27 @@ type Repository interface {
 	ListPendingInvitations(ctx context.Context) ([]*models.Invitation, error)
 	MarkInvitationAccepted(ctx context.Context, id uuid.UUID) error
 	DeleteInvitation(ctx context.Context, id uuid.UUID) error
+
+	// Two-factor authentication methods
+	StorePending2FASecret(ctx context.Context, userID uuid.UUID, encryptedSecret string) error
+	GetPending2FASecret(ctx context.Context, userID uuid.UUID) (string, error)
+	Enable2FA(ctx context.Context, userID uuid.UUID, encryptedSecret string, recoveryCodes []*models.RecoveryCode) error
+	Disable2FA(ctx context.Context, userID uuid.UUID) error
+	GetRecoveryCodes(ctx context.Context, userID uuid.UUID) ([]*models.RecoveryCode, error)
+	UseRecoveryCode(ctx context.Context, codeID uuid.UUID) error
+	ReplaceRecoveryCodes(ctx context.Context, userID uuid.UUID, codes []*models.RecoveryCode) error
+
+	// Two-factor policy methods
+	GetTwoFactorPolicy(ctx context.Context, roleName string) (*models.TwoFactorPolicy, error)
+	ListTwoFactorPolicies(ctx context.Context) ([]*models.TwoFactorPolicy, error)
+	UpsertTwoFactorPolicy(ctx context.Context, policy *models.TwoFactorPolicy) error
+
+	// Session management methods
+	CreateSession(ctx context.Context, session *models.UserSession) error
+	GetSession(ctx context.Context, id uuid.UUID) (*models.UserSession, error)
+	ListUserSessions(ctx context.Context, userID uuid.UUID) ([]*models.UserSession, error)
+	ListAllSessions(ctx context.Context, offset, limit int) ([]*models.UserSession, int, error)
+	UpdateSessionActivity(ctx context.Context, sessionID uuid.UUID) error
+	DeleteSession(ctx context.Context, id uuid.UUID) error
+	DeleteAllUserSessions(ctx context.Context, userID uuid.UUID, exceptSessionID *uuid.UUID) error
 }

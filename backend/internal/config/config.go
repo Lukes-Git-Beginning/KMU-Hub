@@ -43,6 +43,15 @@ type Config struct {
 	LiveKitAPISecret string `env:"LIVEKIT_API_SECRET,default="`
 	LiveKitWSURL     string `env:"LIVEKIT_WS_URL,default="`
 
+	// LiveKit Egress (Recording -- optional, requires LiveKit Egress service)
+	LiveKitEgressTemplateURL string `env:"LIVEKIT_EGRESS_TEMPLATE_URL,default="`
+
+	// LiveKit Webhook (optional, validates incoming LiveKit webhook signatures)
+	LiveKitWebhookSecret string `env:"LIVEKIT_WEBHOOK_SECRET,default="`
+
+	// Vault (secret encryption -- required for auth service)
+	VaultMasterSecret string `env:"VAULT_MASTER_SECRET,default="`
+
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
 	MinIOAccessKey  string `env:"MINIO_ACCESS_KEY,default=kmuhub"`

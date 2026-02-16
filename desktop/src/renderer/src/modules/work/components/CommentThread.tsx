@@ -303,7 +303,7 @@ export default function CommentThread({
                           type="button"
                           className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                           onClick={() => comment.id && handleDelete(comment.id)}
-                          title="Loeschen"
+                          title="Löschen"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -330,7 +330,7 @@ export default function CommentThread({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
-                          comment.id && handleEditSave(comment.id)
+                          if (comment.id) handleEditSave(comment.id)
                         }
                         if (e.key === 'Escape') {
                           setEditingId(null)
@@ -352,9 +352,9 @@ export default function CommentThread({
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() =>
-                          comment.id && handleEditSave(comment.id)
-                        }
+                        onClick={() => {
+                          if (comment.id) handleEditSave(comment.id)
+                        }}
                         disabled={updateComment.isPending}
                       >
                         Speichern
@@ -412,7 +412,7 @@ export default function CommentThread({
                 : 'rounded-md'
             )}
             rows={2}
-            placeholder="Kommentar schreiben... (@erwaehnen, Shift+Enter fuer neue Zeile)"
+            placeholder="Kommentar schreiben... (@erwaehnen, Shift+Enter für neue Zeile)"
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}

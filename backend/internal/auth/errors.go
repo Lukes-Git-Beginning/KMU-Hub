@@ -17,4 +17,18 @@ var (
 	ErrInvitationExpired     = errors.New("invitation expired")
 	ErrInvitationAlreadyUsed = errors.New("invitation already used")
 	ErrInvitationExists      = errors.New("pending invitation already exists for this email")
+
+	// Two-factor authentication errors
+	ErrTwoFactorAlreadyEnabled = errors.New("two-factor authentication is already enabled")
+	ErrTwoFactorNotEnabled     = errors.New("two-factor authentication is not enabled")
+	ErrNo2FASetupPending       = errors.New("no 2FA setup pending")
+	ErrInvalidTOTPCode         = errors.New("invalid TOTP code")
+	ErrInvalidRecoveryCode     = errors.New("invalid recovery code")
+	ErrAllRecoveryCodesUsed    = errors.New("all recovery codes have been used")
+	ErrInvalidPendingToken     = errors.New("invalid pending token")
+	ErrPendingTokenExpired     = errors.New("pending token expired")
+	Err2FAEnforcementRequired  = errors.New("two-factor authentication setup required by policy")
+
+	// Session errors
+	ErrSessionNotFound = errors.New("session not found")
 )

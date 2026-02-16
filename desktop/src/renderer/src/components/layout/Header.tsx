@@ -1,44 +1,89 @@
 /**
- * Compact header bar displayed above the main content area.
+ * Header bar displayed above the main content area.
  *
- * Shows current module name, connection status dot, and the
- * notification bell with real-time unread count.
+ * Shows search, clock, daily planner, time tracker, language switcher,
+ * presence status, notifications, connection status, desk controls,
+ * and profile menu.
  */
-import { useLocation } from 'react-router-dom'
+import { Maximize2, Minimize2, Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { useUIStore } from '@/stores/ui'
+import { DESK_THEMES } from '@/config/desk-themes'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
+import { PresenceStatusPicker } from '@/features/presence'
+import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-
-/** Map route paths to display names. */
-function getModuleName(pathname: string): string {
-  if (pathname === '/') return 'Dashboard'
-  if (pathname.startsWith('/crm')) return 'CRM'
-  if (pathname.startsWith('/chat')) return 'Chat'
-  if (pathname.startsWith('/notifications')) return 'Benachrichtigungen'
-  return 'KMU Hub'
-}
+import {
+  SearchBar,
+  HeaderClock,
+  DailyPlannerWidget,
+  TimeTrackerWidget,
+  LanguageSwitcher,
+  ProfileSwitcher,
+  ProfileMenu,
+} from '@/components/header'
 
 export function Header() {
-  const { pathname } = useLocation()
   const { isOnline } = useOnlineStatus()
-  const moduleName = getModuleName(pathname)
+  const deskMaximized = useUIStore((s) => s.deskMaximized)
+  const deskThemeId = useUIStore((s) => s.deskThemeId)
+  const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
+  const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
+  const isMinimalTheme = DESK_THEMES[deskThemeId]?.isMinimal ?? false
 
   // Initialize notification WebSocket listener so it's always active
   useNotificationWebSocket()
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
-      {/* Left: module name */}
-      <h1 className="text-lg font-semibold text-foreground">{moduleName}</h1>
+    <header className="flex h-16 items-center border-b border-header-border bg-header-background px-4 md:px-6 glass-surface">
+      {/* Left: mobile menu + compact search + clock */}
+      <div className="flex items-center gap-3 md:gap-4">
+        <button
+          onClick={() => setSidebarMobileOpen(true)}
+          className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
+        >
+          <Menu className="h-5 w-5 text-muted-foreground" />
+        </button>
 
-      {/* Right: status indicators */}
-      <div className="flex items-center gap-3">
-        {/* Connection status dot: green (online), red (offline) */}
+        <SearchBar />
+
+        <div className="hidden sm:block">
+          <HeaderClock />
+        </div>
+      </div>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Right: controls */}
+      <div className="flex shrink-0 items-center gap-1 md:gap-2">
+        {/* Daily Planner */}
+        <div className="hidden sm:block">
+          <DailyPlannerWidget />
+        </div>
+
+        {/* Time Tracker */}
+        <div className="hidden sm:block">
+          <TimeTrackerWidget />
+        </div>
+
+        {/* Language Switcher */}
+        <div className="hidden md:block">
+          <LanguageSwitcher />
+        </div>
+
+        {/* User presence status picker */}
+        <PresenceStatusPicker />
+
+        {/* Notification bell (existing, real API) */}
+        <NotificationBell />
+
+        {/* Connection status dot */}
         <Tooltip>
           <TooltipTrigger asChild>
             <span
@@ -55,8 +100,38 @@ export function Header() {
           </TooltipContent>
         </Tooltip>
 
-        {/* Notification bell with real-time unread count */}
-        <NotificationBell />
+        {/* Desk maximize toggle — hidden for minimal theme */}
+        {!isMinimalTheme && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={toggleDeskMaximized}
+              >
+                {deskMaximized ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {deskMaximized
+                ? 'Schreibtisch anzeigen'
+                : 'Arbeitsfläche maximieren'}
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* Profile Switcher */}
+        <div className="hidden sm:block">
+          <ProfileSwitcher />
+        </div>
+
+        {/* Profile Menu (avatar) */}
+        <ProfileMenu />
       </div>
     </header>
   )

@@ -22,13 +22,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+
+
 import { useUpdateTask } from '@/api/hooks/useTasks'
 import { useWorkStore } from '@/stores/work'
 import StatusBadge from '../components/StatusBadge'
@@ -140,7 +135,7 @@ export default function TaskRow({
     const now = new Date()
     const diffMs = d.getTime() - now.getTime()
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-    if (diffDays < 0) return `${Math.abs(diffDays)}d ueberfaellig`
+    if (diffDays < 0) return `${Math.abs(diffDays)}d überfällig`
     if (diffDays === 0) return 'Heute'
     if (diffDays === 1) return 'Morgen'
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
@@ -376,7 +371,7 @@ export default function TaskRow({
         <PopoverContent className="w-auto p-3" align="end">
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">
-              Faellig am
+              Fällig am
             </label>
             <Input
               type="date"

@@ -4,6 +4,8 @@ package auth.v1;
 
 option go_package = "github.com/kmuhub/kmuhub/proto/auth/v1;authv1";
 
+import "google/protobuf/timestamp.proto";
+
 service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
@@ -26,6 +28,23 @@ service AuthService {
   rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
   rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse);
   rpc CancelInvitation(CancelInvitationRequest) returns (CancelInvitationResponse);
+
+  // Two-Factor Authentication
+  rpc Setup2FA(Setup2FARequest) returns (Setup2FAResponse);
+  rpc Verify2FA(Verify2FARequest) returns (Verify2FAResponse);
+  rpc Validate2FALogin(Validate2FALoginRequest) returns (Validate2FALoginResponse);
+  rpc Disable2FA(Disable2FARequest) returns (Disable2FAResponse);
+  rpc RegenerateRecoveryCodes(RegenerateRecoveryCodesRequest) returns (RegenerateRecoveryCodesResponse);
+  rpc AdminReset2FA(AdminReset2FARequest) returns (AdminReset2FAResponse);
+
+  // Sessions
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc TerminateSession(TerminateSessionRequest) returns (TerminateSessionResponse);
+  rpc TerminateAllSessions(TerminateAllSessionsRequest) returns (TerminateAllSessionsResponse);
+
+  // Two-Factor Policy
+  rpc GetTwoFactorPolicy(GetTwoFactorPolicyRequest) returns (GetTwoFactorPolicyResponse);
+  rpc UpdateTwoFactorPolicy(UpdateTwoFactorPolicyRequest) returns (UpdateTwoFactorPolicyResponse);
 }
 
 message RegisterRequest {
@@ -50,6 +69,8 @@ message LoginResponse {
   UserInfo user = 1;
   string access_token = 2;
   string refresh_token = 3;
+  bool requires_two_factor = 4;
+  string pending_token = 5;
 }
 
 message RefreshTokenRequest {
@@ -139,6 +160,8 @@ message UserInfo {
   bool is_active = 5;
   repeated string roles = 6;
   string created_at = 7;
+  bool two_factor_enabled = 8;
+  string locale = 9;
 }
 
 // Profile & Password messages
@@ -205,3 +228,134 @@ message CancelInvitationRequest {
 }
 
 message CancelInvitationResponse {}
+
+// ---------------------------------------------------------------------------
+// Two-Factor Authentication messages
+// ---------------------------------------------------------------------------
+
+message Setup2FARequest {
+  string user_id = 1;
+}
+
+message Setup2FAResponse {
+  bytes qr_code_png = 1;
+  string manual_secret = 2;
+}
+
+message Verify2FARequest {
+  string user_id = 1;
+  string code = 2;
+}
+
+message Verify2FAResponse {
+  repeated string recovery_codes = 1;
+}
+
+message Validate2FALoginRequest {
+  string pending_token = 1;
+  string code = 2;
+  bool is_recovery_code = 3;
+}
+
+message Validate2FALoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  UserInfo user = 3;
+}
+
+message Disable2FARequest {
+  string user_id = 1;
+  string code = 2; // current TOTP code for confirmation
+}
+
+message Disable2FAResponse {}
+
+message RegenerateRecoveryCodesRequest {
+  string user_id = 1;
+  string code = 2; // current TOTP code for confirmation
+}
+
+message RegenerateRecoveryCodesResponse {
+  repeated string recovery_codes = 1;
+}
+
+message AdminReset2FARequest {
+  string user_id = 1;
+  string reason = 2;
+  string admin_id = 3;
+}
+
+message AdminReset2FAResponse {}
+
+// ---------------------------------------------------------------------------
+// Session messages
+// ---------------------------------------------------------------------------
+
+message SessionInfo {
+  string id = 1;
+  string user_id = 2;
+  string device_name = 3;
+  string device_type = 4;
+  string ip_address = 5;
+  string location = 6;
+  string user_agent = 7;
+  bool is_current = 8;
+  google.protobuf.Timestamp last_active_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message ListSessionsRequest {
+  string user_id = 1;
+}
+
+message ListSessionsResponse {
+  repeated SessionInfo sessions = 1;
+}
+
+message TerminateSessionRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message TerminateSessionResponse {}
+
+message TerminateAllSessionsRequest {
+  string user_id = 1;
+  string current_session_id = 2; // keep this one alive
+}
+
+message TerminateAllSessionsResponse {
+  int32 terminated_count = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Two-Factor Policy messages
+// ---------------------------------------------------------------------------
+
+message TwoFactorPolicy {
+  string id = 1;
+  string role_name = 2;
+  bool enforced = 3;
+  int32 grace_period_days = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  string updated_by = 6;
+}
+
+message GetTwoFactorPolicyRequest {
+  string role_name = 1; // empty = all policies
+}
+
+message GetTwoFactorPolicyResponse {
+  repeated TwoFactorPolicy policies = 1;
+}
+
+message UpdateTwoFactorPolicyRequest {
+  string role_name = 1;
+  bool enforced = 2;
+  int32 grace_period_days = 3;
+  string updated_by = 4;
+}
+
+message UpdateTwoFactorPolicyResponse {
+  TwoFactorPolicy policy = 1;
+}

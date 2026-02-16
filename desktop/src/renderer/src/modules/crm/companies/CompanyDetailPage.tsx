@@ -116,7 +116,7 @@ export default function CompanyDetailPage() {
             onClick={showComingSoon}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Loeschen
+            Löschen
           </Button>
         </div>
       </div>
@@ -274,12 +274,12 @@ export default function CompanyDetailPage() {
       {/* Activities section */}
       <Card>
         <CardHeader>
-          <CardTitle>Aktivitaeten</CardTitle>
+          <CardTitle>Aktivitäten</CardTitle>
         </CardHeader>
         <CardContent>
           {activities.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Keine Aktivitaeten fuer dieses Unternehmen.
+              Keine Aktivitäten für dieses Unternehmen.
             </p>
           ) : (
             <div className="space-y-3">

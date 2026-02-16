@@ -99,21 +99,21 @@ function formatActivityDescription(activity: TaskActivity): string {
 
   switch (activity.action) {
     case 'status_changed':
-      return `${actor} hat den Status von "${oldVal}" zu "${newVal}" geaendert`
+      return `${actor} hat den Status von "${oldVal}" zu "${newVal}" geändert`
     case 'assigned':
       if (newVal && !oldVal) return `${actor} hat ${newVal} zugewiesen`
       if (!newVal && oldVal) return `${actor} hat die Zuweisung von ${oldVal} entfernt`
-      return `${actor} hat die Zuweisung von ${oldVal} zu ${newVal} geaendert`
+      return `${actor} hat die Zuweisung von ${oldVal} zu ${newVal} geändert`
     case 'unassigned':
       return `${actor} hat die Zuweisung entfernt`
     case 'priority_changed':
-      return `${actor} hat die Prioritaet von "${oldVal}" auf "${newVal}" geaendert`
+      return `${actor} hat die Priorität von "${oldVal}" auf "${newVal}" geändert`
     case 'created':
       return `${actor} hat die Aufgabe erstellt`
     case 'commented':
       return `${actor} hat kommentiert`
     case 'attachment_added':
-      return `${actor} hat "${newVal}" angehaengt`
+      return `${actor} hat "${newVal}" angehängt`
     case 'attachment_removed':
       return `${actor} hat "${oldVal}" entfernt`
     case 'linked':
@@ -121,14 +121,14 @@ function formatActivityDescription(activity: TaskActivity): string {
     case 'unlinked':
       return `${actor} hat ${oldVal} entfernt`
     case 'dependency_added':
-      return `${actor} hat eine Abhaengigkeit hinzugefuegt: ${newVal}`
+      return `${actor} hat eine Abhängigkeit hinzugefügt: ${newVal}`
     case 'dependency_removed':
-      return `${actor} hat eine Abhaengigkeit entfernt: ${oldVal}`
+      return `${actor} hat eine Abhängigkeit entfernt: ${oldVal}`
     default:
       if (activity.field_name) {
-        return `${actor} hat ${activity.field_name} von "${oldVal}" zu "${newVal}" geaendert`
+        return `${actor} hat ${activity.field_name} von "${oldVal}" zu "${newVal}" geändert`
       }
-      return `${actor} hat eine Aenderung vorgenommen`
+      return `${actor} hat eine Änderung vorgenommen`
   }
 }
 
@@ -139,7 +139,7 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
   if (isLoading) {
     return (
       <div className="py-4 text-center text-sm text-muted-foreground">
-        Aktivitaeten werden geladen...
+        Aktivitäten werden geladen...
       </div>
     )
   }
@@ -147,7 +147,7 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
   if (activities.length === 0) {
     return (
       <div className="py-6 text-center text-sm text-muted-foreground">
-        Keine Aktivitaeten vorhanden
+        Keine Aktivitäten vorhanden
       </div>
     )
   }

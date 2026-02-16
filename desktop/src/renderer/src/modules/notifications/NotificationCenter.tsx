@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone } from 'lucide-react'
+import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { cn } from '@/lib/cn'
@@ -25,8 +25,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 
 export default function NotificationCenter() {
   const navigate = useNavigate()
@@ -273,7 +271,7 @@ function PreferencesPanel() {
       <CardHeader>
         <CardTitle className="text-lg">Benachrichtigungseinstellungen</CardTitle>
         <CardDescription>
-          Konfiguriere, welche Benachrichtigungen du erhalten moechtest.
+          Konfiguriere, welche Benachrichtigungen du erhalten möchtest.
         </CardDescription>
       </CardHeader>
       <CardContent>

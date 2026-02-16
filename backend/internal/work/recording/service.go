@@ -1,0 +1,293 @@
+package recording
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// RetentionDays is the default retention period for completed recordings (DSGVO compliance)
+const RetentionDays = 30
+
+// EgressManager abstracts LiveKit Egress operations for testability
+type EgressManager interface {
+	StartRoomCompositeEgress(ctx context.Context, roomName, templateURL string, s3Config S3Config) (string, error)
+	StopEgress(ctx context.Context, egressID string) error
+}
+
+// S3Config holds the S3-compatible storage configuration for recordings
+type S3Config struct {
+	Endpoint  string
+	AccessKey string
+	Secret    string
+	Bucket    string
+}
+
+// Service handles recording business logic including DSGVO consent management
+type Service struct {
+	repo          Repository
+	egressManager EgressManager // nil if not configured
+	s3Config      S3Config
+	templateURL   string
+	enabled       bool
+}
+
+// NewService creates a new recording service.
+// If egressManager is nil, the service operates in disabled mode.
+func NewService(repo Repository, egressManager EgressManager, templateURL string, s3Config S3Config) *Service {
+	return &Service{
+		repo:          repo,
+		egressManager: egressManager,
+		s3Config:      s3Config,
+		templateURL:   templateURL,
+		enabled:       egressManager != nil,
+	}
+}
+
+// StartRecording initiates a recording for a call or meeting.
+// All participants must have responded to the consent prompt before recording can begin.
+// Sets a 30-day retention period on the recording.
+func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, roomName string, participantIDs []uuid.UUID) (*Recording, error) {
+	if !s.enabled {
+		return nil, ErrEgressNotConfigured
+	}
+
+	if callID == nil && meetingID == nil {
+		return nil, ErrNoCallOrMeeting
+	}
+
+	now := time.Now()
+	retentionExpires := now.Add(RetentionDays * 24 * time.Hour)
+
+	rec := &Recording{
+		ID:                 uuid.New(),
+		CallID:             callID,
+		MeetingID:          meetingID,
+		Status:             RecordingStatusActive,
+		RetentionExpiresAt: &retentionExpires,
+		CreatedAt:          now,
+	}
+
+	if err := s.repo.CreateRecording(ctx, rec); err != nil {
+		return nil, fmt.Errorf("create recording: %w", err)
+	}
+
+	// Check consent: all current participants must have responded
+	pending, err := s.repo.CountPendingConsents(ctx, rec.ID, participantIDs)
+	if err != nil {
+		return nil, fmt.Errorf("check consents: %w", err)
+	}
+
+	if pending > 0 {
+		// Recording created but cannot start egress yet
+		slog.Info("recording consent pending",
+			"recording_id", rec.ID,
+			"pending_count", pending,
+		)
+		return nil, ErrConsentPending
+	}
+
+	// All consented - start egress
+	egressID, err := s.egressManager.StartRoomCompositeEgress(ctx, roomName, s.templateURL, s.s3Config)
+	if err != nil {
+		// Mark recording as failed if egress cannot start
+		rec.Status = RecordingStatusFailed
+		if updateErr := s.repo.UpdateRecording(ctx, rec); updateErr != nil {
+			slog.Error("failed to mark recording as failed after egress error",
+				"recording_id", rec.ID,
+				"error", updateErr,
+			)
+		}
+		return nil, fmt.Errorf("start egress: %w", err)
+	}
+
+	rec.EgressID = &egressID
+	if err := s.repo.UpdateRecording(ctx, rec); err != nil {
+		return nil, fmt.Errorf("update recording with egress id: %w", err)
+	}
+
+	slog.Info("recording started",
+		"recording_id", rec.ID,
+		"room_name", roomName,
+		"egress_id", egressID,
+	)
+
+	return rec, nil
+}
+
+// StopRecording stops an active recording.
+func (s *Service) StopRecording(ctx context.Context, recordingID uuid.UUID) (*Recording, error) {
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return nil, err
+	}
+
+	if rec.Status != RecordingStatusActive {
+		return nil, ErrRecordingNotActive
+	}
+
+	// Stop egress if configured
+	if s.enabled && rec.EgressID != nil {
+		if err := s.egressManager.StopEgress(ctx, *rec.EgressID); err != nil {
+			slog.Error("failed to stop egress",
+				"recording_id", recordingID,
+				"egress_id", *rec.EgressID,
+				"error", err,
+			)
+			// Continue to update status despite egress error
+		}
+	}
+
+	rec.Status = RecordingStatusProcessing
+	if err := s.repo.UpdateRecording(ctx, rec); err != nil {
+		return nil, fmt.Errorf("update recording status: %w", err)
+	}
+
+	slog.Info("recording stopped",
+		"recording_id", recordingID,
+		"status", rec.Status,
+	)
+
+	return rec, nil
+}
+
+// SetConsent stores a participant's consent response for a recording.
+func (s *Service) SetConsent(ctx context.Context, recordingID, userID uuid.UUID, consented bool) error {
+	consent := &RecordingConsent{
+		RecordingID: recordingID,
+		UserID:      userID,
+		Consented:   consented,
+		RespondedAt: time.Now(),
+	}
+
+	if err := s.repo.SetConsent(ctx, consent); err != nil {
+		return fmt.Errorf("set consent: %w", err)
+	}
+
+	slog.Info("recording consent set",
+		"recording_id", recordingID,
+		"user_id", userID,
+		"consented", consented,
+	)
+
+	return nil
+}
+
+// GetConsentStatus checks whether all specified participants have responded to consent.
+func (s *Service) GetConsentStatus(ctx context.Context, recordingID uuid.UUID, participantIDs []uuid.UUID) (bool, []RecordingConsent, error) {
+	consents, err := s.repo.GetConsents(ctx, recordingID)
+	if err != nil {
+		return false, nil, fmt.Errorf("get consents: %w", err)
+	}
+
+	pending, err := s.repo.CountPendingConsents(ctx, recordingID, participantIDs)
+	if err != nil {
+		return false, nil, fmt.Errorf("count pending consents: %w", err)
+	}
+
+	allResponded := pending == 0
+	return allResponded, consents, nil
+}
+
+// CompleteRecording updates a recording after Egress processing completes.
+// Called by the LiveKit Egress webhook when the file is ready.
+func (s *Service) CompleteRecording(ctx context.Context, recordingID uuid.UUID, fileURL string, fileSizeBytes int64, durationSeconds int) error {
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return err
+	}
+
+	rec.Status = RecordingStatusCompleted
+	rec.FileURL = &fileURL
+	rec.FileSizeBytes = &fileSizeBytes
+	rec.DurationSeconds = &durationSeconds
+
+	if err := s.repo.UpdateRecording(ctx, rec); err != nil {
+		return fmt.Errorf("complete recording: %w", err)
+	}
+
+	slog.Info("recording completed",
+		"recording_id", recordingID,
+		"file_url", fileURL,
+		"file_size_bytes", fileSizeBytes,
+		"duration_seconds", durationSeconds,
+	)
+
+	return nil
+}
+
+// FailRecording marks a recording as failed.
+// Called by the LiveKit Egress webhook on processing failure.
+func (s *Service) FailRecording(ctx context.Context, recordingID uuid.UUID, reason string) error {
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return err
+	}
+
+	rec.Status = RecordingStatusFailed
+	if err := s.repo.UpdateRecording(ctx, rec); err != nil {
+		return fmt.Errorf("fail recording: %w", err)
+	}
+
+	slog.Error("recording failed",
+		"recording_id", recordingID,
+		"reason", reason,
+	)
+
+	return nil
+}
+
+// CleanupExpiredRecordings deletes recordings past their retention period.
+// Returns the number of deleted recordings.
+func (s *Service) CleanupExpiredRecordings(ctx context.Context) (int, error) {
+	expired, err := s.repo.ListExpiredRecordings(ctx, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("list expired recordings: %w", err)
+	}
+
+	deleted := 0
+	for _, rec := range expired {
+		if err := s.repo.DeleteRecording(ctx, rec.ID); err != nil {
+			slog.Error("failed to delete expired recording",
+				"recording_id", rec.ID,
+				"error", err,
+			)
+			continue
+		}
+		deleted++
+
+		slog.Info("expired recording deleted",
+			"recording_id", rec.ID,
+			"retention_expired_at", rec.RetentionExpiresAt,
+		)
+	}
+
+	return deleted, nil
+}
+
+// ListRecordings returns recordings for a call or meeting.
+func (s *Service) ListRecordings(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID) ([]Recording, error) {
+	if callID != nil {
+		return s.repo.ListRecordingsByCall(ctx, *callID)
+	}
+	if meetingID != nil {
+		return s.repo.ListRecordingsByMeeting(ctx, *meetingID)
+	}
+	return nil, ErrNoCallOrMeeting
+}
+
+// ListRecordingsWithAccess returns recordings a user has access to, optionally filtered by meeting.
+// This is the Phase 11 integration point: the central file manager calls this to discover
+// recordings per meeting and enforce participant-only access.
+func (s *Service) ListRecordingsWithAccess(ctx context.Context, userID uuid.UUID, meetingID *uuid.UUID) ([]Recording, error) {
+	return s.repo.ListRecordingsWithAccess(ctx, userID, meetingID)
+}
+
+// GetRecordingParticipants returns the user IDs who have access to a recording.
+// Phase 11 uses this to enforce file-level ACL on recording downloads.
+func (s *Service) GetRecordingParticipants(ctx context.Context, recordingID uuid.UUID) ([]uuid.UUID, error) {
+	return s.repo.GetRecordingParticipants(ctx, recordingID)
+}

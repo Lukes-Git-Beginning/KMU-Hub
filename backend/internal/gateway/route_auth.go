@@ -34,7 +34,7 @@ func (a *AuthRoutes) getAuthClient() (authv1.AuthServiceClient, error) {
 	return authv1.NewAuthServiceClient(conn), nil
 }
 
-// RegisterRoutes registers all auth, user, and invitation HTTP routes.
+// RegisterRoutes registers all auth, user, invitation, 2FA, and session HTTP routes.
 func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
 	// Public auth routes
 	r.Route("/api/v1/auth", func(r chi.Router) {
@@ -43,11 +43,33 @@ func (a *AuthRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		r.Post("/refresh", a.HandleRefresh)
 		r.Post("/logout", a.HandleLogout)
 
+		// 2FA validation (uses pending_token, not JWT auth)
+		r.Post("/2fa/validate", a.HandleValidate2FALogin)
+
 		// Protected auth routes
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware)
 			r.Get("/me", a.HandleGetProfile)
 			r.Post("/change-password", a.HandleChangePassword)
+
+			// 2FA management (protected)
+			r.Post("/2fa/setup", a.HandleSetup2FA)
+			r.Post("/2fa/verify", a.HandleVerify2FA)
+			r.Post("/2fa/disable", a.HandleDisable2FA)
+			r.Post("/2fa/regenerate-codes", a.HandleRegenerateRecoveryCodes)
+
+			// 2FA admin operations
+			r.With(middleware.RequireRole("admin")).Get("/2fa/policy", a.HandleGetTwoFactorPolicy)
+			r.With(middleware.RequireRole("admin")).Put("/2fa/policy", a.HandleUpdateTwoFactorPolicy)
+			r.With(middleware.RequireRole("admin")).Post("/2fa/admin-reset", a.HandleAdminReset2FA)
+
+			// Session management
+			r.Get("/sessions", a.HandleListSessions)
+			r.Delete("/sessions/{id}", a.HandleTerminateSession)
+			r.Delete("/sessions", a.HandleTerminateAllSessions)
+
+			// Admin session management
+			r.With(middleware.RequireRole("admin")).Get("/sessions/all", a.HandleListAllSessions)
 		})
 	})
 
@@ -554,4 +576,395 @@ func (a *AuthRoutes) HandleCancelInvitation(w http.ResponseWriter, r *http.Reque
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "invitation cancelled"})
+}
+
+// ============================================================================
+// 2FA Handlers
+// ============================================================================
+
+func (a *AuthRoutes) HandleSetup2FA(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	resp, err := client.Setup2FA(r.Context(), &authv1.Setup2FARequest{UserId: userID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type verify2FARequest struct {
+	Code string `json:"code"`
+}
+
+func (a *AuthRoutes) HandleVerify2FA(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req verify2FARequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Code == "" {
+		response.Error(w, http.StatusBadRequest, "code is required")
+		return
+	}
+
+	resp, err := client.Verify2FA(r.Context(), &authv1.Verify2FARequest{
+		UserId: userID,
+		Code:   req.Code,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type validate2FALoginRequest struct {
+	PendingToken   string `json:"pending_token"`
+	Code           string `json:"code"`
+	IsRecoveryCode bool   `json:"is_recovery_code"`
+}
+
+func (a *AuthRoutes) HandleValidate2FALogin(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	var req validate2FALoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.PendingToken == "" || req.Code == "" {
+		response.Error(w, http.StatusBadRequest, "pending_token and code are required")
+		return
+	}
+
+	resp, err := client.Validate2FALogin(r.Context(), &authv1.Validate2FALoginRequest{
+		PendingToken:   req.PendingToken,
+		Code:           req.Code,
+		IsRecoveryCode: req.IsRecoveryCode,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type disable2FARequest struct {
+	Code string `json:"code"`
+}
+
+func (a *AuthRoutes) HandleDisable2FA(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req disable2FARequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	_, err = client.Disable2FA(r.Context(), &authv1.Disable2FARequest{
+		UserId: userID,
+		Code:   req.Code,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "2fa disabled"})
+}
+
+type regenerateCodesRequest struct {
+	Code string `json:"code"`
+}
+
+func (a *AuthRoutes) HandleRegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req regenerateCodesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.RegenerateRecoveryCodes(r.Context(), &authv1.RegenerateRecoveryCodesRequest{
+		UserId: userID,
+		Code:   req.Code,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type adminReset2FARequest struct {
+	UserID string `json:"user_id"`
+	Reason string `json:"reason"`
+}
+
+func (a *AuthRoutes) HandleAdminReset2FA(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	adminID := middleware.GetUserID(r.Context())
+	if adminID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req adminReset2FARequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.UserID == "" || req.Reason == "" {
+		response.Error(w, http.StatusBadRequest, "user_id and reason are required")
+		return
+	}
+
+	_, err = client.AdminReset2FA(r.Context(), &authv1.AdminReset2FARequest{
+		UserId:  req.UserID,
+		Reason:  req.Reason,
+		AdminId: adminID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "2fa reset"})
+}
+
+func (a *AuthRoutes) HandleGetTwoFactorPolicy(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	roleName := r.URL.Query().Get("role_name")
+
+	resp, err := client.GetTwoFactorPolicy(r.Context(), &authv1.GetTwoFactorPolicyRequest{
+		RoleName: roleName,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type updateTwoFactorPolicyRequest struct {
+	RoleName        string `json:"role_name"`
+	Enforced        bool   `json:"enforced"`
+	GracePeriodDays int32  `json:"grace_period_days"`
+}
+
+func (a *AuthRoutes) HandleUpdateTwoFactorPolicy(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	adminID := middleware.GetUserID(r.Context())
+	if adminID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var req updateTwoFactorPolicyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.RoleName == "" {
+		response.Error(w, http.StatusBadRequest, "role_name is required")
+		return
+	}
+
+	resp, err := client.UpdateTwoFactorPolicy(r.Context(), &authv1.UpdateTwoFactorPolicyRequest{
+		RoleName:        req.RoleName,
+		Enforced:        req.Enforced,
+		GracePeriodDays: req.GracePeriodDays,
+		UpdatedBy:       adminID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Session Handlers
+// ============================================================================
+
+func (a *AuthRoutes) HandleListSessions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	resp, err := client.ListSessions(r.Context(), &authv1.ListSessionsRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (a *AuthRoutes) HandleListAllSessions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	// Admin endpoint: list sessions for a specific user or all users
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		response.Error(w, http.StatusBadRequest, "user_id query parameter is required")
+		return
+	}
+
+	resp, err := client.ListSessions(r.Context(), &authv1.ListSessionsRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (a *AuthRoutes) HandleTerminateSession(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	sessionID := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(sessionID); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
+
+	_, err = client.TerminateSession(r.Context(), &authv1.TerminateSessionRequest{
+		SessionId: sessionID,
+		UserId:    userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"status": "session terminated"})
+}
+
+func (a *AuthRoutes) HandleTerminateAllSessions(w http.ResponseWriter, r *http.Request) {
+	client, err := a.getAuthClient()
+	if err != nil {
+		respondServiceUnavailable(w, a.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	// Optionally keep current session alive
+	currentSessionID := r.URL.Query().Get("current_session_id")
+
+	resp, err := client.TerminateAllSessions(r.Context(), &authv1.TerminateAllSessionsRequest{
+		UserId:           userID,
+		CurrentSessionId: currentSessionID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }

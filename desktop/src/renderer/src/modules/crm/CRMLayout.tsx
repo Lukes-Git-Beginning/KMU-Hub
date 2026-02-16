@@ -22,7 +22,7 @@ const crmNavItems = [
   { to: '/crm/contacts', icon: Users, label: 'Kontakte' },
   { to: '/crm/companies', icon: Building2, label: 'Unternehmen' },
   { to: '/crm/deals', icon: TrendingUp, label: 'Deals' },
-  { to: '/crm/activities', icon: Activity, label: 'Aktivitaeten' },
+  { to: '/crm/activities', icon: Activity, label: 'Aktivitäten' },
   { to: '/crm/search', icon: Search, label: 'Suche' },
 ] as const
 

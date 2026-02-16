@@ -5,7 +5,7 @@
  * Actions: members list button, search messages button.
  */
 import { Hash, Users, Search } from 'lucide-react'
-import { useChannel, useChannelMembers, type ChannelInfo } from '@/api/hooks/useChannels'
+import { useChannel, useChannelMembers } from '@/api/hooks/useChannels'
 import { useTypingIndicator } from '@/api/hooks/useMessages'
 import { Button } from '@/components/ui/button'
 import {

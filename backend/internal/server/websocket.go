@@ -19,6 +19,24 @@ import (
 // UserInfoFunc is a callback to resolve user IDs to names
 type UserInfoFunc func(ctx context.Context, userID string) (firstName, lastName string, err error)
 
+// WSPresenceService is the interface for presence operations via WebSocket.
+// Uses an interface to avoid circular imports between server and presence packages.
+type WSPresenceService interface {
+	// Heartbeat updates the user's last-seen time and returns their current status.
+	Heartbeat(ctx context.Context, userID string) (status string, err error)
+	// SetManualStatus sets the user's presence status manually (online, away, dnd, offline).
+	SetManualStatus(ctx context.Context, userID, status string) error
+}
+
+// WSVideoService is the interface for call signaling via WebSocket.
+// Uses an interface to avoid circular imports between server and video packages.
+type WSVideoService interface {
+	// NotifyCallAccepted is called when a user accepts an incoming call via WebSocket.
+	NotifyCallAccepted(ctx context.Context, callID, userID string) error
+	// NotifyCallDeclined is called when a user declines an incoming call via WebSocket.
+	NotifyCallDeclined(ctx context.Context, callID, userID string) error
+}
+
 // WebSocketHub manages WebSocket connections and message broadcasting
 type WebSocketHub struct {
 	chatClient chatv1.ChatServiceClient
@@ -28,27 +46,36 @@ type WebSocketHub struct {
 	connections map[string]map[*websocket.Conn]struct{}
 	// channelMembers maps channel ID to user IDs
 	channelMembers map[string]map[string]struct{}
+	// presenceSubscribers maps target user ID to subscriber user IDs
+	// (who wants to receive presence updates for which users)
+	presenceSubscribers map[string]map[string]struct{}
 	// userNames caches user display names for typing indicators
 	userNames    map[string]struct{ firstName, lastName string }
 	userInfoFunc UserInfoFunc
-	mu           sync.RWMutex
+
+	// Optional services for presence and call signaling (set after construction)
+	presenceService WSPresenceService
+	videoService    WSVideoService
+
+	mu sync.RWMutex
 }
 
 // NewWebSocketHub creates a new WebSocket hub
 func NewWebSocketHub(chatClient chatv1.ChatServiceClient, tokenMaker *auth.TokenMaker, userInfoFunc UserInfoFunc) *WebSocketHub {
 	return &WebSocketHub{
-		chatClient:     chatClient,
-		tokenMaker:     tokenMaker,
-		connections:    make(map[string]map[*websocket.Conn]struct{}),
-		channelMembers: make(map[string]map[string]struct{}),
-		userNames:      make(map[string]struct{ firstName, lastName string }),
-		userInfoFunc:   userInfoFunc,
+		chatClient:          chatClient,
+		tokenMaker:          tokenMaker,
+		connections:         make(map[string]map[*websocket.Conn]struct{}),
+		channelMembers:      make(map[string]map[string]struct{}),
+		presenceSubscribers: make(map[string]map[string]struct{}),
+		userNames:           make(map[string]struct{ firstName, lastName string }),
+		userInfoFunc:        userInfoFunc,
 	}
 }
 
 // WebSocket message types
 const (
-	// Client -> Server
+	// Client -> Server (Chat)
 	WSMessageSend        = "message.send"
 	WSTypingStart        = "typing.start"
 	WSTypingStop         = "typing.stop"
@@ -56,7 +83,7 @@ const (
 	WSUnsubscribeChannel = "channel.unsubscribe"
 	WSMarkRead           = "channel.mark_read"
 
-	// Server -> Client
+	// Server -> Client (Chat)
 	WSMessageNew      = "message.new"
 	WSMessageUpdated  = "message.updated"
 	WSMessageDeleted  = "message.deleted"
@@ -72,6 +99,21 @@ const (
 	WSNotificationRead        = "notification.read"
 	WSNotificationReadAll     = "notification.read_all"
 	WSNotificationUnreadCount = "notification.unread_count"
+
+	// Presence events
+	WSPresenceUpdate    = "presence.update"     // Server -> Client
+	WSPresenceHeartbeat = "presence.heartbeat"   // Client -> Server
+	WSPresenceSubscribe = "presence.subscribe"   // Client -> Server
+	WSPresenceSetStatus = "presence.set_status"  // Client -> Server (manual override)
+
+	// Call events
+	WSCallIncoming = "call.incoming" // Server -> Client
+	WSCallAccepted = "call.accepted" // Client -> Server
+	WSCallDeclined = "call.declined" // Client -> Server
+	WSCallEnded    = "call.ended"    // Server -> Client
+
+	// Reaction events
+	WSReactionToggled = "reaction.toggled" // Server -> Client
 )
 
 // WSMessage represents a WebSocket message
@@ -86,6 +128,18 @@ type WSMessage struct {
 	LastName        string          `json:"last_name,omitempty"`
 	Message         json.RawMessage `json:"message,omitempty"`
 	Error           string          `json:"error,omitempty"`
+}
+
+// SetPresenceService injects an optional presence service for WebSocket-based heartbeats
+// and status changes. Must be called before the hub starts handling connections.
+func (h *WebSocketHub) SetPresenceService(svc WSPresenceService) {
+	h.presenceService = svc
+}
+
+// SetVideoService injects an optional video/call service for WebSocket-based call signaling.
+// Must be called before the hub starts handling connections.
+func (h *WebSocketHub) SetVideoService(svc WSVideoService) {
+	h.videoService = svc
 }
 
 // HandleWebSocket handles WebSocket connections
@@ -158,6 +212,9 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 		}
 	}
 
+	// Clean up presence subscriptions for disconnected user
+	h.cleanupPresenceSubscriptions(userID)
+
 	_ = conn.Close(websocket.StatusNormalClosure, "connection closed")
 }
 
@@ -190,6 +247,16 @@ func (h *WebSocketHub) handleMessage(ctx context.Context, conn *websocket.Conn, 
 		h.handleUnsubscribeChannel(userID, msg)
 	case WSMarkRead:
 		h.handleMarkRead(ctx, conn, userID, msg)
+	case WSPresenceHeartbeat:
+		h.handlePresenceHeartbeat(ctx, conn, userID)
+	case WSPresenceSubscribe:
+		h.handlePresenceSubscribe(ctx, conn, userID, msg)
+	case WSPresenceSetStatus:
+		h.handlePresenceSetStatus(ctx, conn, userID, msg)
+	case WSCallAccepted:
+		h.handleCallAccepted(ctx, conn, userID, msg)
+	case WSCallDeclined:
+		h.handleCallDeclined(ctx, conn, userID, msg)
 	default:
 		h.sendError(ctx, conn, "unknown message type: "+msg.Type)
 	}
@@ -538,6 +605,214 @@ func (h *WebSocketHub) SendNotificationUnreadCount(ctx context.Context, userID s
 		Type:    WSNotificationUnreadCount,
 		Message: mustMarshal(payload),
 	})
+}
+
+// ============================================================================
+// Presence Handlers
+// ============================================================================
+
+// handlePresenceHeartbeat processes a client heartbeat and broadcasts the updated
+// presence status to all users subscribed to this user's presence.
+func (h *WebSocketHub) handlePresenceHeartbeat(ctx context.Context, conn *websocket.Conn, userID string) {
+	if h.presenceService == nil {
+		return // Presence service not configured, silently ignore
+	}
+
+	status, err := h.presenceService.Heartbeat(ctx, userID)
+	if err != nil {
+		slog.Warn("presence heartbeat failed", "user_id", userID, "error", err)
+		return
+	}
+
+	h.BroadcastPresenceUpdate(ctx, userID, status)
+}
+
+// handlePresenceSubscribe registers the user as a subscriber to presence updates
+// for the user IDs listed in the message payload.
+// Message format: { "type": "presence.subscribe", "message": {"user_ids": ["id1", "id2"]} }
+func (h *WebSocketHub) handlePresenceSubscribe(ctx context.Context, conn *websocket.Conn, userID string, msg *WSMessage) {
+	var payload struct {
+		UserIDs []string `json:"user_ids"`
+	}
+	if msg.Message != nil {
+		if err := json.Unmarshal(msg.Message, &payload); err != nil {
+			h.sendError(ctx, conn, "invalid presence.subscribe payload")
+			return
+		}
+	}
+
+	if len(payload.UserIDs) == 0 {
+		h.sendError(ctx, conn, "user_ids required for presence.subscribe")
+		return
+	}
+
+	h.mu.Lock()
+	for _, targetUserID := range payload.UserIDs {
+		if h.presenceSubscribers[targetUserID] == nil {
+			h.presenceSubscribers[targetUserID] = make(map[string]struct{})
+		}
+		h.presenceSubscribers[targetUserID][userID] = struct{}{}
+	}
+	h.mu.Unlock()
+
+	slog.Debug("presence subscription added",
+		"subscriber", userID,
+		"targets", payload.UserIDs,
+	)
+}
+
+// handlePresenceSetStatus handles a manual presence status change from the client.
+// Message format: { "type": "presence.set_status", "content": "away" }
+func (h *WebSocketHub) handlePresenceSetStatus(ctx context.Context, conn *websocket.Conn, userID string, msg *WSMessage) {
+	if h.presenceService == nil {
+		h.sendError(ctx, conn, "presence service unavailable")
+		return
+	}
+
+	status := msg.Content
+	if status == "" {
+		h.sendError(ctx, conn, "status is required for presence.set_status")
+		return
+	}
+
+	if err := h.presenceService.SetManualStatus(ctx, userID, status); err != nil {
+		slog.Warn("set presence status failed", "user_id", userID, "status", status, "error", err)
+		h.sendError(ctx, conn, "failed to set presence status")
+		return
+	}
+
+	h.BroadcastPresenceUpdate(ctx, userID, status)
+}
+
+// ============================================================================
+// Call Signaling Handlers
+// ============================================================================
+
+// handleCallAccepted forwards a call acceptance signal to the video service.
+// Message format: { "type": "call.accepted", "message_id": "<call_id>" }
+func (h *WebSocketHub) handleCallAccepted(ctx context.Context, conn *websocket.Conn, userID string, msg *WSMessage) {
+	if h.videoService == nil {
+		h.sendError(ctx, conn, "video service unavailable")
+		return
+	}
+
+	callID := msg.MessageID
+	if callID == "" {
+		h.sendError(ctx, conn, "message_id (call_id) is required for call.accepted")
+		return
+	}
+
+	if err := h.videoService.NotifyCallAccepted(ctx, callID, userID); err != nil {
+		slog.Warn("call accepted notification failed", "call_id", callID, "user_id", userID, "error", err)
+		h.sendError(ctx, conn, "failed to accept call")
+		return
+	}
+
+	slog.Info("call accepted via websocket", "call_id", callID, "user_id", userID)
+}
+
+// handleCallDeclined forwards a call decline signal to the video service.
+// Message format: { "type": "call.declined", "message_id": "<call_id>" }
+func (h *WebSocketHub) handleCallDeclined(ctx context.Context, conn *websocket.Conn, userID string, msg *WSMessage) {
+	if h.videoService == nil {
+		h.sendError(ctx, conn, "video service unavailable")
+		return
+	}
+
+	callID := msg.MessageID
+	if callID == "" {
+		h.sendError(ctx, conn, "message_id (call_id) is required for call.declined")
+		return
+	}
+
+	if err := h.videoService.NotifyCallDeclined(ctx, callID, userID); err != nil {
+		slog.Warn("call declined notification failed", "call_id", callID, "user_id", userID, "error", err)
+		h.sendError(ctx, conn, "failed to decline call")
+		return
+	}
+
+	slog.Info("call declined via websocket", "call_id", callID, "user_id", userID)
+}
+
+// ============================================================================
+// Broadcast Methods (Presence, Call, Reaction)
+// ============================================================================
+
+// BroadcastPresenceUpdate sends a presence status update to all users who are subscribed
+// to the given user's presence updates.
+func (h *WebSocketHub) BroadcastPresenceUpdate(ctx context.Context, userID, status string) {
+	h.mu.RLock()
+	subscribers := h.presenceSubscribers[userID]
+	subscriberIDs := make([]string, 0, len(subscribers))
+	for subID := range subscribers {
+		subscriberIDs = append(subscriberIDs, subID)
+	}
+	h.mu.RUnlock()
+
+	if len(subscriberIDs) == 0 {
+		return
+	}
+
+	payload := map[string]interface{}{
+		"user_id": userID,
+		"status":  status,
+	}
+
+	msg := WSMessage{
+		Type:    WSPresenceUpdate,
+		UserID:  userID,
+		Message: mustMarshal(payload),
+	}
+
+	for _, subID := range subscriberIDs {
+		h.sendToUser(ctx, subID, msg)
+	}
+}
+
+// BroadcastCallIncoming sends an incoming call notification to a specific user.
+// This triggers the call overlay UI on the target user's client.
+func (h *WebSocketHub) BroadcastCallIncoming(ctx context.Context, targetUserID string, callData map[string]interface{}) {
+	h.sendToUser(ctx, targetUserID, WSMessage{
+		Type:    WSCallIncoming,
+		Message: mustMarshal(callData),
+	})
+}
+
+// BroadcastCallEnded notifies a user that a call has ended.
+func (h *WebSocketHub) BroadcastCallEnded(ctx context.Context, targetUserID string, callData map[string]interface{}) {
+	h.sendToUser(ctx, targetUserID, WSMessage{
+		Type:    WSCallEnded,
+		Message: mustMarshal(callData),
+	})
+}
+
+// BroadcastReactionToggled broadcasts a reaction toggle event to all members
+// of the given channel.
+func (h *WebSocketHub) BroadcastReactionToggled(ctx context.Context, channelID string, reactionData map[string]interface{}) {
+	h.broadcastToChannel(ctx, channelID, WSMessage{
+		Type:      WSReactionToggled,
+		ChannelID: channelID,
+		Message:   mustMarshal(reactionData),
+	})
+}
+
+// ============================================================================
+// Connection Cleanup Helpers
+// ============================================================================
+
+// cleanupPresenceSubscriptions removes a user from all presence subscription maps.
+// Called when a user disconnects.
+func (h *WebSocketHub) cleanupPresenceSubscriptions(userID string) {
+	// Remove user as a subscriber from all targets
+	for targetID, subs := range h.presenceSubscribers {
+		delete(subs, userID)
+		if len(subs) == 0 {
+			delete(h.presenceSubscribers, targetID)
+		}
+	}
+
+	// Remove the user's own subscriber list (nobody should receive updates anymore)
+	delete(h.presenceSubscribers, userID)
 }
 
 // ValidateChannelID validates a channel ID

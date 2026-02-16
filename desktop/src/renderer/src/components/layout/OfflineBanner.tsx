@@ -35,8 +35,8 @@ export function OfflineBanner() {
       >
         <WifiOff className="h-4 w-4" />
         <span>
-          Offline &mdash; Daten werden aus dem Cache angezeigt. Aenderungen sind
-          nicht moeglich.
+          Offline &mdash; Daten werden aus dem Cache angezeigt. Änderungen sind
+          nicht möglich.
         </span>
       </div>
     )

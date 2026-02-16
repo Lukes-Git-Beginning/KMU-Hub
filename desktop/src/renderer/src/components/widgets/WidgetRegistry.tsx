@@ -57,7 +57,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'deal-pipeline': {
     id: 'deal-pipeline',
     name: 'Deal Pipeline',
-    description: 'Kurzuebersicht der Deals pro Phase.',
+    description: 'Kurzübersicht der Deals pro Phase.',
     icon: TrendingUp,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 4, h: 3 },
@@ -67,7 +67,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'unread-messages': {
     id: 'unread-messages',
     name: 'Ungelesene Nachrichten',
-    description: 'Kanaele und DMs mit ungelesenen Nachrichten.',
+    description: 'Kanäle und DMs mit ungelesenen Nachrichten.',
     icon: MessageSquare,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 2, h: 2 },
@@ -76,8 +76,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'activity-feed': {
     id: 'activity-feed',
-    name: 'Aktivitaeten',
-    description: 'Letzte CRM-Aktivitaeten im Ueberblick.',
+    name: 'Aktivitäten',
+    description: 'Letzte CRM-Aktivitäten im Überblick.',
     icon: Activity,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -87,7 +87,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'quick-actions': {
     id: 'quick-actions',
     name: 'Schnellaktionen',
-    description: 'Schnellzugriff auf haeufige Aktionen.',
+    description: 'Schnellzugriff auf häufige Aktionen.',
     icon: Zap,
     defaultSize: { w: 4, h: 2 },
     minSize: { w: 2, h: 2 },

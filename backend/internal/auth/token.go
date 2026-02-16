@@ -81,3 +81,58 @@ func HashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(h[:])
 }
+
+const pendingTokenExpiry = 5 * time.Minute
+
+// PendingClaims represents a short-lived token issued when 2FA verification is required.
+type PendingClaims struct {
+	jwt.RegisteredClaims
+	UserID    string `json:"uid"`
+	TokenType string `json:"type"`
+}
+
+// CreatePendingToken creates a 5-minute JWT for the 2FA verification step.
+func (tm *TokenMaker) CreatePendingToken(userID uuid.UUID) (string, error) {
+	now := time.Now()
+	claims := PendingClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(pendingTokenExpiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    "kmuhub",
+		},
+		UserID:    userID.String(),
+		TokenType: "2fa_pending",
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(tm.secret)
+}
+
+// ValidatePendingToken validates a 2FA pending token and returns the user ID.
+func (tm *TokenMaker) ValidatePendingToken(tokenStr string) (uuid.UUID, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &PendingClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return uuid.Nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return tm.secret, nil
+	})
+	if err != nil {
+		return uuid.Nil, ErrInvalidPendingToken
+	}
+
+	claims, ok := token.Claims.(*PendingClaims)
+	if !ok || !token.Valid {
+		return uuid.Nil, ErrInvalidPendingToken
+	}
+
+	if claims.TokenType != "2fa_pending" {
+		return uuid.Nil, ErrInvalidPendingToken
+	}
+
+	userID, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return uuid.Nil, ErrInvalidPendingToken
+	}
+
+	return userID, nil
+}

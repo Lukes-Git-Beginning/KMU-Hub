@@ -1,0 +1,295 @@
+/**
+ * Lightweight fetch wrapper for Video, Meeting, Presence & Reaction API endpoints.
+ *
+ * Follows the same pattern as calendar-client.ts: manual typed fetch helper
+ * with auth header injection and 401 retry. Once these routes are added to
+ * openapi.yaml and types regenerated, hooks can migrate to the typed apiClient.
+ */
+import { API_BASE_URL } from '@/lib/constants'
+import type {
+  CallSession,
+  CreateCallRequest,
+  JoinCallResponse,
+  Recording,
+  RecordingConsentStatus,
+  Meeting,
+  CreateMeetingRequest,
+  UpdateMeetingRequest,
+  MeetingFilter,
+  MeetingSummary,
+  StartMeetingResponse,
+  MeetingNotes,
+  SaveNotesRequest,
+  ActionItem,
+  CreateActionItemRequest,
+  ConvertActionItemsRequest,
+  ConvertActionItemsResponse,
+  UserPresence,
+  PresenceConfig,
+  PresenceLevel,
+  ToggleReactionRequest,
+  ToggleReactionResponse,
+  ReactionSummary,
+} from './video-types'
+
+// ---------------------------------------------------------------------------
+// Internal fetch helper (mirrors calendar-client.ts)
+// ---------------------------------------------------------------------------
+
+/** Error thrown when a mutation is attempted while offline. */
+class OfflineError extends Error {
+  constructor() {
+    super(
+      'Aenderungen sind offline nicht moeglich. Bitte stellen Sie die Internetverbindung wieder her.',
+    )
+    this.name = 'OfflineError'
+  }
+}
+
+const MUTATION_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH'])
+
+async function getAuthToken(): Promise<string | null> {
+  const { useAuthStore } = await import('@/stores/auth')
+  return useAuthStore.getState().accessToken
+}
+
+interface RequestOptions {
+  method: string
+  path: string
+  body?: unknown
+  params?: Record<string, string | number | boolean | string[] | undefined>
+}
+
+/**
+ * Make an authenticated request to the video/meeting API.
+ * Returns parsed JSON data or throws on error.
+ */
+async function request<T>(opts: RequestOptions): Promise<T> {
+  if (!navigator.onLine && MUTATION_METHODS.has(opts.method)) {
+    throw new OfflineError()
+  }
+
+  const url = new URL(`${API_BASE_URL}${opts.path}`)
+
+  if (opts.params) {
+    for (const [key, value] of Object.entries(opts.params)) {
+      if (value === undefined) continue
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          url.searchParams.append(key, v)
+        }
+      } else {
+        url.searchParams.set(key, String(value))
+      }
+    }
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  const token = await getAuthToken()
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const init: RequestInit = {
+    method: opts.method,
+    headers,
+  }
+
+  if (opts.body !== undefined) {
+    init.body = JSON.stringify(opts.body)
+  }
+
+  const response = await fetch(url.toString(), init)
+
+  if (!response.ok) {
+    // Attempt 401 token refresh once
+    if (response.status === 401) {
+      const { useAuthStore } = await import('@/stores/auth')
+      const store = useAuthStore.getState()
+      const newToken = await store.refreshToken()
+
+      if (newToken) {
+        headers['Authorization'] = `Bearer ${newToken}`
+        const retryResponse = await fetch(url.toString(), {
+          ...init,
+          headers,
+        })
+
+        if (!retryResponse.ok) {
+          const errBody = await retryResponse.json().catch(() => ({}))
+          throw new Error(
+            (errBody as Record<string, string>).error ||
+              `Request failed: ${retryResponse.status}`,
+          )
+        }
+
+        if (retryResponse.status === 204) return {} as T
+        return retryResponse.json() as Promise<T>
+      }
+
+      // Refresh failed -- force logout
+      store.logout()
+      throw new Error('Authentication expired')
+    }
+
+    const errBody = await response.json().catch(() => ({}))
+    throw new Error(
+      (errBody as Record<string, string>).error ||
+        `Request failed: ${response.status}`,
+    )
+  }
+
+  if (response.status === 204) return {} as T
+  return response.json() as Promise<T>
+}
+
+// Convenience methods
+function get<T>(path: string, params?: RequestOptions['params']): Promise<T> {
+  return request<T>({ method: 'GET', path, params })
+}
+
+function post<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>({ method: 'POST', path, body })
+}
+
+function put<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>({ method: 'PUT', path, body })
+}
+
+function del<T = void>(path: string): Promise<T> {
+  return request<T>({ method: 'DELETE', path })
+}
+
+// ---------------------------------------------------------------------------
+// Calls
+// ---------------------------------------------------------------------------
+
+export const createCall = (req: CreateCallRequest) =>
+  post<CallSession>('/api/v1/video/calls', req)
+
+export const joinCall = (callId: string) =>
+  post<JoinCallResponse>(`/api/v1/video/calls/${callId}/join`)
+
+export const endCall = (callId: string) =>
+  post<void>(`/api/v1/video/calls/${callId}/end`)
+
+export const getCall = (callId: string) =>
+  get<CallSession>(`/api/v1/video/calls/${callId}`)
+
+export const listActiveCalls = () =>
+  get<CallSession[]>('/api/v1/video/calls')
+
+// ---------------------------------------------------------------------------
+// Recordings
+// ---------------------------------------------------------------------------
+
+export const startRecording = (callId: string) =>
+  post<Recording>(`/api/v1/video/calls/${callId}/recording/start`)
+
+export const stopRecording = (callId: string) =>
+  post<Recording>(`/api/v1/video/calls/${callId}/recording/stop`)
+
+export const setRecordingConsent = (recordingId: string, consented: boolean) =>
+  post<void>(`/api/v1/video/recordings/${recordingId}/consent`, { consented })
+
+export const getRecordingConsent = (recordingId: string) =>
+  get<RecordingConsentStatus>(`/api/v1/video/recordings/${recordingId}/consent`)
+
+export const listRecordings = (params: { call_id?: string; meeting_id?: string }) =>
+  get<Recording[]>('/api/v1/video/recordings', params)
+
+// ---------------------------------------------------------------------------
+// Meetings
+// ---------------------------------------------------------------------------
+
+export const createMeeting = (req: CreateMeetingRequest) =>
+  post<Meeting>('/api/v1/meetings', req)
+
+export const getMeeting = (id: string) =>
+  get<Meeting>(`/api/v1/meetings/${id}`)
+
+export const updateMeeting = (id: string, req: UpdateMeetingRequest) =>
+  put<Meeting>(`/api/v1/meetings/${id}`, req)
+
+export const deleteMeeting = (id: string) =>
+  del<void>(`/api/v1/meetings/${id}`)
+
+export const listMeetings = (filter?: MeetingFilter) =>
+  get<Meeting[]>('/api/v1/meetings', filter as RequestOptions['params'])
+
+export const startMeeting = (id: string) =>
+  post<StartMeetingResponse>(`/api/v1/meetings/${id}/start`)
+
+export const endMeeting = (id: string) =>
+  post<MeetingSummary>(`/api/v1/meetings/${id}/end`)
+
+// ---------------------------------------------------------------------------
+// Meeting Notes
+// ---------------------------------------------------------------------------
+
+export const saveMeetingNotes = (meetingId: string, req: SaveNotesRequest) =>
+  put<MeetingNotes>(`/api/v1/meetings/${meetingId}/notes`, req)
+
+export const getMeetingNotes = (meetingId: string) =>
+  get<MeetingNotes>(`/api/v1/meetings/${meetingId}/notes`)
+
+export const getPreviousMeetingNotes = (meetingId: string) =>
+  get<MeetingNotes>(`/api/v1/meetings/${meetingId}/previous-notes`)
+
+// ---------------------------------------------------------------------------
+// Action Items
+// ---------------------------------------------------------------------------
+
+export const createActionItem = (meetingId: string, req: CreateActionItemRequest) =>
+  post<ActionItem>(`/api/v1/meetings/${meetingId}/action-items`, req)
+
+export const listActionItems = (meetingId: string) =>
+  get<ActionItem[]>(`/api/v1/meetings/${meetingId}/action-items`)
+
+export const updateActionItem = (itemId: string, req: Partial<ActionItem>) =>
+  put<ActionItem>(`/api/v1/meetings/action-items/${itemId}`, req)
+
+export const deleteActionItem = (itemId: string) =>
+  del<void>(`/api/v1/meetings/action-items/${itemId}`)
+
+export const convertActionItemsToTasks = (
+  meetingId: string,
+  req: ConvertActionItemsRequest,
+) => post<ConvertActionItemsResponse>(`/api/v1/meetings/${meetingId}/action-items/convert`, req)
+
+// ---------------------------------------------------------------------------
+// Presence
+// ---------------------------------------------------------------------------
+
+export const getPresence = (userId: string) =>
+  get<UserPresence>(`/api/v1/video/presence/${userId}`)
+
+export const getBulkPresence = (userIds: string[]) =>
+  post<Record<string, UserPresence>>('/api/v1/video/presence/bulk', { user_ids: userIds })
+
+export const setPresenceStatus = (status: PresenceLevel) =>
+  post<void>('/api/v1/video/presence/status', { status })
+
+export const getPresenceConfig = () =>
+  get<PresenceConfig>('/api/v1/video/presence/config')
+
+export const updatePresenceConfig = (awayTimeoutSeconds: number) =>
+  put<void>('/api/v1/video/presence/config', { away_timeout_seconds: awayTimeoutSeconds })
+
+// ---------------------------------------------------------------------------
+// Reactions
+// ---------------------------------------------------------------------------
+
+export const toggleReaction = (req: ToggleReactionRequest) =>
+  post<ToggleReactionResponse>('/api/v1/video/reactions/toggle', req)
+
+export const listReactions = (messageId: string) =>
+  get<ReactionSummary[]>(`/api/v1/video/reactions/${messageId}`)
+
+export const getReactionSummary = (messageIds: string[]) =>
+  post<Record<string, ReactionSummary[]>>('/api/v1/video/reactions/summary', {
+    message_ids: messageIds,
+  })

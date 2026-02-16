@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -230,7 +229,7 @@ export default function ProjectSettingsDialog({
                     size="icon"
                     className="h-7 w-7 text-destructive"
                     onClick={() => {
-                      if (confirm(`Status "${status.name}" loeschen?`)) {
+                      if (confirm(`Status "${status.name}" löschen?`)) {
                         deleteStatus.mutate(status.id ?? '')
                       }
                     }}

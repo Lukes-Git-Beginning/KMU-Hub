@@ -78,12 +78,38 @@ const DEFAULT_CATEGORIES: EventCategory[] = [
   { id: 'travel', name: 'Reise', color: '#8a6b3d' },
 ]
 
+const INITIAL_CALENDARS: CalendarSource[] = [
+  { id: 'personal', name: 'Mein Kalender', group: 'mine', color: '#1e7e74', visible: true },
+  { id: 'work', name: 'Arbeit', group: 'mine', color: '#3d5c7d', visible: true },
+  { id: 'team', name: 'Team-Kalender', group: 'shared', color: '#c4873a', visible: true },
+  { id: 'dev', name: 'Entwickler Team', group: 'shared', color: '#4a7c6a', visible: true },
+  { id: 'holidays', name: 'Feiertage CH', group: 'other', color: '#9d8f85', visible: true },
+  { id: 'deadlines', name: 'Task-Deadlines', group: 'other', color: '#a13f3f', visible: true },
+]
+
+const ROOMS = [
+  { id: 'r1', name: 'Raum A — Besprechung', capacity: 8, tags: ['Beamer', 'Whiteboard'] },
+  { id: 'r2', name: 'Raum B — Klein', capacity: 4, tags: ['Display'] },
+  { id: 'r3', name: 'Telefonkabine 1', capacity: 1, tags: [] as string[] },
+  { id: 'r4', name: 'Telefonkabine 2', capacity: 1, tags: [] as string[] },
+]
+
+const TEAM_MEMBERS = [
+  { name: 'Anna Mueller', initials: 'AM', role: 'Project Manager' },
+  { name: 'Max Berg', initials: 'MB', role: 'Senior Developer' },
+  { name: 'Sarah Klein', initials: 'SK', role: 'Lead Developer' },
+  { name: 'Jonas Diaz', initials: 'JD', role: 'Designer' },
+  { name: 'Peter Keller', initials: 'PK', role: 'Sales Manager' },
+  { name: 'Lisa Weber', initials: 'LW', role: 'HR Manager' },
+  { name: 'Tom Brunner', initials: 'TB', role: 'Junior Developer' },
+]
+
 const DAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const MONTHS_DE = [
   'Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
 ]
-const RECURRENCE_OPTIONS = ['Keine', 'Taeglich', 'Woechentlich', 'Monatlich', 'Jaehrlich', 'Benutzerdefiniert...']
+const RECURRENCE_OPTIONS = ['Keine', 'Täglich', 'Wöchentlich', 'Monatlich', 'Jaehrlich', 'Benutzerdefiniert...']
 const REMINDER_OPTIONS = ['Keine', '5 Minuten', '10 Minuten', '15 Minuten', '30 Minuten', '1 Stunde', '2 Stunden', '1 Tag']
 
 const HOUR_HEIGHT = 60
@@ -146,7 +172,7 @@ function getCategoryColor(event: CalendarEvent, calendars: CalendarSource[]): st
   if (event.isTaskDeadline) return '#a13f3f'
   const cal = calendars.find((c) => c.id === event.calendarId)
   if (cal) return cal.color
-  const cat = CATEGORIES.find((c) => c.id === event.categoryId)
+  const cat = DEFAULT_CATEGORIES.find((c) => c.id === event.categoryId)
   return cat?.color ?? '#6b6159'
 }
 
@@ -1133,7 +1159,7 @@ function QuickCreatePopover({
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground">Kategorie:</span>
             <div className="flex gap-1">
-              {CATEGORIES.map((cat) => (
+              {DEFAULT_CATEGORIES.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setCategoryId(cat.id)}
@@ -1283,7 +1309,7 @@ function EventFormModal({
           <div>
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">Kategorie</label>
             <div className="flex flex-wrap gap-1.5">
-              {CATEGORIES.map((cat) => (
+              {DEFAULT_CATEGORIES.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setCategoryId(cat.id)}
@@ -1491,8 +1517,8 @@ function EventDetailPanel({
   onEdit: () => void
 }) {
   const color = getCategoryColor(event, calendars)
-  const category = CATEGORIES.find((c) => c.id === event.categoryId)
-  const calendar = INITIAL_CALENDARS.find((c) => c.id === event.calendarId)
+  const category = DEFAULT_CATEGORIES.find((c) => c.id === event.categoryId)
+  const calendar = calendars.find((c) => c.id === event.calendarId)
 
   const rsvpIcon = (status: RSVPStatus) => {
     switch (status) {

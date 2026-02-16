@@ -84,6 +84,7 @@ services:
       REFRESH_TOKEN_EXPIRY: 168h
       AUTH_GRPC_PORT: ":50051"
       HEALTH_PORT: ":9091"
+      VAULT_MASTER_SECRET: docker-dev-vault-secret-minimum-32-characters-long
     ports:
       - "50051:50051"
       - "9091:9091"
@@ -180,6 +181,43 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  livekit:
+    image: livekit/livekit-server:latest
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+    command: --config /etc/livekit.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:7880 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  livekit-egress:
+    image: livekit/egress:latest
+    depends_on:
+      livekit:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml
+    environment:
+      EGRESS_CONFIG_FILE: /etc/egress.yaml
+    cap_add:
+      - SYS_ADMIN
+    restart: unless-stopped
+
   work:
     build:
       context: ../../backend
@@ -187,13 +225,26 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       WORK_GRPC_PORT: ":50055"
       WORK_HEALTH_PORT: ":9095"
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: devsecret
+      LIVEKIT_WS_URL: ws://livekit:7880
+      LIVEKIT_EGRESS_TEMPLATE_URL: ""
+      LIVEKIT_WEBHOOK_SECRET: devsecret
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: kmuhub-files
+      MINIO_USE_SSL: "false"
     ports:
       - "50055:50055"
       - "9095:9095"
@@ -220,6 +271,8 @@ services:
         condition: service_started
       work:
         condition: service_started
+      livekit:
+        condition: service_healthy
       minio:
         condition: service_healthy
       redis:
@@ -246,6 +299,7 @@ services:
       METRICS_PORT: ":9090"
       CORS_ALLOWED_ORIGINS: "http://localhost:3000;http://localhost:5173;http://localhost:8080"
       RATE_LIMIT_RPS: 100
+      LIVEKIT_WEBHOOK_SECRET: devsecret
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin

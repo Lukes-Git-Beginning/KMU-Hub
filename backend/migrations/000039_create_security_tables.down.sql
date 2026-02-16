@@ -1,0 +1,11 @@
+-- Reverse order of creation
+DROP TABLE IF EXISTS ip_access_rules;
+DROP TABLE IF EXISTS password_history;
+DROP TABLE IF EXISTS password_policies;
+DROP TABLE IF EXISTS gdpr_erasure_log;
+DROP TABLE IF EXISTS gdpr_export_requests;
+DROP TABLE IF EXISTS vault_secrets;
+DROP TABLE IF EXISTS user_sessions;
+DROP TABLE IF EXISTS two_factor_policy;
+DROP TABLE IF EXISTS recovery_codes;
+DROP TABLE IF EXISTS audit_log;

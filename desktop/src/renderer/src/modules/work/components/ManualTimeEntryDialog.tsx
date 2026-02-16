@@ -128,7 +128,7 @@ export default function ManualTimeEntryDialog({
       <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle>
-            {editMode ? 'Zeiteintrag bearbeiten' : 'Zeiteintrag hinzufuegen'}
+            {editMode ? 'Zeiteintrag bearbeiten' : 'Zeiteintrag hinzufügen'}
           </DialogTitle>
         </DialogHeader>
 

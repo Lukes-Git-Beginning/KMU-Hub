@@ -69,6 +69,22 @@ tags:
     description: Resource management (rooms, equipment) and booking
   - name: holidays
     description: Public holiday management (DACH region)
+  - name: video-calls
+    description: Video and voice call management (1:1 and group, LiveKit-based)
+  - name: recordings
+    description: Call and meeting recording with DSGVO consent management
+  - name: presence
+    description: User presence status (online, away, DND, in-call, offline)
+  - name: reactions
+    description: Emoji reactions on chat messages
+  - name: meetings
+    description: Meeting lifecycle (schedule, start, end, notes, action items)
+  - name: meeting-notes
+    description: Meeting notes (shared and private)
+  - name: action-items
+    description: Meeting action items with task conversion
+  - name: webhooks
+    description: External service webhooks (LiveKit)
 
 paths:
   /health:
@@ -5939,6 +5955,933 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ===========================================================================
+  # Video Calls
+  # ===========================================================================
+
+  /api/v1/video/calls:
+    post:
+      summary: Create a new video call
+      tags: [video-calls]
+      operationId: createCall
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCallRequest"
+      responses:
+        "201":
+          description: Call created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallSessionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: List active calls for the authenticated user
+      tags: [video-calls]
+      operationId: listActiveCalls
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Active calls listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListActiveCallsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/video/calls/{id}:
+    get:
+      summary: Get a specific call by ID
+      tags: [video-calls]
+      operationId: getCall
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Call details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallSessionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/calls/{id}/join:
+    post:
+      summary: Join an active call
+      tags: [video-calls]
+      operationId: joinCall
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Joined call with LiveKit token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinCallResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/calls/{id}/end:
+    post:
+      summary: End an active call
+      tags: [video-calls]
+      operationId: endCall
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Call ended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: call ended
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Recording
+  # ===========================================================================
+
+  /api/v1/video/recordings/start:
+    post:
+      summary: Start recording a call or meeting
+      tags: [recordings]
+      operationId: startRecording
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRecordingRequest"
+      responses:
+        "201":
+          description: Recording started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/video/recordings/{id}/stop:
+    post:
+      summary: Stop an active recording
+      tags: [recordings]
+      operationId: stopRecording
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Recording stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/recordings/{id}/consent:
+    post:
+      summary: Set recording consent for authenticated user
+      tags: [recordings]
+      operationId: setRecordingConsent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRecordingConsentRequest"
+      responses:
+        "200":
+          description: Consent recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: consent recorded
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: Get recording consent status
+      tags: [recordings]
+      operationId: getRecordingConsent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Consent status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingConsentResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/video/recordings:
+    get:
+      summary: List recordings with optional filters
+      tags: [recordings]
+      operationId: listRecordings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: call_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: meeting_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Recordings listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRecordingsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/video/recordings/{id}:
+    delete:
+      summary: Delete a recording (DSGVO compliance)
+      tags: [recordings]
+      operationId: deleteRecording
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Recording deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: recording deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Presence
+  # ===========================================================================
+
+  /api/v1/video/presence/{userId}:
+    get:
+      summary: Get presence status for a specific user
+      tags: [presence]
+      operationId: getPresence
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User presence status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresenceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/video/presence/bulk:
+    post:
+      summary: Get presence status for multiple users
+      tags: [presence]
+      operationId: getBulkPresence
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkPresenceRequest"
+      responses:
+        "200":
+          description: Bulk presence status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkPresenceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/video/presence/status:
+    post:
+      summary: Set manual presence status for the authenticated user
+      tags: [presence]
+      operationId: setPresenceStatus
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPresenceStatusRequest"
+      responses:
+        "200":
+          description: Presence status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: presence updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/video/presence/config:
+    get:
+      summary: Get presence configuration
+      tags: [presence]
+      operationId: getPresenceConfig
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Presence configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresenceConfigResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Update presence configuration (requires settings:write permission)
+      tags: [presence]
+      operationId: updatePresenceConfig
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePresenceConfigRequest"
+      responses:
+        "200":
+          description: Presence config updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: presence config updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ===========================================================================
+  # Reactions
+  # ===========================================================================
+
+  /api/v1/video/reactions/toggle:
+    post:
+      summary: Toggle a reaction on a message
+      tags: [reactions]
+      operationId: toggleReaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleReactionRequest"
+      responses:
+        "200":
+          description: Reaction toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "501":
+          description: Not implemented (reactions available via WebSocket events)
+
+  /api/v1/video/reactions/{messageId}:
+    get:
+      summary: List reactions for a message
+      tags: [reactions]
+      operationId: listReactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Reactions listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListReactionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "501":
+          description: Not implemented (reactions available via WebSocket events)
+
+  /api/v1/video/reactions/summary:
+    post:
+      summary: Get reaction summary for multiple messages
+      tags: [reactions]
+      operationId: getReactionSummary
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReactionSummaryRequest"
+      responses:
+        "200":
+          description: Reaction summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionSummaryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "501":
+          description: Not implemented (reactions available via WebSocket events)
+
+  # ===========================================================================
+  # Meetings
+  # ===========================================================================
+
+  /api/v1/meetings:
+    post:
+      summary: Create a new meeting
+      tags: [meetings]
+      operationId: createMeeting
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMeetingRequest"
+      responses:
+        "201":
+          description: Meeting created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: List meetings for the authenticated user
+      tags: [meetings]
+      operationId: listMeetings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [scheduled, in_progress, completed, cancelled]
+        - name: start_after
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: start_before
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Meetings listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListMeetingsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/meetings/{id}:
+    get:
+      summary: Get a specific meeting
+      tags: [meetings]
+      operationId: getMeeting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Meeting details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update a meeting
+      tags: [meetings]
+      operationId: updateMeeting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeetingRequest"
+      responses:
+        "200":
+          description: Meeting updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a meeting
+      tags: [meetings]
+      operationId: deleteMeeting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Meeting deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: meeting deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/start:
+    post:
+      summary: Start a scheduled meeting (creates LiveKit room)
+      tags: [meetings]
+      operationId: startMeeting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Meeting started with LiveKit token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartMeetingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/end:
+    post:
+      summary: End an active meeting
+      tags: [meetings]
+      operationId: endMeeting
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Meeting ended with summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndMeetingResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Meeting Notes
+  # ===========================================================================
+
+  /api/v1/meetings/{id}/notes:
+    put:
+      summary: Save or update meeting notes
+      tags: [meeting-notes]
+      operationId: saveMeetingNotes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveMeetingNotesRequest"
+      responses:
+        "200":
+          description: Notes saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingNotesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      summary: Get meeting notes
+      tags: [meeting-notes]
+      operationId: getMeetingNotes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Meeting notes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingNotesListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/previous-notes:
+    get:
+      summary: Get notes from the previous recurring meeting
+      tags: [meeting-notes]
+      operationId: getPreviousMeetingNotes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Previous meeting notes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingNotesListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Action Items
+  # ===========================================================================
+
+  /api/v1/meetings/{id}/action-items:
+    post:
+      summary: Create an action item for a meeting
+      tags: [action-items]
+      operationId: createActionItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActionItemRequest"
+      responses:
+        "201":
+          description: Action item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    get:
+      summary: List action items for a meeting
+      tags: [action-items]
+      operationId: listActionItems
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Action items listed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListActionItemsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/action-items/{itemId}:
+    put:
+      summary: Update an action item
+      tags: [action-items]
+      operationId: updateActionItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActionItemRequest"
+      responses:
+        "200":
+          description: Action item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete an action item
+      tags: [action-items]
+      operationId: deleteActionItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Action item deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: action item deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/meetings/{id}/action-items/convert:
+    post:
+      summary: Convert action items to project tasks
+      tags: [action-items]
+      operationId: convertActionItemsToTasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConvertActionItemsRequest"
+      responses:
+        "200":
+          description: Action items converted to tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConvertActionItemsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # LiveKit Webhook
+  # ===========================================================================
+
+  /api/v1/webhooks/livekit:
+    post:
+      summary: LiveKit webhook endpoint (validated via JWT signature, no bearer auth)
+      tags: [webhooks]
+      operationId: handleLiveKitWebhook
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: LiveKit webhook event payload
+              properties:
+                event:
+                  type: string
+                  description: "Event type (participant_joined, participant_left, room_finished, egress_ended)"
+                room:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                participant:
+                  type: object
+                  properties:
+                    identity:
+                      type: string
+                egress_info:
+                  type: object
+                  properties:
+                    egress_id:
+                      type: string
+                    status:
+                      type: integer
+      responses:
+        "200":
+          description: Webhook acknowledged
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -8938,6 +9881,655 @@ components:
         url:
           type: string
           description: LiveKit WebSocket URL
+
+    # =========================================================================
+    # Video Call Schemas
+    # =========================================================================
+
+    CreateCallRequest:
+      type: object
+      required: [call_type, participant_ids]
+      properties:
+        call_type:
+          type: string
+          enum: [one_to_one, group]
+        participant_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        channel_id:
+          type: string
+          format: uuid
+
+    CallSessionSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        call_type:
+          type: string
+          enum: [CALL_TYPE_ONE_TO_ONE, CALL_TYPE_GROUP]
+        status:
+          type: string
+          enum: [CALL_STATUS_RINGING, CALL_STATUS_ACTIVE, CALL_STATUS_ENDED]
+        room_name:
+          type: string
+        initiator_id:
+          type: string
+          format: uuid
+        channel_id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/CallParticipantSchema"
+
+    CallParticipantSchema:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        left_at:
+          type: string
+          format: date-time
+
+    CallSessionResponse:
+      type: object
+      properties:
+        call:
+          $ref: "#/components/schemas/CallSessionSchema"
+
+    JoinCallResponse:
+      type: object
+      properties:
+        call:
+          $ref: "#/components/schemas/CallSessionSchema"
+        token:
+          type: string
+          description: LiveKit JWT join token
+        livekit_url:
+          type: string
+          description: LiveKit WebSocket URL
+
+    ListActiveCallsResponse:
+      type: object
+      properties:
+        calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/CallSessionSchema"
+
+    # =========================================================================
+    # Recording Schemas
+    # =========================================================================
+
+    StartRecordingRequest:
+      type: object
+      properties:
+        call_id:
+          type: string
+          format: uuid
+        meeting_id:
+          type: string
+          format: uuid
+
+    SetRecordingConsentRequest:
+      type: object
+      required: [consented]
+      properties:
+        consented:
+          type: boolean
+
+    RecordingSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        call_id:
+          type: string
+          format: uuid
+        meeting_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [RECORDING_STATUS_RECORDING, RECORDING_STATUS_COMPLETED, RECORDING_STATUS_FAILED]
+        file_path:
+          type: string
+        file_size_bytes:
+          type: integer
+          format: int64
+        duration_seconds:
+          type: integer
+        started_by:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        stopped_at:
+          type: string
+          format: date-time
+
+    RecordingResponse:
+      type: object
+      properties:
+        recording:
+          $ref: "#/components/schemas/RecordingSchema"
+
+    RecordingConsentSchema:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        recording_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [CONSENT_PENDING, CONSENT_GRANTED, CONSENT_DENIED]
+        responded_at:
+          type: string
+          format: date-time
+
+    RecordingConsentResponse:
+      type: object
+      properties:
+        consents:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordingConsentSchema"
+
+    ListRecordingsResponse:
+      type: object
+      properties:
+        recordings:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordingSchema"
+        total:
+          type: integer
+
+    # =========================================================================
+    # Presence Schemas
+    # =========================================================================
+
+    SetPresenceStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [online, away, dnd, in_call, offline]
+
+    BulkPresenceRequest:
+      type: object
+      required: [user_ids]
+      properties:
+        user_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    PresenceSchema:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PRESENCE_ONLINE, PRESENCE_AWAY, PRESENCE_DND, PRESENCE_IN_CALL, PRESENCE_OFFLINE]
+        last_seen:
+          type: string
+          format: date-time
+
+    PresenceResponse:
+      type: object
+      properties:
+        presence:
+          $ref: "#/components/schemas/PresenceSchema"
+
+    BulkPresenceResponse:
+      type: object
+      properties:
+        presences:
+          type: array
+          items:
+            $ref: "#/components/schemas/PresenceSchema"
+
+    PresenceConfigSchema:
+      type: object
+      properties:
+        away_timeout_seconds:
+          type: integer
+
+    PresenceConfigResponse:
+      type: object
+      properties:
+        config:
+          $ref: "#/components/schemas/PresenceConfigSchema"
+
+    UpdatePresenceConfigRequest:
+      type: object
+      required: [away_timeout_seconds]
+      properties:
+        away_timeout_seconds:
+          type: integer
+
+    # =========================================================================
+    # Reaction Schemas
+    # =========================================================================
+
+    ToggleReactionRequest:
+      type: object
+      required: [message_id, emoji]
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        emoji:
+          type: string
+          description: "Emoji character (e.g., thumbsup, heart)"
+
+    ReactionSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        message_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        emoji:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ReactionResponse:
+      type: object
+      properties:
+        reaction:
+          $ref: "#/components/schemas/ReactionSchema"
+        added:
+          type: boolean
+          description: true if reaction was added, false if removed
+
+    ListReactionsResponse:
+      type: object
+      properties:
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReactionSchema"
+
+    ReactionSummaryRequest:
+      type: object
+      required: [message_ids]
+      properties:
+        message_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    ReactionSummaryResponse:
+      type: object
+      properties:
+        summaries:
+          type: array
+          items:
+            type: object
+            properties:
+              message_id:
+                type: string
+                format: uuid
+              counts:
+                type: object
+                additionalProperties:
+                  type: integer
+                description: "Map of emoji to count"
+
+    # =========================================================================
+    # Meeting Schemas
+    # =========================================================================
+
+    CreateMeetingRequest:
+      type: object
+      required: [title, scheduled_start, scheduled_end]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        agenda:
+          type: string
+        scheduled_start:
+          type: string
+          format: date-time
+        scheduled_end:
+          type: string
+          format: date-time
+        calendar_event_id:
+          type: string
+          format: uuid
+        recurring_meeting_id:
+          type: string
+          format: uuid
+        attendee_user_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UpdateMeetingRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        agenda:
+          type: string
+        scheduled_start:
+          type: string
+          format: date-time
+        scheduled_end:
+          type: string
+          format: date-time
+        attendee_user_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    MeetingSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        agenda:
+          type: string
+        status:
+          type: string
+          enum: [MEETING_STATUS_SCHEDULED, MEETING_STATUS_IN_PROGRESS, MEETING_STATUS_COMPLETED, MEETING_STATUS_CANCELLED]
+        organizer_id:
+          type: string
+          format: uuid
+        scheduled_start:
+          type: string
+          format: date-time
+        scheduled_end:
+          type: string
+          format: date-time
+        actual_start:
+          type: string
+          format: date-time
+        actual_end:
+          type: string
+          format: date-time
+        room_name:
+          type: string
+        calendar_event_id:
+          type: string
+          format: uuid
+        recurring_meeting_id:
+          type: string
+          format: uuid
+        attendees:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+                format: uuid
+              display_name:
+                type: string
+              rsvp_status:
+                type: string
+        created_at:
+          type: string
+          format: date-time
+
+    MeetingResponse:
+      type: object
+      properties:
+        meeting:
+          $ref: "#/components/schemas/MeetingSchema"
+
+    ListMeetingsResponse:
+      type: object
+      properties:
+        meetings:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingSchema"
+        total:
+          type: integer
+
+    StartMeetingResponse:
+      type: object
+      properties:
+        meeting:
+          $ref: "#/components/schemas/MeetingSchema"
+        token:
+          type: string
+          description: LiveKit JWT join token
+        livekit_url:
+          type: string
+          description: LiveKit WebSocket URL
+
+    EndMeetingResponse:
+      type: object
+      properties:
+        meeting:
+          $ref: "#/components/schemas/MeetingSchema"
+        summary:
+          $ref: "#/components/schemas/MeetingSummarySchema"
+
+    MeetingSummarySchema:
+      type: object
+      properties:
+        duration_minutes:
+          type: integer
+        participant_count:
+          type: integer
+        notes_count:
+          type: integer
+        action_item_count:
+          type: integer
+        recording_count:
+          type: integer
+
+    # =========================================================================
+    # Meeting Notes Schemas
+    # =========================================================================
+
+    SaveMeetingNotesRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+        is_private:
+          type: boolean
+
+    MeetingNotesSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meeting_id:
+          type: string
+          format: uuid
+        author_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        is_private:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MeetingNotesResponse:
+      type: object
+      properties:
+        notes:
+          $ref: "#/components/schemas/MeetingNotesSchema"
+
+    MeetingNotesListResponse:
+      type: object
+      properties:
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingNotesSchema"
+
+    # =========================================================================
+    # Action Item Schemas
+    # =========================================================================
+
+    CreateActionItemRequest:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+        assignee_id:
+          type: string
+          format: uuid
+        sort_order:
+          type: integer
+
+    UpdateActionItemRequest:
+      type: object
+      properties:
+        description:
+          type: string
+        assignee_id:
+          type: string
+          format: uuid
+        is_completed:
+          type: boolean
+        sort_order:
+          type: integer
+
+    ActionItemSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meeting_id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        assignee_id:
+          type: string
+          format: uuid
+        is_completed:
+          type: boolean
+        sort_order:
+          type: integer
+        linked_task_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    ActionItemResponse:
+      type: object
+      properties:
+        action_item:
+          $ref: "#/components/schemas/ActionItemSchema"
+
+    ListActionItemsResponse:
+      type: object
+      properties:
+        action_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItemSchema"
+
+    ConvertActionItemsRequest:
+      type: object
+      required: [action_item_ids, project_id]
+      properties:
+        action_item_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        project_id:
+          type: string
+          format: uuid
+
+    ConvertActionItemsResponse:
+      type: object
+      properties:
+        converted_count:
+          type: integer
+        task_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # =========================================================================
+    # WebSocket Event Types (documentation reference)
+    # =========================================================================
+    # The following WebSocket message types are supported via /api/v1/ws:
+    #
+    # Presence Events:
+    #   presence.update     (Server -> Client) - User presence status changed
+    #   presence.heartbeat  (Client -> Server) - Client heartbeat to maintain online status
+    #   presence.subscribe  (Client -> Server) - Subscribe to presence updates for user IDs
+    #   presence.set_status (Client -> Server) - Manually set presence status (online/away/dnd/offline)
+    #
+    # Call Events:
+    #   call.incoming  (Server -> Client) - Incoming call notification
+    #   call.accepted  (Client -> Server) - User accepted incoming call
+    #   call.declined  (Client -> Server) - User declined incoming call
+    #   call.ended     (Server -> Client) - Call has ended
+    #
+    # Reaction Events:
+    #   reaction.toggled (Server -> Client) - Reaction added/removed on a message
 
   responses:
     BadRequest:

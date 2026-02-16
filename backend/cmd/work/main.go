@@ -13,6 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -23,12 +25,18 @@ import (
 	"github.com/kmuhub/kmuhub/internal/work/event"
 	"github.com/kmuhub/kmuhub/internal/work/holiday"
 	"github.com/kmuhub/kmuhub/internal/work/livekit"
+	"github.com/kmuhub/kmuhub/internal/work/meeting"
+	"github.com/kmuhub/kmuhub/internal/work/presence"
 	"github.com/kmuhub/kmuhub/internal/work/project"
+	"github.com/kmuhub/kmuhub/internal/work/reaction"
+	"github.com/kmuhub/kmuhub/internal/work/recording"
 	"github.com/kmuhub/kmuhub/internal/work/resource"
 	wstatus "github.com/kmuhub/kmuhub/internal/work/status"
 	"github.com/kmuhub/kmuhub/internal/work/task"
 	"github.com/kmuhub/kmuhub/internal/work/timeentry"
+	"github.com/kmuhub/kmuhub/internal/work/video"
 	calv1 "github.com/kmuhub/kmuhub/proto/calendar/v1"
+	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
 
@@ -85,6 +93,48 @@ func main() {
 	eventService := event.NewService(eventRepo, calendarRepo)
 	eventService.SetEventEmitter(event.NewPGEventEmitter(pool))
 
+	// Redis client (for presence store)
+	redisOpts, redisErr := redis.ParseURL(cfg.RedisURL)
+	if redisErr != nil {
+		slog.Error("failed to parse redis url", "error", redisErr)
+		os.Exit(1)
+	}
+	redisClient := redis.NewClient(redisOpts)
+	defer redisClient.Close()
+	if pingErr := redisClient.Ping(ctx).Err(); pingErr != nil {
+		slog.Warn("redis not available, presence will be degraded", "error", pingErr)
+	}
+
+	// Video domain repositories
+	videoRepo := video.NewPostgresRepository(pool)
+	meetingRepo := meeting.NewPostgresRepository(pool)
+	recordingRepo := recording.NewPostgresRepository(pool)
+	reactionRepo := reaction.NewPostgresRepository(pool)
+	presenceConfigRepo := presence.NewPostgresConfigRepository(pool)
+
+	// Video domain services
+	var roomMgr video.RoomManager
+	if cfg.LiveKitAPIKey != "" && cfg.LiveKitAPISecret != "" {
+		roomMgr = livekit.NewRoomManager(cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL)
+	}
+	videoService := video.NewService(videoRepo, roomMgr)
+
+	var egressMgr recording.EgressManager
+	if cfg.LiveKitAPIKey != "" && cfg.LiveKitAPISecret != "" && cfg.LiveKitEgressTemplateURL != "" {
+		egressMgr = livekit.NewEgressManager(cfg.LiveKitAPIKey, cfg.LiveKitAPISecret, cfg.LiveKitWSURL)
+	}
+	recordingService := recording.NewService(recordingRepo, egressMgr, cfg.LiveKitEgressTemplateURL, recording.S3Config{
+		Endpoint:  cfg.MinIOEndpoint,
+		AccessKey: cfg.MinIOAccessKey,
+		Secret:    cfg.MinIOSecretKey,
+		Bucket:    cfg.MinIOBucket,
+	})
+
+	meetingService := meeting.NewService(meetingRepo)
+	presenceStore := presence.NewRedisStore(redisClient)
+	presenceService := presence.NewService(presenceStore, presenceConfigRepo)
+	reactionService := reaction.NewService(reactionRepo)
+
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
 
@@ -104,6 +154,10 @@ func main() {
 	calendarGRPC := server.NewCalendarGRPCServer(calendarService, eventService, resourceService, holidayService, livekitService)
 	calv1.RegisterCalendarServiceServer(grpcServer, calendarGRPC)
 
+	// Register VideoService gRPC server (same binary, same port as WorkService + CalendarService)
+	videoGRPC := server.NewVideoGRPCServer(videoService, meetingService, recordingService, presenceService, reactionService, taskService)
+	videov1.RegisterVideoServiceServer(grpcServer, videoGRPC)
+
 	// Initialize gRPC metrics after service registration
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)
 
@@ -116,6 +170,7 @@ func main() {
 	// Health + metrics HTTP server
 	healthCheckers := []health.Checker{
 		health.NewPostgresChecker(pool),
+		health.NewRedisChecker(redisClient),
 	}
 
 	healthRouter := chi.NewRouter()
