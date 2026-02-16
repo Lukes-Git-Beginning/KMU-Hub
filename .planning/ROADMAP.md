@@ -222,10 +222,10 @@ Plans:
 - [x] 10-01: Design foundation + layout overhaul (config, types, hooks, globals.css, desk assets, sidebar, header, DeskEnvironment, AppShell, ui.ts)
 - [x] 10-02: New module pages + stores + routing (25 module pages, 21 Zustand stores, App.tsx routing, SettingsPage merge with 8 tabs)
 - [x] 10-03: Existing module visual upgrades (umlaut normalization, unused import cleanup across CRM, Chat, Work, Calendar, Notifications)
-- [ ] 10-04: IMAP sync engine (connection management, folder mapping, incremental sync, read status bidirectional sync)
-- [ ] 10-05: SMTP send + threading (compose, send, reply/reply-all/forward, thread reconstruction, attachments via MinIO)
-- [ ] 10-06: Email UI + CRM integration (inbox view, folder navigation, threaded conversation view, signature editor, auto-link to CRM contacts)
-- [ ] 10-07: Contact import/export + two-level contacts (CSV/vCard import with field mapping, export, shared vs. personal contact visibility)
+- [ ] 10-04-PLAN.md -- Email service data foundation (email.proto ~35 RPCs, 2 migrations for 8 tables + contact visibility, Go models, 7 Go deps, cmd/email scaffold on :50056)
+- [ ] 10-05-PLAN.md -- IMAP sync + SMTP send + core services (account service with vault encryption, IMAP sync engine with IDLE/polling, message service with JWZ threading + full-text search, SMTP send with MIME builder, signature CRUD, MinIO attachment streaming)
+- [ ] 10-06-PLAN.md -- Email UI + gRPC + gateway + CRM integration (gRPC server ~35 RPCs, ~40 HTTP routes, Docker, TipTap v3 compose editor, three-column inbox UI, threaded conversations, signature builder with Impressum, CRM badge + auto-link)
+- [ ] 10-07-PLAN.md -- Contact import/export + two-level visibility (CSV/vCard import with field mapping + auto-merge, CSV/vCard export with field selection, shared/personal contact visibility with admin override, 5-step import wizard UI)
 
 ### Phase 11: Documents & Files
 **Goal**: Users can manage, share, and find documents and files across the entire Hub from a central file manager, with a global search spanning all modules
