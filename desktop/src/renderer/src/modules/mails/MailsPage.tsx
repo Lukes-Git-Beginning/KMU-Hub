@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Mail,
   Inbox,
@@ -20,14 +20,32 @@ import {
   Printer,
   Download,
   FolderOpen,
+  RefreshCw,
+  Users,
+  Loader2,
+  Settings,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useMailsStore, type Email } from '@/stores/mails'
+import { useAuthStore } from '@/stores/auth'
+import { useMailsStore } from '@/stores/mails'
 import { useNavigationStore } from '@/stores/navigation'
-import { useDocumentsStore } from '@/stores/documents'
-import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
-import type { ComposeMode } from './ComposeModal'
+import {
+  useEmailAccount,
+  useEmailFolders,
+  useEmailMessages,
+  useMarkEmailRead,
+  useMarkEmailUnread,
+  useToggleEmailStar,
+  useMoveEmailToFolder,
+  useDeleteEmailMessage,
+  useTriggerSync,
+  useSyncStatus,
+  useEmailContactLinks,
+} from '@/api/hooks/useEmail'
+import type { EmailMessageInfo, EmailFolderInfo } from '@/api/email-types'
+import type { ComposeMode } from '@/stores/mails'
 import { ComposeInline } from './ComposeInline'
+import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
 
 const folderIcons: Record<string, typeof Inbox> = {
   inbox: Inbox,
@@ -39,29 +57,43 @@ const folderIcons: Record<string, typeof Inbox> = {
 }
 
 export default function MailsPage() {
-  const {
-    emails, folders,
-    deleteEmail, markRead, markUnread, toggleStar, archiveEmail, moveToFolder,
-    addFolder, emptyTrash,
-  } = useMailsStore()
+  const user = useAuthStore((s) => s.user)
+  const userId = user?.id ?? ''
   const consumeIntent = useNavigationStore((s) => s.consumeIntent)
-  const addFile = useDocumentsStore((s) => s.addFile)
+  const { setComposeDraft } = useMailsStore()
 
-  const [activeFolder, setActiveFolder] = useState('inbox')
-  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  // Account
+  const { data: accountData } = useEmailAccount(userId)
+  const accountId = accountData?.account?.id ?? ''
+
+  // Folders
+  const { data: foldersData } = useEmailFolders(accountId)
+  const folders = foldersData?.folders ?? []
+
+  // UI state
+  const [activeFolderId, setActiveFolderId] = useState<string>('')
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
 
   // Compose state
   const [composeOpen, setComposeOpen] = useState(false)
   const [composeMode, setComposeMode] = useState<ComposeMode>('compose')
-  const [composeReplyTo, setComposeReplyTo] = useState<Email | null>(null)
+  const [composeReplyTo, setComposeReplyTo] = useState<EmailMessageInfo | null>(null)
   const [composePrefillTo, setComposePrefillTo] = useState<string | undefined>(undefined)
 
   // Confirm dialogs
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [emptyTrashConfirm, setEmptyTrashConfirm] = useState(false)
 
-  // Consume navigation intent on mount
+  // Auto-select inbox folder when folders load
+  useEffect(() => {
+    if (folders.length > 0 && !activeFolderId) {
+      const inbox = folders.find((f) => f.folder_type === 'inbox')
+      setActiveFolderId(inbox?.id ?? folders[0].id)
+    }
+  }, [folders, activeFolderId])
+
+  // Navigation intent (e.g., compose-email from CRM)
   useEffect(() => {
     const intent = consumeIntent()
     if (intent?.type === 'compose-email') {
@@ -72,161 +104,167 @@ export default function MailsPage() {
     }
   }, [])
 
-  const folderEmails = emails.filter((e) => e.folderId === activeFolder)
-  const filtered = folderEmails.filter((e) => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (
-      e.subject.toLowerCase().includes(q) ||
-      e.from.name.toLowerCase().includes(q) ||
-      e.body.toLowerCase().includes(q)
-    )
-  })
+  // Messages for active folder
+  const messagesParams = useMemo(() => ({
+    folder_id: activeFolderId,
+    page,
+    per_page: 50,
+    search: searchQuery || undefined,
+    sort_by: 'date',
+    sort_desc: true,
+  }), [activeFolderId, page, searchQuery])
 
-  const selectedEmail = emails.find((e) => e.id === selectedEmailId) || null
-  const deleteTarget = emails.find((e) => e.id === deleteConfirmId)
+  const { data: messagesData, isLoading: messagesLoading } = useEmailMessages(messagesParams)
+  const messages = messagesData?.messages ?? []
 
-  const handleSelectEmail = (email: Email) => {
-    setSelectedEmailId(email.id)
+  // Sync
+  const { data: syncStatusData } = useSyncStatus(accountId)
+  const triggerSync = useTriggerSync()
+
+  // Mutations
+  const markRead = useMarkEmailRead()
+  const markUnread = useMarkEmailUnread()
+  const toggleStar = useToggleEmailStar()
+  const moveToFolder = useMoveEmailToFolder()
+  const deleteMessage = useDeleteEmailMessage()
+
+  // CRM links for selected message
+  const { data: linksData } = useEmailContactLinks(selectedMessageId ?? '')
+
+  const selectedMessage = messages.find((m) => m.id === selectedMessageId) ?? null
+  const deleteTarget = messages.find((m) => m.id === deleteConfirmId)
+
+  const handleSelectMessage = (msg: EmailMessageInfo) => {
+    setSelectedMessageId(msg.id)
     if (composeOpen) setComposeOpen(false)
-    if (!email.isRead) markRead(email.id)
+    if (!msg.is_read) markRead.mutate(msg.id)
   }
 
-  const openCompose = (mode: ComposeMode = 'compose', email?: Email) => {
+  const openCompose = (mode: ComposeMode = 'compose', msg?: EmailMessageInfo) => {
     setComposeMode(mode)
-    setComposeReplyTo(email || null)
+    setComposeReplyTo(msg ?? null)
     setComposePrefillTo(undefined)
     setComposeOpen(true)
-    setSelectedEmailId(null)
-  }
-
-  const handleCloseInlineCompose = () => {
-    setComposeOpen(false)
+    setSelectedMessageId(null)
   }
 
   const handleDelete = () => {
     if (deleteConfirmId) {
-      deleteEmail(deleteConfirmId)
-      if (selectedEmailId === deleteConfirmId) setSelectedEmailId(null)
+      deleteMessage.mutate(deleteConfirmId)
+      if (selectedMessageId === deleteConfirmId) setSelectedMessageId(null)
       setDeleteConfirmId(null)
-      toast.success('E-Mail gelöscht')
+      toast.success('E-Mail geloescht')
     }
   }
 
-  const handleEmptyTrash = () => {
-    emptyTrash()
-    setEmptyTrashConfirm(false)
-    toast.success('Papierkorb geleert')
+  const handleArchive = (id: string) => {
+    const archiveFolder = folders.find((f) => f.folder_type === 'archive')
+    if (archiveFolder) {
+      moveToFolder.mutate({ messageId: id, targetFolderId: archiveFolder.id })
+      if (selectedMessageId === id) setSelectedMessageId(null)
+      toast.success('Archiviert')
+    }
   }
 
-  const handlePrint = () => {
-    toast.success('Druckvorschau wird geöffnet...')
-  }
-
-  const handleExport = () => {
-    toast.success('PDF Export wird vorbereitet...')
-  }
-
-  const handleSaveToFiles = (email: Email) => {
-    const dateStr = new Date(email.date).toLocaleDateString('de-CH').replace(/\./g, '-')
-    addFile({
-      name: `Email_${email.subject.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 40)}_${dateStr}.pdf`,
-      type: 'pdf',
-      size: '42 KB',
-      sizeBytes: 43008,
-      date: new Date().toISOString().split('T')[0],
-      folderId: 'root',
-      tags: ['email'],
-      createdBy: 'System',
-      isFavorite: false,
-      isShared: false,
-      isVault: false,
-      sharedWith: [],
-    })
-    toast.success('E-Mail in Dateien gespeichert')
-  }
-
-  const getEmailActions = (e: Email): ActionItem[] => {
+  const getMessageActions = (msg: EmailMessageInfo): ActionItem[] => {
     const actions: ActionItem[] = []
+    const currentFolder = folders.find((f) => f.id === msg.folder_id)
 
-    if (e.folderId === 'inbox') {
+    if (currentFolder?.folder_type === 'inbox') {
       actions.push(
-        { label: 'Antworten', icon: Reply, onClick: () => openCompose('reply', e) },
-        { label: 'Allen antworten', icon: ReplyAll, onClick: () => openCompose('reply-all', e) },
-        { label: 'Weiterleiten', icon: Forward, onClick: () => openCompose('forward', e) },
+        { label: 'Antworten', icon: Reply, onClick: () => openCompose('reply', msg) },
+        { label: 'Allen antworten', icon: ReplyAll, onClick: () => openCompose('reply-all', msg) },
+        { label: 'Weiterleiten', icon: Forward, onClick: () => openCompose('forward', msg) },
       )
     }
 
     actions.push({
-      label: e.isStarred ? 'Stern entfernen' : 'Stern vergeben',
+      label: msg.is_starred ? 'Stern entfernen' : 'Stern vergeben',
       icon: Star,
       onClick: () => {
-        toggleStar(e.id)
-        toast.success(e.isStarred ? 'Stern entfernt' : 'Stern vergeben')
+        toggleStar.mutate(msg.id)
+        toast.success(msg.is_starred ? 'Stern entfernt' : 'Stern vergeben')
       },
       separator: true,
     })
 
     actions.push({
-      label: e.isRead ? 'Als ungelesen' : 'Als gelesen',
-      icon: e.isRead ? EyeOff : Eye,
+      label: msg.is_read ? 'Als ungelesen' : 'Als gelesen',
+      icon: msg.is_read ? EyeOff : Eye,
       onClick: () => {
-        if (e.isRead) { markUnread(e.id) } else { markRead(e.id) }
-        toast.success(e.isRead ? 'Als ungelesen markiert' : 'Als gelesen markiert')
+        if (msg.is_read) markUnread.mutate(msg.id)
+        else markRead.mutate(msg.id)
+        toast.success(msg.is_read ? 'Als ungelesen markiert' : 'Als gelesen markiert')
       },
     })
 
-    if (e.folderId !== 'archive') {
+    if (currentFolder?.folder_type !== 'archive') {
       actions.push({
         label: 'Archivieren',
         icon: Archive,
-        onClick: () => {
-          archiveEmail(e.id)
-          if (selectedEmailId === e.id) setSelectedEmailId(null)
-          toast.success('Archiviert')
-        },
+        onClick: () => handleArchive(msg.id),
         separator: true,
       })
     }
 
-    actions.push({
-      label: 'Drucken',
-      icon: Printer,
-      onClick: handlePrint,
-      separator: true,
-    })
+    actions.push(
+      { label: 'Drucken', icon: Printer, onClick: () => toast.success('Druckvorschau wird geoeffnet...'), separator: true },
+      { label: 'Exportieren', icon: Download, onClick: () => toast.success('PDF Export wird vorbereitet...') },
+    )
 
     actions.push({
-      label: 'Exportieren',
-      icon: Download,
-      onClick: handleExport,
-    })
-
-    actions.push({
-      label: 'In Dateien speichern',
-      icon: FolderOpen,
-      onClick: () => handleSaveToFiles(e),
-    })
-
-    actions.push({
-      label: 'Löschen',
+      label: 'Loeschen',
       icon: Trash2,
       variant: 'destructive',
-      onClick: () => setDeleteConfirmId(e.id),
+      onClick: () => setDeleteConfirmId(msg.id),
       separator: true,
     })
 
     return actions
   }
 
-  const folderUnreadCounts = folders.map((f) => ({
-    ...f,
-    unread: emails.filter((e) => e.folderId === f.id && !e.isRead).length,
-  }))
+  // Initials helper
+  const getInitials = (addr: { name: string; email: string }) => {
+    if (addr.name) {
+      return addr.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    }
+    return addr.email[0].toUpperCase()
+  }
 
-  // Determine what to show in the detail area
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr)
+      return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })
+    } catch {
+      return dateStr
+    }
+  }
+
+  const formatTime = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr)
+      return d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+    } catch {
+      return ''
+    }
+  }
+
   const showInlineCompose = composeOpen
-  const showEmailDetail = selectedEmail && !showInlineCompose
+  const showMessageDetail = selectedMessage && !showInlineCompose
+  const crmLinks = linksData?.links ?? []
+
+  // No account configured
+  if (!accountId && !accountData) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <EmptyState
+          icon={Settings}
+          title="Kein E-Mail-Konto eingerichtet"
+          description="Richte dein E-Mail-Konto in den Einstellungen ein, um E-Mails zu senden und empfangen."
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -239,27 +277,29 @@ export default function MailsPage() {
           <Plus className="h-4 w-4" />
           Neue E-Mail
         </button>
+
         <nav className="space-y-0.5">
-          {folderUnreadCounts.map((folder) => {
-            const Icon = folderIcons[folder.id] || Mail
+          {folders.map((folder) => {
+            const Icon = folderIcons[folder.folder_type] || Mail
             return (
               <button
                 key={folder.id}
                 onClick={() => {
-                  setActiveFolder(folder.id)
-                  setSelectedEmailId(null)
+                  setActiveFolderId(folder.id)
+                  setSelectedMessageId(null)
+                  setPage(1)
                 }}
                 className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
-                  activeFolder === folder.id
+                  activeFolderId === folder.id
                     ? 'bg-primary-light text-primary font-medium'
                     : 'text-foreground hover:bg-secondary'
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="flex-1 text-left truncate">{folder.name}</span>
-                {folder.unread > 0 && (
+                {folder.unread_count > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground px-1">
-                    {folder.unread}
+                    {folder.unread_count}
                   </span>
                 )}
               </button>
@@ -267,24 +307,25 @@ export default function MailsPage() {
           })}
         </nav>
 
-        {/* Empty trash */}
-        {activeFolder === 'trash' && emails.some((e) => e.folderId === 'trash') && (
+        {/* Sync button */}
+        {accountId && (
           <button
-            onClick={() => setEmptyTrashConfirm(true)}
-            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 transition-colors"
+            onClick={() => triggerSync.mutate(accountId)}
+            disabled={triggerSync.isPending || syncStatusData?.status === 'syncing'}
+            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-            Papierkorb leeren
+            <RefreshCw className={`h-3.5 w-3.5 ${syncStatusData?.status === 'syncing' ? 'animate-spin' : ''}`} />
+            {syncStatusData?.status === 'syncing' ? 'Synchronisiere...' : 'Synchronisieren'}
           </button>
         )}
       </aside>
 
-      {/* Email list / Detail */}
+      {/* Message list / Detail */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Email list */}
+        {/* Message list */}
         <div
           className={`flex flex-col border-r border-border overflow-hidden ${
-            (showEmailDetail || showInlineCompose) ? 'hidden md:flex w-80' : 'flex-1'
+            (showMessageDetail || showInlineCompose) ? 'hidden md:flex w-80' : 'flex-1'
           }`}
         >
           {/* Search bar */}
@@ -294,44 +335,49 @@ export default function MailsPage() {
               <input
                 type="text"
                 placeholder="E-Mails suchen..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
                 className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
           </div>
 
-          {/* Email rows */}
+          {/* Message rows */}
           <div className="flex-1 overflow-y-auto">
-            {filtered.map((email) => (
+            {messagesLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {!messagesLoading && messages.map((msg) => (
               <div
-                key={email.id}
+                key={msg.id}
                 className={`group flex w-full items-start gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer ${
-                  selectedEmailId === email.id ? 'bg-primary-light/50' : ''
-                } ${!email.isRead ? 'bg-card' : ''}`}
-                onClick={() => handleSelectEmail(email)}
+                  selectedMessageId === msg.id ? 'bg-primary-light/50' : ''
+                } ${!msg.is_read ? 'bg-card' : ''}`}
+                onClick={() => handleSelectMessage(msg)}
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary">
-                  {email.from.initials}
+                  {getInitials(msg.from)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`text-sm truncate ${!email.isRead ? 'font-medium text-foreground' : 'text-text-body'}`}>
-                      {email.from.name}
+                    <span className={`text-sm truncate ${!msg.is_read ? 'font-medium text-foreground' : 'text-text-body'}`}>
+                      {msg.from.name || msg.from.email}
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">{email.time}</span>
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime(msg.date)}</span>
                     </div>
                   </div>
-                  <p className={`text-sm truncate ${!email.isRead ? 'font-medium text-foreground' : 'text-text-body'}`}>
-                    {email.subject}
+                  <p className={`text-sm truncate ${!msg.is_read ? 'font-medium text-foreground' : 'text-text-body'}`}>
+                    {msg.subject}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{email.preview}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.preview}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    {email.attachments.length > 0 && <Paperclip className="h-3 w-3 text-muted-foreground" />}
-                    {email.isStarred && (
+                    {msg.has_attachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                    {msg.is_starred && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleStar(email.id) }}
+                        onClick={(e) => { e.stopPropagation(); toggleStar.mutate(msg.id) }}
                         className="p-0"
                       >
                         <Star className="h-3 w-3 text-warning fill-warning" />
@@ -340,160 +386,142 @@ export default function MailsPage() {
                   </div>
                 </div>
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 self-center" onClick={(e) => e.stopPropagation()}>
-                  <ItemActions items={getEmailActions(email)} />
+                  <ItemActions items={getMessageActions(msg)} />
                 </div>
               </div>
             ))}
-            {filtered.length === 0 && (
+            {!messagesLoading && messages.length === 0 && (
               <EmptyState
                 icon={Mail}
                 title="Keine E-Mails"
                 description={
-                  search
-                    ? 'Keine E-Mails für diesen Suchbegriff'
-                    : activeFolder === 'inbox'
-                      ? 'Dein Posteingang ist leer'
-                      : `Keine E-Mails in "${folderUnreadCounts.find((f) => f.id === activeFolder)?.name || activeFolder}"`
+                  searchQuery
+                    ? 'Keine E-Mails fuer diesen Suchbegriff'
+                    : 'Dieser Ordner ist leer'
                 }
               />
             )}
           </div>
         </div>
 
-        {/* Detail area: email detail OR inline compose OR empty state */}
+        {/* Detail area */}
         {showInlineCompose ? (
           <ComposeInline
             mode={composeMode}
             replyTo={composeReplyTo}
             prefillTo={composePrefillTo}
-            onClose={handleCloseInlineCompose}
+            accountId={accountId}
+            onClose={() => setComposeOpen(false)}
           />
-        ) : showEmailDetail ? (
+        ) : showMessageDetail ? (
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Detail header */}
             <div className="flex items-center gap-3 border-b border-border px-6 py-3">
               <button
-                onClick={() => setSelectedEmailId(null)}
+                onClick={() => setSelectedMessageId(null)}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary md:hidden"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <div className="flex-1" />
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => openCompose('reply', selectedEmail)}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title="Antworten"
-                >
+                <button onClick={() => openCompose('reply', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Antworten">
                   <Reply className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => openCompose('reply-all', selectedEmail)}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title="Allen antworten"
-                >
+                <button onClick={() => openCompose('reply-all', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Allen antworten">
                   <ReplyAll className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => openCompose('forward', selectedEmail)}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title="Weiterleiten"
-                >
+                <button onClick={() => openCompose('forward', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Weiterleiten">
                   <Forward className="h-4 w-4" />
                 </button>
                 <span className="mx-1 h-5 w-px bg-border" />
                 <button
                   onClick={() => {
-                    toggleStar(selectedEmail.id)
-                    toast.success(selectedEmail.isStarred ? 'Stern entfernt' : 'Stern vergeben')
+                    toggleStar.mutate(selectedMessage.id)
+                    toast.success(selectedMessage.is_starred ? 'Stern entfernt' : 'Stern vergeben')
                   }}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title={selectedEmail.isStarred ? 'Stern entfernen' : 'Stern vergeben'}
+                  title={selectedMessage.is_starred ? 'Stern entfernen' : 'Stern vergeben'}
                 >
-                  <Star className={`h-4 w-4 ${selectedEmail.isStarred ? 'fill-warning text-warning' : ''}`} />
+                  <Star className={`h-4 w-4 ${selectedMessage.is_starred ? 'fill-warning text-warning' : ''}`} />
                 </button>
                 <button
-                  onClick={() => {
-                    archiveEmail(selectedEmail.id)
-                    setSelectedEmailId(null)
-                    toast.success('Archiviert')
-                  }}
+                  onClick={() => handleArchive(selectedMessage.id)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
                   title="Archivieren"
                 >
                   <Archive className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => setDeleteConfirmId(selectedEmail.id)}
+                  onClick={() => setDeleteConfirmId(selectedMessage.id)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-red-500"
-                  title="Löschen"
+                  title="Loeschen"
                 >
                   <Trash2 className="h-4 w-4" />
-                </button>
-                <span className="mx-1 h-5 w-px bg-border" />
-                <button
-                  onClick={handlePrint}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title="Drucken"
-                >
-                  <Printer className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title="Exportieren"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleSaveToFiles(selectedEmail)}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title="In Dateien speichern"
-                >
-                  <FolderOpen className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
             {/* Detail body */}
             <div className="flex-1 overflow-y-auto px-6 py-4">
-              <h2 className="text-foreground mb-4">{selectedEmail.subject}</h2>
+              <h2 className="text-foreground mb-4">{selectedMessage.subject}</h2>
               <div className="flex items-start gap-3 mb-6">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
-                  {selectedEmail.from.initials}
+                  {getInitials(selectedMessage.from)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{selectedEmail.from.name}</span>
-                    <span className="text-xs text-muted-foreground truncate">&lt;{selectedEmail.from.email}&gt;</span>
+                    <span className="text-sm font-medium text-foreground">{selectedMessage.from.name || selectedMessage.from.email}</span>
+                    <span className="text-xs text-muted-foreground truncate">&lt;{selectedMessage.from.email}&gt;</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    An: {selectedEmail.to.join(', ')}
-                    {selectedEmail.cc.length > 0 && ` · Cc: ${selectedEmail.cc.join(', ')}`}
+                    An: {selectedMessage.to.map((a) => a.name || a.email).join(', ')}
+                    {selectedMessage.cc.length > 0 && ` · Cc: ${selectedMessage.cc.map((a) => a.name || a.email).join(', ')}`}
                     {' · '}
-                    {new Date(selectedEmail.date).toLocaleDateString('de-CH')} um {selectedEmail.time}
+                    {formatDate(selectedMessage.date)} um {formatTime(selectedMessage.date)}
                   </p>
                 </div>
               </div>
-              <div className="text-sm text-text-body whitespace-pre-line leading-relaxed">
-                {selectedEmail.body}
-              </div>
-              {selectedEmail.attachments.length > 0 && (
+
+              {/* CRM link badge */}
+              {crmLinks.length > 0 && (
+                <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+                  <Users className="h-4 w-4 text-primary" />
+                  <span className="text-xs text-primary font-medium">
+                    Mit {crmLinks.length} CRM-Kontakt{crmLinks.length > 1 ? 'en' : ''} verknuepft
+                  </span>
+                </div>
+              )}
+
+              {/* HTML body or text fallback */}
+              {selectedMessage.body_html ? (
+                <div
+                  className="text-sm text-text-body leading-relaxed prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: selectedMessage.body_html }}
+                />
+              ) : (
+                <div className="text-sm text-text-body whitespace-pre-line leading-relaxed">
+                  {selectedMessage.body_text}
+                </div>
+              )}
+
+              {/* Attachments */}
+              {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
                 <div className="mt-6 border-t border-border pt-4">
                   <p className="text-xs font-medium text-muted-foreground mb-2">
-                    Anhänge ({selectedEmail.attachments.length})
+                    Anhaenge ({selectedMessage.attachments.length})
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {selectedEmail.attachments.map((att, i) => (
+                    {selectedMessage.attachments.map((att) => (
                       <button
-                        key={i}
-                        onClick={() => toast.success(`"${att.name}" wird heruntergeladen`)}
+                        key={att.id}
+                        onClick={() => toast.success(`"${att.filename}" wird heruntergeladen`)}
                         className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 hover:bg-secondary transition-colors"
                       >
                         <Paperclip className="h-4 w-4 text-muted-foreground" />
                         <div className="text-left">
-                          <p className="text-sm text-foreground">{att.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{att.size}</p>
+                          <p className="text-sm text-foreground">{att.filename}</p>
+                          <p className="text-[10px] text-muted-foreground">{(att.size_bytes / 1024).toFixed(0)} KB</p>
                         </div>
                       </button>
                     ))}
@@ -504,7 +532,7 @@ export default function MailsPage() {
               {/* Quick reply */}
               <div className="mt-6 border-t border-border pt-4">
                 <button
-                  onClick={() => openCompose('reply', selectedEmail)}
+                  onClick={() => openCompose('reply', selectedMessage)}
                   className="flex w-full items-center gap-2 rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary transition-colors"
                 >
                   <Reply className="h-4 w-4" />
@@ -517,7 +545,7 @@ export default function MailsPage() {
           <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
             <div className="text-center">
               <Mail className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Wähle eine E-Mail aus</p>
+              <p className="text-sm">Waehle eine E-Mail aus</p>
             </div>
           </div>
         )}
@@ -527,26 +555,11 @@ export default function MailsPage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="E-Mail löschen?"
-        description={
-          deleteTarget?.folderId === 'trash'
-            ? `"${deleteTarget?.subject}" wird endgültig gelöscht.`
-            : `"${deleteTarget?.subject}" wird in den Papierkorb verschoben.`
-        }
-        confirmLabel="Löschen"
+        title="E-Mail loeschen?"
+        description={`"${deleteTarget?.subject}" wird geloescht.`}
+        confirmLabel="Loeschen"
         variant="destructive"
         onConfirm={handleDelete}
-      />
-
-      {/* Empty Trash Confirm */}
-      <ConfirmDialog
-        open={emptyTrashConfirm}
-        onOpenChange={setEmptyTrashConfirm}
-        title="Papierkorb leeren?"
-        description="Alle E-Mails im Papierkorb werden endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden."
-        confirmLabel="Papierkorb leeren"
-        variant="destructive"
-        onConfirm={handleEmptyTrash}
       />
     </div>
   )

@@ -16,11 +16,17 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMailsStore } from '@/stores/mails'
+import type { ComposeMode } from '@/stores/mails'
+import { useSendEmail, useSaveDraft, useReplyEmail, useForwardEmail } from '@/api/hooks/useEmail'
+import type { EmailAddress } from '@/api/email-types'
 import { RecipientField, defaultSignature, filteredSuggestions } from './compose-shared'
-import type { ComposeMode } from './ComposeModal'
 
 export default function ComposeWindowPage() {
-  const { composeDraft, setComposeDraft, sendEmail, saveDraft } = useMailsStore()
+  const { composeDraft, setComposeDraft } = useMailsStore()
+  const sendEmail = useSendEmail()
+  const saveDraftMutation = useSaveDraft()
+  const replyEmail = useReplyEmail()
+  const forwardEmail = useForwardEmail()
 
   const [to, setTo] = useState<string[]>([])
   const [toInput, setToInput] = useState('')
@@ -32,6 +38,8 @@ export default function ComposeWindowPage() {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [mode, setMode] = useState<ComposeMode>('compose')
+  const [replyToMessageId, setReplyToMessageId] = useState<string | undefined>(undefined)
+  const [accountId, setAccountId] = useState<string>('')
 
   // Load draft state on mount
   useEffect(() => {
@@ -42,8 +50,9 @@ export default function ComposeWindowPage() {
       setSubject(composeDraft.subject)
       setBody(composeDraft.body)
       setMode(composeDraft.mode)
+      setReplyToMessageId(composeDraft.replyToMessageId)
+      setAccountId(composeDraft.accountId ?? '')
       setShowCcBcc(composeDraft.cc.length > 0 || composeDraft.bcc.length > 0)
-      // Clear draft from store so it doesn't re-appear
       setComposeDraft(null)
     }
   }, [])
@@ -68,43 +77,73 @@ export default function ComposeWindowPage() {
     window.electronAPI?.window.close()
   }
 
+  const toAddresses = (emails: string[]): EmailAddress[] =>
+    emails.map((e) => ({ name: '', email: e }))
+
   const handleSend = () => {
-    if (to.length === 0 || !subject.trim()) return
-    sendEmail({
-      from: { name: 'Du', email: 'darien@kmuhub.ch', initials: 'DK' },
-      to,
-      cc,
-      bcc,
-      subject: subject.trim(),
-      preview: body.split('\n')[0].slice(0, 100),
-      body,
-      attachments: [],
-      signature: defaultSignature,
-    })
-    toast.success('E-Mail gesendet')
-    setTimeout(closeWindow, 300)
+    if (to.length === 0 || !subject.trim() || !accountId) return
+
+    if ((mode === 'reply' || mode === 'reply-all') && replyToMessageId) {
+      replyEmail.mutate({
+        account_id: accountId,
+        original_message_id: replyToMessageId,
+        body_html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        body_text: body,
+        reply_all: mode === 'reply-all',
+      }, {
+        onSuccess: () => { toast.success('E-Mail gesendet'); setTimeout(closeWindow, 300) },
+        onError: (err) => toast.error(`Senden fehlgeschlagen: ${err.message}`),
+      })
+    } else if (mode === 'forward' && replyToMessageId) {
+      forwardEmail.mutate({
+        account_id: accountId,
+        original_message_id: replyToMessageId,
+        to: toAddresses(to),
+        body_html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        body_text: body,
+      }, {
+        onSuccess: () => { toast.success('E-Mail weitergeleitet'); setTimeout(closeWindow, 300) },
+        onError: (err) => toast.error(`Weiterleiten fehlgeschlagen: ${err.message}`),
+      })
+    } else {
+      sendEmail.mutate({
+        account_id: accountId,
+        to: toAddresses(to),
+        cc: cc.length > 0 ? toAddresses(cc) : undefined,
+        bcc: bcc.length > 0 ? toAddresses(bcc) : undefined,
+        subject: subject.trim(),
+        body_html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        body_text: body,
+      }, {
+        onSuccess: () => { toast.success('E-Mail gesendet'); setTimeout(closeWindow, 300) },
+        onError: (err) => toast.error(`Senden fehlgeschlagen: ${err.message}`),
+      })
+    }
   }
 
   const handleSaveDraft = () => {
-    saveDraft({
-      from: { name: 'Du', email: 'darien@kmuhub.ch', initials: 'DK' },
-      to,
-      cc,
-      bcc,
+    if (!accountId) return
+    saveDraftMutation.mutate({
+      account_id: accountId,
+      to: toAddresses(to),
+      cc: cc.length > 0 ? toAddresses(cc) : undefined,
+      bcc: bcc.length > 0 ? toAddresses(bcc) : undefined,
       subject: subject.trim() || '(Kein Betreff)',
-      preview: body.split('\n')[0].slice(0, 100),
-      body,
-      attachments: [],
-      signature: defaultSignature,
+      body_html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+      body_text: body,
+      in_reply_to_message_id: replyToMessageId,
+    }, {
+      onSuccess: () => { toast.success('Entwurf gespeichert'); setTimeout(closeWindow, 300) },
+      onError: (err) => toast.error(`Speichern fehlgeschlagen: ${err.message}`),
     })
-    toast.success('Entwurf gespeichert')
-    setTimeout(closeWindow, 300)
   }
 
   const handleDiscard = () => {
     setComposeDraft(null)
     closeWindow()
   }
+
+  const isSending = sendEmail.isPending || replyEmail.isPending || forwardEmail.isPending
 
   const modeTitle: Record<ComposeMode, string> = {
     compose: 'Neue E-Mail',
@@ -119,14 +158,11 @@ export default function ComposeWindowPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      {/* Draggable title bar area */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
         <h2 className="text-sm font-medium">{modeTitle[mode]}</h2>
       </div>
 
-      {/* Form */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        {/* To */}
         <RecipientField
           label="An"
           recipients={to}
@@ -142,13 +178,9 @@ export default function ComposeWindowPage() {
           }}
         />
 
-        {/* Cc/Bcc toggle */}
         {!showCcBcc && (
-          <button
-            onClick={() => setShowCcBcc(true)}
-            className="text-xs text-primary hover:underline ml-1"
-          >
-            Cc/Bcc hinzufügen
+          <button onClick={() => setShowCcBcc(true)} className="text-xs text-primary hover:underline ml-1">
+            Cc/Bcc hinzufuegen
           </button>
         )}
 
@@ -185,7 +217,6 @@ export default function ComposeWindowPage() {
           </>
         )}
 
-        {/* Subject */}
         <Input
           placeholder="Betreff"
           value={subject}
@@ -193,22 +224,15 @@ export default function ComposeWindowPage() {
           className="border-0 border-b border-border rounded-none px-1 focus-visible:ring-0 font-medium"
         />
 
-        {/* Formatting toolbar */}
         <div className="flex items-center gap-0.5 border-b border-border pb-2">
           {[Bold, Italic, Underline].map((Icon, i) => (
-            <button
-              key={i}
-              className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            >
+            <button key={i} className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
               <Icon className="h-4 w-4" />
             </button>
           ))}
           <span className="mx-1 h-4 w-px bg-border" />
           {[List, ListOrdered].map((Icon, i) => (
-            <button
-              key={i}
-              className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            >
+            <button key={i} className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
               <Icon className="h-4 w-4" />
             </button>
           ))}
@@ -218,7 +242,6 @@ export default function ComposeWindowPage() {
           </button>
         </div>
 
-        {/* Body */}
         <Textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -227,26 +250,21 @@ export default function ComposeWindowPage() {
         />
       </div>
 
-      {/* Footer */}
       <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-card">
         <div className="flex items-center gap-2">
-          <Button onClick={handleSend} disabled={to.length === 0}>
+          <Button onClick={handleSend} disabled={to.length === 0 || isSending}>
             <Send className="mr-1.5 h-4 w-4" />
-            Senden
+            {isSending ? 'Sende...' : 'Senden'}
           </Button>
-          <Button variant="outline" size="icon" onClick={handleSaveDraft} title="Als Entwurf speichern">
+          <Button variant="outline" size="icon" onClick={handleSaveDraft} disabled={saveDraftMutation.isPending} title="Als Entwurf speichern">
             <Save className="h-4 w-4" />
           </Button>
         </div>
         <div className="flex items-center gap-1">
-          <button className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors" title="Datei anhängen">
+          <button className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors" title="Datei anhaengen">
             <Paperclip className="h-4 w-4" />
           </button>
-          <button
-            onClick={handleDiscard}
-            className="rounded p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
-            title="Verwerfen"
-          >
+          <button onClick={handleDiscard} className="rounded p-1.5 text-muted-foreground hover:text-red-500 transition-colors" title="Verwerfen">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>

@@ -54,6 +54,7 @@ func main() {
 	registry.Register("chat", cfg.ChatGRPCAddress)
 	registry.Register("notification", cfg.NotificationGRPCAddress)
 	registry.Register("work", cfg.WorkGRPCAddress)
+	registry.Register("email", cfg.EmailGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -127,6 +128,7 @@ func main() {
 		gateway.NewCalendarRoutes(registry),
 		gateway.NewVideoRoutes(registry),
 		gateway.NewSecurityRoutes(registry),
+		gateway.NewEmailRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}
