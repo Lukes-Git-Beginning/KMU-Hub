@@ -34,8 +34,8 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 ### Compliance & Comms (Phases 9-11)
 
-- [ ] **Phase 9: Security & Compliance** - 2FA, audit log, DSGVO export/deletion, session management, secret vault, i18n (DE/FR/IT/EN)
-- [ ] **Phase 10: Email Integration** - Full IMAP/SMTP email, CRM auto-linking, threading, contact import/export, two-level contacts
+- [x] **Phase 9: Security & Compliance** - 2FA, audit log, DSGVO export/deletion, session management, secret vault, i18n (DE/FR/IT/EN)
+- [ ] **Phase 10: Email Integration** - Design integration (complete), full IMAP/SMTP email, CRM auto-linking, threading, contact import/export
 - [ ] **Phase 11: Documents & Files** - File browser, upload, preview, versioning, sharing, full-text search, tags, global search
 
 ### Business Suite (Phases 12-13)
@@ -138,15 +138,15 @@ Plans:
 **Plans**: 9 plans
 
 Plans:
-- [ ] 07-01-PLAN.md -- Proto + migrations + models + Go deps (CalendarService proto, 4 migrations for 12 tables, Go models, rrule-go + LiveKit SDK)
-- [ ] 07-02-PLAN.md -- Frontend module shell + API hooks + stores (rrule npm, TypeScript types, TanStack Query hooks, Zustand calendar store, CalendarLayout)
-- [ ] 07-03-PLAN.md -- Calendar + Event service packages (CRUD, permissions, RRULE expansion, three-way recurring edit, RSVP, reminders, event emitter)
-- [ ] 07-04-PLAN.md -- Resource + Holiday + LiveKit service packages (booking with exclusion constraints, Nager.Date holiday seeding, LiveKit token generation)
-- [ ] 07-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (CalendarService gRPC, ~30 HTTP endpoints, Work service dual registration)
-- [ ] 07-06-PLAN.md -- Calendar views + grid components (CSS Grid TimeGrid, WeekView, DayView, MonthView, ViewToolbar, event layout algorithm)
-- [ ] 07-07-PLAN.md -- Event creation + editing UI (EventPopover, EventForm, RecurrenceEditor, RecurrenceEditScope, ReminderEditor, AttendeePicker)
-- [ ] 07-08-PLAN.md -- Shared calendars + sidebar (CalendarSidebar with day agenda, CalendarListSidebar, CalendarBrowsePage, CalendarSettingsDialog, permissions)
-- [ ] 07-09-PLAN.md -- Resource booking + DACH holidays + task deadlines (ResourcesPage, ResourceTimeline, HolidayBadge, TaskDeadlineLayer)
+- [x] 07-01-PLAN.md -- Proto + migrations + models + Go deps (CalendarService proto, 4 migrations for 12 tables, Go models, rrule-go + LiveKit SDK)
+- [x] 07-02-PLAN.md -- Frontend module shell + API hooks + stores (rrule npm, TypeScript types, TanStack Query hooks, Zustand calendar store, CalendarLayout)
+- [x] 07-03-PLAN.md -- Calendar + Event service packages (CRUD, permissions, RRULE expansion, three-way recurring edit, RSVP, reminders, event emitter)
+- [x] 07-04-PLAN.md -- Resource + Holiday + LiveKit service packages (booking with exclusion constraints, Nager.Date holiday seeding, LiveKit token generation)
+- [x] 07-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (CalendarService gRPC, ~30 HTTP endpoints, Work service dual registration)
+- [x] 07-06-PLAN.md -- Design integration: KalenderPage.tsx + adapters from design/brainstorm (replaced 07-06 to 07-09)
+- [x] 07-07-PLAN.md -- Design integration: CalendarBrowseDialog, CategoryManagerDialog, RoomBookingView
+- [x] 07-08-PLAN.md -- Design integration: D2 color system, globals.css merge
+- [x] 07-09-PLAN.md -- Design integration: Sonner toasts, Radix UI components
 
 ### Phase 8: Video, Voice & Meetings
 **Goal**: Users can make video/voice calls, manage meetings end-to-end, see colleague presence, and react to messages -- replacing Zoom/Teams
@@ -191,15 +191,15 @@ Plans:
 **Plans**: 9 plans
 
 Plans:
-- [ ] 09-01-PLAN.md -- Proto + migrations + models + Go deps (security.proto, auth.proto 2FA extension, 2 migrations for 10 tables + user columns, Go models, pquerna/otp + go-password-validator)
-- [ ] 09-02-PLAN.md -- Vault encryption + password policy services (AES-256-GCM with HKDF key derivation, entropy-based password validation, history checking)
-- [ ] 09-03-PLAN.md -- Audit log + session management backend (hash-chained tamper-evident log, CSV/JSON export, session tracking with device/IP)
-- [ ] 09-04-PLAN.md -- 2FA service (TOTP setup/verify with pquerna/otp, recovery codes, login pending token, per-role enforcement, admin reset)
-- [ ] 09-05-PLAN.md -- DSGVO compliance service (data export pipeline with per-module handlers, right-to-erasure with cascading anonymization)
-- [ ] 09-06-PLAN.md -- gRPC server + gateway routes + IP filter (SecurityService gRPC, ~32 HTTP endpoints, IP allowlist/blocklist middleware)
-- [ ] 09-07-PLAN.md -- i18n framework (react-intl with ICU format, 4-language translations, Zustand locale store, browser detection, App.tsx integration)
-- [ ] 09-08-PLAN.md -- Security UI (2FA setup wizard, TOTP login flow, audit log viewer, session management, vault admin page)
-- [ ] 09-09-PLAN.md -- Settings + admin pages (password policy, IP access, DSGVO export/erasure UI, settings tabs, sidebar navigation, routing)
+- [x] 09-01-PLAN.md -- Proto + migrations + models + Go deps (security.proto, auth.proto 2FA extension, 2 migrations for 10 tables + user columns, Go models, pquerna/otp + go-password-validator)
+- [x] 09-02-PLAN.md -- Vault encryption + password policy services (AES-256-GCM with HKDF key derivation, entropy-based password validation, history checking)
+- [x] 09-03-PLAN.md -- Audit log + session management backend (hash-chained tamper-evident log, CSV/JSON export, session tracking with device/IP)
+- [x] 09-04-PLAN.md -- 2FA service (TOTP setup/verify with pquerna/otp, recovery codes, login pending token, per-role enforcement, admin reset)
+- [x] 09-05-PLAN.md -- DSGVO compliance service (data export pipeline with per-module handlers, right-to-erasure with cascading anonymization)
+- [x] 09-06-PLAN.md -- gRPC server + gateway routes + IP filter (SecurityService gRPC, ~32 HTTP endpoints, IP allowlist/blocklist middleware)
+- [x] 09-07-PLAN.md -- i18n framework (react-intl with ICU format, 4-language translations, Zustand locale store, browser detection, App.tsx integration)
+- [x] 09-08-PLAN.md -- Security UI (2FA setup wizard, TOTP login flow, audit log viewer, session management, vault admin page)
+- [x] 09-09-PLAN.md -- Settings + admin pages (password policy, IP access, DSGVO export/erasure UI, settings tabs, sidebar navigation, routing)
 
 ### Phase 10: Email Integration
 **Goal**: Users can send and receive email within the Hub without switching to an external email client, with automatic CRM context, contact import/export, and two-level contact visibility
@@ -216,13 +216,16 @@ Plans:
   8. User can navigate IMAP folder structure (Inbox, Sent, Drafts, custom folders) within the Hub
   9. User can import contacts from CSV/vCard and export contacts to CSV/vCard with field selection
   10. Contacts support company-shared and personal visibility levels with admin override
-**Plans**: 4 plans (estimated)
+**Plans**: 7 plans
 
 Plans:
-- [ ] 10-01: IMAP sync engine (connection management, folder mapping, incremental sync, read status bidirectional sync)
-- [ ] 10-02: SMTP send + threading (compose, send, reply/reply-all/forward, thread reconstruction, attachments via MinIO)
-- [ ] 10-03: Email UI + CRM integration (inbox view, folder navigation, threaded conversation view, signature editor, auto-link to CRM contacts)
-- [ ] 10-04: Contact import/export + two-level contacts (CSV/vCard import with field mapping, export, shared vs. personal contact visibility)
+- [x] 10-01: Design foundation + layout overhaul (config, types, hooks, globals.css, desk assets, sidebar, header, DeskEnvironment, AppShell, ui.ts)
+- [x] 10-02: New module pages + stores + routing (25 module pages, 21 Zustand stores, App.tsx routing, SettingsPage merge with 8 tabs)
+- [x] 10-03: Existing module visual upgrades (umlaut normalization, unused import cleanup across CRM, Chat, Work, Calendar, Notifications)
+- [ ] 10-04: IMAP sync engine (connection management, folder mapping, incremental sync, read status bidirectional sync)
+- [ ] 10-05: SMTP send + threading (compose, send, reply/reply-all/forward, thread reconstruction, attachments via MinIO)
+- [ ] 10-06: Email UI + CRM integration (inbox view, folder navigation, threaded conversation view, signature editor, auto-link to CRM contacts)
+- [ ] 10-07: Contact import/export + two-level contacts (CSV/vCard import with field mapping, export, shared vs. personal contact visibility)
 
 ### Phase 11: Documents & Files
 **Goal**: Users can manage, share, and find documents and files across the entire Hub from a central file manager, with a global search spanning all modules
@@ -403,8 +406,8 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 6. Project Management | 10/10 | Complete | 2026-02-08 |
 | 7. Calendar & Scheduling | 9/9 | Complete | 2026-02-11 |
 | 8. Video, Voice & Meetings | 9/9 | Complete | 2026-02-11 |
-| 9. Security & Compliance | 0/9 | Not started | - |
-| 10. Email Integration | 0/4 | Not started | - |
+| 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
+| 10. Email Integration | 3/7 | In progress | - |
 | 11. Documents & Files | 0/4 | Not started | - |
 | 12. Finance Module | 0/3 | Not started | - |
 | 13. HR Module | 0/3 | Not started | - |
@@ -419,4 +422,4 @@ Decimal phases (if inserted) execute between their surrounding integers.
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-11 after Phase 9 planning (9 plans in 4 waves)*
+*Last updated: 2026-02-16 after design integration (Plans 10-01 to 10-03 complete)*
