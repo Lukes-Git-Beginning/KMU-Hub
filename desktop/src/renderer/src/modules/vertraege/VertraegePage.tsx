@@ -211,7 +211,7 @@ function ContractDialog({
           {/* Titel */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Titel <span className="text-red-500">*</span>
+              Titel <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
@@ -251,7 +251,7 @@ function ContractDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Partner <span className="text-red-500">*</span>
+                Partner <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -263,7 +263,7 @@ function ContractDialog({
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Vertragsnummer <span className="text-red-500">*</span>
+                Vertragsnummer <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -279,7 +279,7 @@ function ContractDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Startdatum <span className="text-red-500">*</span>
+                Startdatum <span className="text-destructive">*</span>
               </label>
               <input
                 type="date"
@@ -452,7 +452,7 @@ function TerminationDialog({
           {/* Kuendigungsdatum */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Kuendigungsdatum <span className="text-red-500">*</span>
+              Kuendigungsdatum <span className="text-destructive">*</span>
             </label>
             <input
               type="date"
@@ -470,7 +470,7 @@ function TerminationDialog({
           {/* Grund */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Grund <span className="text-red-500">*</span>
+              Grund <span className="text-destructive">*</span>
             </label>
             <textarea
               value={reason}

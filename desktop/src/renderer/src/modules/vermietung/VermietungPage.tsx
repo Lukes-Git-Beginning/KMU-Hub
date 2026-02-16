@@ -202,7 +202,7 @@ function ObjectDialog({
         <div className="space-y-4">
           {/* Name */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Name <span className="text-red-500">*</span></label>
+            <label className="text-sm font-medium text-foreground">Name <span className="text-destructive">*</span></label>
             <input
               type="text"
               value={name}
@@ -214,7 +214,7 @@ function ObjectDialog({
 
           {/* Typ */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Typ <span className="text-red-500">*</span></label>
+            <label className="text-sm font-medium text-foreground">Typ <span className="text-destructive">*</span></label>
             <div className="grid grid-cols-2 gap-2">
               {(Object.entries(OBJECT_TYPE_CONFIG) as [RentalObjectType, typeof OBJECT_TYPE_CONFIG['geraet']][]).map(([key, cfg]) => {
                 const Icon = cfg.icon
@@ -239,7 +239,7 @@ function ObjectDialog({
 
           {/* Standort */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Standort <span className="text-red-500">*</span></label>
+            <label className="text-sm font-medium text-foreground">Standort <span className="text-destructive">*</span></label>
             <input
               type="text"
               value={location}
@@ -252,7 +252,7 @@ function ObjectDialog({
           {/* Rates */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Tagessatz (CHF) <span className="text-red-500">*</span></label>
+              <label className="text-sm font-medium text-foreground">Tagessatz (CHF) <span className="text-destructive">*</span></label>
               <input
                 type="number"
                 min={0}
@@ -394,7 +394,7 @@ function ReservationDialog({
         <div className="space-y-4">
           {/* Object */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Objekt <span className="text-red-500">*</span></label>
+            <label className="text-sm font-medium text-foreground">Objekt <span className="text-destructive">*</span></label>
             <select
               value={objectId}
               onChange={(e) => handleObjectChange(e.target.value)}
@@ -412,7 +412,7 @@ function ReservationDialog({
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Von <span className="text-red-500">*</span></label>
+              <label className="text-sm font-medium text-foreground">Von <span className="text-destructive">*</span></label>
               <input
                 type="date"
                 value={startDate}
@@ -421,7 +421,7 @@ function ReservationDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Bis <span className="text-red-500">*</span></label>
+              <label className="text-sm font-medium text-foreground">Bis <span className="text-destructive">*</span></label>
               <input
                 type="date"
                 value={endDate}
@@ -433,7 +433,7 @@ function ReservationDialog({
 
           {/* Renter */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Mieter <span className="text-red-500">*</span></label>
+            <label className="text-sm font-medium text-foreground">Mieter <span className="text-destructive">*</span></label>
             <input
               type="text"
               value={renter}

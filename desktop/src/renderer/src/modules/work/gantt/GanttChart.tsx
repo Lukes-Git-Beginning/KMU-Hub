@@ -17,8 +17,12 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import type { components } from '@/api/types'
 import { apiClient } from '@/api/client'
 import { useTasks } from '@/api/hooks/useTasks'
+
+type TaskResponse = components['schemas']['TaskResponse']
+type TaskDependencyResponse = components['schemas']['TaskDependencyResponse']
 import { useWorkStore } from '@/stores/work'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -71,14 +75,14 @@ export default function GanttChart({ projectId }: GanttChartProps) {
     page_size: MAX_GANTT_TASKS,
   })
 
-  const apiTasks = (tasksData as any)?.tasks ?? []
+  const apiTasks = (tasksData as { tasks?: TaskResponse[]; total?: number })?.tasks ?? []
 
   // Fetch dependencies for tasks that have blocked deps
   const taskIdsWithDeps = useMemo(
     () =>
       apiTasks
-        .filter((t: any) => t.has_blocked_deps)
-        .map((t: any) => t.id as string),
+        .filter((t: TaskResponse) => t.has_blocked_deps)
+        .map((t: TaskResponse) => t.id as string),
     [apiTasks]
   )
 
@@ -101,9 +105,9 @@ export default function GanttChart({ projectId }: GanttChartProps) {
 
   // Merge all dependencies into a flat list
   const allApiDeps = useMemo(() => {
-    const deps: any[] = []
+    const deps: TaskDependencyResponse[] = []
     for (const q of depQueries) {
-      const qDeps = (q.data as any)?.dependencies ?? []
+      const qDeps = (q.data as { dependencies?: TaskDependencyResponse[] })?.dependencies ?? []
       for (const d of qDeps) {
         // Deduplicate by id
         if (!deps.find((existing) => existing.id === d.id)) {
@@ -268,7 +272,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
+          <AlertTriangle className="mx-auto h-12 w-12 text-warning" />
           <p className="mt-4 text-lg font-semibold text-foreground">
             Zu viele Aufgaben für Gantt-Ansicht
           </p>
@@ -331,7 +335,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
           {/* Legend */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-6 rounded border-2 border-red-500 bg-red-500/20" />
+              <div className="h-3 w-6 rounded border-2 border-error bg-error/20" />
               <span>Kritischer Pfad</span>
             </div>
             <div className="flex items-center gap-1.5">
