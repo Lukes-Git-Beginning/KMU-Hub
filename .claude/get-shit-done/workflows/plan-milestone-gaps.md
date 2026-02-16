@@ -64,7 +64,9 @@ Gap: Flow "View dashboard" broken at data fetch
 
 Find highest existing phase:
 ```bash
-ls -d .planning/phases/*/ | sort -V | tail -1
+# Get sorted phase list, extract last one
+PHASES=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs phases list)
+HIGHEST=$(echo "$PHASES" | jq -r '.directories[-1]')
 ```
 
 New phases continue from there:
@@ -130,7 +132,7 @@ mkdir -p ".planning/phases/{NN}-{name}"
 ## 8. Commit Roadmap Update
 
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js commit "docs(roadmap): add gap closure phases {N}-{M}" --files .planning/ROADMAP.md
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "docs(roadmap): add gap closure phases {N}-{M}" --files .planning/ROADMAP.md
 ```
 
 ## 9. Offer Next Steps

@@ -37,18 +37,16 @@ When a milestone completes:
 
 <step name="verify_readiness">
 
-Check milestone completion:
+**Use `roadmap analyze` for comprehensive readiness check:**
 
 ```bash
-cat .planning/ROADMAP.md
-ls .planning/phases/*/SUMMARY.md 2>/dev/null | wc -l
+ROADMAP=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs roadmap analyze)
 ```
 
-Verify:
+This returns all phases with plan/summary counts and disk status. Use this to verify:
 - Which phases belong to this milestone?
-- All phases complete (all plans have summaries)?
-- Work tested/validated?
-- Ready to ship/tag?
+- All phases complete (all plans have summaries)? Check `disk_status === 'complete'` for each.
+- `progress_percent` should be 100%.
 
 Present:
 
@@ -61,7 +59,7 @@ Includes:
 - Phase 3: Core Features (3/3 plans complete)
 - Phase 4: Polish (1/1 plan complete)
 
-Total: 4 phases, 8 plans, all complete
+Total: {phase_count} phases, {total_plans} plans, all complete
 ```
 
 <config-check>
@@ -128,12 +126,13 @@ Milestone Stats:
 
 <step name="extract_accomplishments">
 
-Read all phase SUMMARY.md files in milestone range:
+Extract one-liners from SUMMARY.md files using summary-extract:
 
 ```bash
-cat .planning/phases/01-*/01-*-SUMMARY.md
-cat .planning/phases/02-*/02-*-SUMMARY.md
-# ... for each phase in milestone
+# For each phase in milestone, extract one-liner
+for summary in .planning/phases/*-*/*-SUMMARY.md; do
+  node ./.claude/get-shit-done/bin/gsd-tools.cjs summary-extract "$summary" --fields one_liner | jq -r '.one_liner'
+done
 ```
 
 Extract 4-6 key accomplishments. Present:
@@ -151,36 +150,9 @@ Key accomplishments for this milestone:
 
 <step name="create_milestone_entry">
 
-Create or update `.planning/MILESTONES.md`.
+**Note:** MILESTONES.md entry is now created automatically by `gsd-tools milestone complete` in the archive_milestone step. The entry includes version, date, phase/plan/task counts, and accomplishments extracted from SUMMARY.md files.
 
-If file doesn't exist, create with project name header. If exists, prepend new entry (reverse chronological).
-
-Use template from `templates/milestone.md`:
-
-```markdown
-## v[Version] [Name] (Shipped: YYYY-MM-DD)
-
-**Delivered:** [One sentence from user]
-
-**Phases completed:** [X-Y] ([Z] plans total)
-
-**Key accomplishments:**
-
-- [List from previous step]
-
-**Stats:**
-
-- [Files] files created/modified
-- [LOC] lines of [language]
-- [Phases] phases, [Plans] plans, [Tasks] tasks
-- [Days] days from [start] to ship
-
-**Git range:** `feat(XX-XX)` → `feat(YY-YY)`
-
-**What's next:** [Ask user: what's the next goal?]
-
----
-```
+If additional details are needed (e.g., user-provided "Delivered" summary, git range, LOC stats), add them manually after the CLI creates the base entry.
 
 </step>
 
@@ -369,103 +341,83 @@ Update `.planning/ROADMAP.md` — group completed milestone phases:
 
 <step name="archive_milestone">
 
-Extract completed milestone details to archive.
-
-1. Create `.planning/milestones/v[X.Y]-ROADMAP.md`
-2. Read `./.claude/get-shit-done/templates/milestone-archive.md` template
-3. Extract from ROADMAP.md: all phases in milestone (by number range), full phase details, plan lists with checkmarks
-4. Extract from PROJECT.md: key decisions, validated requirements
-5. Fill template placeholders: {{VERSION}}, {{MILESTONE_NAME}}, {{DATE}}, {{PHASE_START}}, {{PHASE_END}}, {{TOTAL_PLANS}}, {{MILESTONE_DESCRIPTION}}, {{PHASES_SECTION}}, {{DECISIONS_FROM_PROJECT}}, {{ISSUES_RESOLVED_DURING_MILESTONE}}
-6. Write to `.planning/milestones/v[X.Y]-ROADMAP.md`
-7. Delete ROADMAP.md:
-   ```bash
-   rm .planning/ROADMAP.md
-   ```
-8. Verify:
-   ```bash
-   ls .planning/milestones/v[X.Y]-ROADMAP.md
-   ```
-9. Confirm:
-   ```
-   ✅ v[X.Y] roadmap archived to milestones/v[X.Y]-ROADMAP.md
-   ✅ ROADMAP.md deleted (fresh one for next milestone)
-   ```
-
-**Note:** Phase directories (`.planning/phases/`) are NOT deleted — they accumulate across milestones as raw execution history. Phase numbering continues (v1.0 phases 1-4, v1.1 phases 5-8, etc.).
-
-</step>
-
-<step name="archive_requirements">
-
-Archive requirements for next milestone.
-
-1. Read REQUIREMENTS.md:
-   ```bash
-   cat .planning/REQUIREMENTS.md
-   ```
-
-2. Create `.planning/milestones/v[X.Y]-REQUIREMENTS.md`
-
-3. Transform: mark all requirements `[x]` complete, add outcome notes, update traceability table to "Complete", add milestone summary (total shipped, scope changes, drops)
-
-4. Write archive with header:
-   ```markdown
-   # Requirements Archive: v[X.Y] [Milestone Name]
-
-   **Archived:** [DATE]
-   **Status:** ✅ SHIPPED
-
-   For current requirements, see `.planning/REQUIREMENTS.md`.
-
-   ---
-
-   [Full REQUIREMENTS.md content with checkboxes marked complete]
-
-   ---
-
-   ## Milestone Summary
-
-   **Shipped:** [X] of [Y] requirements
-   **Adjusted:** [list any that changed]
-   **Dropped:** [list any removed and why]
-
-   ---
-   *Archived: [DATE] as part of v[X.Y] milestone completion*
-   ```
-
-5. Delete original:
-   ```bash
-   rm .planning/REQUIREMENTS.md
-   ```
-
-6. Confirm:
-   ```
-   ✅ Requirements archived to milestones/v[X.Y]-REQUIREMENTS.md
-   ✅ REQUIREMENTS.md deleted (fresh one for next milestone)
-   ```
-
-**Note:** Next milestone starts with `/gsd:new-milestone` which includes requirements definition. PROJECT.md's Validated section carries cumulative record across milestones.
-
-</step>
-
-<step name="archive_audit">
-
-Move audit file to archive (if exists):
+**Delegate archival to gsd-tools:**
 
 ```bash
-AUDIT_EXISTS=$(node ./.claude/get-shit-done/bin/gsd-tools.js verify-path-exists .planning/v[X.Y]-MILESTONE-AUDIT.md --raw)
-[ "$AUDIT_EXISTS" = "true" ] && mv .planning/v[X.Y]-MILESTONE-AUDIT.md .planning/milestones/
+ARCHIVE=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs milestone complete "v[X.Y]" --name "[Milestone Name]")
 ```
 
-Confirm: `✅ Audit archived to milestones/v[X.Y]-MILESTONE-AUDIT.md`
+The CLI handles:
+- Creating `.planning/milestones/` directory
+- Archiving ROADMAP.md to `milestones/v[X.Y]-ROADMAP.md`
+- Archiving REQUIREMENTS.md to `milestones/v[X.Y]-REQUIREMENTS.md` with archive header
+- Moving audit file to milestones if it exists
+- Creating/appending MILESTONES.md entry with accomplishments from SUMMARY.md files
+- Updating STATE.md (status, last activity)
 
-Skip silently if no audit file — audit is optional.
+Extract from result: `version`, `date`, `phases`, `plans`, `tasks`, `accomplishments`, `archived`.
+
+Verify: `✅ Milestone archived to .planning/milestones/`
+
+**Phase archival (optional):** After archival completes, ask the user:
+
+AskUserQuestion(header="Archive Phases", question="Archive phase directories to milestones/?", options: "Yes — move to milestones/v[X.Y]-phases/" | "Skip — keep phases in place")
+
+If "Yes": move phase directories to the milestone archive:
+```bash
+mkdir -p .planning/milestones/v[X.Y]-phases
+# For each phase directory in .planning/phases/:
+mv .planning/phases/{phase-dir} .planning/milestones/v[X.Y]-phases/
+```
+Verify: `✅ Phase directories archived to .planning/milestones/v[X.Y]-phases/`
+
+If "Skip": Phase directories remain in `.planning/phases/` as raw execution history. Use `/gsd:cleanup` later to archive retroactively.
+
+After archival, the AI still handles:
+- Reorganizing ROADMAP.md with milestone grouping (requires judgment)
+- Full PROJECT.md evolution review (requires understanding)
+- Deleting original ROADMAP.md and REQUIREMENTS.md
+- These are NOT fully delegated because they require AI interpretation of content
+
+</step>
+
+<step name="reorganize_roadmap_and_delete_originals">
+
+After `milestone complete` has archived, reorganize ROADMAP.md with milestone groupings, then delete originals:
+
+**Reorganize ROADMAP.md** — group completed milestone phases:
+
+```markdown
+# Roadmap: [Project Name]
+
+## Milestones
+
+- ✅ **v1.0 MVP** — Phases 1-4 (shipped YYYY-MM-DD)
+- 🚧 **v1.1 Security** — Phases 5-6 (in progress)
+
+## Phases
+
+<details>
+<summary>✅ v1.0 MVP (Phases 1-4) — SHIPPED YYYY-MM-DD</summary>
+
+- [x] Phase 1: Foundation (2/2 plans) — completed YYYY-MM-DD
+- [x] Phase 2: Authentication (2/2 plans) — completed YYYY-MM-DD
+
+</details>
+```
+
+**Then delete originals:**
+
+```bash
+rm .planning/ROADMAP.md
+rm .planning/REQUIREMENTS.md
+```
 
 </step>
 
 <step name="update_state">
 
-Update STATE.md for milestone completion.
+Most STATE.md updates were handled by `milestone complete`, but verify and update remaining fields:
 
 **Project Reference:**
 
@@ -476,17 +428,6 @@ See: .planning/PROJECT.md (updated [today])
 
 **Core value:** [Current core value from PROJECT.md]
 **Current focus:** [Next milestone or "Planning next milestone"]
-```
-
-**Current Position:**
-
-```markdown
-Phase: [Next phase] of [Total] ([Phase name])
-Plan: Not started
-Status: Ready to plan
-Last activity: [today] — v[X.Y] milestone complete
-
-Progress: [updated progress bar]
 ```
 
 **Accumulated Context:**
@@ -500,12 +441,13 @@ Progress: [updated progress bar]
 
 Check branching strategy and offer merge options.
 
+Use `init milestone-op` for context, or load config directly:
+
 ```bash
-GSD_CONFIG=$(node ./.claude/get-shit-done/bin/gsd-tools.js state load --raw)
-BRANCHING_STRATEGY=$(echo "$GSD_CONFIG" | grep '^branching_strategy=' | cut -d= -f2)
-PHASE_BRANCH_TEMPLATE=$(echo "$GSD_CONFIG" | grep '^phase_branch_template=' | cut -d= -f2)
-MILESTONE_BRANCH_TEMPLATE=$(echo "$GSD_CONFIG" | grep '^milestone_branch_template=' | cut -d= -f2)
+INIT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs init execute-phase "1")
 ```
+
+Extract `branching_strategy`, `phase_branch_template`, `milestone_branch_template`, and `commit_docs` from init JSON.
 
 **If "none":** Skip to git_tag.
 
@@ -550,12 +492,20 @@ git checkout main
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   for branch in $PHASE_BRANCHES; do
     git merge --squash "$branch"
+    # Strip .planning/ from staging if commit_docs is false
+    if [ "$COMMIT_DOCS" = "false" ]; then
+      git reset HEAD .planning/ 2>/dev/null || true
+    fi
     git commit -m "feat: $branch for v[X.Y]"
   done
 fi
 
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
   git merge --squash "$MILESTONE_BRANCH"
+  # Strip .planning/ from staging if commit_docs is false
+  if [ "$COMMIT_DOCS" = "false" ]; then
+    git reset HEAD .planning/ 2>/dev/null || true
+  fi
   git commit -m "feat: $MILESTONE_BRANCH for v[X.Y]"
 fi
 
@@ -570,12 +520,22 @@ git checkout main
 
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   for branch in $PHASE_BRANCHES; do
-    git merge --no-ff "$branch" -m "Merge branch '$branch' for v[X.Y]"
+    git merge --no-ff --no-commit "$branch"
+    # Strip .planning/ from staging if commit_docs is false
+    if [ "$COMMIT_DOCS" = "false" ]; then
+      git reset HEAD .planning/ 2>/dev/null || true
+    fi
+    git commit -m "Merge branch '$branch' for v[X.Y]"
   done
 fi
 
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  git merge --no-ff "$MILESTONE_BRANCH" -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
+  git merge --no-ff --no-commit "$MILESTONE_BRANCH"
+  # Strip .planning/ from staging if commit_docs is false
+  if [ "$COMMIT_DOCS" = "false" ]; then
+    git reset HEAD .planning/ 2>/dev/null || true
+  fi
+  git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
 fi
 
 git checkout "$CURRENT_BRANCH"
@@ -604,8 +564,7 @@ fi
 Create git tag:
 
 ```bash
-git tag -a v[X.Y] -m "$(cat <<'EOF'
-v[X.Y] [Name]
+git tag -a v[X.Y] -m "v[X.Y] [Name]
 
 Delivered: [One sentence]
 
@@ -614,9 +573,7 @@ Key accomplishments:
 - [Item 2]
 - [Item 3]
 
-See .planning/MILESTONES.md for full details.
-EOF
-)"
+See .planning/MILESTONES.md for full details."
 ```
 
 Confirm: "Tagged: v[X.Y]"
@@ -635,7 +592,7 @@ git push origin v[X.Y]
 Commit milestone completion.
 
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js commit "chore: complete v[X.Y] milestone" --files .planning/milestones/v[X.Y]-ROADMAP.md .planning/milestones/v[X.Y]-REQUIREMENTS.md .planning/milestones/v[X.Y]-MILESTONE-AUDIT.md .planning/MILESTONES.md .planning/PROJECT.md .planning/STATE.md
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "chore: complete v[X.Y] milestone" --files .planning/milestones/v[X.Y]-ROADMAP.md .planning/milestones/v[X.Y]-REQUIREMENTS.md .planning/milestones/v[X.Y]-MILESTONE-AUDIT.md .planning/MILESTONES.md .planning/PROJECT.md .planning/STATE.md
 ```
 ```
 

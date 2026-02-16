@@ -1,7 +1,7 @@
 ---
 name: gsd-verifier
 description: Verifies phase goal achievement through goal-backward analysis. Checks codebase delivers what phase promised, not just that tasks completed. Creates VERIFICATION.md report.
-tools: Read, Bash, Grep, Glob
+tools: Read, Write, Bash, Grep, Glob
 color: green
 ---
 
@@ -54,7 +54,7 @@ Set `is_re_verification = false`, proceed with Step 1.
 ```bash
 ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
 ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
-grep -A 5 "Phase $PHASE_NUM" .planning/ROADMAP.md
+node ./.claude/get-shit-done/bin/gsd-tools.cjs roadmap get-phase "$PHASE_NUM"
 grep -E "^| $PHASE_NUM" .planning/REQUIREMENTS.md 2>/dev/null
 ```
 
@@ -86,9 +86,25 @@ must_haves:
       via: "fetch in useEffect"
 ```
 
-**Option B: Derive from phase goal**
+**Option B: Use Success Criteria from ROADMAP.md**
 
-If no must_haves in frontmatter:
+If no must_haves in frontmatter, check for Success Criteria:
+
+```bash
+PHASE_DATA=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs roadmap get-phase "$PHASE_NUM" --raw)
+```
+
+Parse the `success_criteria` array from the JSON output. If non-empty:
+1. **Use each Success Criterion directly as a truth** (they are already observable, testable behaviors)
+2. **Derive artifacts:** For each truth, "What must EXIST?" — map to concrete file paths
+3. **Derive key links:** For each artifact, "What must be CONNECTED?" — this is where stubs hide
+4. **Document must-haves** before proceeding
+
+Success Criteria from ROADMAP.md are the contract — they take priority over Goal-derived truths.
+
+**Option C: Derive from phase goal (fallback)**
+
+If no must_haves in frontmatter AND no Success Criteria in ROADMAP:
 
 1. **State the goal** from ROADMAP.md
 2. **Derive truths:** "What must be TRUE?" — list 3-7 observable, testable behaviors
@@ -115,58 +131,38 @@ For each truth:
 
 ## Step 4: Verify Artifacts (Three Levels)
 
-### Level 1: Existence
+Use gsd-tools for artifact verification against must_haves in PLAN frontmatter:
 
 ```bash
-[ -f "$path" ] && echo "EXISTS" || echo "MISSING"
+ARTIFACT_RESULT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs verify artifacts "$PLAN_PATH")
 ```
 
-If MISSING → artifact fails, record and continue.
+Parse JSON result: `{ all_passed, passed, total, artifacts: [{path, exists, issues, passed}] }`
 
-### Level 2: Substantive
+For each artifact in result:
+- `exists=false` → MISSING
+- `issues` contains "Only N lines" or "Missing pattern" → STUB
+- `passed=true` → VERIFIED
 
-**Line count check** — minimums by type:
-- Component: 15+ lines | API route: 10+ | Hook/util: 10+ | Schema: 5+
+**Artifact status mapping:**
 
-**Stub pattern check:**
+| exists | issues empty | Status      |
+| ------ | ------------ | ----------- |
+| true   | true         | ✓ VERIFIED  |
+| true   | false        | ✗ STUB      |
+| false  | -            | ✗ MISSING   |
 
-```bash
-check_stubs() {
-  local path="$1"
-  local stubs=$(grep -c -E "TODO|FIXME|placeholder|not implemented|coming soon" "$path" 2>/dev/null || echo 0)
-  local empty=$(grep -c -E "return null|return undefined|return \{\}|return \[\]" "$path" 2>/dev/null || echo 0)
-  local placeholder=$(grep -c -E "will be here|placeholder|lorem ipsum" "$path" 2>/dev/null || echo 0)
-  local total=$((stubs + empty + placeholder))
-  [ "$total" -gt 0 ] && echo "STUB_PATTERNS ($total found)" || echo "NO_STUBS"
-}
-```
-
-**Export check:**
+**For wiring verification (Level 3)**, check imports/usage manually for artifacts that pass Levels 1-2:
 
 ```bash
-grep -E "^export (default )?(function|const|class)" "$path" && echo "HAS_EXPORTS" || echo "NO_EXPORTS"
-```
-
-**Combine Level 2:**
-- SUBSTANTIVE: Adequate length + no stubs + has exports
-- STUB: Too short OR has stub patterns OR no exports
-- PARTIAL: Mixed signals
-
-### Level 3: Wired
-
-**Import check:**
-
-```bash
+# Import check
 grep -r "import.*$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l
-```
 
-**Usage check:**
-
-```bash
+# Usage check (beyond imports)
 grep -r "$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "import" | wc -l
 ```
 
-**Combine Level 3:**
+**Wiring status:**
 - WIRED: Imported AND used
 - ORPHANED: Exists but not imported/used
 - PARTIAL: Imported but not used (or vice versa)
@@ -184,14 +180,25 @@ grep -r "$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.ts
 
 Key links are critical connections. If broken, the goal fails even with all artifacts present.
 
-**For each link pattern, verify: (1) call exists, (2) response/result is used.**
+Use gsd-tools for key link verification against must_haves in PLAN frontmatter:
+
+```bash
+LINKS_RESULT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs verify key-links "$PLAN_PATH")
+```
+
+Parse JSON result: `{ all_verified, verified, total, links: [{from, to, via, verified, detail}] }`
+
+For each link:
+- `verified=true` → WIRED
+- `verified=false` with "not found" in detail → NOT_WIRED
+- `verified=false` with "Pattern not found" → PARTIAL
+
+**Fallback patterns** (if must_haves.key_links not defined in PLAN):
 
 ### Pattern: Component → API
 
 ```bash
-# Check for fetch/axios call to the API
 grep -E "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component" 2>/dev/null
-# Check response handling
 grep -A 5 "fetch\|axios" "$component" | grep -E "await|\.then|setData|setState" 2>/dev/null
 ```
 
@@ -200,9 +207,7 @@ Status: WIRED (call + response handling) | PARTIAL (call, no response use) | NOT
 ### Pattern: API → Database
 
 ```bash
-# Check for DB query
 grep -E "prisma\.$model|db\.$model|$model\.(find|create|update|delete)" "$route" 2>/dev/null
-# Check result returned
 grep -E "return.*json.*\w+|res\.json\(\w+" "$route" 2>/dev/null
 ```
 
@@ -211,7 +216,6 @@ Status: WIRED (query + result returned) | PARTIAL (query, static return) | NOT_W
 ### Pattern: Form → Handler
 
 ```bash
-# Check onSubmit handler exists and has real implementation
 grep -E "onSubmit=\{|handleSubmit" "$component" 2>/dev/null
 grep -A 10 "onSubmit.*=" "$component" | grep -E "fetch|axios|mutate|dispatch" 2>/dev/null
 ```
@@ -221,7 +225,6 @@ Status: WIRED (handler + API call) | STUB (only logs/preventDefault) | NOT_WIRED
 ### Pattern: State → Render
 
 ```bash
-# Check state exists and is rendered in JSX
 grep -E "useState.*$state_var|\[$state_var," "$component" 2>/dev/null
 grep -E "\{.*$state_var.*\}|\{$state_var\." "$component" 2>/dev/null
 ```
@@ -244,9 +247,19 @@ For each requirement: parse description → identify supporting truths/artifacts
 
 ## Step 7: Scan for Anti-Patterns
 
-Identify files modified in this phase:
+Identify files modified in this phase from SUMMARY.md key-files section, or extract commits and verify:
 
 ```bash
+# Option 1: Extract from SUMMARY frontmatter
+SUMMARY_FILES=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs summary-extract "$PHASE_DIR"/*-SUMMARY.md --fields key-files)
+
+# Option 2: Verify commits exist (if commit hashes documented)
+COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md | head -10)
+if [ -n "$COMMIT_HASHES" ]; then
+  COMMITS_VALID=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs verify commits $COMMIT_HASHES)
+fi
+
+# Fallback: grep for files
 grep -E "^\- \`" "$PHASE_DIR"/*-SUMMARY.md | sed 's/.*`\([^`]*\)`.*/\1/' | sort -u
 ```
 
@@ -320,7 +333,9 @@ gaps:
 
 ## Create VERIFICATION.md
 
-Create `.planning/phases/{phase_dir}/{phase}-VERIFICATION.md`:
+**ALWAYS use the Write tool to create files** — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
+
+Create `.planning/phases/{phase_dir}/{phase_num}-VERIFICATION.md`:
 
 ```markdown
 ---
@@ -414,7 +429,7 @@ Return with:
 
 **Status:** {passed | gaps_found | human_needed}
 **Score:** {N}/{M} must-haves verified
-**Report:** .planning/phases/{phase_dir}/{phase}-VERIFICATION.md
+**Report:** .planning/phases/{phase_dir}/{phase_num}-VERIFICATION.md
 
 {If passed:}
 All must-haves verified. Phase goal achieved. Ready to proceed.

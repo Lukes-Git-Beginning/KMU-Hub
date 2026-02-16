@@ -71,22 +71,32 @@ Keep Accumulated Context section from previous milestone.
 Delete MILESTONE-CONTEXT.md if exists (consumed).
 
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js commit "docs: start milestone v[X.Y] [Name]" --files .planning/PROJECT.md .planning/STATE.md
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "docs: start milestone v[X.Y] [Name]" --files .planning/PROJECT.md .planning/STATE.md
 ```
 
-## 7. Resolve Model Profile
+## 7. Load Context and Resolve Models
 
 ```bash
-RESEARCHER_MODEL=$(node ./.claude/get-shit-done/bin/gsd-tools.js resolve-model gsd-project-researcher --raw)
-SYNTHESIZER_MODEL=$(node ./.claude/get-shit-done/bin/gsd-tools.js resolve-model gsd-research-synthesizer --raw)
-ROADMAPPER_MODEL=$(node ./.claude/get-shit-done/bin/gsd-tools.js resolve-model gsd-roadmapper --raw)
+INIT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs init new-milestone)
 ```
+
+Extract from init JSON: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `project_exists`, `roadmap_exists`.
 
 ## 8. Research Decision
 
 AskUserQuestion: "Research the domain ecosystem for new features before defining requirements?"
 - "Research first (Recommended)" — Discover patterns, features, architecture for NEW capabilities
 - "Skip research" — Go straight to requirements
+
+**Persist choice to config** (so future `/gsd:plan-phase` honors it):
+
+```bash
+# If "Research first": persist true
+node ./.claude/get-shit-done/bin/gsd-tools.cjs config-set workflow.research true
+
+# If "Skip research": persist false
+node ./.claude/get-shit-done/bin/gsd-tools.cjs config-set workflow.research false
+```
 
 **If "Research first":**
 
@@ -190,7 +200,7 @@ Present features by category:
 
 **If no research:** Gather requirements through conversation. Ask: "What are the main things users need to do with [new features]?" Clarify, probe for related capabilities, group into categories.
 
-**Scope each category** via AskUserQuestion (multiSelect: true):
+**Scope each category** via AskUserQuestion (multiSelect: true, header max 12 chars):
 - "[Feature 1]" — [brief description]
 - "[Feature 2]" — [brief description]
 - "None for this milestone" — Defer entire category
@@ -236,7 +246,7 @@ If "adjust": Return to scoping.
 
 **Commit requirements:**
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js commit "docs: define milestone v[X.Y] requirements" --files .planning/REQUIREMENTS.md
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "docs: define milestone v[X.Y] requirements" --files .planning/REQUIREMENTS.md
 ```
 
 ## 10. Create Roadmap
@@ -311,7 +321,7 @@ Success criteria:
 
 **Commit roadmap** (after approval):
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js commit "docs: create milestone v[X.Y] roadmap ([N] phases)" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "docs: create milestone v[X.Y] roadmap ([N] phases)" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md
 ```
 
 ## 11. Done

@@ -13,8 +13,9 @@ Detect whether GSD is installed locally or globally by checking both locations:
 
 ```bash
 # Check local first (takes priority)
-if [ -f "./.claude/get-shit-done/VERSION" ]; then
-  cat "./.claude/get-shit-done/VERSION"
+# Paths templated at install time for runtime compatibility
+if [ -f ./.claude/get-shit-done/VERSION ]; then
+  cat ./.claude/get-shit-done/VERSION
   echo "LOCAL"
 elif [ -f ./.claude/get-shit-done/VERSION ]; then
   cat ./.claude/get-shit-done/VERSION
@@ -129,7 +130,7 @@ Your custom files in other locations are preserved:
 - Custom hooks ✓
 - Your CLAUDE.md files ✓
 
-If you've modified any GSD files directly, back them up first.
+If you've modified any GSD files directly, they'll be automatically backed up to `gsd-local-patches/` and can be reapplied with `/gsd:reapply-patches` after the update.
 ```
 
 Use AskUserQuestion:
@@ -167,6 +168,7 @@ rm -f ./.claude/cache/gsd-update-check.json
 ```bash
 rm -f ./.claude/cache/gsd-update-check.json
 ```
+(Paths are templated at install time for runtime compatibility)
 </step>
 
 <step name="display_result">
@@ -183,6 +185,21 @@ Format completion message (changelog was already shown in confirmation step):
 ```
 </step>
 
+
+<step name="check_local_patches">
+After update completes, check if the installer detected and backed up any locally modified files:
+
+Check for gsd-local-patches/backup-meta.json in the config directory.
+
+**If patches found:**
+
+```
+Local patches were backed up before the update.
+Run /gsd:reapply-patches to merge your modifications into the new version.
+```
+
+**If no patches:** Continue normally.
+</step>
 </process>
 
 <success_criteria>

@@ -7,63 +7,34 @@ Orchestrator coordinates, not executes. Each subagent loads the full execute-pla
 </core_principle>
 
 <required_reading>
-Read STATE.md and config.json before any operation.
+Read STATE.md before any operation to load project context.
 </required_reading>
 
 <process>
 
-<step name="resolve_model_profile" priority="first">
+<step name="initialize" priority="first">
+Load all context in one call:
 
 ```bash
-EXECUTOR_MODEL=$(node ./.claude/get-shit-done/bin/gsd-tools.js resolve-model gsd-executor --raw)
-VERIFIER_MODEL=$(node ./.claude/get-shit-done/bin/gsd-tools.js resolve-model gsd-verifier --raw)
+INIT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs init execute-phase "${PHASE_ARG}")
 ```
 
-</step>
+Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`.
 
-<step name="load_project_state">
+**If `phase_found` is false:** Error — phase directory not found.
+**If `plan_count` is 0:** Error — no plans found in phase.
+**If `state_exists` is false but `.planning/` exists:** Offer reconstruct or continue.
 
-```bash
-cat .planning/STATE.md 2>/dev/null
-```
-
-**If exists:** Parse current position, accumulated decisions, blockers.
-**If missing but .planning/ exists:** Offer reconstruct from artifacts or continue without state.
-**If .planning/ missing:** Error — project not initialized.
-
-**Load configs:**
-
-```bash
-GSD_CONFIG=$(node ./.claude/get-shit-done/bin/gsd-tools.js state load --raw)
-COMMIT_PLANNING_DOCS=$(echo "$GSD_CONFIG" | grep '^commit_docs=' | cut -d= -f2)
-PARALLELIZATION=$(echo "$GSD_CONFIG" | grep '^parallelization=' | cut -d= -f2)
-BRANCHING_STRATEGY=$(echo "$GSD_CONFIG" | grep '^branching_strategy=' | cut -d= -f2)
-PHASE_BRANCH_TEMPLATE=$(echo "$GSD_CONFIG" | grep '^phase_branch_template=' | cut -d= -f2)
-MILESTONE_BRANCH_TEMPLATE=$(echo "$GSD_CONFIG" | grep '^milestone_branch_template=' | cut -d= -f2)
-```
-
-When `PARALLELIZATION=false`, plans within a wave execute sequentially.
+When `parallelization` is false, plans within a wave execute sequentially.
 </step>
 
 <step name="handle_branching">
-Create or switch to branch based on `BRANCHING_STRATEGY`.
+Check `branching_strategy` from init:
 
 **"none":** Skip, continue on current branch.
 
-**"phase":**
+**"phase" or "milestone":** Use pre-computed `branch_name` from init:
 ```bash
-PHASE_NAME=$(basename "$PHASE_DIR" | sed 's/^[0-9]*-//')
-PHASE_SLUG=$(node ./.claude/get-shit-done/bin/gsd-tools.js generate-slug "$PHASE_NAME" --raw)
-BRANCH_NAME=$(echo "$PHASE_BRANCH_TEMPLATE" | sed "s/{phase}/$PADDED_PHASE/g" | sed "s/{slug}/$PHASE_SLUG/g")
-git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
-```
-
-**"milestone":**
-```bash
-MILESTONE_VERSION=$(grep -oE 'v[0-9]+\.[0-9]+' .planning/ROADMAP.md | head -1 || echo "v1.0")
-MILESTONE_NAME=$(grep -A1 "## .*$MILESTONE_VERSION" .planning/ROADMAP.md | tail -1 | sed 's/.*- //' | cut -d'(' -f1 | tr -d ' ' || echo "milestone")
-MILESTONE_SLUG=$(node ./.claude/get-shit-done/bin/gsd-tools.js generate-slug "$MILESTONE_NAME" --raw)
-BRANCH_NAME=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed "s/{milestone}/$MILESTONE_VERSION/g" | sed "s/{slug}/$MILESTONE_SLUG/g")
 git checkout -b "$BRANCH_NAME" 2>/dev/null || git checkout "$BRANCH_NAME"
 ```
 
@@ -71,50 +42,21 @@ All subsequent commits go to this branch. User handles merging.
 </step>
 
 <step name="validate_phase">
+From init JSON: `phase_dir`, `plan_count`, `incomplete_count`.
 
-```bash
-PHASE_INFO=$(node ./.claude/get-shit-done/bin/gsd-tools.js find-phase "${PHASE_ARG}")
-PHASE_DIR=$(echo "$PHASE_INFO" | grep -o '"directory":"[^"]*"' | cut -d'"' -f4)
-if [ -z "$PHASE_DIR" ]; then
-  echo "ERROR: No phase directory matching '${PHASE_ARG}'"
-  exit 1
-fi
-
-PLAN_COUNT=$(ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | wc -l | tr -d ' ')
-if [ "$PLAN_COUNT" -eq 0 ]; then
-  echo "ERROR: No plans found in $PHASE_DIR"
-  exit 1
-fi
-```
-
-Report: "Found {N} plans in {phase_dir}"
+Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)"
 </step>
 
-<step name="discover_plans">
+<step name="discover_and_group_plans">
+Load plan inventory with wave grouping in one call:
 
 ```bash
-ls -1 "$PHASE_DIR"/*-PLAN.md 2>/dev/null | sort
-ls -1 "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | sort
+PLAN_INDEX=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs phase-plan-index "${PHASE_NUMBER}")
 ```
 
-For each plan, read frontmatter: `wave`, `autonomous`, `gap_closure`.
+Parse JSON for: `phase`, `plans[]` (each with `id`, `wave`, `autonomous`, `objective`, `files_modified`, `task_count`, `has_summary`), `waves` (map of wave number → plan IDs), `incomplete`, `has_checkpoints`.
 
-Build inventory: path, plan ID, wave, autonomous flag, gap_closure flag, completion (SUMMARY exists = complete).
-
-**Filtering:** Skip completed plans. If `--gaps-only`: also skip non-gap_closure plans. If all filtered: "No matching incomplete plans" → exit.
-</step>
-
-<step name="group_by_wave">
-
-```bash
-for plan in $PHASE_DIR/*-PLAN.md; do
-  wave=$(grep "^wave:" "$plan" | cut -d: -f2 | tr -d ' ')
-  autonomous=$(grep "^autonomous:" "$plan" | cut -d: -f2 | tr -d ' ')
-  echo "$plan:$wave:$autonomous"
-done
-```
-
-Group by wave number. **No dependency analysis needed** — waves pre-computed during `/gsd:plan-phase`.
+**Filtering:** Skip plans where `has_summary: true`. If `--gaps-only`: also skip non-gap_closure plans. If all filtered: "No matching incomplete plans" → exit.
 
 Report:
 ```
@@ -152,48 +94,43 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    - Bad: "Executing terrain generation plan"
    - Good: "Procedural terrain generator using Perlin noise — creates height maps, biome zones, and collision meshes. Required before vehicle physics can interact with ground."
 
-2. **Read files and spawn agents:**
+2. **Spawn executor agents:**
 
-   Content must be inlined — `@` syntax doesn't work across Task() boundaries.
-
-   ```bash
-   PLAN_CONTENT=$(cat "{plan_path}")
-   STATE_CONTENT=$(cat .planning/STATE.md)
-   CONFIG_CONTENT=$(cat .planning/config.json 2>/dev/null)
-   ```
-
-   Each agent prompt:
+   Pass paths only — executors read files themselves with their fresh 200k context.
+   This keeps orchestrator context lean (~10-15%).
 
    ```
-   <objective>
-   Execute plan {plan_number} of phase {phase_number}-{phase_name}.
-   Commit each task atomically. Create SUMMARY.md. Update STATE.md.
-   </objective>
+   Task(
+     subagent_type="gsd-executor",
+     model="{executor_model}",
+     prompt="
+       <objective>
+       Execute plan {plan_number} of phase {phase_number}-{phase_name}.
+       Commit each task atomically. Create SUMMARY.md. Update STATE.md.
+       </objective>
 
-   <execution_context>
-   @./.claude/get-shit-done/workflows/execute-plan.md
-   @./.claude/get-shit-done/templates/summary.md
-   @./.claude/get-shit-done/references/checkpoints.md
-   @./.claude/get-shit-done/references/tdd.md
-   </execution_context>
+       <execution_context>
+       @./.claude/get-shit-done/workflows/execute-plan.md
+       @./.claude/get-shit-done/templates/summary.md
+       @./.claude/get-shit-done/references/checkpoints.md
+       @./.claude/get-shit-done/references/tdd.md
+       </execution_context>
 
-   <context>
-   Plan:
-   {plan_content}
+       <files_to_read>
+       Read these files at execution start using the Read tool:
+       - Plan: {phase_dir}/{plan_file}
+       - State: .planning/STATE.md
+       - Config: .planning/config.json (if exists)
+       </files_to_read>
 
-   Project state:
-   {state_content}
-
-   Config (if exists):
-   {config_content}
-   </context>
-
-   <success_criteria>
-   - [ ] All tasks executed
-   - [ ] Each task committed individually
-   - [ ] SUMMARY.md created in plan directory
-   - [ ] STATE.md updated with position and decisions
-   </success_criteria>
+       <success_criteria>
+       - [ ] All tasks executed
+       - [ ] Each task committed individually
+       - [ ] SUMMARY.md created in plan directory
+       - [ ] STATE.md updated with position and decisions
+       </success_criteria>
+     "
+   )
    ```
 
 3. **Wait for all agents in wave to complete.**
@@ -223,7 +160,11 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    - Bad: "Wave 2 complete. Proceeding to Wave 3."
    - Good: "Terrain system complete — 3 biome types, height-based texturing, physics collision meshes. Vehicle physics (Wave 3) can now reference ground surfaces."
 
-5. **Handle failures:** Report which plan failed → ask "Continue?" or "Stop?" → if continue, dependent plans may also fail. If stop, partial completion report.
+5. **Handle failures:**
+
+   **Known Claude Code bug (classifyHandoffIfNeeded):** If an agent reports "failed" with error containing `classifyHandoffIfNeeded is not defined`, this is a Claude Code runtime bug — not a GSD or agent issue. The error fires in the completion handler AFTER all tool calls finish. In this case: run the same spot-checks as step 4 (SUMMARY.md exists, git commits present, no Self-Check: FAILED). If spot-checks PASS → treat as **successful**. If spot-checks FAIL → treat as real failure below.
+
+   For real failures: report which plan failed → ask "Continue?" or "Stop?" → if continue, dependent plans may also fail. If stop, partial completion report.
 
 6. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
 
@@ -285,6 +226,56 @@ After all waves:
 ```
 </step>
 
+<step name="close_parent_artifacts">
+**For decimal/polish phases only (X.Y pattern):** Close the feedback loop by resolving parent UAT and debug artifacts.
+
+**Skip if** phase number has no decimal (e.g., `3`, `04`) — only applies to gap-closure phases like `4.1`, `03.1`.
+
+**1. Detect decimal phase and derive parent:**
+```bash
+# Check if phase_number contains a decimal
+if [[ "$PHASE_NUMBER" == *.* ]]; then
+  PARENT_PHASE="${PHASE_NUMBER%%.*}"
+fi
+```
+
+**2. Find parent UAT file:**
+```bash
+PARENT_INFO=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs find-phase "${PARENT_PHASE}" --raw)
+# Extract directory from PARENT_INFO JSON, then find UAT file in that directory
+```
+
+**If no parent UAT found:** Skip this step (gap-closure may have been triggered by VERIFICATION.md instead).
+
+**3. Update UAT gap statuses:**
+
+Read the parent UAT file's `## Gaps` section. For each gap entry with `status: failed`:
+- Update to `status: resolved`
+
+**4. Update UAT frontmatter:**
+
+If all gaps now have `status: resolved`:
+- Update frontmatter `status: diagnosed` → `status: resolved`
+- Update frontmatter `updated:` timestamp
+
+**5. Resolve referenced debug sessions:**
+
+For each gap that has a `debug_session:` field:
+- Read the debug session file
+- Update frontmatter `status:` → `resolved`
+- Update frontmatter `updated:` timestamp
+- Move to resolved directory:
+```bash
+mkdir -p .planning/debug/resolved
+mv .planning/debug/{slug}.md .planning/debug/resolved/
+```
+
+**6. Commit updated artifacts:**
+```bash
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" --files .planning/phases/*${PARENT_PHASE}*/*-UAT.md .planning/debug/resolved/*.md
+```
+</step>
+
 <step name="verify_phase_goal">
 Verify phase achieved its GOAL, not just completed tasks.
 
@@ -326,7 +317,7 @@ All automated checks passed. {N} items need human testing:
 ## ⚠ Phase {X}: {Name} — Gaps Found
 
 **Score:** {N}/{M} must-haves verified
-**Report:** {phase_dir}/{phase}-VERIFICATION.md
+**Report:** {phase_dir}/{phase_num}-VERIFICATION.md
 
 ### What's Missing
 {Gap summaries from VERIFICATION.md}
@@ -338,7 +329,7 @@ All automated checks passed. {N} items need human testing:
 
 <sub>`/clear` first → fresh context window</sub>
 
-Also: `cat {phase_dir}/{phase}-VERIFICATION.md` — full report
+Also: `cat {phase_dir}/{phase_num}-VERIFICATION.md` — full report
 Also: `/gsd:verify-work {X}` — manual testing first
 ```
 
@@ -346,34 +337,54 @@ Gap closure cycle: `/gsd:plan-phase {X} --gaps` reads VERIFICATION.md → create
 </step>
 
 <step name="update_roadmap">
-Mark phase complete in ROADMAP.md (date, status).
+**Mark phase complete and update all tracking files:**
 
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/phases/{phase_dir}/*-VERIFICATION.md .planning/REQUIREMENTS.md
+COMPLETION=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs phase complete "${PHASE_NUMBER}")
+```
+
+The CLI handles:
+- Marking phase checkbox `[x]` with completion date
+- Updating Progress table (Status → Complete, date)
+- Updating plan count to final
+- Advancing STATE.md to next phase
+- Updating REQUIREMENTS.md traceability
+
+Extract from result: `next_phase`, `next_phase_name`, `is_last_phase`.
+
+```bash
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md .planning/phases/{phase_dir}/*-VERIFICATION.md
 ```
 </step>
 
 <step name="offer_next">
 
-**If more phases:**
+**Exception:** If `gaps_found`, the `verify_phase_goal` step already presents the gap-closure path (`/gsd:plan-phase {X} --gaps`). No additional routing needed — skip auto-advance.
+
+**Auto-advance detection:**
+
+1. Parse `--auto` flag from $ARGUMENTS
+2. Read `workflow.auto_advance` from config:
+   ```bash
+   AUTO_CFG=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs config-get workflow.auto_advance 2>/dev/null || echo "false")
+   ```
+
+**If `--auto` flag present OR `AUTO_CFG` is true (AND verification passed with no gaps):**
+
 ```
-## Next Up
-
-**Phase {X+1}: {Name}** — {Goal}
-
-`/gsd:plan-phase {X+1}`
-
-<sub>`/clear` first for fresh context</sub>
+╔══════════════════════════════════════════╗
+║  AUTO-ADVANCING → TRANSITION             ║
+║  Phase {X} verified, continuing chain    ║
+╚══════════════════════════════════════════╝
 ```
 
-**If milestone complete:**
-```
-MILESTONE COMPLETE!
+Execute the transition workflow inline (do NOT use Task — orchestrator context is ~10-15%, transition needs phase completion data already in context):
 
-All {N} phases executed.
+Read and follow `./.claude/get-shit-done/workflows/transition.md`, passing through the `--auto` flag so it propagates to the next phase invocation.
 
-`/gsd:complete-milestone`
-```
+**If neither `--auto` nor `AUTO_CFG` is true:**
+
+The workflow ends. The user runs `/gsd:progress` or invokes the transition workflow manually.
 </step>
 
 </process>
@@ -383,6 +394,7 @@ Orchestrator: ~10-15% context. Subagents: fresh 200k each. No polling (Task bloc
 </context_efficiency>
 
 <failure_handling>
+- **classifyHandoffIfNeeded false failure:** Agent reports "failed" but error is `classifyHandoffIfNeeded is not defined` → Claude Code bug, not GSD. Spot-check (SUMMARY exists, commits present) → if pass, treat as success
 - **Agent fails mid-plan:** Missing SUMMARY.md → report, ask user how to proceed
 - **Dependency chain breaks:** Wave 1 fails → Wave 2 dependents likely fail → user chooses attempt or skip
 - **All agents in wave fail:** Systemic issue → stop, report for investigation

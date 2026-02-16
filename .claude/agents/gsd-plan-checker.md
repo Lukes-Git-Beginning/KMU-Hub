@@ -297,31 +297,54 @@ issue:
 
 ## Step 1: Load Context
 
+Load phase operation context:
+```bash
+INIT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs init phase-op "${PHASE_ARG}")
+```
+
+Extract from init JSON: `phase_dir`, `phase_number`, `has_plans`, `plan_count`.
+
 Orchestrator provides CONTEXT.md content in the verification prompt. If provided, parse for locked decisions, discretion areas, deferred ideas.
 
 ```bash
-PHASE_DIR=$(node ./.claude/get-shit-done/bin/gsd-tools.js find-phase "$PHASE_ARG" --raw)
-ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
-grep -A 10 "Phase $PHASE_NUM" .planning/ROADMAP.md | head -15
-ls "$PHASE_DIR"/*-BRIEF.md 2>/dev/null
+ls "$phase_dir"/*-PLAN.md 2>/dev/null
+node ./.claude/get-shit-done/bin/gsd-tools.cjs roadmap get-phase "$phase_number"
+ls "$phase_dir"/*-BRIEF.md 2>/dev/null
 ```
 
 **Extract:** Phase goal, requirements (decompose goal), locked decisions, deferred ideas.
 
 ## Step 2: Load All Plans
 
+Use gsd-tools to validate plan structure:
+
 ```bash
 for plan in "$PHASE_DIR"/*-PLAN.md; do
   echo "=== $plan ==="
-  cat "$plan"
+  PLAN_STRUCTURE=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs verify plan-structure "$plan")
+  echo "$PLAN_STRUCTURE"
 done
 ```
 
-**Parse:** Frontmatter (phase, plan, wave, depends_on, files_modified, autonomous, must_haves), objective, tasks (type, name, files, action, verify, done), verification/success criteria.
+Parse JSON result: `{ valid, errors, warnings, task_count, tasks: [{name, hasFiles, hasAction, hasVerify, hasDone}], frontmatter_fields }`
+
+Map errors/warnings to verification dimensions:
+- Missing frontmatter field → `task_completeness` or `must_haves_derivation`
+- Task missing elements → `task_completeness`
+- Wave/depends_on inconsistency → `dependency_correctness`
+- Checkpoint/autonomous mismatch → `task_completeness`
 
 ## Step 3: Parse must_haves
 
-Extract from each plan frontmatter:
+Extract must_haves from each plan using gsd-tools:
+
+```bash
+MUST_HAVES=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs frontmatter get "$PLAN_PATH" --field must_haves)
+```
+
+Returns JSON: `{ truths: [...], artifacts: [...], key_links: [...] }`
+
+**Expected structure:**
 
 ```yaml
 must_haves:
@@ -356,12 +379,24 @@ For each requirement: find covering task(s), verify action is specific, flag gap
 
 ## Step 5: Validate Task Structure
 
+Use gsd-tools plan-structure verification (already run in Step 2):
+
 ```bash
-grep -c "<task" "$PHASE_DIR"/*-PLAN.md
-grep -B5 "</task>" "$PHASE_DIR"/*-PLAN.md | grep -v "<verify>"
+PLAN_STRUCTURE=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs verify plan-structure "$PLAN_PATH")
 ```
 
-Check: valid task type (auto, checkpoint:*, tdd), auto tasks have files/action/verify/done, action is specific, verify is runnable, done is measurable.
+The `tasks` array in the result shows each task's completeness:
+- `hasFiles` — files element present
+- `hasAction` — action element present
+- `hasVerify` — verify element present
+- `hasDone` — done element present
+
+**Check:** valid task type (auto, checkpoint:*, tdd), auto tasks have files/action/verify/done, action is specific, verify is runnable, done is measurable.
+
+**For manual validation of specificity** (gsd-tools checks structure, not content quality):
+```bash
+grep -B5 "</task>" "$PHASE_DIR"/*-PLAN.md | grep -v "<verify>"
+```
 
 ## Step 6: Verify Dependency Graph
 

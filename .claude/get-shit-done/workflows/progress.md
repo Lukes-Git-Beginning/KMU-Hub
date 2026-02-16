@@ -8,16 +8,26 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 <process>
 
-<step name="verify">
-**Verify planning structure exists:**
-
-Use Bash (not Glob) to check—Glob respects .gitignore but .planning/ is often gitignored:
+<step name="init_context">
+**Load progress context (with file contents to avoid redundant reads):**
 
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js verify-path-exists .planning --raw
+INIT_RAW=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs init progress --include state,roadmap,project,config)
+# Large payloads are written to a tmpfile — output starts with @file:/path
+if [[ "$INIT_RAW" == @file:* ]]; then
+  INIT_FILE="${INIT_RAW#@file:}"
+  INIT=$(cat "$INIT_FILE")
+  rm -f "$INIT_FILE"
+else
+  INIT="$INIT_RAW"
+fi
 ```
 
-If no `.planning/` directory:
+Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`.
+
+**File contents (from --include):** `state_content`, `roadmap_content`, `project_content`, `config_content`. These are null if files don't exist.
+
+If `project_exists` is false (no `.planning/` directory):
 
 ```
 No planning structure found.
@@ -37,50 +47,79 @@ If missing both ROADMAP.md and PROJECT.md: suggest `/gsd:new-project`.
 </step>
 
 <step name="load">
-**Load full project context:**
+**Use project context from INIT:**
 
-- Read `.planning/STATE.md` for living memory (position, decisions, issues)
-- Read `.planning/ROADMAP.md` for phase structure and objectives
-- Read `.planning/PROJECT.md` for current state (What This Is, Core Value, Requirements)
-- Read `.planning/config.json` for settings (model_profile, workflow toggles)
-  </step>
+All file contents are already loaded via `--include` in init_context step:
+- `state_content` — living memory (position, decisions, issues)
+- `roadmap_content` — phase structure and objectives
+- `project_content` — current state (What This Is, Core Value, Requirements)
+- `config_content` — settings (model_profile, workflow toggles)
+
+No additional file reads needed.
+</step>
+
+<step name="analyze_roadmap">
+**Get comprehensive roadmap analysis (replaces manual parsing):**
+
+```bash
+ROADMAP=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs roadmap analyze)
+```
+
+This returns structured JSON with:
+- All phases with disk status (complete/partial/planned/empty/no_directory)
+- Goal and dependencies per phase
+- Plan and summary counts per phase
+- Aggregated stats: total plans, summaries, progress percent
+- Current and next phase identification
+
+Use this instead of manually reading/parsing ROADMAP.md.
+</step>
 
 <step name="recent">
 **Gather recent work context:**
 
 - Find the 2-3 most recent SUMMARY.md files
-- Extract from each: what was accomplished, key decisions, any issues logged
+- Use `summary-extract` for efficient parsing:
+  ```bash
+  node ./.claude/get-shit-done/bin/gsd-tools.cjs summary-extract <path> --fields one_liner
+  ```
 - This shows "what we've been working on"
   </step>
 
 <step name="position">
-**Parse current position:**
+**Parse current position from init context and roadmap analysis:**
 
-- From STATE.md: current phase, plan number, status
-- Calculate: total plans, completed plans, remaining plans
-- Note any blockers or concerns
-- Check for CONTEXT.md: For phases without PLAN.md files, check if `{phase}-CONTEXT.md` exists in phase directory
-- Count pending todos: `node ./.claude/get-shit-done/bin/gsd-tools.js list-todos --raw`
+- Use `current_phase` and `next_phase` from roadmap analyze
+- Use phase-level `has_context` and `has_research` flags from analyze
+- Note `paused_at` if work was paused (from init context)
+- Count pending todos: use `init todos` or `list-todos`
 - Check for active debug sessions: `ls .planning/debug/*.md 2>/dev/null | grep -v resolved | wc -l`
   </step>
 
 <step name="report">
-**Present rich status report:**
+**Generate progress bar from gsd-tools, then present rich status report:**
+
+```bash
+# Get formatted progress bar
+PROGRESS_BAR=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs progress bar --raw)
+```
+
+Present:
 
 ```
 # [Project Name]
 
-**Progress:** [████████░░] 8/10 plans complete
+**Progress:** {PROGRESS_BAR}
 **Profile:** [quality/balanced/budget]
 
 ## Recent Work
-- [Phase X, Plan Y]: [what was accomplished - 1 line]
-- [Phase X, Plan Z]: [what was accomplished - 1 line]
+- [Phase X, Plan Y]: [what was accomplished - 1 line from summary-extract]
+- [Phase X, Plan Z]: [what was accomplished - 1 line from summary-extract]
 
 ## Current Position
 Phase [N] of [total]: [phase-name]
 Plan [M] of [phase-total]: [status]
-CONTEXT: [✓ if CONTEXT.md exists | - if not]
+CONTEXT: [✓ if has_context | - if not]
 
 ## Key Decisions Made
 - [decision 1 from STATE.md]
@@ -97,7 +136,7 @@ CONTEXT: [✓ if CONTEXT.md exists | - if not]
 (Only show this section if count > 0)
 
 ## What's Next
-[Next phase/plan objective from ROADMAP]
+[Next phase/plan objective from roadmap analyze]
 ```
 
 </step>
@@ -163,7 +202,7 @@ Read its `<objective>` section.
 
 **Route B: Phase needs planning**
 
-Check if `{phase}-CONTEXT.md` exists in phase directory.
+Check if `{phase_num}-CONTEXT.md` exists in phase directory.
 
 **If CONTEXT.md exists:**
 
@@ -215,7 +254,7 @@ UAT.md exists with gaps (diagnosed issues). User needs to plan fixes.
 
 ## ⚠ UAT Gaps Found
 
-**{phase}-UAT.md** has {N} gaps requiring fixes.
+**{phase_num}-UAT.md** has {N} gaps requiring fixes.
 
 `/gsd:plan-phase {phase} --gaps`
 

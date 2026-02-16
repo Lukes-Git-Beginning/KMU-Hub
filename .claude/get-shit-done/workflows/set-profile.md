@@ -19,19 +19,19 @@ if $ARGUMENTS.profile not in ["quality", "balanced", "budget"]:
 ```
 </step>
 
-<step name="ensure_config">
+<step name="ensure_and_load_config">
+Ensure config exists and load current state:
+
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js config-ensure-section
+node ./.claude/get-shit-done/bin/gsd-tools.cjs config-ensure-section
+INIT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs state load)
 ```
 
-Creates `.planning/config.json` with defaults if missing.
+This creates `.planning/config.json` with defaults if missing and loads current config.
 </step>
 
 <step name="update_config">
-Read current config:
-```bash
-cat .planning/config.json
-```
+Read current config from state load or directly:
 
 Update `model_profile` field:
 ```json
@@ -51,7 +51,7 @@ Display confirmation with model table for selected profile:
 
 Agents will now use:
 
-[Show table from MODEL_PROFILES in gsd-tools.js for selected profile]
+[Show table from MODEL_PROFILES in gsd-tools.cjs for selected profile]
 
 Example:
 | Agent | Model |

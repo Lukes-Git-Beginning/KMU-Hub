@@ -11,27 +11,27 @@ Read config.json for planning behavior settings.
 
 <process>
 
-<step name="resolve_model_profile" priority="first">
-```bash
-EXECUTOR_MODEL=$(node ./.claude/get-shit-done/bin/gsd-tools.js resolve-model gsd-executor --raw)
-```
-</step>
-
-<step name="load_project_state">
-```bash
-cat .planning/STATE.md 2>/dev/null
-```
-
-Parse current position, decisions, blockers, alignment. If missing but .planning/ exists: offer reconstruct or continue. If .planning/ missing: error.
+<step name="init_context" priority="first">
+Load execution context (uses `init execute-phase` for full context, including file contents):
 
 ```bash
-COMMIT_PLANNING_DOCS=$(node ./.claude/get-shit-done/bin/gsd-tools.js state load --raw | grep '^commit_docs=' | cut -d= -f2)
+INIT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs init execute-phase "${PHASE}" --include state,config)
 ```
+
+Extract from init JSON: `executor_model`, `commit_docs`, `phase_dir`, `phase_number`, `plans`, `summaries`, `incomplete_plans`.
+
+**File contents (from --include):** `state_content`, `config_content`. Access with:
+```bash
+STATE_CONTENT=$(echo "$INIT" | jq -r '.state_content // empty')
+CONFIG_CONTENT=$(echo "$INIT" | jq -r '.config_content // empty')
+```
+
+If `.planning/` missing: error.
 </step>
 
 <step name="identify_plan">
 ```bash
-cat .planning/ROADMAP.md
+# Use plans/summaries from INIT JSON, or list files
 ls .planning/phases/XX-name/*-PLAN.md 2>/dev/null | sort
 ls .planning/phases/XX-name/*-SUMMARY.md 2>/dev/null | sort
 ```
@@ -40,7 +40,7 @@ Find first PLAN without matching SUMMARY. Decimal phases supported (`01.1-hotfix
 
 ```bash
 PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+(\.[0-9]+)?-[0-9]+')
-cat .planning/config.json 2>/dev/null
+# config_content already loaded via --include config in init_context
 ```
 
 <if mode="yolo">
@@ -111,6 +111,12 @@ Pattern B only (verify-only checkpoints). Skip for A/C.
    - Verify key-files.created exist on disk with `[ -f ]`
    - Check `git log --oneline --all --grep="{phase}-{plan}"` returns ≥1 commit
    - Append `## Self-Check: PASSED` or `## Self-Check: FAILED` to SUMMARY
+
+   **Known Claude Code bug (classifyHandoffIfNeeded):** If any segment agent reports "failed" with `classifyHandoffIfNeeded is not defined`, this is a Claude Code runtime bug — not a real failure. Run spot-checks; if they pass, treat as successful.
+
+
+
+
 </step>
 
 <step name="load_prompt">
@@ -122,7 +128,8 @@ This IS the execution instructions. Follow exactly. If plan references CONTEXT.m
 
 <step name="previous_phase_check">
 ```bash
-ls .planning/phases/*/SUMMARY.md 2>/dev/null | sort -r | head -2 | tail -1
+node ./.claude/get-shit-done/bin/gsd-tools.cjs phases list --type summaries --raw
+# Extract the second-to-last summary from the JSON result
 ```
 If previous SUMMARY has unresolved "Issues Encountered" or "Next Phase Readiness" blockers: AskUserQuestion(header="Previous Issues", options: "Proceed anyway" | "Address first" | "Review previous").
 </step>
@@ -327,15 +334,45 @@ Next: more plans → "Ready for {next-plan}" | last → "Phase complete, ready f
 </step>
 
 <step name="update_current_position">
-Update STATE.md: Phase [current]/[total] ([name]) | Plan [completed]/[total] | Status | Last activity: [today] - Completed {phase}-{plan} | Progress bar (█/░). Calculate: (total SUMMARYs / total PLANs) × 100%.
+Update STATE.md using gsd-tools:
+
+```bash
+# Advance plan counter (handles last-plan edge case)
+node ./.claude/get-shit-done/bin/gsd-tools.cjs state advance-plan
+
+# Recalculate progress bar from disk state
+node ./.claude/get-shit-done/bin/gsd-tools.cjs state update-progress
+
+# Record execution metrics
+node ./.claude/get-shit-done/bin/gsd-tools.cjs state record-metric \
+  --phase "${PHASE}" --plan "${PLAN}" --duration "${DURATION}" \
+  --tasks "${TASK_COUNT}" --files "${FILE_COUNT}"
+```
 </step>
 
 <step name="extract_decisions_and_issues">
-From SUMMARY: "Decisions Made" (if not "None") → STATE.md Decisions: `| [phase] | [summary] | [rationale] |`. "Next Phase Readiness" blockers → STATE.md "Blockers/Concerns Carried Forward".
+From SUMMARY: Extract decisions and add to STATE.md:
+
+```bash
+# Add each decision from SUMMARY key-decisions
+node ./.claude/get-shit-done/bin/gsd-tools.cjs state add-decision \
+  --phase "${PHASE}" --summary "${DECISION_TEXT}" --rationale "${RATIONALE}"
+
+# Add blockers if any found
+node ./.claude/get-shit-done/bin/gsd-tools.cjs state add-blocker "Blocker description"
+```
 </step>
 
 <step name="update_session_continuity">
-STATE.md Session: Last session [date/time] | Stopped at: Completed {phase}-{plan} | Resume file: [path or "None"]. Keep STATE.md under 150 lines.
+Update session info using gsd-tools:
+
+```bash
+node ./.claude/get-shit-done/bin/gsd-tools.cjs state record-session \
+  --stopped-at "Completed ${PHASE}-${PLAN}-PLAN.md" \
+  --resume-file "None"
+```
+
+Keep STATE.md under 150 lines.
 </step>
 
 <step name="issues_review_gate">
@@ -343,14 +380,17 @@ If SUMMARY "Issues Encountered" ≠ "None": yolo → log and continue. Interacti
 </step>
 
 <step name="update_roadmap">
-More plans → update plan count, keep "In progress". Last plan → mark phase "Complete", add date.
+```bash
+node ./.claude/get-shit-done/bin/gsd-tools.cjs roadmap update-plan-progress "${PHASE}"
+```
+Counts PLAN vs SUMMARY files on disk. Updates progress table row with correct count and status (`In Progress` or `Complete` with date).
 </step>
 
 <step name="git_commit_metadata">
 Task code already committed per-task. Commit plan metadata:
 
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js commit "docs({phase}-{plan}): complete [plan-name] plan" --files .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md .planning/STATE.md .planning/ROADMAP.md
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "docs({phase}-{plan}): complete [plan-name] plan" --files .planning/phases/XX-name/{phase}-{plan}-SUMMARY.md .planning/STATE.md .planning/ROADMAP.md
 ```
 </step>
 
@@ -365,7 +405,7 @@ git diff --name-only ${FIRST_TASK}^..HEAD 2>/dev/null
 Update only structural changes: new src/ dir → STRUCTURE.md | deps → STACK.md | file pattern → CONVENTIONS.md | API client → INTEGRATIONS.md | config → STACK.md | renamed → update paths. Skip code-only/bugfix/content changes.
 
 ```bash
-git add .planning/codebase/*.md && git commit --amend --no-edit
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "" --files .planning/codebase/*.md --amend
 ```
 </step>
 

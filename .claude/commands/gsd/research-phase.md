@@ -31,23 +31,26 @@ Normalize phase input in step 1 before any directory lookups.
 
 <process>
 
-## 0. Resolve Model Profile
+## 0. Initialize Context
 
 ```bash
-RESEARCHER_MODEL=$(node ./.claude/get-shit-done/bin/gsd-tools.js resolve-model gsd-phase-researcher --raw)
+INIT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs init phase-op "$ARGUMENTS")
 ```
 
-## 1. Normalize and Validate Phase
+Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`, `phase_found`, `commit_docs`, `has_research`.
+
+Resolve researcher model:
+```bash
+RESEARCHER_MODEL=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs resolve-model gsd-phase-researcher --raw)
+```
+
+## 1. Validate Phase
 
 ```bash
-PHASE_INFO=$(node ./.claude/get-shit-done/bin/gsd-tools.js find-phase "$ARGUMENTS")
-PHASE_DIR=$(echo "$PHASE_INFO" | grep -o '"directory":"[^"]*"' | cut -d'"' -f4)
-PHASE=$(echo "$PHASE_INFO" | grep -o '"phase_number":"[^"]*"' | cut -d'"' -f4)
-
-grep -A5 "Phase ${PHASE}:" .planning/ROADMAP.md 2>/dev/null
+PHASE_INFO=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs roadmap get-phase "${phase_number}")
 ```
 
-**If not found:** Error and exit. **If found:** Extract phase number, name, description.
+**If `found` is false:** Error and exit. **If `found` is true:** Extract `phase_number`, `phase_name`, `goal` from JSON.
 
 ## 2. Check Existing Research
 
@@ -62,7 +65,8 @@ ls .planning/phases/${PHASE}-*/RESEARCH.md 2>/dev/null
 ## 3. Gather Phase Context
 
 ```bash
-grep -A20 "Phase ${PHASE}:" .planning/ROADMAP.md
+# Phase section already loaded in PHASE_INFO
+echo "$PHASE_INFO" | jq -r '.section'
 cat .planning/REQUIREMENTS.md 2>/dev/null
 cat .planning/phases/${PHASE}-*/*-CONTEXT.md 2>/dev/null
 grep -A30 "### Decisions Made" .planning/STATE.md 2>/dev/null

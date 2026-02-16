@@ -97,6 +97,22 @@ When researching "best library for X": find what the ecosystem actually uses, do
 
 **WebSearch tips:** Always include current year. Use multiple query variations. Cross-verify with authoritative sources.
 
+## Enhanced Web Search (Brave API)
+
+Check `brave_search` from init context. If `true`, use Brave Search for higher quality results:
+
+```bash
+node ./.claude/get-shit-done/bin/gsd-tools.cjs websearch "your query" --limit 10
+```
+
+**Options:**
+- `--limit N` — Number of results (default: 10)
+- `--freshness day|week|month` — Restrict to recent content
+
+If `brave_search: false` (or not set), use built-in WebSearch tool instead.
+
+Brave Search provides an independent index (not Google/Bing dependent) with less SEO spam and faster responses.
+
 ## Verification Protocol
 
 **WebSearch findings MUST be verified:**
@@ -161,7 +177,7 @@ Priority: Context7 > Official Docs > Official GitHub > Verified WebSearch > Unve
 
 ## RESEARCH.md Structure
 
-**Location:** `.planning/phases/XX-name/{phase}-RESEARCH.md`
+**Location:** `.planning/phases/XX-name/{phase_num}-RESEARCH.md`
 
 ```markdown
 # Phase [X]: [Name] - Research
@@ -293,11 +309,16 @@ Verified patterns from official sources:
 
 Orchestrator provides: phase number/name, description/goal, requirements, constraints, output path.
 
+Load phase context using init command:
 ```bash
-PHASE_DIR=$(node ./.claude/get-shit-done/bin/gsd-tools.js find-phase "$PHASE" --raw)
-PADDED_PHASE=$(node ./.claude/get-shit-done/bin/gsd-tools.js find-phase "$PHASE" | grep -o '"phase_number":"[^"]*"' | cut -d'"' -f4)
+INIT=$(node ./.claude/get-shit-done/bin/gsd-tools.cjs init phase-op "${PHASE}")
+```
 
-cat "$PHASE_DIR"/*-CONTEXT.md 2>/dev/null
+Extract from init JSON: `phase_dir`, `padded_phase`, `phase_number`, `commit_docs`.
+
+Then read CONTEXT.md if exists:
+```bash
+cat "$phase_dir"/*-CONTEXT.md 2>/dev/null
 ```
 
 **If CONTEXT.md exists**, it constrains research:
@@ -363,7 +384,7 @@ Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 ## Step 6: Commit Research (optional)
 
 ```bash
-node ./.claude/get-shit-done/bin/gsd-tools.js commit "docs($PHASE): research phase domain" --files "$PHASE_DIR/$PADDED_PHASE-RESEARCH.md"
+node ./.claude/get-shit-done/bin/gsd-tools.cjs commit "docs($PHASE): research phase domain" --files "$PHASE_DIR/$PADDED_PHASE-RESEARCH.md"
 ```
 
 ## Step 7: Return Structured Result
