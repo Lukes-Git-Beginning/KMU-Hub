@@ -14,7 +14,11 @@ type Repository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Contact, error)
 	GetByEmail(ctx context.Context, email string) (*models.Contact, error)
 	List(ctx context.Context, filter ListFilter, offset, limit int) ([]*models.Contact, int, error)
+	ListWithVisibility(ctx context.Context, userID uuid.UUID, isAdmin bool, filter ListFilter, offset, limit int) ([]*models.Contact, int, error)
+	ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Contact, error)
+	ListAll(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]*models.Contact, error)
 	Update(ctx context.Context, contact *models.Contact) error
+	UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	// Relations
@@ -35,9 +39,10 @@ type Repository interface {
 
 // ListFilter contains filtering options for listing contacts
 type ListFilter struct {
-	CompanyID *uuid.UUID
-	TagIDs    []uuid.UUID
-	Search    string // Searches first_name, last_name, email
-	SortBy    string // created_at, first_name, last_name, email
-	SortDesc  bool
+	CompanyID        *uuid.UUID
+	TagIDs           []uuid.UUID
+	Search           string // Searches first_name, last_name, email
+	SortBy           string // created_at, first_name, last_name, email
+	SortDesc         bool
+	VisibilityFilter string // "", "shared", "personal"
 }

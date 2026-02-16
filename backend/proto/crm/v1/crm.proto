@@ -28,6 +28,14 @@ service CRMService {
   rpc AddContactTags(AddContactTagsRequest) returns (AddContactTagsResponse);
   rpc RemoveContactTags(RemoveContactTagsRequest) returns (RemoveContactTagsResponse);
 
+  // Contact Import/Export (Phase 10)
+  rpc ImportContactsCSV(ImportContactsCSVRequest) returns (ImportContactsResponse);
+  rpc ImportContactsVCard(ImportContactsVCardRequest) returns (ImportContactsResponse);
+  rpc ExportContactsCSV(ExportContactsCSVRequest) returns (ExportContactsResponse);
+  rpc ExportContactsVCard(ExportContactsVCardRequest) returns (ExportContactsResponse);
+  rpc PreviewImportCSV(PreviewImportCSVRequest) returns (PreviewImportCSVResponse);
+  rpc UpdateContactVisibility(UpdateContactVisibilityRequest) returns (UpdateContactVisibilityResponse);
+
   // Companies (Sprint 2)
   rpc CreateCompany(CreateCompanyRequest) returns (CreateCompanyResponse);
   rpc GetCompany(GetCompanyRequest) returns (GetCompanyResponse);
@@ -230,6 +238,8 @@ message ContactInfo {
   string created_by = 12;
   string created_at = 13;
   string updated_at = 14;
+  string visibility = 15;  // "shared" or "personal"
+  optional string owner_id = 16;
 }
 
 message CreateContactRequest {
@@ -265,6 +275,9 @@ message ListContactsRequest {
   int32 page_size = 5;
   string sort_by = 6;
   bool sort_desc = 7;
+  string user_id = 8;       // For visibility filtering
+  bool is_admin = 9;        // Admin sees all contacts
+  string visibility_filter = 10; // "", "shared", "personal"
 }
 
 message ListContactsResponse {
@@ -309,6 +322,81 @@ message RemoveContactTagsRequest {
 }
 
 message RemoveContactTagsResponse {
+  ContactInfo contact = 1;
+}
+
+// ============================================================================
+// Contact Import/Export Messages
+// ============================================================================
+
+message ImportContactsCSVRequest {
+  bytes file_content = 1;
+  map<string, string> field_mapping = 2;  // CSV column -> CRM field
+  string visibility = 3;                  // "shared" or "personal"
+  bool merge_by_email = 4;
+  string user_id = 5;
+}
+
+message ImportContactsVCardRequest {
+  bytes file_content = 1;
+  string visibility = 2;
+  bool merge_by_email = 3;
+  string user_id = 4;
+}
+
+message ImportContactsResponse {
+  int32 imported_count = 1;
+  int32 merged_count = 2;
+  int32 skipped_count = 3;
+  repeated ImportContactError errors = 4;
+}
+
+message ImportContactError {
+  int32 row = 1;
+  string reason = 2;
+}
+
+message ExportContactsCSVRequest {
+  repeated string contact_ids = 1;
+  repeated string fields = 2;     // CRM field names to include
+  string user_id = 3;
+  bool is_admin = 4;
+}
+
+message ExportContactsVCardRequest {
+  repeated string contact_ids = 1;
+  string user_id = 2;
+  bool is_admin = 3;
+}
+
+message ExportContactsResponse {
+  bytes file_content = 1;
+  string content_type = 2;   // "text/csv" or "text/vcard"
+  string filename = 3;
+}
+
+message PreviewImportCSVRequest {
+  bytes file_content = 1;
+}
+
+message PreviewImportCSVResponse {
+  repeated string columns = 1;
+  repeated CSVSampleRow sample_rows = 2;
+  map<string, string> detected_mapping = 3;
+}
+
+message CSVSampleRow {
+  repeated string values = 1;
+}
+
+message UpdateContactVisibilityRequest {
+  string contact_id = 1;
+  string visibility = 2;   // "shared" or "personal"
+  string user_id = 3;
+  bool is_admin = 4;
+}
+
+message UpdateContactVisibilityResponse {
   ContactInfo contact = 1;
 }
 

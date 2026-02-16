@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
 	"github.com/kmuhub/kmuhub/internal/crm/customfield"
 	"github.com/kmuhub/kmuhub/internal/crm/deal"
+	emailcontact "github.com/kmuhub/kmuhub/internal/email/contact"
 	"github.com/kmuhub/kmuhub/internal/crm/pipelinestage"
 	"github.com/kmuhub/kmuhub/internal/crm/report"
 	"github.com/kmuhub/kmuhub/internal/crm/savedfilter"
@@ -37,6 +39,9 @@ type CRMGRPCServer struct {
 	searchService        *search.Service
 	savedFilterService   *savedfilter.Service
 	reportService        *report.Service
+	importService        *emailcontact.ImportService
+	exportService        *emailcontact.ExportService
+	visibilityService    *emailcontact.VisibilityService
 }
 
 // NewCRMGRPCServer creates a new CRM gRPC server
@@ -64,6 +69,18 @@ func NewCRMGRPCServer(
 		savedFilterService:   savedFilterService,
 		reportService:        reportService,
 	}
+}
+
+// SetImportExportServices sets the import/export/visibility services.
+// Called after construction to avoid circular dependencies.
+func (s *CRMGRPCServer) SetImportExportServices(
+	importSvc *emailcontact.ImportService,
+	exportSvc *emailcontact.ExportService,
+	visibilitySvc *emailcontact.VisibilityService,
+) {
+	s.importService = importSvc
+	s.exportService = exportSvc
+	s.visibilityService = visibilitySvc
 }
 
 // ============================================================================
@@ -383,11 +400,12 @@ func (s *CRMGRPCServer) GetContact(ctx context.Context, req *crmv1.GetContactReq
 
 func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContactsRequest) (*crmv1.ListContactsResponse, error) {
 	input := contact.ListInput{
-		Search:   req.Search,
-		Page:     int(req.Page),
-		PageSize: int(req.PageSize),
-		SortBy:   req.SortBy,
-		SortDesc: req.SortDesc,
+		Search:           req.Search,
+		Page:             int(req.Page),
+		PageSize:         int(req.PageSize),
+		SortBy:           req.SortBy,
+		SortDesc:         req.SortDesc,
+		VisibilityFilter: req.VisibilityFilter,
 	}
 
 	if req.CompanyId != nil {
@@ -406,6 +424,30 @@ func (s *CRMGRPCServer) ListContacts(ctx context.Context, req *crmv1.ListContact
 		input.TagIDs = append(input.TagIDs, tagID)
 	}
 
+	// Use visibility-aware listing when user_id is provided
+	if req.UserId != "" {
+		userID, err := uuid.Parse(req.UserId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		}
+
+		contacts, total, err := s.contactService.ListWithVisibility(ctx, userID, req.IsAdmin, input)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to list contacts")
+		}
+
+		var infos []*crmv1.ContactInfo
+		for _, c := range contacts {
+			infos = append(infos, toContactInfo(c))
+		}
+
+		return &crmv1.ListContactsResponse{
+			Contacts: infos,
+			Total:    int32(total),
+		}, nil
+	}
+
+	// Fallback: no visibility filtering (backward compatible)
 	contacts, total, err := s.contactService.List(ctx, input)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list contacts")
@@ -1760,6 +1802,190 @@ func (s *CRMGRPCServer) GetActivityReport(ctx context.Context, req *crmv1.GetAct
 }
 
 // ============================================================================
+// Contact Import/Export
+// ============================================================================
+
+func (s *CRMGRPCServer) ImportContactsCSV(ctx context.Context, req *crmv1.ImportContactsCSVRequest) (*crmv1.ImportContactsResponse, error) {
+	if s.importService == nil {
+		return nil, status.Error(codes.Unimplemented, "import service not configured")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	result, err := s.importService.ImportCSV(ctx, bytes.NewReader(req.FileContent), req.FieldMapping, req.Visibility, userID, req.MergeByEmail)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "import failed: %v", err)
+	}
+
+	return toImportResponse(result), nil
+}
+
+func (s *CRMGRPCServer) ImportContactsVCard(ctx context.Context, req *crmv1.ImportContactsVCardRequest) (*crmv1.ImportContactsResponse, error) {
+	if s.importService == nil {
+		return nil, status.Error(codes.Unimplemented, "import service not configured")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	result, err := s.importService.ImportVCard(ctx, bytes.NewReader(req.FileContent), req.Visibility, userID, req.MergeByEmail)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "import failed: %v", err)
+	}
+
+	return toImportResponse(result), nil
+}
+
+func (s *CRMGRPCServer) ExportContactsCSV(ctx context.Context, req *crmv1.ExportContactsCSVRequest) (*crmv1.ExportContactsResponse, error) {
+	if s.exportService == nil {
+		return nil, status.Error(codes.Unimplemented, "export service not configured")
+	}
+
+	var ids []uuid.UUID
+	for _, idStr := range req.ContactIds {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		ids = append(ids, id)
+	}
+
+	var data []byte
+	var exportErr error
+
+	if len(ids) > 0 {
+		data, exportErr = s.exportService.ExportCSV(ctx, ids, req.Fields)
+	} else {
+		userID, err := uuid.Parse(req.UserId)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		}
+		data, exportErr = s.exportService.ExportAllCSV(ctx, userID, req.Fields, req.IsAdmin)
+	}
+
+	if exportErr != nil {
+		return nil, status.Errorf(codes.Internal, "export failed: %v", exportErr)
+	}
+
+	return &crmv1.ExportContactsResponse{
+		FileContent: data,
+		ContentType: "text/csv",
+		Filename:    "kontakte.csv",
+	}, nil
+}
+
+func (s *CRMGRPCServer) ExportContactsVCard(ctx context.Context, req *crmv1.ExportContactsVCardRequest) (*crmv1.ExportContactsResponse, error) {
+	if s.exportService == nil {
+		return nil, status.Error(codes.Unimplemented, "export service not configured")
+	}
+
+	var ids []uuid.UUID
+	for _, idStr := range req.ContactIds {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+		}
+		ids = append(ids, id)
+	}
+
+	data, err := s.exportService.ExportVCard(ctx, ids)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "export failed: %v", err)
+	}
+
+	return &crmv1.ExportContactsResponse{
+		FileContent: data,
+		ContentType: "text/vcard",
+		Filename:    "kontakte.vcf",
+	}, nil
+}
+
+func (s *CRMGRPCServer) PreviewImportCSV(ctx context.Context, req *crmv1.PreviewImportCSVRequest) (*crmv1.PreviewImportCSVResponse, error) {
+	if s.importService == nil {
+		return nil, status.Error(codes.Unimplemented, "import service not configured")
+	}
+
+	preview, err := s.importService.PreviewCSV(ctx, bytes.NewReader(req.FileContent))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "preview failed: %v", err)
+	}
+
+	var sampleRows []*crmv1.CSVSampleRow
+	for _, row := range preview.SampleRows {
+		sampleRows = append(sampleRows, &crmv1.CSVSampleRow{Values: row})
+	}
+
+	return &crmv1.PreviewImportCSVResponse{
+		Columns:         preview.Columns,
+		SampleRows:      sampleRows,
+		DetectedMapping: preview.DetectedMapping,
+	}, nil
+}
+
+func (s *CRMGRPCServer) UpdateContactVisibility(ctx context.Context, req *crmv1.UpdateContactVisibilityRequest) (*crmv1.UpdateContactVisibilityResponse, error) {
+	contactID, err := uuid.Parse(req.ContactId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	if s.visibilityService != nil {
+		if req.IsAdmin {
+			if visErr := s.visibilityService.AdminOverride(ctx, contactID, req.Visibility); visErr != nil {
+				return nil, mapCRMError(visErr)
+			}
+		} else {
+			if visErr := s.visibilityService.SetVisibility(ctx, contactID, req.Visibility, userID); visErr != nil {
+				return nil, mapCRMError(visErr)
+			}
+		}
+	} else {
+		// Fallback: direct service call
+		var ownerID *uuid.UUID
+		if req.Visibility == "personal" {
+			ownerID = &userID
+		}
+		if visErr := s.contactService.UpdateVisibility(ctx, contactID, req.Visibility, ownerID); visErr != nil {
+			return nil, mapCRMError(visErr)
+		}
+	}
+
+	// Return updated contact
+	c, err := s.contactService.GetByID(ctx, contactID)
+	if err != nil {
+		return nil, mapCRMError(err)
+	}
+
+	return &crmv1.UpdateContactVisibilityResponse{
+		Contact: toContactInfo(c),
+	}, nil
+}
+
+func toImportResponse(result *emailcontact.ImportResult) *crmv1.ImportContactsResponse {
+	resp := &crmv1.ImportContactsResponse{
+		ImportedCount: int32(result.ImportedCount),
+		MergedCount:   int32(result.MergedCount),
+		SkippedCount:  int32(result.SkippedCount),
+	}
+	for _, e := range result.Errors {
+		resp.Errors = append(resp.Errors, &crmv1.ImportContactError{
+			Row:    int32(e.Row),
+			Reason: e.Reason,
+		})
+	}
+	return resp
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
@@ -1963,14 +2189,19 @@ func toTagInfo(t *models.Tag) *crmv1.TagInfo {
 
 func toContactInfo(c *models.ContactWithRelations) *crmv1.ContactInfo {
 	info := &crmv1.ContactInfo{
-		Id:        c.ID.String(),
-		FirstName: c.FirstName,
-		LastName:  c.LastName,
-		CreatedBy: c.CreatedBy.String(),
-		CreatedAt: c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: c.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Id:         c.ID.String(),
+		FirstName:  c.FirstName,
+		LastName:   c.LastName,
+		Visibility: c.Visibility,
+		CreatedBy:  c.CreatedBy.String(),
+		CreatedAt:  c.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:  c.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 
+	if c.OwnerID != nil {
+		ownerIDStr := c.OwnerID.String()
+		info.OwnerId = &ownerIDStr
+	}
 	if c.Email != nil {
 		info.Email = *c.Email
 	}
@@ -2209,6 +2440,11 @@ func mapCRMError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, report.ErrEndDateRequired):
 		return status.Error(codes.InvalidArgument, err.Error())
+	// Visibility errors
+	case errors.Is(err, emailcontact.ErrInvalidVisibility):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, emailcontact.ErrNotAuthorized):
+		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}

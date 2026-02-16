@@ -19,56 +19,62 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	CRMService_CreateCustomField_FullMethodName     = "/crm.v1.CRMService/CreateCustomField"
-	CRMService_GetCustomField_FullMethodName        = "/crm.v1.CRMService/GetCustomField"
-	CRMService_ListCustomFields_FullMethodName      = "/crm.v1.CRMService/ListCustomFields"
-	CRMService_UpdateCustomField_FullMethodName     = "/crm.v1.CRMService/UpdateCustomField"
-	CRMService_DeleteCustomField_FullMethodName     = "/crm.v1.CRMService/DeleteCustomField"
-	CRMService_CreateTag_FullMethodName             = "/crm.v1.CRMService/CreateTag"
-	CRMService_GetTag_FullMethodName                = "/crm.v1.CRMService/GetTag"
-	CRMService_ListTags_FullMethodName              = "/crm.v1.CRMService/ListTags"
-	CRMService_UpdateTag_FullMethodName             = "/crm.v1.CRMService/UpdateTag"
-	CRMService_DeleteTag_FullMethodName             = "/crm.v1.CRMService/DeleteTag"
-	CRMService_CreateContact_FullMethodName         = "/crm.v1.CRMService/CreateContact"
-	CRMService_GetContact_FullMethodName            = "/crm.v1.CRMService/GetContact"
-	CRMService_ListContacts_FullMethodName          = "/crm.v1.CRMService/ListContacts"
-	CRMService_UpdateContact_FullMethodName         = "/crm.v1.CRMService/UpdateContact"
-	CRMService_DeleteContact_FullMethodName         = "/crm.v1.CRMService/DeleteContact"
-	CRMService_AddContactTags_FullMethodName        = "/crm.v1.CRMService/AddContactTags"
-	CRMService_RemoveContactTags_FullMethodName     = "/crm.v1.CRMService/RemoveContactTags"
-	CRMService_CreateCompany_FullMethodName         = "/crm.v1.CRMService/CreateCompany"
-	CRMService_GetCompany_FullMethodName            = "/crm.v1.CRMService/GetCompany"
-	CRMService_ListCompanies_FullMethodName         = "/crm.v1.CRMService/ListCompanies"
-	CRMService_UpdateCompany_FullMethodName         = "/crm.v1.CRMService/UpdateCompany"
-	CRMService_DeleteCompany_FullMethodName         = "/crm.v1.CRMService/DeleteCompany"
-	CRMService_GetCompanyContacts_FullMethodName    = "/crm.v1.CRMService/GetCompanyContacts"
-	CRMService_CreatePipelineStage_FullMethodName   = "/crm.v1.CRMService/CreatePipelineStage"
-	CRMService_GetPipelineStage_FullMethodName      = "/crm.v1.CRMService/GetPipelineStage"
-	CRMService_ListPipelineStages_FullMethodName    = "/crm.v1.CRMService/ListPipelineStages"
-	CRMService_UpdatePipelineStage_FullMethodName   = "/crm.v1.CRMService/UpdatePipelineStage"
-	CRMService_DeletePipelineStage_FullMethodName   = "/crm.v1.CRMService/DeletePipelineStage"
-	CRMService_ReorderPipelineStages_FullMethodName = "/crm.v1.CRMService/ReorderPipelineStages"
-	CRMService_CreateDeal_FullMethodName            = "/crm.v1.CRMService/CreateDeal"
-	CRMService_GetDeal_FullMethodName               = "/crm.v1.CRMService/GetDeal"
-	CRMService_ListDeals_FullMethodName             = "/crm.v1.CRMService/ListDeals"
-	CRMService_UpdateDeal_FullMethodName            = "/crm.v1.CRMService/UpdateDeal"
-	CRMService_DeleteDeal_FullMethodName            = "/crm.v1.CRMService/DeleteDeal"
-	CRMService_MoveDealToStage_FullMethodName       = "/crm.v1.CRMService/MoveDealToStage"
-	CRMService_CreateActivity_FullMethodName        = "/crm.v1.CRMService/CreateActivity"
-	CRMService_GetActivity_FullMethodName           = "/crm.v1.CRMService/GetActivity"
-	CRMService_ListActivities_FullMethodName        = "/crm.v1.CRMService/ListActivities"
-	CRMService_UpdateActivity_FullMethodName        = "/crm.v1.CRMService/UpdateActivity"
-	CRMService_DeleteActivity_FullMethodName        = "/crm.v1.CRMService/DeleteActivity"
-	CRMService_CompleteActivity_FullMethodName      = "/crm.v1.CRMService/CompleteActivity"
-	CRMService_Search_FullMethodName                = "/crm.v1.CRMService/Search"
-	CRMService_CreateSavedFilter_FullMethodName     = "/crm.v1.CRMService/CreateSavedFilter"
-	CRMService_GetSavedFilter_FullMethodName        = "/crm.v1.CRMService/GetSavedFilter"
-	CRMService_ListSavedFilters_FullMethodName      = "/crm.v1.CRMService/ListSavedFilters"
-	CRMService_UpdateSavedFilter_FullMethodName     = "/crm.v1.CRMService/UpdateSavedFilter"
-	CRMService_DeleteSavedFilter_FullMethodName     = "/crm.v1.CRMService/DeleteSavedFilter"
-	CRMService_GetPipelineReport_FullMethodName     = "/crm.v1.CRMService/GetPipelineReport"
-	CRMService_GetConversionReport_FullMethodName   = "/crm.v1.CRMService/GetConversionReport"
-	CRMService_GetActivityReport_FullMethodName     = "/crm.v1.CRMService/GetActivityReport"
+	CRMService_CreateCustomField_FullMethodName       = "/crm.v1.CRMService/CreateCustomField"
+	CRMService_GetCustomField_FullMethodName          = "/crm.v1.CRMService/GetCustomField"
+	CRMService_ListCustomFields_FullMethodName        = "/crm.v1.CRMService/ListCustomFields"
+	CRMService_UpdateCustomField_FullMethodName       = "/crm.v1.CRMService/UpdateCustomField"
+	CRMService_DeleteCustomField_FullMethodName       = "/crm.v1.CRMService/DeleteCustomField"
+	CRMService_CreateTag_FullMethodName               = "/crm.v1.CRMService/CreateTag"
+	CRMService_GetTag_FullMethodName                  = "/crm.v1.CRMService/GetTag"
+	CRMService_ListTags_FullMethodName                = "/crm.v1.CRMService/ListTags"
+	CRMService_UpdateTag_FullMethodName               = "/crm.v1.CRMService/UpdateTag"
+	CRMService_DeleteTag_FullMethodName               = "/crm.v1.CRMService/DeleteTag"
+	CRMService_CreateContact_FullMethodName           = "/crm.v1.CRMService/CreateContact"
+	CRMService_GetContact_FullMethodName              = "/crm.v1.CRMService/GetContact"
+	CRMService_ListContacts_FullMethodName            = "/crm.v1.CRMService/ListContacts"
+	CRMService_UpdateContact_FullMethodName           = "/crm.v1.CRMService/UpdateContact"
+	CRMService_DeleteContact_FullMethodName           = "/crm.v1.CRMService/DeleteContact"
+	CRMService_AddContactTags_FullMethodName          = "/crm.v1.CRMService/AddContactTags"
+	CRMService_RemoveContactTags_FullMethodName       = "/crm.v1.CRMService/RemoveContactTags"
+	CRMService_ImportContactsCSV_FullMethodName       = "/crm.v1.CRMService/ImportContactsCSV"
+	CRMService_ImportContactsVCard_FullMethodName     = "/crm.v1.CRMService/ImportContactsVCard"
+	CRMService_ExportContactsCSV_FullMethodName       = "/crm.v1.CRMService/ExportContactsCSV"
+	CRMService_ExportContactsVCard_FullMethodName     = "/crm.v1.CRMService/ExportContactsVCard"
+	CRMService_PreviewImportCSV_FullMethodName        = "/crm.v1.CRMService/PreviewImportCSV"
+	CRMService_UpdateContactVisibility_FullMethodName = "/crm.v1.CRMService/UpdateContactVisibility"
+	CRMService_CreateCompany_FullMethodName           = "/crm.v1.CRMService/CreateCompany"
+	CRMService_GetCompany_FullMethodName              = "/crm.v1.CRMService/GetCompany"
+	CRMService_ListCompanies_FullMethodName           = "/crm.v1.CRMService/ListCompanies"
+	CRMService_UpdateCompany_FullMethodName           = "/crm.v1.CRMService/UpdateCompany"
+	CRMService_DeleteCompany_FullMethodName           = "/crm.v1.CRMService/DeleteCompany"
+	CRMService_GetCompanyContacts_FullMethodName      = "/crm.v1.CRMService/GetCompanyContacts"
+	CRMService_CreatePipelineStage_FullMethodName     = "/crm.v1.CRMService/CreatePipelineStage"
+	CRMService_GetPipelineStage_FullMethodName        = "/crm.v1.CRMService/GetPipelineStage"
+	CRMService_ListPipelineStages_FullMethodName      = "/crm.v1.CRMService/ListPipelineStages"
+	CRMService_UpdatePipelineStage_FullMethodName     = "/crm.v1.CRMService/UpdatePipelineStage"
+	CRMService_DeletePipelineStage_FullMethodName     = "/crm.v1.CRMService/DeletePipelineStage"
+	CRMService_ReorderPipelineStages_FullMethodName   = "/crm.v1.CRMService/ReorderPipelineStages"
+	CRMService_CreateDeal_FullMethodName              = "/crm.v1.CRMService/CreateDeal"
+	CRMService_GetDeal_FullMethodName                 = "/crm.v1.CRMService/GetDeal"
+	CRMService_ListDeals_FullMethodName               = "/crm.v1.CRMService/ListDeals"
+	CRMService_UpdateDeal_FullMethodName              = "/crm.v1.CRMService/UpdateDeal"
+	CRMService_DeleteDeal_FullMethodName              = "/crm.v1.CRMService/DeleteDeal"
+	CRMService_MoveDealToStage_FullMethodName         = "/crm.v1.CRMService/MoveDealToStage"
+	CRMService_CreateActivity_FullMethodName          = "/crm.v1.CRMService/CreateActivity"
+	CRMService_GetActivity_FullMethodName             = "/crm.v1.CRMService/GetActivity"
+	CRMService_ListActivities_FullMethodName          = "/crm.v1.CRMService/ListActivities"
+	CRMService_UpdateActivity_FullMethodName          = "/crm.v1.CRMService/UpdateActivity"
+	CRMService_DeleteActivity_FullMethodName          = "/crm.v1.CRMService/DeleteActivity"
+	CRMService_CompleteActivity_FullMethodName        = "/crm.v1.CRMService/CompleteActivity"
+	CRMService_Search_FullMethodName                  = "/crm.v1.CRMService/Search"
+	CRMService_CreateSavedFilter_FullMethodName       = "/crm.v1.CRMService/CreateSavedFilter"
+	CRMService_GetSavedFilter_FullMethodName          = "/crm.v1.CRMService/GetSavedFilter"
+	CRMService_ListSavedFilters_FullMethodName        = "/crm.v1.CRMService/ListSavedFilters"
+	CRMService_UpdateSavedFilter_FullMethodName       = "/crm.v1.CRMService/UpdateSavedFilter"
+	CRMService_DeleteSavedFilter_FullMethodName       = "/crm.v1.CRMService/DeleteSavedFilter"
+	CRMService_GetPipelineReport_FullMethodName       = "/crm.v1.CRMService/GetPipelineReport"
+	CRMService_GetConversionReport_FullMethodName     = "/crm.v1.CRMService/GetConversionReport"
+	CRMService_GetActivityReport_FullMethodName       = "/crm.v1.CRMService/GetActivityReport"
 )
 
 // CRMServiceClient is the client API for CRMService service.
@@ -95,6 +101,13 @@ type CRMServiceClient interface {
 	DeleteContact(ctx context.Context, in *DeleteContactRequest, opts ...grpc.CallOption) (*DeleteContactResponse, error)
 	AddContactTags(ctx context.Context, in *AddContactTagsRequest, opts ...grpc.CallOption) (*AddContactTagsResponse, error)
 	RemoveContactTags(ctx context.Context, in *RemoveContactTagsRequest, opts ...grpc.CallOption) (*RemoveContactTagsResponse, error)
+	// Contact Import/Export (Phase 10)
+	ImportContactsCSV(ctx context.Context, in *ImportContactsCSVRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
+	ImportContactsVCard(ctx context.Context, in *ImportContactsVCardRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error)
+	ExportContactsCSV(ctx context.Context, in *ExportContactsCSVRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error)
+	ExportContactsVCard(ctx context.Context, in *ExportContactsVCardRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error)
+	PreviewImportCSV(ctx context.Context, in *PreviewImportCSVRequest, opts ...grpc.CallOption) (*PreviewImportCSVResponse, error)
+	UpdateContactVisibility(ctx context.Context, in *UpdateContactVisibilityRequest, opts ...grpc.CallOption) (*UpdateContactVisibilityResponse, error)
 	// Companies (Sprint 2)
 	CreateCompany(ctx context.Context, in *CreateCompanyRequest, opts ...grpc.CallOption) (*CreateCompanyResponse, error)
 	GetCompany(ctx context.Context, in *GetCompanyRequest, opts ...grpc.CallOption) (*GetCompanyResponse, error)
@@ -309,6 +322,66 @@ func (c *cRMServiceClient) RemoveContactTags(ctx context.Context, in *RemoveCont
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RemoveContactTagsResponse)
 	err := c.cc.Invoke(ctx, CRMService_RemoveContactTags_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) ImportContactsCSV(ctx context.Context, in *ImportContactsCSVRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImportContactsResponse)
+	err := c.cc.Invoke(ctx, CRMService_ImportContactsCSV_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) ImportContactsVCard(ctx context.Context, in *ImportContactsVCardRequest, opts ...grpc.CallOption) (*ImportContactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ImportContactsResponse)
+	err := c.cc.Invoke(ctx, CRMService_ImportContactsVCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) ExportContactsCSV(ctx context.Context, in *ExportContactsCSVRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExportContactsResponse)
+	err := c.cc.Invoke(ctx, CRMService_ExportContactsCSV_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) ExportContactsVCard(ctx context.Context, in *ExportContactsVCardRequest, opts ...grpc.CallOption) (*ExportContactsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExportContactsResponse)
+	err := c.cc.Invoke(ctx, CRMService_ExportContactsVCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) PreviewImportCSV(ctx context.Context, in *PreviewImportCSVRequest, opts ...grpc.CallOption) (*PreviewImportCSVResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PreviewImportCSVResponse)
+	err := c.cc.Invoke(ctx, CRMService_PreviewImportCSV_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cRMServiceClient) UpdateContactVisibility(ctx context.Context, in *UpdateContactVisibilityRequest, opts ...grpc.CallOption) (*UpdateContactVisibilityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateContactVisibilityResponse)
+	err := c.cc.Invoke(ctx, CRMService_UpdateContactVisibility_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -669,6 +742,13 @@ type CRMServiceServer interface {
 	DeleteContact(context.Context, *DeleteContactRequest) (*DeleteContactResponse, error)
 	AddContactTags(context.Context, *AddContactTagsRequest) (*AddContactTagsResponse, error)
 	RemoveContactTags(context.Context, *RemoveContactTagsRequest) (*RemoveContactTagsResponse, error)
+	// Contact Import/Export (Phase 10)
+	ImportContactsCSV(context.Context, *ImportContactsCSVRequest) (*ImportContactsResponse, error)
+	ImportContactsVCard(context.Context, *ImportContactsVCardRequest) (*ImportContactsResponse, error)
+	ExportContactsCSV(context.Context, *ExportContactsCSVRequest) (*ExportContactsResponse, error)
+	ExportContactsVCard(context.Context, *ExportContactsVCardRequest) (*ExportContactsResponse, error)
+	PreviewImportCSV(context.Context, *PreviewImportCSVRequest) (*PreviewImportCSVResponse, error)
+	UpdateContactVisibility(context.Context, *UpdateContactVisibilityRequest) (*UpdateContactVisibilityResponse, error)
 	// Companies (Sprint 2)
 	CreateCompany(context.Context, *CreateCompanyRequest) (*CreateCompanyResponse, error)
 	GetCompany(context.Context, *GetCompanyRequest) (*GetCompanyResponse, error)
@@ -769,6 +849,24 @@ func (UnimplementedCRMServiceServer) AddContactTags(context.Context, *AddContact
 }
 func (UnimplementedCRMServiceServer) RemoveContactTags(context.Context, *RemoveContactTagsRequest) (*RemoveContactTagsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveContactTags not implemented")
+}
+func (UnimplementedCRMServiceServer) ImportContactsCSV(context.Context, *ImportContactsCSVRequest) (*ImportContactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportContactsCSV not implemented")
+}
+func (UnimplementedCRMServiceServer) ImportContactsVCard(context.Context, *ImportContactsVCardRequest) (*ImportContactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ImportContactsVCard not implemented")
+}
+func (UnimplementedCRMServiceServer) ExportContactsCSV(context.Context, *ExportContactsCSVRequest) (*ExportContactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExportContactsCSV not implemented")
+}
+func (UnimplementedCRMServiceServer) ExportContactsVCard(context.Context, *ExportContactsVCardRequest) (*ExportContactsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExportContactsVCard not implemented")
+}
+func (UnimplementedCRMServiceServer) PreviewImportCSV(context.Context, *PreviewImportCSVRequest) (*PreviewImportCSVResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PreviewImportCSV not implemented")
+}
+func (UnimplementedCRMServiceServer) UpdateContactVisibility(context.Context, *UpdateContactVisibilityRequest) (*UpdateContactVisibilityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateContactVisibility not implemented")
 }
 func (UnimplementedCRMServiceServer) CreateCompany(context.Context, *CreateCompanyRequest) (*CreateCompanyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateCompany not implemented")
@@ -1192,6 +1290,114 @@ func _CRMService_RemoveContactTags_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CRMServiceServer).RemoveContactTags(ctx, req.(*RemoveContactTagsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_ImportContactsCSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportContactsCSVRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ImportContactsCSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ImportContactsCSV_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ImportContactsCSV(ctx, req.(*ImportContactsCSVRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_ImportContactsVCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportContactsVCardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ImportContactsVCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ImportContactsVCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ImportContactsVCard(ctx, req.(*ImportContactsVCardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_ExportContactsCSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportContactsCSVRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ExportContactsCSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ExportContactsCSV_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ExportContactsCSV(ctx, req.(*ExportContactsCSVRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_ExportContactsVCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportContactsVCardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).ExportContactsVCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_ExportContactsVCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).ExportContactsVCard(ctx, req.(*ExportContactsVCardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_PreviewImportCSV_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreviewImportCSVRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).PreviewImportCSV(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_PreviewImportCSV_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).PreviewImportCSV(ctx, req.(*PreviewImportCSVRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CRMService_UpdateContactVisibility_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateContactVisibilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CRMServiceServer).UpdateContactVisibility(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CRMService_UpdateContactVisibility_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CRMServiceServer).UpdateContactVisibility(ctx, req.(*UpdateContactVisibilityRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1864,6 +2070,30 @@ var CRMService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveContactTags",
 			Handler:    _CRMService_RemoveContactTags_Handler,
+		},
+		{
+			MethodName: "ImportContactsCSV",
+			Handler:    _CRMService_ImportContactsCSV_Handler,
+		},
+		{
+			MethodName: "ImportContactsVCard",
+			Handler:    _CRMService_ImportContactsVCard_Handler,
+		},
+		{
+			MethodName: "ExportContactsCSV",
+			Handler:    _CRMService_ExportContactsCSV_Handler,
+		},
+		{
+			MethodName: "ExportContactsVCard",
+			Handler:    _CRMService_ExportContactsVCard_Handler,
+		},
+		{
+			MethodName: "PreviewImportCSV",
+			Handler:    _CRMService_PreviewImportCSV_Handler,
+		},
+		{
+			MethodName: "UpdateContactVisibility",
+			Handler:    _CRMService_UpdateContactVisibility_Handler,
 		},
 		{
 			MethodName: "CreateCompany",

@@ -144,6 +144,36 @@ func (m *MockRepository) TagExists(ctx context.Context, tagID uuid.UUID, entityT
 	return exists && et == entityType, nil
 }
 
+func (m *MockRepository) ListWithVisibility(ctx context.Context, userID uuid.UUID, isAdmin bool, filter ListFilter, offset, limit int) ([]*models.Contact, int, error) {
+	return m.List(ctx, filter, offset, limit)
+}
+
+func (m *MockRepository) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Contact, error) {
+	var result []*models.Contact
+	for _, id := range ids {
+		if c, ok := m.contacts[id]; ok {
+			result = append(result, c)
+		}
+	}
+	return result, nil
+}
+
+func (m *MockRepository) ListAll(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]*models.Contact, error) {
+	var result []*models.Contact
+	for _, c := range m.contacts {
+		result = append(result, c)
+	}
+	return result, nil
+}
+
+func (m *MockRepository) UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID) error {
+	if c, ok := m.contacts[contactID]; ok {
+		c.Visibility = visibility
+		c.OwnerID = ownerID
+	}
+	return nil
+}
+
 // Helpers for test setup
 func (m *MockRepository) AddCompany(companyID uuid.UUID, name string) {
 	m.companies[companyID] = name
