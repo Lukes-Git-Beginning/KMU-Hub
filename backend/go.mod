@@ -5,7 +5,14 @@ go 1.25.6
 require (
 	github.com/coder/websocket v1.8.14
 	github.com/disintegration/imaging v1.6.2
+	github.com/emersion/go-imap/v2 v2.0.0-beta.8
+	github.com/emersion/go-message v0.18.2
+	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6
+	github.com/emersion/go-smtp v0.24.0
+	github.com/emersion/go-vcard v0.0.0-20241024213814-c9703dde27ff
+	github.com/gatherstars-com/jwz v1.4.0
 	github.com/go-chi/chi/v5 v5.2.4
+	github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
