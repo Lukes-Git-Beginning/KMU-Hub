@@ -24,6 +24,7 @@ interface ShareDialogProps {
   onOpenChange: (open: boolean) => void
   fileName: string
   currentShares: { name: string; permission: 'view' | 'edit' }[]
+  onSave?: (shares: { name: string; permission: 'view' | 'edit' }[]) => void
 }
 
 const availableUsers = [
@@ -31,7 +32,7 @@ const availableUsers = [
   'Lisa Schmidt', 'Peter Koch', 'Jonas Diaz', 'Eva Brunner',
 ]
 
-export function ShareDialog({ open, onOpenChange, fileName, currentShares }: ShareDialogProps) {
+export function ShareDialog({ open, onOpenChange, fileName, currentShares, onSave }: ShareDialogProps) {
   const [search, setSearch] = useState('')
   const [shares, setShares] = useState(currentShares)
   const [permission, setPermission] = useState<'view' | 'edit'>('view')
@@ -142,7 +143,13 @@ export function ShareDialog({ open, onOpenChange, fileName, currentShares }: Sha
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Schliessen</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
+          <Button onClick={() => {
+            onSave?.(shares)
+            onOpenChange(false)
+          }}>
+            Speichern
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

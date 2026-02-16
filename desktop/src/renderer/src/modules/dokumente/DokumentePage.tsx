@@ -128,6 +128,7 @@ export default function DokumentePage() {
   const [folderCreateParentId, setFolderCreateParentId] = useState<string | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null)
   const [shareTarget, setShareTarget] = useState<DocFile | null>(null)
+  const [moveTarget, setMoveTarget] = useState<DocFile | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -236,6 +237,11 @@ export default function DokumentePage() {
       label: 'Teilen',
       icon: Share2,
       onClick: () => setShareTarget(f),
+    },
+    {
+      label: 'Verschieben',
+      icon: FolderOpen,
+      onClick: () => setMoveTarget(f),
     },
     {
       label: f.isFavorite ? 'Aus Favoriten' : 'Favorisieren',
@@ -508,6 +514,11 @@ export default function DokumentePage() {
               toggleFavorite(id)
               toast.success('Favoriten aktualisiert')
             }}
+            onUpdateTags={(id, tags) => {
+              updateFileTags(id, tags)
+              toast.success('Tags aktualisiert')
+            }}
+            onMove={setMoveTarget}
           />
 
           {/* Folder Create Dialog */}
@@ -536,6 +547,16 @@ export default function DokumentePage() {
             onOpenChange={(open) => !open && setShareTarget(null)}
             fileName={shareTarget?.name || ''}
             currentShares={shareTarget?.sharedWith || []}
+            onSave={(shares) => {
+              if (shareTarget) {
+                const wasShared = shareTarget.isShared
+                const isNowShared = shares.length > 0
+                if (wasShared !== isNowShared) {
+                  toggleShare(shareTarget.id)
+                }
+                toast.success(isNowShared ? 'Freigabe gespeichert' : 'Freigabe entfernt')
+              }
+            }}
           />
 
           {/* Delete File Confirm */}
@@ -558,6 +579,23 @@ export default function DokumentePage() {
             confirmLabel="Löschen"
             variant="destructive"
             onConfirm={handleDeleteFolder}
+          />
+
+          {/* Move File Dialog */}
+          <MoveFileDialog
+            open={!!moveTarget}
+            onOpenChange={(open) => !open && setMoveTarget(null)}
+            fileName={moveTarget?.name || ''}
+            currentFolderId={moveTarget?.folderId || 'root'}
+            folders={folders.filter((f) => !f.isSystem || f.id === 'root')}
+            onMove={(folderId) => {
+              if (moveTarget) {
+                moveFile(moveTarget.id, folderId)
+                const targetFolder = folders.find((f) => f.id === folderId)
+                toast.success(`"${moveTarget.name}" nach "${targetFolder?.name || 'Alle Dateien'}" verschoben`)
+                setMoveTarget(null)
+              }
+            }}
           />
         </div>
       )}
@@ -1287,5 +1325,82 @@ function FileListRow({
         <ItemActions items={actions} />
       </div>
     </div>
+  )
+}
+
+/* ===== Move File Dialog ===== */
+
+function MoveFileDialog({
+  open,
+  onOpenChange,
+  fileName,
+  currentFolderId,
+  folders,
+  onMove,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  fileName: string
+  currentFolderId: string
+  folders: DocFolder[]
+  onMove: (folderId: string) => void
+}) {
+  const [selected, setSelected] = useState(currentFolderId)
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Folder className="h-5 w-5" />
+            Datei verschieben
+          </DialogTitle>
+        </DialogHeader>
+
+        <p className="text-sm text-muted-foreground truncate">{fileName}</p>
+
+        <div className="max-h-56 overflow-y-auto rounded-md border border-border p-1 space-y-0.5">
+          {folders.map((folder) => {
+            const isCurrent = folder.id === currentFolderId
+            const isSelected = folder.id === selected
+            const indent = folder.parentId && folder.parentId !== 'root'
+              ? folders.some((f) => f.id === folder.parentId && f.parentId !== null) ? 32 : 16
+              : 0
+
+            return (
+              <button
+                key={folder.id}
+                onClick={() => setSelected(folder.id)}
+                disabled={isCurrent}
+                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors ${
+                  isSelected && !isCurrent
+                    ? 'bg-primary-light text-primary font-medium'
+                    : isCurrent
+                      ? 'text-muted-foreground cursor-not-allowed'
+                      : 'text-foreground hover:bg-secondary'
+                }`}
+                style={{ paddingLeft: `${8 + indent}px` }}
+              >
+                <Folder className="h-4 w-4 shrink-0" />
+                <span className="truncate">{folder.name}</span>
+                {isCurrent && (
+                  <span className="ml-auto text-[10px] text-muted-foreground">(aktuell)</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
+          <Button
+            disabled={selected === currentFolderId}
+            onClick={() => onMove(selected)}
+          >
+            Verschieben
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

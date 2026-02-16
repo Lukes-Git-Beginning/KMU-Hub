@@ -1,10 +1,9 @@
-import {
-  AlertsSection,
-  NotificationsFeed,
-  ModulesGrid,
-  ActivitySection,
-  QuickStatsSection,
-} from '@/components/dashboard'
+import { useEffect } from 'react'
+import { Pencil, Check, RotateCcw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { AlertsSection, ModulesGrid } from '@/components/dashboard'
+import WidgetContainer from '@/components/widgets/WidgetContainer'
+import { useDashboardStore } from '@/stores/dashboard'
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -14,34 +13,81 @@ function getGreeting(): string {
 }
 
 export default function DashboardPage() {
+  const isEditing = useDashboardStore((s) => s.isEditing)
+  const toggleEditing = useDashboardStore((s) => s.toggleEditing)
+  const resetToDefaults = useDashboardStore((s) => s.resetToDefaults)
+  const ensureDefaults = useDashboardStore((s) => s.ensureDefaults)
+
+  useEffect(() => {
+    ensureDefaults()
+  }, [ensureDefaults])
+
   return (
     <div className="h-full overflow-auto">
       <div className="p-4 md:p-8">
         {/* Greeting Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-foreground">
-            {getGreeting()}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Willkommen im KMU Digital Hub &ndash; Ihre All-in-One Plattform
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">
+              {getGreeting()}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Willkommen im KMU Digital Hub &ndash; Ihre All-in-One Plattform
+            </p>
+          </div>
+
+          {/* Dashboard edit controls */}
+          <div className="flex items-center gap-2">
+            {isEditing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetToDefaults}
+                className="text-muted-foreground"
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Zurücksetzen
+              </Button>
+            )}
+            <Button
+              variant={isEditing ? 'default' : 'outline'}
+              size="sm"
+              onClick={toggleEditing}
+            >
+              {isEditing ? (
+                <>
+                  <Check className="mr-1.5 h-3.5 w-3.5" />
+                  Fertig
+                </>
+              ) : (
+                <>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Dashboard anpassen
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Alerts */}
         <AlertsSection />
 
-        {/* Notifications Feed */}
-        <NotificationsFeed />
-
         {/* Modules Grid */}
         <ModulesGrid />
 
-        {/* Two-Column: Activity + Stats */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <ActivitySection />
+        {/* Widget Grid */}
+        <div className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">
+              Widgets
+            </h2>
+            {isEditing && (
+              <p className="text-xs text-muted-foreground">
+                Widgets verschieben, skalieren oder entfernen
+              </p>
+            )}
           </div>
-          <QuickStatsSection />
+          <WidgetContainer />
         </div>
       </div>
     </div>

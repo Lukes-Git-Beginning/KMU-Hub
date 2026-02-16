@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   FileText,
   FileSpreadsheet,
@@ -16,6 +17,9 @@ import {
   Star,
   Pencil,
   Trash2,
+  Plus,
+  X,
+  FolderInput,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +36,8 @@ interface FileDetailPanelProps {
   onShare: (file: DocFile) => void
   onDelete: (fileId: string) => void
   onToggleFavorite: (fileId: string) => void
+  onUpdateTags: (fileId: string, tags: string[]) => void
+  onMove: (file: DocFile) => void
 }
 
 const typeIcons: Record<string, typeof FileText> = {
@@ -63,7 +69,12 @@ export function FileDetailPanel({
   onShare,
   onDelete,
   onToggleFavorite,
+  onUpdateTags,
+  onMove,
 }: FileDetailPanelProps) {
+  const [isEditingTags, setIsEditingTags] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+
   if (!file) return null
 
   const Icon = typeIcons[file.type] || File
@@ -140,6 +151,10 @@ export function FileDetailPanel({
           <Share2 className="mr-1.5 h-3.5 w-3.5" />
           Teilen
         </Button>
+        <Button variant="outline" size="sm" onClick={() => onMove(file)}>
+          <FolderInput className="mr-1.5 h-3.5 w-3.5" />
+          Verschieben
+        </Button>
         <Button variant="outline" size="sm">
           <Download className="mr-1.5 h-3.5 w-3.5" />
           Herunterladen
@@ -147,22 +162,77 @@ export function FileDetailPanel({
       </div>
 
       {/* Tags */}
-      {file.tags.length > 0 && (
-        <>
-          <Separator className="my-4" />
-          <div>
-            <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center gap-1">
-              <Tag className="h-3.5 w-3.5" />
-              Tags
-            </h4>
-            <div className="flex flex-wrap gap-1.5">
-              {file.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-              ))}
-            </div>
+      <Separator className="my-4" />
+      <div>
+        <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center justify-between">
+          <span className="flex items-center gap-1">
+            <Tag className="h-3.5 w-3.5" />
+            Tags
+          </span>
+          <button
+            onClick={() => {
+              setIsEditingTags(!isEditingTags)
+              setTagInput('')
+            }}
+            className="text-[10px] normal-case font-normal text-primary hover:underline"
+          >
+            {isEditingTags ? 'Fertig' : 'Bearbeiten'}
+          </button>
+        </h4>
+        <div className="flex flex-wrap gap-1.5">
+          {file.tags.map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-xs">
+              {tag}
+              {isEditingTags && (
+                <button
+                  onClick={() => onUpdateTags(file.id, file.tags.filter((t) => t !== tag))}
+                  className="ml-1 rounded-full hover:text-red-500"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </Badge>
+          ))}
+          {file.tags.length === 0 && !isEditingTags && (
+            <span className="text-xs text-muted-foreground">Keine Tags</span>
+          )}
+        </div>
+        {isEditingTags && (
+          <div className="mt-2 flex gap-1.5">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && tagInput.trim()) {
+                  const newTag = tagInput.trim()
+                  if (!file.tags.includes(newTag)) {
+                    onUpdateTags(file.id, [...file.tags, newTag])
+                  }
+                  setTagInput('')
+                }
+              }}
+              placeholder="Tag eingeben + Enter"
+              className="flex-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              disabled={!tagInput.trim()}
+              onClick={() => {
+                const newTag = tagInput.trim()
+                if (newTag && !file.tags.includes(newTag)) {
+                  onUpdateTags(file.id, [...file.tags, newTag])
+                }
+                setTagInput('')
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
           </div>
-        </>
-      )}
+        )}
+      </div>
 
       {/* Shared with */}
       {file.sharedWith.length > 0 && (
