@@ -245,14 +245,15 @@ Plans:
   7. User can search across ALL modules (CRM, PM, Chat, Email, Files) from a single global search bar with unified ranked results
   8. Chat file attachments are accessible through the central file manager and subject to per-user/per-role access controls
   9. User can open .docx/.xlsx/.pptx files in OnlyOffice for collaborative editing via WOPI protocol
-**Plans**: 5 plans (estimated)
+**Plans**: 6 plans
 
 Plans:
-- [ ] 11-01: File service + folder structure (folder CRUD, file metadata, MinIO integration, permission model)
-- [ ] 11-02: File UI + preview + versioning (folder browser, drag-drop upload, inline preview, version history)
-- [ ] 11-03: File search + tagging (full-text extraction, tag CRUD, search indexing)
-- [ ] 11-04: Global search (unified search across CRM, PM, Chat, Email, Files with ranked results)
-- [ ] 11-05: WOPI endpoints + OnlyOffice (CheckFileInfo, GetFile, PutFile, Lock management, JWT tokens, Docker, versioning)
+- [ ] 11-01-PLAN.md -- Proto + migrations + models + Go deps (DocumentService proto ~35 RPCs, 9 tables, Go models, cmd/document scaffold on :50057)
+- [ ] 11-02-PLAN.md -- Folder + file + share services (folder CRUD with 3-level spaces, file CRUD with versioning, share ACL, entity linking)
+- [ ] 11-03-PLAN.md -- Search + tag + text extraction + virtual folders (docconv text extraction, tsvector search, tag CRUD, cross-module virtual folders)
+- [ ] 11-04-PLAN.md -- gRPC server + gateway routes + WOPI + Docker (gRPC server, ~30 HTTP routes, WOPI endpoints, global search fan-out, OnlyOffice Docker)
+- [ ] 11-05-PLAN.md -- File UI + preview + versioning (TanStack Query migration, 3-level spaces, grid/list, breadcrumbs, context menu, drag-drop, preview, version history, share dialog)
+- [ ] 11-06-PLAN.md -- Global search UI + OnlyOffice editor (SearchBar refactor to real API, grouped results with snippets, OnlyOffice iframe editor)
 
 ### Phase 12: Rechnungen & Finanzen
 **Goal**: Users can create legally compliant quotes and invoices, track payments, manage dunning, and export to their Steuerberater -- replacing standalone invoicing tools. This is NOT full accounting (Buchhaltung/FiBu) -- no double-entry bookkeeping, no payroll.
@@ -423,7 +424,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 8. Video, Voice & Meetings | 9/9 | Complete | 2026-02-11 |
 | 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
 | 10. Email Integration | 3/7 | In progress | - |
-| 11. Documents & Files + WOPI | 0/5 | Not started | - |
+| 11. Documents & Files + WOPI | 0/6 | Not started | - |
 | 12. Rechnungen & Finanzen | 0/3 | Not started | - |
 | 13. HR & Zeiterfassung | 0/3 | Not started | - |
 | 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
