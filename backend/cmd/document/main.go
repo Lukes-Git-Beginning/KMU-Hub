@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -11,15 +12,24 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/document/file"
+	"github.com/kmuhub/kmuhub/internal/document/folder"
+	"github.com/kmuhub/kmuhub/internal/document/search"
+	"github.com/kmuhub/kmuhub/internal/document/share"
+	"github.com/kmuhub/kmuhub/internal/document/tag"
+	"github.com/kmuhub/kmuhub/internal/document/virtual"
+	"github.com/kmuhub/kmuhub/internal/document/wopi"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/server"
+	documentv1 "github.com/kmuhub/kmuhub/proto/document/v1"
 )
 
 func main() {
@@ -42,23 +52,68 @@ func main() {
 	}
 	defer pool.Close()
 
-	// MinIO client for document file storage
-	minioClient, err := minio.New(cfg.MinIOEndpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.MinIOAccessKey, cfg.MinIOSecretKey, ""),
-		Secure: cfg.MinIOUseSSL,
-	})
+	// MinIO file store for document storage (reuse chat/file MinIO adapter)
+	fileStore, err := chatfile.NewMinIOStore(
+		cfg.MinIOEndpoint,
+		cfg.MinIOAccessKey,
+		cfg.MinIOSecretKey,
+		cfg.MinIOBucket,
+		cfg.MinIOUseSSL,
+	)
 	if err != nil {
 		slog.Error("failed to connect to minio", "error", err)
 		os.Exit(1)
 	}
 
-	// TODO: Initialize document repositories and services in subsequent plans
+	// Initialize repositories
+	folderRepo := folder.NewPostgresRepository(pool)
+	fileRepo := file.NewPostgresRepository(pool)
+	shareRepo := share.NewPostgresRepository(pool)
+	tagRepo := tag.NewPostgresRepository(pool)
+	searchRepo := search.NewPostgresRepository(pool)
+	virtualRepo := virtual.NewPostgresRepository(pool)
+
+	// Initialize services
+	maxFileSize := int64(cfg.FileSizeLimitMB) * 1024 * 1024
+	folderService := folder.NewService(folderRepo)
+	fileService := file.NewService(fileRepo, fileStore, maxFileSize)
+	shareService := share.NewService(shareRepo)
+	tagService := tag.NewService(tagRepo)
+
+	// Search service with text extractor (1 MB max index)
+	extractor := search.NewExtractor(search.DefaultMaxIndexBytes)
+	searchService := search.NewService(searchRepo, extractor, fileStore)
+
+	virtualService := virtual.NewService(virtualRepo)
+
+	// WOPI services for OnlyOffice collaborative editing
+	tokenService := wopi.NewTokenService(cfg.WOPIJWTSecret)
+	lockService := wopi.NewLockService(pool)
+
 	slog.Info("document services initialized",
 		"minio_endpoint", cfg.MinIOEndpoint,
 		"minio_bucket", cfg.MinIOBucket,
+		"max_file_size_mb", cfg.FileSizeLimitMB,
 	)
-	_ = minioClient // Will be used by document storage service
-	_ = pool        // Will be used by document repositories
+
+	// Start WOPI lock cleanup goroutine (every 5 minutes)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				cleaned, cleanErr := lockService.CleanExpired(ctx)
+				if cleanErr != nil {
+					slog.Error("WOPI lock cleanup failed", "error", cleanErr)
+				} else if cleaned > 0 {
+					slog.Info("WOPI expired locks cleaned", "count", cleaned)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	// Metrics
 	metricsRegistry := metrics.NewRegistry()
@@ -73,8 +128,18 @@ func main() {
 		),
 	)
 
-	// TODO: Register DocumentServiceServer when gRPC server implementation exists
-	// documentv1.RegisterDocumentServiceServer(grpcServer, documentGRPC)
+	// The file.PostgresRepository implements search.FileRepo (UpdateSearchContent)
+	documentGRPC := server.NewDocumentGRPCServer(
+		folderService,
+		fileService,
+		shareService,
+		tagService,
+		searchService,
+		virtualService,
+		tokenService,
+		fileRepo,
+	)
+	documentv1.RegisterDocumentServiceServer(grpcServer, documentGRPC)
 
 	// Initialize gRPC metrics after service registration
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)
@@ -135,3 +200,34 @@ func main() {
 	}
 	slog.Info("document service stopped")
 }
+
+// wopiFileAdapter bridges file.Service to wopi.FileServiceInterface.
+// The WOPI package defines its own VersionInput to avoid circular imports,
+// so this adapter converts between the two structurally identical types.
+type wopiFileAdapter struct {
+	svc *file.Service
+}
+
+func (a *wopiFileAdapter) GetByID(ctx context.Context, id uuid.UUID) (*models.DocumentFile, error) {
+	return a.svc.GetByID(ctx, id)
+}
+
+func (a *wopiFileAdapter) GetDownloadURL(ctx context.Context, fileID uuid.UUID) (string, error) {
+	return a.svc.GetDownloadURL(ctx, fileID)
+}
+
+func (a *wopiFileAdapter) CreateVersion(ctx context.Context, fileID uuid.UUID, input wopi.VersionInput) (*models.DocumentFileVersion, error) {
+	return a.svc.CreateVersion(ctx, fileID, file.VersionInput{
+		Reader:   input.Reader,
+		FileSize: input.FileSize,
+		MimeType: input.MimeType,
+		Label:    input.Label,
+		UserID:   input.UserID,
+	})
+}
+
+// Ensure wopiFileAdapter satisfies the interface at compile time.
+var _ wopi.FileServiceInterface = (*wopiFileAdapter)(nil)
+
+// Suppress unused import warnings for packages used by adapter types.
+var _ io.Reader
