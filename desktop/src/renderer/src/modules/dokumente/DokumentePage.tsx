@@ -39,6 +39,8 @@ import { FileDetailPanel } from './FileDetailPanel'
 import { FolderCreateDialog } from './FolderCreateDialog'
 import { RenameDialog } from './RenameDialog'
 import { ShareDialog } from './ShareDialog'
+import { OnlyOfficeEditor, isOnlyOfficeEditableByExtension } from './OnlyOfficeEditor'
+import { useWOPIToken } from '@/api/hooks/useDocuments'
 import {
   Dialog,
   DialogContent,
@@ -129,6 +131,15 @@ export default function DokumentePage() {
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null)
   const [shareTarget, setShareTarget] = useState<DocFile | null>(null)
 
+  // OnlyOffice editor state
+  const [editorFile, setEditorFile] = useState<{
+    fileId: string
+    fileName: string
+    wopiToken: string
+    wopiTokenTTL: number
+  } | null>(null)
+  const generateWopiToken = useWOPIToken()
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filtered = files.filter((f) => {
@@ -215,12 +226,39 @@ export default function DokumentePage() {
     }
   }
 
+  const handleOpenInOnlyOffice = async (file: DocFile) => {
+    try {
+      const result = await generateWopiToken.mutateAsync(file.id)
+      setEditorFile({
+        fileId: file.id,
+        fileName: file.name,
+        wopiToken: result.access_token,
+        wopiTokenTTL: result.access_token_ttl,
+      })
+    } catch {
+      toast.error('Editor konnte nicht geoeffnet werden')
+    }
+  }
+
+  const handleEditorClose = () => {
+    setEditorFile(null)
+  }
+
   const getFileActions = (f: DocFile): ActionItem[] => [
     {
       label: 'Vorschau',
       icon: Eye,
       onClick: () => setPreviewFile(f),
     },
+    ...(isOnlyOfficeEditableByExtension(f.name)
+      ? [
+          {
+            label: 'In OnlyOffice bearbeiten',
+            icon: FileText,
+            onClick: () => handleOpenInOnlyOffice(f),
+          } as ActionItem,
+        ]
+      : []),
     {
       label: 'Herunterladen',
       icon: Download,
@@ -559,6 +597,21 @@ export default function DokumentePage() {
             variant="destructive"
             onConfirm={handleDeleteFolder}
           />
+
+          {/* OnlyOffice Editor Overlay */}
+          {editorFile && (
+            <OnlyOfficeEditor
+              fileId={editorFile.fileId}
+              fileName={editorFile.fileName}
+              wopiToken={editorFile.wopiToken}
+              wopiTokenTTL={editorFile.wopiTokenTTL}
+              onClose={handleEditorClose}
+              onVersionCreated={() => {
+                // Invalidate file queries since a new version may have been created
+                // during editing (auto-version on last editor close)
+              }}
+            />
+          )}
         </div>
       )}
 
