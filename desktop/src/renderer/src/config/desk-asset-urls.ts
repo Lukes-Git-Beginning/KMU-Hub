@@ -4,8 +4,8 @@
  * Decoration assets imported statically so Vite can hash and bundle them.
  * Background/room assets will be added in Batch E (asset generation phase).
  *
- * Theme associations updated for the 6-theme system:
- * cozy, dreamy, nature, raumstation, atelier (minimal has no decos).
+ * Theme associations updated for the 5-theme system:
+ * cozy, dreamy, raumstation (clean + minimal have no decos).
  */
 
 // ── DECORATIONS: Shared ─────────────────────────────────
@@ -40,22 +40,10 @@ import decoEnchantedHourglass from '@/../assets/desk/dreamy/enchanted-hourglass.
 import decoStarWand from '@/../assets/desk/dreamy/star-wand.png'
 import decoFloatingCrystals from '@/../assets/desk/dreamy/floating-crystals.png'
 
-// ── DECORATIONS: Nature ─────────────────────────────────
+// ── DECORATIONS: Industrial (reused for Raumstation) ────
 
-import decoBonsai from '@/../assets/desk/nature/bonsai.png'
-import decoMossTerrarium from '@/../assets/desk/nature/moss-terrarium.png'
-import decoPineCone from '@/../assets/desk/nature/pine-cone.png'
-import decoCarvedFox from '@/../assets/desk/nature/carved-fox.png'
-import decoForestLantern from '@/../assets/desk/nature/forest-lantern.png'
-import decoDriedHerbs from '@/../assets/desk/nature/dried-herbs.png'
-
-// ── DECORATIONS: Industrial (reused for Raumstation + Atelier) ──
-
-import decoDeskLamp from '@/../assets/desk/industrial/desk-lamp.png'
-import decoConcretePlanter from '@/../assets/desk/industrial/concrete-planter.png'
 import decoVintageCompass from '@/../assets/desk/industrial/vintage-compass.png'
 import decoMetalGear from '@/../assets/desk/industrial/metal-gear.png'
-import decoBlueprintRoll from '@/../assets/desk/industrial/blueprint-roll.png'
 
 // ── EXPORTS ─────────────────────────────────────────────
 
@@ -67,7 +55,6 @@ export type AnimationClass =
   | 'desk-anim-flicker'
   | 'desk-anim-glow'
   | 'desk-anim-sparkle'
-  | 'desk-anim-paint-drip'
   | null
 
 export interface DecoAsset {
@@ -78,8 +65,8 @@ export interface DecoAsset {
   animation: AnimationClass
 }
 
-/** All themes that support decorations (excludes minimal). */
-const ALL_DECO_THEMES = ['cozy', 'dreamy', 'nature', 'raumstation', 'atelier']
+/** All themes that support decorations (excludes clean + minimal). */
+const ALL_DECO_THEMES = ['cozy', 'dreamy', 'raumstation']
 
 export const DECO_ASSETS: DecoAsset[] = [
   // Shared (all non-minimal themes)
@@ -111,22 +98,9 @@ export const DECO_ASSETS: DecoAsset[] = [
   { id: 'star-wand', name: 'Kristall-Stab', image: decoStarWand, themes: ['dreamy'], animation: 'desk-anim-shimmer' },
   { id: 'floating-crystals', name: 'Schwebende Kristalle', image: decoFloatingCrystals, themes: ['dreamy'], animation: 'desk-anim-float' },
 
-  // Nature exclusive
-  { id: 'bonsai', name: 'Bonsai', image: decoBonsai, themes: ['nature'], animation: 'desk-anim-sway' },
-  { id: 'moss-terrarium', name: 'Moos-Terrarium', image: decoMossTerrarium, themes: ['nature'], animation: null },
-  { id: 'pine-cone', name: 'Kiefernzapfen', image: decoPineCone, themes: ['nature'], animation: null },
-  { id: 'carved-fox', name: 'Geschnitzter Fuchs', image: decoCarvedFox, themes: ['nature'], animation: null },
-  { id: 'forest-lantern', name: 'Waldlaterne', image: decoForestLantern, themes: ['nature'], animation: 'desk-anim-flicker' },
-  { id: 'dried-herbs', name: 'Kräuterbund', image: decoDriedHerbs, themes: ['nature'], animation: 'desk-anim-sway' },
-
-  // Raumstation (tech/sci-fi — reuses some industrial assets + shares compass/gear)
+  // Raumstation (tech/sci-fi — reuses industrial assets)
   { id: 'vintage-compass', name: 'Navigations-Kompass', image: decoVintageCompass, themes: ['raumstation'], animation: 'desk-anim-sparkle' },
   { id: 'metal-gear', name: 'Deko-Zahnrad', image: decoMetalGear, themes: ['raumstation'], animation: null },
-
-  // Atelier (creative workshop — reuses lamp, planter, blueprint)
-  { id: 'desk-lamp', name: 'Atelier-Lampe', image: decoDeskLamp, themes: ['atelier'], animation: 'desk-anim-glow' },
-  { id: 'concrete-planter', name: 'Beton-Pflanzgefäß', image: decoConcretePlanter, themes: ['atelier'], animation: null },
-  { id: 'blueprint-roll', name: 'Bauplan-Rolle', image: decoBlueprintRoll, themes: ['atelier'], animation: null },
 ]
 
 /** Get decoration assets available for a specific theme */
