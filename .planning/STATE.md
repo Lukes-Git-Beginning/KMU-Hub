@@ -288,7 +288,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Phases 10+11 complete, Darien review done, theme cleanup committed
-Resume file: .planning/darien-response-2026-02-17.md
+Last session: 2026-02-18
+Stopped at: Phase 12 context gathered
+Resume file: .planning/phases/12-rechnungen-finanzen/12-CONTEXT.md
 Next: Phase 12 (Rechnungen & Finanzen) planning and execution
