@@ -8,7 +8,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 - ✅ **Foundation** - Phases 1-3 (Auth/Infra, CRM Core, Chat & Messaging)
 - ✅ **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
-- 📋 **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
+- ✅ **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
 - 📋 **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
 - 📋 **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
 - 📋 **Integrations** - Phases 17-19 (Teams/Slack, Bexio, Abacus + Run my Accounts -- external DACH connectivity)
@@ -36,7 +36,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 ### Compliance & Comms (Phases 9-11)
 
 - [x] **Phase 9: Security & Compliance** - 2FA, audit log, DSGVO export/deletion, session management, secret vault, i18n (DE/FR/IT/EN)
-- [ ] **Phase 10: Email Integration** - Design integration (complete), full IMAP/SMTP email, CRM auto-linking, threading, contact import/export
+- [x] **Phase 10: Email Integration** - Design integration, full IMAP/SMTP email, CRM auto-linking, threading, contact import/export (completed 2026-02-17)
 - [x] **Phase 11: Documents & Files + WOPI** - File browser, upload, preview, versioning, sharing, full-text search, tags, global search, WOPI endpoints for OnlyOffice (completed 2026-02-17)
 
 ### Business Suite (Phases 12-13)

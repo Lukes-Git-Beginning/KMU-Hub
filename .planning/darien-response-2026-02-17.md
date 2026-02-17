@@ -1,13 +1,10 @@
-# Response to Darien - MASTER-PLAN + Office Strategy Review
-
-**Date:** 2026-02-17
-**Context:** Review of MASTER-PLAN.md, Office Strategy (3-tier Collabora), PRODUCT-STRATEGY.md, backend-plan-part1/part2
+# Nachricht an Darien - Review MASTER-PLAN + Office Strategy + Sync-Request
 
 ---
 
 Hey Darien,
 
-Hab beides durchgelesen -- MASTER-PLAN und Office-Strategie. Hier mein Feedback:
+Hab alles durchgelesen -- MASTER-PLAN, Office-Strategie, PRODUCT-STRATEGY und die beiden Backend-Plan-Teile. Hier mein komplettes Feedback.
 
 ## Was ich gut finde
 
@@ -21,24 +18,24 @@ Hab beides durchgelesen -- MASTER-PLAN und Office-Strategie. Hier mein Feedback:
 
 5. **"Kommunikation" als separates Modul von "Chat" -- guter UX-Split.** Intern vs. Extern klar getrennt. Das ist bei uns Phase 14 "Unified Inbox" -- gleiche Sache, anderer Name. Lass uns den Namen "Kommunikation" im Frontend und "Unified Inbox" im Backend/Architektur nehmen.
 
-6. **Theme-Cleanup (5 statt 7) -- mach ich.** Cherry-picke die Theme-Files von deinem Branch auf main.
+6. **Theme-Cleanup (5 statt 7) -- bereits erledigt.** Nature und Atelier sind auf main entfernt. Jetzt 5 Themes: Cozy, Dreamy, Raumstation, Clean, Minimal.
 
 ## Wo wir nachbessern muessen
 
 ### 1. Backend-Plan ist veraltet
 
-WICHTIG: Dein Sprint-Plan (backend-plan-part2) geht davon aus, dass Phases 8-9 noch offen sind. **Die sind fertig:**
+WICHTIG: Dein Sprint-Plan (backend-plan-part2) geht davon aus, dass Phases 8-9 noch offen sind. Hier ist der tatsaechliche Stand -- **alles bis Phase 11 ist fertig:**
 
 | Phase | Status | Wann |
 |-------|--------|------|
 | Phase 8 (Video/Meetings) | FERTIG | 2026-02-11 |
 | Phase 9 (Security/Compliance) | FERTIG | 2026-02-11 |
-| Phase 10 (Email) | 3/7 done (Design-Integration) | Backend pending |
-| Phase 11 (Dokumente + WOPI) | FERTIG | 2026-02-17 |
+| Phase 10 (Email) | FERTIG (alle 7 Plans) | 2026-02-17 |
+| Phase 11 (Dokumente + WOPI) | FERTIG (alle 6 Plans) | 2026-02-17 |
 
-Das heisst: Sprints 7-10 in deinem Plan (8 Wochen) sind schon gebaut. Dein 50-Wochen-Plan reduziert sich auf ca. 20-25 Wochen mit AI-gestuetzter Entwicklung.
+Das heisst: Sprints 7-10 in deinem Plan (8 Wochen) sind schon gebaut. Dein 50-Wochen-Plan reduziert sich auf ca. 20-25 Wochen mit AI-gestuetzter Entwicklung. 66 von 66 Plans (Phase 4-11) sind abgeschlossen.
 
-**Bitte aktualisiere backend-plan-part2.md** basierend auf unserem tatsaechlichen Stand. Ich schick dir STATE.md separat.
+**Bitte aktualisiere backend-plan-part2.md** basierend auf diesem Stand.
 
 ### 2. PRODUCT-STRATEGY.md aktualisieren
 
@@ -52,23 +49,42 @@ Die Datei ist vom 16.02. (vor der Strategy Session). Steht noch "OnlyOffice", "C
 
 Du fragst nach WebDAV-Erfahrung -- `golang.org/x/net/webdav` existiert als Go-Package. ABER: Fuer MVP reicht Download -> Edit -> Upload. Vollstaendiges WebDAV mit Locking, Versionierung, Konflikterkennung ist komplex und nicht noetig fuer Beta. Das kommt spaeter wenn Kunden es wirklich brauchen.
 
-### 4. TanStack Query Migration fehlt
+### 4. TanStack Query Migration fehlt im MASTER-PLAN
 
-Alle 25 Design-Module nutzen Zustand Mocks. Wenn ich Backend-APIs baue, muss jede Page auf TanStack Query migriert werden (so wie wir es bei DokumentePage in 11-05 gemacht haben). Das ist signifikanter Aufwand der im MASTER-PLAN nicht explizit drin steht. Bitte als Cross-Cutting-Concern einplanen.
+Alle 25 Design-Module nutzen Zustand Mocks. Wenn Backend-APIs stehen, muss jede Page auf TanStack Query migriert werden (so wie wir es bei DokumentePage in Plan 11-05 gemacht haben). Das ist signifikanter Aufwand der im MASTER-PLAN nicht explizit drin steht. Bitte als Cross-Cutting-Concern einplanen.
+
+## WICHTIG: Bitte main pullen und anschauen
+
+Dein Branch `design/brainstorm` ist mittlerweile weit hinter `main`. Auf main ist seit der Design-Integration extrem viel passiert. Bitte hol dir den aktuellen Stand, damit du siehst was wirklich gebaut ist:
+
+```bash
+git checkout main
+git pull origin main
+```
+
+Speziell anschauen solltest du:
+- **`backend/`** -- Alle Microservices (auth, crm, chat, work, calendar, video, security, email, documents) sind implementiert
+- **`desktop/src/renderer/src/modules/dokumente/`** -- DokumentePage ist bereits von Zustand auf TanStack Query migriert (Referenz fuer alle anderen Module)
+- **`desktop/src/renderer/src/modules/mails/`** -- Email-Frontend mit Compose, Inbox, Thread-View
+- **`backend/internal/documents/wopi/`** -- WOPI-Endpoints die mit Collabora kompatibel sind
+- **`deploy/docker/docker-compose.yml`** -- Alle Services konfiguriert
+- **`.planning/`** -- Alle Phase-Plans und Summaries, STATE.md, ROADMAP.md
+
+Das gibt dir ein realistisches Bild davon wo wir stehen und hilft dir beim Frontend-Planning. Viele Sachen die im MASTER-PLAN als TODO stehen haben schon Backend-APIs die du direkt anbinden kannst.
 
 ## Meine naechsten Schritte
 
-1. **Jetzt:** Theme-Cleanup cherry-picken
-2. **Naechste Phase:** Phase 10 Backend fertig (IMAP/SMTP, Plans 10-04 bis 10-07)
-3. **Danach:** Phase 12 (Finanzen) -- Belegkette, GoBD, DATEV, QR-Rechnung
-4. **Dann:** Phase 13 (HR), Phase 14 (Unified Inbox/Kommunikation)
+1. **Jetzt:** Phase 12 starten (Rechnungen & Finanzen) -- Belegkette, GoBD, DATEV, QR-Rechnung
+2. **Danach:** Phase 13 (HR), Phase 14 (Unified Inbox/Kommunikation)
 
 ## Was ich von dir brauche
 
-1. PRODUCT-STRATEGY.md updaten (Collabora, EUR, Strategy-Session-Entscheidungen)
-2. Backend-Plan-Part2 aktualisieren (Phases 8-11 sind fertig)
-3. Klaerung: Ist "Kommunikation" = unser "Unified Inbox" (Phase 14)? Gleiche Architektur?
-4. [BACKEND-DEP] Items auf unsere Roadmap-Phasen mappen -- das wird unser Koordinations-Vertrag
+1. **main pullen** und den aktuellen Code-Stand anschauen
+2. **PRODUCT-STRATEGY.md updaten** (Collabora, EUR, Strategy-Session-Entscheidungen)
+3. **Backend-Plan-Part2 aktualisieren** (Phases 8-11 sind komplett fertig)
+4. **Klaerung:** Ist "Kommunikation" = unser "Unified Inbox" (Phase 14)? Gleiche Architektur?
+5. **[BACKEND-DEP] Items mappen** auf unsere Roadmap-Phasen -- das wird unser Koordinations-Vertrag
+6. **Theme-Aenderungen auf deinem Branch nachziehen** -- Nature + Atelier sind weg, desk-themes.ts und desk-asset-urls.ts haben sich geaendert
 
 Gruss,
 Luke
