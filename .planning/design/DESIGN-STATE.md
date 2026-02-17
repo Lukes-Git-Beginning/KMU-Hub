@@ -2,14 +2,22 @@
 
 ## Current Position
 
-Phase: BETA READY (D1-D8 complete, D9 paused for manual design)
-Last completed: D8 — Widgets & Overlays (2026-02-13)
-Branch: design/brainstorm (merged with main, Luke's Phase 6 included)
+Phase: PRODUCT STRATEGY COMPLETE — Design phases D1-D9 done, strategy research done
+Last completed: Produkt-Strategie & Handoff (2026-02-17)
+Branch: design/brainstorm (merged with main, Luke's Phase 6+7 included)
+
+## Completed Strategy Work (2026-02-17)
+- 14 Research-Dokumente (~19.000 Zeilen) in `.planning/design/research/`
+- Handoff-Dokument: `docs/PRODUCT-STRATEGY.md`
+- Luke-Prompt: `research/PROMPT-FUER-LUKE.md`
+- Build/Integrate Matrix, Gap-Analyse, Compliance-Framework, DB-Modelle
+- Backend-Plan (Part 1+2), Frontend-Plan, Kostenanalyse, Infrastruktur-Matrix
+- Theme-Cleanup: Nature + Atelier entfernt → 5 Themes (Cozy, Dreamy, Raumstation, Clean, Minimal)
 
 ## NEXT SESSION TODO
-1. D9 Desk Polish — manuelle Bild-Generierung (Darien separat)
-2. D10 Visual Polish — Animationen, Accessibility
-3. D11 Nico-Review — Gesamte App durchgehen lassen
+1. D10 Visual Polish — Animationen, Accessibility
+2. D11 Nico-Review — Gesamte App durchgehen lassen
+3. Frontend-Implementierung laut `research/14-frontend-plan.md` (Kommunikation, Wiki, TipTap, etc.)
 
 ## Progress
 

@@ -102,7 +102,7 @@ Wir ersetzen Microsoft Teams komplett:
 
 ## Referenz-Dokumente
 
-Die folgenden Dateien liegen in `.planning/design/research/` (lokal, nicht committed):
+Die folgenden Dateien liegen in `.planning/design/research/` (committed auf `design/brainstorm`):
 
 | # | Datei | Inhalt | Zeilen |
 |---|-------|--------|--------|
@@ -117,10 +117,11 @@ Die folgenden Dateien liegen in `.planning/design/research/` (lokal, nicht commi
 | 08 | 08-datenbankmodelle.md | 30 neue PostgreSQL-Tabellen | ~1600 |
 | 09 | 09-infrastruktur-matrix.md | Server-Setups nach Groesse/Branche | ~1540 |
 | 10 | 10-integrations-guide.md | 12 Integrationen mit Lizenzen/Setup | ~1500 |
-| 11 | 11-backend-plan.md | Backend-Implementierungsplan | ~??? |
+| 11a | 11-backend-plan-part1.md | Backend: Architektur, Features, Migrationen, Sicherheit | ~745 |
+| 11b | 11-backend-plan-part2.md | Backend: API-Endpoints, Integrationen, Sprint-Plan | ~675 |
 | 12 | 12-kostenanalyse-preismodell.md | Kosten pro Modul + Preisstufen | ~1500 |
 | 13 | 13-vision-ergaenzungen.md | Unified Inbox, Office, Teams-Ersatz | ~200 |
-| 14 | 14-frontend-plan.md | Frontend-Implementierungsplan | ~??? |
+| 14 | 14-frontend-plan.md | Frontend-Implementierungsplan | ~1749 |
 
 Plus:
 - `external/chatgpt-research-summary.md` — ChatGPT Deep Research Marktanalyse
@@ -152,20 +153,10 @@ mit DATEV-Export und Bexio-Sync. Das Modul heisst "Rechnungen & Finanzen", nicht
 3. Luke gibt den Prompt + Dateien seinem Claude/ChatGPT
 4. Luke erweitert den Backend-Plan und gibt Feedback
 
-### Option A: Dateien per Git teilen
+### Dateien teilen
+Alles ist committed auf `design/brainstorm`. Luke kann den Branch pullen:
 ```bash
-# Temporaer committen auf separatem Branch
-git checkout -b planning/handoff
-git add .planning/design/research/
-git commit -m "temp: research docs for Luke review"
-git push origin planning/handoff
-# Luke pullt den Branch, liest alles, Branch wird danach geloescht
+git fetch origin
+git checkout design/brainstorm
+# Alle Docs in .planning/design/research/ + docs/PRODUCT-STRATEGY.md
 ```
-
-### Option B: Dateien kopieren
-Einfach den ganzen `.planning/design/research/` Ordner auf einen USB-Stick
-oder per Fileshare an Luke schicken.
-
-### Option C: Masterplan committen (EMPFOHLEN)
-Der Masterplan (`docs/BACKEND-HANDOFF.md`) wird auf `design/brainstorm` committed.
-Enthaelt alles Wichtige kompakt in einem Dokument. Luke pullt den Branch.
