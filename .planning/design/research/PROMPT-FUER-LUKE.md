@@ -1,162 +1,133 @@
-# Prompt fuer Luke — Produkt-Strategie & Backend-Planung
+# Prompt fuer Luke — Update 2026-02-17 (Office-Strategie + Master-Plan)
 
-Kopiere diesen Prompt und gib ihn Luke (oder seinem Claude/ChatGPT) zusammen mit den Referenz-Dokumenten.
+Kopiere diesen Prompt und gib ihn Luke (oder seinem Claude/ChatGPT).
 
 ---
 
 ## DER PROMPT:
 
 ```
-Wir haben heute eine umfassende Produkt-Strategie und Marktanalyse fuer KMU Hub durchgefuehrt.
-KMU Hub soll das "Betriebssystem fuer DACH-KMUs" werden — eine All-in-One-Plattform die
-Microsoft 365 + Teams + CRM + PM + Helpdesk + Zeiterfassung + HR ersetzt.
+Hey Luke, wir haben heute zwei grosse Sachen fertig gemacht:
 
-Hier ist was wir erarbeitet haben. Bitte lies ALLE Dokumente durch und erstelle dann:
-1. Deinen erweiterten Backend-Implementierungsplan
-2. Fragen/Anmerkungen wo du anderer Meinung bist oder Klarstellung brauchst
-3. Eine priorisierte Sprint-Planung aus Backend-Sicht
+1. MASTER-PLAN.md — der komplette Frontend-Gesamtplan (174 Items, 14 Waves, ~55-62k LOC)
+2. Office-Strategie — 3-Tier-Modell mit Collabora statt OnlyOffice
 
-## Kontext
+Bitte lies dir beides durch und gib Feedback.
 
-### Vision
-- KMU Hub als Betriebssystem: Einmal einrichten, laeuft ueberall im Unternehmen
-- Lokal-First: Docker-Paket auf Firmenserver/NAS, Zugang von unterwegs per VPN
-- AUCH als SaaS (Hetzner DE / Exoscale CH)
-- 100% EU/CH-Hosting, kein US Cloud Act, Self-hosted Option
-- Datensicherheit als KERN-USP, nicht Nachgedanke
+## Was sich geaendert hat (gegenueber letztem Stand)
 
-### Kernentscheidungen
+### AENDERUNG 1: Office-Strategie — 3 Tiers
 
-**BAUEN (in unserem Style):**
-- CRM (Kontakte, Deals, Pipeline) — erweitern: Custom Fields, Firma als Entity, Duplikaterkennung
-- Rechnungen & Finanzen (NICHT Buchhaltung!) — Belegkette, QR-Rechnung, ZUGFeRD, PDF, GoBD
-- Helpdesk (erweitern: Canned Responses, Private Notes)
-- Projektmanagement (erweitern: Gaeste-Zugang)
-- Chat → Unified Inbox (E-Mail + Teams + WhatsApp + Website-Widget in EINER Inbox)
-- Video/Meetings (LiveKit self-hosted + Zoom-Fallback fuer kleine KMUs)
-- Office-Editing (OnlyOffice Document Server eingebettet, WOPI-Protokoll)
-- Wiki (TipTap Rich-Text-Editor)
-- Zeiterfassung, Schichtplanung, Fuhrpark, Inventar, Einkauf, Rapporte, Vermietung, Formulare, Vertraege
-- Kundenportal (Kunden sehen Projekte/Tickets/Dokumente)
-- Status/Praesenz-System (Online/Abwesend/Busy)
+Wir haben die Office-Integration komplett neu geplant:
 
-**INTEGRIEREN (nie selbst bauen):**
-- Buchhaltung/FiBu → DATEV-Export + Bexio-API (GoBD-Testat zu teuer)
-- Lohnabrechnung → NIEMALS (26 Kantone CH, 16 Bundeslaender DE)
-- Newsletter → Brevo/CleverReach API
-- E-Signatur → Skribble (Schweizer Firma, ZertES+eIDAS)
-- Banking → FinAPI (4000+ Banken, PSD2)
-- Office-Editor → OnlyOffice Document Server (WOPI)
+| Tier | Preis | Lokales Office | Browser-Editor |
+|------|-------|----------------|----------------|
+| Starter (12 EUR) | Guenstig | Ja (immer) | Keiner |
+| Business (19 EUR) | Mittel | Ja (immer) | TipTap (nur Texte) |
+| Enterprise (25 EUR) | Premium | Ja (immer) | Collabora Online (Word+Excel+PPT) |
 
-**NIEMALS BAUEN:**
-- Eigener Mailserver (Deliverability-Problem)
-- Volles ERP (SAP-Territorium)
-- Kassensystem/POS
-- PSTN-Telefonie
-- Recruiting/ATS
-- Sprint Planning/Scrum
+WICHTIG: "In Word oeffnen" ist in ALLEN Tiers dabei. Wer Office auf dem PC hat, kann immer damit arbeiten.
 
-### Unified Inbox (WICHTIGSTES NEUES FEATURE)
-Problem: Unsere Kunden kommunizieren mit IHREN Kunden ueber Teams/WhatsApp/E-Mail.
-Wenn wir nur internen Chat haben, fehlt die externe Kommunikation.
+**Warum Collabora statt OnlyOffice:**
+- OnlyOffice Community Edition ist AGPL — duerfen wir nicht kommerziell einbetten
+- OnlyOffice Developer Edition: $1.950/Jahr, aber AGPL-Risiko bleibt bei Updates
+- Collabora: MPL 2.0 (kommerziell sicher), weniger RAM (~1 GB vs ~2-4 GB), LibreOffice-basiert
+- Collabora Business: ~1,82 EUR/User/Mo — wir verdienen trotzdem ~23 EUR/User bei Enterprise
 
-Loesung: Alle externen Kanaele kommen in EINE Inbox:
-- E-Mail (IMAP/SMTP) — kommt mit E-Mail-Modul
-- Teams Bridge (Microsoft Graph API)
-- WhatsApp Business (Meta Cloud API)
-- Website Chat-Widget (WebSocket, embeddable JS)
-- Kundenportal (eigener Auth-Flow)
+**Was du dafuer bauen musst (Backend):**
 
-Backend braucht:
-- Unified Message Model (channel, direction, contact_id, content, metadata)
-- Channel Adapter Interface pro Kanal
-- WebSocket fuer Echtzeit
-- Queue fuer ausgehende Nachrichten (Retry, Rate Limiting)
-- OAuth2 Flows fuer Teams/Slack
-- WhatsApp Business API Webhook Handler
-- Widget Token-Auth (JWT)
+1. **WebDAV-Server (alle Tiers):**
+   - Damit Word/Excel direkt vom Server oeffnen/speichern koennen
+   - Standard-Protokoll das Office nativ versteht
+   - Kein Download/Upload noetig — Office arbeitet direkt auf dem Server
+   - Versionierung: jede Speicherung = neue Version
+   - Konflikterkennung bei gleichzeitiger Bearbeitung
 
-### Teams-Ersatz
-Wir ersetzen Microsoft Teams komplett:
-- Chat (1:1, Gruppen, Channels) — haben wir, braucht: Threads, Reactions, @mentions, Datei-Sharing
-- Video/Audio — LiveKit + Zoom-Fallback
-- Screen-Sharing — LiveKit
-- Status/Praesenz — WebSocket + Heartbeat
-- Benachrichtigungen — Push Notifications
-- Globale Suche — ueber alle Module
+2. **WOPI-Endpoints (Enterprise Tier, Collabora):**
+   - 3 Endpoints: CheckFileInfo (GET), GetFile (GET), PutFile (POST)
+   - Token-basierte Auth pro User+Datei
+   - Collabora ruft diese Endpoints auf um Dateien zu lesen/schreiben
+   - Collabora laeuft als Docker-Container (collabora/code, Port 9980)
+   - Ressourcen: ~1 GB RAM + ~50 MB pro gleichzeitigem User
 
-### Preismodell (aus Kostenanalyse)
-- Starter: 12 EUR/User/Mo — Kernmodule, 25 GB, Basis-Video
-- Business: 19 EUR/User/Mo — + OnlyOffice, unbegrenzt Video, Newsletter
-- Enterprise: 25 EUR/User/Mo — + Banking, SSO, SLA, 500 GB
-- Self-Hosted: Jahreslizenz (Preis TBD)
-- Hosting kostet uns ~2 EUR/Kunde/Mo bei 100 Kunden → 97%+ Bruttomarge
-- Break-Even bei ~37 Kunden
+3. **Collabora Docker Setup:**
+   - Docker-Container in docker-compose.yml einbinden
+   - Reverse-Proxy konfigurieren (HTTPS, WebSocket)
+   - Discovery-Endpoint fuer Frontend
 
-### Zielgruppen (Reihenfolge)
-1. Dienstleister/Agenturen (85% Feature-Abdeckung) — ERSTE ZIELGRUPPE
-2. Handwerk (80%)
-3. Bau (70%)
-4. Handel (65%)
-5. Gastro (55%)
+**Lizenzen:**
+- Collabora CODE (Development): Kostenlos, aber 10 Docs / 20 Connections — nur fuer Dev/Testing
+- Collabora Business: ~1,82 EUR/User/Mo (bis 99 User)
+- Collabora Enterprise: Individuell (Partner-Programm)
+- ISV/Partner-Kontakt: collaboraonline.com/partner-programme/
+- Self-Hosted-Kunden brauchen eigene Collabora-Lizenz
 
-## Referenz-Dokumente
+### AENDERUNG 2: MASTER-PLAN.md (Frontend-Gesamtplan)
 
-Die folgenden Dateien liegen in `.planning/design/research/` (committed auf `design/brainstorm`):
+Neues Dokument: `.planning/design/MASTER-PLAN.md` (~1800 Zeilen)
 
-| # | Datei | Inhalt | Zeilen |
-|---|-------|--------|--------|
-| 00 | 00-SYNTHESE.md | Gesamtsynthese mit Build/Integrate Matrix | ~400 |
-| 01 | 01-office-email-storage.md | Office, E-Mail, Storage Recherche | ~800 |
-| 02 | 02-crm-sales-helpdesk.md | CRM, Sales, Helpdesk Recherche | ~800 |
-| 03 | 03-finanzen-buchhaltung-hr.md | Finanzen, Buchhaltung, HR Recherche | ~550 |
-| 04 | 04-projektmanagement-erp-branche.md | PM, ERP, Branchenloesungen | ~1200 |
-| 05 | 05-dsgvo-dsg-compliance.md | DSGVO/DSG Basis-Recherche | ~600 |
-| 06 | 06-modul-gap-analyse.md | Gap-Analyse aller 23 Module | ~850 |
-| 07 | 07-compliance-framework.md | Tiefes Compliance-Framework | ~1740 |
-| 08 | 08-datenbankmodelle.md | 30 neue PostgreSQL-Tabellen | ~1600 |
-| 09 | 09-infrastruktur-matrix.md | Server-Setups nach Groesse/Branche | ~1540 |
-| 10 | 10-integrations-guide.md | 12 Integrationen mit Lizenzen/Setup | ~1500 |
-| 11a | 11-backend-plan-part1.md | Backend: Architektur, Features, Migrationen, Sicherheit | ~745 |
-| 11b | 11-backend-plan-part2.md | Backend: API-Endpoints, Integrationen, Sprint-Plan | ~675 |
-| 12 | 12-kostenanalyse-preismodell.md | Kosten pro Modul + Preisstufen | ~1500 |
-| 13 | 13-vision-ergaenzungen.md | Unified Inbox, Office, Teams-Ersatz | ~200 |
-| 14 | 14-frontend-plan.md | Frontend-Implementierungsplan | ~1749 |
+Fasst ALLES zusammen was im Frontend gebaut werden muss:
+- 14 Waves, 174 Einzel-Items
+- ~55.000-62.000 LOC geschaetzt
+- ~75% Frontend-only, ~25% Backend-abhaengig
+- Geschaetzte Timeline: 20-26 Wochen
 
-Plus:
-- `external/chatgpt-research-summary.md` — ChatGPT Deep Research Marktanalyse
-- `external/Marktanalyse [...].pdf` — Original 20-Seiten PDF
+**Deine Backend-Abhaengigkeiten nach Phase:**
+
+| Deine Phase | Wave | Was du bauen musst |
+|-------------|------|-------------------|
+| Phase 8 (CRM) | Q2, 3 | Kontakt-API vereinheitlichen, Custom Fields, Firma als Entity, Deal-Pipeline |
+| Phase 8 (Kommunikation) | 2 | Unified Inbox: Channel-Adapter, Message Queue, WebSocket |
+| Phase 9 (Video+Wiki) | 2, 10, 11 | LiveKit Rooms/Tokens, Wiki-Versionierung |
+| Phase 10 (E-Mail+Integration) | 2, 3, 5, Q4 | IMAP/SMTP, DATEV-Export, Bexio-Sync, PDF-Generierung |
+| Phase 11 (Office+E-Signatur) | 11 | WebDAV-Server, WOPI-Endpoints, Collabora Docker, Skribble API |
+| Phase 12+ (DSGVO+KI) | 13, Q5 | DSGVO-Datenabfrage/-loeschung, KI Embedding-Service |
+
+### AENDERUNG 3: Deutschland-First
+
+- EUR ist Standard-Waehrung (nicht mehr CHF)
+- Deutsche MWSt-Saetze (19%/7%) als Default
+- de-DE Locale als Default
+- CH/AT kommen spaeter als Konfiguration dazu
+- Frontend: formatCHF wird zu formatCurrency(amount, currency?)
+
+### AENDERUNG 4: Theme-Cleanup (committed)
+
+- Nature + Atelier Themes entfernt
+- Jetzt 5 Themes: Cozy, Dreamy, Raumstation, Clean, Minimal
+- desk-themes.ts und desk-asset-urls.ts bereinigt
 
 ## Was ich von dir brauche
 
-1. **Lies den Backend-Plan (11-backend-plan.md)** und die Datenbankmodelle (08) durch
-2. **Erweitere/korrigiere** wo noetig — du kennst den Code besser
-3. **Priorisiere aus Backend-Sicht:** Was zuerst, was kann warten?
-4. **Unified Inbox Architektur:** Wie baust du die Channel-Adapter? Message Queue? WebSocket?
-5. **WOPI-Endpoints fuer OnlyOffice:** Hast du Erfahrung damit?
-6. **LiveKit Integration:** Room Management, Token Generation, Recording?
-7. **Teams Bridge:** Microsoft Graph API — wie aufwaendig ist das wirklich?
-8. **WhatsApp Business API:** Webhook-Handling, Message Templates?
-9. **Sicherheit:** RLS, Audit-Logs, Verschluesselung — wie siehst du die Prioritaet?
-10. **Sprint-Reihenfolge:** Was ist dein Vorschlag fuer die naechsten 6 Monate?
+1. **Lies MASTER-PLAN.md durch** — besonders die "[BACKEND-DEP]" markierten Items
+2. **WebDAV-Server:** Hast du Erfahrung damit? Gibt es eine gute Go-Library?
+3. **WOPI-Endpoints:** Sind das nur 3 REST-Endpoints — oder steckt mehr dahinter?
+4. **Collabora Docker:** Hast du schon mit Collabora/LibreOffice Server gearbeitet?
+5. **Sprint-Reihenfolge:** Was baust du als naechstes? Phase 8 (CRM) oder Phase 9 (Video)?
+6. **Feedback:** Wo bist du anderer Meinung? Was fehlt? Was ist unrealistisch?
 
-Wichtig: Buchhaltung/FiBu und Lohnabrechnung bauen wir NICHT. Nur Rechnungen/Angebote/Mahnwesen
-mit DATEV-Export und Bexio-Sync. Das Modul heisst "Rechnungen & Finanzen", nicht "Buchhaltung".
+## Dateien
+
+Alles committed auf `design/brainstorm`:
+```bash
+git fetch origin
+git checkout design/brainstorm
+```
+
+Neue/geaenderte Dateien:
+- `.planning/design/MASTER-PLAN.md` — DER Gesamtplan (174 Items, 14 Waves)
+- `.planning/design/DESIGN-STATE.md` — Aktueller Status
+- `.planning/design/ROADMAP.md` — Strategie-Roadmap (alle 7 Phasen DONE)
+- `.planning/design/research/PROMPT-FUER-LUKE.md` — Dieser Prompt
+- `docs/PRODUCT-STRATEGY.md` — Handoff-Dokument
+- Alle Research-Dateien in `.planning/design/research/` (00-14)
 ```
 
 ---
 
 ## ANLEITUNG FUER DARIEN
 
-1. Kopiere den Prompt oben
-2. Gib Luke Zugang zu den Research-Dateien (z.B. per USB-Stick, Fileshare, oder temporaer committen)
-3. Luke gibt den Prompt + Dateien seinem Claude/ChatGPT
-4. Luke erweitert den Backend-Plan und gibt Feedback
-
-### Dateien teilen
-Alles ist committed auf `design/brainstorm`. Luke kann den Branch pullen:
-```bash
-git fetch origin
-git checkout design/brainstorm
-# Alle Docs in .planning/design/research/ + docs/PRODUCT-STRATEGY.md
-```
+1. Kopiere den Prompt oben (zwischen den ``` Markierungen)
+2. Gib ihn Luke oder seinem Claude/ChatGPT
+3. Luke kann den Branch pullen: `git fetch origin && git checkout design/brainstorm`
+4. Alle Dateien sind committed und gepusht
