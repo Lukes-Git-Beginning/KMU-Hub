@@ -37,7 +37,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 - [x] **Phase 9: Security & Compliance** - 2FA, audit log, DSGVO export/deletion, session management, secret vault, i18n (DE/FR/IT/EN)
 - [ ] **Phase 10: Email Integration** - Design integration (complete), full IMAP/SMTP email, CRM auto-linking, threading, contact import/export
-- [ ] **Phase 11: Documents & Files + WOPI** - File browser, upload, preview, versioning, sharing, full-text search, tags, global search, WOPI endpoints for OnlyOffice
+- [x] **Phase 11: Documents & Files + WOPI** - File browser, upload, preview, versioning, sharing, full-text search, tags, global search, WOPI endpoints for OnlyOffice (completed 2026-02-17)
 
 ### Business Suite (Phases 12-13)
 
@@ -424,7 +424,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 8. Video, Voice & Meetings | 9/9 | Complete | 2026-02-11 |
 | 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
 | 10. Email Integration | 3/7 | In progress | - |
-| 11. Documents & Files + WOPI | 0/6 | Not started | - |
+| 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
 | 12. Rechnungen & Finanzen | 0/3 | Not started | - |
 | 13. HR & Zeiterfassung | 0/3 | Not started | - |
 | 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
