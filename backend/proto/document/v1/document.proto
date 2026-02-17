@@ -1,0 +1,552 @@
+syntax = "proto3";
+
+package document.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/document/v1;documentv1";
+
+import "google/protobuf/timestamp.proto";
+
+service DocumentService {
+  // ==================== Folder operations ====================
+  rpc CreateFolder(CreateFolderRequest) returns (CreateFolderResponse);
+  rpc GetFolder(GetFolderRequest) returns (GetFolderResponse);
+  rpc ListFolders(ListFoldersRequest) returns (ListFoldersResponse);
+  rpc UpdateFolder(UpdateFolderRequest) returns (UpdateFolderResponse);
+  rpc DeleteFolder(DeleteFolderRequest) returns (DeleteFolderResponse);
+  rpc GetFolderPath(GetFolderPathRequest) returns (GetFolderPathResponse);
+  rpc InitializeUserSpace(InitializeUserSpaceRequest) returns (InitializeUserSpaceResponse);
+  rpc InitializeTeamSpace(InitializeTeamSpaceRequest) returns (InitializeTeamSpaceResponse);
+
+  // ==================== File operations ====================
+  rpc GetFile(GetFileRequest) returns (GetFileResponse);
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+  rpc UpdateFile(UpdateFileRequest) returns (UpdateFileResponse);
+  rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
+  rpc CopyFile(CopyFileRequest) returns (CopyFileResponse);
+  rpc MoveFile(MoveFileRequest) returns (MoveFileResponse);
+  rpc GetFileDownloadURL(GetFileDownloadURLRequest) returns (GetFileDownloadURLResponse);
+  rpc CreateFileVersion(CreateFileVersionRequest) returns (CreateFileVersionResponse);
+  rpc ListFileVersions(ListFileVersionsRequest) returns (ListFileVersionsResponse);
+  rpc RevertFileVersion(RevertFileVersionRequest) returns (RevertFileVersionResponse);
+
+  // ==================== Share operations ====================
+  rpc ShareEntity(ShareEntityRequest) returns (ShareEntityResponse);
+  rpc UnshareEntity(UnshareEntityRequest) returns (UnshareEntityResponse);
+  rpc ListShares(ListSharesRequest) returns (ListSharesResponse);
+  rpc ListSharedWithMe(ListSharedWithMeRequest) returns (ListSharedWithMeResponse);
+
+  // ==================== Tag operations ====================
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+  rpc TagFile(TagFileRequest) returns (TagFileResponse);
+  rpc UntagFile(UntagFileRequest) returns (UntagFileResponse);
+
+  // ==================== Entity link operations ====================
+  rpc LinkFileToEntity(LinkFileToEntityRequest) returns (LinkFileToEntityResponse);
+  rpc UnlinkFileFromEntity(UnlinkFileFromEntityRequest) returns (UnlinkFileFromEntityResponse);
+  rpc ListFileEntityLinks(ListFileEntityLinksRequest) returns (ListFileEntityLinksResponse);
+
+  // ==================== Search operations ====================
+  rpc SearchFiles(SearchFilesRequest) returns (SearchFilesResponse);
+  rpc ListVirtualFiles(ListVirtualFilesRequest) returns (ListVirtualFilesResponse);
+
+  // ==================== WOPI operations ====================
+  rpc GenerateWOPIToken(GenerateWOPITokenRequest) returns (GenerateWOPITokenResponse);
+  rpc GetWOPIDiscovery(GetWOPIDiscoveryRequest) returns (GetWOPIDiscoveryResponse);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum FolderSpaceType {
+  FOLDER_SPACE_TYPE_UNSPECIFIED = 0;
+  FOLDER_SPACE_TYPE_PERSONAL = 1;
+  FOLDER_SPACE_TYPE_TEAM = 2;
+  FOLDER_SPACE_TYPE_PROJECT = 3;
+}
+
+enum SharePermission {
+  SHARE_PERMISSION_UNSPECIFIED = 0;
+  SHARE_PERMISSION_READ = 1;
+  SHARE_PERMISSION_WRITE = 2;
+}
+
+enum VirtualFileSource {
+  VIRTUAL_FILE_SOURCE_UNSPECIFIED = 0;
+  VIRTUAL_FILE_SOURCE_CHAT = 1;
+  VIRTUAL_FILE_SOURCE_EMAIL = 2;
+  VIRTUAL_FILE_SOURCE_TASK = 3;
+}
+
+enum FileSortField {
+  FILE_SORT_UNSPECIFIED = 0;
+  FILE_SORT_NAME = 1;
+  FILE_SORT_SIZE = 2;
+  FILE_SORT_DATE = 3;
+  FILE_SORT_TYPE = 4;
+}
+
+enum SortDirection {
+  SORT_DIRECTION_UNSPECIFIED = 0;
+  SORT_ASC = 1;
+  SORT_DESC = 2;
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message DocumentFolder {
+  string id = 1;
+  string name = 2;
+  string parent_id = 3;           // Empty string if root
+  FolderSpaceType space_type = 4;
+  string space_id = 5;            // User ID, team ID, or project ID
+  bool is_system = 6;
+  string icon = 7;
+  string created_by = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  int32 file_count = 11;          // Computed (not stored)
+}
+
+message DocumentFile {
+  string id = 1;
+  string folder_id = 2;
+  string filename = 3;
+  string mime_type = 4;
+  int64 file_size = 5;
+  string storage_key = 6;
+  string thumbnail_key = 7;
+  int32 current_version = 8;
+  string owner_id = 9;
+  bool is_favorite = 10;
+  bool is_deleted = 11;
+  repeated DocumentTag tags = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message DocumentFileVersion {
+  string id = 1;
+  string file_id = 2;
+  int32 version_number = 3;
+  string version_label = 4;
+  string storage_key = 5;
+  int64 file_size = 6;
+  string created_by = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message DocumentShare {
+  string id = 1;
+  string entity_type = 2;            // "file" or "folder"
+  string entity_id = 3;
+  string shared_with_user_id = 4;
+  string shared_with_user_name = 5;  // Denormalized from JOIN
+  SharePermission permission = 6;
+  string shared_by = 7;
+  string shared_by_name = 8;         // Denormalized from JOIN
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message DocumentTag {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+  int32 file_count = 4;              // Computed (not stored)
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message DocumentEntityLink {
+  string id = 1;
+  string file_id = 2;
+  string entity_type = 3;            // contact, company, deal, project, task
+  string entity_id = 4;
+  string entity_name = 5;            // Denormalized
+  string linked_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message VirtualFile {
+  string id = 1;
+  string filename = 2;
+  string mime_type = 3;
+  int64 file_size = 4;
+  string storage_key = 5;
+  VirtualFileSource source_type = 6;
+  string source_id = 7;
+  string source_name = 8;
+  string uploaded_by = 9;
+  string uploaded_by_name = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message FolderPathSegment {
+  string id = 1;
+  string name = 2;
+}
+
+message FileSearchResult {
+  DocumentFile file = 1;
+  float rank = 2;
+  string snippet = 3;
+}
+
+// ============================================================================
+// Folder Request/Response Messages
+// ============================================================================
+
+message CreateFolderRequest {
+  string name = 1;
+  string parent_id = 2;              // Empty for root
+  FolderSpaceType space_type = 3;
+  string space_id = 4;
+  string icon = 5;
+  string created_by = 6;
+}
+
+message CreateFolderResponse {
+  DocumentFolder folder = 1;
+}
+
+message GetFolderRequest {
+  string id = 1;
+}
+
+message GetFolderResponse {
+  DocumentFolder folder = 1;
+}
+
+message ListFoldersRequest {
+  string parent_id = 1;              // Filter by parent
+  FolderSpaceType space_type = 2;
+  string space_id = 3;
+}
+
+message ListFoldersResponse {
+  repeated DocumentFolder folders = 1;
+}
+
+message UpdateFolderRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string parent_id = 3;     // Move folder
+  optional string icon = 4;
+}
+
+message UpdateFolderResponse {
+  DocumentFolder folder = 1;
+}
+
+message DeleteFolderRequest {
+  string id = 1;
+}
+
+message DeleteFolderResponse {}
+
+message GetFolderPathRequest {
+  string id = 1;
+}
+
+message GetFolderPathResponse {
+  repeated FolderPathSegment segments = 1;
+}
+
+message InitializeUserSpaceRequest {
+  string user_id = 1;
+}
+
+message InitializeUserSpaceResponse {
+  DocumentFolder root_folder = 1;
+}
+
+message InitializeTeamSpaceRequest {
+  string team_id = 1;
+  string created_by = 2;
+}
+
+message InitializeTeamSpaceResponse {
+  DocumentFolder root_folder = 1;
+}
+
+// ============================================================================
+// File Request/Response Messages
+// ============================================================================
+
+message GetFileRequest {
+  string id = 1;
+}
+
+message GetFileResponse {
+  DocumentFile file = 1;
+}
+
+message ListFilesRequest {
+  string folder_id = 1;
+  string owner_id = 2;
+  bool is_favorite = 3;
+  bool filter_favorites = 4;         // True to apply is_favorite filter
+  int32 page = 5;
+  int32 per_page = 6;
+  FileSortField sort_field = 7;
+  SortDirection sort_direction = 8;
+}
+
+message ListFilesResponse {
+  repeated DocumentFile files = 1;
+  int32 total = 2;
+}
+
+message UpdateFileRequest {
+  string id = 1;
+  optional string filename = 2;      // Rename
+  optional string folder_id = 3;     // Move to folder
+  optional bool is_favorite = 4;     // Toggle favorite
+}
+
+message UpdateFileResponse {
+  DocumentFile file = 1;
+}
+
+message DeleteFileRequest {
+  string id = 1;
+}
+
+message DeleteFileResponse {}
+
+message CopyFileRequest {
+  string id = 1;
+  string target_folder_id = 2;
+}
+
+message CopyFileResponse {
+  DocumentFile file = 1;
+}
+
+message MoveFileRequest {
+  string id = 1;
+  string target_folder_id = 2;
+}
+
+message MoveFileResponse {
+  DocumentFile file = 1;
+}
+
+message GetFileDownloadURLRequest {
+  string id = 1;
+}
+
+message GetFileDownloadURLResponse {
+  string download_url = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 file_size = 4;
+}
+
+message CreateFileVersionRequest {
+  string file_id = 1;
+  string version_label = 2;
+  string storage_key = 3;
+  int64 file_size = 4;
+  string created_by = 5;
+}
+
+message CreateFileVersionResponse {
+  DocumentFileVersion version = 1;
+}
+
+message ListFileVersionsRequest {
+  string file_id = 1;
+}
+
+message ListFileVersionsResponse {
+  repeated DocumentFileVersion versions = 1;
+}
+
+message RevertFileVersionRequest {
+  string file_id = 1;
+  int32 version_number = 2;
+}
+
+message RevertFileVersionResponse {
+  DocumentFile file = 1;
+}
+
+// ============================================================================
+// Share Request/Response Messages
+// ============================================================================
+
+message ShareEntityRequest {
+  string entity_type = 1;            // "file" or "folder"
+  string entity_id = 2;
+  string shared_with_user_id = 3;
+  SharePermission permission = 4;
+  string shared_by = 5;
+}
+
+message ShareEntityResponse {
+  DocumentShare share = 1;
+}
+
+message UnshareEntityRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+  string shared_with_user_id = 3;
+}
+
+message UnshareEntityResponse {}
+
+message ListSharesRequest {
+  string entity_type = 1;
+  string entity_id = 2;
+}
+
+message ListSharesResponse {
+  repeated DocumentShare shares = 1;
+}
+
+message ListSharedWithMeRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 per_page = 3;
+}
+
+message ListSharedWithMeResponse {
+  repeated DocumentFile files = 1;
+  repeated DocumentFolder folders = 2;
+  int32 total = 3;
+}
+
+// ============================================================================
+// Tag Request/Response Messages
+// ============================================================================
+
+message CreateTagRequest {
+  string name = 1;
+  string color = 2;
+  string created_by = 3;
+}
+
+message CreateTagResponse {
+  DocumentTag tag = 1;
+}
+
+message ListTagsRequest {
+  string created_by = 1;             // Optional filter
+}
+
+message ListTagsResponse {
+  repeated DocumentTag tags = 1;
+}
+
+message DeleteTagRequest {
+  string id = 1;
+}
+
+message DeleteTagResponse {}
+
+message TagFileRequest {
+  string file_id = 1;
+  string tag_id = 2;
+}
+
+message TagFileResponse {}
+
+message UntagFileRequest {
+  string file_id = 1;
+  string tag_id = 2;
+}
+
+message UntagFileResponse {}
+
+// ============================================================================
+// Entity Link Request/Response Messages
+// ============================================================================
+
+message LinkFileToEntityRequest {
+  string file_id = 1;
+  string entity_type = 2;            // contact, company, deal, project, task
+  string entity_id = 3;
+  string entity_name = 4;            // Denormalized display name
+  string linked_by = 5;
+}
+
+message LinkFileToEntityResponse {
+  DocumentEntityLink link = 1;
+}
+
+message UnlinkFileFromEntityRequest {
+  string file_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+}
+
+message UnlinkFileFromEntityResponse {}
+
+message ListFileEntityLinksRequest {
+  string file_id = 1;
+}
+
+message ListFileEntityLinksResponse {
+  repeated DocumentEntityLink links = 1;
+}
+
+// ============================================================================
+// Search Request/Response Messages
+// ============================================================================
+
+message SearchFilesRequest {
+  string query = 1;
+  repeated string tag_ids = 2;
+  string folder_id = 3;              // Scope search to folder
+  int32 page = 4;
+  int32 per_page = 5;
+}
+
+message SearchFilesResponse {
+  repeated FileSearchResult results = 1;
+  int32 total = 2;
+}
+
+message ListVirtualFilesRequest {
+  VirtualFileSource source_type = 1;
+  int32 page = 2;
+  int32 per_page = 3;
+}
+
+message ListVirtualFilesResponse {
+  repeated VirtualFile files = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// WOPI Request/Response Messages
+// ============================================================================
+
+message GenerateWOPITokenRequest {
+  string file_id = 1;
+  string user_id = 2;
+}
+
+message GenerateWOPITokenResponse {
+  string access_token = 1;
+  int64 ttl_seconds = 2;
+}
+
+message GetWOPIDiscoveryRequest {}
+
+message GetWOPIDiscoveryResponse {
+  string discovery_xml = 1;
+  repeated WOPIAction actions = 2;
+}
+
+message WOPIAction {
+  string app = 1;                     // e.g., "Word", "Excel"
+  string name = 2;                    // e.g., "view", "edit"
+  string ext = 3;                     // e.g., "docx", "xlsx"
+  string url_src = 4;
+}
