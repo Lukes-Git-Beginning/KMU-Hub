@@ -1,3 +1,13 @@
+/**
+ * File preview modal with real content rendering.
+ *
+ * Supports:
+ * - Images (image/*): Rendered via <img> with presigned URL
+ * - PDF (application/pdf): Embedded <iframe> (Electron supports natively)
+ * - Text/Markdown (text/*, application/json): Content fetched and rendered in <pre>
+ * - Unsupported: File info with download button
+ */
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -13,40 +23,114 @@ import {
   Archive,
   File,
   Download,
+  Loader2,
 } from 'lucide-react'
-import type { DocFile } from '@/stores/documents'
+import { useFileDownloadURL } from '@/api/hooks/useDocuments'
+import type { DocumentFile } from '@/api/types/document-types'
 
 interface FilePreviewModalProps {
-  file: DocFile | null
+  file: DocumentFile | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-const typeIcons: Record<string, typeof FileText> = {
-  pdf: FileText,
-  word: FileText,
-  excel: FileSpreadsheet,
-  image: Image,
-  video: Film,
-  archive: Archive,
-  other: File,
+function formatBytes(bytes: number): string {
+  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${bytes} B`
 }
 
-const typeColors: Record<string, string> = {
-  pdf: 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400',
-  word: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400',
-  excel: 'bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400',
-  image: 'bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400',
-  video: 'bg-pink-50 text-pink-600 dark:bg-pink-950 dark:text-pink-400',
-  archive: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
-  other: 'bg-gray-50 text-gray-600 dark:bg-gray-950 dark:text-gray-400',
+function getMimeCategory(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType === 'application/pdf') return 'pdf'
+  if (mimeType.startsWith('text/') || mimeType === 'application/json') return 'text'
+  if (mimeType.startsWith('video/')) return 'video'
+  return 'other'
 }
 
-export function FilePreviewModal({ file, open, onOpenChange }: FilePreviewModalProps) {
+function getFileIcon(mimeType: string) {
+  const cat = getMimeCategory(mimeType)
+  switch (cat) {
+    case 'image':
+      return Image
+    case 'pdf':
+      return FileText
+    case 'video':
+      return Film
+    default:
+      if (mimeType.includes('spreadsheet') || mimeType.includes('excel'))
+        return FileSpreadsheet
+      if (mimeType.includes('zip') || mimeType.includes('archive'))
+        return Archive
+      return File
+  }
+}
+
+function TextPreview({ url }: { url: string }) {
+  const [content, setContent] = useState<string | null>(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(url)
+      .then((res) => res.text())
+      .then((text) => {
+        if (!cancelled) setContent(text)
+      })
+      .catch(() => {
+        if (!cancelled) setError(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <p className="text-sm text-muted-foreground">
+          Textvorschau konnte nicht geladen werden.
+        </p>
+      </div>
+    )
+  }
+
+  if (content === null) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <pre className="overflow-auto p-4 text-sm text-foreground font-mono whitespace-pre-wrap break-words max-h-[60vh]">
+      {content}
+    </pre>
+  )
+}
+
+export function FilePreviewModal({
+  file,
+  open,
+  onOpenChange,
+}: FilePreviewModalProps) {
+  const { data: downloadData, isLoading: urlLoading } = useFileDownloadURL(
+    file?.id ?? '',
+  )
+  const presignedURL = downloadData?.url
+
   if (!file) return null
 
-  const Icon = typeIcons[file.type] || File
-  const colorClass = typeColors[file.type] || typeColors.other
+  const Icon = getFileIcon(file.mime_type)
+  const category = getMimeCategory(file.mime_type)
+
+  const handleDownload = () => {
+    if (presignedURL) {
+      window.open(presignedURL, '_blank')
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,63 +138,73 @@ export function FilePreviewModal({ file, open, onOpenChange }: FilePreviewModalP
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 pr-8">
             <Icon className="h-5 w-5 shrink-0" />
-            <span className="truncate">{file.name}</span>
+            <span className="truncate">{file.filename}</span>
           </DialogTitle>
         </DialogHeader>
 
         {/* Preview area */}
         <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-secondary/30 min-h-[300px]">
-          {file.type === 'image' ? (
-            <div className="flex items-center justify-center p-8">
-              <div className={`flex h-64 w-full items-center justify-center rounded-lg ${colorClass}`}>
-                <div className="text-center">
-                  <Image className="h-16 w-16 mx-auto mb-3 opacity-60" />
-                  <p className="text-sm font-medium">Bildvorschau</p>
-                  <p className="text-xs opacity-60 mt-1">{file.name}</p>
-                </div>
-              </div>
+          {urlLoading ? (
+            <div className="flex items-center justify-center p-8 h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : file.type === 'pdf' ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-sm p-8 text-center">
-                <FileText className="h-16 w-16 mx-auto mb-4 text-red-500 opacity-60" />
-                <p className="text-sm font-medium text-foreground mb-1">PDF-Dokument</p>
-                <p className="text-xs text-muted-foreground mb-4">{file.name} · {file.size}</p>
-                <p className="text-xs text-muted-foreground italic">
-                  PDF-Vorschau wird in der finalen Version unterstützt
-                </p>
-              </div>
+          ) : category === 'image' && presignedURL ? (
+            <div className="flex items-center justify-center p-4">
+              <img
+                src={presignedURL}
+                alt={file.filename}
+                className="max-w-full max-h-[60vh] object-contain rounded"
+              />
             </div>
-          ) : file.type === 'video' ? (
+          ) : category === 'pdf' && presignedURL ? (
+            <iframe
+              src={presignedURL}
+              title={file.filename}
+              className="w-full h-[60vh] border-0"
+            />
+          ) : category === 'text' && presignedURL ? (
+            <TextPreview url={presignedURL} />
+          ) : category === 'video' && presignedURL ? (
             <div className="flex items-center justify-center p-8">
-              <div className="w-full max-w-lg rounded-lg bg-gray-900 p-8 text-center">
-                <Film className="h-16 w-16 mx-auto mb-4 text-pink-400 opacity-60" />
-                <p className="text-sm font-medium text-white mb-1">Video</p>
-                <p className="text-xs text-gray-400 mb-4">{file.name} · {file.size}</p>
-                <div className="h-2 rounded-full bg-gray-700 mx-auto max-w-xs">
-                  <div className="h-full w-1/3 rounded-full bg-primary" />
-                </div>
-              </div>
+              <video
+                src={presignedURL}
+                controls
+                className="max-w-full max-h-[60vh] rounded"
+              >
+                Video wird nicht unterstuetzt
+              </video>
             </div>
           ) : (
             <div className="flex items-center justify-center p-8">
-              <div className={`flex h-48 w-full max-w-lg items-center justify-center rounded-lg ${colorClass}`}>
-                <div className="text-center">
-                  <Icon className="h-16 w-16 mx-auto mb-3 opacity-60" />
-                  <p className="text-sm font-medium">{file.name}</p>
-                  <p className="text-xs opacity-60 mt-1">{file.size}</p>
-                </div>
+              <div className="w-full max-w-lg text-center">
+                <Icon className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-40" />
+                <p className="text-sm font-medium text-foreground mb-1">
+                  {file.filename}
+                </p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  {file.mime_type} &middot; {formatBytes(file.file_size)}
+                </p>
+                <p className="text-xs text-muted-foreground italic">
+                  Vorschau fuer diesen Dateityp nicht verfuegbar
+                </p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer info */}
+        {/* Footer */}
         <div className="flex items-center justify-between pt-2">
           <div className="text-xs text-muted-foreground">
-            {file.size} · Erstellt von {file.createdBy} · {new Date(file.date).toLocaleDateString('de-CH')}
+            {formatBytes(file.file_size)} &middot; Version{' '}
+            {file.current_version} &middot;{' '}
+            {new Date(file.created_at).toLocaleDateString('de-CH')}
           </div>
-          <Button variant="outline" size="sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            disabled={!presignedURL}
+          >
             <Download className="mr-1.5 h-3.5 w-3.5" />
             Herunterladen
           </Button>

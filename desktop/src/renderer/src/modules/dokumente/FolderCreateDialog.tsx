@@ -1,3 +1,9 @@
+/**
+ * Dialog for creating a new folder.
+ *
+ * Connected to useCreateFolder mutation. Keeps existing UI but
+ * uses API mutation instead of Zustand store action.
+ */
 import { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -10,16 +16,29 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FolderPlus } from 'lucide-react'
+import { toast } from 'sonner'
+import { useCreateFolder } from '@/api/hooks/useDocuments'
+import type { FolderSpaceType } from '@/api/types/document-types'
 
 interface FolderCreateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  parentId?: string | null
   parentName?: string
-  onSubmit: (name: string) => void
+  spaceType: FolderSpaceType
+  spaceId: string
 }
 
-export function FolderCreateDialog({ open, onOpenChange, parentName, onSubmit }: FolderCreateDialogProps) {
+export function FolderCreateDialog({
+  open,
+  onOpenChange,
+  parentId,
+  parentName,
+  spaceType,
+  spaceId,
+}: FolderCreateDialogProps) {
   const [name, setName] = useState('')
+  const createFolder = useCreateFolder()
 
   useEffect(() => {
     if (open) setName('')
@@ -27,8 +46,23 @@ export function FolderCreateDialog({ open, onOpenChange, parentName, onSubmit }:
 
   const handleSubmit = () => {
     if (!name.trim()) return
-    onSubmit(name.trim())
-    onOpenChange(false)
+    createFolder.mutate(
+      {
+        name: name.trim(),
+        parent_id: parentId ?? undefined,
+        space_type: spaceType,
+        space_id: spaceId,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Ordner "${name.trim()}" erstellt`)
+          onOpenChange(false)
+        },
+        onError: (err) => {
+          toast.error(`Fehler: ${err.message}`)
+        },
+      },
+    )
   }
 
   return (
@@ -51,10 +85,15 @@ export function FolderCreateDialog({ open, onOpenChange, parentName, onSubmit }:
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleSubmit} disabled={!name.trim()}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!name.trim() || createFolder.isPending}
+          >
             <FolderPlus className="mr-1.5 h-4 w-4" />
-            Erstellen
+            {createFolder.isPending ? 'Erstelle...' : 'Erstellen'}
           </Button>
         </DialogFooter>
       </DialogContent>
