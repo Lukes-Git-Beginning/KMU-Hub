@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 11 of 20 (Documents & Files + WOPI)
-Plan: 1 of 6 in current phase (1 complete)
+Plan: 2 of 6 in current phase (2 complete)
 Status: In progress
-Last activity: 2026-02-17 -- 11-01 document data foundation complete
+Last activity: 2026-02-17 -- 11-02 document service core business logic complete
 
-Progress: [██████████████████████████░] 86% (57/66 plans across phases 4-20)
+Progress: [███████████████████████████░] 88% (58/66 plans across phases 4-20)
 
 ## Performance Metrics
 
@@ -36,11 +36,11 @@ Progress: [███████████████████████
 
 | 09 | 9/9 | ~62min | ~6.9min |
 | 10 | 7/7 | ~80min | ~11min |
-| 11 | 1/6 | ~5min | ~5min |
+| 11 | 2/6 | ~10min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 10-05 (~12min), 10-06 (~10min), 10-07 (~8min), 11-01 (~5min)
-- Trend: Document foundation plan fast (proto + migrations + models)
+- Last 5 plans: 10-06 (~10min), 10-07 (~8min), 11-01 (~5min), 11-02 (~5min)
+- Trend: Document service plans consistently fast (~5min each)
 
 *Updated after each plan completion*
 
@@ -256,6 +256,11 @@ Recent decisions affecting current work:
 - [11-01]: Service ports :50057 (gRPC) and :9097 (health) following sequential port pattern
 - [11-01]: 34 RPCs in DocumentService covering folders, files, shares, tags, entity links, search, WOPI
 
+- [11-02]: File service reuses chatfile.FileStore interface (no new MinIO client)
+- [11-02]: Version revert creates new version with old content (append-only version history)
+- [11-02]: File move updates folder_id only, MinIO storage key unchanged (reference by file ID)
+- [11-02]: DACH default folders: personal=Dokumente/Bilder/Vorlagen, team=Allgemein/Projekte/Vorlagen
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -269,6 +274,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 11-01-PLAN.md
-Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-01-SUMMARY.md
-Next: Execute 11-02-PLAN.md (document service repositories and business logic)
+Stopped at: Completed 11-02-PLAN.md
+Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-02-SUMMARY.md
+Next: Execute 11-03-PLAN.md (document gRPC server or additional services)
