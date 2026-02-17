@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 10 complete — ready for Phase 11 (Documents & Files + WOPI)
+**Current focus:** Phase 11 in progress (Documents & Files + WOPI/OnlyOffice)
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed
 
 ## Current Position
 
-Phase: 10 of 20 (Email Integration)
-Plan: 7 of 7 in current phase (all complete)
-Status: Complete — pending verification
-Last activity: 2026-02-17 -- Strategy session implementation + Phase 10 completion
+Phase: 11 of 20 (Documents & Files + WOPI)
+Plan: 1 of 6 in current phase (1 complete)
+Status: In progress
+Last activity: 2026-02-17 -- 11-01 document data foundation complete
 
-Progress: [██████████████████████████░] 85% (56/66 plans across phases 4-20)
+Progress: [██████████████████████████░] 86% (57/66 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 56
+- Total plans completed: 57
 - Average duration: ~7 minutes
-- Total execution time: ~6h 08min
+- Total execution time: ~6h 13min
 
 **By Phase:**
 
@@ -36,10 +36,11 @@ Progress: [███████████████████████
 
 | 09 | 9/9 | ~62min | ~6.9min |
 | 10 | 7/7 | ~80min | ~11min |
+| 11 | 1/6 | ~5min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 10-03 (~10min), 10-04 (~8min), 10-05 (~12min), 10-06 (~10min), 10-07 (~8min)
-- Trend: Email backend plans consistent ~10min each
+- Last 5 plans: 10-05 (~12min), 10-06 (~10min), 10-07 (~8min), 11-01 (~5min)
+- Trend: Document foundation plan fast (proto + migrations + models)
 
 *Updated after each plan completion*
 
@@ -250,6 +251,11 @@ Recent decisions affecting current work:
 - [10-04]: tsvector search with German config on email_messages (consistent with CRM contact search)
 - [10-04]: Contact visibility CHECK constraint (shared, personal) with owner_id FK to users
 
+- [11-01]: Document service as separate binary (not shared with work service) due to OS-level docconv/poppler dependencies
+- [11-01]: German tsvector config for document search (consistent with email/CRM search)
+- [11-01]: Service ports :50057 (gRPC) and :9097 (health) following sequential port pattern
+- [11-01]: 34 RPCs in DocumentService covering folders, files, shares, tags, entity links, search, WOPI
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -263,6 +269,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-CONTEXT.md
-Next: Plan Phase 11 (Documents & Files + WOPI/OnlyOffice)
+Stopped at: Completed 11-01-PLAN.md
+Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-01-SUMMARY.md
+Next: Execute 11-02-PLAN.md (document service repositories and business logic)
