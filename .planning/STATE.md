@@ -263,6 +263,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 10 complete, strategy changes committed
-Resume file: .planning/phases/10-email-integration/
-Next: Verify Phase 10, then start Phase 11 planning (Documents & Files + WOPI)
+Stopped at: Phase 11 context gathered
+Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-CONTEXT.md
+Next: Plan Phase 11 (Documents & Files + WOPI/OnlyOffice)
