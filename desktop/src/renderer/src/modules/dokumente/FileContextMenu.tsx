@@ -19,6 +19,7 @@ import {
   Info,
   FolderPlus,
   Upload,
+  FileEdit,
 } from 'lucide-react'
 import type { DocumentFile, DocumentFolder } from '@/api/types/document-types'
 
@@ -43,6 +44,7 @@ interface FileContextMenuProps {
   onVersionHistory: () => void
   onDelete: () => void
   onProperties: () => void
+  onEditInOnlyOffice?: () => void
 }
 
 interface FolderContextMenuProps {
@@ -165,6 +167,7 @@ export function FileContextMenu({
   onVersionHistory,
   onDelete,
   onProperties,
+  onEditInOnlyOffice,
 }: FileContextMenuProps) {
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
 
@@ -179,6 +182,9 @@ export function FileContextMenu({
 
   const items: MenuItem[] = [
     { label: 'Oeffnen', icon: ExternalLink, onClick: onOpen },
+    ...(onEditInOnlyOffice
+      ? [{ label: 'In OnlyOffice bearbeiten', icon: FileEdit, onClick: onEditInOnlyOffice }]
+      : []),
     { label: 'Herunterladen', icon: Download, onClick: onDownload },
     { label: 'Umbenennen', icon: Pencil, onClick: onRename, separator: true },
     { label: 'Verschieben...', icon: FolderInput, onClick: onMove },

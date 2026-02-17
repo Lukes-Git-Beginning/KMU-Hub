@@ -45,6 +45,7 @@ import { RenameDialog } from './RenameDialog'
 import { ShareDialog } from './ShareDialog'
 import { FileContextMenu, FolderContextMenu } from './FileContextMenu'
 import { VersionHistoryPanel } from './VersionHistoryPanel'
+import { OnlyOfficeEditor, isOnlyOfficeEditable } from './OnlyOfficeEditor'
 import {
   useDocumentFolders,
   useDocumentFiles,
@@ -55,6 +56,7 @@ import {
   useMoveFile,
   useVirtualFiles,
   useSharedWithMe,
+  useWOPIToken,
 } from '@/api/hooks/useDocuments'
 import { useDocumentUpload, type UploadFileStatus } from '@/api/hooks/useDocumentUpload'
 import type {
@@ -202,6 +204,14 @@ export default function DokumentePage() {
     name: string
   } | null>(null)
 
+  // OnlyOffice editor state
+  const [onlyOfficeEditor, setOnlyOfficeEditor] = useState<{
+    fileId: string
+    fileName: string
+    token: string
+    ttl: number
+  } | null>(null)
+
   // Upload tracking
   const [uploadFiles, setUploadFiles] = useState<UploadFileStatus[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -249,6 +259,7 @@ export default function DokumentePage() {
   const deleteFolder = useDeleteFolder()
   const moveFile = useMoveFile()
   const upload = useDocumentUpload()
+  const wopiToken = useWOPIToken()
 
   // Derived data
   const files = filesData?.files ?? []
@@ -562,6 +573,23 @@ export default function DokumentePage() {
     if (activeSpecialView === SIDEBAR_VIRTUAL_TASK) return 'Aufgaben-Anhaenge'
     if (breadcrumbs.length > 0) return breadcrumbs[breadcrumbs.length - 1].name
     return 'Alle Dateien'
+  }
+
+  // OnlyOffice editor handler
+  const handleEditInOnlyOffice = async (file: DocumentFile) => {
+    try {
+      const result = await wopiToken.mutateAsync(file.id)
+      setOnlyOfficeEditor({
+        fileId: file.id,
+        fileName: file.filename,
+        token: result.access_token,
+        ttl: result.access_token_ttl,
+      })
+    } catch (err) {
+      toast.error(
+        `Editor konnte nicht geoeffnet werden: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`,
+      )
+    }
   }
 
   return (
@@ -1028,6 +1056,11 @@ export default function DokumentePage() {
                       }
                       onDelete={() => setDeleteConfirmId(file.id)}
                       onProperties={() => setDetailFile(file)}
+                      onEditInOnlyOffice={
+                        isOnlyOfficeEditable(file.mime_type)
+                          ? () => handleEditInOnlyOffice(file)
+                          : undefined
+                      }
                     >
                       <FileGridCard
                         file={file}
@@ -1087,6 +1120,11 @@ export default function DokumentePage() {
                       }
                       onDelete={() => setDeleteConfirmId(file.id)}
                       onProperties={() => setDetailFile(file)}
+                      onEditInOnlyOffice={
+                        isOnlyOfficeEditable(file.mime_type)
+                          ? () => handleEditInOnlyOffice(file)
+                          : undefined
+                      }
                     >
                       <FileListRow
                         file={file}
@@ -1261,6 +1299,21 @@ export default function DokumentePage() {
             variant="destructive"
             onConfirm={handleDeleteFolder}
           />
+
+          {/* OnlyOffice Editor Overlay */}
+          {onlyOfficeEditor && (
+            <OnlyOfficeEditor
+              fileId={onlyOfficeEditor.fileId}
+              fileName={onlyOfficeEditor.fileName}
+              wopiToken={onlyOfficeEditor.token}
+              wopiTokenTTL={onlyOfficeEditor.ttl}
+              onClose={() => setOnlyOfficeEditor(null)}
+              onVersionCreated={() => {
+                // Invalidate file queries since version may have changed
+                setOnlyOfficeEditor(null)
+              }}
+            />
+          )}
         </div>
       )}
 
