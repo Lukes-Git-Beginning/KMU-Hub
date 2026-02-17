@@ -269,12 +269,13 @@ Plans:
   6. User can export a Buchungsstapel in DATEV-compatible CSV format (SKR03) for their Steuerberater
   7. User can create credit notes (Gutschriften) that properly reference the original invoice
   8. User can manage 3-level dunning (Mahnwesen) with automatic overdue detection and escalation
-**Plans**: 3-4 plans (estimated)
+**Plans**: 4 plans
 
 Plans:
-- [ ] 12-01: Biz service foundation + document models (immutable invoice data model, sequential numbering, GoBD constraints, quote/invoice/credit note CRUD)
-- [ ] 12-02: Tax calculation + PDF generation (MwSt/USt rules, Reverse Charge, Kleinunternehmer, PDF templates with Pflichtangaben)
-- [ ] 12-03: Finance workflows + export (deal-to-quote-to-invoice flow, payment tracking, 3-level dunning, overdue alerts, DATEV Buchungsstapel CSV export)
+- [ ] 12-01-PLAN.md -- Biz service data foundation (proto, migrations, models, config, biz binary scaffold, tax calculator TDD)
+- [ ] 12-02-PLAN.md -- Core business logic services (quote, invoice, credit note, payment, dunning, dashboard, PDF generator)
+- [ ] 12-03-PLAN.md -- Connection layer (gRPC server, gateway routes, Docker, DATEV export, CRM deal integration)
+- [ ] 12-04-PLAN.md -- Frontend rewrite (TypeScript types, TanStack Query hooks, FinanzenPage + all components, EUR/de-DE)
 
 ### Phase 13: HR & Zeiterfassung
 **Goal**: Employees can manage leave, track time, and access HR documents within the Hub, fully compliant with German/Swiss labor law. NO payroll -- salary/Lohn is handled by external integrations (Bexio, Abacus, RmA).
@@ -425,7 +426,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
 | 10. Email Integration | 3/7 | In progress | - |
 | 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
-| 12. Rechnungen & Finanzen | 0/3 | Not started | - |
+| 12. Rechnungen & Finanzen | 0/4 | Not started | - |
 | 13. HR & Zeiterfassung | 0/3 | Not started | - |
 | 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
 | 15. CalDAV/CardDAV | 0/2 | Not started | - |
