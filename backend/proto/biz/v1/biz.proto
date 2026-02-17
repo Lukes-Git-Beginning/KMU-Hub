@@ -1,0 +1,699 @@
+syntax = "proto3";
+
+package biz.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/biz/v1;bizv1";
+
+import "google/protobuf/timestamp.proto";
+
+service FinanceService {
+  // ==================== Company Settings ====================
+  rpc GetCompanySettings(GetCompanySettingsRequest) returns (GetCompanySettingsResponse);
+  rpc UpdateCompanySettings(UpdateCompanySettingsRequest) returns (UpdateCompanySettingsResponse);
+
+  // ==================== Quotes ====================
+  rpc CreateQuote(CreateQuoteRequest) returns (CreateQuoteResponse);
+  rpc GetQuote(GetQuoteRequest) returns (GetQuoteResponse);
+  rpc ListQuotes(ListQuotesRequest) returns (ListQuotesResponse);
+  rpc UpdateQuote(UpdateQuoteRequest) returns (UpdateQuoteResponse);
+  rpc DeleteQuote(DeleteQuoteRequest) returns (DeleteQuoteResponse);
+  rpc SendQuote(SendQuoteRequest) returns (SendQuoteResponse);
+  rpc AcceptQuote(AcceptQuoteRequest) returns (AcceptQuoteResponse);
+  rpc RejectQuote(RejectQuoteRequest) returns (RejectQuoteResponse);
+  rpc ExpireQuote(ExpireQuoteRequest) returns (ExpireQuoteResponse);
+  rpc ConvertQuoteToInvoice(ConvertQuoteToInvoiceRequest) returns (ConvertQuoteToInvoiceResponse);
+
+  // ==================== Invoices ====================
+  rpc CreateInvoice(CreateInvoiceRequest) returns (CreateInvoiceResponse);
+  rpc GetInvoice(GetInvoiceRequest) returns (GetInvoiceResponse);
+  rpc ListInvoices(ListInvoicesRequest) returns (ListInvoicesResponse);
+  rpc UpdateInvoice(UpdateInvoiceRequest) returns (UpdateInvoiceResponse);
+  rpc SendInvoice(SendInvoiceRequest) returns (SendInvoiceResponse);
+  rpc MarkInvoicePaid(MarkInvoicePaidRequest) returns (MarkInvoicePaidResponse);
+  rpc CancelInvoice(CancelInvoiceRequest) returns (CancelInvoiceResponse);
+
+  // ==================== Credit Notes ====================
+  rpc CreateCreditNote(CreateCreditNoteRequest) returns (CreateCreditNoteResponse);
+  rpc GetCreditNote(GetCreditNoteRequest) returns (GetCreditNoteResponse);
+  rpc ListCreditNotes(ListCreditNotesRequest) returns (ListCreditNotesResponse);
+  rpc SendCreditNote(SendCreditNoteRequest) returns (SendCreditNoteResponse);
+
+  // ==================== Payments ====================
+  rpc RecordPayment(RecordPaymentRequest) returns (RecordPaymentResponse);
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+  rpc DeletePayment(DeletePaymentRequest) returns (DeletePaymentResponse);
+
+  // ==================== Dunning ====================
+  rpc ListDunnings(ListDunningsRequest) returns (ListDunningsResponse);
+  rpc CreateDunning(CreateDunningRequest) returns (CreateDunningResponse);
+  rpc SendDunning(SendDunningRequest) returns (SendDunningResponse);
+  rpc EscalateDunning(EscalateDunningRequest) returns (EscalateDunningResponse);
+  rpc GetDunningConfig(GetDunningConfigRequest) returns (GetDunningConfigResponse);
+  rpc UpdateDunningConfig(UpdateDunningConfigRequest) returns (UpdateDunningConfigResponse);
+
+  // ==================== Dashboard ====================
+  rpc GetFinanceDashboard(GetFinanceDashboardRequest) returns (GetFinanceDashboardResponse);
+
+  // ==================== DATEV Export ====================
+  rpc ExportDATEV(ExportDATEVRequest) returns (ExportDATEVResponse);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum QuoteStatus {
+  QUOTE_STATUS_UNSPECIFIED = 0;
+  QUOTE_DRAFT = 1;
+  QUOTE_SENT = 2;
+  QUOTE_ACCEPTED = 3;
+  QUOTE_REJECTED = 4;
+  QUOTE_EXPIRED = 5;
+}
+
+enum InvoiceStatus {
+  INVOICE_STATUS_UNSPECIFIED = 0;
+  INVOICE_DRAFT = 1;
+  INVOICE_SENT = 2;
+  INVOICE_PAID = 3;
+  INVOICE_OVERDUE = 4;
+  INVOICE_CANCELLED = 5;
+}
+
+enum CreditNoteStatus {
+  CREDIT_NOTE_STATUS_UNSPECIFIED = 0;
+  CREDIT_DRAFT = 1;
+  CREDIT_SENT = 2;
+}
+
+enum DunningStatus {
+  DUNNING_STATUS_UNSPECIFIED = 0;
+  DUNNING_DRAFT = 1;
+  DUNNING_SENT = 2;
+  DUNNING_PAID = 3;
+}
+
+enum TaxMode {
+  TAX_MODE_UNSPECIFIED = 0;
+  TAX_MODE_STANDARD = 1;
+  TAX_MODE_REVERSE_CHARGE = 2;
+  TAX_MODE_KLEINUNTERNEHMER = 3;
+}
+
+enum PaymentMethod {
+  PAYMENT_METHOD_UNSPECIFIED = 0;
+  PAYMENT_METHOD_BANK_TRANSFER = 1;
+  PAYMENT_METHOD_CASH = 2;
+  PAYMENT_METHOD_CREDIT_CARD = 3;
+  PAYMENT_METHOD_OTHER = 4;
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message LineItem {
+  string id = 1;
+  int32 position = 2;
+  string description = 3;
+  string quantity = 4;              // Decimal as string (e.g., "3.00")
+  string unit_price = 5;           // Decimal as string (e.g., "49.99")
+  string tax_rate = 6;             // Decimal as string (e.g., "19.00", "7.00", "0.00")
+  string line_total = 7;           // Decimal as string (quantity * unit_price)
+}
+
+message TaxBreakdown {
+  string subtotal = 1;             // Sum of all line totals
+  map<string, string> tax_by_rate = 2; // Rate string -> tax amount (e.g., "19" -> "38.00")
+  string total_tax = 3;            // Sum of all tax amounts
+  string gross_total = 4;          // subtotal + total_tax
+}
+
+message CustomerSnapshot {
+  string name = 1;
+  string address = 2;
+  string email = 3;
+  string ust_id_nr = 4;            // For Reverse Charge verification
+}
+
+message CompanySnapshot {
+  string name = 1;
+  string street = 2;
+  string plz = 3;
+  string city = 4;
+  string country = 5;
+  string steuernummer = 6;
+  string ust_id_nr = 7;
+  string handelsregister = 8;
+  string bank_name = 9;
+  string iban = 10;
+  string bic = 11;
+  string logo_url = 12;
+  string accent_color = 13;
+}
+
+message Quote {
+  string id = 1;
+  string quote_number = 2;
+  QuoteStatus status = 3;
+  CustomerSnapshot customer = 4;
+  repeated LineItem line_items = 5;
+  TaxMode tax_mode = 6;
+  TaxBreakdown tax_breakdown = 7;
+  string valid_until = 8;           // Date string YYYY-MM-DD
+  string notes = 9;
+  string deal_id = 10;             // Optional link to CRM deal
+  string source_quote_id = 11;    // Optional self-ref for quote revisions
+  string tenant_id = 12;
+  string created_by = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message Invoice {
+  string id = 1;
+  string invoice_number = 2;
+  InvoiceStatus status = 3;
+  CustomerSnapshot customer = 4;
+  CompanySnapshot company = 5;
+  repeated LineItem line_items = 6;
+  TaxMode tax_mode = 7;
+  TaxBreakdown tax_breakdown = 8;
+  string invoice_date = 9;         // Date string YYYY-MM-DD
+  string delivery_date = 10;       // Date string YYYY-MM-DD
+  string due_date = 11;            // Date string YYYY-MM-DD
+  string payment_terms = 12;
+  bytes snapshot_data = 13;        // Frozen JSON snapshot at send time
+  string source_quote_id = 14;    // Optional link to source quote
+  string notes = 15;
+  string tenant_id = 16;
+  string created_by = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+}
+
+message CreditNote {
+  string id = 1;
+  string credit_note_number = 2;
+  CreditNoteStatus status = 3;
+  string original_invoice_id = 4;  // Required: the invoice being credited
+  CustomerSnapshot customer = 5;
+  repeated LineItem line_items = 6;
+  TaxMode tax_mode = 7;
+  TaxBreakdown tax_breakdown = 8;
+  string reason = 9;
+  string tenant_id = 10;
+  string created_by = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+message Payment {
+  string id = 1;
+  string invoice_id = 2;
+  string amount = 3;               // Decimal as string
+  string payment_date = 4;         // Date string YYYY-MM-DD
+  PaymentMethod method = 5;
+  string reference = 6;
+  string notes = 7;
+  string tenant_id = 8;
+  string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message DunningRecord {
+  string id = 1;
+  string invoice_id = 2;
+  int32 level = 3;                  // 1, 2, or 3
+  DunningStatus status = 4;
+  string fee = 5;                   // Decimal as string
+  string interest = 6;             // Decimal as string
+  google.protobuf.Timestamp sent_at = 7;
+  string tenant_id = 8;
+  string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message DunningConfig {
+  string id = 1;
+  string tenant_id = 2;
+  int32 level1_days_after_due = 3;
+  int32 level2_days_after_level1 = 4;
+  int32 level3_days_after_level2 = 5;
+  string level1_fee = 6;           // Decimal as string
+  string level2_fee = 7;           // Decimal as string
+  string level3_fee = 8;           // Decimal as string
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message CompanySettings {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string street = 4;
+  string plz = 5;
+  string city = 6;
+  string country = 7;
+  string steuernummer = 8;
+  string ust_id_nr = 9;
+  string handelsregister = 10;
+  string bank_name = 11;
+  string iban = 12;
+  string bic = 13;
+  string logo_url = 14;
+  string accent_color = 15;
+  bool is_kleinunternehmer = 16;
+  int32 default_payment_terms_days = 17;
+  int32 default_quote_validity_days = 18;
+  string basiszinssatz = 19;       // Decimal as string (for Verzugszinsen calculation)
+  google.protobuf.Timestamp created_at = 20;
+  google.protobuf.Timestamp updated_at = 21;
+}
+
+message FinanceDashboard {
+  string total_invoiced = 1;       // Sum of all invoices gross_total
+  string total_paid = 2;           // Sum of all payments
+  string total_outstanding = 3;    // Invoiced - Paid (for non-cancelled)
+  string overdue_amount = 4;       // Outstanding where due_date < now
+  int32 quotes_pending = 5;        // Count of sent quotes
+  string conversion_rate = 6;      // Accepted / (Accepted + Rejected + Expired)
+  string average_deal_size = 7;    // Avg invoice gross_total
+  string revenue_forecast = 8;     // Sum of sent quotes * conversion_rate
+  map<string, int32> status_breakdown = 9; // e.g., "draft" -> 5, "sent" -> 12
+  repeated Invoice recent_invoices = 10;
+  repeated Quote expiring_quotes = 11;
+  repeated DunningRecord pending_dunnings = 12;
+}
+
+message DATEVExportRequest {
+  string tenant_id = 1;
+  string start_date = 2;           // YYYY-MM-DD
+  string end_date = 3;             // YYYY-MM-DD
+  string fiscal_year_start = 4;    // YYYY-MM-DD
+}
+
+message DATEVExportResponse {
+  bytes csv_data = 1;
+  string filename = 2;
+  int32 record_count = 3;
+}
+
+// ============================================================================
+// Company Settings Request/Response
+// ============================================================================
+
+message GetCompanySettingsRequest {
+  string tenant_id = 1;
+}
+
+message GetCompanySettingsResponse {
+  CompanySettings settings = 1;
+}
+
+message UpdateCompanySettingsRequest {
+  string tenant_id = 1;
+  CompanySettings settings = 2;
+}
+
+message UpdateCompanySettingsResponse {
+  CompanySettings settings = 1;
+}
+
+// ============================================================================
+// Quote Request/Response
+// ============================================================================
+
+message CreateQuoteRequest {
+  string tenant_id = 1;
+  CustomerSnapshot customer = 2;
+  repeated LineItem line_items = 3;
+  TaxMode tax_mode = 4;
+  string valid_until = 5;          // Date string YYYY-MM-DD
+  string notes = 6;
+  string deal_id = 7;             // Optional
+  string created_by = 8;
+}
+
+message CreateQuoteResponse {
+  Quote quote = 1;
+}
+
+message GetQuoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message GetQuoteResponse {
+  Quote quote = 1;
+}
+
+message ListQuotesRequest {
+  string tenant_id = 1;
+  QuoteStatus status = 2;         // Optional filter
+  string deal_id = 3;             // Optional filter
+  int32 page = 4;
+  int32 per_page = 5;
+}
+
+message ListQuotesResponse {
+  repeated Quote quotes = 1;
+  int32 total = 2;
+}
+
+message UpdateQuoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+  CustomerSnapshot customer = 3;
+  repeated LineItem line_items = 4;
+  TaxMode tax_mode = 5;
+  string valid_until = 6;
+  string notes = 7;
+}
+
+message UpdateQuoteResponse {
+  Quote quote = 1;
+}
+
+message DeleteQuoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message DeleteQuoteResponse {}
+
+message SendQuoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message SendQuoteResponse {
+  Quote quote = 1;
+}
+
+message AcceptQuoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message AcceptQuoteResponse {
+  Quote quote = 1;
+}
+
+message RejectQuoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message RejectQuoteResponse {
+  Quote quote = 1;
+}
+
+message ExpireQuoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message ExpireQuoteResponse {
+  Quote quote = 1;
+}
+
+message ConvertQuoteToInvoiceRequest {
+  string id = 1;
+  string tenant_id = 2;
+  string invoice_date = 3;        // Date string YYYY-MM-DD
+  string due_date = 4;            // Date string YYYY-MM-DD
+  string delivery_date = 5;       // Optional
+  string payment_terms = 6;       // Optional
+}
+
+message ConvertQuoteToInvoiceResponse {
+  Invoice invoice = 1;
+}
+
+// ============================================================================
+// Invoice Request/Response
+// ============================================================================
+
+message CreateInvoiceRequest {
+  string tenant_id = 1;
+  CustomerSnapshot customer = 2;
+  repeated LineItem line_items = 3;
+  TaxMode tax_mode = 4;
+  string invoice_date = 5;
+  string delivery_date = 6;
+  string due_date = 7;
+  string payment_terms = 8;
+  string notes = 9;
+  string source_quote_id = 10;    // Optional
+  string created_by = 11;
+}
+
+message CreateInvoiceResponse {
+  Invoice invoice = 1;
+}
+
+message GetInvoiceRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message GetInvoiceResponse {
+  Invoice invoice = 1;
+}
+
+message ListInvoicesRequest {
+  string tenant_id = 1;
+  InvoiceStatus status = 2;       // Optional filter
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message ListInvoicesResponse {
+  repeated Invoice invoices = 1;
+  int32 total = 2;
+}
+
+message UpdateInvoiceRequest {
+  string id = 1;
+  string tenant_id = 2;
+  CustomerSnapshot customer = 3;
+  repeated LineItem line_items = 4;
+  TaxMode tax_mode = 5;
+  string invoice_date = 6;
+  string delivery_date = 7;
+  string due_date = 8;
+  string payment_terms = 9;
+  string notes = 10;
+}
+
+message UpdateInvoiceResponse {
+  Invoice invoice = 1;
+}
+
+message SendInvoiceRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message SendInvoiceResponse {
+  Invoice invoice = 1;
+}
+
+message MarkInvoicePaidRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message MarkInvoicePaidResponse {
+  Invoice invoice = 1;
+}
+
+message CancelInvoiceRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message CancelInvoiceResponse {
+  Invoice invoice = 1;
+}
+
+// ============================================================================
+// Credit Note Request/Response
+// ============================================================================
+
+message CreateCreditNoteRequest {
+  string tenant_id = 1;
+  string original_invoice_id = 2;
+  CustomerSnapshot customer = 3;
+  repeated LineItem line_items = 4;
+  TaxMode tax_mode = 5;
+  string reason = 6;
+  string created_by = 7;
+}
+
+message CreateCreditNoteResponse {
+  CreditNote credit_note = 1;
+}
+
+message GetCreditNoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message GetCreditNoteResponse {
+  CreditNote credit_note = 1;
+}
+
+message ListCreditNotesRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;          // Optional filter
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message ListCreditNotesResponse {
+  repeated CreditNote credit_notes = 1;
+  int32 total = 2;
+}
+
+message SendCreditNoteRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message SendCreditNoteResponse {
+  CreditNote credit_note = 1;
+}
+
+// ============================================================================
+// Payment Request/Response
+// ============================================================================
+
+message RecordPaymentRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;
+  string amount = 3;              // Decimal as string
+  string payment_date = 4;        // Date string YYYY-MM-DD
+  PaymentMethod method = 5;
+  string reference = 6;
+  string notes = 7;
+  string created_by = 8;
+}
+
+message RecordPaymentResponse {
+  Payment payment = 1;
+}
+
+message ListPaymentsRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;          // Optional filter
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message ListPaymentsResponse {
+  repeated Payment payments = 1;
+  int32 total = 2;
+}
+
+message DeletePaymentRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message DeletePaymentResponse {}
+
+// ============================================================================
+// Dunning Request/Response
+// ============================================================================
+
+message ListDunningsRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;          // Optional filter
+  DunningStatus status = 3;       // Optional filter
+  int32 page = 4;
+  int32 per_page = 5;
+}
+
+message ListDunningsResponse {
+  repeated DunningRecord dunnings = 1;
+  int32 total = 2;
+}
+
+message CreateDunningRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;
+  int32 level = 3;
+  string fee = 4;                 // Decimal as string
+  string interest = 5;            // Decimal as string
+  string created_by = 6;
+}
+
+message CreateDunningResponse {
+  DunningRecord dunning = 1;
+}
+
+message SendDunningRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message SendDunningResponse {
+  DunningRecord dunning = 1;
+}
+
+message EscalateDunningRequest {
+  string invoice_id = 1;
+  string tenant_id = 2;
+  string created_by = 3;
+}
+
+message EscalateDunningResponse {
+  DunningRecord dunning = 1;
+}
+
+message GetDunningConfigRequest {
+  string tenant_id = 1;
+}
+
+message GetDunningConfigResponse {
+  DunningConfig config = 1;
+}
+
+message UpdateDunningConfigRequest {
+  string tenant_id = 1;
+  DunningConfig config = 2;
+}
+
+message UpdateDunningConfigResponse {
+  DunningConfig config = 1;
+}
+
+// ============================================================================
+// Dashboard Request/Response
+// ============================================================================
+
+message GetFinanceDashboardRequest {
+  string tenant_id = 1;
+}
+
+message GetFinanceDashboardResponse {
+  FinanceDashboard dashboard = 1;
+}
+
+// ============================================================================
+// DATEV Export Request/Response
+// ============================================================================
+
+message ExportDATEVRequest {
+  string tenant_id = 1;
+  string start_date = 2;          // YYYY-MM-DD
+  string end_date = 3;            // YYYY-MM-DD
+  string fiscal_year_start = 4;   // YYYY-MM-DD
+}
+
+message ExportDATEVResponse {
+  bytes csv_data = 1;
+  string filename = 2;
+  int32 record_count = 3;
+}
