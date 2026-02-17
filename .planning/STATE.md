@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phases 10-11 complete. Next: Phase 12 (Finanzen)
+**Current focus:** Phase 12 (Rechnungen & Finanzen) in progress -- plan 01 complete
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 11 of 20 (Documents & Files + WOPI) -- COMPLETE
-Plan: All plans complete through Phase 11
-Status: Compliance & Comms milestone COMPLETE (Phases 9-11)
-Last activity: 2026-02-17 -- Phase 10 backend (10-04 to 10-07) + Phase 11 all complete
+Phase: 12 of 20 (Rechnungen & Finanzen) -- IN PROGRESS
+Plan: 1 of 5 complete
+Status: Business Suite milestone started
+Last activity: 2026-02-18 -- Phase 12 plan 01 (data foundation) complete
 
-Progress: [██████████████████████████████] 100% (66/66 plans across phases 4-11)
+Progress: [███████████████████████████████] 100% (67/71 plans across phases 4-12)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 62
+- Total plans completed: 63
 - Average duration: ~7 minutes
-- Total execution time: ~6h 40min
+- Total execution time: ~6h 52min
 
 **By Phase:**
 
@@ -38,10 +38,12 @@ Progress: [███████████████████████
 | 10 | 7/7 | ~80min | ~11min |
 | 11 | 6/6 | ~57min | ~9.5min |
 
+| 12 | 1/5 | ~12min | ~12min |
+
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
-- 66/66 plans done across Phases 4-11
-- Next: Phase 12 (Rechnungen & Finanzen) -- first phase of Business Suite milestone
+- Phase 12 (Rechnungen & Finanzen) started -- Business Suite milestone
+- 67/71 plans done across Phases 4-12
 
 *Updated after each plan completion*
 
@@ -276,6 +278,14 @@ Recent decisions affecting current work:
 - [11-03]: Virtual folder ListAll uses UNION ALL with per-source delegation for filtered requests
 - [11-03]: Extractor returns empty string on error rather than failing (search gracefully degrades)
 
+- [12-01]: 34 RPCs in FinanceService covering quotes, invoices, credit notes, payments, dunning, dashboard, DATEV export
+- [12-01]: Biz service on gRPC :50058, health/metrics on :9098 (following sequential port pattern)
+- [12-01]: All monetary values as string in proto (no native decimal), decimal.Decimal in Go models
+- [12-01]: JSONB for line_items, tax_breakdown, snapshot_data, company_snapshot (document flexibility)
+- [12-01]: Per-line rounding to 2dp in tax calculator prevents cent discrepancies
+- [12-01]: TaxByRate keys use truncated rate strings (e.g., "19" not "19.00") for clean aggregation
+- [12-01]: maroto/v2 added via tools/biz_deps.go for PDF generation in subsequent plans
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -289,6 +299,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-rechnungen-finanzen/12-CONTEXT.md
-Next: Phase 12 (Rechnungen & Finanzen) planning and execution
+Stopped at: Completed 12-01-PLAN.md
+Resume file: .planning/phases/12-rechnungen-finanzen/12-01-SUMMARY.md
+Next: Phase 12 plan 02 (repositories and service layer)
