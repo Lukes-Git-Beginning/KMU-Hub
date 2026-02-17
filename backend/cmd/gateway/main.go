@@ -17,6 +17,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/document/wopi"
 	"github.com/kmuhub/kmuhub/internal/gateway"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
@@ -55,6 +56,7 @@ func main() {
 	registry.Register("notification", cfg.NotificationGRPCAddress)
 	registry.Register("work", cfg.WorkGRPCAddress)
 	registry.Register("email", cfg.EmailGRPCAddress)
+	registry.Register("document", cfg.DocumentGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -119,6 +121,12 @@ func main() {
 	dashboardRepo := gateway.NewPostgresDashboardRepository(pool)
 	dashboardService := gateway.NewDashboardService(dashboardRepo)
 
+	// WOPI handler for OnlyOffice collaborative editing
+	wopiTokenService := wopi.NewTokenService(cfg.WOPIJWTSecret)
+	wopiLockService := wopi.NewLockService(pool)
+	wopiFileAdapter := gateway.NewWOPIFileAdapter(registry)
+	wopiHandler := wopi.NewHandler(wopiTokenService, wopiLockService, wopiFileAdapter, fileStore)
+
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
 		gateway.NewCRMRoutes(registry),
@@ -129,6 +137,8 @@ func main() {
 		gateway.NewVideoRoutes(registry),
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
+		gateway.NewDocumentRoutes(registry),
+		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 	}
@@ -137,6 +147,11 @@ func main() {
 		reg.RegisterRoutes(r, authMiddleware)
 		slog.Info("routes registered", "service", reg.ServiceName())
 	}
+
+	// WOPI protocol routes (root-level, no standard auth -- uses WOPI access_token)
+	wopiRoutes := gateway.NewWOPIRoutes(wopiHandler)
+	wopiRoutes.RegisterRoutes(r, nil)
+	slog.Info("routes registered", "service", "wopi")
 
 	// =========================================================================
 	// WebSocket hub (cross-cutting: needs chat + auth gRPC clients)
