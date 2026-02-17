@@ -44,7 +44,7 @@ const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
 const MailsPage = lazy(() => import('@/modules/mails/MailsPage'))
 const TeamPage = lazy(() => import('@/modules/team/TeamPage'))
-const BuchhaltungPage = lazy(() => import('@/modules/buchhaltung/BuchhaltungPage'))
+const FinanzenPage = lazy(() => import('@/modules/finanzen/FinanzenPage'))
 const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage'))
 const ProfilPage = lazy(() => import('@/modules/profil/ProfilPage'))
 const ComposeWindowPage = lazy(() => import('@/modules/mails/ComposeWindowPage'))
@@ -180,7 +180,7 @@ const router = createHashRouter([
       { path: 'dokumente', element: lazyRoute(DokumentePage) },
       { path: 'mails', element: lazyRoute(MailsPage) },
       { path: 'team', element: lazyRoute(TeamPage) },
-      { path: 'buchhaltung', element: lazyRoute(BuchhaltungPage) },
+      { path: 'finanzen', element: lazyRoute(FinanzenPage) },
       { path: 'infrastruktur', element: lazyRoute(InfrastrukturPage) },
       { path: 'profil', element: lazyRoute(ProfilPage) },
 

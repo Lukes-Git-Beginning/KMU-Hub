@@ -6,6 +6,7 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
 **Current focus:** Phase 10 - Email Integration (design integration complete, email backend next)
+**Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed
 
 ## Current Position
 
@@ -55,6 +56,12 @@ Recent decisions affecting current work:
 - [Roadmap]: Full IMAP+SMTP email in v1 (user decision despite research suggesting deferral)
 - [Roadmap]: Automation and Plugins last (need stable APIs from all other modules)
 - [Roadmap]: Feature gap analysis expansion -- 13 to 18 phases, Meeting Management merged into Phase 8, Security & Compliance as Phase 9 gatekeeper, Documents & Files as Phase 11, 3 integration mini-phases (14-16)
+- [Strategy]: Phase reorder -- Unified Inbox as Phase 14 (NEW), CalDAV shifted to 15, Automation vorgezogen to 16 (was 19), Teams/Slack to 17, Bexio to 18, Abacus+RmA merged into 19 (were 17+18), Plugins stay 20
+- [Strategy]: Buchhaltung → Finanzen rename -- "Rechnungen & Finanzen" scope (invoices, quotes, dunning, DATEV), NOT full FiBu/Buchhaltung
+- [Strategy]: Payroll anti-feature -- Lohnabrechnung NEVER built, integration-only via Bexio/Abacus/RmA. 8 endpoints struck from audit.
+- [Strategy]: Industry modules (Fuhrpark, Produktion, Rapporte, etc.) are Phase 20 plugin candidates, NOT core endpoints
+- [Strategy]: WOPI/OnlyOffice added to Phase 11 (Documents) for collaborative document editing
+- [Strategy]: Event infrastructure (pg_notify + events table) built in Phase 14, prerequisite for Automation Engine
 - [04-01]: WebSocket hub stays in main.go (cross-cutting, needs both chat + auth clients)
 - [04-02]: Raw pgx over pgxlisten for event bus (pgxlisten pre-v1, unstable)
 - [04-02]: Dual write (events table + pg_notify) for event durability
@@ -255,7 +262,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-16
-Stopped at: Completed 10-04-PLAN.md (email service data foundation)
+Last session: 2026-02-17
+Stopped at: Product strategy implementation (phase reorder, finanzen rename, payroll removal)
 Resume file: .planning/phases/10-email-integration/10-04-SUMMARY.md
 Next: Execute 10-05 (email account management + IMAP sync engine)

@@ -2,16 +2,17 @@
 
 ## Overview
 
-KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehensive workplace platform across 17 additional phases (20 total). The journey continues with Project Management (including Gantt and time tracking), then Calendar and an expanded Video/Voice/Meetings phase. Security & Compliance gates the Beta release with 2FA, audit logging, DSGVO compliance, and i18n. Email and Documents round out the communication layer with global search. Finance and HR deliver the Business Suite. Five focused integration mini-phases (CalDAV, Teams/Slack, Bexio, Abacus, Run my Accounts) connect the Hub to the Swiss/DACH business ecosystem. Finally, Automation and Plugins provide the extensibility layer. The architecture consolidates new modules into 3 backend services (Work, Biz, Automation) to keep operational complexity manageable for a solo developer.
+KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehensive workplace platform across 17 additional phases (20 total). The journey continues with Project Management (including Gantt and time tracking), then Calendar and an expanded Video/Voice/Meetings phase. Security & Compliance gates the Beta release with 2FA, audit logging, DSGVO compliance, and i18n. Email and Documents round out the communication layer with global search. Finance ("Rechnungen & Finanzen", NOT full accounting) and HR deliver the Business Suite. Event Infrastructure and Unified Inbox aggregate all communication channels. CalDAV/CardDAV provides external calendar/contact sync. Automation Engine (vorgezogen as killer feature) enables cross-module workflows. Integration mini-phases (Teams/Slack, Bexio, Abacus+RmA merged) connect to the DACH ecosystem. Finally, Plugins provide the extensibility layer with industry templates. The architecture consolidates new modules into 3 backend services (Work, Biz, Automation) to keep operational complexity manageable for a solo developer.
 
 ## Milestones
 
 - ✅ **Foundation** - Phases 1-3 (Auth/Infra, CRM Core, Chat & Messaging)
 - ✅ **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
-- 📋 **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files -- enterprise-ready communication)
-- 📋 **Business Suite** - Phases 12-13 (Finance, HR -- operational and revenue tools)
-- 📋 **Integrations** - Phases 14-18 (CalDAV/CardDAV, Teams/Slack, Bexio, Abacus, Run my Accounts -- external connectivity)
-- 📋 **Extensibility** - Phases 19-20 (Automation, Plugins -- customization and integration layer)
+- 📋 **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
+- 📋 **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
+- 📋 **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
+- 📋 **Integrations** - Phases 17-19 (Teams/Slack, Bexio, Abacus + Run my Accounts -- external DACH connectivity)
+- 📋 **Extensibility** - Phase 20 (Plugin System + Industry Templates -- customization layer)
 
 ## Phases
 
@@ -36,25 +37,28 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 - [x] **Phase 9: Security & Compliance** - 2FA, audit log, DSGVO export/deletion, session management, secret vault, i18n (DE/FR/IT/EN)
 - [ ] **Phase 10: Email Integration** - Design integration (complete), full IMAP/SMTP email, CRM auto-linking, threading, contact import/export
-- [ ] **Phase 11: Documents & Files** - File browser, upload, preview, versioning, sharing, full-text search, tags, global search
+- [ ] **Phase 11: Documents & Files + WOPI** - File browser, upload, preview, versioning, sharing, full-text search, tags, global search, WOPI endpoints for OnlyOffice
 
 ### Business Suite (Phases 12-13)
 
-- [ ] **Phase 12: Finance Module** - GoBD-compliant quotes and invoices, tax calculation, DATEV export
-- [ ] **Phase 13: HR Module** - Leave management, time tracking, employee profiles, ArbZG/BUrlG compliance
+- [ ] **Phase 12: Rechnungen & Finanzen** - GoBD-compliant quotes and invoices, tax calculation, DATEV export, 3-level dunning (NO full accounting, NO payroll)
+- [ ] **Phase 13: HR & Zeiterfassung** - Leave management, time tracking, employee profiles, ArbZG/BUrlG compliance
 
-### Integrations (Phases 14-18)
+### Aggregation & Automation (Phases 14-16)
 
-- [ ] **Phase 14: Integration - CalDAV/CardDAV** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS
-- [ ] **Phase 15: Integration - Teams & Slack** - Notification forwarding and basic bidirectional interaction
-- [ ] **Phase 16: Integration - Bexio** - Contact and invoice sync with Bexio accounting
-- [ ] **Phase 17: Integration - Abacus** - Contact and invoice sync with Abacus ERP/accounting
-- [ ] **Phase 18: Integration - Run my Accounts** - Contact and financial document sync with Run my Accounts
+- [ ] **Phase 14: Event Infrastructure + Unified Inbox** - PostgreSQL LISTEN/NOTIFY event system, channel adapters (Email/Chat/Notifications), materialized inbox, routing engine
+- [ ] **Phase 15: CalDAV/CardDAV Integration** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS
+- [ ] **Phase 16: Automation Engine** - Trigger-condition-action workflows across all modules, pre-built automations
 
-### Extensibility (Phases 19-20)
+### Integrations (Phases 17-19)
 
-- [ ] **Phase 19: Automation Engine** - Trigger-condition-action workflows across all modules
-- [ ] **Phase 20: Plugin System** - Config-based customization, WASM runtime, extension points, industry templates
+- [ ] **Phase 17: Integration - Teams & Slack** - Notification forwarding and basic bidirectional interaction
+- [ ] **Phase 18: Integration - Bexio** - Contact and invoice sync with Bexio accounting
+- [ ] **Phase 19: Integration - Abacus + Run my Accounts** - Contact and invoice sync with Abacus ERP and Run my Accounts cloud accounting (merged)
+
+### Extensibility (Phase 20)
+
+- [ ] **Phase 20: Plugin System + Industry Templates** - Config-based customization, WASM runtime, extension points, industry templates (Branchenvorlagen)
 
 ## Phase Details
 
@@ -227,8 +231,8 @@ Plans:
 - [ ] 10-06-PLAN.md -- Email UI + gRPC + gateway + CRM integration (gRPC server ~35 RPCs, ~40 HTTP routes, Docker, TipTap v3 compose editor, three-column inbox UI, threaded conversations, signature builder with Impressum, CRM badge + auto-link)
 - [ ] 10-07-PLAN.md -- Contact import/export + two-level visibility (CSV/vCard import with field mapping + auto-merge, CSV/vCard export with field selection, shared/personal contact visibility with admin override, 5-step import wizard UI)
 
-### Phase 11: Documents & Files
-**Goal**: Users can manage, share, and find documents and files across the entire Hub from a central file manager, with a global search spanning all modules
+### Phase 11: Documents & Files + WOPI/OnlyOffice
+**Goal**: Users can manage, share, and find documents and files across the entire Hub from a central file manager, with a global search spanning all modules and collaborative document editing via OnlyOffice
 **Depends on**: Phase 3 (Chat -- MinIO file infrastructure), Phase 6 (PM -- task file attachments)
 **Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, DOC-07, DOC-08, DOC-09, DOC-10
 **Success Criteria** (what must be TRUE):
@@ -240,37 +244,42 @@ Plans:
   6. User can search files by name, content, and tags across the entire file store
   7. User can search across ALL modules (CRM, PM, Chat, Email, Files) from a single global search bar with unified ranked results
   8. Chat file attachments are accessible through the central file manager and subject to per-user/per-role access controls
-**Plans**: 4 plans (estimated)
+  9. User can open .docx/.xlsx/.pptx files in OnlyOffice for collaborative editing via WOPI protocol
+**Plans**: 5 plans (estimated)
 
 Plans:
 - [ ] 11-01: File service + folder structure (folder CRUD, file metadata, MinIO integration, permission model)
 - [ ] 11-02: File UI + preview + versioning (folder browser, drag-drop upload, inline preview, version history)
 - [ ] 11-03: File search + tagging (full-text extraction, tag CRUD, search indexing)
 - [ ] 11-04: Global search (unified search across CRM, PM, Chat, Email, Files with ranked results)
+- [ ] 11-05: WOPI endpoints + OnlyOffice (CheckFileInfo, GetFile, PutFile, Lock management, JWT tokens, Docker, versioning)
 
-### Phase 12: Finance Module
-**Goal**: Users can create legally compliant quotes and invoices, track payments, and export to their Steuerberater -- replacing standalone invoicing tools
+### Phase 12: Rechnungen & Finanzen
+**Goal**: Users can create legally compliant quotes and invoices, track payments, manage dunning, and export to their Steuerberater -- replacing standalone invoicing tools. This is NOT full accounting (Buchhaltung/FiBu) -- no double-entry bookkeeping, no payroll.
 **Depends on**: Phase 2 (CRM -- deal-to-quote flow), Phase 4 (Notifications -- overdue invoice alerts)
 **Requirements**: FIN-01, FIN-02, FIN-03, FIN-04, FIN-05, FIN-06, FIN-07
+**Anti-Features**: No payroll/Lohnabrechnung (integration only via Bexio/Abacus/RmA), no doppelte Buchfuehrung
 **Success Criteria** (what must be TRUE):
   1. User can create a quote (Angebot) with line items and tax calculation, and generate a PDF
   2. User can create an invoice (Rechnung) that is GoBD-compliant: immutable once sent, sequentially numbered, containing all legally required fields (Pflichtangaben)
   3. System correctly calculates MwSt/USt at 19% standard, 7% reduced, 0% for EU B2B Reverse Charge, and supports Kleinunternehmerregelung
   4. User can track payment status per invoice (draft, sent, overdue, paid, cancelled) and see a dashboard overview
   5. User can convert a CRM deal to a quote and then to an invoice in a seamless multi-step flow
-  6. User can export a Buchungsstapel in DATEV-compatible CSV format for their Steuerberater
+  6. User can export a Buchungsstapel in DATEV-compatible CSV format (SKR03) for their Steuerberater
   7. User can create credit notes (Gutschriften) that properly reference the original invoice
-**Plans**: TBD
+  8. User can manage 3-level dunning (Mahnwesen) with automatic overdue detection and escalation
+**Plans**: 3-4 plans (estimated)
 
 Plans:
 - [ ] 12-01: Biz service foundation + document models (immutable invoice data model, sequential numbering, GoBD constraints, quote/invoice/credit note CRUD)
 - [ ] 12-02: Tax calculation + PDF generation (MwSt/USt rules, Reverse Charge, Kleinunternehmer, PDF templates with Pflichtangaben)
-- [ ] 12-03: Finance workflows + export (deal-to-quote-to-invoice flow, payment tracking, overdue alerts, DATEV Buchungsstapel CSV export)
+- [ ] 12-03: Finance workflows + export (deal-to-quote-to-invoice flow, payment tracking, 3-level dunning, overdue alerts, DATEV Buchungsstapel CSV export)
 
-### Phase 13: HR Module
-**Goal**: Employees can manage leave, track time, and access HR documents within the Hub, fully compliant with German labor law
+### Phase 13: HR & Zeiterfassung
+**Goal**: Employees can manage leave, track time, and access HR documents within the Hub, fully compliant with German/Swiss labor law. NO payroll -- salary/Lohn is handled by external integrations (Bexio, Abacus, RmA).
 **Depends on**: Phase 7 (Calendar -- absence calendar integration), Phase 12 (Finance -- Biz service exists for HR sub-domain)
 **Requirements**: HR-01, HR-02, HR-03, HR-04, HR-05, HR-06, HR-07
+**Anti-Features**: No payroll/Lohnabrechnung (integration only), no CH social security calculations (AHV/IV/EO, BVG)
 **Success Criteria** (what must be TRUE):
   1. Employee can submit a leave request and their manager receives it for approval, with the full request/approve/reject workflow
   2. System correctly calculates leave balance per BUrlG (20-30 days based on contract, part-time pro-rata, carryover to March 31)
@@ -279,14 +288,31 @@ Plans:
   5. Time tracking enforces ArbZG rules: warns at 8h, blocks at 10h daily, enforces 11h rest between shifts, and requires breaks
   6. Employee profiles include department, position, and contract type, with access-controlled document storage (contracts, Zeugnisse)
   7. Sick leave can be recorded with AU (doctor's note) upload required after 3 consecutive days
-**Plans**: TBD
+**Plans**: 3-4 plans (estimated)
 
 Plans:
 - [ ] 13-01: Leave management (request/approval workflow, BUrlG balance calculation, absence calendar integration)
 - [ ] 13-02: Time tracking (clock in/out, ArbZG rule enforcement, daily/weekly summaries, break validation)
 - [ ] 13-03: Employee profiles + documents (HR data extension of auth users, document storage in MinIO, sick leave with AU upload)
 
-### Phase 14: Integration - CalDAV/CardDAV
+### Phase 14: Event Infrastructure + Unified Inbox
+**Goal**: All modules emit structured events via PostgreSQL LISTEN/NOTIFY, and users get a single aggregated inbox across Email, Chat, and Notifications -- the foundation for Automation Engine
+**Depends on**: Phase 10 (Email -- email channel), Phase 3 (Chat -- chat channel), Phase 4 (Notifications -- notification channel)
+**Requirements**: INBOX-01, INBOX-02, INBOX-03, EVENT-01
+**Success Criteria** (what must be TRUE):
+  1. All existing services emit structured events via PostgreSQL events table + pg_notify
+  2. User sees a unified inbox aggregating Email, Chat DMs/@mentions, and Notifications in a single view
+  3. User can reply, mark-read, and triage items from the unified inbox without switching modules
+  4. Team inboxes allow shared mailbox concepts with assignment and routing rules
+  5. Channel adapters normalize messages from different sources into a unified format
+**Plans**: 3 plans (estimated)
+
+Plans:
+- [ ] 14-01: Event infrastructure (events table, pg_notify emitting in all services, event consumer framework)
+- [ ] 14-02: Unified Inbox service + channel adapters (EmailAdapter, ChatAdapter, NotificationAdapter, MessageNormalizer, inbox_messages materialized table)
+- [ ] 14-03: Unified Inbox UI + routing engine (three-column inbox, team inboxes, condition-action routing rules)
+
+### Phase 15: CalDAV/CardDAV Integration
 **Goal**: External calendar and contact clients (Outlook, Thunderbird, macOS) can sync bidirectionally with KMU Hub
 **Depends on**: Phase 7 (Calendar -- calendar data model), Phase 2 (CRM -- contact data model)
 **Requirements**: INT-01, INT-02, INT-03
@@ -297,10 +323,28 @@ Plans:
 **Plans**: 2 plans (estimated)
 
 Plans:
-- [ ] 14-01: CalDAV server (go-webdav integration, event CRUD via CalDAV protocol, auth, ACL)
-- [ ] 14-02: CardDAV server + sync testing (contact CRUD via CardDAV, multi-client testing)
+- [ ] 15-01: CalDAV server (go-webdav integration, event CRUD via CalDAV protocol, auth, ACL)
+- [ ] 15-02: CardDAV server + sync testing (contact CRUD via CardDAV, multi-client testing)
 
-### Phase 15: Integration - Teams & Slack
+### Phase 16: Automation Engine
+**Goal**: Users can automate repetitive workflows across all Hub modules using simple trigger-action rules -- the "killer feature" of an all-in-one platform
+**Depends on**: Phase 14 (Event Infrastructure -- event consumer framework), all prior modules (stable APIs)
+**Requirements**: AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05, AUTO-06
+**Success Criteria** (what must be TRUE):
+  1. User can create an automation rule like "When a deal moves to Won stage, create an invoice draft" using a trigger-action model
+  2. System offers 10-15 pre-built triggers across modules (deal stage change, task completed, invoice overdue, leave approved, new email from CRM contact, etc.)
+  3. System offers 8-10 pre-built actions across modules (send notification, create task, send email, update CRM field, create calendar event, etc.)
+  4. User can add conditional logic with if/else branching and AND/OR operators (e.g., "only if deal value > 10000")
+  5. User can view execution logs showing when each automation ran, what triggered it, what it did, and whether it succeeded or failed
+  6. User can enable/disable automations without deleting them (pause and resume)
+**Plans**: 3 plans (estimated)
+
+Plans:
+- [ ] 16-01: Automation service foundation (event consumer via LISTEN/NOTIFY, workflow storage, trigger registry, action registry)
+- [ ] 16-02: Workflow execution engine (condition evaluation with expr-lang, action execution via gRPC, execution logging, enable/disable)
+- [ ] 16-03: Pre-built automations (10-15 triggers + 8-10 actions across all modules, testing, documentation)
+
+### Phase 17: Integration - Teams & Slack
 **Goal**: KMU Hub notifications and basic interactions flow to/from Microsoft Teams and Slack
 **Depends on**: Phase 4 (Notifications -- notification infrastructure), Phase 9 (Security -- webhook secret management)
 **Requirements**: INT-04, INT-05, INT-06
@@ -310,10 +354,10 @@ Plans:
 **Plans**: 2 plans (estimated)
 
 Plans:
-- [ ] 15-01: Outbound webhooks (Teams + Slack webhook configuration, notification forwarding, message formatting)
-- [ ] 15-02: Inbound interactions (Teams/Slack interactive messages, response routing back to KMU Hub)
+- [ ] 17-01: Outbound webhooks (Teams + Slack webhook configuration, notification forwarding, message formatting)
+- [ ] 17-02: Inbound interactions (Teams/Slack interactive messages, response routing back to KMU Hub)
 
-### Phase 16: Integration - Bexio
+### Phase 18: Integration - Bexio
 **Goal**: Swiss SMBs can sync their CRM contacts and invoices with Bexio accounting software
 **Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices)
 **Requirements**: INT-07, INT-08, INT-09
@@ -324,58 +368,29 @@ Plans:
 **Plans**: 2 plans (estimated)
 
 Plans:
-- [ ] 16-01: Bexio connector (OAuth2 flow, API client, contact sync engine)
-- [ ] 16-02: Invoice sync + conflict resolution (invoice push to Bexio, field mapping, error handling)
+- [ ] 18-01: Bexio connector (OAuth2 flow, API client, contact sync engine)
+- [ ] 18-02: Invoice sync + conflict resolution (invoice push to Bexio, field mapping, error handling)
 
-### Phase 17: Integration - Abacus
-**Goal**: Swiss SMBs can sync their CRM contacts and invoices with Abacus ERP/accounting software
+### Phase 19: Integration - Abacus + Run my Accounts
+**Goal**: Swiss SMBs can sync their CRM contacts and invoices with Abacus ERP and Run my Accounts cloud accounting (merged phase -- both are CH accounting integrations with similar patterns)
 **Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices)
-**Requirements**: INT-10, INT-11, INT-12
+**Requirements**: INT-10, INT-11, INT-12, INT-13, INT-14, INT-15
 **Success Criteria** (what must be TRUE):
   1. Admin can authenticate with Abacus ERP via API key or OAuth2
   2. Contacts sync bidirectionally between KMU Hub CRM and Abacus
   3. Invoices created in KMU Hub are pushed to Abacus
+  4. Admin can authenticate with Run my Accounts API
+  5. Contacts sync bidirectionally between KMU Hub CRM and Run my Accounts
+  6. Financial documents sync from KMU Hub Finance to Run my Accounts
 **Plans**: 2 plans (estimated)
 
 Plans:
-- [ ] 17-01: Abacus connector (OAuth2/API key flow, API client, contact sync engine)
-- [ ] 17-02: Invoice sync + conflict resolution (invoice push to Abacus, field mapping, error handling)
+- [ ] 19-01: Abacus + Run my Accounts connectors (OAuth2/API key flows, API clients, contact sync engines, shared integration framework)
+- [ ] 19-02: Invoice + document sync + conflict resolution (invoice push, field mapping, error handling, reconciliation)
 
-### Phase 18: Integration - Run my Accounts
-**Goal**: Swiss SMBs can sync their CRM contacts and financial documents with Run my Accounts cloud accounting
-**Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices)
-**Requirements**: INT-13, INT-14, INT-15
-**Success Criteria** (what must be TRUE):
-  1. Admin can authenticate with Run my Accounts API
-  2. Contacts sync bidirectionally between KMU Hub CRM and Run my Accounts
-  3. Financial documents sync from KMU Hub Finance to Run my Accounts
-**Plans**: 2 plans (estimated)
-
-Plans:
-- [ ] 18-01: Run my Accounts connector (auth flow, API client, contact sync)
-- [ ] 18-02: Financial document sync + error handling (document push, field mapping, reconciliation)
-
-### Phase 19: Automation Engine
-**Goal**: Users can automate repetitive workflows across all Hub modules using simple trigger-action rules
-**Depends on**: Phases 4-18 (all modules emitting events via PostgreSQL LISTEN/NOTIFY)
-**Requirements**: AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05, AUTO-06
-**Success Criteria** (what must be TRUE):
-  1. User can create an automation rule like "When a deal moves to Won stage, create an invoice draft" using a trigger-action model
-  2. System offers 10-15 pre-built triggers across modules (deal stage change, task completed, invoice overdue, leave approved, new email from CRM contact, etc.)
-  3. System offers 8-10 pre-built actions across modules (send notification, create task, send email, update CRM field, create calendar event, etc.)
-  4. User can add conditional logic with if/else branching and AND/OR operators (e.g., "only if deal value > 10000")
-  5. User can view execution logs showing when each automation ran, what triggered it, what it did, and whether it succeeded or failed
-  6. User can enable/disable automations without deleting them (pause and resume)
-**Plans**: TBD
-
-Plans:
-- [ ] 19-01: Automation service foundation (event consumer via LISTEN/NOTIFY, workflow storage, trigger registry, action registry)
-- [ ] 19-02: Workflow execution engine (condition evaluation with expr-lang, action execution via gRPC, execution logging, enable/disable)
-- [ ] 19-03: Pre-built automations (10-15 triggers + 8-10 actions across all modules, testing, documentation)
-
-### Phase 20: Plugin System
-**Goal**: Admins can customize the Hub for their company's specific processes without modifying source code, and developers can extend it via sandboxed WASM plugins
-**Depends on**: Phase 19 (Automation -- plugin triggers via workflow engine), all modules (stable extension points)
+### Phase 20: Plugin System + Industry Templates
+**Goal**: Admins can customize the Hub for their company's specific processes without modifying source code, and developers can extend it via sandboxed WASM plugins. Industry modules (Fuhrpark, Produktion, Rapporte, etc.) are implemented as plugin templates, NOT as core backend endpoints.
+**Depends on**: Phase 16 (Automation -- plugin triggers via workflow engine), all modules (stable extension points)
 **Requirements**: PLUG-01, PLUG-02, PLUG-03, PLUG-04, PLUG-05, PLUG-06, PLUG-07
 **Success Criteria** (what must be TRUE):
   1. Admin can customize the Hub via config-based settings (custom fields, validation rules, workflow rules) without writing any code
@@ -385,7 +400,7 @@ Plans:
   5. Each module provides defined extension points (before/after hooks on CRUD operations) that plugins can register for
   6. Plugins access Hub data through a versioned, rate-limited API -- never through direct database access
   7. Industry-specific configuration templates (Branchenvorlagen) are available for at least 3 common DACH industries (e.g., Handwerk, Beratung, Handel)
-**Plans**: TBD
+**Plans**: 4 plans (estimated)
 
 Plans:
 - [ ] 20-01: Config-based customization framework (extend existing custom fields, add workflow rules, validation rules, UI for admin configuration)
@@ -408,18 +423,18 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 8. Video, Voice & Meetings | 9/9 | Complete | 2026-02-11 |
 | 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
 | 10. Email Integration | 3/7 | In progress | - |
-| 11. Documents & Files | 0/4 | Not started | - |
-| 12. Finance Module | 0/3 | Not started | - |
-| 13. HR Module | 0/3 | Not started | - |
-| 14. Integration: CalDAV/CardDAV | 0/2 | Not started | - |
-| 15. Integration: Teams & Slack | 0/2 | Not started | - |
-| 16. Integration: Bexio | 0/2 | Not started | - |
-| 17. Integration: Abacus | 0/2 | Not started | - |
-| 18. Integration: Run my Accounts | 0/2 | Not started | - |
-| 19. Automation Engine | 0/3 | Not started | - |
-| 20. Plugin System | 0/4 | Not started | - |
+| 11. Documents & Files + WOPI | 0/5 | Not started | - |
+| 12. Rechnungen & Finanzen | 0/3 | Not started | - |
+| 13. HR & Zeiterfassung | 0/3 | Not started | - |
+| 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
+| 15. CalDAV/CardDAV | 0/2 | Not started | - |
+| 16. Automation Engine | 0/3 | Not started | - |
+| 17. Integration: Teams & Slack | 0/2 | Not started | - |
+| 18. Integration: Bexio | 0/2 | Not started | - |
+| 19. Integration: Abacus + RmA | 0/2 | Not started | - |
+| 20. Plugin System + Templates | 0/4 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-16 after design integration (Plans 10-01 to 10-03 complete)*
+*Last updated: 2026-02-17 after product strategy session (phase reorder, finanzen rename, payroll removed)*

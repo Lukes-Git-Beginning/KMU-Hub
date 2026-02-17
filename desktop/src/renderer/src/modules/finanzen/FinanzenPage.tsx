@@ -51,7 +51,7 @@ const invoiceStatusConfig: Record<string, { label: string; colors: string; icon:
   cancelled: { label: 'Storniert', colors: 'bg-secondary text-muted-foreground', icon: XCircle },
 }
 
-export default function BuchhaltungPage() {
+export default function FinanzenPage() {
   const {
     invoices, transactions, expenses, dunnings,
     deleteInvoice, duplicateInvoice, sendInvoice, cancelInvoice,
@@ -173,7 +173,7 @@ export default function BuchhaltungPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-foreground">Buchhaltung</h1>
+          <h1 className="text-foreground">Finanzen</h1>
           <p className="text-sm text-muted-foreground">Rechnungen, Transaktionen und Ausgaben</p>
         </div>
         <div className="flex gap-2">

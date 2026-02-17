@@ -36,8 +36,8 @@ const allSearchData: SearchResult[] = [
   { id: 'd1', title: 'Q1 Budget.xlsx', category: 'Dokumente', categoryIcon: FileText, path: '/dokumente', description: 'Finanzen', iconColor: 'text-purple-600', bgColor: 'bg-purple-500/10' },
   { id: 'd2', title: 'Vertrag_Kunde_A.pdf', category: 'Dokumente', categoryIcon: FileText, path: '/dokumente', description: 'Legal', iconColor: 'text-purple-600', bgColor: 'bg-purple-500/10' },
   { id: 'd3', title: 'Projektplan_2025.docx', category: 'Dokumente', categoryIcon: FileText, path: '/dokumente', description: 'Planung', iconColor: 'text-purple-600', bgColor: 'bg-purple-500/10' },
-  { id: 'a1', title: 'Rechnung #2024-156', category: 'Buchhaltung', categoryIcon: Calculator, path: '/buchhaltung', description: 'CHF 12,500', iconColor: 'text-orange-600', bgColor: 'bg-orange-500/10' },
-  { id: 'a2', title: 'Bexio Integration', category: 'Buchhaltung', categoryIcon: Calculator, path: '/buchhaltung', description: 'Verbunden', iconColor: 'text-orange-600', bgColor: 'bg-orange-500/10' },
+  { id: 'a1', title: 'Rechnung #2024-156', category: 'Finanzen', categoryIcon: Calculator, path: '/finanzen', description: 'CHF 12,500', iconColor: 'text-orange-600', bgColor: 'bg-orange-500/10' },
+  { id: 'a2', title: 'Bexio Integration', category: 'Finanzen', categoryIcon: Calculator, path: '/finanzen', description: 'Verbunden', iconColor: 'text-orange-600', bgColor: 'bg-orange-500/10' },
   { id: 'c1', title: 'Michael Berg', category: 'Kontakte', categoryIcon: MessageSquare, path: '/kontakte', description: 'Senior Designer', iconColor: 'text-pink-600', bgColor: 'bg-pink-500/10' },
   { id: 'c2', title: 'Sarah Klein', category: 'Kontakte', categoryIcon: MessageSquare, path: '/kontakte', description: 'Lead Developer', iconColor: 'text-pink-600', bgColor: 'bg-pink-500/10' },
   { id: 'c3', title: 'Anna Mueller', category: 'Kontakte', categoryIcon: MessageSquare, path: '/kontakte', description: 'Project Manager', iconColor: 'text-pink-600', bgColor: 'bg-pink-500/10' },
@@ -45,7 +45,7 @@ const allSearchData: SearchResult[] = [
   { id: 'tm2', title: 'Entwickler Team', category: 'Team', categoryIcon: Users, path: '/team', description: '5 Mitglieder', iconColor: 'text-cyan-600', bgColor: 'bg-cyan-500/10' },
 ]
 
-const categoryFilters = ['Alle', 'Projekte', 'Aufgaben', 'Dokumente', 'Kontakte', 'Buchhaltung', 'Team']
+const categoryFilters = ['Alle', 'Projekte', 'Aufgaben', 'Dokumente', 'Kontakte', 'Finanzen', 'Team']
 
 /**
  * Compact search trigger button that opens a modal search overlay.

@@ -60,7 +60,7 @@ export const navItems: NavItemConfig[] = [
   { id: 'mail', to: '/mails', icon: Mail, label: 'E-Mail', enabled: true, section: 'main', badge: { type: 'text', value: '12' } },
 
   // -- Role-restricted --
-  { id: 'finance', to: '/buchhaltung', icon: Calculator, label: 'Buchhaltung', enabled: true, section: 'main', badge: { type: 'text', value: 'Neu' } },
+  { id: 'finance', to: '/finanzen', icon: Calculator, label: 'Finanzen', enabled: true, section: 'main', badge: { type: 'text', value: 'Neu' } },
   { id: 'infrastructure', to: '/infrastruktur', icon: Server, label: 'Infrastruktur', enabled: true, section: 'main' },
 
   // -- Industry-specific modules (filtered by business profile) --

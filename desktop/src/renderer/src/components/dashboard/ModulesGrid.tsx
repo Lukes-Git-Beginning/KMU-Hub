@@ -84,10 +84,10 @@ const ALL_MODULES: ModuleConfig[] = [
   },
   {
     id: 'finance',
-    name: 'Buchhaltung',
-    description: 'Bexio, Abacus & Run my Accounts Integration',
+    name: 'Finanzen',
+    description: 'Rechnungen, Angebote & DATEV-Export',
     icon: Calculator,
-    path: '/buchhaltung',
+    path: '/finanzen',
     color: 'bg-orange-500',
     bgColor: 'bg-orange-500/10',
     iconColor: 'text-orange-500',

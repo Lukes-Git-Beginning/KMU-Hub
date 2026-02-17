@@ -13,7 +13,7 @@ interface FAQItem {
 const FAQ_ITEMS: FAQItem[] = [
   { question: 'Wie erstelle ich ein neues Projekt?', answer: 'Gehe zu Projekte in der Sidebar und klicke auf "+ Neues Projekt". Gib den Projektnamen, die Beschreibung und das Team ein.' },
   { question: 'Wie tracke ich meine Arbeitszeit?', answer: 'Nutze den Timer im Header oder gehe zu deinem Profil → Zeiterfassung. Dort kannst du auch manuell Zeiten nachtragen.' },
-  { question: 'Wie erstelle ich eine Rechnung?', answer: 'Gehe zu Buchhaltung → Rechnungen und klicke auf "Neue Rechnung". Wähle den Kunden, fuege Positionen hinzu und versende die Rechnung.' },
+  { question: 'Wie erstelle ich eine Rechnung?', answer: 'Gehe zu Finanzen → Rechnungen und klicke auf "Neue Rechnung". Wähle den Kunden, fuege Positionen hinzu und versende die Rechnung.' },
   { question: 'Wie lade ich Teammitglieder ein?', answer: 'Gehe zu Team in der Sidebar. Als Admin oder Manager kannst du über "Mitglied hinzufügen" neue Personen einladen.' },
   { question: 'Wie funktioniert der Chat?', answer: 'Klicke auf Chat in der Sidebar. Du kannst Direktnachrichten senden oder Gruppenkanale für Projekte erstellen.' },
   { question: 'Wie beantrage ich Urlaub?', answer: 'Gehe zu deinem Profil → Abwesenheiten und klicke auf "Neue Anfrage". Wähle den Zeitraum und den Grund aus.' },

@@ -31,8 +31,8 @@ const DEFAULT_PROFILES: WorkProfile[] = [
     isDefault: false,
   },
   {
-    id: 'buchhaltung',
-    name: 'Buchhaltung',
+    id: 'finanzen',
+    name: 'Finanzen',
     description: 'Finanzen, Rechnungen & Berichte',
     icon: '\uD83D\uDCB0',
     color: '#d97706',
