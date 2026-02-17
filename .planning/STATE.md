@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 11 of 20 (Documents & Files + WOPI)
-Plan: 2 of 6 in current phase (2 complete)
+Plan: 3 of 6 in current phase (3 complete)
 Status: In progress
-Last activity: 2026-02-17 -- 11-02 document service core business logic complete
+Last activity: 2026-02-17 -- 11-03 search, tag, virtual folder services complete
 
-Progress: [███████████████████████████░] 88% (58/66 plans across phases 4-20)
+Progress: [████████████████████████████░] 89% (59/66 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 57
+- Total plans completed: 59
 - Average duration: ~7 minutes
-- Total execution time: ~6h 13min
+- Total execution time: ~6h 23min
 
 **By Phase:**
 
@@ -36,10 +36,10 @@ Progress: [███████████████████████
 
 | 09 | 9/9 | ~62min | ~6.9min |
 | 10 | 7/7 | ~80min | ~11min |
-| 11 | 2/6 | ~10min | ~5min |
+| 11 | 3/6 | ~15min | ~5min |
 
 **Recent Trend:**
-- Last 5 plans: 10-06 (~10min), 10-07 (~8min), 11-01 (~5min), 11-02 (~5min)
+- Last 5 plans: 10-07 (~8min), 11-01 (~5min), 11-02 (~5min), 11-03 (~5min)
 - Trend: Document service plans consistently fast (~5min each)
 
 *Updated after each plan completion*
@@ -261,6 +261,10 @@ Recent decisions affecting current work:
 - [11-02]: File move updates folder_id only, MinIO storage key unchanged (reference by file ID)
 - [11-02]: DACH default folders: personal=Dokumente/Bilder/Vorlagen, team=Allgemein/Projekte/Vorlagen
 
+- [11-03]: FileRepo interface in search package avoids circular import with file package (gRPC server bridges them)
+- [11-03]: Virtual folder ListAll uses UNION ALL with per-source delegation for filtered requests
+- [11-03]: Extractor returns empty string on error rather than failing (search gracefully degrades)
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -274,6 +278,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 11-02-PLAN.md
-Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-02-SUMMARY.md
-Next: Execute 11-03-PLAN.md (document gRPC server or additional services)
+Stopped at: Completed 11-03-PLAN.md
+Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-03-SUMMARY.md
+Next: Execute 11-04-PLAN.md (gRPC server integration)
