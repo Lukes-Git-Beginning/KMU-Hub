@@ -27,6 +27,8 @@ type Config struct {
 	WorkGRPCAddress         string `env:"WORK_GRPC_ADDRESS,default=localhost:50055"`
 	EmailGRPCPort           string `env:"EMAIL_GRPC_PORT,default=:50056"`
 	EmailGRPCAddress        string `env:"EMAIL_GRPC_ADDRESS,default=localhost:50056"`
+	DocumentGRPCPort        string `env:"DOCUMENT_GRPC_PORT,default=:50057"`
+	DocumentGRPCAddress     string `env:"DOCUMENT_GRPC_ADDRESS,default=localhost:50057"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -40,6 +42,7 @@ type Config struct {
 	NotificationHealthPort string `env:"NOTIFICATION_HEALTH_PORT,default=:9094"`
 	WorkHealthPort         string `env:"WORK_HEALTH_PORT,default=:9095"`
 	EmailHealthPort        string `env:"EMAIL_HEALTH_PORT,default=:9096"`
+	DocumentHealthPort     string `env:"DOCUMENT_HEALTH_PORT,default=:9097"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
