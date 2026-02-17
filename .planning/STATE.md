@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 11 in progress (Documents & Files + WOPI/OnlyOffice)
+**Current focus:** Phase 11 complete. Next: Phase 12 (Finanzen)
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed
 
 ## Current Position
 
-Phase: 11 of 20 (Documents & Files + WOPI)
-Plan: 4 of 6 in current phase (4 complete)
-Status: In progress
-Last activity: 2026-02-17 -- 11-04 gRPC server, gateway routes, WOPI, Docker Compose complete
+Phase: 11 of 20 (Documents & Files + WOPI) -- COMPLETE
+Plan: 6 of 6 in current phase (6 complete)
+Status: Phase 11 complete
+Last activity: 2026-02-17 -- 11-06 global search overlay + OnlyOffice editor complete
 
-Progress: [████████████████████████████░] 91% (60/66 plans across phases 4-20)
+Progress: [█████████████████████████████░] 94% (62/66 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 60
+- Total plans completed: 62
 - Average duration: ~7 minutes
-- Total execution time: ~6h 23min
+- Total execution time: ~6h 40min
 
 **By Phase:**
 
@@ -36,11 +36,11 @@ Progress: [███████████████████████
 
 | 09 | 9/9 | ~62min | ~6.9min |
 | 10 | 7/7 | ~80min | ~11min |
-| 11 | 4/6 | ~40min | ~10min |
+| 11 | 6/6 | ~57min | ~9.5min |
 
 **Recent Trend:**
-- Last 5 plans: 11-01 (~5min), 11-02 (~5min), 11-03 (~5min), 11-04 (~25min)
-- Trend: Connection layer plan (gRPC+gateway+WOPI) took longer due to scope (34 RPCs + ~30 routes)
+- Last 5 plans: 11-02 (~5min), 11-03 (~5min), 11-04 (~25min), 11-05 (~10min), 11-06 (~7min)
+- Trend: Phase 11 complete. Connection layer (11-04) largest plan, frontend plans (11-05/06) faster
 
 *Updated after each plan completion*
 
@@ -266,6 +266,11 @@ Recent decisions affecting current work:
 - [11-04]: WOPI routes at root level (/wopi/files/) per WOPI spec, outside RouteRegistrar loop, no standard auth
 - [11-04]: OnlyOffice runs with JWT_ENABLED=false in dev, production will use separate ONLYOFFICE_JWT_SECRET
 
+- [11-06]: Global search types defined inline in useGlobalSearch.ts (API response shape differs from document-types.ts)
+- [11-06]: 300ms debounce + 2-char minimum for global search to prevent excessive API calls
+- [11-06]: OnlyOffice editor as full-screen fixed overlay (z-50) with WOPI iframe URL construction
+- [11-06]: File editability via both MIME-type and extension-based helpers for flexibility
+
 - [11-03]: FileRepo interface in search package avoids circular import with file package (gRPC server bridges them)
 - [11-03]: Virtual folder ListAll uses UNION ALL with per-source delegation for filtered requests
 - [11-03]: Extractor returns empty string on error rather than failing (search gracefully degrades)
@@ -283,6 +288,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 11-04-PLAN.md
-Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-04-SUMMARY.md
-Next: Execute 11-05-PLAN.md (if exists) or remaining Phase 11 plans
+Stopped at: Completed 11-06-PLAN.md (Phase 11 complete)
+Resume file: .planning/phases/11-documents-files-wopi-onlyoffice/11-06-SUMMARY.md
+Next: Phase 12 (Finanzen) planning and execution
