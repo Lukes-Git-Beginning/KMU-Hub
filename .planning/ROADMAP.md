@@ -41,7 +41,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 ### Business Suite (Phases 12-13)
 
-- [ ] **Phase 12: Rechnungen & Finanzen** - GoBD-compliant quotes and invoices, tax calculation, DATEV export, 3-level dunning (NO full accounting, NO payroll)
+- [x] **Phase 12: Rechnungen & Finanzen** - GoBD-compliant quotes and invoices, tax calculation, DATEV export, 3-level dunning (NO full accounting, NO payroll) (completed 2026-02-18)
 - [ ] **Phase 13: HR & Zeiterfassung** - Leave management, time tracking, employee profiles, ArbZG/BUrlG compliance
 
 ### Aggregation & Automation (Phases 14-16)
@@ -427,7 +427,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
 | 10. Email Integration | 3/7 | In progress | - |
 | 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
-| 12. Rechnungen & Finanzen | 4/5 | In Progress|  |
+| 12. Rechnungen & Finanzen | 5/5 | Complete   | 2026-02-18 |
 | 13. HR & Zeiterfassung | 0/3 | Not started | - |
 | 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
 | 15. CalDAV/CardDAV | 0/2 | Not started | - |

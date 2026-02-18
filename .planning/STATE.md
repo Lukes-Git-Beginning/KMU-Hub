@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 12 (Rechnungen & Finanzen) in progress -- plan 04 complete
+**Current focus:** Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 5 plans done
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 12 of 20 (Rechnungen & Finanzen) -- IN PROGRESS
-Plan: 4 of 5 complete
+Phase: 12 of 20 (Rechnungen & Finanzen) -- COMPLETE
+Plan: 5 of 5 complete
 Status: Business Suite milestone started
-Last activity: 2026-02-18 -- Phase 12 plan 04 (gRPC server, gateway routes, DATEV, Docker) complete
+Last activity: 2026-02-18 -- Phase 12 plan 05 (frontend finance module) complete
 
-Progress: [███████████████████████████████] 100% (70/71 plans across phases 4-12)
+Progress: [████████████████████████████████] 100% (71/71 plans across phases 4-12)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 64
+- Total plans completed: 65
 - Average duration: ~7 minutes
-- Total execution time: ~6h 52min
+- Total execution time: ~7h 3min
 
 **By Phase:**
 
@@ -38,12 +38,12 @@ Progress: [███████████████████████
 | 10 | 7/7 | ~80min | ~11min |
 | 11 | 6/6 | ~57min | ~9.5min |
 
-| 12 | 4/5 | ~52min | ~13min |
+| 12 | 5/5 | ~63min | ~12.6min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
-- Phase 12 (Rechnungen & Finanzen) in progress -- Business Suite milestone
-- 70/71 plans done across Phases 4-12
+- Phase 12 (Rechnungen & Finanzen) COMPLETE -- Business Suite milestone
+- 71/71 plans done across Phases 4-12
 
 *Updated after each plan completion*
 
@@ -305,6 +305,13 @@ Recent decisions affecting current work:
 - [12-04]: CreateDunning/EscalateDunning RPCs map to DetectAndCreateDunnings service method
 - [12-04]: PostgresCompanySettingsRepo.Upsert added (INSERT ON CONFLICT DO UPDATE) for settings CRUD
 
+- [12-05]: Finance store (Zustand) holds only UI state; all server data via TanStack Query hooks
+- [12-05]: formatEUR centralized in stores/finance.ts for consistent EUR/de-DE formatting
+- [12-05]: requestBlob helper for PDF/CSV binary downloads via URL.createObjectURL
+- [12-05]: ExpenseFormDialog replaced with null stub (expenses not in Phase 12 scope)
+- [12-05]: DunningConfigDialog inline within DunningPanel (no separate file)
+- [12-05]: Finance query keys: ['finance', domain, ...params] for granular cache invalidation
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -318,6 +325,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 12-04-PLAN.md
-Resume file: .planning/phases/12-rechnungen-finanzen/12-04-SUMMARY.md
-Next: Phase 12 plan 05 (frontend finance module)
+Stopped at: Completed 12-05-PLAN.md (Phase 12 COMPLETE)
+Resume file: .planning/phases/12-rechnungen-finanzen/12-05-SUMMARY.md
+Next: Phase 13 (HR)
