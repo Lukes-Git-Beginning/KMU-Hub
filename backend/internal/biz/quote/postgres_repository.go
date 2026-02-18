@@ -321,6 +321,51 @@ func (r *PostgresCompanySettingsRepo) GetByTenantID(ctx context.Context, tenantI
 	return &cs, nil
 }
 
+// Upsert creates or updates company settings for a tenant.
+func (r *PostgresCompanySettingsRepo) Upsert(ctx context.Context, settings *models.CompanySettings) error {
+	if settings.ID == uuid.Nil {
+		settings.ID = uuid.New()
+	}
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO company_settings (
+			id, tenant_id, name, street, plz, city, country,
+			steuernummer, ust_id_nr, handelsregister,
+			bank_name, iban, bic,
+			logo_url, accent_color,
+			is_kleinunternehmer, default_payment_terms_days, default_quote_validity_days,
+			basiszinssatz, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, NOW(), $20)
+		ON CONFLICT (tenant_id)
+		DO UPDATE SET
+			name = EXCLUDED.name,
+			street = EXCLUDED.street,
+			plz = EXCLUDED.plz,
+			city = EXCLUDED.city,
+			country = EXCLUDED.country,
+			steuernummer = EXCLUDED.steuernummer,
+			ust_id_nr = EXCLUDED.ust_id_nr,
+			handelsregister = EXCLUDED.handelsregister,
+			bank_name = EXCLUDED.bank_name,
+			iban = EXCLUDED.iban,
+			bic = EXCLUDED.bic,
+			logo_url = EXCLUDED.logo_url,
+			accent_color = EXCLUDED.accent_color,
+			is_kleinunternehmer = EXCLUDED.is_kleinunternehmer,
+			default_payment_terms_days = EXCLUDED.default_payment_terms_days,
+			default_quote_validity_days = EXCLUDED.default_quote_validity_days,
+			basiszinssatz = EXCLUDED.basiszinssatz,
+			updated_at = EXCLUDED.updated_at`,
+		settings.ID, settings.TenantID,
+		settings.Name, settings.Street, settings.PLZ, settings.City, settings.Country,
+		settings.Steuernummer, settings.UStIDNr, settings.Handelsregister,
+		settings.BankName, settings.IBAN, settings.BIC,
+		settings.LogoURL, settings.AccentColor,
+		settings.IsKleinunternehmer, settings.DefaultPaymentTermsDays, settings.DefaultQuoteValidityDays,
+		settings.Basiszinssatz.InexactFloat64(), settings.UpdatedAt,
+	)
+	return err
+}
+
 // scanQuote scans a single row into a Quote model.
 func (r *PostgresRepository) scanQuote(row pgx.Row) (*models.Quote, error) {
 	var q models.Quote

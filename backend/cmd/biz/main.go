@@ -11,18 +11,44 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
+	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
+	"github.com/kmuhub/kmuhub/internal/biz/datev"
+	"github.com/kmuhub/kmuhub/internal/biz/dunning"
+	"github.com/kmuhub/kmuhub/internal/biz/invoice"
+	"github.com/kmuhub/kmuhub/internal/biz/payment"
+	"github.com/kmuhub/kmuhub/internal/biz/pdf"
+	"github.com/kmuhub/kmuhub/internal/biz/quote"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
+	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/server"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
+	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
 
-// Verify proto generation worked by referencing the generated file descriptor.
-var _ = bizv1.File_proto_biz_v1_biz_proto
+// crmDealUpdater implements quote.DealValueUpdater by calling CRM UpdateDeal RPC.
+// This fulfills the locked decision: "Deal value auto-syncs when quote is created or modified."
+type crmDealUpdater struct {
+	crmClient crmv1.CRMServiceClient
+}
+
+func (u *crmDealUpdater) UpdateDealValue(ctx context.Context, dealID uuid.UUID, grossTotal decimal.Decimal) error {
+	// CRM proto UpdateDealRequest.Value is *float64 (not string)
+	val := grossTotal.InexactFloat64()
+	_, err := u.crmClient.UpdateDeal(ctx, &crmv1.UpdateDealRequest{
+		Id:    dealID.String(),
+		Value: &val,
+	})
+	return err
+}
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -49,13 +75,74 @@ func main() {
 		"health_port", cfg.BizHealthPort,
 	)
 
-	// TODO: Initialize repositories and services (plan 12-02)
-	// TODO: Register FinanceService gRPC server (plan 12-02)
+	// =========================================================================
+	// Initialize Repositories
+	// =========================================================================
+	quoteRepo := quote.NewPostgresRepository(pool)
+	invoiceRepo := invoice.NewPostgresRepository(pool)
+	creditNoteRepo := creditnote.NewPostgresRepository(pool)
+	paymentRepo := payment.NewPostgresRepository(pool)
+	dunningRepo := dunning.NewPostgresRepository(pool)
+	dunningConfigRepo := dunning.NewPostgresConfigRepository(pool)
+	dashboardRepo := dashboard.NewPostgresRepository(pool)
 
-	// Metrics
+	// Shared repositories (used by multiple services)
+	numberSeqRepo := quote.NewPostgresNumberSequenceRepo(pool)
+	companySettingsRepo := quote.NewPostgresCompanySettingsRepo(pool)
+
+	// =========================================================================
+	// CRM gRPC Client (for DealValueUpdater)
+	// =========================================================================
+	var dealUpdater quote.DealValueUpdater
+	if cfg.CRMGRPCAddress != "" {
+		crmConn, crmErr := grpc.NewClient(
+			cfg.CRMGRPCAddress,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if crmErr != nil {
+			slog.Warn("failed to connect to CRM service, deal value sync disabled",
+				"address", cfg.CRMGRPCAddress,
+				"error", crmErr,
+			)
+		} else {
+			defer crmConn.Close()
+			crmClient := crmv1.NewCRMServiceClient(crmConn)
+			dealUpdater = &crmDealUpdater{crmClient: crmClient}
+			slog.Info("CRM deal value sync enabled", "address", cfg.CRMGRPCAddress)
+		}
+	} else {
+		slog.Info("CRM gRPC address not configured, deal value sync disabled")
+	}
+
+	// =========================================================================
+	// Initialize Services
+	// =========================================================================
+	quoteSvc := quote.NewService(quoteRepo, numberSeqRepo, companySettingsRepo, dealUpdater)
+	invoiceSvc := invoice.NewService(invoiceRepo, numberSeqRepo, companySettingsRepo, quoteRepo)
+	creditNoteSvc := creditnote.NewService(creditNoteRepo, invoiceRepo, numberSeqRepo)
+	paymentSvc := payment.NewService(paymentRepo, invoiceRepo, invoiceRepo)
+	dunningSvc := dunning.NewService(dunningRepo, dunningConfigRepo, invoiceRepo)
+	dashboardSvc := dashboard.NewService(dashboardRepo)
+
+	// PDF generator with company settings defaults
+	settings, settingsErr := companySettingsRepo.GetByTenantID(ctx, uuid.Nil)
+	if settingsErr != nil || settings == nil {
+		settings = &models.CompanySettings{
+			AccentColor:             "#1a73e8",
+			DefaultPaymentTermsDays: 30,
+			DefaultQuoteValidityDays: 30,
+		}
+	}
+	pdfGen := pdf.NewGenerator(*settings)
+
+	// DATEV exporter
+	datevExp := datev.NewExporter()
+
+	// =========================================================================
+	// gRPC Server
+	// =========================================================================
 	metricsRegistry := metrics.NewRegistry()
 
-	// gRPC server
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			metricsRegistry.GRPCUnaryInterceptor(),
@@ -65,7 +152,19 @@ func main() {
 		),
 	)
 
-	// Initialize gRPC metrics after service registration
+	bizGRPC := server.NewBizGRPCServer(
+		quoteSvc,
+		invoiceSvc,
+		creditNoteSvc,
+		paymentSvc,
+		dunningSvc,
+		dashboardSvc,
+		pdfGen,
+		datevExp,
+		companySettingsRepo,
+	)
+	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
+
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)
 
 	lis, err := net.Listen("tcp", cfg.BizGRPCPort)
