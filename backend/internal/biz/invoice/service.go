@@ -1,0 +1,579 @@
+// Package invoice provides the business logic for managing invoices (Rechnungen).
+// Invoices enforce GoBD compliance: once sent, they become immutable with a complete
+// JSONB snapshot (line items, tax breakdown, customer data, company data). Sequential
+// numbering is gap-free using SELECT FOR UPDATE on finance_number_sequences.
+package invoice
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/biz/tax"
+	"github.com/kmuhub/kmuhub/internal/models"
+)
+
+// Service handles invoice business logic with GoBD compliance.
+type Service struct {
+	repo            Repository
+	numberSeqRepo   NumberSequenceRepo
+	companySettings CompanySettingsRepo
+	quoteReader     QuoteReader
+}
+
+// NewService creates a new invoice service.
+// quoteReader may be nil if quote-to-invoice conversion is not needed.
+func NewService(
+	repo Repository,
+	numberSeqRepo NumberSequenceRepo,
+	companySettings CompanySettingsRepo,
+	quoteReader QuoteReader,
+) *Service {
+	return &Service{
+		repo:            repo,
+		numberSeqRepo:   numberSeqRepo,
+		companySettings: companySettings,
+		quoteReader:     quoteReader,
+	}
+}
+
+// CreateInput contains the data needed to create an invoice.
+type CreateInput struct {
+	TenantID         uuid.UUID
+	CustomerName     string
+	CustomerAddress  string
+	CustomerEmail    string
+	CustomerUStIDNr  string
+	TaxMode          string
+	LineItems        []models.LineItem
+	InvoiceDate      time.Time
+	DeliveryDate     *time.Time
+	PaymentTermsDays int
+	Notes            string
+	SourceQuoteID    *uuid.UUID
+	UserID           uuid.UUID
+}
+
+// Create creates a new draft invoice with tax calculation.
+func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoice, error) {
+	if len(input.LineItems) == 0 {
+		return nil, ErrNoLineItems
+	}
+
+	// Calculate tax
+	taxMode := parseTaxMode(input.TaxMode)
+	taxItems := toTaxLineItems(input.LineItems)
+	breakdown := tax.Calculate(taxItems, taxMode)
+
+	// Apply calculated line totals
+	for i := range input.LineItems {
+		input.LineItems[i].LineTotal = input.LineItems[i].Quantity.Mul(input.LineItems[i].UnitPrice)
+	}
+
+	// Marshal for JSONB storage
+	lineItemsJSON, err := marshalLineItems(input.LineItems)
+	if err != nil {
+		return nil, err
+	}
+
+	taxBreakdown := &models.TaxBreakdown{
+		Subtotal:   breakdown.Subtotal,
+		TaxByRate:  breakdown.TaxByRate,
+		TotalTax:   breakdown.TotalTax,
+		GrossTotal: breakdown.GrossTotal,
+	}
+	taxBreakdownJSON, err := marshalTaxBreakdown(taxBreakdown)
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine payment terms and due date
+	paymentTermsDays := input.PaymentTermsDays
+	if paymentTermsDays <= 0 {
+		// Fall back to company settings
+		settings, settingsErr := s.companySettings.GetByTenantID(ctx, input.TenantID)
+		if settingsErr != nil {
+			slog.Warn("failed to load company settings for payment terms default",
+				"tenant_id", input.TenantID,
+				"error", settingsErr,
+			)
+		}
+		if settings != nil && settings.DefaultPaymentTermsDays > 0 {
+			paymentTermsDays = settings.DefaultPaymentTermsDays
+		} else {
+			paymentTermsDays = 30 // Fallback default
+		}
+	}
+
+	invoiceDate := input.InvoiceDate
+	if invoiceDate.IsZero() {
+		invoiceDate = time.Now()
+	}
+	dueDate := invoiceDate.AddDate(0, 0, paymentTermsDays)
+
+	paymentTerms := fmt.Sprintf("%d Tage netto", paymentTermsDays)
+
+	now := time.Now()
+	inv := &models.Invoice{
+		ID:              uuid.New(),
+		TenantID:        input.TenantID,
+		InvoiceNumber:   "", // Assigned when sent
+		Status:          models.InvoiceStatusDraft,
+		CustomerName:    input.CustomerName,
+		CustomerAddress: input.CustomerAddress,
+		CustomerEmail:   input.CustomerEmail,
+		CustomerUStIDNr: input.CustomerUStIDNr,
+		TaxMode:         input.TaxMode,
+		LineItems:       lineItemsJSON,
+		TaxBreakdownRaw: taxBreakdownJSON,
+		Subtotal:        breakdown.Subtotal,
+		TotalTax:        breakdown.TotalTax,
+		GrossTotal:      breakdown.GrossTotal,
+		InvoiceDate:     invoiceDate,
+		DeliveryDate:    input.DeliveryDate,
+		DueDate:         dueDate,
+		PaymentTerms:    paymentTerms,
+		SourceQuoteID:   input.SourceQuoteID,
+		Notes:           input.Notes,
+		CreatedBy:       input.UserID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	if createErr := s.repo.Create(ctx, inv); createErr != nil {
+		return nil, createErr
+	}
+
+	slog.Info("invoice created",
+		"invoice_id", inv.ID,
+		"tenant_id", inv.TenantID,
+		"gross_total", inv.GrossTotal,
+		"source_quote_id", inv.SourceQuoteID,
+	)
+
+	return inv, nil
+}
+
+// GetByID retrieves an invoice by ID.
+func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error) {
+	return s.repo.GetByID(ctx, tenantID, id)
+}
+
+// List retrieves invoices with optional filtering.
+func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.Invoice, int, error) {
+	return s.repo.List(ctx, tenantID, filter)
+}
+
+// UpdateInput contains the data that can be updated on a draft invoice.
+type UpdateInput struct {
+	CustomerName     *string
+	CustomerAddress  *string
+	CustomerEmail    *string
+	CustomerUStIDNr  *string
+	TaxMode          *string
+	LineItems        []models.LineItem // nil = no change, empty = error
+	InvoiceDate      *time.Time
+	DeliveryDate     *time.Time
+	PaymentTermsDays *int
+	Notes            *string
+}
+
+// Update updates an existing invoice. ONLY draft invoices can be modified (GoBD enforcement).
+// If the invoice has been sent, it is IMMUTABLE and returns ErrInvoiceImmutable.
+func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input UpdateInput) (*models.Invoice, error) {
+	inv, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// GoBD enforcement: only draft invoices can be modified
+	if inv.Status != models.InvoiceStatusDraft {
+		return nil, ErrInvoiceImmutable
+	}
+
+	if input.CustomerName != nil {
+		inv.CustomerName = *input.CustomerName
+	}
+	if input.CustomerAddress != nil {
+		inv.CustomerAddress = *input.CustomerAddress
+	}
+	if input.CustomerEmail != nil {
+		inv.CustomerEmail = *input.CustomerEmail
+	}
+	if input.CustomerUStIDNr != nil {
+		inv.CustomerUStIDNr = *input.CustomerUStIDNr
+	}
+	if input.Notes != nil {
+		inv.Notes = *input.Notes
+	}
+	if input.InvoiceDate != nil {
+		inv.InvoiceDate = *input.InvoiceDate
+	}
+	if input.DeliveryDate != nil {
+		inv.DeliveryDate = input.DeliveryDate
+	}
+
+	// Recalculate due date if payment terms or invoice date changed
+	if input.PaymentTermsDays != nil {
+		days := *input.PaymentTermsDays
+		inv.DueDate = inv.InvoiceDate.AddDate(0, 0, days)
+		inv.PaymentTerms = fmt.Sprintf("%d Tage netto", days)
+	}
+
+	// Recalculate tax if line items or tax mode changed
+	needsRecalc := false
+	if input.LineItems != nil {
+		if len(input.LineItems) == 0 {
+			return nil, ErrNoLineItems
+		}
+		needsRecalc = true
+	}
+	if input.TaxMode != nil {
+		inv.TaxMode = *input.TaxMode
+		needsRecalc = true
+	}
+
+	if needsRecalc {
+		lineItems := input.LineItems
+		if lineItems == nil {
+			existingItems, unmarshalErr := unmarshalLineItems(inv.LineItems)
+			if unmarshalErr != nil {
+				return nil, unmarshalErr
+			}
+			lineItems = existingItems
+		}
+
+		taxMode := parseTaxMode(inv.TaxMode)
+		taxItems := toTaxLineItems(lineItems)
+		breakdown := tax.Calculate(taxItems, taxMode)
+
+		for i := range lineItems {
+			lineItems[i].LineTotal = lineItems[i].Quantity.Mul(lineItems[i].UnitPrice)
+		}
+
+		lineItemsJSON, marshalErr := marshalLineItems(lineItems)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+
+		taxBreakdown := &models.TaxBreakdown{
+			Subtotal:   breakdown.Subtotal,
+			TaxByRate:  breakdown.TaxByRate,
+			TotalTax:   breakdown.TotalTax,
+			GrossTotal: breakdown.GrossTotal,
+		}
+		taxBreakdownJSON, tbErr := marshalTaxBreakdown(taxBreakdown)
+		if tbErr != nil {
+			return nil, tbErr
+		}
+
+		inv.LineItems = lineItemsJSON
+		inv.TaxBreakdownRaw = taxBreakdownJSON
+		inv.Subtotal = breakdown.Subtotal
+		inv.TotalTax = breakdown.TotalTax
+		inv.GrossTotal = breakdown.GrossTotal
+	}
+
+	inv.UpdatedAt = time.Now()
+
+	if updateErr := s.repo.Update(ctx, inv); updateErr != nil {
+		return nil, updateErr
+	}
+
+	slog.Info("invoice updated",
+		"invoice_id", inv.ID,
+		"tenant_id", inv.TenantID,
+		"gross_total", inv.GrossTotal,
+	)
+
+	return inv, nil
+}
+
+// Send transitions a draft invoice to sent. This is the IMMUTABILITY POINT:
+// - Assigns gap-free sequential invoice number (RE-{year}-{padded}, e.g., RE-2026-0001)
+// - Builds complete JSONB snapshot (line items, tax breakdown, customer data, company data)
+// - Sets invoice_date if not already set
+// After this call, the invoice can NEVER be modified (GoBD compliance).
+func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) error {
+	inv, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+
+	if inv.Status != models.InvoiceStatusDraft {
+		return ErrInvoiceNotDraft
+	}
+
+	// Assign sequential invoice number via gap-free sequence
+	fiscalYear := time.Now().Year()
+	number, numErr := s.numberSeqRepo.NextNumber(ctx, tenantID, models.DocumentTypeInvoice, fiscalYear, "RE")
+	if numErr != nil {
+		return fmt.Errorf("assign invoice number: %w", numErr)
+	}
+
+	// Load company settings for snapshot
+	settings, settingsErr := s.companySettings.GetByTenantID(ctx, tenantID)
+	if settingsErr != nil {
+		slog.Warn("failed to load company settings for invoice snapshot",
+			"tenant_id", tenantID,
+			"error", settingsErr,
+		)
+	}
+
+	// Build company snapshot
+	companySnapshotJSON, csErr := marshalCompanySnapshot(settings)
+	if csErr != nil {
+		return fmt.Errorf("build company snapshot: %w", csErr)
+	}
+
+	// Build complete invoice snapshot (the entire document at send time)
+	snapshot := map[string]any{
+		"invoice_number": number,
+		"customer": models.CustomerSnapshot{
+			Name:    inv.CustomerName,
+			Address: inv.CustomerAddress,
+			Email:   inv.CustomerEmail,
+			UStIDNr: inv.CustomerUStIDNr,
+		},
+		"line_items":    json.RawMessage(inv.LineItems),
+		"tax_breakdown": json.RawMessage(inv.TaxBreakdownRaw),
+		"subtotal":      inv.Subtotal.String(),
+		"total_tax":     inv.TotalTax.String(),
+		"gross_total":   inv.GrossTotal.String(),
+		"invoice_date":  inv.InvoiceDate.Format("2006-01-02"),
+		"due_date":      inv.DueDate.Format("2006-01-02"),
+		"payment_terms": inv.PaymentTerms,
+		"tax_mode":      inv.TaxMode,
+		"notes":         inv.Notes,
+		"sent_at":       time.Now().Format(time.RFC3339),
+		"sent_by":       userID.String(),
+	}
+	snapshotJSON, snErr := json.Marshal(snapshot)
+	if snErr != nil {
+		return fmt.Errorf("build invoice snapshot: %w", snErr)
+	}
+
+	// Set invoice date if not yet set
+	if inv.InvoiceDate.IsZero() {
+		inv.InvoiceDate = time.Now()
+	}
+
+	inv.InvoiceNumber = number
+	inv.Status = models.InvoiceStatusSent
+	inv.CompanySnapshotRaw = companySnapshotJSON
+	inv.SnapshotData = snapshotJSON
+	inv.UpdatedAt = time.Now()
+
+	if updateErr := s.repo.Update(ctx, inv); updateErr != nil {
+		return updateErr
+	}
+
+	slog.Info("invoice sent (now immutable)",
+		"invoice_id", inv.ID,
+		"tenant_id", tenantID,
+		"invoice_number", number,
+		"gross_total", inv.GrossTotal,
+	)
+	return nil
+}
+
+// MarkPaid transitions a sent or overdue invoice to paid.
+func (s *Service) MarkPaid(ctx context.Context, tenantID, id uuid.UUID) error {
+	inv, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+
+	switch inv.Status {
+	case models.InvoiceStatusSent, models.InvoiceStatusOverdue:
+		// Valid transitions
+	case models.InvoiceStatusPaid:
+		return ErrInvoiceAlreadyPaid
+	case models.InvoiceStatusCancelled:
+		return ErrInvoiceAlreadyCancelled
+	default:
+		return ErrInvoiceNotDraft
+	}
+
+	if updateErr := s.repo.UpdateStatus(ctx, tenantID, id, models.InvoiceStatusPaid); updateErr != nil {
+		return updateErr
+	}
+
+	slog.Info("invoice marked paid",
+		"invoice_id", id,
+		"tenant_id", tenantID,
+	)
+	return nil
+}
+
+// Cancel transitions a draft or sent invoice to cancelled.
+// Paid invoices cannot be cancelled (use credit notes instead).
+func (s *Service) Cancel(ctx context.Context, tenantID, id, userID uuid.UUID) error {
+	inv, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+
+	switch inv.Status {
+	case models.InvoiceStatusDraft, models.InvoiceStatusSent:
+		// Valid transitions
+	case models.InvoiceStatusPaid:
+		return ErrInvoiceAlreadyPaid
+	case models.InvoiceStatusCancelled:
+		return ErrInvoiceAlreadyCancelled
+	default:
+		return fmt.Errorf("cannot cancel invoice with status %s", inv.Status)
+	}
+
+	if updateErr := s.repo.UpdateStatus(ctx, tenantID, id, models.InvoiceStatusCancelled); updateErr != nil {
+		return updateErr
+	}
+
+	slog.Info("invoice cancelled",
+		"invoice_id", id,
+		"tenant_id", tenantID,
+		"cancelled_by", userID,
+	)
+	return nil
+}
+
+// DetectOverdue bulk-updates all sent invoices past their due_date to overdue.
+// Returns the number of invoices marked as overdue.
+func (s *Service) DetectOverdue(ctx context.Context, tenantID uuid.UUID) (int, error) {
+	overdueInvoices, err := s.repo.GetOverdue(ctx, tenantID)
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, inv := range overdueInvoices {
+		if updateErr := s.repo.UpdateStatus(ctx, tenantID, inv.ID, models.InvoiceStatusOverdue); updateErr != nil {
+			slog.Warn("failed to mark invoice as overdue",
+				"invoice_id", inv.ID,
+				"error", updateErr,
+			)
+			continue
+		}
+		count++
+	}
+
+	if count > 0 {
+		slog.Info("invoices marked overdue",
+			"tenant_id", tenantID,
+			"count", count,
+		)
+	}
+
+	return count, nil
+}
+
+// CreateFromQuote creates a new draft invoice from an accepted quote.
+// Implements the copy-and-link pattern: copies line items and customer data,
+// sets source_quote_id for traceability. Quote must have "accepted" status.
+func (s *Service) CreateFromQuote(ctx context.Context, tenantID, quoteID, userID uuid.UUID) (*models.Invoice, error) {
+	if s.quoteReader == nil {
+		return nil, fmt.Errorf("quote reader not configured")
+	}
+
+	quote, err := s.quoteReader.GetByID(ctx, tenantID, quoteID)
+	if err != nil {
+		return nil, err
+	}
+
+	if quote.Status != models.QuoteStatusAccepted {
+		return nil, ErrQuoteNotAccepted
+	}
+
+	// Parse the quote's line items for reuse
+	lineItems, parseErr := unmarshalLineItems(quote.LineItems)
+	if parseErr != nil {
+		return nil, fmt.Errorf("parse quote line items: %w", parseErr)
+	}
+
+	// Determine payment terms from company settings
+	paymentTermsDays := 30 // Default
+	settings, settingsErr := s.companySettings.GetByTenantID(ctx, tenantID)
+	if settingsErr != nil {
+		slog.Warn("failed to load company settings for quote-to-invoice conversion",
+			"tenant_id", tenantID,
+			"error", settingsErr,
+		)
+	}
+	if settings != nil && settings.DefaultPaymentTermsDays > 0 {
+		paymentTermsDays = settings.DefaultPaymentTermsDays
+	}
+
+	input := CreateInput{
+		TenantID:         tenantID,
+		CustomerName:     quote.CustomerName,
+		CustomerAddress:  quote.CustomerAddress,
+		CustomerEmail:    quote.CustomerEmail,
+		CustomerUStIDNr:  quote.CustomerUStIDNr,
+		TaxMode:          quote.TaxMode,
+		LineItems:        lineItems,
+		InvoiceDate:      time.Now(),
+		PaymentTermsDays: paymentTermsDays,
+		Notes:            quote.Notes,
+		SourceQuoteID:    &quoteID,
+		UserID:           userID,
+	}
+
+	invoice, createErr := s.Create(ctx, input)
+	if createErr != nil {
+		return nil, createErr
+	}
+
+	slog.Info("invoice created from quote",
+		"invoice_id", invoice.ID,
+		"quote_id", quoteID,
+		"tenant_id", tenantID,
+	)
+
+	return invoice, nil
+}
+
+// parseTaxMode converts a string tax mode to the tax package TaxMode type.
+func parseTaxMode(mode string) tax.TaxMode {
+	switch mode {
+	case models.TaxModeReverseCharge:
+		return tax.ModeReverseCharge
+	case models.TaxModeKleinunternehmer:
+		return tax.ModeKleinunternehmer
+	default:
+		return tax.ModeStandard
+	}
+}
+
+// toTaxLineItems converts model line items to tax calculation line items.
+func toTaxLineItems(items []models.LineItem) []tax.LineItem {
+	taxItems := make([]tax.LineItem, len(items))
+	for i, item := range items {
+		taxItems[i] = tax.LineItem{
+			Quantity:  item.Quantity,
+			UnitPrice: item.UnitPrice,
+			TaxRate:   item.TaxRate,
+		}
+	}
+	return taxItems
+}
+
+// ParseLineItems is a convenience function for callers to parse JSONB line items.
+func ParseLineItems(raw json.RawMessage) ([]models.LineItem, error) {
+	return unmarshalLineItems(raw)
+}
+
+// ParseTaxBreakdown is a convenience function for callers to parse JSONB tax breakdown.
+func ParseTaxBreakdown(raw json.RawMessage) (*models.TaxBreakdown, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var tb models.TaxBreakdown
+	if err := json.Unmarshal(raw, &tb); err != nil {
+		return nil, err
+	}
+	return &tb, nil
+}
