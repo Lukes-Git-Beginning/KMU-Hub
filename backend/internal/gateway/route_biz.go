@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
+	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
 )
 
 // BizRoutes handles HTTP routes for the Biz (Finance) backend service.
@@ -32,6 +34,15 @@ func (b *BizRoutes) getBizClient() (bizv1.FinanceServiceClient, error) {
 		return nil, err
 	}
 	return bizv1.NewFinanceServiceClient(conn), nil
+}
+
+// getCRMClient lazily obtains a gRPC client for the CRM service.
+func (b *BizRoutes) getCRMClient() (crmv1.CRMServiceClient, error) {
+	conn, err := b.registry.GetConnection("crm")
+	if err != nil {
+		return nil, err
+	}
+	return crmv1.NewCRMServiceClient(conn), nil
 }
 
 // getTenantID extracts the tenant identifier from the request context.
@@ -119,6 +130,12 @@ func (b *BizRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	r.Route("/api/v1/finance/export", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("finance", "read")).Post("/datev", b.HandleExportDATEV)
+	})
+
+	// Deal-to-Quote conversion
+	r.Route("/api/v1/finance/deals/{dealId}/quote", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("finance", "write")).Post("/", b.HandleCreateQuoteFromDeal)
 	})
 }
 
@@ -1236,6 +1253,112 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", resp.Filename))
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp.CsvData)
+}
+
+// ============================================================================
+// Deal-to-Quote Handler
+// ============================================================================
+
+// HandleCreateQuoteFromDeal creates a new draft quote pre-populated with
+// customer data from a CRM deal. It fetches the deal, its linked contact
+// and company, then creates a quote via the biz service with deal_id set
+// (which triggers deal value auto-sync).
+func (b *BizRoutes) HandleCreateQuoteFromDeal(w http.ResponseWriter, r *http.Request) {
+	bizClient, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	crmClient, err := b.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, "crm")
+		return
+	}
+
+	tenantID := getTenantID(r)
+	userID := middleware.GetUserID(r.Context())
+	dealID := chi.URLParam(r, "dealId")
+
+	// 1. Fetch the CRM deal
+	dealResp, err := crmClient.GetDeal(r.Context(), &crmv1.GetDealRequest{Id: dealID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	deal := dealResp.GetDeal()
+
+	// 2. Build customer snapshot from deal's contact and company info
+	customerName := ""
+	customerAddress := ""
+	customerEmail := ""
+
+	// Prefer company name if available, fall back to contact name (B2B norm in DACH)
+	if deal.GetCompanyName() != "" {
+		customerName = deal.GetCompanyName()
+	} else if deal.GetContactName() != "" {
+		customerName = deal.GetContactName()
+	}
+
+	// Try to get more details from the contact if available
+	if deal.GetContactId() != "" {
+		contactResp, contactErr := crmClient.GetContact(r.Context(), &crmv1.GetContactRequest{Id: deal.GetContactId()})
+		if contactErr == nil && contactResp.GetContact() != nil {
+			contact := contactResp.GetContact()
+			if customerEmail == "" {
+				customerEmail = contact.GetEmail()
+			}
+			if customerName == "" {
+				customerName = strings.TrimSpace(contact.GetFirstName() + " " + contact.GetLastName())
+			}
+		}
+	}
+
+	// Try to get address from company if available
+	if deal.GetCompanyId() != "" {
+		companyResp, companyErr := crmClient.GetCompany(r.Context(), &crmv1.GetCompanyRequest{Id: deal.GetCompanyId()})
+		if companyErr == nil && companyResp.GetCompany() != nil {
+			company := companyResp.GetCompany()
+			if customerAddress == "" {
+				// Build address from company fields
+				parts := []string{}
+				if company.GetAddress() != "" {
+					parts = append(parts, company.GetAddress())
+				}
+				if company.GetCity() != "" {
+					parts = append(parts, company.GetCity())
+				}
+				if company.GetCountry() != "" {
+					parts = append(parts, company.GetCountry())
+				}
+				customerAddress = strings.Join(parts, ", ")
+			}
+			if customerName == "" {
+				customerName = company.GetName()
+			}
+		}
+	}
+
+	// 3. Create quote via biz service with deal_id and pre-populated customer
+	quoteResp, err := bizClient.CreateQuote(r.Context(), &bizv1.CreateQuoteRequest{
+		TenantId: tenantID,
+		Customer: &bizv1.CustomerSnapshot{
+			Name:    customerName,
+			Address: customerAddress,
+			Email:   customerEmail,
+		},
+		TaxMode:   bizv1.TaxMode_TAX_MODE_STANDARD,
+		DealId:    dealID,
+		CreatedBy: userID,
+		// LineItems left empty -- user fills in the quote form
+		// ValidUntil left empty -- uses company default
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, quoteResp.GetQuote())
 }
 
 // ============================================================================
