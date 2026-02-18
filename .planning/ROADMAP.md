@@ -429,7 +429,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
 | 10. Email Integration | 3/7 | In progress | - |
 | 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
-| 12. Rechnungen & Finanzen | 7/7 | Complete   | 2026-02-18 |
+| 12. Rechnungen & Finanzen | 7/7 | Complete    | 2026-02-18 |
 | 13. HR & Zeiterfassung | 0/3 | Not started | - |
 | 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
 | 15. CalDAV/CardDAV | 0/2 | Not started | - |
