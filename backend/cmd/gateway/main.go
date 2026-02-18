@@ -57,6 +57,7 @@ func main() {
 	registry.Register("work", cfg.WorkGRPCAddress)
 	registry.Register("email", cfg.EmailGRPCAddress)
 	registry.Register("document", cfg.DocumentGRPCAddress)
+	registry.Register("biz", cfg.BizGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -138,6 +139,7 @@ func main() {
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
 		gateway.NewDocumentRoutes(registry),
+		gateway.NewBizRoutes(registry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
