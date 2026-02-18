@@ -269,7 +269,7 @@ Plans:
   6. User can export a Buchungsstapel in DATEV-compatible CSV format (SKR03) for their Steuerberater
   7. User can create credit notes (Gutschriften) that properly reference the original invoice
   8. User can manage 3-level dunning (Mahnwesen) with automatic overdue detection and escalation
-**Plans**: 5 plans
+**Plans**: 7 plans
 
 Plans:
 - [ ] 12-01-PLAN.md -- Biz service data foundation (proto, migrations, models, config, biz binary scaffold, tax calculator TDD)
@@ -277,6 +277,8 @@ Plans:
 - [ ] 12-03-PLAN.md -- Supporting services (credit note, payment, dunning, dashboard, PDF generator)
 - [ ] 12-04-PLAN.md -- Connection layer (gRPC server, gateway routes, Docker, DATEV export, CRM deal integration, DealValueUpdater)
 - [ ] 12-05-PLAN.md -- Frontend rewrite (TypeScript types, TanStack Query hooks, FinanzenPage + all components, EUR/de-DE)
+- [ ] 12-06-PLAN.md -- Gap closure: PDF binary streaming (proto PDF RPCs, gRPC server impl, gateway HTTP wiring)
+- [ ] 12-07-PLAN.md -- Gap closure: Deal-to-quote route + DealDetailPage UI trigger
 
 ### Phase 13: HR & Zeiterfassung
 **Goal**: Employees can manage leave, track time, and access HR documents within the Hub, fully compliant with German/Swiss labor law. NO payroll -- salary/Lohn is handled by external integrations (Bexio, Abacus, RmA).
