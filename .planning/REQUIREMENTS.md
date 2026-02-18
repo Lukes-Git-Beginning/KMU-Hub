@@ -121,8 +121,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FIN-02**: User can create invoices (Rechnungen) compliant with GoBD (immutable once sent, sequential numbering, all Pflichtangaben)
 - [x] **FIN-03**: System calculates MwSt/USt correctly (19% standard, 7% reduced, 0% Reverse Charge for EU B2B, Kleinunternehmerregelung)
 - [x] **FIN-04**: User can track payment status per invoice (draft, sent, overdue, paid, cancelled)
-- [ ] **FIN-05**: User can convert a CRM deal to a quote and then to an invoice in a seamless flow
-- [ ] **FIN-06**: User can export Buchungsstapel in DATEV-compatible CSV format for Steuerberater
+- [x] **FIN-05**: User can convert a CRM deal to a quote and then to an invoice in a seamless flow
+- [x] **FIN-06**: User can export Buchungsstapel in DATEV-compatible CSV format for Steuerberater
 - [x] **FIN-07**: User can create credit notes (Gutschriften) referencing original invoices
 
 ### HR Module
@@ -388,8 +388,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIN-02 | Phase 12 | Complete |
 | FIN-03 | Phase 12 | Complete |
 | FIN-04 | Phase 12 | Complete |
-| FIN-05 | Phase 12 | Pending |
-| FIN-06 | Phase 12 | Pending |
+| FIN-05 | Phase 12 | Complete |
+| FIN-06 | Phase 12 | Complete |
 | FIN-07 | Phase 12 | Complete |
 | HR-01 | Phase 13 | Pending |
 | HR-02 | Phase 13 | Pending |

@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 12 (Rechnungen & Finanzen) in progress -- plan 03 complete
+**Current focus:** Phase 12 (Rechnungen & Finanzen) in progress -- plan 04 complete
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
 Phase: 12 of 20 (Rechnungen & Finanzen) -- IN PROGRESS
-Plan: 3 of 5 complete
+Plan: 4 of 5 complete
 Status: Business Suite milestone started
-Last activity: 2026-02-18 -- Phase 12 plan 03 (credit notes, payments, dunning, dashboard, PDF) complete
+Last activity: 2026-02-18 -- Phase 12 plan 04 (gRPC server, gateway routes, DATEV, Docker) complete
 
-Progress: [███████████████████████████████] 100% (69/71 plans across phases 4-12)
+Progress: [███████████████████████████████] 100% (70/71 plans across phases 4-12)
 
 ## Performance Metrics
 
@@ -38,12 +38,12 @@ Progress: [███████████████████████
 | 10 | 7/7 | ~80min | ~11min |
 | 11 | 6/6 | ~57min | ~9.5min |
 
-| 12 | 3/5 | ~27min | ~9min |
+| 12 | 4/5 | ~52min | ~13min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) in progress -- Business Suite milestone
-- 69/71 plans done across Phases 4-12
+- 70/71 plans done across Phases 4-12
 
 *Updated after each plan completion*
 
@@ -299,6 +299,12 @@ Recent decisions affecting current work:
 - [12-03]: PDF uses maroto/v2 with registered footer for Pflichtangaben on every page
 - [12-03]: Dunning tone escalation: Zahlungserinnerung -> 1. Mahnung -> 2. Mahnung (threatens Inkasso)
 
+- [12-04]: DealValueUpdater uses InexactFloat64() for CRM proto compatibility (Value is *float64)
+- [12-04]: Tenant ID passed through gateway as user ID (single-tenant mode, multi-tenant via JWT claims later)
+- [12-04]: PDF endpoints return 501 from gateway; biz gRPC service serves PDFs directly
+- [12-04]: CreateDunning/EscalateDunning RPCs map to DetectAndCreateDunnings service method
+- [12-04]: PostgresCompanySettingsRepo.Upsert added (INSERT ON CONFLICT DO UPDATE) for settings CRUD
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -312,6 +318,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 12-03-PLAN.md
-Resume file: .planning/phases/12-rechnungen-finanzen/12-03-SUMMARY.md
-Next: Phase 12 plan 04 (gRPC server wiring)
+Stopped at: Completed 12-04-PLAN.md
+Resume file: .planning/phases/12-rechnungen-finanzen/12-04-SUMMARY.md
+Next: Phase 12 plan 05 (frontend finance module)
