@@ -271,3 +271,42 @@ type DunningConfig struct {
 	Level3Fee             decimal.Decimal `json:"level3_fee"`
 	UpdatedAt             time.Time       `json:"updated_at"`
 }
+
+// ============================================================================
+// Dashboard Models
+// ============================================================================
+
+// FinanceDashboard holds the aggregated finance dashboard metrics.
+type FinanceDashboard struct {
+	Revenue         RevenueMetrics         `json:"revenue"`
+	Pipeline        PipelineMetrics        `json:"pipeline"`
+	StatusBreakdown InvoiceStatusBreakdown `json:"status_breakdown"`
+	RecentInvoices  []*Invoice             `json:"recent_invoices"`
+	ExpiringQuotes  []*Quote               `json:"expiring_quotes"`
+	PendingDunnings []*DunningRecord       `json:"pending_dunnings"`
+	RevenueForecast decimal.Decimal        `json:"revenue_forecast"`
+}
+
+// RevenueMetrics holds the revenue aggregation data.
+type RevenueMetrics struct {
+	TotalInvoiced    decimal.Decimal `json:"total_invoiced"`
+	TotalPaid        decimal.Decimal `json:"total_paid"`
+	TotalOutstanding decimal.Decimal `json:"total_outstanding"`
+	OverdueAmount    decimal.Decimal `json:"overdue_amount"`
+}
+
+// PipelineMetrics holds the sales pipeline aggregation data.
+type PipelineMetrics struct {
+	QuotesPending  int             `json:"quotes_pending"`
+	ConversionRate decimal.Decimal `json:"conversion_rate"`
+	AverageDealSize decimal.Decimal `json:"average_deal_size"`
+}
+
+// InvoiceStatusBreakdown holds invoice counts by status.
+type InvoiceStatusBreakdown struct {
+	Draft     int `json:"draft"`
+	Sent      int `json:"sent"`
+	Overdue   int `json:"overdue"`
+	Paid      int `json:"paid"`
+	Cancelled int `json:"cancelled"`
+}
