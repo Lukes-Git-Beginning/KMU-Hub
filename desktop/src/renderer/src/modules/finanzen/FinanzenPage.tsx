@@ -1,172 +1,400 @@
 import { useState } from 'react'
 import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  CreditCard,
   FileText,
-  ArrowUpRight,
-  ArrowDownRight,
   Search,
   Download,
   Plus,
   CheckCircle2,
   Clock,
   AlertCircle,
-  AlertTriangle,
-  BarChart3,
-  PieChart,
-  Receipt,
   XCircle,
-  Gavel,
   Send,
-  ChevronRight,
+  Ban,
+  CreditCard,
+  ArrowRight,
+  BarChart3,
+  Gavel,
+  Receipt,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import {
-  useFinanceStore,
-  type Invoice,
-  type Dunning,
-  calcInvoiceTotal,
-  calcRemainingAmount,
-} from '@/stores/finance'
 import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
+import { useFinanceUIStore, formatEUR, type FinanceTabKey } from '@/stores/finance'
+import {
+  useInvoices,
+  useQuotes,
+  useCreditNotes,
+  useSendInvoice,
+  useCancelInvoice,
+  useSendQuote,
+  useAcceptQuote,
+  useRejectQuote,
+  useConvertQuoteToInvoice,
+  useDeleteQuote,
+  useSendCreditNote,
+  useDownloadInvoicePDF,
+  useDownloadQuotePDF,
+  useDownloadCreditNotePDF,
+} from '@/api/hooks/useFinance'
+import type {
+  Invoice,
+  InvoiceStatus,
+  Quote,
+  QuoteStatus,
+  CreditNote,
+} from '@/types/finance-types'
 import { InvoiceFormDialog } from './InvoiceFormDialog'
-import { ExpenseFormDialog } from './ExpenseFormDialog'
+import { QuoteFormDialog } from './QuoteFormDialog'
+import { CreditNoteDialog } from './CreditNoteDialog'
 import { PaymentRecordDialog } from './PaymentRecordDialog'
 import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { ExportDialog } from './ExportDialog'
+import { DunningPanel } from './DunningPanel'
+import { FinanceDashboard } from './FinanceDashboard'
 
-type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'mahnungen' | 'reports'
+// ---------------------------------------------------------------------------
+// Status badge config
+// ---------------------------------------------------------------------------
 
-function formatCHF(amount: number) {
-  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(amount)
+const invoiceStatusConfig: Record<
+  InvoiceStatus,
+  { label: string; colors: string; icon: typeof CheckCircle2 }
+> = {
+  draft: {
+    label: 'Entwurf',
+    colors: 'bg-secondary text-muted-foreground',
+    icon: FileText,
+  },
+  sent: {
+    label: 'Gesendet',
+    colors: 'bg-info-light text-info',
+    icon: Clock,
+  },
+  paid: {
+    label: 'Bezahlt',
+    colors: 'bg-success-light text-success',
+    icon: CheckCircle2,
+  },
+  overdue: {
+    label: 'Ueberfaellig',
+    colors: 'bg-error-light text-error',
+    icon: AlertCircle,
+  },
+  cancelled: {
+    label: 'Storniert',
+    colors: 'bg-secondary text-muted-foreground',
+    icon: XCircle,
+  },
 }
 
-const invoiceStatusConfig: Record<string, { label: string; colors: string; icon: typeof CheckCircle2 }> = {
-  draft: { label: 'Entwurf', colors: 'bg-secondary text-muted-foreground', icon: FileText },
-  sent: { label: 'Gesendet', colors: 'bg-info-light text-info', icon: Clock },
-  paid: { label: 'Bezahlt', colors: 'bg-success-light text-success', icon: CheckCircle2 },
-  overdue: { label: 'Überfällig', colors: 'bg-error-light text-error', icon: AlertCircle },
-  cancelled: { label: 'Storniert', colors: 'bg-secondary text-muted-foreground', icon: XCircle },
+const quoteStatusConfig: Record<
+  QuoteStatus,
+  { label: string; colors: string; icon: typeof CheckCircle2 }
+> = {
+  draft: {
+    label: 'Entwurf',
+    colors: 'bg-secondary text-muted-foreground',
+    icon: FileText,
+  },
+  sent: {
+    label: 'Gesendet',
+    colors: 'bg-info-light text-info',
+    icon: Clock,
+  },
+  accepted: {
+    label: 'Angenommen',
+    colors: 'bg-success-light text-success',
+    icon: CheckCircle2,
+  },
+  rejected: {
+    label: 'Abgelehnt',
+    colors: 'bg-error-light text-error',
+    icon: XCircle,
+  },
+  expired: {
+    label: 'Abgelaufen',
+    colors: 'bg-secondary text-muted-foreground',
+    icon: Clock,
+  },
 }
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export default function FinanzenPage() {
   const {
-    invoices, transactions, expenses, dunnings,
-    deleteInvoice, duplicateInvoice, sendInvoice, cancelInvoice,
-    deleteTransaction, deleteExpense, approveExpense, rejectExpense,
-    sendDunning, escalateDunning,
-  } = useFinanceStore()
+    activeTab,
+    setActiveTab,
+    invoiceFilter,
+    setInvoiceFilter,
+    quoteFilter,
+    setQuoteFilter,
+  } = useFinanceUIStore()
 
-  const [tab, setTab] = useState<TabKey>('invoices')
   const [search, setSearch] = useState('')
 
-  // Dialogs
+  // Data hooks
+  const { data: invoicesData, isLoading: invoicesLoading } = useInvoices(
+    invoiceFilter.status ? { status: invoiceFilter.status } : undefined,
+  )
+  const { data: quotesData, isLoading: quotesLoading } = useQuotes(
+    quoteFilter.status ? { status: quoteFilter.status } : undefined,
+  )
+  const { data: creditNotesData, isLoading: creditNotesLoading } =
+    useCreditNotes()
+
+  // Mutations
+  const sendInvoice = useSendInvoice()
+  const cancelInvoice = useCancelInvoice()
+  const sendQuote = useSendQuote()
+  const acceptQuote = useAcceptQuote()
+  const rejectQuote = useRejectQuote()
+  const convertQuote = useConvertQuoteToInvoice()
+  const deleteQuote = useDeleteQuote()
+  const sendCreditNote = useSendCreditNote()
+  const downloadInvoicePDF = useDownloadInvoicePDF()
+  const downloadQuotePDF = useDownloadQuotePDF()
+  const downloadCreditNotePDF = useDownloadCreditNotePDF()
+
+  // Dialog state
   const [showInvoiceForm, setShowInvoiceForm] = useState(false)
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null)
-  const [invoiceFormType, setInvoiceFormType] = useState<'invoice' | 'quote'>('invoice')
-  const [showExpenseForm, setShowExpenseForm] = useState(false)
-  const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null)
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [showQuoteForm, setShowQuoteForm] = useState(false)
+  const [editQuote, setEditQuote] = useState<Quote | null>(null)
+  const [showCreditNote, setShowCreditNote] = useState(false)
+  const [paymentInvoiceId, setPaymentInvoiceId] = useState<string | null>(null)
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
+    null,
+  )
   const [showExport, setShowExport] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; label: string } | null>(null)
-  const [dunningLevelFilter, setDunningLevelFilter] = useState<'all' | 1 | 2 | 3>('all')
-  const [dunningStatusFilter, setDunningStatusFilter] = useState<'all' | 'pending' | 'sent' | 'inkasso'>('all')
-
-  // Stats from actual data
-  const totalIncome = transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
-  const totalExpense = transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0)
-  const balance = totalIncome - totalExpense
-  const openInvoiceAmount = invoices
-    .filter((i) => i.type === 'invoice' && i.status !== 'paid' && i.status !== 'cancelled')
-    .reduce((sum, i) => sum + calcRemainingAmount(i), 0)
-
-  const openDunningCount = dunnings.filter((d) => d.status !== 'paid').length
-
-  const stats = [
-    { label: 'Einnahmen', value: formatCHF(totalIncome), icon: TrendingUp, color: 'text-success', bg: 'bg-success-light' },
-    { label: 'Ausgaben', value: formatCHF(totalExpense), icon: TrendingDown, color: 'text-error', bg: 'bg-error-light' },
-    { label: 'Saldo', value: formatCHF(balance), icon: DollarSign, color: 'text-primary', bg: 'bg-primary-light' },
-    { label: 'Offene Rechnungen', value: formatCHF(openInvoiceAmount), icon: CreditCard, color: 'text-warning', bg: 'bg-warning-light' },
-    { label: 'Offene Mahnungen', value: String(openDunningCount), icon: AlertTriangle, color: 'text-error', bg: 'bg-error-light' },
-  ]
+  const [confirmDelete, setConfirmDelete] = useState<{
+    type: string
+    id: string
+    label: string
+  } | null>(null)
 
   // Filtered data
-  const filteredInvoices = invoices.filter((i) => i.type === 'invoice').filter((i) => {
+  const invoices = invoicesData?.invoices ?? []
+  const quotes = quotesData?.quotes ?? []
+  const creditNotes = creditNotesData?.credit_notes ?? []
+
+  const filteredInvoices = invoices.filter((inv) => {
     if (!search) return true
     const q = search.toLowerCase()
-    return i.client.toLowerCase().includes(q) || i.number.toLowerCase().includes(q)
+    return (
+      inv.customer.name.toLowerCase().includes(q) ||
+      inv.invoice_number.toLowerCase().includes(q)
+    )
   })
-  const filteredQuotes = invoices.filter((i) => i.type === 'quote').filter((i) => {
+
+  const filteredQuotes = quotes.filter((q) => {
     if (!search) return true
-    const q = search.toLowerCase()
-    return i.client.toLowerCase().includes(q) || i.number.toLowerCase().includes(q)
+    const s = search.toLowerCase()
+    return (
+      q.customer.name.toLowerCase().includes(s) ||
+      q.quote_number.toLowerCase().includes(s)
+    )
   })
-  const filteredTransactions = transactions.filter((t) => {
+
+  const filteredCreditNotes = creditNotes.filter((cn) => {
     if (!search) return true
     const q = search.toLowerCase()
-    return t.description.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
-  })
-  const filteredExpenses = expenses.filter((e) => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return e.description.toLowerCase().includes(q) || e.supplier.toLowerCase().includes(q)
+    return (
+      cn.customer.name.toLowerCase().includes(q) ||
+      cn.credit_note_number.toLowerCase().includes(q)
+    )
   })
 
   // Handlers
   const handleNewInvoice = () => {
     setEditInvoice(null)
-    setInvoiceFormType('invoice')
-    setShowInvoiceForm(true)
-  }
-
-  const handleNewQuote = () => {
-    setEditInvoice(null)
-    setInvoiceFormType('quote')
     setShowInvoiceForm(true)
   }
 
   const handleEditInvoice = (inv: Invoice) => {
     setEditInvoice(inv)
-    setInvoiceFormType(inv.type)
     setShowInvoiceForm(true)
+  }
+
+  const handleNewQuote = () => {
+    setEditQuote(null)
+    setShowQuoteForm(true)
   }
 
   const handleDeleteConfirm = () => {
     if (!confirmDelete) return
-    if (confirmDelete.type === 'invoice') {
-      deleteInvoice(confirmDelete.id)
-    } else if (confirmDelete.type === 'transaction') {
-      deleteTransaction(confirmDelete.id)
-    } else if (confirmDelete.type === 'expense') {
-      deleteExpense(confirmDelete.id)
+    if (confirmDelete.type === 'quote') {
+      deleteQuote.mutate(confirmDelete.id, {
+        onSuccess: () => toast.success(`${confirmDelete.label} geloescht`),
+        onError: (err) => toast.error(err.message),
+      })
     }
-    toast.success(`${confirmDelete.label} gelöscht`)
     setConfirmDelete(null)
   }
 
   const getInvoiceActions = (inv: Invoice) => {
-    const actions: { label: string; onClick: () => void; variant?: 'destructive'; separator?: true }[] = [
-      { label: 'Details ansehen', onClick: () => setSelectedInvoice(inv) },
+    const actions: {
+      label: string
+      onClick: () => void
+      variant?: 'destructive'
+      separator?: true
+    }[] = [
+      { label: 'Details ansehen', onClick: () => setSelectedInvoiceId(inv.id) },
+      {
+        label: 'PDF herunterladen',
+        onClick: () => downloadInvoicePDF.mutate(inv.id),
+      },
     ]
     if (inv.status === 'draft') {
-      actions.push({ label: 'Bearbeiten', onClick: () => handleEditInvoice(inv) })
-      actions.push({ label: 'Senden', onClick: () => { sendInvoice(inv.id); toast.success(`${inv.number} gesendet`) } })
+      actions.push({
+        label: 'Bearbeiten',
+        onClick: () => handleEditInvoice(inv),
+      })
+      actions.push({
+        label: 'Senden',
+        onClick: () => {
+          sendInvoice.mutate(inv.id, {
+            onSuccess: () =>
+              toast.success(`${inv.invoice_number} gesendet`),
+            onError: (err) => toast.error(err.message),
+          })
+        },
+      })
     }
-    actions.push({ label: 'Duplizieren', onClick: () => { duplicateInvoice(inv.id); toast.success('Kopie erstellt') } })
-    if (inv.type === 'invoice' && inv.status !== 'paid' && inv.status !== 'cancelled') {
-      actions.push({ label: 'Zahlung erfassen', onClick: () => setPaymentInvoice(inv) })
+    if (
+      inv.status !== 'paid' &&
+      inv.status !== 'cancelled'
+    ) {
+      actions.push({
+        label: 'Zahlung erfassen',
+        onClick: () => setPaymentInvoiceId(inv.id),
+      })
     }
     if (inv.status !== 'cancelled' && inv.status !== 'paid') {
-      actions.push({ separator: true as const, label: '', onClick: () => {} })
-      actions.push({ label: 'Stornieren', variant: 'destructive' as const, onClick: () => { cancelInvoice(inv.id); toast.success(`${inv.number} storniert`) } })
-    }
-    if (inv.status === 'draft') {
-      actions.push({ label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'invoice', id: inv.id, label: inv.number }) })
+      actions.push({
+        separator: true as const,
+        label: '',
+        onClick: () => {},
+      })
+      actions.push({
+        label: 'Stornieren',
+        variant: 'destructive' as const,
+        onClick: () => {
+          cancelInvoice.mutate(inv.id, {
+            onSuccess: () =>
+              toast.success(`${inv.invoice_number} storniert`),
+            onError: (err) => toast.error(err.message),
+          })
+        },
+      })
     }
     return actions
   }
+
+  const getQuoteActions = (q: Quote) => {
+    const actions: {
+      label: string
+      onClick: () => void
+      variant?: 'destructive'
+      separator?: true
+    }[] = [
+      {
+        label: 'PDF herunterladen',
+        onClick: () => downloadQuotePDF.mutate(q.id),
+      },
+    ]
+    if (q.status === 'draft') {
+      actions.push({
+        label: 'Senden',
+        onClick: () => {
+          sendQuote.mutate(q.id, {
+            onSuccess: () =>
+              toast.success(`${q.quote_number} gesendet`),
+            onError: (err) => toast.error(err.message),
+          })
+        },
+      })
+    }
+    if (q.status === 'sent') {
+      actions.push({
+        label: 'Annehmen',
+        onClick: () => {
+          acceptQuote.mutate(q.id, {
+            onSuccess: () =>
+              toast.success(`${q.quote_number} angenommen`),
+            onError: (err) => toast.error(err.message),
+          })
+        },
+      })
+      actions.push({
+        label: 'Ablehnen',
+        onClick: () => {
+          rejectQuote.mutate(q.id, {
+            onSuccess: () =>
+              toast.success(`${q.quote_number} abgelehnt`),
+            onError: (err) => toast.error(err.message),
+          })
+        },
+      })
+    }
+    if (q.status === 'accepted') {
+      actions.push({
+        label: 'In Rechnung umwandeln',
+        onClick: () => {
+          convertQuote.mutate(q.id, {
+            onSuccess: () =>
+              toast.success('Rechnung aus Angebot erstellt'),
+            onError: (err) => toast.error(err.message),
+          })
+        },
+      })
+    }
+    if (q.status === 'draft') {
+      actions.push({
+        separator: true as const,
+        label: '',
+        onClick: () => {},
+      })
+      actions.push({
+        label: 'Loeschen',
+        variant: 'destructive' as const,
+        onClick: () =>
+          setConfirmDelete({
+            type: 'quote',
+            id: q.id,
+            label: q.quote_number,
+          }),
+      })
+    }
+    return actions
+  }
+
+  // Tabs config
+  const tabs: {
+    key: FinanceTabKey
+    label: string
+    icon: typeof FileText
+    count?: number
+  }[] = [
+    { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    {
+      key: 'invoices',
+      label: `Rechnungen (${invoicesData?.total ?? 0})`,
+      icon: FileText,
+    },
+    {
+      key: 'quotes',
+      label: `Angebote (${quotesData?.total ?? 0})`,
+      icon: FileText,
+    },
+    {
+      key: 'credit-notes',
+      label: `Gutschriften (${creditNotesData?.total ?? 0})`,
+      icon: Receipt,
+    },
+    { key: 'dunning', label: 'Mahnungen', icon: Gavel },
+    { key: 'export', label: 'Export', icon: Download },
+  ]
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -174,7 +402,9 @@ export default function FinanzenPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="text-foreground">Finanzen</h1>
-          <p className="text-sm text-muted-foreground">Rechnungen, Transaktionen und Ausgaben</p>
+          <p className="text-sm text-muted-foreground">
+            Rechnungen, Angebote, Gutschriften und Mahnwesen
+          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -182,7 +412,7 @@ export default function FinanzenPage() {
             className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <Download className="h-4 w-4" />
-            Export
+            DATEV Export
           </button>
           <button
             onClick={handleNewInvoice}
@@ -194,41 +424,18 @@ export default function FinanzenPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </div>
-              <p className={`text-xl font-semibold ${stat.color}`}>{stat.value}</p>
-            </div>
-          )
-        })}
-      </div>
-
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto">
-        {([
-          { key: 'invoices' as const, label: `Rechnungen (${invoices.filter((i) => i.type === 'invoice').length})`, icon: FileText },
-          { key: 'quotes' as const, label: `Angebote (${invoices.filter((i) => i.type === 'quote').length})`, icon: FileText },
-          { key: 'expenses' as const, label: `Ausgaben (${expenses.length})`, icon: Receipt },
-          { key: 'mahnungen' as const, label: `Mahnungen (${dunnings.length})`, icon: Gavel },
-          { key: 'transactions' as const, label: `Transaktionen (${transactions.length})`, icon: Receipt },
-          { key: 'reports' as const, label: 'Berichte', icon: BarChart3 },
-        ]).map((t) => {
+        {tabs.map((t) => {
           const Icon = t.icon
           return (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => setActiveTab(t.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
-                tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+                activeTab === t.key
+                  ? 'border-primary text-primary font-medium'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -238,8 +445,10 @@ export default function FinanzenPage() {
         })}
       </div>
 
-      {/* Search (for non-reports tabs) */}
-      {tab !== 'reports' && tab !== 'mahnungen' && (
+      {/* Search (for list tabs) */}
+      {(activeTab === 'invoices' ||
+        activeTab === 'quotes' ||
+        activeTab === 'credit-notes') && (
         <div className="flex items-center gap-3 mb-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -251,391 +460,306 @@ export default function FinanzenPage() {
               className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
-          {tab === 'expenses' && (
-            <button onClick={() => setShowExpenseForm(true)} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">
-              <Plus className="h-3.5 w-3.5" />
-              Neue Ausgabe
-            </button>
-          )}
-          {tab === 'quotes' && (
-            <button onClick={handleNewQuote} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">
+          {activeTab === 'quotes' && (
+            <button
+              onClick={handleNewQuote}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
               <Plus className="h-3.5 w-3.5" />
               Neues Angebot
             </button>
           )}
-        </div>
-      )}
-
-      {/* Invoices Tab */}
-      {tab === 'invoices' && (
-        filteredInvoices.length === 0 ? (
-          <EmptyState icon={FileText} title="Keine Rechnungen" description="Erstelle deine erste Rechnung" action={{ label: 'Neue Rechnung', onClick: handleNewInvoice }} />
-        ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Fällig</span><span>Offen</span><span>Status</span><span />
-            </div>
-            {filteredInvoices.map((inv) => {
-              const sc = invoiceStatusConfig[inv.status]
-              const StatusIcon = sc.icon
-              const total = calcInvoiceTotal(inv.items)
-              const remaining = calcRemainingAmount(inv)
-              return (
-                <div key={inv.id} className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
-                  <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
-                  <span className="text-sm text-foreground truncate">{inv.client}</span>
-                  <span className="text-sm font-medium text-foreground">{formatCHF(total)}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-CH')}</span>
-                  <span className={`text-xs font-medium ${remaining > 0 ? 'text-warning' : 'text-success'}`}>
-                    {remaining > 0 ? formatCHF(remaining) : '—'}
-                  </span>
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
-                    <StatusIcon className="h-3 w-3" />
-                    {sc.label}
-                  </span>
-                  <ItemActions items={getInvoiceActions(inv)} />
-                </div>
-              )
-            })}
-          </div>
-        )
-      )}
-
-      {/* Quotes Tab */}
-      {tab === 'quotes' && (
-        filteredQuotes.length === 0 ? (
-          <EmptyState icon={FileText} title="Keine Angebote" description="Erstelle dein erstes Angebot" action={{ label: 'Neues Angebot', onClick: handleNewQuote }} />
-        ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="grid grid-cols-[80px_1fr_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Gueltig bis</span><span>Status</span><span />
-            </div>
-            {filteredQuotes.map((inv) => {
-              const sc = invoiceStatusConfig[inv.status]
-              const StatusIcon = sc.icon
-              const total = calcInvoiceTotal(inv.items)
-              return (
-                <div key={inv.id} className="grid grid-cols-[80px_1fr_100px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
-                  <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
-                  <span className="text-sm text-foreground truncate">{inv.client}</span>
-                  <span className="text-sm font-medium text-foreground">{formatCHF(total)}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-CH')}</span>
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
-                    <StatusIcon className="h-3 w-3" />
-                    {sc.label}
-                  </span>
-                  <ItemActions items={getInvoiceActions(inv)} />
-                </div>
-              )
-            })}
-          </div>
-        )
-      )}
-
-      {/* Expenses Tab */}
-      {tab === 'expenses' && (
-        filteredExpenses.length === 0 ? (
-          <EmptyState icon={Receipt} title="Keine Ausgaben" description="Erfasse Ausgaben und Belege" action={{ label: 'Neue Ausgabe', onClick: () => setShowExpenseForm(true) }} />
-        ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Beschreibung</span><span>Kategorie</span><span>Betrag</span><span>Lieferant</span><span>Status</span><span />
-            </div>
-            {filteredExpenses.map((exp) => {
-              const statusColors = { pending: 'bg-warning-light text-warning', approved: 'bg-success-light text-success', rejected: 'bg-error-light text-error' }
-              const statusLabels = { pending: 'Offen', approved: 'OK', rejected: 'Abgelehnt' }
-              return (
-                <div key={exp.id} className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-sm text-foreground truncate">{exp.description}</p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(exp.date).toLocaleDateString('de-CH')}{exp.project && ` · ${exp.project}`}</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{exp.category}</span>
-                  <span className="text-sm font-medium text-error">{formatCHF(exp.amount)}</span>
-                  <span className="text-xs text-muted-foreground truncate">{exp.supplier}</span>
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[exp.status]}`}>
-                    {statusLabels[exp.status]}
-                  </span>
-                  <ItemActions items={[
-                    ...(exp.status === 'pending' ? [
-                      { label: 'Genehmigen', onClick: () => { approveExpense(exp.id); toast.success('Genehmigt') } },
-                      { label: 'Ablehnen', onClick: () => { rejectExpense(exp.id); toast.success('Abgelehnt') } },
-                    ] : []),
-                    { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'expense', id: exp.id, label: exp.description }) },
-                  ]} />
-                </div>
-              )
-            })}
-          </div>
-        )
-      )}
-
-      {/* Transactions Tab */}
-      {tab === 'transactions' && (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="grid grid-cols-[1fr_120px_120px_100px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-            <span>Beschreibung</span><span>Kategorie</span><span className="text-right">Betrag</span><span className="text-right">Datum</span><span />
-          </div>
-          {filteredTransactions.map((tx) => (
-            <div key={tx.id} className="grid grid-cols-[1fr_120px_120px_100px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tx.type === 'income' ? 'bg-success-light' : 'bg-error-light'}`}>
-                  {tx.type === 'income' ? <ArrowUpRight className="h-4 w-4 text-success" /> : <ArrowDownRight className="h-4 w-4 text-error" />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground truncate">{tx.description}</p>
-                  {tx.reference && <p className="text-[10px] text-muted-foreground">{tx.reference}</p>}
-                </div>
-              </div>
-              <span className="text-xs text-muted-foreground">{tx.category}</span>
-              <span className={`text-sm font-medium text-right ${tx.type === 'income' ? 'text-success' : 'text-error'}`}>
-                {tx.type === 'income' ? '+' : ''}{formatCHF(tx.amount)}
-              </span>
-              <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-CH')}</span>
-              <ItemActions items={[
-                { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
-              ]} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Mahnungen Tab */}
-      {tab === 'mahnungen' && (() => {
-        const filtered = dunnings
-          .filter((d) => dunningLevelFilter === 'all' || d.level === dunningLevelFilter)
-          .filter((d) => {
-            if (dunningStatusFilter === 'all') return true
-            return d.status === dunningStatusFilter
-          })
-
-        const totalDueAmount = dunnings.filter((d) => d.status !== 'paid').reduce((s, d) => s + d.dueAmount, 0)
-        const inkassoCount = dunnings.filter((d) => d.status === 'inkasso').length
-        const avgOverdueDays = Math.round(
-          dunnings
-            .filter((d) => d.status !== 'paid')
-            .reduce((s, d) => {
-              const sent = new Date(d.sentAt).getTime()
-              const now = Date.now()
-              return s + Math.max(0, Math.floor((now - sent) / (1000 * 60 * 60 * 24)))
-            }, 0) / Math.max(1, dunnings.filter((d) => d.status !== 'paid').length),
-        )
-
-        const dunningStats = [
-          { label: 'Offene Mahnungen', value: String(openDunningCount) },
-          { label: 'Mahnbetrag gesamt', value: formatCHF(totalDueAmount) },
-          { label: 'Inkasso-Fälle', value: String(inkassoCount) },
-          { label: 'Ø Verzugstage', value: `${avgOverdueDays} Tage` },
-        ]
-
-        const levelColors: Record<number, string> = {
-          1: 'bg-warning-light text-warning',
-          2: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
-          3: 'bg-error-light text-error',
-        }
-
-        const statusConfig: Record<string, { label: string; colors: string }> = {
-          pending: { label: 'Ausstehend', colors: 'bg-warning-light text-warning' },
-          sent: { label: 'Gesendet', colors: 'bg-info-light text-info' },
-          reminded: { label: 'Erinnert', colors: 'bg-primary-light text-primary' },
-          paid: { label: 'Bezahlt', colors: 'bg-success-light text-success' },
-          inkasso: { label: 'Inkasso', colors: 'bg-error-light text-error' },
-        }
-
-        return (
-          <div className="space-y-4">
-            {/* Dunning stats row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {dunningStats.map((ds) => (
-                <div key={ds.label} className="rounded-lg border border-border bg-card p-3">
-                  <p className="text-[10px] text-muted-foreground mb-1">{ds.label}</p>
-                  <p className="text-lg font-semibold text-foreground">{ds.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Filter bar */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">Mahnstufe:</span>
-                {(['all', 1, 2, 3] as const).map((lvl) => (
+          {activeTab === 'credit-notes' && (
+            <button
+              onClick={() => setShowCreditNote(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Neue Gutschrift
+            </button>
+          )}
+          {activeTab === 'invoices' && (
+            <div className="flex items-center gap-1.5">
+              {(
+                [undefined, 'draft', 'sent', 'paid', 'overdue', 'cancelled'] as const
+              ).map((st) => {
+                const labels: Record<string, string> = {
+                  '': 'Alle',
+                  draft: 'Entwurf',
+                  sent: 'Gesendet',
+                  paid: 'Bezahlt',
+                  overdue: 'Ueberfaellig',
+                  cancelled: 'Storniert',
+                }
+                return (
                   <button
-                    key={String(lvl)}
-                    onClick={() => setDunningLevelFilter(lvl)}
-                    className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                      dunningLevelFilter === lvl
+                    key={st ?? ''}
+                    onClick={() =>
+                      setInvoiceFilter({
+                        status: st as InvoiceStatus | undefined,
+                      })
+                    }
+                    className={`rounded-md px-2 py-1 text-xs transition-colors ${
+                      invoiceFilter.status === st
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-secondary text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    {lvl === 'all' ? 'Alle' : `Stufe ${lvl}`}
+                    {labels[st ?? '']}
                   </button>
-                ))}
-              </div>
-              <div className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">Status:</span>
-                {(['all', 'pending', 'sent', 'inkasso'] as const).map((st) => {
-                  const labels: Record<string, string> = { all: 'Alle', pending: 'Ausstehend', sent: 'Gesendet', inkasso: 'Inkasso' }
-                  return (
-                    <button
-                      key={st}
-                      onClick={() => setDunningStatusFilter(st)}
-                      className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                        dunningStatusFilter === st
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {labels[st]}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Dunning table */}
-            {filtered.length === 0 ? (
-              <EmptyState icon={Gavel} title="Keine Mahnungen" description="Keine Mahnungen mit diesen Filtern gefunden" />
-            ) : (
-              <div className="rounded-lg border border-border bg-card overflow-hidden">
-                <div className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_160px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-                  <span>Rechnung</span><span>Kunde</span><span>Betrag</span><span>Mahnstufe</span><span>Gesendet</span><span>Status</span><span className="text-right">Aktionen</span>
-                </div>
-                {filtered.map((d) => {
-                  const sc = statusConfig[d.status]
-                  return (
-                    <div key={d.id} className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_160px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
-                      <span className="text-sm font-mono text-primary">{d.invoiceNumber}</span>
-                      <span className="text-sm text-foreground truncate">{d.client}</span>
-                      <span className="text-sm font-medium text-foreground">{formatCHF(d.dueAmount)}</span>
-                      {/* Mahnstufe visualization */}
-                      <div className="flex flex-col gap-1">
-                        <span className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${levelColors[d.level]}`}>
-                          Stufe {d.level}
-                        </span>
-                        <div className="flex items-center gap-0.5">
-                          {[1, 2, 3].map((step) => (
-                            <div key={step} className="flex items-center">
-                              <div
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  step <= d.level
-                                    ? step === 3 ? 'bg-error' : step === 2 ? 'bg-orange-500' : 'bg-warning'
-                                    : 'bg-secondary'
-                                }`}
-                              />
-                              {step < 3 && (
-                                <ChevronRight className={`h-2.5 w-2.5 ${step < d.level ? 'text-muted-foreground' : 'text-secondary'}`} />
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{new Date(d.sentAt).toLocaleDateString('de-CH')}</span>
-                      <span className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
-                        {sc.label}
-                      </span>
-                      <div className="flex items-center justify-end gap-1.5">
-                        {d.status === 'pending' && (
-                          <button
-                            onClick={() => { sendDunning(d.id); toast.success(`Mahnung ${d.invoiceNumber} gesendet`) }}
-                            className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[10px] text-primary-foreground hover:bg-button-primary-hover transition-colors"
-                          >
-                            <Send className="h-3 w-3" />
-                            Senden
-                          </button>
-                        )}
-                        {d.level < 3 && d.status !== 'paid' && (
-                          <button
-                            onClick={() => { escalateDunning(d.id); toast.success(`${d.invoiceNumber} eskaliert auf Stufe ${Math.min(d.level + 1, 3)}`) }}
-                            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-secondary transition-colors"
-                          >
-                            <AlertTriangle className="h-3 w-3" />
-                            Eskalieren
-                          </button>
-                        )}
-                        {d.status === 'inkasso' && (
-                          <span className="text-[10px] text-error font-medium">Inkasso aktiv</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )
-      })()}
-
-      {/* Reports Tab */}
-      {tab === 'reports' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              <h3 className="text-sm font-medium text-foreground">Einnahmen vs. Ausgaben</h3>
-            </div>
-            <div className="flex items-end gap-3 h-40">
-              {['Okt', 'Nov', 'Dez', 'Jan', 'Feb'].map((month, i) => {
-                const incomeHeight = [55, 70, 80, 65, 90][i]
-                const expenseHeight = [35, 40, 45, 30, 25][i]
-                return (
-                  <div key={month} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="flex gap-1 items-end h-32 w-full">
-                      <div className="flex-1 rounded-t-sm bg-primary" style={{ height: `${incomeHeight}%` }} />
-                      <div className="flex-1 rounded-t-sm bg-error/60" style={{ height: `${expenseHeight}%` }} />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">{month}</span>
-                  </div>
                 )
               })}
             </div>
-            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> Einnahmen</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-error/60" /> Ausgaben</span>
-            </div>
-          </div>
+          )}
+        </div>
+      )}
 
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <PieChart className="h-5 w-5 text-primary" />
-              <h3 className="text-sm font-medium text-foreground">Ausgaben nach Kategorie</h3>
+      {/* Dashboard Tab */}
+      {activeTab === 'dashboard' && <FinanceDashboard />}
+
+      {/* Invoices Tab */}
+      {activeTab === 'invoices' &&
+        (invoicesLoading ? (
+          <LoadingState />
+        ) : filteredInvoices.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="Keine Rechnungen"
+            description="Erstelle deine erste Rechnung"
+            action={{ label: 'Neue Rechnung', onClick: handleNewInvoice }}
+          />
+        ) : (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="grid grid-cols-[100px_1fr_100px_100px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+              <span>Nr.</span>
+              <span>Kunde</span>
+              <span>Betrag</span>
+              <span>Faellig</span>
+              <span>Offen</span>
+              <span>Status</span>
+              <span />
             </div>
-            <div className="space-y-3">
-              {(() => {
-                const cats = new Map<string, number>()
-                transactions.filter((t) => t.type === 'expense').forEach((t) => {
-                  cats.set(t.category, (cats.get(t.category) ?? 0) + Math.abs(t.amount))
-                })
-                const total = Array.from(cats.values()).reduce((s, v) => s + v, 0) || 1
-                const colors = ['bg-primary', 'bg-info', 'bg-warning', 'bg-error', 'bg-success']
-                return Array.from(cats.entries())
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
-                  .map(([name, amount], idx) => (
-                    <div key={name}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="text-foreground">{name}</span>
-                        <span className="text-muted-foreground">{formatCHF(amount)}</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-secondary">
-                        <div className={`h-full rounded-full ${colors[idx % colors.length]}`} style={{ width: `${(amount / total) * 100}%` }} />
-                      </div>
-                    </div>
-                  ))
-              })()}
-            </div>
+            {filteredInvoices.map((inv) => {
+              const sc = invoiceStatusConfig[inv.status]
+              const StatusIcon = sc.icon
+              const grossTotal = Number(inv.tax_breakdown.gross_total)
+              return (
+                <div
+                  key={inv.id}
+                  className="grid grid-cols-[100px_1fr_100px_100px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                >
+                  <button
+                    onClick={() => setSelectedInvoiceId(inv.id)}
+                    className="text-sm font-mono text-primary hover:underline text-left"
+                  >
+                    {inv.invoice_number}
+                  </button>
+                  <span className="text-sm text-foreground truncate">
+                    {inv.customer.name}
+                  </span>
+                  <span className="text-sm font-medium text-foreground">
+                    {formatEUR(grossTotal)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(inv.due_date).toLocaleDateString('de-DE')}
+                  </span>
+                  <span
+                    className={`text-xs font-medium ${
+                      inv.status !== 'paid' ? 'text-warning' : 'text-success'
+                    }`}
+                  >
+                    {inv.status !== 'paid'
+                      ? formatEUR(inv.tax_breakdown.gross_total)
+                      : '--'}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
+                  >
+                    <StatusIcon className="h-3 w-3" />
+                    {sc.label}
+                  </span>
+                  <ItemActions items={getInvoiceActions(inv)} />
+                </div>
+              )
+            })}
           </div>
+        ))}
+
+      {/* Quotes Tab */}
+      {activeTab === 'quotes' &&
+        (quotesLoading ? (
+          <LoadingState />
+        ) : filteredQuotes.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="Keine Angebote"
+            description="Erstelle dein erstes Angebot"
+            action={{ label: 'Neues Angebot', onClick: handleNewQuote }}
+          />
+        ) : (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="grid grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+              <span>Nr.</span>
+              <span>Kunde</span>
+              <span>Betrag</span>
+              <span>Gueltig bis</span>
+              <span>Status</span>
+              <span />
+            </div>
+            {filteredQuotes.map((q) => {
+              const sc = quoteStatusConfig[q.status]
+              const StatusIcon = sc.icon
+              return (
+                <div
+                  key={q.id}
+                  className="grid grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                >
+                  <span className="text-sm font-mono text-primary">
+                    {q.quote_number}
+                  </span>
+                  <span className="text-sm text-foreground truncate">
+                    {q.customer.name}
+                  </span>
+                  <span className="text-sm font-medium text-foreground">
+                    {formatEUR(q.tax_breakdown.gross_total)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(q.valid_until).toLocaleDateString('de-DE')}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
+                  >
+                    <StatusIcon className="h-3 w-3" />
+                    {sc.label}
+                  </span>
+                  <ItemActions items={getQuoteActions(q)} />
+                </div>
+              )
+            })}
+          </div>
+        ))}
+
+      {/* Credit Notes Tab */}
+      {activeTab === 'credit-notes' &&
+        (creditNotesLoading ? (
+          <LoadingState />
+        ) : filteredCreditNotes.length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title="Keine Gutschriften"
+            description="Erstelle eine Gutschrift zu einer bestehenden Rechnung"
+            action={{
+              label: 'Neue Gutschrift',
+              onClick: () => setShowCreditNote(true),
+            }}
+          />
+        ) : (
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
+            <div className="grid grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+              <span>Nr.</span>
+              <span>Kunde</span>
+              <span>Originalrechnung</span>
+              <span>Betrag</span>
+              <span>Status</span>
+              <span />
+            </div>
+            {filteredCreditNotes.map((cn) => {
+              const isDraft = cn.status === 'draft'
+              return (
+                <div
+                  key={cn.id}
+                  className="grid grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                >
+                  <span className="text-sm font-mono text-primary">
+                    {cn.credit_note_number}
+                  </span>
+                  <span className="text-sm text-foreground truncate">
+                    {cn.customer.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {cn.original_invoice_id.slice(0, 8)}...
+                  </span>
+                  <span className="text-sm font-medium text-foreground">
+                    {formatEUR(cn.tax_breakdown.gross_total)}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      isDraft
+                        ? 'bg-secondary text-muted-foreground'
+                        : 'bg-info-light text-info'
+                    }`}
+                  >
+                    {isDraft ? 'Entwurf' : 'Gesendet'}
+                  </span>
+                  <ItemActions
+                    items={[
+                      {
+                        label: 'PDF herunterladen',
+                        onClick: () =>
+                          downloadCreditNotePDF.mutate(cn.id),
+                      },
+                      ...(isDraft
+                        ? [
+                            {
+                              label: 'Senden',
+                              onClick: () => {
+                                sendCreditNote.mutate(cn.id, {
+                                  onSuccess: () =>
+                                    toast.success('Gutschrift gesendet'),
+                                  onError: (err: Error) =>
+                                    toast.error(err.message),
+                                })
+                              },
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        ))}
+
+      {/* Dunning Tab */}
+      {activeTab === 'dunning' && <DunningPanel />}
+
+      {/* Export Tab */}
+      {activeTab === 'export' && (
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <Download className="h-12 w-12 text-muted-foreground/50" />
+          <div className="text-center">
+            <p className="text-sm font-medium text-foreground">
+              DATEV Buchungsstapel Export
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Exportiere Rechnungen und Gutschriften im DATEV EXTF-Format
+            </p>
+          </div>
+          <button
+            onClick={() => setShowExport(true)}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Export starten
+          </button>
         </div>
       )}
 
       {/* Invoice Detail Panel */}
-      {selectedInvoice && (
+      {selectedInvoiceId && (
         <InvoiceDetailPanel
-          invoice={selectedInvoice}
-          onClose={() => setSelectedInvoice(null)}
-          onEdit={() => { handleEditInvoice(selectedInvoice); setSelectedInvoice(null) }}
-          onRecordPayment={() => { setPaymentInvoice(selectedInvoice); setSelectedInvoice(null) }}
+          invoiceId={selectedInvoiceId}
+          onClose={() => setSelectedInvoiceId(null)}
+          onEdit={() => {
+            const inv = invoices.find((i) => i.id === selectedInvoiceId)
+            if (inv) handleEditInvoice(inv)
+            setSelectedInvoiceId(null)
+          }}
+          onRecordPayment={() => {
+            setPaymentInvoiceId(selectedInvoiceId)
+            setSelectedInvoiceId(null)
+          }}
         />
       )}
 
@@ -644,17 +768,26 @@ export default function FinanzenPage() {
         open={showInvoiceForm}
         onOpenChange={setShowInvoiceForm}
         editInvoice={editInvoice}
-        defaultType={invoiceFormType}
       />
 
-      {/* Expense Form */}
-      <ExpenseFormDialog open={showExpenseForm} onOpenChange={setShowExpenseForm} />
+      {/* Quote Form */}
+      <QuoteFormDialog
+        open={showQuoteForm}
+        onOpenChange={setShowQuoteForm}
+        editQuote={editQuote}
+      />
+
+      {/* Credit Note Dialog */}
+      <CreditNoteDialog
+        open={showCreditNote}
+        onOpenChange={setShowCreditNote}
+      />
 
       {/* Payment Record */}
       <PaymentRecordDialog
-        open={!!paymentInvoice}
-        onOpenChange={() => setPaymentInvoice(null)}
-        invoice={paymentInvoice}
+        open={!!paymentInvoiceId}
+        onOpenChange={() => setPaymentInvoiceId(null)}
+        invoiceId={paymentInvoiceId}
       />
 
       {/* Export */}
@@ -664,12 +797,24 @@ export default function FinanzenPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Eintrag löschen?"
-        description={`"${confirmDelete?.label}" wird dauerhaft gelöscht.`}
-        confirmLabel="Löschen"
+        title="Eintrag loeschen?"
+        description={`"${confirmDelete?.label}" wird dauerhaft geloescht.`}
+        confirmLabel="Loeschen"
         variant="destructive"
         onConfirm={handleDeleteConfirm}
       />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Loading state
+// ---------------------------------------------------------------------------
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+      Lade...
     </div>
   )
 }

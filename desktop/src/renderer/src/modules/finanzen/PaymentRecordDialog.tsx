@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -17,55 +18,78 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { useFinanceStore, type Invoice, calcRemainingAmount } from '@/stores/finance'
+import { useRecordPayment, useInvoice, usePayments } from '@/api/hooks/useFinance'
+import { formatEUR } from '@/stores/finance'
+import type { PaymentMethod } from '@/types/finance-types'
 
-function formatCHF(n: number): string {
-  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(n)
-}
-
-const PAYMENT_METHODS = [
-  'Banküberweisung',
-  'Kreditkarte',
-  'Twint',
-  'PayPal',
-  'Bar',
-  'Lastschrift',
+const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: 'bank_transfer', label: 'Ueberweisung' },
+  { value: 'cash', label: 'Barzahlung' },
+  { value: 'credit_card', label: 'Kreditkarte' },
+  { value: 'other', label: 'Sonstige' },
 ]
 
 interface PaymentRecordDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  invoice: Invoice | null
+  invoiceId: string | null
 }
 
-export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentRecordDialogProps) {
-  const { recordPayment } = useFinanceStore()
+export function PaymentRecordDialog({
+  open,
+  onOpenChange,
+  invoiceId,
+}: PaymentRecordDialogProps) {
+  const recordPayment = useRecordPayment()
+  const { data: invoice } = useInvoice(invoiceId ?? '')
+  const { data: paymentsData } = usePayments(invoiceId ?? '')
 
-  const remaining = invoice ? calcRemainingAmount(invoice) : 0
-  const [amount, setAmount] = useState(remaining)
+  const grossTotal = Number(invoice?.tax_breakdown.gross_total ?? 0)
+  const totalPaid = (paymentsData?.payments ?? []).reduce(
+    (sum, p) => sum + Number(p.amount),
+    0,
+  )
+  const remaining = Math.max(0, grossTotal - totalPaid)
+
+  const [amount, setAmount] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [method, setMethod] = useState('Banküberweisung')
+  const [method, setMethod] = useState<PaymentMethod>('bank_transfer')
   const [reference, setReference] = useState('')
+  const [notes, setNotes] = useState('')
 
-  // Reset when opening
   useEffect(() => {
-    if (open && invoice) {
-      setAmount(calcRemainingAmount(invoice))
+    if (open && remaining > 0) {
+      setAmount(remaining.toFixed(2))
+      setDate(new Date().toISOString().split('T')[0])
+      setMethod('bank_transfer')
+      setReference('')
+      setNotes('')
     }
-  }, [open, invoice])
+  }, [open, remaining])
 
-  if (!invoice) return null
+  if (!invoiceId) return null
 
   const handleRecord = () => {
-    if (amount <= 0) return
-    recordPayment(invoice.id, {
-      date,
-      amount,
-      method,
-      reference: reference.trim() || undefined,
-    })
-    toast.success(`Zahlung von ${formatCHF(amount)} erfasst`)
-    onOpenChange(false)
+    const amountNum = Number(amount)
+    if (amountNum <= 0) return
+
+    recordPayment.mutate(
+      {
+        invoiceId,
+        amount: amount,
+        payment_date: date,
+        method,
+        reference: reference.trim() || undefined,
+        notes: notes.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Zahlung von ${formatEUR(amountNum)} erfasst`)
+          onOpenChange(false)
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    )
   }
 
   return (
@@ -76,57 +100,98 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Invoice summary */}
           <div className="rounded-md bg-secondary/50 p-3 text-xs space-y-1">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Rechnung</span>
-              <span className="font-medium text-foreground">{invoice.number}</span>
+              <span className="font-medium text-foreground font-mono">
+                {invoice?.invoice_number ?? '--'}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Kunde</span>
-              <span className="text-foreground">{invoice.client}</span>
+              <span className="text-foreground">
+                {invoice?.customer.name ?? '--'}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Offener Betrag</span>
-              <span className="font-medium text-primary">{formatCHF(remaining)}</span>
+              <span className="font-medium text-primary">
+                {formatEUR(remaining)}
+              </span>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Betrag (CHF)</Label>
+            <Label>Betrag (EUR)</Label>
             <Input
               autoFocus
               type="number"
               min={0.01}
               step={0.01}
               value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
+              onChange={(e) => setAmount(e.target.value)}
             />
           </div>
 
           <div className="space-y-1.5">
             <Label>Datum</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Zahlungsart</Label>
-            <Select value={method} onValueChange={setMethod}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select
+              value={method}
+              onValueChange={(v) => setMethod(v as PaymentMethod)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                {PAYMENT_METHODS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-1.5">
             <Label>Referenz / Beleg-Nr. (optional)</Label>
-            <Input placeholder="z.B. BELEG-043" value={reference} onChange={(e) => setReference(e.target.value)} />
+            <Input
+              placeholder="z.B. BELEG-043"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Notizen (optional)</Label>
+            <Textarea
+              placeholder="Zusaetzliche Informationen..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleRecord} disabled={amount <= 0}>Zahlung erfassen</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleRecord}
+            disabled={Number(amount) <= 0 || recordPayment.isPending}
+          >
+            {recordPayment.isPending ? 'Speichert...' : 'Zahlung erfassen'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -18,9 +18,9 @@ import {
 } from '@/components/ui/select'
 import { Plus, Trash2, Info } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCreateInvoice, useUpdateInvoice, useCompanySettings } from '@/api/hooks/useFinance'
+import { useCreateQuote, useUpdateQuote, useCompanySettings } from '@/api/hooks/useFinance'
 import { formatEUR, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
-import type { Invoice, TaxMode } from '@/types/finance-types'
+import type { Quote, TaxMode } from '@/types/finance-types'
 
 interface LineItemDraft {
   key: string
@@ -48,21 +48,21 @@ function emptyItem(position: number): LineItemDraft {
   }
 }
 
-interface InvoiceFormDialogProps {
+interface QuoteFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  editInvoice?: Invoice | null
-  sourceQuoteId?: string
+  editQuote?: Quote | null
+  dealId?: string
 }
 
-export function InvoiceFormDialog({
+export function QuoteFormDialog({
   open,
   onOpenChange,
-  editInvoice,
-  sourceQuoteId,
-}: InvoiceFormDialogProps) {
-  const createInvoice = useCreateInvoice()
-  const updateInvoice = useUpdateInvoice()
+  editQuote,
+  dealId,
+}: QuoteFormDialogProps) {
+  const createQuote = useCreateQuote()
+  const updateQuote = useUpdateQuote()
   const { data: settings } = useCompanySettings()
 
   const [customerName, setCustomerName] = useState('')
@@ -70,9 +70,7 @@ export function InvoiceFormDialog({
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerUstIdNr, setCustomerUstIdNr] = useState('')
   const [taxMode, setTaxMode] = useState<TaxMode>('standard')
-  const [invoiceDate, setInvoiceDate] = useState('')
-  const [deliveryDate, setDeliveryDate] = useState('')
-  const [paymentTermsDays, setPaymentTermsDays] = useState('30')
+  const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<LineItemDraft[]>([emptyItem(1)])
 
@@ -82,29 +80,26 @@ export function InvoiceFormDialog({
     setCustomerEmail('')
     setCustomerUstIdNr('')
     setTaxMode('standard')
-    setInvoiceDate(new Date().toISOString().split('T')[0])
-    setDeliveryDate('')
-    setPaymentTermsDays(
-      String(settings?.default_payment_terms_days ?? 30),
-    )
     setNotes('')
     setItems([emptyItem(1)])
+    const defaultDays = settings?.default_quote_validity_days ?? 30
+    const d = new Date()
+    d.setDate(d.getDate() + defaultDays)
+    setValidUntil(d.toISOString().split('T')[0])
   }, [settings])
 
   useEffect(() => {
     if (!open) return
-    if (editInvoice) {
-      setCustomerName(editInvoice.customer.name)
-      setCustomerAddress(editInvoice.customer.address)
-      setCustomerEmail(editInvoice.customer.email)
-      setCustomerUstIdNr(editInvoice.customer.ust_id_nr ?? '')
-      setTaxMode(editInvoice.tax_mode)
-      setInvoiceDate(editInvoice.invoice_date)
-      setDeliveryDate(editInvoice.delivery_date ?? '')
-      setPaymentTermsDays(editInvoice.payment_terms ?? '30')
-      setNotes(editInvoice.notes ?? '')
+    if (editQuote) {
+      setCustomerName(editQuote.customer.name)
+      setCustomerAddress(editQuote.customer.address)
+      setCustomerEmail(editQuote.customer.email)
+      setCustomerUstIdNr(editQuote.customer.ust_id_nr ?? '')
+      setTaxMode(editQuote.tax_mode)
+      setValidUntil(editQuote.valid_until)
+      setNotes(editQuote.notes ?? '')
       setItems(
-        editInvoice.line_items.map((li, idx) => ({
+        editQuote.line_items.map((li, idx) => ({
           key: li.id,
           position: li.position || idx + 1,
           description: li.description,
@@ -116,7 +111,7 @@ export function InvoiceFormDialog({
     } else {
       resetForm()
     }
-  }, [open, editInvoice, resetForm])
+  }, [open, editQuote, resetForm])
 
   const updateItem = (idx: number, updates: Partial<LineItemDraft>) => {
     setItems((prev) =>
@@ -155,41 +150,37 @@ export function InvoiceFormDialog({
       ...(customerUstIdNr.trim() ? { ust_id_nr: customerUstIdNr.trim() } : {}),
     }
 
-    if (editInvoice) {
-      updateInvoice.mutate(
+    if (editQuote) {
+      updateQuote.mutate(
         {
-          id: editInvoice.id,
+          id: editQuote.id,
           customer,
           tax_mode: taxMode,
           line_items: lineItems,
-          invoice_date: invoiceDate,
-          delivery_date: deliveryDate || undefined,
-          payment_terms_days: Number(paymentTermsDays),
+          valid_until: validUntil,
           notes: notes.trim() || undefined,
         },
         {
           onSuccess: () => {
-            toast.success('Rechnung aktualisiert')
+            toast.success('Angebot aktualisiert')
             onOpenChange(false)
           },
           onError: (err) => toast.error(err.message),
         },
       )
     } else {
-      createInvoice.mutate(
+      createQuote.mutate(
         {
           customer,
           tax_mode: taxMode,
           line_items: lineItems,
-          invoice_date: invoiceDate,
-          delivery_date: deliveryDate || undefined,
-          payment_terms_days: Number(paymentTermsDays),
+          valid_until: validUntil || undefined,
           notes: notes.trim() || undefined,
-          source_quote_id: sourceQuoteId,
+          deal_id: dealId,
         },
         {
           onSuccess: () => {
-            toast.success('Rechnung erstellt')
+            toast.success('Angebot erstellt')
             onOpenChange(false)
           },
           onError: (err) => toast.error(err.message),
@@ -207,14 +198,14 @@ export function InvoiceFormDialog({
   const tax = calcInvoiceTax(effectiveItems)
   const total = calcInvoiceTotal(effectiveItems)
 
-  const isPending = createInvoice.isPending || updateInvoice.isPending
+  const isPending = createQuote.isPending || updateQuote.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {editInvoice ? 'Rechnung bearbeiten' : 'Neue Rechnung'}
+            {editQuote ? 'Angebot bearbeiten' : 'Neues Angebot'}
           </DialogTitle>
         </DialogHeader>
 
@@ -259,17 +250,12 @@ export function InvoiceFormDialog({
             </div>
           </div>
 
-          {/* Tax mode, dates, terms */}
+          {/* Tax mode & validity */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Steuerbehandlung</Label>
-              <Select
-                value={taxMode}
-                onValueChange={(v) => setTaxMode(v as TaxMode)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={taxMode} onValueChange={(v) => setTaxMode(v as TaxMode)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="standard">Standard (19% / 7%)</SelectItem>
                   <SelectItem value="reverse_charge">Reverse Charge</SelectItem>
@@ -278,30 +264,11 @@ export function InvoiceFormDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Zahlungsziel (Tage)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={paymentTermsDays}
-                onChange={(e) => setPaymentTermsDays(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Rechnungsdatum</Label>
+              <Label>Gueltig bis</Label>
               <Input
                 type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Leistungsdatum</Label>
-              <Input
-                type="date"
-                value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
               />
             </div>
           </div>
@@ -310,17 +277,13 @@ export function InvoiceFormDialog({
           {taxMode === 'reverse_charge' && (
             <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info">
               <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>
-                Reverse Charge -- Steuerschuldnerschaft des Leistungsempfaengers
-              </span>
+              <span>Reverse Charge -- Steuerschuldnerschaft des Leistungsempfaengers</span>
             </div>
           )}
           {taxMode === 'kleinunternehmer' && (
             <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
               <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>
-                Kein Ausweis von Umsatzsteuer gemaess Paragraph 19 UStG
-              </span>
+              <span>Kein Ausweis von Umsatzsteuer gemaess Paragraph 19 UStG</span>
             </div>
           )}
 
@@ -342,15 +305,11 @@ export function InvoiceFormDialog({
                   key={item.key}
                   className="grid grid-cols-[2rem_1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-1.5 border-t border-border-muted items-center"
                 >
-                  <span className="text-xs text-muted-foreground">
-                    {idx + 1}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{idx + 1}</span>
                   <Input
                     placeholder="Beschreibung..."
                     value={item.description}
-                    onChange={(e) =>
-                      updateItem(idx, { description: e.target.value })
-                    }
+                    onChange={(e) => updateItem(idx, { description: e.target.value })}
                     className="h-7 text-xs"
                   />
                   <Input
@@ -358,9 +317,7 @@ export function InvoiceFormDialog({
                     min={0.01}
                     step={0.5}
                     value={item.quantity}
-                    onChange={(e) =>
-                      updateItem(idx, { quantity: e.target.value })
-                    }
+                    onChange={(e) => updateItem(idx, { quantity: e.target.value })}
                     className="h-7 text-xs"
                   />
                   <Input
@@ -368,29 +325,21 @@ export function InvoiceFormDialog({
                     min={0}
                     step={0.01}
                     value={item.unit_price}
-                    onChange={(e) =>
-                      updateItem(idx, { unit_price: e.target.value })
-                    }
+                    onChange={(e) => updateItem(idx, { unit_price: e.target.value })}
                     className="h-7 text-xs"
                   />
                   {taxMode !== 'kleinunternehmer' ? (
                     <select
                       value={item.tax_rate}
-                      onChange={(e) =>
-                        updateItem(idx, { tax_rate: e.target.value })
-                      }
+                      onChange={(e) => updateItem(idx, { tax_rate: e.target.value })}
                       className="h-7 rounded border border-input-border bg-input-background px-1 text-[10px] text-foreground outline-none"
                     >
                       {TAX_RATES.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
+                        <option key={r.value} value={r.value}>{r.label}</option>
                       ))}
                     </select>
                   ) : (
-                    <span className="text-xs text-muted-foreground px-1">
-                      0%
-                    </span>
+                    <span className="text-xs text-muted-foreground px-1">0%</span>
                   )}
                   <span className="text-xs text-foreground text-right font-medium">
                     {formatEUR(calcLineTotal(item.quantity, item.unit_price))}
@@ -455,11 +404,7 @@ export function InvoiceFormDialog({
             onClick={handleSave}
             disabled={!customerName.trim() || isPending}
           >
-            {isPending
-              ? 'Speichert...'
-              : editInvoice
-                ? 'Speichern'
-                : 'Erstellen'}
+            {isPending ? 'Speichert...' : editQuote ? 'Speichern' : 'Erstellen'}
           </Button>
         </div>
       </DialogContent>

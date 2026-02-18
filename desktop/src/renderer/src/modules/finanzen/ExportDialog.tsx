@@ -9,32 +9,41 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Download, FileText, Table2, FileSpreadsheet } from 'lucide-react'
+import { Download, FileSpreadsheet, Info } from 'lucide-react'
 import { toast } from 'sonner'
+import { useExportDATEV } from '@/api/hooks/useFinance'
 
 interface ExportDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-const FORMATS = [
-  { id: 'csv', label: 'CSV', icon: Table2, description: 'Komma-getrennte Werte für Excel/Google Sheets' },
-  { id: 'pdf', label: 'PDF', icon: FileText, description: 'Druckfertiger Bericht' },
-  { id: 'datev', label: 'DATEV', icon: FileSpreadsheet, description: 'Export für Steuerberater (DATEV-Format)' },
-]
-
 export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
-  const [format, setFormat] = useState('csv')
-  const [startDate, setStartDate] = useState('2026-01-01')
-  const [endDate, setEndDate] = useState('2026-02-28')
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const firstOfMonth = new Date(year, month, 1).toISOString().split('T')[0]
+  const lastOfMonth = new Date(year, month + 1, 0).toISOString().split('T')[0]
+
+  const [startDate, setStartDate] = useState(firstOfMonth)
+  const [endDate, setEndDate] = useState(lastOfMonth)
+
+  const exportDATEV = useExportDATEV()
 
   const handleExport = () => {
-    const formatLabel = FORMATS.find((f) => f.id === format)?.label ?? format
-    toast.success(`${formatLabel}-Export wird erstellt...`)
-    setTimeout(() => {
-      toast.success(`Export "${formatLabel}_${startDate}_${endDate}" heruntergeladen`)
-    }, 1500)
-    onOpenChange(false)
+    if (!startDate || !endDate) return
+    exportDATEV.mutate(
+      { date_from: startDate, date_to: endDate },
+      {
+        onSuccess: () => {
+          toast.success(
+            `DATEV Export heruntergeladen: EXTF_Buchungsstapel_${startDate}_${endDate}.csv`,
+          )
+          onOpenChange(false)
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    )
   }
 
   return (
@@ -43,57 +52,69 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="h-5 w-5" />
-            Daten exportieren
+            DATEV Export
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Format info */}
+          <div className="flex items-start gap-3 rounded-lg border border-border p-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+              <FileSpreadsheet className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                DATEV Buchungsstapel
+              </p>
+              <p className="text-xs text-muted-foreground">
+                EXTF-Format (CSV) fuer den Import in DATEV oder Steuerberater-Software
+              </p>
+            </div>
+          </div>
+
           {/* Date range */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Von</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Bis</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Format selection */}
-          <div className="space-y-1.5">
-            <Label>Format</Label>
-            <div className="space-y-2">
-              {FORMATS.map((f) => {
-                const Icon = f.icon
-                const active = format === f.id
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => setFormat(f.id)}
-                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                      active ? 'border-primary bg-primary/5' : 'border-border hover:bg-secondary/50'
-                    }`}
-                  >
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${active ? 'bg-primary/10' : 'bg-secondary'}`}>
-                      <Icon className={`h-4 w-4 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
-                    </div>
-                    <div>
-                      <p className={`text-sm font-medium ${active ? 'text-primary' : 'text-foreground'}`}>{f.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{f.description}</p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+          {/* Info */}
+          <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info">
+            <Info className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              Der Export umfasst alle Rechnungen und Gutschriften im
+              gewaehlten Zeitraum. Dateiname:{' '}
+              <span className="font-mono">
+                EXTF_Buchungsstapel_{startDate}_{endDate}.csv
+              </span>
+            </span>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleExport}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleExport}
+            disabled={!startDate || !endDate || exportDATEV.isPending}
+          >
             <Download className="mr-1.5 h-4 w-4" />
-            Exportieren
+            {exportDATEV.isPending ? 'Exportiert...' : 'Exportieren'}
           </Button>
         </DialogFooter>
       </DialogContent>
