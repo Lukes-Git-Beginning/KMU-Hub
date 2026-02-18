@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 12 (Rechnungen & Finanzen) in progress -- plan 01 complete
+**Current focus:** Phase 12 (Rechnungen & Finanzen) in progress -- plan 02 complete
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
 Phase: 12 of 20 (Rechnungen & Finanzen) -- IN PROGRESS
-Plan: 1 of 5 complete
+Plan: 2 of 5 complete
 Status: Business Suite milestone started
-Last activity: 2026-02-18 -- Phase 12 plan 01 (data foundation) complete
+Last activity: 2026-02-18 -- Phase 12 plan 02 (quote and invoice services) complete
 
-Progress: [███████████████████████████████] 100% (67/71 plans across phases 4-12)
+Progress: [███████████████████████████████] 100% (68/71 plans across phases 4-12)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 63
+- Total plans completed: 64
 - Average duration: ~7 minutes
 - Total execution time: ~6h 52min
 
@@ -38,12 +38,12 @@ Progress: [███████████████████████
 | 10 | 7/7 | ~80min | ~11min |
 | 11 | 6/6 | ~57min | ~9.5min |
 
-| 12 | 1/5 | ~12min | ~12min |
+| 12 | 2/5 | ~18min | ~9min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
-- Phase 12 (Rechnungen & Finanzen) started -- Business Suite milestone
-- 67/71 plans done across Phases 4-12
+- Phase 12 (Rechnungen & Finanzen) in progress -- Business Suite milestone
+- 68/71 plans done across Phases 4-12
 
 *Updated after each plan completion*
 
@@ -286,6 +286,13 @@ Recent decisions affecting current work:
 - [12-01]: TaxByRate keys use truncated rate strings (e.g., "19" not "19.00") for clean aggregation
 - [12-01]: maroto/v2 added via tools/biz_deps.go for PDF generation in subsequent plans
 
+- [12-02]: DealValueUpdater interface for decoupled CRM deal sync (nil-safe, graceful degradation on failure)
+- [12-02]: Shared NumberSequenceRepo (SELECT FOR UPDATE) for gap-free numbering across document types
+- [12-02]: GoBD immutability enforced at service layer: ErrInvoiceImmutable for any non-draft modification
+- [12-02]: Invoice Send() builds complete JSONB snapshot (customer, company, line items, tax, metadata)
+- [12-02]: QuoteReader interface in invoice package avoids circular dependency with quote package
+- [12-02]: CompanySettings fallback chain: explicit input > company_settings table > hardcoded 30-day default
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -299,6 +306,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 12-01-PLAN.md
-Resume file: .planning/phases/12-rechnungen-finanzen/12-01-SUMMARY.md
-Next: Phase 12 plan 02 (repositories and service layer)
+Stopped at: Completed 12-02-PLAN.md
+Resume file: .planning/phases/12-rechnungen-finanzen/12-02-SUMMARY.md
+Next: Phase 12 plan 03 (credit notes, payments, dunning services)
