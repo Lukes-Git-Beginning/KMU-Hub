@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -506,8 +507,7 @@ func (b *BizRoutes) HandleGenerateQuotePDF(w http.ResponseWriter, r *http.Reques
 	tenantID := getTenantID(r)
 	id := chi.URLParam(r, "id")
 
-	// Get the quote first to generate PDF
-	quoteResp, err := client.GetQuote(r.Context(), &bizv1.GetQuoteRequest{
+	resp, err := client.GenerateQuotePDF(r.Context(), &bizv1.GenerateQuotePDFRequest{
 		Id:       id,
 		TenantId: tenantID,
 	})
@@ -516,15 +516,7 @@ func (b *BizRoutes) HandleGenerateQuotePDF(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Use GenerateQuotePDF RPC -- the gRPC server handles PDF generation
-	// Since proto doesn't have a dedicated GenerateQuotePDF RPC, we fetch
-	// the quote and the gRPC server does PDF generation internally.
-	// For now, return the quote data as the frontend generates PDFs client-side.
-	// The actual PDF endpoint is handled by the biz gRPC server.
-	_ = quoteResp
-
-	// Forward to the gRPC server which has the PDF generator
-	respondPDFNotImplemented(w, "quote", id)
+	respondPDF(w, resp.PdfData, resp.Filename)
 }
 
 // ============================================================================
@@ -754,8 +746,16 @@ func (b *BizRoutes) HandleGenerateInvoicePDF(w http.ResponseWriter, r *http.Requ
 	tenantID := getTenantID(r)
 	id := chi.URLParam(r, "id")
 
-	_ = client
-	respondPDFNotImplemented(w, "invoice", fmt.Sprintf("%s (tenant: %s)", id, tenantID))
+	resp, err := client.GenerateInvoicePDF(r.Context(), &bizv1.GenerateInvoicePDFRequest{
+		Id:       id,
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondPDF(w, resp.PdfData, resp.Filename)
 }
 
 // ============================================================================
@@ -884,8 +884,16 @@ func (b *BizRoutes) HandleGenerateCreditNotePDF(w http.ResponseWriter, r *http.R
 	tenantID := getTenantID(r)
 	id := chi.URLParam(r, "id")
 
-	_ = client
-	respondPDFNotImplemented(w, "credit_note", fmt.Sprintf("%s (tenant: %s)", id, tenantID))
+	resp, err := client.GenerateCreditNotePDF(r.Context(), &bizv1.GenerateCreditNotePDFRequest{
+		Id:       id,
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondPDF(w, resp.PdfData, resp.Filename)
 }
 
 // ============================================================================
@@ -1121,8 +1129,16 @@ func (b *BizRoutes) HandleGenerateDunningPDF(w http.ResponseWriter, r *http.Requ
 	tenantID := getTenantID(r)
 	id := chi.URLParam(r, "id")
 
-	_ = client
-	respondPDFNotImplemented(w, "dunning", fmt.Sprintf("%s (tenant: %s)", id, tenantID))
+	resp, err := client.GenerateDunningPDF(r.Context(), &bizv1.GenerateDunningPDFRequest{
+		Id:       id,
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	respondPDF(w, resp.PdfData, resp.Filename)
 }
 
 func (b *BizRoutes) HandleGetDunningConfig(w http.ResponseWriter, r *http.Request) {
@@ -1440,9 +1456,11 @@ func paymentMethodToProto(method string) bizv1.PaymentMethod {
 	}
 }
 
-// respondPDFNotImplemented returns a 501 for PDF endpoints that will be implemented
-// when the gateway gains streaming support for PDF binary data from gRPC.
-func respondPDFNotImplemented(w http.ResponseWriter, docType, id string) {
-	response.Error(w, http.StatusNotImplemented,
-		fmt.Sprintf("PDF generation for %s %s will be served directly by the biz gRPC service", docType, id))
+// respondPDF writes PDF binary data as an HTTP response with proper headers.
+func respondPDF(w http.ResponseWriter, pdfData []byte, filename string) {
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	w.Header().Set("Content-Length", strconv.Itoa(len(pdfData)))
+	w.WriteHeader(http.StatusOK)
+	w.Write(pdfData)
 }
