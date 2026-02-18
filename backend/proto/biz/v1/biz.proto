@@ -56,6 +56,12 @@ service FinanceService {
 
   // ==================== DATEV Export ====================
   rpc ExportDATEV(ExportDATEVRequest) returns (ExportDATEVResponse);
+
+  // ==================== PDF Generation ====================
+  rpc GenerateQuotePDF(GenerateQuotePDFRequest) returns (GenerateQuotePDFResponse);
+  rpc GenerateInvoicePDF(GenerateInvoicePDFRequest) returns (GenerateInvoicePDFResponse);
+  rpc GenerateCreditNotePDF(GenerateCreditNotePDFRequest) returns (GenerateCreditNotePDFResponse);
+  rpc GenerateDunningPDF(GenerateDunningPDFRequest) returns (GenerateDunningPDFResponse);
 }
 
 // ============================================================================
@@ -696,4 +702,48 @@ message ExportDATEVResponse {
   bytes csv_data = 1;
   string filename = 2;
   int32 record_count = 3;
+}
+
+// ============================================================================
+// PDF Generation Request/Response
+// ============================================================================
+
+message GenerateQuotePDFRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message GenerateQuotePDFResponse {
+  bytes pdf_data = 1;
+  string filename = 2;
+}
+
+message GenerateInvoicePDFRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message GenerateInvoicePDFResponse {
+  bytes pdf_data = 1;
+  string filename = 2;
+}
+
+message GenerateCreditNotePDFRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message GenerateCreditNotePDFResponse {
+  bytes pdf_data = 1;
+  string filename = 2;
+}
+
+message GenerateDunningPDFRequest {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message GenerateDunningPDFResponse {
+  bytes pdf_data = 1;
+  string filename = 2;
 }

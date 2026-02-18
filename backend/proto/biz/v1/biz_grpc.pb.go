@@ -53,6 +53,10 @@ const (
 	FinanceService_UpdateDunningConfig_FullMethodName   = "/biz.v1.FinanceService/UpdateDunningConfig"
 	FinanceService_GetFinanceDashboard_FullMethodName   = "/biz.v1.FinanceService/GetFinanceDashboard"
 	FinanceService_ExportDATEV_FullMethodName           = "/biz.v1.FinanceService/ExportDATEV"
+	FinanceService_GenerateQuotePDF_FullMethodName      = "/biz.v1.FinanceService/GenerateQuotePDF"
+	FinanceService_GenerateInvoicePDF_FullMethodName    = "/biz.v1.FinanceService/GenerateInvoicePDF"
+	FinanceService_GenerateCreditNotePDF_FullMethodName = "/biz.v1.FinanceService/GenerateCreditNotePDF"
+	FinanceService_GenerateDunningPDF_FullMethodName    = "/biz.v1.FinanceService/GenerateDunningPDF"
 )
 
 // FinanceServiceClient is the client API for FinanceService service.
@@ -101,6 +105,11 @@ type FinanceServiceClient interface {
 	GetFinanceDashboard(ctx context.Context, in *GetFinanceDashboardRequest, opts ...grpc.CallOption) (*GetFinanceDashboardResponse, error)
 	// ==================== DATEV Export ====================
 	ExportDATEV(ctx context.Context, in *ExportDATEVRequest, opts ...grpc.CallOption) (*ExportDATEVResponse, error)
+	// ==================== PDF Generation ====================
+	GenerateQuotePDF(ctx context.Context, in *GenerateQuotePDFRequest, opts ...grpc.CallOption) (*GenerateQuotePDFResponse, error)
+	GenerateInvoicePDF(ctx context.Context, in *GenerateInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateInvoicePDFResponse, error)
+	GenerateCreditNotePDF(ctx context.Context, in *GenerateCreditNotePDFRequest, opts ...grpc.CallOption) (*GenerateCreditNotePDFResponse, error)
+	GenerateDunningPDF(ctx context.Context, in *GenerateDunningPDFRequest, opts ...grpc.CallOption) (*GenerateDunningPDFResponse, error)
 }
 
 type financeServiceClient struct {
@@ -451,6 +460,46 @@ func (c *financeServiceClient) ExportDATEV(ctx context.Context, in *ExportDATEVR
 	return out, nil
 }
 
+func (c *financeServiceClient) GenerateQuotePDF(ctx context.Context, in *GenerateQuotePDFRequest, opts ...grpc.CallOption) (*GenerateQuotePDFResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateQuotePDFResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateQuotePDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GenerateInvoicePDF(ctx context.Context, in *GenerateInvoicePDFRequest, opts ...grpc.CallOption) (*GenerateInvoicePDFResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateInvoicePDFResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateInvoicePDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GenerateCreditNotePDF(ctx context.Context, in *GenerateCreditNotePDFRequest, opts ...grpc.CallOption) (*GenerateCreditNotePDFResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateCreditNotePDFResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateCreditNotePDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *financeServiceClient) GenerateDunningPDF(ctx context.Context, in *GenerateDunningPDFRequest, opts ...grpc.CallOption) (*GenerateDunningPDFResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateDunningPDFResponse)
+	err := c.cc.Invoke(ctx, FinanceService_GenerateDunningPDF_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FinanceServiceServer is the server API for FinanceService service.
 // All implementations must embed UnimplementedFinanceServiceServer
 // for forward compatibility.
@@ -497,6 +546,11 @@ type FinanceServiceServer interface {
 	GetFinanceDashboard(context.Context, *GetFinanceDashboardRequest) (*GetFinanceDashboardResponse, error)
 	// ==================== DATEV Export ====================
 	ExportDATEV(context.Context, *ExportDATEVRequest) (*ExportDATEVResponse, error)
+	// ==================== PDF Generation ====================
+	GenerateQuotePDF(context.Context, *GenerateQuotePDFRequest) (*GenerateQuotePDFResponse, error)
+	GenerateInvoicePDF(context.Context, *GenerateInvoicePDFRequest) (*GenerateInvoicePDFResponse, error)
+	GenerateCreditNotePDF(context.Context, *GenerateCreditNotePDFRequest) (*GenerateCreditNotePDFResponse, error)
+	GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error)
 	mustEmbedUnimplementedFinanceServiceServer()
 }
 
@@ -608,6 +662,18 @@ func (UnimplementedFinanceServiceServer) GetFinanceDashboard(context.Context, *G
 }
 func (UnimplementedFinanceServiceServer) ExportDATEV(context.Context, *ExportDATEVRequest) (*ExportDATEVResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExportDATEV not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateQuotePDF(context.Context, *GenerateQuotePDFRequest) (*GenerateQuotePDFResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateQuotePDF not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateInvoicePDF(context.Context, *GenerateInvoicePDFRequest) (*GenerateInvoicePDFResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateInvoicePDF not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateCreditNotePDF(context.Context, *GenerateCreditNotePDFRequest) (*GenerateCreditNotePDFResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateCreditNotePDF not implemented")
+}
+func (UnimplementedFinanceServiceServer) GenerateDunningPDF(context.Context, *GenerateDunningPDFRequest) (*GenerateDunningPDFResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateDunningPDF not implemented")
 }
 func (UnimplementedFinanceServiceServer) mustEmbedUnimplementedFinanceServiceServer() {}
 func (UnimplementedFinanceServiceServer) testEmbeddedByValue()                        {}
@@ -1242,6 +1308,78 @@ func _FinanceService_ExportDATEV_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FinanceService_GenerateQuotePDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateQuotePDFRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateQuotePDF(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateQuotePDF_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateQuotePDF(ctx, req.(*GenerateQuotePDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GenerateInvoicePDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateInvoicePDFRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateInvoicePDF(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateInvoicePDF_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateInvoicePDF(ctx, req.(*GenerateInvoicePDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GenerateCreditNotePDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateCreditNotePDFRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateCreditNotePDF(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateCreditNotePDF_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateCreditNotePDF(ctx, req.(*GenerateCreditNotePDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FinanceService_GenerateDunningPDF_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateDunningPDFRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FinanceServiceServer).GenerateDunningPDF(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FinanceService_GenerateDunningPDF_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FinanceServiceServer).GenerateDunningPDF(ctx, req.(*GenerateDunningPDFRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FinanceService_ServiceDesc is the grpc.ServiceDesc for FinanceService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1384,6 +1522,22 @@ var FinanceService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExportDATEV",
 			Handler:    _FinanceService_ExportDATEV_Handler,
+		},
+		{
+			MethodName: "GenerateQuotePDF",
+			Handler:    _FinanceService_GenerateQuotePDF_Handler,
+		},
+		{
+			MethodName: "GenerateInvoicePDF",
+			Handler:    _FinanceService_GenerateInvoicePDF_Handler,
+		},
+		{
+			MethodName: "GenerateCreditNotePDF",
+			Handler:    _FinanceService_GenerateCreditNotePDF_Handler,
+		},
+		{
+			MethodName: "GenerateDunningPDF",
+			Handler:    _FinanceService_GenerateDunningPDF_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

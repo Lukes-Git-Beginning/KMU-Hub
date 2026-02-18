@@ -1125,6 +1125,146 @@ func (s *BizGRPCServer) ExportDATEV(ctx context.Context, req *bizv1.ExportDATEVR
 }
 
 // ============================================================================
+// PDF Generation
+// ============================================================================
+
+func (s *BizGRPCServer) GenerateQuotePDF(ctx context.Context, req *bizv1.GenerateQuotePDFRequest) (*bizv1.GenerateQuotePDFResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	q, err := s.quoteService.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapBizError(err)
+	}
+
+	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load company settings")
+	}
+
+	gen := pdf.NewGenerator(*settings)
+	pdfBytes, err := gen.GenerateQuotePDF(*q)
+	if err != nil {
+		slog.Error("failed to generate quote PDF", "quote_id", id, "error", err)
+		return nil, status.Error(codes.Internal, "PDF generation failed")
+	}
+
+	filename := fmt.Sprintf("Angebot_%s.pdf", q.QuoteNumber)
+	return &bizv1.GenerateQuotePDFResponse{
+		PdfData:  pdfBytes,
+		Filename: filename,
+	}, nil
+}
+
+func (s *BizGRPCServer) GenerateInvoicePDF(ctx context.Context, req *bizv1.GenerateInvoicePDFRequest) (*bizv1.GenerateInvoicePDFResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.invoiceService.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapBizError(err)
+	}
+
+	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load company settings")
+	}
+
+	gen := pdf.NewGenerator(*settings)
+	pdfBytes, err := gen.GenerateInvoicePDF(*inv)
+	if err != nil {
+		slog.Error("failed to generate invoice PDF", "invoice_id", id, "error", err)
+		return nil, status.Error(codes.Internal, "PDF generation failed")
+	}
+
+	filename := fmt.Sprintf("Rechnung_%s.pdf", inv.InvoiceNumber)
+	return &bizv1.GenerateInvoicePDFResponse{
+		PdfData:  pdfBytes,
+		Filename: filename,
+	}, nil
+}
+
+func (s *BizGRPCServer) GenerateCreditNotePDF(ctx context.Context, req *bizv1.GenerateCreditNotePDFRequest) (*bizv1.GenerateCreditNotePDFResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	cn, err := s.creditNoteService.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapBizError(err)
+	}
+
+	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load company settings")
+	}
+
+	gen := pdf.NewGenerator(*settings)
+	pdfBytes, err := gen.GenerateCreditNotePDF(*cn)
+	if err != nil {
+		slog.Error("failed to generate credit note PDF", "credit_note_id", id, "error", err)
+		return nil, status.Error(codes.Internal, "PDF generation failed")
+	}
+
+	filename := fmt.Sprintf("Gutschrift_%s.pdf", cn.CreditNoteNumber)
+	return &bizv1.GenerateCreditNotePDFResponse{
+		PdfData:  pdfBytes,
+		Filename: filename,
+	}, nil
+}
+
+func (s *BizGRPCServer) GenerateDunningPDF(ctx context.Context, req *bizv1.GenerateDunningPDFRequest) (*bizv1.GenerateDunningPDFResponse, error) {
+	tenantID, id, err := parseTenantAndID(req.GetTenantId(), req.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	dr, err := s.dunningService.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapBizError(err)
+	}
+
+	// Dunning PDF requires the linked invoice for customer data and amounts
+	inv, err := s.invoiceService.GetByID(ctx, tenantID, dr.InvoiceID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load linked invoice for dunning PDF")
+	}
+
+	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to load company settings")
+	}
+
+	gen := pdf.NewGenerator(*settings)
+	pdfBytes, err := gen.GenerateDunningPDF(*dr, *inv, dr.Level)
+	if err != nil {
+		slog.Error("failed to generate dunning PDF", "dunning_id", id, "error", err)
+		return nil, status.Error(codes.Internal, "PDF generation failed")
+	}
+
+	// Filename based on level: Zahlungserinnerung for level 1, Mahnung for 2+
+	var docPrefix string
+	switch dr.Level {
+	case 1:
+		docPrefix = "Zahlungserinnerung"
+	case 2:
+		docPrefix = "1_Mahnung"
+	default:
+		docPrefix = "2_Mahnung"
+	}
+	filename := fmt.Sprintf("%s_%s.pdf", docPrefix, inv.InvoiceNumber)
+	return &bizv1.GenerateDunningPDFResponse{
+		PdfData:  pdfBytes,
+		Filename: filename,
+	}, nil
+}
+
+// ============================================================================
 // Proto Conversion Helpers
 // ============================================================================
 

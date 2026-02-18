@@ -270,6 +270,11 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 	return nil
 }
 
+// GetByID retrieves a single dunning record by its ID.
+func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.DunningRecord, error) {
+	return s.repo.GetByID(ctx, tenantID, id)
+}
+
 // List retrieves dunning records with optional filtering.
 func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.DunningRecord, int, error) {
 	return s.repo.List(ctx, tenantID, filter)
