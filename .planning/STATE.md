@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 12 (Rechnungen & Finanzen) in progress -- plan 02 complete
+**Current focus:** Phase 12 (Rechnungen & Finanzen) in progress -- plan 03 complete
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
 Phase: 12 of 20 (Rechnungen & Finanzen) -- IN PROGRESS
-Plan: 2 of 5 complete
+Plan: 3 of 5 complete
 Status: Business Suite milestone started
-Last activity: 2026-02-18 -- Phase 12 plan 02 (quote and invoice services) complete
+Last activity: 2026-02-18 -- Phase 12 plan 03 (credit notes, payments, dunning, dashboard, PDF) complete
 
-Progress: [███████████████████████████████] 100% (68/71 plans across phases 4-12)
+Progress: [███████████████████████████████] 100% (69/71 plans across phases 4-12)
 
 ## Performance Metrics
 
@@ -38,12 +38,12 @@ Progress: [███████████████████████
 | 10 | 7/7 | ~80min | ~11min |
 | 11 | 6/6 | ~57min | ~9.5min |
 
-| 12 | 2/5 | ~18min | ~9min |
+| 12 | 3/5 | ~27min | ~9min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) in progress -- Business Suite milestone
-- 68/71 plans done across Phases 4-12
+- 69/71 plans done across Phases 4-12
 
 *Updated after each plan completion*
 
@@ -293,6 +293,12 @@ Recent decisions affecting current work:
 - [12-02]: QuoteReader interface in invoice package avoids circular dependency with quote package
 - [12-02]: CompanySettings fallback chain: explicit input > company_settings table > hardcoded 30-day default
 
+- [12-03]: InvoiceReader/InvoiceStatusUpdater as separate interfaces for cross-service payment dependencies
+- [12-03]: ConfigRepository with upsert and lazy default creation for dunning config (14/14/14, 0/5/10 EUR)
+- [12-03]: Dashboard forecast: avg monthly revenue * remaining months (simple, no ML for v1)
+- [12-03]: PDF uses maroto/v2 with registered footer for Pflichtangaben on every page
+- [12-03]: Dunning tone escalation: Zahlungserinnerung -> 1. Mahnung -> 2. Mahnung (threatens Inkasso)
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -306,6 +312,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 12-02-PLAN.md
-Resume file: .planning/phases/12-rechnungen-finanzen/12-02-SUMMARY.md
-Next: Phase 12 plan 03 (credit notes, payments, dunning services)
+Stopped at: Completed 12-03-PLAN.md
+Resume file: .planning/phases/12-rechnungen-finanzen/12-03-SUMMARY.md
+Next: Phase 12 plan 04 (gRPC server wiring)
