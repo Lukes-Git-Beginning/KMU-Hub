@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 5 plans done
+**Current focus:** Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. gap closure)
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
 Phase: 12 of 20 (Rechnungen & Finanzen) -- COMPLETE
-Plan: 5 of 5 complete
+Plan: 7 of 7 complete
 Status: Business Suite milestone started
-Last activity: 2026-02-18 -- Phase 12 plan 05 (frontend finance module) complete
+Last activity: 2026-02-18 -- Phase 12 plan 07 (deal-to-quote gateway + UI trigger) complete
 
-Progress: [████████████████████████████████] 100% (71/71 plans across phases 4-12)
+Progress: [████████████████████████████████] 100% (73/73 plans across phases 4-12)
 
 ## Performance Metrics
 
@@ -38,12 +38,12 @@ Progress: [███████████████████████
 | 10 | 7/7 | ~80min | ~11min |
 | 11 | 6/6 | ~57min | ~9.5min |
 
-| 12 | 5/5 | ~63min | ~12.6min |
+| 12 | 7/7 | ~75min | ~10.7min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
-- Phase 12 (Rechnungen & Finanzen) COMPLETE -- Business Suite milestone
-- 71/71 plans done across Phases 4-12
+- Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
+- 73/73 plans done across Phases 4-12
 
 *Updated after each plan completion*
 
@@ -311,6 +311,13 @@ Recent decisions affecting current work:
 - [12-05]: ExpenseFormDialog replaced with null stub (expenses not in Phase 12 scope)
 - [12-05]: DunningConfigDialog inline within DunningPanel (no separate file)
 - [12-05]: Finance query keys: ['finance', domain, ...params] for granular cache invalidation
+- [12-06]: Fresh pdf.Generator per request with latest company settings from DB (not reusing startup instance)
+- [12-06]: respondPDF gateway helper consolidates Content-Type/Disposition/Length for PDF binary streaming
+- [12-06]: Dunning PDF filename varies by level: Zahlungserinnerung (level 1), 1_Mahnung (2), 2_Mahnung (3)
+- [12-07]: Cross-service gRPC: BizRoutes.getCRMClient() enables CRM data enrichment in finance gateway
+- [12-07]: Customer name prefers company over contact (B2B DACH invoicing norm)
+- [12-07]: Contact/company fetch errors handled gracefully (quote created with partial data)
+- [12-07]: Tax mode defaults to standard 19% MWSt, user adjusts in quote form
 
 ### Pending Todos
 
@@ -325,6 +332,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-18
-Stopped at: Completed 12-05-PLAN.md (Phase 12 COMPLETE)
-Resume file: .planning/phases/12-rechnungen-finanzen/12-05-SUMMARY.md
+Stopped at: Completed 12-07-PLAN.md (Phase 12 COMPLETE -- all 7 plans done)
+Resume file: .planning/phases/12-rechnungen-finanzen/12-07-SUMMARY.md
 Next: Phase 13 (HR)
