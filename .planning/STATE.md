@@ -331,7 +331,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-18
-Stopped at: Completed 12-07-PLAN.md (Phase 12 COMPLETE -- all 7 plans done)
-Resume file: .planning/phases/12-rechnungen-finanzen/12-07-SUMMARY.md
-Next: Phase 13 (HR)
+Last session: 2026-02-19
+Stopped at: Phase 13 context gathered
+Resume file: .planning/phases/13-hr-zeiterfassung/13-CONTEXT.md
+Next: /gsd:plan-phase 13
