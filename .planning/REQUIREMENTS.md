@@ -127,11 +127,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### HR Module
 
-- [ ] **HR-01**: Employee can submit leave/vacation requests for manager approval with workflow
-- [ ] **HR-02**: System tracks leave balance with Urlaubsanspruch calculation (BUrlG-konform, pro-rata, carry-over)
+- [x] **HR-01**: Employee can submit leave/vacation requests for manager approval with workflow
+- [x] **HR-02**: System tracks leave balance with Urlaubsanspruch calculation (BUrlG-konform, pro-rata, carry-over)
 - [ ] **HR-03**: Team absence calendar shows who is out when (integrated with main calendar)
-- [ ] **HR-04**: Employee can clock in/out for time tracking with daily and weekly summaries
-- [ ] **HR-05**: Time tracking enforces Arbeitszeitgesetz rules (max 8h/10h, 11h rest, break requirements)
+- [x] **HR-04**: Employee can clock in/out for time tracking with daily and weekly summaries
+- [x] **HR-05**: Time tracking enforces Arbeitszeitgesetz rules (max 8h/10h, 11h rest, break requirements)
 - [ ] **HR-06**: Employee profiles include department, position, contract type, and access-controlled document storage
 - [ ] **HR-07**: Sick leave recording with AU (doctor's note) upload after 3 days
 
@@ -391,11 +391,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIN-05 | Phase 12 | Complete |
 | FIN-06 | Phase 12 | Complete |
 | FIN-07 | Phase 12 | Complete |
-| HR-01 | Phase 13 | Pending |
-| HR-02 | Phase 13 | Pending |
+| HR-01 | Phase 13 | Complete |
+| HR-02 | Phase 13 | Complete |
 | HR-03 | Phase 13 | Pending |
-| HR-04 | Phase 13 | Pending |
-| HR-05 | Phase 13 | Pending |
+| HR-04 | Phase 13 | Complete |
+| HR-05 | Phase 13 | Complete |
 | HR-06 | Phase 13 | Pending |
 | HR-07 | Phase 13 | Pending |
 | INT-01 | Phase 14 | Pending |

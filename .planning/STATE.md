@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. gap closure)
+**Current focus:** Phase 13 (HR & Zeiterfassung) -- plan 01 complete, 3 remaining
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 12 of 20 (Rechnungen & Finanzen) -- COMPLETE
-Plan: 7 of 7 complete
-Status: Business Suite milestone started
-Last activity: 2026-02-18 -- Phase 12 plan 07 (deal-to-quote gateway + UI trigger) complete
+Phase: 13 of 20 (HR & Zeiterfassung)
+Plan: 1 of 4 complete
+Status: Business Suite milestone in progress
+Last activity: 2026-02-19 -- Phase 13 plan 01 (HR data foundation + compliance engine) complete
 
-Progress: [████████████████████████████████] 100% (73/73 plans across phases 4-12)
+Progress: [██████████████████████████████░░] 96% (74/77 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 65
+- Total plans completed: 66
 - Average duration: ~7 minutes
-- Total execution time: ~7h 3min
+- Total execution time: ~7h 10min
 
 **By Phase:**
 
@@ -39,11 +39,13 @@ Progress: [███████████████████████
 | 11 | 6/6 | ~57min | ~9.5min |
 
 | 12 | 7/7 | ~75min | ~10.7min |
+| 13 | 1/4 | ~7min | ~7min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
-- 73/73 plans done across Phases 4-12
+- Phase 13 (HR & Zeiterfassung) started -- plan 01 complete (data foundation + compliance)
+- 74/77 plans done across Phases 4-13
 
 *Updated after each plan completion*
 
@@ -319,6 +321,13 @@ Recent decisions affecting current work:
 - [12-07]: Contact/company fetch errors handled gracefully (quote created with partial data)
 - [12-07]: Tax mode defaults to standard 19% MWSt, user adjusts in quote form
 
+- [13-01]: 29 RPCs in single HRService proto (leave, time, absences, employees, settings)
+- [13-01]: System leave types and doc categories seeded with zero UUID tenant_id for per-tenant copy pattern
+- [13-01]: Partial unique index on active shifts ensures single active shift per employee at DB level
+- [13-01]: Pure compliance functions use shopspring/decimal throughout for half-day precision
+- [13-01]: BUrlG carryover expires after March 31 (inclusive) with CarryoverExpired flag
+- [13-01]: ArbZG severity: 8h=Info, 9h=Warning, >10h=Error matching "warns at 8h, warns harder at 9h" requirement
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -332,6 +341,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-hr-zeiterfassung/13-CONTEXT.md
-Next: /gsd:plan-phase 13
+Stopped at: Completed 13-01-PLAN.md
+Resume file: .planning/phases/13-hr-zeiterfassung/13-01-SUMMARY.md
+Next: Execute 13-02-PLAN.md
