@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 13 (HR & Zeiterfassung) -- plan 02 complete, 2 remaining
+**Current focus:** Phase 13 (HR & Zeiterfassung) -- plan 03 complete, 1 remaining
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
 Phase: 13 of 20 (HR & Zeiterfassung)
-Plan: 2 of 4 complete
+Plan: 3 of 4 complete
 Status: Business Suite milestone in progress
-Last activity: 2026-02-19 -- Phase 13 plan 02 (leave/absence/employee services) complete
+Last activity: 2026-02-19 -- Phase 13 plan 03 (time tracking service + gRPC + gateway routes) complete
 
-Progress: [██████████████████████████████░░] 97% (75/77 plans across phases 4-13)
+Progress: [██████████████████████████████░░] 99% (76/77 plans across phases 4-13)
 
 ## Performance Metrics
 
@@ -39,13 +39,13 @@ Progress: [███████████████████████
 | 11 | 6/6 | ~57min | ~9.5min |
 
 | 12 | 7/7 | ~75min | ~10.7min |
-| 13 | 2/4 | ~16min | ~8min |
+| 13 | 3/4 | ~51min | ~17min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
-- Phase 13 (HR & Zeiterfassung) in progress -- plan 02 complete (leave/absence/employee services)
-- 75/77 plans done across Phases 4-13
+- Phase 13 (HR & Zeiterfassung) in progress -- plan 03 complete (time tracking + gRPC + gateway)
+- 76/77 plans done across Phases 4-13
 
 *Updated after each plan completion*
 
@@ -333,6 +333,10 @@ Recent decisions affecting current work:
 - [13-02]: Leave balance auto-created on first access using BUrlG compliance engine with previous year carryover
 - [13-02]: Employee self-service uses hasRestrictedFields() check for cleaner role-based field restrictions
 - [13-02]: Absence calendar masks leave types to "Abwesend" with neutral gray (#9ca3af) when ShowAbsenceReason false
+- [13-03]: HR services registered on same gRPC server as finance (biz binary), sharing port :50058
+- [13-03]: GetWorkTimeStatus composed in gateway from GetActiveShift + GetDailySummary RPCs (no dedicated proto RPC)
+- [13-03]: ArbZG severity at exactly 600 min returns "warning" not "error" (CheckWorkTime uses > 600 for error)
+- [13-03]: HRRoutes ServiceName="biz" reuses existing gateway connection to biz gRPC server
 
 ### Pending Todos
 
@@ -347,6 +351,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 13-02-PLAN.md
-Resume file: .planning/phases/13-hr-zeiterfassung/13-02-SUMMARY.md
-Next: Execute 13-03-PLAN.md
+Stopped at: Completed 13-03-PLAN.md
+Resume file: .planning/phases/13-hr-zeiterfassung/13-03-SUMMARY.md
+Next: Execute 13-04-PLAN.md
