@@ -52,7 +52,7 @@ const STEPS: OnboardingStep[] = [
       'Chat & Meetings mit dem Team',
       'E-Mail & Kalender organisieren',
       'Dokumente & Kontakte pflegen',
-      'Buchhaltung & Team-Verwaltung',
+      'Finanzen & Team-Verwaltung',
     ],
   },
   {

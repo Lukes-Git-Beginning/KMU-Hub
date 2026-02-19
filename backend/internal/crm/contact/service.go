@@ -88,17 +88,18 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Contac
 	}
 
 	contact := &models.Contact{
-		ID:        uuid.New(),
-		FirstName: firstName,
-		LastName:  lastName,
-		Email:     email,
-		Phone:     trimStringPtr(input.Phone),
-		CompanyID: input.CompanyID,
-		Position:  trimStringPtr(input.Position),
-		Notes:     input.Notes,
-		CreatedBy: input.CreatedBy,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:         uuid.New(),
+		FirstName:  firstName,
+		LastName:   lastName,
+		Email:      email,
+		Phone:      trimStringPtr(input.Phone),
+		CompanyID:  input.CompanyID,
+		Position:   trimStringPtr(input.Position),
+		Notes:      input.Notes,
+		Visibility: "shared",
+		CreatedBy:  input.CreatedBy,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 
 	if err := s.repo.Create(ctx, contact); err != nil {
@@ -138,13 +139,14 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*models.ContactWit
 
 // ListInput contains filtering options for listing contacts
 type ListInput struct {
-	CompanyID *uuid.UUID
-	TagIDs    []uuid.UUID
-	Search    string
-	Page      int
-	PageSize  int
-	SortBy    string
-	SortDesc  bool
+	CompanyID        *uuid.UUID
+	TagIDs           []uuid.UUID
+	Search           string
+	Page             int
+	PageSize         int
+	SortBy           string
+	SortDesc         bool
+	VisibilityFilter string // "", "shared", "personal"
 }
 
 // List retrieves contacts with optional filtering
@@ -374,6 +376,75 @@ func (s *Service) getWithRelations(ctx context.Context, contact *models.Contact)
 	}
 
 	return result, nil
+}
+
+// GetByEmail retrieves a contact by email address (used by import merge logic).
+func (s *Service) GetByEmail(ctx context.Context, email string) (*models.Contact, error) {
+	return s.repo.GetByEmail(ctx, email)
+}
+
+// CreateForImport creates a contact without the usual validation (used by bulk import).
+func (s *Service) CreateForImport(ctx context.Context, contact *models.Contact) error {
+	if contact.Visibility == "" {
+		contact.Visibility = "shared"
+	}
+	return s.repo.Create(ctx, contact)
+}
+
+// UpdateForImport updates a contact during import merge.
+func (s *Service) UpdateForImport(ctx context.Context, contact *models.Contact) error {
+	return s.repo.Update(ctx, contact)
+}
+
+// ListByIDs retrieves contacts by a list of IDs (used by export).
+func (s *Service) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Contact, error) {
+	return s.repo.ListByIDs(ctx, ids)
+}
+
+// ListVisible retrieves all contacts visible to the given user (used by export all).
+func (s *Service) ListVisible(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]*models.Contact, error) {
+	return s.repo.ListAll(ctx, userID, isAdmin)
+}
+
+// ListWithVisibility retrieves contacts with visibility filtering.
+func (s *Service) ListWithVisibility(ctx context.Context, userID uuid.UUID, isAdmin bool, input ListInput) ([]*models.ContactWithRelations, int, error) {
+	if input.Page < 1 {
+		input.Page = 1
+	}
+	if input.PageSize < 1 || input.PageSize > 100 {
+		input.PageSize = 20
+	}
+
+	offset := (input.Page - 1) * input.PageSize
+	filter := ListFilter{
+		CompanyID:        input.CompanyID,
+		TagIDs:           input.TagIDs,
+		Search:           input.Search,
+		SortBy:           input.SortBy,
+		SortDesc:         input.SortDesc,
+		VisibilityFilter: input.VisibilityFilter,
+	}
+
+	contacts, total, err := s.repo.ListWithVisibility(ctx, userID, isAdmin, filter, offset, input.PageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var results []*models.ContactWithRelations
+	for _, c := range contacts {
+		withRel, relErr := s.getWithRelations(ctx, c)
+		if relErr != nil {
+			return nil, 0, relErr
+		}
+		results = append(results, withRel)
+	}
+
+	return results, total, nil
+}
+
+// UpdateVisibility updates the visibility and owner of a contact.
+func (s *Service) UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID) error {
+	return s.repo.UpdateVisibility(ctx, contactID, visibility, ownerID)
 }
 
 // Helper to trim and nil empty strings

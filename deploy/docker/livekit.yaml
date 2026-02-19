@@ -1,0 +1,14 @@
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: false
+redis:
+  address: redis:6379
+keys:
+  devkey: devsecret
+webhook:
+  urls:
+    - http://gateway:8080/api/v1/webhooks/livekit
+  api_key: devkey

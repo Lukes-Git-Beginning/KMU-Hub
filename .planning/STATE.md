@@ -5,23 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 8 - Video, Voice & Meetings (Next)
+**Current focus:** Phases 10-11 complete. Next: Phase 12 (Finanzen)
+**Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 7 of 20 (Calendar & Scheduling) -- COMPLETE
-Plan: 9 of 9 in current phase (all complete)
-Status: Phase 7 complete, Phase 8 next
-Last activity: 2026-02-11 -- Phase 7 complete via design integration (Plans 07-06 to 07-09 replaced by Darien's UI merge)
+Phase: 11 of 20 (Documents & Files + WOPI) -- COMPLETE
+Plan: All plans complete through Phase 11
+Status: Compliance & Comms milestone COMPLETE (Phases 9-11)
+Last activity: 2026-02-17 -- Phase 10 backend (10-04 to 10-07) + Phase 11 all complete
 
-Progress: [████████████░░░░░░░░░░░░] 42% (29/63 plans across phases 4-20)
+Progress: [██████████████████████████████] 100% (66/66 plans across phases 4-11)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
-- Average duration: ~9 minutes
-- Total execution time: ~3h 43min
+- Total plans completed: 62
+- Average duration: ~7 minutes
+- Total execution time: ~6h 40min
 
 **By Phase:**
 
@@ -31,10 +32,16 @@ Progress: [████████████░░░░░░░░░░░
 | 05 | 7/7 | ~66min | ~9min |
 | 06 | 10/10 | ~88min | ~8.8min |
 | 07 | 9/9 | ~48min | ~5min |
+| 08 | 9/9 | ~45min | ~5min |
+
+| 09 | 9/9 | ~62min | ~6.9min |
+| 10 | 7/7 | ~80min | ~11min |
+| 11 | 6/6 | ~57min | ~9.5min |
 
 **Recent Trend:**
-- Last 5 plans: 07-01 (~7min), 07-02 (~5min), 07-03 (~8min), 07-04 (~8min), 07-05+UI (~20min)
-- Trend: Consistent ~5-10min per plan, design integration saved ~4 plans
+- Phases 9-11 (Compliance & Comms milestone) all complete
+- 66/66 plans done across Phases 4-11
+- Next: Phase 12 (Rechnungen & Finanzen) -- first phase of Business Suite milestone
 
 *Updated after each plan completion*
 
@@ -51,6 +58,12 @@ Recent decisions affecting current work:
 - [Roadmap]: Full IMAP+SMTP email in v1 (user decision despite research suggesting deferral)
 - [Roadmap]: Automation and Plugins last (need stable APIs from all other modules)
 - [Roadmap]: Feature gap analysis expansion -- 13 to 18 phases, Meeting Management merged into Phase 8, Security & Compliance as Phase 9 gatekeeper, Documents & Files as Phase 11, 3 integration mini-phases (14-16)
+- [Strategy]: Phase reorder -- Unified Inbox as Phase 14 (NEW), CalDAV shifted to 15, Automation vorgezogen to 16 (was 19), Teams/Slack to 17, Bexio to 18, Abacus+RmA merged into 19 (were 17+18), Plugins stay 20
+- [Strategy]: Buchhaltung → Finanzen rename -- "Rechnungen & Finanzen" scope (invoices, quotes, dunning, DATEV), NOT full FiBu/Buchhaltung
+- [Strategy]: Payroll anti-feature -- Lohnabrechnung NEVER built, integration-only via Bexio/Abacus/RmA. 8 endpoints struck from audit.
+- [Strategy]: Industry modules (Fuhrpark, Produktion, Rapporte, etc.) are Phase 20 plugin candidates, NOT core endpoints
+- [Strategy]: WOPI/OnlyOffice added to Phase 11 (Documents) for collaborative document editing
+- [Strategy]: Event infrastructure (pg_notify + events table) built in Phase 14, prerequisite for Automation Engine
 - [04-01]: WebSocket hub stays in main.go (cross-cutting, needs both chat + auth clients)
 - [04-02]: Raw pgx over pgxlisten for event bus (pgxlisten pre-v1, unstable)
 - [04-02]: Dual write (events table + pg_notify) for event durability
@@ -134,6 +147,134 @@ Recent decisions affecting current work:
 - [07-UI]: Plans 07-06 to 07-09 made obsolete by design integration (saved ~4 plans)
 - [07-UI]: D2 color system (globals.css) merged from design/brainstorm
 - [07-UI]: New Radix UI components: alert-dialog, checkbox, dropdown-menu, sheet, switch
+- [08-01]: tools.go with //go:build tools constraint to retain server-sdk-go/v2 in go.mod before app code imports it
+- [08-01]: Domain-scoped model packages (internal/work/video/, meeting/, etc.) for Phase 8 models
+- [08-01]: 31 RPCs in single VideoService covering calls, recording, meetings, notes/actions, presence
+- [08-01]: Presence runtime state in Redis; only admin config (away_timeout_seconds) persisted in PostgreSQL
+- [08-02]: errors.go added for domain errors (ErrEmojiRequired, ErrEmojiTooLong) following comment package pattern
+- [08-02]: Empty batch returns early in service layer (no DB call) for efficiency
+- [08-02]: Service returns empty slice (not nil) for reactions when none exist
+- [08-03]: RoomManager/EgressManager interfaces with nil=disabled pattern for graceful LiveKit-off mode
+- [08-03]: DSGVO consent checked at StartRecording time (all must respond before Egress begins)
+- [08-03]: 30-day retention on every recording via RetentionExpiresAt
+- [08-03]: Phase 11 integration via ListRecordingsWithAccess (participant-only access via JOIN)
+- [08-03]: Call auto-ends when last participant leaves (HandleParticipantLeft webhook)
+- [08-04]: Lazy away detection on read instead of background worker for simplicity
+- [08-04]: Config cache with 60s refresh avoids DB hit on every heartbeat/presence check
+- [08-04]: Heartbeat respects manual DND/away and InCall - does not override
+- [08-04]: Notes saveable during in_progress AND completed meetings (post-meeting notes)
+- [08-04]: ConvertActionItemsToTasks returns unconverted items for caller to create tasks
+- [08-05]: VideoRoutes shares gRPC connection with WorkRoutes via ServiceName "work" (same binary)
+- [08-05]: Reaction HTTP endpoints return 501; reactions handled via WebSocket events only
+- [08-05]: WSPresenceService/WSVideoService interfaces injected post-construction to avoid circular imports
+- [08-05]: LiveKit SDK types in github.com/livekit/protocol/livekit, not in server-sdk-go/v2 package
+- [08-06]: video-client.ts mirrors calendar-client.ts fetch wrapper pattern (not openapi-fetch)
+- [08-06]: Video store ephemeral (no persist); presence store persists only myStatus
+- [08-06]: 33 hooks across 4 files (10 video, 15 meetings, 5 presence, 3 reactions)
+- [08-06]: Presence queries use 10s staleTime for near-real-time updates
+- [08-06]: Reaction toggle uses optimistic update via setQueryData
+- [08-07]: LiveKitRoom with GridLayout (gallery) + FocusLayout (speaker) view modes
+- [08-07]: Electron desktopCapturer for screen/window sharing via navigator.mediaDevices override
+- [08-07]: RecordingConsentDialog with DSGVO-compliant blur/mute for declined participants
+- [08-07]: FloatingCallBar fixed bottom-right z-50, IncomingCallOverlay fullscreen z-[100]
+- [08-08]: Darien's meeting components cherry-picked from design/brainstorm + wired to API hooks
+- [08-08]: MeetingNotesPanel with 30s debounced auto-save and visual indicator
+- [08-08]: MeetingActionItems batch conversion to tasks with project picker
+- [08-08]: MeetingLobby shows "Letzte Notizen" for recurring meetings
+- [08-09]: frimousse emoji picker per-message via Radix Popover (no global singleton)
+- [08-09]: 5-color presence: green (online), yellow (away), red (DND), purple (in_call), gray (offline)
+- [08-09]: PresenceProvider sends heartbeat every 30s, handles visibility-based away detection
+- [08-09]: Call-from-chat button in ChannelHeader for DM and group calls
+- [09-01]: Separate security.v1.SecurityService proto (audit/vault/GDPR/password/IP) while 2FA/sessions stay in auth.v1
+- [09-01]: VaultSecret never exposes encrypted_value -- Get returns decrypted_value only
+- [09-01]: BIGSERIAL sequence_num for audit hash chain ordering (more reliable than timestamp)
+- [09-01]: tools/security_deps.go retains otp+validator in go.mod before service code exists
+- [09-01]: gdpr_erasure_log.original_user_id has no FK (user row gets anonymized)
+- [09-07]: react-intl over i18next for native ICU message format (no plugin needed)
+- [09-07]: Static imports for all 4 locale bundles (small JSON, no async loading complexity)
+- [09-07]: Zustand persist for locale store (consistent with existing store patterns)
+- [09-07]: Fallback chain: user choice -> navigator.language -> DE default
+- [09-07]: MISSING_TRANSLATION errors suppressed in dev mode only
+- [09-02]: HKDF-SHA256 with nil salt and context-string for vault/TOTP key separation
+- [09-02]: AES-256-GCM nonce prepended to ciphertext, base64 encoded for storage
+- [09-02]: Vault dual-key derivation from single master secret (min 32 chars)
+- [09-02]: Password history uses bcrypt.CompareHashAndPassword for reuse checking
+- [09-02]: go-password-validator GetEntropy for custom threshold entropy checking
+- [09-05]: Handler registry pattern for modular per-service GDPR export/erasure operations
+- [09-05]: Continue-on-failure erasure: partial erasure across modules better than aborting
+- [09-05]: Audit logs retained per DSGVO Art. 17(3)(e) -- AuditErasureHandler is no-op
+- [09-05]: 7-day download expiration on export ZIP files
+- [09-05]: Anonymized label "Geloeschter Benutzer #NNN" via sequential counter from erasure log
+- [09-03]: Advisory lock ID 8675309 for serializing audit log writes
+- [09-03]: Audit LogEvent never returns error to caller (fire-and-forget, logs internally)
+- [09-03]: CSV export includes UTF-8 BOM for Excel compatibility
+- [09-03]: User-agent parser detects Electron, major browsers, OS for session device metadata
+- [09-04]: VaultEncryptor interface for at-rest TOTP encryption (nil = dev fallback)
+- [09-04]: Login returns LoginResult instead of (User, TokenPair) for 2FA pending flow
+- [09-04]: PendingToken is 5-min JWT with type=2fa_pending claim
+- [09-04]: Recovery codes: 8 codes, 10 hex chars, SHA-256 hashed at rest
+- [09-04]: 2FA enforcement grace period calculated from user.CreatedAt
+- [09-04]: AdminReset2FA requires non-empty reason for audit trail
+- [09-06]: SecurityService runs in same binary as AuthService (shared gRPC port)
+- [09-06]: VaultAdapter bridges vault.Service (no ctx) to auth.VaultEncryptor (with ctx)
+- [09-06]: IP filter applied globally before rate limiter, fail-open when rules unavailable
+- [09-06]: IP rules use direct pgx in security_grpc.go (no separate service layer)
+- [09-06]: 2FA validate is public (pending_token), all other 2FA endpoints require JWT auth
+- [09-08]: Auth store login throws '2FA_REQUIRED' error for LoginPage state machine transition
+- [09-08]: Vault secret reveal uses mutation (not query) to avoid caching decrypted values in TanStack Query
+- [09-08]: 30-second auto-hide timer for revealed vault secrets using setInterval cleanup
+- [09-08]: Security hooks placed in api/hooks/ directory (existing pattern) not hooks/ root
+- [09-08]: LoginPage 2FA flow uses auth store complete2FALogin instead of direct API hook
+- [09-09]: Settings sidebar navigation pattern adapted from design/brainstorm branch
+- [09-09]: /settings for all users, /admin/security/* prefix for admin-only security pages
+- [09-09]: Settings link visible to all users; separate admin-only Shield icon for security
+- [09-09]: GDPR erasure two-step confirmation with admin password input
+- [09-09]: Hook imports corrected to @/api/hooks/ paths matching 09-08 output
+
+- [10-01]: Selective file checkout from design/brainstorm (not full merge) to preserve main's backend connectivity
+- [10-01]: 5-layer desk theme system with OKLCH color tokens in globals.css
+- [10-01]: New sidebar (collapsible, grouped nav) replaces old Sidebar.tsx
+- [10-01]: Header widgets: Clock, SearchBar, DailyPlanner, TimeTracker, LanguageSwitcher, ProfileMenu
+- [10-01]: DeskEnvironment wraps AppShell for themed workspace
+- [10-02]: 25 new module pages with Zustand mock stores (ready for TanStack Query migration when backend built)
+- [10-02]: App.tsx: 25+ lazy imports + routes added, I18nProvider/VideoPage/security routes preserved
+- [10-02]: SettingsPage merged: 8 tabs (general, security, language, privacy, calendar, finance, mail, team)
+- [10-02]: 77 desk PNG assets across 6 themes (cozy, dreamy, industrial, nature, raumstation, minimal)
+- [10-03]: Umlaut normalization (ae/oe/ue/ss -> proper Unicode) across all existing modules
+- [10-03]: KalenderPage: design's mock rewrite skipped, only umlaut fixes + missing constants added
+- [10-03]: EmptyState prop mismatch fixed: design's actionLabel/onAction -> main's action:{label,onClick}
+- [10-03]: ActionItem type narrowing: variant string -> 'default'|'destructive' union
+- [10-03]: 12 industry-specific modules from design (not in current roadmap, candidate for Phase 20 Plugins)
+
+- [10-04]: 39 RPCs in email.v1.EmailService covering accounts, folders, messages, send/compose, signatures, CRM linking, sync, attachments, import/export
+- [10-04]: Email service on gRPC :50056, health/metrics on :9096 (following existing service port pattern)
+- [10-04]: tools/email_deps.go in backend/tools/ to retain email Go deps before service code imports them
+- [10-04]: tsvector search with German config on email_messages (consistent with CRM contact search)
+- [10-04]: Contact visibility CHECK constraint (shared, personal) with owner_id FK to users
+
+- [11-01]: Document service as separate binary (not shared with work service) due to OS-level docconv/poppler dependencies
+- [11-01]: German tsvector config for document search (consistent with email/CRM search)
+- [11-01]: Service ports :50057 (gRPC) and :9097 (health) following sequential port pattern
+- [11-01]: 34 RPCs in DocumentService covering folders, files, shares, tags, entity links, search, WOPI
+
+- [11-02]: File service reuses chatfile.FileStore interface (no new MinIO client)
+- [11-02]: Version revert creates new version with old content (append-only version history)
+- [11-02]: File move updates folder_id only, MinIO storage key unchanged (reference by file ID)
+- [11-02]: DACH default folders: personal=Dokumente/Bilder/Vorlagen, team=Allgemein/Projekte/Vorlagen
+
+- [11-04]: WOPI handler runs in gateway with gRPC-backed WOPIFileAdapter, not in document microservice
+- [11-04]: Global search fans out to CRM and documents; email returns empty until SearchMessages RPC exists
+- [11-04]: WOPI routes at root level (/wopi/files/) per WOPI spec, outside RouteRegistrar loop, no standard auth
+- [11-04]: OnlyOffice runs with JWT_ENABLED=false in dev, production will use separate ONLYOFFICE_JWT_SECRET
+
+- [11-06]: Global search types defined inline in useGlobalSearch.ts (API response shape differs from document-types.ts)
+- [11-06]: 300ms debounce + 2-char minimum for global search to prevent excessive API calls
+- [11-06]: OnlyOffice editor as full-screen fixed overlay (z-50) with WOPI iframe URL construction
+- [11-06]: File editability via both MIME-type and extension-based helpers for flexibility
+
+- [11-03]: FileRepo interface in search package avoids circular import with file package (gRPC server bridges them)
+- [11-03]: Virtual folder ListAll uses UNION ALL with per-source delegation for filtered requests
+- [11-03]: Extractor returns empty string on error rather than failing (search gracefully degrades)
 
 ### Pending Todos
 
@@ -147,7 +288,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-11
-Stopped at: Phase 7 COMPLETE -- design integration merged, all 9 plans done
-Resume file: None
-Next: Phase 8 - Video, Voice & Meetings
+Last session: 2026-02-17
+Stopped at: Phases 10+11 complete, Darien review done, theme cleanup committed
+Resume file: .planning/darien-response-2026-02-17.md
+Next: Phase 12 (Rechnungen & Finanzen) planning and execution

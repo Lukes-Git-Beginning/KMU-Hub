@@ -8,6 +8,7 @@ const (
 	SearchEntityCompany  SearchEntityType = "company"
 	SearchEntityDeal     SearchEntityType = "deal"
 	SearchEntityActivity SearchEntityType = "activity"
+	SearchEntityFile     SearchEntityType = "file"
 )
 
 // ValidSearchEntityTypes for validation
@@ -16,6 +17,7 @@ var ValidSearchEntityTypes = map[SearchEntityType]bool{
 	SearchEntityCompany:  true,
 	SearchEntityDeal:     true,
 	SearchEntityActivity: true,
+	SearchEntityFile:     true,
 }
 
 // IsValid checks if the search entity type is valid

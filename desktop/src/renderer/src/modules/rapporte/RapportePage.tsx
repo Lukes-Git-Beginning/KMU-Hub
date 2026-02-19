@@ -973,7 +973,7 @@ function NewReportDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Projekt <span className="text-red-500">*</span></Label>
+              <Label className="text-sm font-medium">Projekt <span className="text-destructive">*</span></Label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Projekt auswählen..." />
@@ -1054,7 +1054,7 @@ function NewReportDialog({
           {/* Workers */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Mitarbeiter <span className="text-red-500">*</span></Label>
+              <Label className="text-sm font-medium">Mitarbeiter <span className="text-destructive">*</span></Label>
               <button
                 onClick={addWorker}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
@@ -1103,7 +1103,7 @@ function NewReportDialog({
           {/* Activities */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Tätigkeiten <span className="text-red-500">*</span></Label>
+              <Label className="text-sm font-medium">Tätigkeiten <span className="text-destructive">*</span></Label>
               <button
                 onClick={addActivity}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
@@ -1324,7 +1324,7 @@ function NewMeasurementDialog({
           {/* Name + Project */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Raum/Objekt-Name <span className="text-red-500">*</span></Label>
+              <Label className="text-sm font-medium">Raum/Objekt-Name <span className="text-destructive">*</span></Label>
               <Input
                 placeholder="z.B. Wohnzimmer EG"
                 value={name}
@@ -1332,7 +1332,7 @@ function NewMeasurementDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Projekt <span className="text-red-500">*</span></Label>
+              <Label className="text-sm font-medium">Projekt <span className="text-destructive">*</span></Label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Projekt auswählen..." />
@@ -1349,7 +1349,7 @@ function NewMeasurementDialog({
           {/* Positions */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Positionen <span className="text-red-500">*</span></Label>
+              <Label className="text-sm font-medium">Positionen <span className="text-destructive">*</span></Label>
               <button
                 onClick={addPosition}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"

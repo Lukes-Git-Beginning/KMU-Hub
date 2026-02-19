@@ -52,7 +52,7 @@ export function FinanceSettingsTab() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">Buchhaltung</h2>
+      <h2 className="text-foreground mb-1">Finanzen</h2>
       <p className="text-sm text-muted-foreground mb-6">Firmen-Info, Bankdaten, Rechnungsnummern und DATEV konfigurieren</p>
 
       {/* Company info */}

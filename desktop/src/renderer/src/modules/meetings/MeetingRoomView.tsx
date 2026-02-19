@@ -69,26 +69,26 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
           : 'grid-cols-3 sm:grid-cols-4'
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-gray-900">
+    <div className="dark fixed inset-0 z-[60] flex flex-col bg-background">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-800/80">
+      <div className="flex items-center justify-between px-4 py-2 bg-card/80">
         <div className="flex items-center gap-3">
-          <h3 className="text-sm font-medium text-white">{meeting.title}</h3>
-          <span className="text-xs text-gray-400">{meeting.room}</span>
+          <h3 className="text-sm font-medium text-foreground">{meeting.title}</h3>
+          <span className="text-xs text-muted-foreground">{meeting.room}</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-gray-300">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
             {formatTime(elapsed)}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Users className="h-3.5 w-3.5" />
             {participants.length}
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-gray-400 hover:text-white hover:bg-gray-700"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
             onClick={() => setIsMaximized(!isMaximized)}
           >
             {isMaximized ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -104,19 +104,19 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
             {participants.map((p, i) => (
               <div
                 key={p.id}
-                className="relative flex items-center justify-center rounded-xl bg-gray-800 overflow-hidden"
+                className="relative flex items-center justify-center rounded-xl bg-card overflow-hidden"
               >
                 {/* Camera placeholder */}
                 <div className="flex flex-col items-center gap-2">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-700 text-xl font-medium text-white">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-xl font-medium text-foreground">
                     {p.initials}
                   </div>
-                  <span className="text-sm text-gray-300">{p.name}</span>
+                  <span className="text-sm text-muted-foreground">{p.name}</span>
                 </div>
 
                 {/* Name overlay */}
                 <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md bg-black/50 px-2 py-1">
-                  <span className="text-xs text-white">{p.name}</span>
+                  <span className="text-xs text-foreground">{p.name}</span>
                   {i === 0 && isMuted && <MicOff className="h-3 w-3 text-red-400" />}
                 </div>
 
@@ -131,15 +131,15 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
 
         {/* Side panel: Participants or Chat */}
         {(showParticipants || showChat) && (
-          <div className="w-72 flex flex-col border-l border-gray-700 bg-gray-800/60">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
-              <span className="text-sm font-medium text-white">
+          <div className="w-72 flex flex-col border-l border-border bg-card/60">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+              <span className="text-sm font-medium text-foreground">
                 {showParticipants ? 'Teilnehmer' : 'Chat'}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-gray-400 hover:text-white hover:bg-gray-700"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted"
                 onClick={() => {
                   setShowParticipants(false)
                   setShowChat(false)
@@ -152,11 +152,11 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
             {showParticipants && (
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {participants.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2 rounded-md p-2 hover:bg-gray-700/50">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-xs font-medium text-white">
+                  <div key={p.id} className="flex items-center gap-2 rounded-md p-2 hover:bg-muted/50">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
                       {p.initials}
                     </span>
-                    <span className="text-sm text-gray-200">{p.name}</span>
+                    <span className="text-sm text-foreground/90">{p.name}</span>
                   </div>
                 ))}
               </div>
@@ -165,15 +165,15 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
             {showChat && (
               <div className="flex flex-1 flex-col">
                 <div className="flex-1 overflow-y-auto p-3">
-                  <p className="text-xs text-gray-500 text-center mt-8">
+                  <p className="text-xs text-muted-foreground/70 text-center mt-8">
                     Noch keine Nachrichten
                   </p>
                 </div>
-                <div className="border-t border-gray-700 p-2">
+                <div className="border-t border-border p-2">
                   <input
                     type="text"
                     placeholder="Nachricht..."
-                    className="w-full rounded-md bg-gray-700 px-3 py-1.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full rounded-md bg-muted px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -183,7 +183,7 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
       </div>
 
       {/* Bottom toolbar */}
-      <div className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-800/80">
+      <div className="flex items-center justify-center gap-2 px-4 py-3 bg-card/80">
         <ToolbarButton
           icon={isMuted ? MicOff : Mic}
           label={isMuted ? 'Stumm' : 'Mikrofon'}
@@ -228,7 +228,7 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
           onClick={() => { setShowParticipants(!showParticipants); setShowChat(false) }}
         />
 
-        <div className="mx-2 h-8 w-px bg-gray-700" />
+        <div className="mx-2 h-8 w-px bg-border" />
 
         <button
           onClick={onLeave}
@@ -263,8 +263,8 @@ function ToolbarButton({
         danger
           ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
           : active
-            ? 'bg-gray-700 text-white hover:bg-gray-600'
-            : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+            ? 'bg-muted text-foreground hover:bg-secondary-hover'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
       title={label}
     >

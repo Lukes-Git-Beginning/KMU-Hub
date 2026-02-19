@@ -48,7 +48,7 @@ interface BerichteStore {
 }
 
 const MOCK_KPIS: KPI[] = [
-  { id: 'kpi-1', label: 'Umsatz (Monat)', value: '284\'350', unit: 'CHF', changePercent: 12.4, moduleId: 'buchhaltung' },
+  { id: 'kpi-1', label: 'Umsatz (Monat)', value: '284\'350', unit: 'CHF', changePercent: 12.4, moduleId: 'finanzen' },
   { id: 'kpi-2', label: 'Offene Aufträge', value: '47', unit: '', changePercent: -3.2, moduleId: 'aufträge' },
   { id: 'kpi-3', label: 'Kundenzufriedenheit', value: '4.6', unit: '/ 5.0', changePercent: 0.2, moduleId: 'crm' },
   { id: 'kpi-4', label: 'Durchschn. Reaktionszeit', value: '2.4', unit: 'Std.', changePercent: -18.0, moduleId: 'helpdesk' },
@@ -66,7 +66,7 @@ const MOCK_CHART_DATA: ChartBar[] = [
 ]
 
 const MOCK_MODULES: ModuleOption[] = [
-  { id: 'buchhaltung', name: 'Buchhaltung' },
+  { id: 'finanzen', name: 'Finanzen' },
   { id: 'crm', name: 'CRM / Kontakte' },
   { id: 'helpdesk', name: 'Helpdesk' },
   { id: 'inventar', name: 'Inventar' },
@@ -77,13 +77,13 @@ const MOCK_MODULES: ModuleOption[] = [
 ]
 
 const MOCK_SAVED_REPORTS: SavedReport[] = [
-  { id: 'rpt-1', name: 'Monatlicher Umsatzbericht', description: 'Umsatz nach Kunde, Produkt und Region aufgeschlüsselt. Inkl. Vorjahresvergleich.', module: 'Buchhaltung', createdBy: 'Karin Pfister', createdAt: '2026-01-05T09:00:00' },
-  { id: 'rpt-2', name: 'Offene Posten Übersicht', description: 'Alle offenen Debitoren und Kreditoren mit Fälligkeitsdatum und Mahnstufe.', module: 'Buchhaltung', createdBy: 'Karin Pfister', createdAt: '2026-01-10T14:30:00' },
+  { id: 'rpt-1', name: 'Monatlicher Umsatzbericht', description: 'Umsatz nach Kunde, Produkt und Region aufgeschlüsselt. Inkl. Vorjahresvergleich.', module: 'Finanzen', createdBy: 'Karin Pfister', createdAt: '2026-01-05T09:00:00' },
+  { id: 'rpt-2', name: 'Offene Posten Übersicht', description: 'Alle offenen Debitoren und Kreditoren mit Fälligkeitsdatum und Mahnstufe.', module: 'Finanzen', createdBy: 'Karin Pfister', createdAt: '2026-01-10T14:30:00' },
   { id: 'rpt-3', name: 'Helpdesk SLA-Report', description: 'SLA-Einhaltung nach Priorität und Kategorie. Durchschnittliche Reaktions- und Lösungszeiten.', module: 'Helpdesk', createdBy: 'Marco Hartmann', createdAt: '2026-02-01T11:00:00' },
 ]
 
 const MOCK_SCHEDULED_REPORTS: ScheduledReport[] = [
-  { id: 'sched-1', reportId: 'rpt-1', name: 'Monatlicher Umsatzbericht', schedule: 'monthly', recipients: ['geschaeftsleitung@firma.ch', 'buchhaltung@firma.ch'], lastRun: '2026-02-01T06:00:00', active: true },
+  { id: 'sched-1', reportId: 'rpt-1', name: 'Monatlicher Umsatzbericht', schedule: 'monthly', recipients: ['geschaeftsleitung@firma.ch', 'finanzen@firma.ch'], lastRun: '2026-02-01T06:00:00', active: true },
   { id: 'sched-2', reportId: 'rpt-3', name: 'Helpdesk SLA-Report', schedule: 'weekly', recipients: ['it-leitung@firma.ch', 'support@firma.ch'], lastRun: '2026-02-10T06:00:00', active: true },
 ]
 

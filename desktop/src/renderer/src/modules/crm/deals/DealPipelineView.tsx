@@ -133,7 +133,7 @@ export default function DealPipelineView() {
                     : undefined,
                   borderLeft: stage.color
                     ? `3px solid ${stage.color}`
-                    : '3px solid hsl(var(--border))',
+                    : '3px solid var(--border)',
                 }}
               >
                 <div>

@@ -47,7 +47,7 @@ export function MemberDetailPanel({
   const tenure = getTenure(member.joinDate)
 
   return (
-    <DetailPanel title="Mitglied-Details" onClose={onClose}>
+    <DetailPanel open title="Mitglied-Details" onClose={onClose}>
       {/* Header with gradient */}
       <div className="relative -mx-5 -mt-1 mb-4">
         <div

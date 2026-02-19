@@ -15,6 +15,15 @@ type User struct {
 	IsActive     bool      `json:"is_active"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+
+	// 2FA fields
+	TwoFactorEnabled         bool       `json:"two_factor_enabled"`
+	TwoFactorSecretEncrypted string     `json:"-"`
+	TwoFactorPendingSecret   string     `json:"-"`
+	TwoFactorEnabledAt       *time.Time `json:"two_factor_enabled_at,omitempty"`
+
+	// Locale preference
+	Locale string `json:"locale"`
 }
 
 type Role struct {

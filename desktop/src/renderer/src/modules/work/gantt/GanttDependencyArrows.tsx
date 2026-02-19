@@ -54,7 +54,7 @@ export default function GanttDependencyArrows({
           refY="3"
           orient="auto"
         >
-          <polygon points="0 0, 8 3, 0 6" fill="#ef4444" />
+          <polygon points="0 0, 8 3, 0 6" className="fill-error" />
         </marker>
       </defs>
 
@@ -86,7 +86,7 @@ export default function GanttDependencyArrows({
             key={dep.id}
             d={path}
             fill="none"
-            stroke={isCritical ? '#ef4444' : 'hsl(var(--muted-foreground))'}
+            stroke={isCritical ? 'var(--error)' : 'var(--muted-foreground)'}
             strokeWidth={isCritical ? 2 : 1.5}
             strokeDasharray={isCritical ? undefined : '4 2'}
             markerEnd={

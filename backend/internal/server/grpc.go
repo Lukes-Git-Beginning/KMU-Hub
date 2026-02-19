@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -41,17 +42,27 @@ func (s *AuthGRPCServer) Register(ctx context.Context, req *authv1.RegisterReque
 }
 
 func (s *AuthGRPCServer) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.LoginResponse, error) {
-	user, tokens, err := s.authService.Login(ctx, req.Email, req.Password)
+	result, err := s.authService.Login(ctx, req.Email, req.Password)
 	if err != nil {
 		return nil, mapError(err)
 	}
 
-	_, roles, _ := s.authService.GetUser(ctx, user.ID)
+	if result.RequiresTwoFactor {
+		return &authv1.LoginResponse{
+			RequiresTwoFactor: true,
+			PendingToken:      result.PendingToken,
+		}, nil
+	}
+
+	var roles []string
+	if result.User != nil {
+		_, roles, _ = s.authService.GetUser(ctx, result.User.ID)
+	}
 
 	return &authv1.LoginResponse{
-		User:         toUserInfo(user, roles),
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
+		User:         toUserInfo(result.User, roles),
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
 	}, nil
 }
 
@@ -282,6 +293,253 @@ func (s *AuthGRPCServer) CancelInvitation(ctx context.Context, req *authv1.Cance
 	return &authv1.CancelInvitationResponse{}, nil
 }
 
+// ============================================================================
+// Two-Factor Authentication Handlers
+// ============================================================================
+
+func (s *AuthGRPCServer) Setup2FA(ctx context.Context, req *authv1.Setup2FARequest) (*authv1.Setup2FAResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	result, err := s.authService.Setup2FA(ctx, userID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.Setup2FAResponse{
+		QrCodePng:    result.QRCodePNG,
+		ManualSecret: result.Secret,
+	}, nil
+}
+
+func (s *AuthGRPCServer) Verify2FA(ctx context.Context, req *authv1.Verify2FARequest) (*authv1.Verify2FAResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	codes, err := s.authService.Verify2FA(ctx, userID, req.Code)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.Verify2FAResponse{
+		RecoveryCodes: codes,
+	}, nil
+}
+
+func (s *AuthGRPCServer) Validate2FALogin(ctx context.Context, req *authv1.Validate2FALoginRequest) (*authv1.Validate2FALoginResponse, error) {
+	user, tokens, err := s.authService.CompleteTwoFactorLogin(ctx, req.PendingToken, req.Code, req.IsRecoveryCode)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	var roles []string
+	if user != nil {
+		_, roles, _ = s.authService.GetUser(ctx, user.ID)
+	}
+
+	return &authv1.Validate2FALoginResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		User:         toUserInfo(user, roles),
+	}, nil
+}
+
+func (s *AuthGRPCServer) Disable2FA(ctx context.Context, req *authv1.Disable2FARequest) (*authv1.Disable2FAResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	if err := s.authService.Disable2FA(ctx, userID, req.Code); err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.Disable2FAResponse{}, nil
+}
+
+func (s *AuthGRPCServer) RegenerateRecoveryCodes(ctx context.Context, req *authv1.RegenerateRecoveryCodesRequest) (*authv1.RegenerateRecoveryCodesResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	codes, err := s.authService.RegenerateRecoveryCodes(ctx, userID, req.Code)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.RegenerateRecoveryCodesResponse{
+		RecoveryCodes: codes,
+	}, nil
+}
+
+func (s *AuthGRPCServer) AdminReset2FA(ctx context.Context, req *authv1.AdminReset2FARequest) (*authv1.AdminReset2FAResponse, error) {
+	targetUserID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	adminID, err := uuid.Parse(req.AdminId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid admin id")
+	}
+
+	if err := s.authService.AdminReset2FA(ctx, targetUserID, adminID, req.Reason); err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.AdminReset2FAResponse{}, nil
+}
+
+// ============================================================================
+// Session Handlers
+// ============================================================================
+
+func (s *AuthGRPCServer) ListSessions(ctx context.Context, req *authv1.ListSessionsRequest) (*authv1.ListSessionsResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	sessions, err := s.authService.ListSessions(ctx, userID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list sessions")
+	}
+
+	var pbSessions []*authv1.SessionInfo
+	for _, sess := range sessions {
+		pbSessions = append(pbSessions, toSessionInfo(sess))
+	}
+
+	return &authv1.ListSessionsResponse{
+		Sessions: pbSessions,
+	}, nil
+}
+
+func (s *AuthGRPCServer) TerminateSession(ctx context.Context, req *authv1.TerminateSessionRequest) (*authv1.TerminateSessionResponse, error) {
+	sessionID, err := uuid.Parse(req.SessionId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid session id")
+	}
+
+	// UserId is available for authorization checks but TerminateSession only needs sessionID
+	if _, err := uuid.Parse(req.UserId); err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	if err := s.authService.TerminateSession(ctx, sessionID); err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.TerminateSessionResponse{}, nil
+}
+
+func (s *AuthGRPCServer) TerminateAllSessions(ctx context.Context, req *authv1.TerminateAllSessionsRequest) (*authv1.TerminateAllSessionsResponse, error) {
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user id")
+	}
+
+	var currentSessionID *uuid.UUID
+	if req.CurrentSessionId != "" {
+		parsed, parseErr := uuid.Parse(req.CurrentSessionId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid current session id")
+		}
+		currentSessionID = &parsed
+	}
+
+	if err := s.authService.TerminateAllSessions(ctx, userID, currentSessionID); err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.TerminateAllSessionsResponse{}, nil
+}
+
+// ============================================================================
+// Two-Factor Policy Handlers
+// ============================================================================
+
+func (s *AuthGRPCServer) GetTwoFactorPolicy(ctx context.Context, req *authv1.GetTwoFactorPolicyRequest) (*authv1.GetTwoFactorPolicyResponse, error) {
+	if req.RoleName != "" {
+		policy, err := s.authService.GetTwoFactorPolicy(ctx, req.RoleName)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to get 2FA policy")
+		}
+		var policies []*authv1.TwoFactorPolicy
+		if policy != nil {
+			policies = append(policies, toTwoFactorPolicyProto(policy))
+		}
+		return &authv1.GetTwoFactorPolicyResponse{Policies: policies}, nil
+	}
+
+	// Return all policies
+	dbPolicies, err := s.authService.ListTwoFactorPolicies(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list 2FA policies")
+	}
+
+	var policies []*authv1.TwoFactorPolicy
+	for _, p := range dbPolicies {
+		policies = append(policies, toTwoFactorPolicyProto(p))
+	}
+
+	return &authv1.GetTwoFactorPolicyResponse{Policies: policies}, nil
+}
+
+func (s *AuthGRPCServer) UpdateTwoFactorPolicy(ctx context.Context, req *authv1.UpdateTwoFactorPolicyRequest) (*authv1.UpdateTwoFactorPolicyResponse, error) {
+	if req.RoleName == "" {
+		return nil, status.Error(codes.InvalidArgument, "role_name is required")
+	}
+
+	updatedBy, err := uuid.Parse(req.UpdatedBy)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid updated_by")
+	}
+
+	policy, err := s.authService.UpdateTwoFactorPolicy(ctx, req.RoleName, req.Enforced, int(req.GracePeriodDays), updatedBy)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return &authv1.UpdateTwoFactorPolicyResponse{
+		Policy: toTwoFactorPolicyProto(policy),
+	}, nil
+}
+
+func toSessionInfo(sess *models.UserSession) *authv1.SessionInfo {
+	return &authv1.SessionInfo{
+		Id:           sess.ID.String(),
+		UserId:       sess.UserID.String(),
+		DeviceName:   sess.DeviceName,
+		DeviceType:   sess.DeviceType,
+		IpAddress:    sess.IPAddress,
+		Location:     sess.Location,
+		UserAgent:    sess.UserAgent,
+		IsCurrent:    sess.IsCurrent,
+		LastActiveAt: timestamppb.New(sess.LastActiveAt),
+		CreatedAt:    timestamppb.New(sess.CreatedAt),
+	}
+}
+
+func toTwoFactorPolicyProto(p *models.TwoFactorPolicy) *authv1.TwoFactorPolicy {
+	pb := &authv1.TwoFactorPolicy{
+		Id:              p.ID.String(),
+		RoleName:        p.RoleName,
+		Enforced:        p.Enforced,
+		GracePeriodDays: int32(p.GracePeriodDays),
+		UpdatedAt:       timestamppb.New(p.UpdatedAt),
+	}
+	if p.UpdatedBy != nil {
+		pb.UpdatedBy = p.UpdatedBy.String()
+	}
+	return pb
+}
+
 func toInvitationInfo(inv *models.Invitation) *authv1.InvitationInfo {
 	return &authv1.InvitationInfo{
 		Id:        inv.ID.String(),
@@ -295,13 +553,15 @@ func toInvitationInfo(inv *models.Invitation) *authv1.InvitationInfo {
 
 func toUserInfo(user *models.User, roles []string) *authv1.UserInfo {
 	return &authv1.UserInfo{
-		Id:        user.ID.String(),
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		IsActive:  user.IsActive,
-		Roles:     roles,
-		CreatedAt: user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		Id:               user.ID.String(),
+		Email:            user.Email,
+		FirstName:        user.FirstName,
+		LastName:         user.LastName,
+		IsActive:         user.IsActive,
+		Roles:            roles,
+		CreatedAt:        user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		TwoFactorEnabled: user.TwoFactorEnabled,
+		Locale:           user.Locale,
 	}
 }
 
@@ -325,6 +585,22 @@ func mapError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, auth.ErrInvitationExists):
 		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, auth.ErrTwoFactorAlreadyEnabled):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrTwoFactorNotEnabled):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrNo2FASetupPending):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrInvalidTOTPCode), errors.Is(err, auth.ErrInvalidRecoveryCode):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, auth.ErrAllRecoveryCodesUsed):
+		return status.Error(codes.ResourceExhausted, err.Error())
+	case errors.Is(err, auth.ErrInvalidPendingToken), errors.Is(err, auth.ErrPendingTokenExpired):
+		return status.Error(codes.Unauthenticated, err.Error())
+	case errors.Is(err, auth.Err2FAEnforcementRequired):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, auth.ErrSessionNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal error")
 	}

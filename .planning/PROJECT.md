@@ -32,10 +32,11 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 - [ ] Security & compliance (2FA, audit log, DSGVO export/deletion, session management, vault, i18n)
 - [ ] Email integration (send/receive within Hub, CRM auto-linking, contact import/export, two-level contacts)
 - [ ] Documents & files (file browser, upload, preview, versioning, sharing, search, tags, global search)
-- [ ] Finance module (quotes, invoices, GoBD compliance, DATEV export)
-- [ ] HR module (leave requests, time tracking, employee onboarding, ArbZG/BUrlG compliance)
-- [ ] External integrations (CalDAV/CardDAV sync, Teams/Slack notifications, Bexio accounting sync)
-- [ ] Automation engine (workflows, triggers, automatic actions)
+- [ ] Rechnungen & Finanzen (quotes, invoices, GoBD compliance, DATEV export, dunning — NO full accounting, NO payroll)
+- [ ] HR & Zeiterfassung (leave requests, time tracking, employee profiles, ArbZG/BUrlG compliance — payroll via integration only)
+- [ ] Event infrastructure + Unified Inbox (aggregated view across Email/Chat/Notifications)
+- [ ] External integrations (CalDAV/CardDAV sync, Teams/Slack notifications, Bexio/Abacus/RmA accounting sync)
+- [ ] Automation engine (workflows, triggers, automatic actions — killer feature of all-in-one)
 - [ ] Desktop app (Electron + React, personalizable workspace, role-based dashboards)
 - [ ] Plugin system (Config-based modules, WASM for complex extensions, eventually marketplace)
 - [ ] Onsite configuration tooling (process analysis → Hub configuration mapping)
@@ -83,6 +84,9 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 | Case-by-case integrations | No generic integration framework upfront. Build connectors as customers need them. Pragmatic over comprehensive. | — Pending |
 | Role-based dashboards + personalizable workspace | Every employee sees what they need. CEO dashboard ≠ office worker dashboard. Onsite analysis determines defaults. | ✓ Good — dashboard system working |
 | Feature gap analysis expansion | Security before business modules, meetings merged into video, integrations as mini-phases, documents as standalone module. Roadmap from 13 to 18 phases. | — Pending |
+| Buchhaltung → Finanzen rename | "Rechnungen & Finanzen" (invoices + finance), NOT full accounting. No doppelte Buchfuehrung, no payroll. | ✓ Applied |
+| Payroll as anti-feature | Lohnabrechnung NEVER built in-house. Integration only via Bexio/Abacus/RmA. 8 planned endpoints struck. | ✓ Applied |
+| Phase reorder (strategy session) | Unified Inbox as Phase 14, Automation vorgezogen to 16, Abacus+RmA merged into 19. Industry modules as Phase 20 plugins. | ✓ Applied |
 
 ---
-*Last updated: 2026-02-08 after feature gap analysis expansion*
+*Last updated: 2026-02-17 after product strategy session (phase reorder, finanzen rename, payroll anti-feature)*

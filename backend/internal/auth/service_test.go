@@ -207,6 +207,107 @@ func (m *mockRepository) DeleteInvitation(_ context.Context, id uuid.UUID) error
 	return nil
 }
 
+// Two-factor authentication mock methods
+
+func (m *mockRepository) StorePending2FASecret(_ context.Context, userID uuid.UUID, encryptedSecret string) error {
+	user, ok := m.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+	user.TwoFactorPendingSecret = encryptedSecret
+	return nil
+}
+
+func (m *mockRepository) GetPending2FASecret(_ context.Context, userID uuid.UUID) (string, error) {
+	user, ok := m.users[userID]
+	if !ok {
+		return "", ErrUserNotFound
+	}
+	if user.TwoFactorPendingSecret == "" {
+		return "", ErrNo2FASetupPending
+	}
+	return user.TwoFactorPendingSecret, nil
+}
+
+func (m *mockRepository) Enable2FA(_ context.Context, userID uuid.UUID, encryptedSecret string, recoveryCodes []*models.RecoveryCode) error {
+	user, ok := m.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+	user.TwoFactorEnabled = true
+	user.TwoFactorSecretEncrypted = encryptedSecret
+	user.TwoFactorPendingSecret = ""
+	now := time.Now()
+	user.TwoFactorEnabledAt = &now
+	return nil
+}
+
+func (m *mockRepository) Disable2FA(_ context.Context, userID uuid.UUID) error {
+	user, ok := m.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+	user.TwoFactorEnabled = false
+	user.TwoFactorSecretEncrypted = ""
+	user.TwoFactorPendingSecret = ""
+	user.TwoFactorEnabledAt = nil
+	return nil
+}
+
+func (m *mockRepository) GetRecoveryCodes(_ context.Context, _ uuid.UUID) ([]*models.RecoveryCode, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) UseRecoveryCode(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) ReplaceRecoveryCodes(_ context.Context, _ uuid.UUID, _ []*models.RecoveryCode) error {
+	return nil
+}
+
+func (m *mockRepository) GetTwoFactorPolicy(_ context.Context, _ string) (*models.TwoFactorPolicy, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) ListTwoFactorPolicies(_ context.Context) ([]*models.TwoFactorPolicy, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) UpsertTwoFactorPolicy(_ context.Context, _ *models.TwoFactorPolicy) error {
+	return nil
+}
+
+// Session management mock methods
+
+func (m *mockRepository) CreateSession(_ context.Context, _ *models.UserSession) error {
+	return nil
+}
+
+func (m *mockRepository) GetSession(_ context.Context, _ uuid.UUID) (*models.UserSession, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) ListUserSessions(_ context.Context, _ uuid.UUID) ([]*models.UserSession, error) {
+	return nil, nil
+}
+
+func (m *mockRepository) ListAllSessions(_ context.Context, _, _ int) ([]*models.UserSession, int, error) {
+	return nil, 0, nil
+}
+
+func (m *mockRepository) UpdateSessionActivity(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) DeleteSession(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockRepository) DeleteAllUserSessions(_ context.Context, _ uuid.UUID, _ *uuid.UUID) error {
+	return nil
+}
+
 func newTestService() (*Service, *mockRepository) {
 	repo := newMockRepository()
 	tm := NewTokenMaker("test-secret-minimum-32-characters!", 15*time.Minute, 7*24*time.Hour)
@@ -326,17 +427,18 @@ func TestService_Login(t *testing.T) {
 			svc, repo := newTestService()
 			tt.setup(repo)
 
-			user, tokens, err := svc.Login(context.Background(), tt.email, tt.password)
+			result, err := svc.Login(context.Background(), tt.email, tt.password)
 
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
-				assert.Nil(t, user)
-				assert.Nil(t, tokens)
+				assert.Nil(t, result)
 			} else {
 				require.NoError(t, err)
-				assert.NotNil(t, user)
-				assert.NotEmpty(t, tokens.AccessToken)
-				assert.NotEmpty(t, tokens.RefreshToken)
+				assert.NotNil(t, result)
+				assert.False(t, result.RequiresTwoFactor)
+				assert.NotNil(t, result.User)
+				assert.NotEmpty(t, result.AccessToken)
+				assert.NotEmpty(t, result.RefreshToken)
 			}
 		})
 	}
@@ -352,8 +454,8 @@ func TestService_RefreshToken(t *testing.T) {
 			name: "success",
 			setup: func(svc *Service, repo *mockRepository) string {
 				createTestUser(repo, "user@example.com", "pass", true)
-				_, tokens, _ := svc.Login(context.Background(), "user@example.com", "pass")
-				return tokens.RefreshToken
+				result, _ := svc.Login(context.Background(), "user@example.com", "pass")
+				return result.RefreshToken
 			},
 		},
 		{
@@ -427,8 +529,8 @@ func TestService_Logout(t *testing.T) {
 			name: "success",
 			setup: func(svc *Service, repo *mockRepository) string {
 				createTestUser(repo, "user@example.com", "pass", true)
-				_, tokens, _ := svc.Login(context.Background(), "user@example.com", "pass")
-				return tokens.RefreshToken
+				result, _ := svc.Login(context.Background(), "user@example.com", "pass")
+				return result.RefreshToken
 			},
 		},
 		{
@@ -599,14 +701,14 @@ func TestService_RefreshToken_InactiveUser(t *testing.T) {
 	user := createTestUser(repo, "user@example.com", "pass", true)
 
 	// Login while active
-	_, tokens, err := svc.Login(context.Background(), "user@example.com", "pass")
+	result, err := svc.Login(context.Background(), "user@example.com", "pass")
 	require.NoError(t, err)
 
 	// Deactivate user
 	user.IsActive = false
 
 	// Refresh should fail
-	_, err = svc.RefreshToken(context.Background(), tokens.RefreshToken)
+	_, err = svc.RefreshToken(context.Background(), result.RefreshToken)
 	assert.ErrorIs(t, err, ErrUserInactive)
 }
 

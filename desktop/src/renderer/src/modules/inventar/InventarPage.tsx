@@ -150,7 +150,7 @@ function ArtikelDialog({
           {/* Name */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Name <span className="text-red-500">*</span>
+              Name <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
@@ -164,7 +164,7 @@ function ArtikelDialog({
           {/* SKU */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              SKU <span className="text-red-500">*</span>
+              SKU <span className="text-destructive">*</span>
             </label>
             <input
               type="text"

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import {
   FileText,
   FolderOpen,
@@ -16,29 +16,56 @@ import {
   File,
   Film,
   Archive,
-  Lock,
   Share2,
-  Eye,
   Trash2,
   Plus,
   Pencil,
   BookOpen,
-  ArrowLeft,
-  Clock,
   Users,
   Monitor,
   GitBranch,
-  Tag,
+  HardDrive,
+  Paperclip,
+  MessageSquare,
+  Mail,
+  CheckSquare,
+  Heart,
+  ArrowLeft,
+  Clock,
+  Eye,
   Hash,
+  Tag,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useDocumentsStore, type DocFile, type DocFolder, type WikiArticle } from '@/stores/documents'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
 import { FilePreviewModal } from './FilePreviewModal'
 import { FileDetailPanel } from './FileDetailPanel'
 import { FolderCreateDialog } from './FolderCreateDialog'
 import { RenameDialog } from './RenameDialog'
 import { ShareDialog } from './ShareDialog'
+import { FileContextMenu, FolderContextMenu } from './FileContextMenu'
+import { VersionHistoryPanel } from './VersionHistoryPanel'
+import { OnlyOfficeEditor, isOnlyOfficeEditable } from './OnlyOfficeEditor'
+import {
+  useDocumentFolders,
+  useDocumentFiles,
+  useFolderPath,
+  useUpdateFile,
+  useDeleteFile,
+  useDeleteFolder,
+  useMoveFile,
+  useVirtualFiles,
+  useSharedWithMe,
+  useWOPIToken,
+} from '@/api/hooks/useDocuments'
+import { useDocumentUpload, type UploadFileStatus } from '@/api/hooks/useDocumentUpload'
+import type {
+  DocumentFile,
+  DocumentFolder,
+  FolderSpaceType,
+  FileSortField,
+  SortDirection,
+} from '@/api/types/document-types'
 import {
   Dialog,
   DialogContent,
@@ -58,7 +85,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+// Wiki imports -- keep Zustand for wiki as per plan
+import { useDocumentsStore, type WikiArticle } from '@/stores/documents'
+
 type TabKey = 'dateien' | 'wiki'
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const fileTypeIcons: Record<string, typeof FileText> = {
   pdf: FileText,
@@ -80,16 +114,6 @@ const fileTypeColors: Record<string, string> = {
   other: 'bg-file-other-light text-file-other',
 }
 
-const typeLabels: Record<string, string> = {
-  pdf: 'PDF',
-  word: 'Word',
-  excel: 'Excel',
-  image: 'Bild',
-  video: 'Video',
-  archive: 'Archiv',
-  other: 'Datei',
-}
-
 function formatBytes(bytes: number): string {
   if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`
   if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
@@ -97,6 +121,41 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`
 }
 
+function getMimeCategory(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType === 'application/pdf') return 'pdf'
+  if (mimeType.startsWith('video/')) return 'video'
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return 'excel'
+  if (mimeType.includes('word') || mimeType.includes('document')) return 'word'
+  if (mimeType.includes('zip') || mimeType.includes('archive')) return 'archive'
+  return 'other'
+}
+
+function getViewPref(folderId: string): 'grid' | 'list' {
+  try {
+    const stored = localStorage.getItem(`view-pref-${folderId}`)
+    return stored === 'list' ? 'list' : 'grid'
+  } catch {
+    return 'grid'
+  }
+}
+
+function setViewPref(folderId: string, view: 'grid' | 'list') {
+  try {
+    localStorage.setItem(`view-pref-${folderId}`, view)
+  } catch {
+    // silently fail
+  }
+}
+
+// Virtual sidebar item keys
+const SIDEBAR_FAVORITES = '__favorites__'
+const SIDEBAR_SHARED = '__shared__'
+const SIDEBAR_VIRTUAL_CHAT = '__virtual_chat__'
+const SIDEBAR_VIRTUAL_EMAIL = '__virtual_email__'
+const SIDEBAR_VIRTUAL_TASK = '__virtual_task__'
+
+// Wiki constants (kept from original)
 const wikiCategoryIcons: Record<string, typeof BookOpen> = {
   BookOpen: BookOpen,
   Monitor: Monitor,
@@ -105,194 +164,432 @@ const wikiCategoryIcons: Record<string, typeof BookOpen> = {
   FileText: FileText,
 }
 
-export default function DokumentePage() {
-  const {
-    files, folders,
-    addFile, removeFile, renameFile, moveFile, toggleFavorite, toggleShare, updateFileTags,
-    addFolder, renameFolder, deleteFolder, totalStorageUsed,
-  } = useDocumentsStore()
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
 
+export default function DokumentePage() {
   const [activeTab, setActiveTab] = useState<TabKey>('dateien')
-  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
+  const [activeSpecialView, setActiveSpecialView] = useState<string | null>(null)
+  const [view, setView] = useState<'grid' | 'list'>(() => getViewPref('default'))
   const [search, setSearch] = useState('')
-  const [activeFolder, setActiveFolder] = useState('root')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [sortField] = useState<FileSortField>('date')
+  const [sortDir] = useState<SortDirection>('desc')
+
+  // Multi-select
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
 
   // Dialog/Panel state
-  const [previewFile, setPreviewFile] = useState<DocFile | null>(null)
-  const [detailFile, setDetailFile] = useState<DocFile | null>(null)
+  const [previewFile, setPreviewFile] = useState<DocumentFile | null>(null)
+  const [detailFile, setDetailFile] = useState<DocumentFile | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null)
   const [folderCreateOpen, setFolderCreateOpen] = useState(false)
   const [folderCreateParentId, setFolderCreateParentId] = useState<string | null>(null)
-  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null)
-  const [shareTarget, setShareTarget] = useState<DocFile | null>(null)
-  const [moveTarget, setMoveTarget] = useState<DocFile | null>(null)
+  const [renameTarget, setRenameTarget] = useState<{
+    id: string
+    name: string
+    type: 'file' | 'folder'
+  } | null>(null)
+  const [shareTarget, setShareTarget] = useState<{
+    type: 'file' | 'folder'
+    id: string
+    name: string
+  } | null>(null)
+  const [versionHistoryTarget, setVersionHistoryTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
 
+  // OnlyOffice editor state
+  const [onlyOfficeEditor, setOnlyOfficeEditor] = useState<{
+    fileId: string
+    fileName: string
+    token: string
+    ttl: number
+  } | null>(null)
+
+  // Upload tracking
+  const [uploadFiles, setUploadFiles] = useState<UploadFileStatus[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const filtered = files.filter((f) => {
-    if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false
-    if (activeFolder === 'favorites') return f.isFavorite
-    if (activeFolder === 'shared') return f.isShared
-    if (activeFolder === 'vault') return f.isVault
-    if (activeFolder === 'root') return true
-    return f.folderId === activeFolder
+  // Current space context for folder creation
+  const [currentSpaceType] = useState<FolderSpaceType>('personal')
+  const [currentSpaceId] = useState<string>('me')
+
+  // API hooks
+  const { data: personalFolders } = useDocumentFolders({
+    space_type: 'personal',
   })
+  const { data: teamFolders } = useDocumentFolders({
+    space_type: 'team',
+  })
+  const { data: projectFolders } = useDocumentFolders({
+    space_type: 'project',
+  })
+  const { data: subFolders } = useDocumentFolders(
+    activeFolderId ? { parent_id: activeFolderId } : undefined,
+  )
+  const { data: filesData, isLoading: filesLoading } = useDocumentFiles(
+    activeSpecialView === SIDEBAR_FAVORITES
+      ? { is_favorite: true, sort_field: sortField, sort_dir: sortDir }
+      : activeFolderId
+        ? { folder_id: activeFolderId, sort_field: sortField, sort_dir: sortDir }
+        : { sort_field: sortField, sort_dir: sortDir },
+  )
+  const { data: pathData } = useFolderPath(activeFolderId ?? '')
+  const { data: _sharedData } = useSharedWithMe(
+    activeSpecialView === SIDEBAR_SHARED ? 'file' : undefined,
+  )
+  const { data: _virtualChatFiles } = useVirtualFiles(
+    activeSpecialView === SIDEBAR_VIRTUAL_CHAT ? 'chat' : undefined,
+  )
+  const { data: _virtualEmailFiles } = useVirtualFiles(
+    activeSpecialView === SIDEBAR_VIRTUAL_EMAIL ? 'email' : undefined,
+  )
+  const { data: _virtualTaskFiles } = useVirtualFiles(
+    activeSpecialView === SIDEBAR_VIRTUAL_TASK ? 'task' : undefined,
+  )
 
-  const storageUsed = totalStorageUsed()
-  const storageTotal = 10737418240 // 10 GB
-  const storagePercent = Math.round((storageUsed / storageTotal) * 100)
+  const updateFile = useUpdateFile()
+  const deleteFile = useDeleteFile()
+  const deleteFolder = useDeleteFolder()
+  const moveFile = useMoveFile()
+  const upload = useDocumentUpload()
+  const wopiToken = useWOPIToken()
 
-  const rootFolders = folders.filter((f) => f.parentId === null)
+  // Derived data
+  const files = filesData?.files ?? []
+  const breadcrumbs = pathData?.segments ?? []
+
+  const filtered = useMemo(() => {
+    if (!search) return files
+    const q = search.toLowerCase()
+    return files.filter((f) => f.filename.toLowerCase().includes(q))
+  }, [files, search])
+
+  const contentSubfolders = subFolders?.folders ?? []
   const deleteTarget = files.find((f) => f.id === deleteConfirmId)
-  const deleteFolderTarget = folders.find((f) => f.id === deleteFolderConfirmId)
+  const folderList = [
+    ...(personalFolders?.folders ?? []),
+    ...(teamFolders?.folders ?? []),
+    ...(projectFolders?.folders ?? []),
+  ]
+  const deleteFolderTarget = folderList.find(
+    (f) => f.id === deleteFolderConfirmId,
+  )
 
-  const activeFolderObj = folders.find((f) => f.id === activeFolder)
-  const activeFolderName = activeFolderObj?.name || 'Alle Dateien'
+  // View preference per folder
+  const handleViewChange = (newView: 'grid' | 'list') => {
+    setView(newView)
+    setViewPref(activeFolderId ?? 'default', newView)
+  }
 
+  // Navigate to a folder
+  const navigateToFolder = (folderId: string | null) => {
+    setActiveFolderId(folderId)
+    setActiveSpecialView(null)
+    setSelectedFiles(new Set())
+    if (folderId) {
+      setView(getViewPref(folderId))
+    }
+  }
+
+  const navigateToSpecial = (key: string) => {
+    setActiveSpecialView(key)
+    setActiveFolderId(null)
+    setSelectedFiles(new Set())
+  }
+
+  // Upload handlers
   const handleUpload = () => {
     fileInputRef.current?.click()
   }
 
-  const handleFileSelect = () => {
-    // Mock file upload
-    const mockNames = [
-      'Dokument_Neu.pdf', 'Tabelle_Import.xlsx', 'Bild_Upload.png',
-      'Präsentation_Draft.pptx', 'Notizen_Meeting.docx',
-    ]
-    const mockTypes: Record<string, DocFile['type']> = {
-      pdf: 'pdf', xlsx: 'excel', png: 'image', pptx: 'other', docx: 'word',
-    }
-    const name = mockNames[Math.floor(Math.random() * mockNames.length)]
-    const ext = name.split('.').pop() || 'pdf'
-    const type = mockTypes[ext] || 'other'
-    const sizeBytes = Math.floor(Math.random() * 5000000) + 100000
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files
+    if (!fileList || fileList.length === 0) return
 
-    addFile({
-      name,
-      type,
-      size: formatBytes(sizeBytes),
-      sizeBytes,
-      date: new Date().toISOString().split('T')[0],
-      folderId: activeFolder === 'favorites' || activeFolder === 'shared' || activeFolder === 'vault' ? 'root' : activeFolder,
-      tags: [],
-      createdBy: 'Du',
-      isFavorite: false,
-      isShared: false,
-      isVault: activeFolder === 'vault' || activeFolder.startsWith('vault-'),
-      sharedWith: [],
-    })
-    toast.success(`"${name}" hochgeladen`)
+    const targetFolder = activeFolderId ?? ''
+    const newUploads: UploadFileStatus[] = Array.from(fileList).map((f) => ({
+      file: f,
+      progress: 0,
+      status: 'pending' as const,
+    }))
+
+    setUploadFiles((prev) => [...prev, ...newUploads])
+
+    for (let i = 0; i < newUploads.length; i++) {
+      const uploadItem = newUploads[i]
+      setUploadFiles((prev) =>
+        prev.map((u) =>
+          u.file === uploadItem.file ? { ...u, status: 'uploading' } : u,
+        ),
+      )
+
+      try {
+        await upload.mutateAsync({
+          folderId: targetFolder,
+          file: uploadItem.file,
+          onProgress: (pct) => {
+            setUploadFiles((prev) =>
+              prev.map((u) =>
+                u.file === uploadItem.file ? { ...u, progress: pct } : u,
+              ),
+            )
+          },
+        })
+        setUploadFiles((prev) =>
+          prev.map((u) =>
+            u.file === uploadItem.file
+              ? { ...u, status: 'complete', progress: 100 }
+              : u,
+          ),
+        )
+      } catch (err) {
+        setUploadFiles((prev) =>
+          prev.map((u) =>
+            u.file === uploadItem.file
+              ? {
+                  ...u,
+                  status: 'error',
+                  error: err instanceof Error ? err.message : 'Upload fehlgeschlagen',
+                }
+              : u,
+          ),
+        )
+      }
+    }
+
+    // Clear completed uploads after 3s
+    setTimeout(() => {
+      setUploadFiles((prev) => prev.filter((u) => u.status !== 'complete'))
+    }, 3000)
+
+    // Reset input
+    e.target.value = ''
   }
 
+  // Desktop drop handler
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+
+    // Check if it's an internal file drag (file reorganization)
+    const draggedFileId = e.dataTransfer.getData('application/x-document-file')
+    if (draggedFileId && activeFolderId) {
+      moveFile.mutate(
+        { id: draggedFileId, targetFolderId: activeFolderId },
+        {
+          onSuccess: () => toast.success('Datei verschoben'),
+          onError: (err) => toast.error(`Fehler: ${err.message}`),
+        },
+      )
+      return
+    }
+
+    // Desktop file upload
+    const droppedFiles = e.dataTransfer.files
+    if (!droppedFiles || droppedFiles.length === 0) return
+
+    const targetFolder = activeFolderId ?? ''
+    const newUploads: UploadFileStatus[] = Array.from(droppedFiles).map(
+      (f) => ({
+        file: f,
+        progress: 0,
+        status: 'pending' as const,
+      }),
+    )
+
+    setUploadFiles((prev) => [...prev, ...newUploads])
+
+    for (const uploadItem of newUploads) {
+      setUploadFiles((prev) =>
+        prev.map((u) =>
+          u.file === uploadItem.file ? { ...u, status: 'uploading' } : u,
+        ),
+      )
+
+      try {
+        await upload.mutateAsync({
+          folderId: targetFolder,
+          file: uploadItem.file,
+          onProgress: (pct) => {
+            setUploadFiles((prev) =>
+              prev.map((u) =>
+                u.file === uploadItem.file ? { ...u, progress: pct } : u,
+              ),
+            )
+          },
+        })
+        setUploadFiles((prev) =>
+          prev.map((u) =>
+            u.file === uploadItem.file
+              ? { ...u, status: 'complete', progress: 100 }
+              : u,
+          ),
+        )
+        toast.success(`"${uploadItem.file.name}" hochgeladen`)
+      } catch (err) {
+        setUploadFiles((prev) =>
+          prev.map((u) =>
+            u.file === uploadItem.file
+              ? {
+                  ...u,
+                  status: 'error',
+                  error:
+                    err instanceof Error
+                      ? err.message
+                      : 'Upload fehlgeschlagen',
+                }
+              : u,
+          ),
+        )
+      }
+    }
+
+    setTimeout(() => {
+      setUploadFiles((prev) => prev.filter((u) => u.status !== 'complete'))
+    }, 3000)
+  }
+
+  // Folder drop handler for sidebar items
+  const handleFolderDrop = useCallback(
+    (folderId: string, e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const draggedFileId = e.dataTransfer.getData(
+        'application/x-document-file',
+      )
+      if (draggedFileId) {
+        moveFile.mutate(
+          { id: draggedFileId, targetFolderId: folderId },
+          {
+            onSuccess: () => toast.success('Datei verschoben'),
+            onError: (err) => toast.error(`Fehler: ${err.message}`),
+          },
+        )
+      }
+    },
+    [moveFile],
+  )
+
+  // Delete handlers
   const handleDeleteFile = () => {
     if (deleteConfirmId) {
-      removeFile(deleteConfirmId)
-      toast.success('Datei gelöscht')
-      if (detailFile?.id === deleteConfirmId) setDetailFile(null)
-      setDeleteConfirmId(null)
+      deleteFile.mutate(deleteConfirmId, {
+        onSuccess: () => {
+          toast.success('Datei geloescht')
+          if (detailFile?.id === deleteConfirmId) setDetailFile(null)
+          setDeleteConfirmId(null)
+        },
+        onError: (err) => {
+          toast.error(`Fehler: ${err.message}`)
+          setDeleteConfirmId(null)
+        },
+      })
     }
   }
 
   const handleDeleteFolder = () => {
     if (deleteFolderConfirmId) {
-      deleteFolder(deleteFolderConfirmId)
-      toast.success('Ordner gelöscht')
-      if (activeFolder === deleteFolderConfirmId) setActiveFolder('root')
-      setDeleteFolderConfirmId(null)
+      deleteFolder.mutate(deleteFolderConfirmId, {
+        onSuccess: () => {
+          toast.success('Ordner geloescht')
+          if (activeFolderId === deleteFolderConfirmId) {
+            navigateToFolder(null)
+          }
+          setDeleteFolderConfirmId(null)
+        },
+        onError: (err) => {
+          toast.error(`Fehler: ${err.message}`)
+          setDeleteFolderConfirmId(null)
+        },
+      })
     }
   }
 
-  const handleRenameSubmit = (name: string) => {
-    if (!renameTarget) return
-    if (renameTarget.type === 'file') {
-      renameFile(renameTarget.id, name)
-      toast.success('Datei umbenannt')
+  const handleToggleFavorite = (fileId: string) => {
+    const file = files.find((f) => f.id === fileId)
+    if (!file) return
+    updateFile.mutate(
+      { id: fileId, is_favorite: !file.is_favorite },
+      {
+        onSuccess: () =>
+          toast.success(
+            file.is_favorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten hinzugefuegt',
+          ),
+      },
+    )
+  }
+
+  // Multi-select handler
+  const handleFileClick = (
+    file: DocumentFile,
+    e: React.MouseEvent,
+  ) => {
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedFiles((prev) => {
+        const next = new Set(prev)
+        if (next.has(file.id)) next.delete(file.id)
+        else next.add(file.id)
+        return next
+      })
+    } else if (e.shiftKey && selectedFiles.size > 0) {
+      // Range select
+      const lastSelected = Array.from(selectedFiles).pop()
+      const lastIdx = filtered.findIndex((f) => f.id === lastSelected)
+      const currentIdx = filtered.findIndex((f) => f.id === file.id)
+      if (lastIdx >= 0 && currentIdx >= 0) {
+        const start = Math.min(lastIdx, currentIdx)
+        const end = Math.max(lastIdx, currentIdx)
+        const range = filtered.slice(start, end + 1).map((f) => f.id)
+        setSelectedFiles(new Set([...selectedFiles, ...range]))
+      }
     } else {
-      renameFolder(renameTarget.id, name)
-      toast.success('Ordner umbenannt')
+      setSelectedFiles(new Set())
+      setDetailFile(file)
     }
   }
 
-  const getFileActions = (f: DocFile): ActionItem[] => [
-    {
-      label: 'Vorschau',
-      icon: Eye,
-      onClick: () => setPreviewFile(f),
-    },
-    {
-      label: 'Herunterladen',
-      icon: Download,
-      onClick: () => toast.success(`"${f.name}" wird heruntergeladen`),
-    },
-    {
-      label: 'Umbenennen',
-      icon: Pencil,
-      onClick: () => setRenameTarget({ id: f.id, name: f.name, type: 'file' }),
-      separator: true,
-    },
-    {
-      label: 'Teilen',
-      icon: Share2,
-      onClick: () => setShareTarget(f),
-    },
-    {
-      label: 'Verschieben',
-      icon: FolderOpen,
-      onClick: () => setMoveTarget(f),
-    },
-    {
-      label: f.isFavorite ? 'Aus Favoriten' : 'Favorisieren',
-      icon: Star,
-      onClick: () => {
-        toggleFavorite(f.id)
-        toast.success(f.isFavorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten')
-      },
-    },
-    {
-      label: 'Löschen',
-      icon: Trash2,
-      variant: 'destructive',
-      onClick: () => setDeleteConfirmId(f.id),
-      separator: true,
-    },
-  ]
+  // Internal drag start for file reorganization
+  const handleFileDragStart = (
+    e: React.DragEvent,
+    fileId: string,
+  ) => {
+    e.dataTransfer.setData('application/x-document-file', fileId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
 
-  const getFolderActions = (folder: DocFolder): ActionItem[] => {
-    if (folder.isSystem) return []
-    return [
-      {
-        label: 'Hochladen hierhin',
-        icon: Upload,
-        onClick: () => {
-          setActiveFolder(folder.id)
-          handleUpload()
-        },
-      },
-      {
-        label: 'Neuer Unterordner',
-        icon: Plus,
-        onClick: () => {
-          setFolderCreateParentId(folder.id)
-          setFolderCreateOpen(true)
-        },
-      },
-      {
-        label: 'Umbenennen',
-        icon: Pencil,
-        onClick: () => setRenameTarget({ id: folder.id, name: folder.name, type: 'folder' }),
-        separator: true,
-      },
-      {
-        label: 'Löschen',
-        icon: Trash2,
-        variant: 'destructive',
-        onClick: () => setDeleteFolderConfirmId(folder.id),
-        separator: true,
-      },
-    ]
+  // Get active section label
+  const getActiveSectionName = (): string => {
+    if (activeSpecialView === SIDEBAR_FAVORITES) return 'Favoriten'
+    if (activeSpecialView === SIDEBAR_SHARED) return 'Geteilt mit mir'
+    if (activeSpecialView === SIDEBAR_VIRTUAL_CHAT) return 'Chat-Anhaenge'
+    if (activeSpecialView === SIDEBAR_VIRTUAL_EMAIL) return 'E-Mail-Anhaenge'
+    if (activeSpecialView === SIDEBAR_VIRTUAL_TASK) return 'Aufgaben-Anhaenge'
+    if (breadcrumbs.length > 0) return breadcrumbs[breadcrumbs.length - 1].name
+    return 'Alle Dateien'
+  }
+
+  // OnlyOffice editor handler
+  const handleEditInOnlyOffice = async (file: DocumentFile) => {
+    try {
+      const result = await wopiToken.mutateAsync(file.id)
+      setOnlyOfficeEditor({
+        fileId: file.id,
+        fileName: file.filename,
+        token: result.access_token,
+        ttl: result.access_token_ttl,
+      })
+    } catch (err) {
+      toast.error(
+        `Editor konnte nicht geoeffnet werden: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`,
+      )
+    }
   }
 
   return (
@@ -309,7 +606,9 @@ export default function DokumentePage() {
               key={t.key}
               onClick={() => setActiveTab(t.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
-                activeTab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+                activeTab === t.key
+                  ? 'border-primary text-primary font-medium'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -334,50 +633,200 @@ export default function DokumentePage() {
           {/* Sidebar */}
           {sidebarOpen && (
             <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-foreground">Ordner</h3>
-                <button
-                  onClick={() => {
-                    setFolderCreateParentId(null)
-                    setFolderCreateOpen(true)
-                  }}
-                  className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                  title="Neuer Ordner"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-              <nav className="space-y-0.5">
-                {rootFolders.map((folder) => (
-                  <FolderTreeItem
-                    key={folder.id}
-                    folder={folder}
-                    allFolders={folders}
-                    activeFolder={activeFolder}
-                    onSelect={setActiveFolder}
-                    actions={getFolderActions(folder)}
-                    depth={0}
-                  />
-                ))}
-              </nav>
-
-              {/* Storage */}
-              <div className="mt-6 rounded-lg border border-border p-3">
-                <p className="text-xs font-medium text-foreground mb-1">Speicher</p>
-                <div className="h-1.5 rounded-full bg-secondary mb-1">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${Math.min(storagePercent, 100)}%` }}
-                  />
+              {/* Personal Space */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Meine Dateien
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setFolderCreateParentId(null)
+                      setFolderCreateOpen(true)
+                    }}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                    title="Neuer Ordner"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
-                  {formatBytes(storageUsed)} von {formatBytes(storageTotal)} verwendet
-                </p>
+                <nav className="space-y-0.5">
+                  {(personalFolders?.folders ?? [])
+                    .filter((f) => !f.parent_id)
+                    .map((folder) => (
+                      <SidebarFolderItem
+                        key={folder.id}
+                        folder={folder}
+                        allFolders={personalFolders?.folders ?? []}
+                        activeFolderId={activeFolderId}
+                        onSelect={navigateToFolder}
+                        onFolderDrop={handleFolderDrop}
+                        onNewSubfolder={(id) => {
+                          setFolderCreateParentId(id)
+                          setFolderCreateOpen(true)
+                        }}
+                        onRename={(f) =>
+                          setRenameTarget({
+                            id: f.id,
+                            name: f.name,
+                            type: 'folder',
+                          })
+                        }
+                        onDelete={(id) => setDeleteFolderConfirmId(id)}
+                        depth={0}
+                      />
+                    ))}
+                </nav>
+              </div>
+
+              {/* Team Spaces */}
+              {(teamFolders?.folders ?? []).length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                    Team
+                  </h3>
+                  <nav className="space-y-0.5">
+                    {(teamFolders?.folders ?? [])
+                      .filter((f) => !f.parent_id)
+                      .map((folder) => (
+                        <SidebarFolderItem
+                          key={folder.id}
+                          folder={folder}
+                          allFolders={teamFolders?.folders ?? []}
+                          activeFolderId={activeFolderId}
+                          onSelect={navigateToFolder}
+                          onFolderDrop={handleFolderDrop}
+                          onNewSubfolder={(id) => {
+                            setFolderCreateParentId(id)
+                            setFolderCreateOpen(true)
+                          }}
+                          onRename={(f) =>
+                            setRenameTarget({
+                              id: f.id,
+                              name: f.name,
+                              type: 'folder',
+                            })
+                          }
+                          onDelete={(id) => setDeleteFolderConfirmId(id)}
+                          depth={0}
+                        />
+                      ))}
+                  </nav>
+                </div>
+              )}
+
+              {/* Project Spaces */}
+              {(projectFolders?.folders ?? []).length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                    Projekte
+                  </h3>
+                  <nav className="space-y-0.5">
+                    {(projectFolders?.folders ?? [])
+                      .filter((f) => !f.parent_id)
+                      .map((folder) => (
+                        <SidebarFolderItem
+                          key={folder.id}
+                          folder={folder}
+                          allFolders={projectFolders?.folders ?? []}
+                          activeFolderId={activeFolderId}
+                          onSelect={navigateToFolder}
+                          onFolderDrop={handleFolderDrop}
+                          onNewSubfolder={(id) => {
+                            setFolderCreateParentId(id)
+                            setFolderCreateOpen(true)
+                          }}
+                          onRename={(f) =>
+                            setRenameTarget({
+                              id: f.id,
+                              name: f.name,
+                              type: 'folder',
+                            })
+                          }
+                          onDelete={(id) => setDeleteFolderConfirmId(id)}
+                          depth={0}
+                        />
+                      ))}
+                  </nav>
+                </div>
+              )}
+
+              {/* Quick access */}
+              <div className="mb-4 border-t border-border pt-4">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                  Schnellzugriff
+                </h3>
+                <nav className="space-y-0.5">
+                  <button
+                    onClick={() => navigateToSpecial(SIDEBAR_FAVORITES)}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                      activeSpecialView === SIDEBAR_FAVORITES
+                        ? 'bg-primary-light text-primary font-medium'
+                        : 'text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <Star className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Favoriten</span>
+                  </button>
+                  <button
+                    onClick={() => navigateToSpecial(SIDEBAR_SHARED)}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                      activeSpecialView === SIDEBAR_SHARED
+                        ? 'bg-primary-light text-primary font-medium'
+                        : 'text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <Share2 className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Geteilt mit mir</span>
+                  </button>
+                </nav>
+              </div>
+
+              {/* Virtual folders */}
+              <div className="border-t border-border pt-4">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                  Anhaenge
+                </h3>
+                <nav className="space-y-0.5">
+                  <button
+                    onClick={() => navigateToSpecial(SIDEBAR_VIRTUAL_CHAT)}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                      activeSpecialView === SIDEBAR_VIRTUAL_CHAT
+                        ? 'bg-primary-light text-primary font-medium'
+                        : 'text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <MessageSquare className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Chat-Anhaenge</span>
+                  </button>
+                  <button
+                    onClick={() => navigateToSpecial(SIDEBAR_VIRTUAL_EMAIL)}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                      activeSpecialView === SIDEBAR_VIRTUAL_EMAIL
+                        ? 'bg-primary-light text-primary font-medium'
+                        : 'text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <Mail className="h-4 w-4 shrink-0" />
+                    <span className="truncate">E-Mail-Anhaenge</span>
+                  </button>
+                  <button
+                    onClick={() => navigateToSpecial(SIDEBAR_VIRTUAL_TASK)}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                      activeSpecialView === SIDEBAR_VIRTUAL_TASK
+                        ? 'bg-primary-light text-primary font-medium'
+                        : 'text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <CheckSquare className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Aufgaben-Anhaenge</span>
+                  </button>
+                </nav>
               </div>
             </aside>
           )}
 
-          {/* Main */}
+          {/* Main content area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Toolbar */}
             <div className="flex items-center gap-3 border-b border-border px-6 py-3">
@@ -402,14 +851,22 @@ export default function DokumentePage() {
               </span>
               <div className="flex items-center gap-1 ml-auto">
                 <button
-                  onClick={() => setView('grid')}
-                  className={`rounded-md p-1.5 transition-colors ${view === 'grid' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
+                  onClick={() => handleViewChange('grid')}
+                  className={`rounded-md p-1.5 transition-colors ${
+                    view === 'grid'
+                      ? 'bg-secondary text-foreground'
+                      : 'text-muted-foreground hover:bg-secondary'
+                  }`}
                 >
                   <Grid3X3 className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => setView('list')}
-                  className={`rounded-md p-1.5 transition-colors ${view === 'list' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary'}`}
+                  onClick={() => handleViewChange('list')}
+                  className={`rounded-md p-1.5 transition-colors ${
+                    view === 'list'
+                      ? 'bg-secondary text-foreground'
+                      : 'text-muted-foreground hover:bg-secondary'
+                  }`}
                 >
                   <List className="h-4 w-4" />
                 </button>
@@ -423,67 +880,275 @@ export default function DokumentePage() {
               </button>
             </div>
 
+            {/* Breadcrumbs */}
+            {breadcrumbs.length > 0 && !activeSpecialView && (
+              <div className="flex items-center gap-1 border-b border-border px-6 py-2 text-sm">
+                <button
+                  onClick={() => navigateToFolder(null)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Alle Dateien
+                </button>
+                {breadcrumbs.map((seg) => (
+                  <div key={seg.id} className="flex items-center gap-1">
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    <button
+                      onClick={() => navigateToFolder(seg.id)}
+                      className={`transition-colors ${
+                        seg.id === activeFolderId
+                          ? 'text-foreground font-medium'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {seg.name}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Content with drag overlay */}
             <div
               className="flex-1 overflow-y-auto p-6 relative"
-              onDragEnter={(e) => { e.preventDefault(); setIsDragOver(true) }}
-              onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
-              onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false) }}
-              onDrop={(e) => {
+              onDragEnter={(e) => {
+                e.preventDefault()
+                setIsDragOver(true)
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setIsDragOver(true)
+              }}
+              onDragLeave={(e) => {
                 e.preventDefault()
                 setIsDragOver(false)
-                handleFileSelect()
               }}
+              onDrop={handleDrop}
             >
               {/* Drag overlay */}
               {isDragOver && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
                   <div className="text-center">
                     <Upload className="h-12 w-12 mx-auto mb-3 text-primary opacity-60" />
-                    <p className="text-sm font-medium text-primary">Dateien hierhin ziehen</p>
-                    <p className="text-xs text-muted-foreground mt-1">in "{activeFolderName}" hochladen</p>
+                    <p className="text-sm font-medium text-primary">
+                      Dateien hierhin ziehen
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      in &quot;{getActiveSectionName()}&quot; hochladen
+                    </p>
                   </div>
                 </div>
               )}
 
+              {/* Subfolders (shown as cards above files) */}
+              {contentSubfolders.length > 0 && !activeSpecialView && (
+                <div className="mb-4">
+                  <div
+                    className={
+                      view === 'grid'
+                        ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3'
+                        : 'space-y-1'
+                    }
+                  >
+                    {contentSubfolders.map((folder) => (
+                      <FolderContextMenu
+                        key={folder.id}
+                        folder={folder}
+                        onOpen={() => navigateToFolder(folder.id)}
+                        onNewSubfolder={() => {
+                          setFolderCreateParentId(folder.id)
+                          setFolderCreateOpen(true)
+                        }}
+                        onUploadHere={() => {
+                          navigateToFolder(folder.id)
+                          setTimeout(handleUpload, 100)
+                        }}
+                        onRename={() =>
+                          setRenameTarget({
+                            id: folder.id,
+                            name: folder.name,
+                            type: 'folder',
+                          })
+                        }
+                        onDelete={() =>
+                          setDeleteFolderConfirmId(folder.id)
+                        }
+                      >
+                        <div
+                          className="group rounded-lg border border-border bg-card p-3 cursor-pointer hover:shadow-[var(--shadow-card-hover)] transition-shadow"
+                          onDoubleClick={() =>
+                            navigateToFolder(folder.id)
+                          }
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.currentTarget.classList.add(
+                              'ring-2',
+                              'ring-primary',
+                            )
+                          }}
+                          onDragLeave={(e) => {
+                            e.currentTarget.classList.remove(
+                              'ring-2',
+                              'ring-primary',
+                            )
+                          }}
+                          onDrop={(e) => {
+                            e.currentTarget.classList.remove(
+                              'ring-2',
+                              'ring-primary',
+                            )
+                            handleFolderDrop(folder.id, e)
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Folder className="h-5 w-5 text-primary shrink-0" />
+                            <span className="text-sm font-medium text-foreground truncate">
+                              {folder.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-auto">
+                              {folder.file_count} Dateien
+                            </span>
+                          </div>
+                        </div>
+                      </FolderContextMenu>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Files */}
               {view === 'grid' ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {filtered.map((file) => (
-                    <FileGridCard
+                    <FileContextMenu
                       key={file.id}
                       file={file}
-                      actions={getFileActions(file)}
-                      onDoubleClick={() => setPreviewFile(file)}
-                      onClick={() => setDetailFile(file)}
-                    />
+                      onOpen={() => setPreviewFile(file)}
+                      onDownload={() =>
+                        toast.success(
+                          `"${file.filename}" wird heruntergeladen`,
+                        )
+                      }
+                      onRename={() =>
+                        setRenameTarget({
+                          id: file.id,
+                          name: file.filename,
+                          type: 'file',
+                        })
+                      }
+                      onMove={() =>
+                        toast.info('Verschieben-Dialog kommt in Kuerze')
+                      }
+                      onCopy={() =>
+                        toast.info('Kopieren-Dialog kommt in Kuerze')
+                      }
+                      onShare={() =>
+                        setShareTarget({
+                          type: 'file',
+                          id: file.id,
+                          name: file.filename,
+                        })
+                      }
+                      onVersionHistory={() =>
+                        setVersionHistoryTarget({
+                          id: file.id,
+                          name: file.filename,
+                        })
+                      }
+                      onDelete={() => setDeleteConfirmId(file.id)}
+                      onProperties={() => setDetailFile(file)}
+                      onEditInOnlyOffice={
+                        isOnlyOfficeEditable(file.mime_type)
+                          ? () => handleEditInOnlyOffice(file)
+                          : undefined
+                      }
+                    >
+                      <FileGridCard
+                        file={file}
+                        isSelected={selectedFiles.has(file.id)}
+                        onDoubleClick={() => setPreviewFile(file)}
+                        onClick={(e) => handleFileClick(file, e)}
+                        onDragStart={(e) =>
+                          handleFileDragStart(e, file.id)
+                        }
+                      />
+                    </FileContextMenu>
                   ))}
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <div className="grid grid-cols-[1fr_100px_100px_120px_40px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                  <div className="grid grid-cols-[1fr_100px_100px_120px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
                     <span>Name</span>
-                    <span>Größe</span>
+                    <span>Groesse</span>
                     <span>Typ</span>
                     <span>Datum</span>
-                    <span />
                   </div>
                   {filtered.map((file) => (
-                    <FileListRow
+                    <FileContextMenu
                       key={file.id}
                       file={file}
-                      actions={getFileActions(file)}
-                      onDoubleClick={() => setPreviewFile(file)}
-                      onClick={() => setDetailFile(file)}
-                    />
+                      onOpen={() => setPreviewFile(file)}
+                      onDownload={() =>
+                        toast.success(
+                          `"${file.filename}" wird heruntergeladen`,
+                        )
+                      }
+                      onRename={() =>
+                        setRenameTarget({
+                          id: file.id,
+                          name: file.filename,
+                          type: 'file',
+                        })
+                      }
+                      onMove={() =>
+                        toast.info('Verschieben-Dialog kommt in Kuerze')
+                      }
+                      onCopy={() =>
+                        toast.info('Kopieren-Dialog kommt in Kuerze')
+                      }
+                      onShare={() =>
+                        setShareTarget({
+                          type: 'file',
+                          id: file.id,
+                          name: file.filename,
+                        })
+                      }
+                      onVersionHistory={() =>
+                        setVersionHistoryTarget({
+                          id: file.id,
+                          name: file.filename,
+                        })
+                      }
+                      onDelete={() => setDeleteConfirmId(file.id)}
+                      onProperties={() => setDetailFile(file)}
+                      onEditInOnlyOffice={
+                        isOnlyOfficeEditable(file.mime_type)
+                          ? () => handleEditInOnlyOffice(file)
+                          : undefined
+                      }
+                    >
+                      <FileListRow
+                        file={file}
+                        isSelected={selectedFiles.has(file.id)}
+                        onDoubleClick={() => setPreviewFile(file)}
+                        onClick={(e) => handleFileClick(file, e)}
+                        onDragStart={(e) =>
+                          handleFileDragStart(e, file.id)
+                        }
+                      />
+                    </FileContextMenu>
                   ))}
                 </div>
               )}
 
-              {filtered.length === 0 && (
+              {filtered.length === 0 && !filesLoading && (
                 <EmptyState
                   icon={FolderOpen}
                   title="Keine Dateien gefunden"
-                  description={search ? 'Versuche einen anderen Suchbegriff' : 'Lade deine erste Datei hoch'}
+                  description={
+                    search
+                      ? 'Versuche einen anderen Suchbegriff'
+                      : 'Lade deine erste Datei hoch'
+                  }
                   action={
                     !search
                       ? { label: 'Datei hochladen', onClick: handleUpload }
@@ -492,6 +1157,48 @@ export default function DokumentePage() {
                 />
               )}
             </div>
+
+            {/* Upload progress overlay */}
+            {uploadFiles.length > 0 && (
+              <div className="fixed bottom-4 right-4 z-50 w-80 space-y-2">
+                {uploadFiles.map((u, i) => (
+                  <div
+                    key={`${u.file.name}-${i}`}
+                    className="rounded-lg border border-border bg-card p-3 shadow-lg"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-foreground truncate max-w-[200px]">
+                        {u.file.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {u.status === 'complete'
+                          ? 'Fertig'
+                          : u.status === 'error'
+                            ? 'Fehler'
+                            : `${u.progress}%`}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-secondary">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          u.status === 'error'
+                            ? 'bg-destructive'
+                            : u.status === 'complete'
+                              ? 'bg-green-500'
+                              : 'bg-primary'
+                        }`}
+                        style={{ width: `${u.progress}%` }}
+                      />
+                    </div>
+                    {u.error && (
+                      <p className="text-[10px] text-destructive mt-1">
+                        {u.error}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Preview Modal */}
@@ -507,65 +1214,75 @@ export default function DokumentePage() {
             open={!!detailFile}
             onClose={() => setDetailFile(null)}
             onPreview={setPreviewFile}
-            onRename={(f) => setRenameTarget({ id: f.id, name: f.name, type: 'file' })}
-            onShare={setShareTarget}
+            onRename={(f) =>
+              setRenameTarget({
+                id: f.id,
+                name: f.filename,
+                type: 'file',
+              })
+            }
+            onShare={(f) =>
+              setShareTarget({
+                type: 'file',
+                id: f.id,
+                name: f.filename,
+              })
+            }
             onDelete={setDeleteConfirmId}
-            onToggleFavorite={(id) => {
-              toggleFavorite(id)
-              toast.success('Favoriten aktualisiert')
+            onToggleFavorite={handleToggleFavorite}
+            onVersionHistory={(id) => {
+              const f = files.find((file) => file.id === id)
+              if (f) setVersionHistoryTarget({ id: f.id, name: f.filename })
             }}
-            onUpdateTags={(id, tags) => {
-              updateFileTags(id, tags)
-              toast.success('Tags aktualisiert')
-            }}
-            onMove={setMoveTarget}
+          />
+
+          {/* Version History Panel */}
+          <VersionHistoryPanel
+            fileId={versionHistoryTarget?.id ?? ''}
+            fileName={versionHistoryTarget?.name ?? ''}
+            open={!!versionHistoryTarget}
+            onClose={() => setVersionHistoryTarget(null)}
           />
 
           {/* Folder Create Dialog */}
           <FolderCreateDialog
             open={folderCreateOpen}
             onOpenChange={setFolderCreateOpen}
-            parentName={folderCreateParentId ? folders.find((f) => f.id === folderCreateParentId)?.name : undefined}
-            onSubmit={(name) => {
-              addFolder(name, folderCreateParentId)
-              toast.success(`Ordner "${name}" erstellt`)
-            }}
+            parentId={folderCreateParentId}
+            parentName={
+              folderCreateParentId
+                ? folderList.find((f) => f.id === folderCreateParentId)?.name
+                : undefined
+            }
+            spaceType={currentSpaceType}
+            spaceId={currentSpaceId}
           />
 
           {/* Rename Dialog */}
           <RenameDialog
             open={!!renameTarget}
             onOpenChange={(open) => !open && setRenameTarget(null)}
-            currentName={renameTarget?.name || ''}
-            itemType={renameTarget?.type || 'file'}
-            onSubmit={handleRenameSubmit}
+            targetId={renameTarget?.id ?? ''}
+            currentName={renameTarget?.name ?? ''}
+            itemType={renameTarget?.type ?? 'file'}
           />
 
           {/* Share Dialog */}
           <ShareDialog
             open={!!shareTarget}
             onOpenChange={(open) => !open && setShareTarget(null)}
-            fileName={shareTarget?.name || ''}
-            currentShares={shareTarget?.sharedWith || []}
-            onSave={(shares) => {
-              if (shareTarget) {
-                const wasShared = shareTarget.isShared
-                const isNowShared = shares.length > 0
-                if (wasShared !== isNowShared) {
-                  toggleShare(shareTarget.id)
-                }
-                toast.success(isNowShared ? 'Freigabe gespeichert' : 'Freigabe entfernt')
-              }
-            }}
+            entityType={shareTarget?.type ?? 'file'}
+            entityId={shareTarget?.id ?? ''}
+            entityName={shareTarget?.name ?? ''}
           />
 
           {/* Delete File Confirm */}
           <ConfirmDialog
             open={!!deleteConfirmId}
             onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-            title="Datei löschen?"
-            description={`"${deleteTarget?.name}" wird unwiderruflich gelöscht.`}
-            confirmLabel="Löschen"
+            title="Datei loeschen?"
+            description={`"${deleteTarget?.filename}" wird unwiderruflich geloescht.`}
+            confirmLabel="Loeschen"
             variant="destructive"
             onConfirm={handleDeleteFile}
           />
@@ -573,30 +1290,30 @@ export default function DokumentePage() {
           {/* Delete Folder Confirm */}
           <ConfirmDialog
             open={!!deleteFolderConfirmId}
-            onOpenChange={(open) => !open && setDeleteFolderConfirmId(null)}
-            title="Ordner löschen?"
-            description={`"${deleteFolderTarget?.name}" und alle enthaltenen Dateien werden verschoben nach "Alle Dateien".`}
-            confirmLabel="Löschen"
+            onOpenChange={(open) =>
+              !open && setDeleteFolderConfirmId(null)
+            }
+            title="Ordner loeschen?"
+            description={`"${deleteFolderTarget?.name}" und alle enthaltenen Dateien werden geloescht.`}
+            confirmLabel="Loeschen"
             variant="destructive"
             onConfirm={handleDeleteFolder}
           />
 
-          {/* Move File Dialog */}
-          <MoveFileDialog
-            open={!!moveTarget}
-            onOpenChange={(open) => !open && setMoveTarget(null)}
-            fileName={moveTarget?.name || ''}
-            currentFolderId={moveTarget?.folderId || 'root'}
-            folders={folders.filter((f) => !f.isSystem || f.id === 'root')}
-            onMove={(folderId) => {
-              if (moveTarget) {
-                moveFile(moveTarget.id, folderId)
-                const targetFolder = folders.find((f) => f.id === folderId)
-                toast.success(`"${moveTarget.name}" nach "${targetFolder?.name || 'Alle Dateien'}" verschoben`)
-                setMoveTarget(null)
-              }
-            }}
-          />
+          {/* OnlyOffice Editor Overlay */}
+          {onlyOfficeEditor && (
+            <OnlyOfficeEditor
+              fileId={onlyOfficeEditor.fileId}
+              fileName={onlyOfficeEditor.fileName}
+              wopiToken={onlyOfficeEditor.token}
+              wopiTokenTTL={onlyOfficeEditor.ttl}
+              onClose={() => setOnlyOfficeEditor(null)}
+              onVersionCreated={() => {
+                // Invalidate file queries since version may have changed
+                setOnlyOfficeEditor(null)
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -606,23 +1323,283 @@ export default function DokumentePage() {
   )
 }
 
-/* ===== Wiki Tab ===== */
+// ---------------------------------------------------------------------------
+// Sidebar Folder Item (recursive tree)
+// ---------------------------------------------------------------------------
+
+function SidebarFolderItem({
+  folder,
+  allFolders,
+  activeFolderId,
+  onSelect,
+  onFolderDrop,
+  onNewSubfolder,
+  onRename,
+  onDelete,
+  depth,
+}: {
+  folder: DocumentFolder
+  allFolders: DocumentFolder[]
+  activeFolderId: string | null
+  onSelect: (id: string) => void
+  onFolderDrop: (folderId: string, e: React.DragEvent) => void
+  onNewSubfolder: (parentId: string) => void
+  onRename: (folder: DocumentFolder) => void
+  onDelete: (id: string) => void
+  depth: number
+}) {
+  const [expanded, setExpanded] = useState(depth === 0)
+  const [isDragTarget, setIsDragTarget] = useState(false)
+  const isActive = activeFolderId === folder.id
+  const children = allFolders.filter((f) => f.parent_id === folder.id)
+  const hasChildren = children.length > 0
+
+  return (
+    <div>
+      <FolderContextMenu
+        folder={folder}
+        onOpen={() => onSelect(folder.id)}
+        onNewSubfolder={() => onNewSubfolder(folder.id)}
+        onUploadHere={() => onSelect(folder.id)}
+        onRename={() => onRename(folder)}
+        onDelete={() => onDelete(folder.id)}
+      >
+        <div
+          className={`group flex items-center ${
+            isDragTarget ? 'ring-2 ring-primary rounded-md' : ''
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setIsDragTarget(true)
+          }}
+          onDragLeave={() => setIsDragTarget(false)}
+          onDrop={(e) => {
+            setIsDragTarget(false)
+            onFolderDrop(folder.id, e)
+          }}
+        >
+          <button
+            onClick={() => {
+              onSelect(folder.id)
+              if (hasChildren) setExpanded(!expanded)
+            }}
+            className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+              isActive
+                ? 'bg-primary-light text-primary font-medium'
+                : 'text-foreground hover:bg-secondary'
+            }`}
+            style={{ paddingLeft: `${8 + depth * 16}px` }}
+          >
+            {hasChildren ? (
+              expanded ? (
+                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+              )
+            ) : (
+              <span className="w-3" />
+            )}
+            <Folder
+              className={`h-4 w-4 shrink-0 ${
+                folder.icon === 'lock' ? 'text-success' : ''
+              }`}
+            />
+            <span className="truncate">{folder.name}</span>
+          </button>
+        </div>
+      </FolderContextMenu>
+      {expanded &&
+        hasChildren &&
+        children.map((child) => (
+          <SidebarFolderItem
+            key={child.id}
+            folder={child}
+            allFolders={allFolders}
+            activeFolderId={activeFolderId}
+            onSelect={onSelect}
+            onFolderDrop={onFolderDrop}
+            onNewSubfolder={onNewSubfolder}
+            onRename={onRename}
+            onDelete={onDelete}
+            depth={depth + 1}
+          />
+        ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// File Grid Card
+// ---------------------------------------------------------------------------
+
+function FileGridCard({
+  file,
+  isSelected,
+  onDoubleClick,
+  onClick,
+  onDragStart,
+}: {
+  file: DocumentFile
+  isSelected: boolean
+  onDoubleClick: () => void
+  onClick: (e: React.MouseEvent) => void
+  onDragStart: (e: React.DragEvent) => void
+}) {
+  const cat = getMimeCategory(file.mime_type)
+  const Icon = fileTypeIcons[cat] || File
+  const colorClass = fileTypeColors[cat] || fileTypeColors.other
+
+  return (
+    <div
+      className={`group rounded-lg border bg-card p-3 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer ${
+        isSelected
+          ? 'border-primary ring-2 ring-primary/20'
+          : 'border-border'
+      }`}
+      onDoubleClick={onDoubleClick}
+      onClick={onClick}
+      draggable
+      onDragStart={onDragStart}
+    >
+      <div
+        className={`flex h-20 items-center justify-center rounded-md ${colorClass} mb-3 relative`}
+      >
+        <Icon className="h-8 w-8" />
+      </div>
+      <div className="flex items-start justify-between gap-1">
+        <div className="min-w-0">
+          <p
+            className="text-sm font-medium text-foreground truncate"
+            title={file.filename}
+          >
+            {file.filename}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {formatBytes(file.file_size)} &middot;{' '}
+            {new Date(file.updated_at).toLocaleDateString('de-CH')}
+          </p>
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          {file.is_favorite && (
+            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+          )}
+        </div>
+      </div>
+      {file.tags && file.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {file.tags.slice(0, 2).map((tag) => (
+            <span
+              key={tag.id}
+              className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground"
+            >
+              {tag.name}
+            </span>
+          ))}
+          {file.tags.length > 2 && (
+            <span className="text-[10px] text-muted-foreground">
+              +{file.tags.length - 2}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// File List Row
+// ---------------------------------------------------------------------------
+
+function FileListRow({
+  file,
+  isSelected,
+  onDoubleClick,
+  onClick,
+  onDragStart,
+}: {
+  file: DocumentFile
+  isSelected: boolean
+  onDoubleClick: () => void
+  onClick: (e: React.MouseEvent) => void
+  onDragStart: (e: React.DragEvent) => void
+}) {
+  const cat = getMimeCategory(file.mime_type)
+  const Icon = fileTypeIcons[cat] || File
+  const colorClass = fileTypeColors[cat] || fileTypeColors.other
+
+  const typeLabels: Record<string, string> = {
+    pdf: 'PDF',
+    word: 'Word',
+    excel: 'Excel',
+    image: 'Bild',
+    video: 'Video',
+    archive: 'Archiv',
+    other: 'Datei',
+  }
+
+  return (
+    <div
+      className={`group grid grid-cols-[1fr_100px_100px_120px] items-center gap-3 rounded-md px-3 py-2 transition-colors cursor-pointer ${
+        isSelected
+          ? 'bg-primary/5 ring-1 ring-primary/20'
+          : 'hover:bg-secondary/50'
+      }`}
+      onDoubleClick={onDoubleClick}
+      onClick={onClick}
+      draggable
+      onDragStart={onDragStart}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${colorClass}`}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm text-foreground truncate">{file.filename}</p>
+        </div>
+        {file.is_favorite && (
+          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />
+        )}
+      </div>
+      <span className="text-xs text-muted-foreground">
+        {formatBytes(file.file_size)}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        {typeLabels[cat] ?? cat}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        {new Date(file.updated_at).toLocaleDateString('de-CH')}
+      </span>
+    </div>
+  )
+}
+
+// =====================================================================
+// Wiki Tab (kept from original -- uses Zustand store)
+// =====================================================================
 
 function WikiTab() {
   const {
-    wikiArticles, wikiCategories,
-    addWikiArticle, updateWikiArticle, deleteWikiArticle,
+    wikiArticles,
+    wikiCategories,
+    addWikiArticle,
+    updateWikiArticle,
+    deleteWikiArticle,
   } = useDocumentsStore()
 
   const [wikiSearch, setWikiSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [selectedArticle, setSelectedArticle] = useState<WikiArticle | null>(null)
+  const [selectedArticle, setSelectedArticle] = useState<WikiArticle | null>(
+    null,
+  )
   const [activeTag, setActiveTag] = useState<string | null>(null)
 
   // Dialogs
   const [showArticleForm, setShowArticleForm] = useState(false)
   const [editArticle, setEditArticle] = useState<WikiArticle | null>(null)
-  const [deleteArticleConfirm, setDeleteArticleConfirm] = useState<WikiArticle | null>(null)
+  const [deleteArticleConfirm, setDeleteArticleConfirm] =
+    useState<WikiArticle | null>(null)
 
   // Form state
   const [formTitle, setFormTitle] = useState('')
@@ -645,7 +1622,7 @@ function WikiTab() {
         (a) =>
           a.title.toLowerCase().includes(q) ||
           a.content.toLowerCase().includes(q) ||
-          a.tags.some((t) => t.toLowerCase().includes(q))
+          a.tags.some((t) => t.toLowerCase().includes(q)),
       )
     }
     return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -653,20 +1630,28 @@ function WikiTab() {
 
   const allTags = useMemo(() => {
     const tagMap: Record<string, number> = {}
-    wikiArticles.forEach((a) => a.tags.forEach((t) => { tagMap[t] = (tagMap[t] || 0) + 1 }))
+    wikiArticles.forEach((a) =>
+      a.tags.forEach((t) => {
+        tagMap[t] = (tagMap[t] || 0) + 1
+      }),
+    )
     return Object.entries(tagMap).sort((a, b) => b[1] - a[1])
   }, [wikiArticles])
 
   const recentlyUpdated = useMemo(
-    () => [...wikiArticles].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5),
-    [wikiArticles]
+    () =>
+      [...wikiArticles]
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, 5),
+    [wikiArticles],
   )
 
   const latestUpdate = recentlyUpdated[0]?.updatedAt
     ? new Date(recentlyUpdated[0].updatedAt).toLocaleDateString('de-CH')
     : '-'
 
-  const getCategoryName = (id: string) => wikiCategories.find((c) => c.id === id)?.name || 'Unbekannt'
+  const getCategoryName = (id: string) =>
+    wikiCategories.find((c) => c.id === id)?.name || 'Unbekannt'
 
   const openNewArticle = () => {
     setEditArticle(null)
@@ -688,7 +1673,10 @@ function WikiTab() {
 
   const handleArticleSubmit = () => {
     if (!formTitle.trim() || !formCategory) return
-    const tags = formTags.split(',').map((t) => t.trim()).filter(Boolean)
+    const tags = formTags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
     const now = new Date().toISOString().split('T')[0]
 
     if (editArticle) {
@@ -699,7 +1687,6 @@ function WikiTab() {
         tags,
         updatedAt: now,
       })
-      // Update the selected article view if it's the same
       if (selectedArticle?.id === editArticle.id) {
         setSelectedArticle({
           ...editArticle,
@@ -730,22 +1717,26 @@ function WikiTab() {
   const handleDeleteArticle = () => {
     if (!deleteArticleConfirm) return
     deleteWikiArticle(deleteArticleConfirm.id)
-    if (selectedArticle?.id === deleteArticleConfirm.id) setSelectedArticle(null)
+    if (selectedArticle?.id === deleteArticleConfirm.id)
+      setSelectedArticle(null)
     setDeleteArticleConfirm(null)
-    toast.success('Artikel gelöscht')
+    toast.success('Artikel geloescht')
   }
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Left Sidebar — Categories */}
+      {/* Left Sidebar -- Categories */}
       <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-medium text-foreground">Kategorien</h3>
         </div>
         <nav className="space-y-0.5">
-          {/* All articles */}
           <button
-            onClick={() => { setActiveCategory(null); setActiveTag(null); setSelectedArticle(null) }}
+            onClick={() => {
+              setActiveCategory(null)
+              setActiveTag(null)
+              setSelectedArticle(null)
+            }}
             className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
               !activeCategory && !activeTag
                 ? 'bg-primary-light text-primary font-medium'
@@ -754,19 +1745,26 @@ function WikiTab() {
           >
             <BookOpen className="h-4 w-4 shrink-0" />
             <span className="truncate">Alle Artikel</span>
-            <span className="ml-auto text-xs text-muted-foreground">{wikiArticles.length}</span>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {wikiArticles.length}
+            </span>
           </button>
 
-          {/* Category list */}
           {wikiCategories
             .sort((a, b) => a.order - b.order)
             .map((cat) => {
               const CatIcon = wikiCategoryIcons[cat.icon] || BookOpen
-              const count = wikiArticles.filter((a) => a.categoryId === cat.id).length
+              const count = wikiArticles.filter(
+                (a) => a.categoryId === cat.id,
+              ).length
               return (
                 <button
                   key={cat.id}
-                  onClick={() => { setActiveCategory(cat.id); setActiveTag(null); setSelectedArticle(null) }}
+                  onClick={() => {
+                    setActiveCategory(cat.id)
+                    setActiveTag(null)
+                    setSelectedArticle(null)
+                  }}
                   className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
                     activeCategory === cat.id
                       ? 'bg-primary-light text-primary font-medium'
@@ -775,32 +1773,44 @@ function WikiTab() {
                 >
                   <CatIcon className="h-4 w-4 shrink-0" />
                   <span className="truncate">{cat.name}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{count}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {count}
+                  </span>
                 </button>
               )
             })}
         </nav>
 
-        {/* Stats */}
         <div className="mt-6 rounded-lg border border-border p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">Artikel gesamt</span>
-            <span className="text-xs font-medium text-foreground">{wikiArticles.length}</span>
+            <span className="text-[10px] text-muted-foreground">
+              Artikel gesamt
+            </span>
+            <span className="text-xs font-medium text-foreground">
+              {wikiArticles.length}
+            </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">Kategorien</span>
-            <span className="text-xs font-medium text-foreground">{wikiCategories.length}</span>
+            <span className="text-[10px] text-muted-foreground">
+              Kategorien
+            </span>
+            <span className="text-xs font-medium text-foreground">
+              {wikiCategories.length}
+            </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">Letzte Änderung</span>
-            <span className="text-xs font-medium text-foreground">{latestUpdate}</span>
+            <span className="text-[10px] text-muted-foreground">
+              Letzte Aenderung
+            </span>
+            <span className="text-xs font-medium text-foreground">
+              {latestUpdate}
+            </span>
           </div>
         </div>
       </aside>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Search bar + actions */}
         <div className="flex items-center gap-3 border-b border-border px-6 py-3">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -834,7 +1844,6 @@ function WikiTab() {
           </button>
         </div>
 
-        {/* Content area */}
         <div className="flex-1 overflow-y-auto p-6">
           {selectedArticle ? (
             <WikiArticleDetail
@@ -848,8 +1857,16 @@ function WikiTab() {
             <EmptyState
               icon={BookOpen}
               title="Keine Artikel gefunden"
-              description={wikiSearch ? 'Versuche einen anderen Suchbegriff' : 'Erstelle deinen ersten Wiki-Artikel'}
-              action={!wikiSearch ? { label: 'Neuer Artikel', onClick: openNewArticle } : undefined}
+              description={
+                wikiSearch
+                  ? 'Versuche einen anderen Suchbegriff'
+                  : 'Erstelle deinen ersten Wiki-Artikel'
+              }
+              action={
+                !wikiSearch
+                  ? { label: 'Neuer Artikel', onClick: openNewArticle }
+                  : undefined
+              }
             />
           ) : (
             <div className="grid gap-3">
@@ -866,10 +1883,11 @@ function WikiTab() {
         </div>
       </div>
 
-      {/* Right Sidebar — Recent + Tags */}
+      {/* Right Sidebar -- Recent + Tags */}
       <aside className="w-48 shrink-0 border-l border-border bg-card p-4 overflow-y-auto hidden lg:block">
-        {/* Recent changes */}
-        <h4 className="text-xs font-medium text-foreground mb-3">Letzte Änderungen</h4>
+        <h4 className="text-xs font-medium text-foreground mb-3">
+          Letzte Aenderungen
+        </h4>
         <div className="space-y-2 mb-6">
           {recentlyUpdated.map((a) => (
             <button
@@ -877,7 +1895,9 @@ function WikiTab() {
               onClick={() => setSelectedArticle(a)}
               className="block w-full text-left group"
             >
-              <p className="text-xs text-foreground truncate group-hover:text-primary transition-colors">{a.title}</p>
+              <p className="text-xs text-foreground truncate group-hover:text-primary transition-colors">
+                {a.title}
+              </p>
               <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Clock className="h-2.5 w-2.5" />
                 {new Date(a.updatedAt).toLocaleDateString('de-CH')}
@@ -886,7 +1906,6 @@ function WikiTab() {
           ))}
         </div>
 
-        {/* Tags cloud */}
         <h4 className="text-xs font-medium text-foreground mb-3">Tags</h4>
         <div className="flex flex-wrap gap-1.5">
           {allTags.map(([tag, count]) => (
@@ -913,7 +1932,9 @@ function WikiTab() {
       <Dialog open={showArticleForm} onOpenChange={setShowArticleForm}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editArticle ? 'Artikel bearbeiten' : 'Neuer Artikel'}</DialogTitle>
+            <DialogTitle>
+              {editArticle ? 'Artikel bearbeiten' : 'Neuer Artikel'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -927,13 +1948,18 @@ function WikiTab() {
             </div>
             <div className="space-y-1.5">
               <Label>Kategorie</Label>
-              <Select value={formCategory} onValueChange={setFormCategory}>
+              <Select
+                value={formCategory}
+                onValueChange={setFormCategory}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Kategorie wählen" />
+                  <SelectValue placeholder="Kategorie waehlen" />
                 </SelectTrigger>
                 <SelectContent>
                   {wikiCategories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -957,21 +1983,28 @@ function WikiTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowArticleForm(false)}>Abbrechen</Button>
-            <Button onClick={handleArticleSubmit} disabled={!formTitle.trim() || !formCategory}>
+            <Button
+              variant="outline"
+              onClick={() => setShowArticleForm(false)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              onClick={handleArticleSubmit}
+              disabled={!formTitle.trim() || !formCategory}
+            >
               {editArticle ? 'Speichern' : 'Erstellen'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete article confirm */}
       <ConfirmDialog
         open={!!deleteArticleConfirm}
         onOpenChange={(open) => !open && setDeleteArticleConfirm(null)}
-        title="Artikel löschen?"
-        description={`"${deleteArticleConfirm?.title}" wird unwiderruflich gelöscht.`}
-        confirmLabel="Löschen"
+        title="Artikel loeschen?"
+        description={`"${deleteArticleConfirm?.title}" wird unwiderruflich geloescht.`}
+        confirmLabel="Loeschen"
         variant="destructive"
         onConfirm={handleDeleteArticle}
       />
@@ -979,7 +2012,9 @@ function WikiTab() {
   )
 }
 
-/* ===== Wiki Article Card (list item) ===== */
+// =====================================================================
+// Wiki sub-components (unchanged from original)
+// =====================================================================
 
 function WikiArticleCard({
   article,
@@ -1007,7 +2042,9 @@ function WikiArticleCard({
               {categoryName}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{firstLine}</p>
+          <p className="text-xs text-muted-foreground line-clamp-1 mb-2">
+            {firstLine}
+          </p>
           <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />
@@ -1027,20 +2064,23 @@ function WikiArticleCard({
       {article.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2.5">
           {article.tags.slice(0, 4).map((tag) => (
-            <span key={tag} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+            <span
+              key={tag}
+              className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground"
+            >
               {tag}
             </span>
           ))}
           {article.tags.length > 4 && (
-            <span className="text-[10px] text-muted-foreground">+{article.tags.length - 4}</span>
+            <span className="text-[10px] text-muted-foreground">
+              +{article.tags.length - 4}
+            </span>
           )}
         </div>
       )}
     </div>
   )
 }
-
-/* ===== Wiki Article Detail View ===== */
 
 function WikiArticleDetail({
   article,
@@ -1057,19 +2097,18 @@ function WikiArticleDetail({
 }) {
   return (
     <div className="max-w-3xl">
-      {/* Back button */}
       <button
         onClick={onBack}
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zurück zur Übersicht
+        Zurueck zur Uebersicht
       </button>
 
-      {/* Title */}
-      <h1 className="text-xl font-semibold text-foreground mb-3">{article.title}</h1>
+      <h1 className="text-xl font-semibold text-foreground mb-3">
+        {article.title}
+      </h1>
 
-      {/* Meta */}
       <div className="flex flex-wrap items-center gap-3 mb-4 text-xs text-muted-foreground">
         <span className="rounded-full bg-primary-light px-2.5 py-0.5 text-[11px] font-medium text-primary">
           {categoryName}
@@ -1080,11 +2119,13 @@ function WikiArticleDetail({
         </span>
         <span className="flex items-center gap-1">
           <Clock className="h-3.5 w-3.5" />
-          Erstellt: {new Date(article.createdAt).toLocaleDateString('de-CH')}
+          Erstellt:{' '}
+          {new Date(article.createdAt).toLocaleDateString('de-CH')}
         </span>
         <span className="flex items-center gap-1">
           <Clock className="h-3.5 w-3.5" />
-          Aktualisiert: {new Date(article.updatedAt).toLocaleDateString('de-CH')}
+          Aktualisiert:{' '}
+          {new Date(article.updatedAt).toLocaleDateString('de-CH')}
         </span>
         <span className="flex items-center gap-1">
           <Eye className="h-3.5 w-3.5" />
@@ -1092,11 +2133,13 @@ function WikiArticleDetail({
         </span>
       </div>
 
-      {/* Tags */}
       {article.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-6">
           {article.tags.map((tag) => (
-            <span key={tag} className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] text-muted-foreground flex items-center gap-1">
+            <span
+              key={tag}
+              className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] text-muted-foreground flex items-center gap-1"
+            >
               <Hash className="h-3 w-3" />
               {tag}
             </span>
@@ -1104,19 +2147,19 @@ function WikiArticleDetail({
         </div>
       )}
 
-      {/* Content */}
       <div className="rounded-lg border border-border bg-card p-5 mb-6">
         {article.content.split('\n').map((paragraph, i) => (
           <p
             key={i}
-            className={`text-sm text-foreground leading-relaxed ${paragraph.trim() === '' ? 'h-3' : i > 0 ? 'mt-2' : ''}`}
+            className={`text-sm text-foreground leading-relaxed ${
+              paragraph.trim() === '' ? 'h-3' : i > 0 ? 'mt-2' : ''
+            }`}
           >
             {paragraph}
           </p>
         ))}
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-2">
         <button
           onClick={onEdit}
@@ -1130,277 +2173,9 @@ function WikiArticleDetail({
           className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-error hover:bg-error-light transition-colors"
         >
           <Trash2 className="h-4 w-4" />
-          Löschen
+          Loeschen
         </button>
       </div>
     </div>
-  )
-}
-
-/* ===== File Manager Sub-Components (unchanged) ===== */
-
-function FolderTreeItem({
-  folder,
-  allFolders,
-  activeFolder,
-  onSelect,
-  actions,
-  depth,
-}: {
-  folder: DocFolder
-  allFolders: DocFolder[]
-  activeFolder: string
-  onSelect: (id: string) => void
-  actions: ActionItem[]
-  depth: number
-}) {
-  const [expanded, setExpanded] = useState(folder.id === 'root' || folder.id === 'vault')
-  const isActive = activeFolder === folder.id
-  const children = allFolders.filter((f) => f.parentId === folder.id)
-  const hasChildren = children.length > 0
-
-  const iconMap: Record<string, typeof Folder> = {
-    folder: Folder,
-    share: Share2,
-    star: Star,
-    lock: Lock,
-  }
-  const Icon = iconMap[folder.icon] || Folder
-
-  return (
-    <div>
-      <div className="group flex items-center">
-        <button
-          onClick={() => {
-            onSelect(folder.id)
-            if (hasChildren) setExpanded(!expanded)
-          }}
-          className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-            isActive
-              ? 'bg-primary-light text-primary font-medium'
-              : 'text-foreground hover:bg-secondary'
-          }`}
-          style={{ paddingLeft: `${8 + depth * 16}px` }}
-        >
-          {hasChildren ? (
-            expanded ? (
-              <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-            )
-          ) : (
-            <span className="w-3" />
-          )}
-          <Icon className={`h-4 w-4 shrink-0 ${folder.icon === 'lock' ? 'text-success' : ''}`} />
-          <span className="truncate">{folder.name}</span>
-        </button>
-        {actions.length > 0 && (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity pr-1">
-            <ItemActions items={actions} />
-          </div>
-        )}
-      </div>
-      {expanded &&
-        hasChildren &&
-        children.map((child) => (
-          <FolderTreeItem
-            key={child.id}
-            folder={child}
-            allFolders={allFolders}
-            activeFolder={activeFolder}
-            onSelect={onSelect}
-            actions={child.isSystem ? [] : [
-              {
-                label: 'Umbenennen',
-                icon: Pencil,
-                onClick: () => {},
-              },
-              {
-                label: 'Löschen',
-                icon: Trash2,
-                variant: 'destructive',
-                onClick: () => {},
-              },
-            ]}
-            depth={depth + 1}
-          />
-        ))}
-    </div>
-  )
-}
-
-function FileGridCard({
-  file,
-  actions,
-  onDoubleClick,
-  onClick,
-}: {
-  file: DocFile
-  actions: ActionItem[]
-  onDoubleClick: () => void
-  onClick: () => void
-}) {
-  const Icon = fileTypeIcons[file.type] || File
-  const colorClass = fileTypeColors[file.type] || fileTypeColors.other
-
-  return (
-    <div
-      className="group rounded-lg border border-border bg-card p-3 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer"
-      onDoubleClick={onDoubleClick}
-      onClick={onClick}
-    >
-      <div className={`flex h-20 items-center justify-center rounded-md ${colorClass} mb-3 relative`}>
-        <Icon className="h-8 w-8" />
-        <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-          <ItemActions items={actions} />
-        </div>
-      </div>
-      <div className="flex items-start justify-between gap-1">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground truncate" title={file.name}>
-            {file.name}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {file.size} &middot; {new Date(file.date).toLocaleDateString('de-CH')}
-          </p>
-        </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          {file.isFavorite && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />}
-          {file.isVault && <Lock className="h-3 w-3 text-success" />}
-          {file.isShared && <Share2 className="h-3 w-3 text-info" />}
-        </div>
-      </div>
-      {file.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          {file.tags.slice(0, 2).map((tag) => (
-            <span key={tag} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
-              {tag}
-            </span>
-          ))}
-          {file.tags.length > 2 && (
-            <span className="text-[10px] text-muted-foreground">+{file.tags.length - 2}</span>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FileListRow({
-  file,
-  actions,
-  onDoubleClick,
-  onClick,
-}: {
-  file: DocFile
-  actions: ActionItem[]
-  onDoubleClick: () => void
-  onClick: () => void
-}) {
-  const Icon = fileTypeIcons[file.type] || File
-  const colorClass = fileTypeColors[file.type] || fileTypeColors.other
-
-  return (
-    <div
-      className="group grid grid-cols-[1fr_100px_100px_120px_40px] items-center gap-3 rounded-md px-3 py-2 hover:bg-secondary/50 transition-colors cursor-pointer"
-      onDoubleClick={onDoubleClick}
-      onClick={onClick}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${colorClass}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm text-foreground truncate">{file.name}</p>
-          <p className="text-[10px] text-muted-foreground">{file.createdBy}</p>
-        </div>
-        {file.isFavorite && <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />}
-        {file.isVault && <Lock className="h-3 w-3 shrink-0 text-success" />}
-        {file.isShared && <Share2 className="h-3 w-3 shrink-0 text-info" />}
-      </div>
-      <span className="text-xs text-muted-foreground">{file.size}</span>
-      <span className="text-xs text-muted-foreground">{typeLabels[file.type]}</span>
-      <span className="text-xs text-muted-foreground">{new Date(file.date).toLocaleDateString('de-CH')}</span>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-        <ItemActions items={actions} />
-      </div>
-    </div>
-  )
-}
-
-/* ===== Move File Dialog ===== */
-
-function MoveFileDialog({
-  open,
-  onOpenChange,
-  fileName,
-  currentFolderId,
-  folders,
-  onMove,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  fileName: string
-  currentFolderId: string
-  folders: DocFolder[]
-  onMove: (folderId: string) => void
-}) {
-  const [selected, setSelected] = useState(currentFolderId)
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Folder className="h-5 w-5" />
-            Datei verschieben
-          </DialogTitle>
-        </DialogHeader>
-
-        <p className="text-sm text-muted-foreground truncate">{fileName}</p>
-
-        <div className="max-h-56 overflow-y-auto rounded-md border border-border p-1 space-y-0.5">
-          {folders.map((folder) => {
-            const isCurrent = folder.id === currentFolderId
-            const isSelected = folder.id === selected
-            const indent = folder.parentId && folder.parentId !== 'root'
-              ? folders.some((f) => f.id === folder.parentId && f.parentId !== null) ? 32 : 16
-              : 0
-
-            return (
-              <button
-                key={folder.id}
-                onClick={() => setSelected(folder.id)}
-                disabled={isCurrent}
-                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors ${
-                  isSelected && !isCurrent
-                    ? 'bg-primary-light text-primary font-medium'
-                    : isCurrent
-                      ? 'text-muted-foreground cursor-not-allowed'
-                      : 'text-foreground hover:bg-secondary'
-                }`}
-                style={{ paddingLeft: `${8 + indent}px` }}
-              >
-                <Folder className="h-4 w-4 shrink-0" />
-                <span className="truncate">{folder.name}</span>
-                {isCurrent && (
-                  <span className="ml-auto text-[10px] text-muted-foreground">(aktuell)</span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button
-            disabled={selected === currentFolderId}
-            onClick={() => onMove(selected)}
-          >
-            Verschieben
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

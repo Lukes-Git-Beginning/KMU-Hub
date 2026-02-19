@@ -8,17 +8,19 @@ import (
 
 // Contact represents a CRM contact
 type Contact struct {
-	ID        uuid.UUID  `json:"id"`
-	FirstName string     `json:"first_name"`
-	LastName  string     `json:"last_name"`
-	Email     *string    `json:"email,omitempty"`
-	Phone     *string    `json:"phone,omitempty"`
-	CompanyID *uuid.UUID `json:"company_id,omitempty"`
-	Position  *string    `json:"position,omitempty"`
-	Notes     *string    `json:"notes,omitempty"`
-	CreatedBy uuid.UUID  `json:"created_by"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	ID         uuid.UUID  `json:"id"`
+	FirstName  string     `json:"first_name"`
+	LastName   string     `json:"last_name"`
+	Email      *string    `json:"email,omitempty"`
+	Phone      *string    `json:"phone,omitempty"`
+	CompanyID  *uuid.UUID `json:"company_id,omitempty"`
+	Position   *string    `json:"position,omitempty"`
+	Notes      *string    `json:"notes,omitempty"`
+	Visibility string     `json:"visibility"` // shared, personal (default: shared)
+	OwnerID    *uuid.UUID `json:"owner_id,omitempty"`
+	CreatedBy  uuid.UUID  `json:"created_by"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
 }
 
 // ContactWithRelations includes associated data for API responses

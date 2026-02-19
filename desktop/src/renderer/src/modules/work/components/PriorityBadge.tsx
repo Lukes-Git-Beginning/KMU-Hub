@@ -18,22 +18,22 @@ const priorityConfig: Record<
   }
 > = {
   urgent: {
-    color: 'text-red-600 bg-red-50 border-red-200',
+    color: 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800',
     icon: AlertTriangle,
     label: 'Dringend',
   },
   high: {
-    color: 'text-orange-600 bg-orange-50 border-orange-200',
+    color: 'text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950 dark:border-orange-800',
     icon: ArrowUp,
     label: 'Hoch',
   },
   medium: {
-    color: 'text-blue-600 bg-blue-50 border-blue-200',
+    color: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800',
     icon: Minus,
     label: 'Normal',
   },
   low: {
-    color: 'text-gray-500 bg-gray-50 border-gray-200',
+    color: 'text-gray-500 bg-gray-50 border-gray-200 dark:text-gray-400 dark:bg-gray-800 dark:border-gray-700',
     icon: ArrowDown,
     label: 'Niedrig',
   },

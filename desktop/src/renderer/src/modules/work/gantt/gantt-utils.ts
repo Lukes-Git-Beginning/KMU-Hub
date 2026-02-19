@@ -503,15 +503,15 @@ export function mapApiTasksToGantt(
 export function priorityColor(priority: string): string {
   switch (priority) {
     case 'urgent':
-      return '#ef4444' // red-500
+      return 'var(--error)'
     case 'high':
-      return '#f97316' // orange-500
+      return 'var(--warning)'
     case 'medium':
-      return '#3b82f6' // blue-500
+      return 'var(--info)'
     case 'low':
-      return '#6b7280' // gray-500
+      return 'var(--muted-foreground)'
     default:
-      return '#3b82f6'
+      return 'var(--info)'
   }
 }
 

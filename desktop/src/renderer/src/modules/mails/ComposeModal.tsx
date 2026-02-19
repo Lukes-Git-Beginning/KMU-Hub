@@ -21,18 +21,20 @@ import {
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useMailsStore, type Email } from '@/stores/mails'
-import { RecipientField, contactSuggestions, defaultSignature, filteredSuggestions } from './compose-shared'
+import type { ComposeMode } from '@/stores/mails'
+import { useSendEmail, useSaveDraft, useReplyEmail, useForwardEmail } from '@/api/hooks/useEmail'
+import type { EmailMessageInfo, EmailAddress } from '@/api/email-types'
+import { RecipientField, defaultSignature, filteredSuggestions } from './compose-shared'
 
-export type ComposeMode = 'compose' | 'reply' | 'reply-all' | 'forward'
+export type { ComposeMode }
 
 interface ComposeModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   mode?: ComposeMode
-  replyTo?: Email | null
+  replyTo?: EmailMessageInfo | null
   prefillTo?: string
-  prefillName?: string
+  accountId: string
 }
 
 export function ComposeModal({
@@ -41,9 +43,12 @@ export function ComposeModal({
   mode = 'compose',
   replyTo,
   prefillTo,
-  prefillName,
+  accountId,
 }: ComposeModalProps) {
-  const { sendEmail, saveDraft } = useMailsStore()
+  const sendEmail = useSendEmail()
+  const saveDraft = useSaveDraft()
+  const replyEmail = useReplyEmail()
+  const forwardEmail = useForwardEmail()
 
   const [to, setTo] = useState<string[]>([])
   const [toInput, setToInput] = useState('')
@@ -63,20 +68,20 @@ export function ComposeModal({
       setCc([])
       setBcc([])
       setSubject(`RE: ${replyTo.subject.replace(/^(RE: |FW: )+/i, '')}`)
-      setBody(`${defaultSignature}\n\n---\nAm ${replyTo.date} um ${replyTo.time} schrieb ${replyTo.from.name}:\n\n${replyTo.body}`)
+      setBody(`${defaultSignature}\n\n---\nAm ${replyTo.date} schrieb ${replyTo.from.name || replyTo.from.email}:\n\n${replyTo.body_text || ''}`)
     } else if (mode === 'reply-all' && replyTo) {
       setTo([replyTo.from.email])
-      setCc(replyTo.cc.filter((e) => e !== 'darien@kmuhub.ch'))
+      setCc(replyTo.cc.map((a) => a.email))
       setShowCcBcc(replyTo.cc.length > 0)
       setBcc([])
       setSubject(`RE: ${replyTo.subject.replace(/^(RE: |FW: )+/i, '')}`)
-      setBody(`${defaultSignature}\n\n---\nAm ${replyTo.date} um ${replyTo.time} schrieb ${replyTo.from.name}:\n\n${replyTo.body}`)
+      setBody(`${defaultSignature}\n\n---\nAm ${replyTo.date} schrieb ${replyTo.from.name || replyTo.from.email}:\n\n${replyTo.body_text || ''}`)
     } else if (mode === 'forward' && replyTo) {
       setTo([])
       setCc([])
       setBcc([])
       setSubject(`FW: ${replyTo.subject.replace(/^(RE: |FW: )+/i, '')}`)
-      setBody(`${defaultSignature}\n\n--- Weitergeleitete Nachricht ---\nVon: ${replyTo.from.name} <${replyTo.from.email}>\nDatum: ${replyTo.date} ${replyTo.time}\nBetreff: ${replyTo.subject}\n\n${replyTo.body}`)
+      setBody(`${defaultSignature}\n\n--- Weitergeleitete Nachricht ---\nVon: ${replyTo.from.name || ''} <${replyTo.from.email}>\nDatum: ${replyTo.date}\nBetreff: ${replyTo.subject}\n\n${replyTo.body_text || ''}`)
     } else {
       setTo(prefillTo ? [prefillTo] : [])
       setCc([])
@@ -106,38 +111,67 @@ export function ComposeModal({
     setter((prev) => prev.filter((e) => e !== email))
   }
 
+  const toAddresses = (emails: string[]): EmailAddress[] =>
+    emails.map((e) => ({ name: '', email: e }))
+
   const handleSend = () => {
     if (to.length === 0 || !subject.trim()) return
-    sendEmail({
-      from: { name: 'Du', email: 'darien@kmuhub.ch', initials: 'DK' },
-      to,
-      cc,
-      bcc,
-      subject: subject.trim(),
-      preview: body.split('\n')[0].slice(0, 100),
-      body,
-      attachments: [],
-      signature: defaultSignature,
-    })
-    toast.success('E-Mail gesendet')
-    onOpenChange(false)
+
+    if ((mode === 'reply' || mode === 'reply-all') && replyTo) {
+      replyEmail.mutate({
+        account_id: accountId,
+        original_message_id: replyTo.id,
+        body_html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        body_text: body,
+        reply_all: mode === 'reply-all',
+      }, {
+        onSuccess: () => { toast.success('E-Mail gesendet'); onOpenChange(false) },
+        onError: (err) => toast.error(`Senden fehlgeschlagen: ${err.message}`),
+      })
+    } else if (mode === 'forward' && replyTo) {
+      forwardEmail.mutate({
+        account_id: accountId,
+        original_message_id: replyTo.id,
+        to: toAddresses(to),
+        body_html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        body_text: body,
+      }, {
+        onSuccess: () => { toast.success('E-Mail weitergeleitet'); onOpenChange(false) },
+        onError: (err) => toast.error(`Weiterleiten fehlgeschlagen: ${err.message}`),
+      })
+    } else {
+      sendEmail.mutate({
+        account_id: accountId,
+        to: toAddresses(to),
+        cc: cc.length > 0 ? toAddresses(cc) : undefined,
+        bcc: bcc.length > 0 ? toAddresses(bcc) : undefined,
+        subject: subject.trim(),
+        body_html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        body_text: body,
+      }, {
+        onSuccess: () => { toast.success('E-Mail gesendet'); onOpenChange(false) },
+        onError: (err) => toast.error(`Senden fehlgeschlagen: ${err.message}`),
+      })
+    }
   }
 
   const handleSaveDraft = () => {
-    saveDraft({
-      from: { name: 'Du', email: 'darien@kmuhub.ch', initials: 'DK' },
-      to,
-      cc,
-      bcc,
+    saveDraft.mutate({
+      account_id: accountId,
+      to: toAddresses(to),
+      cc: cc.length > 0 ? toAddresses(cc) : undefined,
+      bcc: bcc.length > 0 ? toAddresses(bcc) : undefined,
       subject: subject.trim() || '(Kein Betreff)',
-      preview: body.split('\n')[0].slice(0, 100),
-      body,
-      attachments: [],
-      signature: defaultSignature,
+      body_html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+      body_text: body,
+      in_reply_to_message_id: replyTo?.id,
+    }, {
+      onSuccess: () => { toast.success('Entwurf gespeichert'); onOpenChange(false) },
+      onError: (err) => toast.error(`Speichern fehlgeschlagen: ${err.message}`),
     })
-    toast.success('Entwurf gespeichert')
-    onOpenChange(false)
   }
+
+  const isSending = sendEmail.isPending || replyEmail.isPending || forwardEmail.isPending
 
   const modeTitle = {
     compose: 'Neue E-Mail',
@@ -158,7 +192,6 @@ export function ComposeModal({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-3 py-2">
-          {/* To */}
           <RecipientField
             label="An"
             recipients={to}
@@ -174,13 +207,9 @@ export function ComposeModal({
             }}
           />
 
-          {/* Cc/Bcc toggle */}
           {!showCcBcc && (
-            <button
-              onClick={() => setShowCcBcc(true)}
-              className="text-xs text-primary hover:underline ml-1"
-            >
-              Cc/Bcc hinzufügen
+            <button onClick={() => setShowCcBcc(true)} className="text-xs text-primary hover:underline ml-1">
+              Cc/Bcc hinzufuegen
             </button>
           )}
 
@@ -217,7 +246,6 @@ export function ComposeModal({
             </>
           )}
 
-          {/* Subject */}
           <div className="space-y-1">
             <Input
               placeholder="Betreff"
@@ -227,22 +255,15 @@ export function ComposeModal({
             />
           </div>
 
-          {/* Formatting toolbar */}
           <div className="flex items-center gap-0.5 border-b border-border pb-2">
             {[Bold, Italic, Underline].map((Icon, i) => (
-              <button
-                key={i}
-                className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              >
+              <button key={i} className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
                 <Icon className="h-4 w-4" />
               </button>
             ))}
             <span className="mx-1 h-4 w-px bg-border" />
             {[List, ListOrdered].map((Icon, i) => (
-              <button
-                key={i}
-                className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              >
+              <button key={i} className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
                 <Icon className="h-4 w-4" />
               </button>
             ))}
@@ -252,7 +273,6 @@ export function ComposeModal({
             </button>
           </div>
 
-          {/* Body */}
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -261,26 +281,21 @@ export function ComposeModal({
           />
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between pt-3 border-t border-border">
           <div className="flex items-center gap-2">
-            <Button onClick={handleSend} disabled={to.length === 0}>
+            <Button onClick={handleSend} disabled={to.length === 0 || isSending}>
               <Send className="mr-1.5 h-4 w-4" />
-              Senden
+              {isSending ? 'Sende...' : 'Senden'}
             </Button>
-            <Button variant="outline" size="icon" onClick={handleSaveDraft} title="Als Entwurf speichern">
+            <Button variant="outline" size="icon" onClick={handleSaveDraft} disabled={saveDraft.isPending} title="Als Entwurf speichern">
               <Save className="h-4 w-4" />
             </Button>
           </div>
           <div className="flex items-center gap-1">
-            <button className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors" title="Datei anhängen">
+            <button className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors" title="Datei anhaengen">
               <Paperclip className="h-4 w-4" />
             </button>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="rounded p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
-              title="Verwerfen"
-            >
+            <button onClick={() => onOpenChange(false)} className="rounded p-1.5 text-muted-foreground hover:text-red-500 transition-colors" title="Verwerfen">
               <Trash2 className="h-4 w-4" />
             </button>
           </div>

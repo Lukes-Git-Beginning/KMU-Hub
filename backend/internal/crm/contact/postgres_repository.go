@@ -25,11 +25,16 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) Create(ctx context.Context, contact *models.Contact) error {
+	vis := contact.Visibility
+	if vis == "" {
+		vis = "shared"
+	}
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO contacts (id, first_name, last_name, email, phone, company_id, position, notes, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		`INSERT INTO contacts (id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		contact.ID, contact.FirstName, contact.LastName, contact.Email, contact.Phone,
 		contact.CompanyID, contact.Position, contact.Notes,
+		vis, contact.OwnerID,
 		contact.CreatedBy, contact.CreatedAt, contact.UpdatedAt,
 	)
 	return err
@@ -37,14 +42,14 @@ func (r *PostgresRepository) Create(ctx context.Context, contact *models.Contact
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Contact, error) {
 	return r.scanContact(r.pool.QueryRow(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, created_by, created_at, updated_at
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
 		 FROM contacts WHERE id = $1`, id,
 	))
 }
 
 func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*models.Contact, error) {
 	return r.scanContact(r.pool.QueryRow(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, created_by, created_at, updated_at
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
 		 FROM contacts WHERE LOWER(email) = LOWER($1)`, email,
 	))
 }
@@ -109,7 +114,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 
 	// Query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, first_name, last_name, email, phone, company_id, position, notes, created_by, created_at, updated_at
+		SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
 		FROM contacts %s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d
@@ -138,13 +143,161 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 func (r *PostgresRepository) Update(ctx context.Context, contact *models.Contact) error {
 	_, err := r.pool.Exec(ctx,
 		`UPDATE contacts SET first_name = $1, last_name = $2, email = $3, phone = $4,
-		 company_id = $5, position = $6, notes = $7, updated_at = $8
-		 WHERE id = $9`,
+		 company_id = $5, position = $6, notes = $7, visibility = $8, owner_id = $9, updated_at = $10
+		 WHERE id = $11`,
 		contact.FirstName, contact.LastName, contact.Email, contact.Phone,
 		contact.CompanyID, contact.Position, contact.Notes,
+		contact.Visibility, contact.OwnerID,
 		contact.UpdatedAt, contact.ID,
 	)
 	return err
+}
+
+func (r *PostgresRepository) UpdateVisibility(ctx context.Context, contactID uuid.UUID, visibility string, ownerID *uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE contacts SET visibility = $1, owner_id = $2, updated_at = NOW() WHERE id = $3`,
+		visibility, ownerID, contactID,
+	)
+	return err
+}
+
+func (r *PostgresRepository) ListWithVisibility(ctx context.Context, userID uuid.UUID, isAdmin bool, filter ListFilter, offset, limit int) ([]*models.Contact, int, error) {
+	// Build WHERE clause with visibility filtering
+	var conditions []string
+	var args []any
+	argNum := 1
+
+	// Visibility filter: shared OR owner_id = userID OR isAdmin
+	conditions = append(conditions, fmt.Sprintf("(visibility = 'shared' OR owner_id = $%d OR $%d = true)", argNum, argNum+1))
+	args = append(args, userID, isAdmin)
+	argNum += 2
+
+	if filter.CompanyID != nil {
+		conditions = append(conditions, fmt.Sprintf("company_id = $%d", argNum))
+		args = append(args, *filter.CompanyID)
+		argNum++
+	}
+
+	if filter.Search != "" {
+		conditions = append(conditions, fmt.Sprintf(
+			"(LOWER(first_name) LIKE $%d OR LOWER(last_name) LIKE $%d OR LOWER(email) LIKE $%d)",
+			argNum, argNum, argNum,
+		))
+		args = append(args, "%"+strings.ToLower(filter.Search)+"%")
+		argNum++
+	}
+
+	if len(filter.TagIDs) > 0 {
+		conditions = append(conditions, fmt.Sprintf(`id IN (
+			SELECT contact_id FROM contact_tags WHERE tag_id = ANY($%d)
+			GROUP BY contact_id HAVING COUNT(DISTINCT tag_id) = $%d
+		)`, argNum, argNum+1))
+		args = append(args, filter.TagIDs, len(filter.TagIDs))
+		argNum += 2
+	}
+
+	if filter.VisibilityFilter != "" {
+		conditions = append(conditions, fmt.Sprintf("visibility = $%d", argNum))
+		args = append(args, filter.VisibilityFilter)
+		argNum++
+	}
+
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
+
+	// Count total
+	var total int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM contacts %s", whereClause)
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// Build ORDER BY
+	orderBy := "created_at"
+	switch filter.SortBy {
+	case "first_name":
+		orderBy = "LOWER(first_name)"
+	case "last_name":
+		orderBy = "LOWER(last_name)"
+	case "email":
+		orderBy = "LOWER(email)"
+	}
+	direction := "DESC"
+	if !filter.SortDesc {
+		direction = "ASC"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		FROM contacts %s
+		ORDER BY %s %s
+		LIMIT $%d OFFSET $%d
+	`, whereClause, orderBy, direction, argNum, argNum+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var contacts []*models.Contact
+	for rows.Next() {
+		contact, scanErr := r.scanContactFromRows(rows)
+		if scanErr != nil {
+			return nil, 0, scanErr
+		}
+		contacts = append(contacts, contact)
+	}
+
+	return contacts, total, rows.Err()
+}
+
+func (r *PostgresRepository) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Contact, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		 FROM contacts WHERE id = ANY($1)`, ids,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var contacts []*models.Contact
+	for rows.Next() {
+		contact, scanErr := r.scanContactFromRows(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		contacts = append(contacts, contact)
+	}
+	return contacts, rows.Err()
+}
+
+func (r *PostgresRepository) ListAll(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]*models.Contact, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		 FROM contacts
+		 WHERE (visibility = 'shared' OR owner_id = $1 OR $2 = true)
+		 ORDER BY created_at DESC`, userID, isAdmin,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var contacts []*models.Contact
+	for rows.Next() {
+		contact, scanErr := r.scanContactFromRows(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		contacts = append(contacts, contact)
+	}
+	return contacts, rows.Err()
 }
 
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
@@ -283,6 +436,7 @@ func (r *PostgresRepository) scanContact(row pgx.Row) (*models.Contact, error) {
 	err := row.Scan(
 		&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
 		&c.CompanyID, &c.Position, &c.Notes,
+		&c.Visibility, &c.OwnerID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -300,6 +454,7 @@ func (r *PostgresRepository) scanContactFromRows(rows pgx.Rows) (*models.Contact
 	err := rows.Scan(
 		&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
 		&c.CompanyID, &c.Position, &c.Notes,
+		&c.Visibility, &c.OwnerID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {

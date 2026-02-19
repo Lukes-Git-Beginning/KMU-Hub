@@ -745,7 +745,7 @@ export default function FormularePage() {
                   <div key={field.id} className="space-y-1.5">
                     <label className="text-sm font-medium text-foreground">
                       {field.label}
-                      {field.required && <span className="text-red-500 ml-0.5">*</span>}
+                      {field.required && <span className="text-destructive ml-0.5">*</span>}
                     </label>
                     {renderFieldPreview(field)}
                   </div>
@@ -783,7 +783,7 @@ export default function FormularePage() {
               <div className="p-5 space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">
-                    Bezeichnung <span className="text-red-500">*</span>
+                    Bezeichnung <span className="text-destructive">*</span>
                   </label>
                   <input
                     type="text"
@@ -1346,7 +1346,7 @@ export default function FormularePage() {
             <div className="p-5 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Name <span className="text-red-500">*</span>
+                  Name <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"

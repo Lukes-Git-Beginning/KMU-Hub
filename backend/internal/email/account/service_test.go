@@ -1,0 +1,439 @@
+package account
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kmuhub/kmuhub/internal/models"
+)
+
+// --- Mock VaultEncryptor ---
+
+type mockEncryptor struct {
+	encryptFn func(ctx context.Context, plaintext []byte) (string, error)
+	decryptFn func(ctx context.Context, encrypted string) ([]byte, error)
+}
+
+func (m *mockEncryptor) Encrypt(ctx context.Context, plaintext []byte) (string, error) {
+	if m.encryptFn != nil {
+		return m.encryptFn(ctx, plaintext)
+	}
+	return "encrypted:" + string(plaintext), nil
+}
+
+func (m *mockEncryptor) Decrypt(ctx context.Context, encrypted string) ([]byte, error) {
+	if m.decryptFn != nil {
+		return m.decryptFn(ctx, encrypted)
+	}
+	// Strip "encrypted:" prefix for default mock
+	if len(encrypted) > 10 && encrypted[:10] == "encrypted:" {
+		return []byte(encrypted[10:]), nil
+	}
+	return []byte(encrypted), nil
+}
+
+// --- Mock Repository ---
+
+type mockRepo struct {
+	accounts map[uuid.UUID]*models.EmailAccount
+	byUser   map[uuid.UUID]*models.EmailAccount
+}
+
+func newMockRepo() *mockRepo {
+	return &mockRepo{
+		accounts: make(map[uuid.UUID]*models.EmailAccount),
+		byUser:   make(map[uuid.UUID]*models.EmailAccount),
+	}
+}
+
+func (r *mockRepo) Create(ctx context.Context, account *models.EmailAccount) error {
+	if _, exists := r.byUser[account.UserID]; exists {
+		return ErrAccountExists
+	}
+	// Store a copy to avoid the service modifying the stored value
+	copy := *account
+	r.accounts[account.ID] = &copy
+	r.byUser[account.UserID] = &copy
+	return nil
+}
+
+func (r *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.EmailAccount, error) {
+	a, ok := r.accounts[id]
+	if !ok {
+		return nil, ErrAccountNotFound
+	}
+	// Return a copy to avoid mutation
+	copy := *a
+	return &copy, nil
+}
+
+func (r *mockRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*models.EmailAccount, error) {
+	a, ok := r.byUser[userID]
+	if !ok {
+		return nil, ErrAccountNotFound
+	}
+	copy := *a
+	return &copy, nil
+}
+
+func (r *mockRepo) Update(ctx context.Context, account *models.EmailAccount) error {
+	if _, ok := r.accounts[account.ID]; !ok {
+		return ErrAccountNotFound
+	}
+	copy := *account
+	r.accounts[account.ID] = &copy
+	r.byUser[account.UserID] = &copy
+	return nil
+}
+
+func (r *mockRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	a, ok := r.accounts[id]
+	if !ok {
+		return ErrAccountNotFound
+	}
+	delete(r.accounts, id)
+	delete(r.byUser, a.UserID)
+	return nil
+}
+
+func (r *mockRepo) ListActive(ctx context.Context) ([]*models.EmailAccount, error) {
+	var result []*models.EmailAccount
+	for _, a := range r.accounts {
+		if a.SyncEnabled {
+			result = append(result, a)
+		}
+	}
+	return result, nil
+}
+
+// --- Tests ---
+
+func validInput() CreateInput {
+	return CreateInput{
+		UserID:       uuid.New(),
+		EmailAddress: "test@example.com",
+		DisplayName:  "Test User",
+		IMAPHost:     "imap.example.com",
+		IMAPPort:     993,
+		SMTPHost:     "smtp.example.com",
+		SMTPPort:     587,
+		Username:     "test@example.com",
+		Password:     "secret123",
+		UseSSL:       true,
+	}
+}
+
+func TestService_Create(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		account, err := svc.Create(context.Background(), input)
+
+		require.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, account.ID)
+		assert.Equal(t, input.UserID, account.UserID)
+		assert.Equal(t, input.EmailAddress, account.EmailAddress)
+		assert.Equal(t, input.DisplayName, account.DisplayName)
+		assert.Equal(t, input.IMAPHost, account.IMAPHost)
+		assert.Equal(t, 993, account.IMAPPort)
+		assert.True(t, account.SyncEnabled)
+		// Password must not be returned
+		assert.Empty(t, account.PasswordEncrypted)
+	})
+
+	t.Run("password encrypted on create", func(t *testing.T) {
+		repo := newMockRepo()
+		var encryptedValue string
+		enc := &mockEncryptor{
+			encryptFn: func(ctx context.Context, plaintext []byte) (string, error) {
+				encryptedValue = "vault:" + string(plaintext)
+				return encryptedValue, nil
+			},
+		}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		_, err := svc.Create(context.Background(), input)
+
+		require.NoError(t, err)
+		// Verify the stored value in repo is encrypted
+		stored := repo.accounts[getFirstKey(repo.accounts)]
+		assert.Equal(t, encryptedValue, stored.PasswordEncrypted)
+	})
+
+	t.Run("duplicate user rejected", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		_, err := svc.Create(context.Background(), input)
+		require.NoError(t, err)
+
+		// Same user again
+		_, err = svc.Create(context.Background(), input)
+		assert.ErrorIs(t, err, ErrAccountExists)
+	})
+
+	t.Run("invalid email rejected", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		input.EmailAddress = "not-an-email"
+		_, err := svc.Create(context.Background(), input)
+		assert.Error(t, err)
+	})
+
+	t.Run("empty password rejected", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		input.Password = ""
+		_, err := svc.Create(context.Background(), input)
+		assert.Error(t, err)
+	})
+
+	t.Run("encryption failure propagated", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{
+			encryptFn: func(ctx context.Context, plaintext []byte) (string, error) {
+				return "", errors.New("vault unavailable")
+			},
+		}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		_, err := svc.Create(context.Background(), input)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "encrypt")
+	})
+
+	t.Run("default ports when zero", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		input.IMAPPort = 0
+		input.SMTPPort = 0
+		account, err := svc.Create(context.Background(), input)
+
+		require.NoError(t, err)
+		stored := repo.accounts[account.ID]
+		assert.Equal(t, 993, stored.IMAPPort)
+		assert.Equal(t, 587, stored.SMTPPort)
+	})
+}
+
+func TestService_GetDecryptedCredentials(t *testing.T) {
+	t.Run("success round-trip", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		account, err := svc.Create(context.Background(), input)
+		require.NoError(t, err)
+
+		creds, err := svc.GetDecryptedCredentials(context.Background(), account.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, input.IMAPHost, creds.IMAPHost)
+		assert.Equal(t, input.IMAPPort, creds.IMAPPort)
+		assert.Equal(t, input.SMTPHost, creds.SMTPHost)
+		assert.Equal(t, input.SMTPPort, creds.SMTPPort)
+		assert.Equal(t, input.Username, creds.Username)
+		assert.Equal(t, input.Password, creds.Password)
+		assert.Equal(t, input.UseSSL, creds.UseSSL)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		_, err := svc.GetDecryptedCredentials(context.Background(), uuid.New())
+		assert.ErrorIs(t, err, ErrAccountNotFound)
+	})
+
+	t.Run("decryption failure", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{
+			decryptFn: func(ctx context.Context, encrypted string) ([]byte, error) {
+				return nil, errors.New("decryption failed")
+			},
+		}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		account, err := svc.Create(context.Background(), input)
+		require.NoError(t, err)
+
+		_, err = svc.GetDecryptedCredentials(context.Background(), account.ID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "decrypt")
+	})
+}
+
+func TestService_Update(t *testing.T) {
+	t.Run("update email address", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		account, err := svc.Create(context.Background(), input)
+		require.NoError(t, err)
+
+		newEmail := "new@example.com"
+		updated, err := svc.Update(context.Background(), account.ID, UpdateInput{
+			EmailAddress: &newEmail,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, "new@example.com", updated.EmailAddress)
+		assert.Empty(t, updated.PasswordEncrypted)
+	})
+
+	t.Run("update password re-encrypts", func(t *testing.T) {
+		repo := newMockRepo()
+		encryptCalls := 0
+		enc := &mockEncryptor{
+			encryptFn: func(ctx context.Context, plaintext []byte) (string, error) {
+				encryptCalls++
+				return "enc:" + string(plaintext), nil
+			},
+		}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		account, err := svc.Create(context.Background(), input)
+		require.NoError(t, err)
+		assert.Equal(t, 1, encryptCalls)
+
+		newPass := "newpassword"
+		_, err = svc.Update(context.Background(), account.ID, UpdateInput{
+			Password: &newPass,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, 2, encryptCalls)
+		stored := repo.accounts[account.ID]
+		assert.Equal(t, "enc:newpassword", stored.PasswordEncrypted)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		newEmail := "test@example.com"
+		_, err := svc.Update(context.Background(), uuid.New(), UpdateInput{
+			EmailAddress: &newEmail,
+		})
+		assert.ErrorIs(t, err, ErrAccountNotFound)
+	})
+}
+
+func TestService_Delete(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		input := validInput()
+		account, err := svc.Create(context.Background(), input)
+		require.NoError(t, err)
+
+		err = svc.Delete(context.Background(), account.ID)
+		require.NoError(t, err)
+
+		_, err = svc.GetByID(context.Background(), account.ID)
+		assert.ErrorIs(t, err, ErrAccountNotFound)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo := newMockRepo()
+		enc := &mockEncryptor{}
+		svc := NewService(repo, enc)
+
+		err := svc.Delete(context.Background(), uuid.New())
+		assert.ErrorIs(t, err, ErrAccountNotFound)
+	})
+}
+
+func TestService_ListActive(t *testing.T) {
+	repo := newMockRepo()
+	enc := &mockEncryptor{}
+	svc := NewService(repo, enc)
+
+	// Create active account
+	input1 := validInput()
+	_, err := svc.Create(context.Background(), input1)
+	require.NoError(t, err)
+
+	// Create another user, disable sync
+	input2 := validInput()
+	input2.UserID = uuid.New()
+	input2.EmailAddress = "other@example.com"
+	account2, err := svc.Create(context.Background(), input2)
+	require.NoError(t, err)
+
+	disabled := false
+	_, err = svc.Update(context.Background(), account2.ID, UpdateInput{SyncEnabled: &disabled})
+	require.NoError(t, err)
+
+	active, err := svc.ListActive(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, active, 1)
+}
+
+func TestService_GetByID(t *testing.T) {
+	repo := newMockRepo()
+	enc := &mockEncryptor{}
+	svc := NewService(repo, enc)
+
+	input := validInput()
+	created, err := svc.Create(context.Background(), input)
+	require.NoError(t, err)
+
+	got, err := svc.GetByID(context.Background(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, created.ID, got.ID)
+	assert.Empty(t, got.PasswordEncrypted)
+}
+
+func TestService_GetByUserID(t *testing.T) {
+	repo := newMockRepo()
+	enc := &mockEncryptor{}
+	svc := NewService(repo, enc)
+
+	input := validInput()
+	_, err := svc.Create(context.Background(), input)
+	require.NoError(t, err)
+
+	got, err := svc.GetByUserID(context.Background(), input.UserID)
+	require.NoError(t, err)
+	assert.Equal(t, input.EmailAddress, got.EmailAddress)
+	assert.Empty(t, got.PasswordEncrypted)
+}
+
+// getFirstKey returns the first key from a map (helper for tests).
+func getFirstKey(m map[uuid.UUID]*models.EmailAccount) uuid.UUID {
+	for k := range m {
+		return k
+	}
+	return uuid.Nil
+}

@@ -106,7 +106,7 @@ export function ContactDetailPanel({
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border-3 border-white/30 bg-white/20 text-xl font-medium text-primary-foreground">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full border-3 border-primary-foreground/30 bg-primary-foreground/20 text-xl font-medium text-primary-foreground">
             {contact.initials}
           </div>
           <div>
@@ -122,7 +122,7 @@ export function ContactDetailPanel({
                 <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${status.color}`} />
                 {status.label}
               </Badge>
-              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs text-primary-foreground">
+              <span className="rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground">
                 {categoryLabels[contact.category]}
               </span>
             </div>
@@ -133,21 +133,21 @@ export function ContactDetailPanel({
         <div className="flex gap-2 mt-4">
           <button
             onClick={() => onCall(contact)}
-            className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-white/30 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-primary-foreground/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary-foreground/30 transition-colors"
           >
             <Phone className="h-3.5 w-3.5" />
             Anrufen
           </button>
           <button
             onClick={() => onEmail(contact)}
-            className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-white/30 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-primary-foreground/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary-foreground/30 transition-colors"
           >
             <Mail className="h-3.5 w-3.5" />
             E-Mail
           </button>
           <button
             onClick={() => onMessage(contact)}
-            className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-white/30 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-primary-foreground/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary-foreground/30 transition-colors"
           >
             <MessageSquare className="h-3.5 w-3.5" />
             Nachricht

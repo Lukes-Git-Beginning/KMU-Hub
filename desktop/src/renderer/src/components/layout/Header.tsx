@@ -1,9 +1,17 @@
+/**
+ * Header bar displayed above the main content area.
+ *
+ * Shows search, clock, daily planner, time tracker, language switcher,
+ * presence status, notifications, connection status, desk controls,
+ * and profile menu.
+ */
 import { Maximize2, Minimize2, Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
 import { DESK_THEMES } from '@/config/desk-themes'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
+import { PresenceStatusPicker } from '@/features/presence'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -68,6 +76,9 @@ export function Header() {
         <div className="hidden md:block">
           <LanguageSwitcher />
         </div>
+
+        {/* User presence status picker */}
+        <PresenceStatusPicker />
 
         {/* Notification bell (existing, real API) */}
         <NotificationBell />

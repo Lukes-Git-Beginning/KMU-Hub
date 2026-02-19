@@ -1,63 +1,213 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   Search,
-  FolderKanban,
   CheckSquare,
   FileText,
   MessageSquare,
   Users,
-  Calculator,
+  Mail,
   ArrowRight,
   X,
   Filter,
+  Loader2,
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import {
+  useGlobalSearch,
+  type GlobalSearchModule,
+  type GlobalSearchResultItem,
+} from '@/api/hooks/useGlobalSearch'
 
-interface SearchResult {
-  id: string
-  title: string
-  category: string
-  categoryIcon: typeof FolderKanban
-  path: string
-  description?: string
+// ---------------------------------------------------------------------------
+// Module config
+// ---------------------------------------------------------------------------
+
+type ModuleKey = 'contacts' | 'files' | 'emails' | 'tasks' | 'messages'
+
+interface ModuleConfig {
+  label: string
+  icon: typeof Users
   iconColor: string
   bgColor: string
+  basePath: string
 }
 
-const allSearchData: SearchResult[] = [
-  { id: 'p1', title: 'Website Relaunch', category: 'Projekte', categoryIcon: FolderKanban, path: '/work/projects', description: 'In Progress', iconColor: 'text-blue-600', bgColor: 'bg-blue-500/10' },
-  { id: 'p2', title: 'Mobile App Development', category: 'Projekte', categoryIcon: FolderKanban, path: '/work/projects', description: 'Planning', iconColor: 'text-blue-600', bgColor: 'bg-blue-500/10' },
-  { id: 'p3', title: 'Brand Refresh', category: 'Projekte', categoryIcon: FolderKanban, path: '/work/projects', description: 'Review', iconColor: 'text-blue-600', bgColor: 'bg-blue-500/10' },
-  { id: 'p4', title: 'API Integration', category: 'Projekte', categoryIcon: FolderKanban, path: '/work/projects', description: 'Testing', iconColor: 'text-blue-600', bgColor: 'bg-blue-500/10' },
-  { id: 't1', title: 'API Dokumentation schreiben', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'Fällig morgen', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
-  { id: 't2', title: 'Design Review vorbereiten', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'Hohe Priorität', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
-  { id: 't3', title: 'Logo Redesign', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'In Bearbeitung', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
-  { id: 't4', title: 'Testing Sprint vorbereiten', category: 'Aufgaben', categoryIcon: CheckSquare, path: '/work/my-tasks', description: 'Diese Woche', iconColor: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
-  { id: 'd1', title: 'Q1 Budget.xlsx', category: 'Dokumente', categoryIcon: FileText, path: '/dokumente', description: 'Finanzen', iconColor: 'text-purple-600', bgColor: 'bg-purple-500/10' },
-  { id: 'd2', title: 'Vertrag_Kunde_A.pdf', category: 'Dokumente', categoryIcon: FileText, path: '/dokumente', description: 'Legal', iconColor: 'text-purple-600', bgColor: 'bg-purple-500/10' },
-  { id: 'd3', title: 'Projektplan_2025.docx', category: 'Dokumente', categoryIcon: FileText, path: '/dokumente', description: 'Planung', iconColor: 'text-purple-600', bgColor: 'bg-purple-500/10' },
-  { id: 'a1', title: 'Rechnung #2024-156', category: 'Buchhaltung', categoryIcon: Calculator, path: '/buchhaltung', description: 'CHF 12,500', iconColor: 'text-orange-600', bgColor: 'bg-orange-500/10' },
-  { id: 'a2', title: 'Bexio Integration', category: 'Buchhaltung', categoryIcon: Calculator, path: '/buchhaltung', description: 'Verbunden', iconColor: 'text-orange-600', bgColor: 'bg-orange-500/10' },
-  { id: 'c1', title: 'Michael Berg', category: 'Kontakte', categoryIcon: MessageSquare, path: '/kontakte', description: 'Senior Designer', iconColor: 'text-pink-600', bgColor: 'bg-pink-500/10' },
-  { id: 'c2', title: 'Sarah Klein', category: 'Kontakte', categoryIcon: MessageSquare, path: '/kontakte', description: 'Lead Developer', iconColor: 'text-pink-600', bgColor: 'bg-pink-500/10' },
-  { id: 'c3', title: 'Anna Mueller', category: 'Kontakte', categoryIcon: MessageSquare, path: '/kontakte', description: 'Project Manager', iconColor: 'text-pink-600', bgColor: 'bg-pink-500/10' },
-  { id: 'tm1', title: 'Team-Mitglieder verwalten', category: 'Team', categoryIcon: Users, path: '/team', description: '12 Mitglieder', iconColor: 'text-cyan-600', bgColor: 'bg-cyan-500/10' },
-  { id: 'tm2', title: 'Entwickler Team', category: 'Team', categoryIcon: Users, path: '/team', description: '5 Mitglieder', iconColor: 'text-cyan-600', bgColor: 'bg-cyan-500/10' },
-]
+const MODULE_CONFIG: Record<string, ModuleConfig> = {
+  crm: {
+    label: 'Kontakte',
+    icon: Users,
+    iconColor: 'text-pink-600',
+    bgColor: 'bg-pink-500/10',
+    basePath: '/kontakte',
+  },
+  documents: {
+    label: 'Dateien',
+    icon: FileText,
+    iconColor: 'text-purple-600',
+    bgColor: 'bg-purple-500/10',
+    basePath: '/dokumente',
+  },
+  email: {
+    label: 'E-Mails',
+    icon: Mail,
+    iconColor: 'text-orange-600',
+    bgColor: 'bg-orange-500/10',
+    basePath: '/email',
+  },
+  tasks: {
+    label: 'Aufgaben',
+    icon: CheckSquare,
+    iconColor: 'text-emerald-600',
+    bgColor: 'bg-emerald-500/10',
+    basePath: '/work/my-tasks',
+  },
+  messages: {
+    label: 'Nachrichten',
+    icon: MessageSquare,
+    iconColor: 'text-blue-600',
+    bgColor: 'bg-blue-500/10',
+    basePath: '/chat',
+  },
+}
 
-const categoryFilters = ['Alle', 'Projekte', 'Aufgaben', 'Dokumente', 'Kontakte', 'Buchhaltung', 'Team']
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength).trimEnd() + '...'
+}
+
+function getResultDescription(module: string, item: GlobalSearchResultItem): string {
+  switch (module) {
+    case 'crm':
+      return [item.company, item.email].filter(Boolean).join(' - ')
+    case 'documents':
+      return item.content_text
+        ? truncate(item.content_text, 100)
+        : item.description || ''
+    case 'email':
+      return item.subject
+        ? truncate(item.subject, 100)
+        : item.description || ''
+    case 'tasks':
+      return [item.project_name, item.status].filter(Boolean).join(' - ')
+    case 'messages':
+      return item.channel
+        ? `#${item.channel} - ${truncate(item.description || '', 80)}`
+        : item.description || ''
+    default:
+      return item.description || ''
+  }
+}
+
+function getResultUrl(module: string, item: GlobalSearchResultItem): string {
+  if (item.url) return item.url
+  const config = MODULE_CONFIG[module]
+  if (!config) return '/'
+  return `${config.basePath}/${item.id}`
+}
+
+// ---------------------------------------------------------------------------
+// Debounce hook
+// ---------------------------------------------------------------------------
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delayMs)
+    return () => clearTimeout(timer)
+  }, [value, delayMs])
+
+  return debouncedValue
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 /**
  * Compact search trigger button that opens a modal search overlay.
  * Keyboard shortcut: Ctrl+K / Cmd+K.
+ * Searches across all modules (CRM, Documents, Email, Tasks, Messages)
+ * via the global search API with grouped results.
  */
 export function SearchBar() {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [activeFilter, setActiveFilter] = useState('Alle')
+  const [activeFilter, setActiveFilter] = useState<string>('Alle')
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
   const inputRef = useRef<HTMLInputElement>(null)
+  const resultsRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+
+  const debouncedQuery = useDebouncedValue(query, 300)
+
+  // Determine which modules to search based on active filter
+  const searchModules = useMemo(() => {
+    if (activeFilter === 'Alle') return undefined
+    // Map German filter label back to module key
+    const entry = Object.entries(MODULE_CONFIG).find(
+      ([, config]) => config.label === activeFilter,
+    )
+    return entry ? [entry[0]] : undefined
+  }, [activeFilter])
+
+  const { data, isLoading, isError } = useGlobalSearch({
+    query: debouncedQuery,
+    modules: searchModules,
+    limit: 5,
+    enabled: isOpen,
+  })
+
+  // Build flat list of results for keyboard navigation
+  const flatResults = useMemo(() => {
+    if (!data?.modules) return []
+    const items: Array<{ module: string; item: GlobalSearchResultItem }> = []
+    for (const mod of data.modules) {
+      if (!mod.results?.length) continue
+      const maxVisible = expandedModules.has(mod.module) ? mod.results.length : Math.min(mod.results.length, 5)
+      for (let i = 0; i < maxVisible; i++) {
+        items.push({ module: mod.module, item: mod.results[i] })
+      }
+    }
+    return items
+  }, [data, expandedModules])
+
+  // Build filter list from available modules
+  const availableFilters = useMemo(() => {
+    const filters: Array<{ key: string; label: string; count: number }> = [
+      { key: 'Alle', label: 'Alle', count: 0 },
+    ]
+    let totalCount = 0
+
+    if (data?.modules) {
+      for (const mod of data.modules) {
+        const config = MODULE_CONFIG[mod.module]
+        if (config && mod.total > 0) {
+          filters.push({
+            key: config.label,
+            label: `${config.label} (${mod.total})`,
+            count: mod.total,
+          })
+          totalCount += mod.total
+        }
+      }
+    }
+
+    filters[0].count = totalCount
+    if (totalCount > 0) {
+      filters[0].label = `Alle (${totalCount})`
+    }
+
+    return filters
+  }, [data])
 
   // Ctrl+K shortcut
   useEffect(() => {
@@ -71,48 +221,75 @@ export function SearchBar() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  // Focus input when modal opens
+  // Focus input when modal opens; reset state when closed
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50)
     } else {
       setQuery('')
-      setResults([])
       setActiveFilter('Alle')
+      setHighlightedIndex(0)
+      setExpandedModules(new Set())
     }
   }, [isOpen])
 
-  // Search logic
+  // Reset highlighted index when results change
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([])
-      return
-    }
-    const q = query.toLowerCase()
-    const filtered = allSearchData.filter((item) => {
-      if (activeFilter !== 'Alle' && item.category !== activeFilter) return false
-      return (
-        item.title.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
-        item.description?.toLowerCase().includes(q)
-      )
-    })
-    setResults(filtered.slice(0, 8))
-  }, [query, activeFilter])
+    setHighlightedIndex(0)
+  }, [flatResults.length])
 
-  const handleResultClick = (path: string) => {
-    navigate(path)
-    setIsOpen(false)
-  }
+  const handleResultClick = useCallback(
+    (module: string, item: GlobalSearchResultItem) => {
+      navigate(getResultUrl(module, item))
+      setIsOpen(false)
+    },
+    [navigate],
+  )
+
+  const toggleModuleExpanded = useCallback((module: string) => {
+    setExpandedModules((prev) => {
+      const next = new Set(prev)
+      if (next.has(module)) {
+        next.delete(module)
+      } else {
+        next.add(module)
+      }
+      return next
+    })
+  }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && results.length > 0) {
-      handleResultClick(results[0].path)
-    }
-    if (e.key === 'Escape') {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightedIndex((prev) =>
+        prev < flatResults.length - 1 ? prev + 1 : 0,
+      )
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightedIndex((prev) =>
+        prev > 0 ? prev - 1 : flatResults.length - 1,
+      )
+    } else if (e.key === 'Enter' && flatResults.length > 0) {
+      e.preventDefault()
+      const selected = flatResults[highlightedIndex]
+      if (selected) {
+        handleResultClick(selected.module, selected.item)
+      }
+    } else if (e.key === 'Escape') {
       setIsOpen(false)
     }
   }
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (!resultsRef.current) return
+    const highlighted = resultsRef.current.querySelector(
+      `[data-result-index="${highlightedIndex}"]`,
+    )
+    if (highlighted) {
+      highlighted.scrollIntoView({ block: 'nearest' })
+    }
+  }, [highlightedIndex])
 
   return (
     <>
@@ -153,6 +330,9 @@ export function SearchBar() {
                 onKeyDown={handleKeyDown}
                 className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
               />
+              {isLoading && debouncedQuery.length >= 2 && (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+              )}
               <button
                 onClick={() => setIsOpen(false)}
                 className="rounded-md p-1 text-muted-foreground hover:bg-secondary"
@@ -164,65 +344,89 @@ export function SearchBar() {
             {/* Category filters */}
             <div className="flex items-center gap-1 border-b border-border-muted px-4 py-2 overflow-x-auto scrollbar-hide">
               <Filter className="h-3.5 w-3.5 shrink-0 text-muted-foreground mr-1" />
-              {categoryFilters.map((cat) => (
+              {availableFilters.map((filter) => (
                 <button
-                  key={cat}
-                  onClick={() => setActiveFilter(cat)}
+                  key={filter.key}
+                  onClick={() => setActiveFilter(filter.key)}
                   className={`shrink-0 rounded-full px-2.5 py-1 text-xs transition-colors ${
-                    activeFilter === cat
+                    activeFilter === filter.key
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   }`}
                 >
-                  {cat}
+                  {filter.label}
                 </button>
               ))}
             </div>
 
             {/* Results */}
-            <div className="max-h-80 overflow-y-auto">
-              {query.trim() && results.length > 0 && (
-                <div className="p-2">
-                  {results.map((result) => {
-                    const Icon = result.categoryIcon
-                    return (
-                      <button
-                        key={result.id}
-                        onClick={() => handleResultClick(result.path)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-secondary transition-colors text-left group"
-                      >
-                        <div className={`h-9 w-9 rounded-lg ${result.bgColor} flex items-center justify-center shrink-0`}>
-                          <Icon className={`h-4 w-4 ${result.iconColor}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{result.title}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground">{result.category}</span>
-                            {result.description && (
-                              <>
-                                <span className="text-xs text-border">&bull;</span>
-                                <span className="text-xs text-muted-foreground">{result.description}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
-                      </button>
-                    )
-                  })}
+            <div ref={resultsRef} className="max-h-80 overflow-y-auto">
+              {/* Grouped results */}
+              {debouncedQuery.length >= 2 &&
+                !isLoading &&
+                !isError &&
+                data?.modules &&
+                data.modules.some((m) => m.results?.length > 0) && (
+                  <div className="p-2">
+                    {data.modules.map((mod) => (
+                      <ModuleGroup
+                        key={mod.module}
+                        module={mod}
+                        expandedModules={expandedModules}
+                        onToggleExpand={toggleModuleExpanded}
+                        highlightedIndex={highlightedIndex}
+                        flatResults={flatResults}
+                        onResultClick={handleResultClick}
+                      />
+                    ))}
+                  </div>
+                )}
+
+              {/* Loading skeleton */}
+              {isLoading && debouncedQuery.length >= 2 && (
+                <div className="p-4 space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-3 animate-pulse">
+                      <div className="h-9 w-9 rounded-lg bg-secondary" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3.5 w-2/3 rounded bg-secondary" />
+                        <div className="h-3 w-1/3 rounded bg-secondary" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {query.trim() && results.length === 0 && (
+              {/* Error state */}
+              {isError && debouncedQuery.length >= 2 && (
                 <div className="py-10 text-center">
-                  <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">Keine Ergebnisse für &ldquo;{query}&rdquo;</p>
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive/50" />
+                  <p className="text-sm text-muted-foreground">
+                    Suche fehlgeschlagen. Versuche es erneut.
+                  </p>
                 </div>
               )}
 
-              {!query.trim() && (
+              {/* No results */}
+              {debouncedQuery.length >= 2 &&
+                !isLoading &&
+                !isError &&
+                data?.modules &&
+                !data.modules.some((m) => m.results?.length > 0) && (
+                  <div className="py-10 text-center">
+                    <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">
+                      Keine Ergebnisse fuer &ldquo;{debouncedQuery}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+              {/* Empty state */}
+              {debouncedQuery.length < 2 && (
                 <div className="py-10 text-center">
-                  <p className="text-sm text-muted-foreground">Tippe, um zu suchen</p>
+                  <p className="text-sm text-muted-foreground">
+                    Tippe, um zu suchen
+                  </p>
                 </div>
               )}
             </div>
@@ -230,18 +434,129 @@ export function SearchBar() {
             {/* Footer hints */}
             <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[10px] text-text-disabled">
               <span>
-                <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">↵</kbd> Oeffnen
+                <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
+                  ↑↓
+                </kbd>{' '}
+                Navigieren
               </span>
               <span>
-                <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">Esc</kbd> Schliessen
+                <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
+                  ↵
+                </kbd>{' '}
+                Oeffnen
               </span>
               <span>
-                <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">Tab</kbd> Filter wechseln
+                <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
+                  Esc
+                </kbd>{' '}
+                Schliessen
               </span>
             </div>
           </div>
         </div>
       )}
     </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Module group sub-component
+// ---------------------------------------------------------------------------
+
+function ModuleGroup({
+  module,
+  expandedModules,
+  onToggleExpand,
+  highlightedIndex,
+  flatResults,
+  onResultClick,
+}: {
+  module: GlobalSearchModule
+  expandedModules: Set<string>
+  onToggleExpand: (module: string) => void
+  highlightedIndex: number
+  flatResults: Array<{ module: string; item: GlobalSearchResultItem }>
+  onResultClick: (module: string, item: GlobalSearchResultItem) => void
+}) {
+  if (!module.results?.length) return null
+
+  const config = MODULE_CONFIG[module.module]
+  if (!config) return null
+
+  const isExpanded = expandedModules.has(module.module)
+  const visibleResults = isExpanded
+    ? module.results
+    : module.results.slice(0, 5)
+  const hasMore = module.results.length > 5 && !isExpanded
+
+  const ModuleIcon = config.icon
+
+  return (
+    <div className="mb-2 last:mb-0">
+      {/* Module header */}
+      <button
+        onClick={() => onToggleExpand(module.module)}
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary/50"
+      >
+        {isExpanded ? (
+          <ChevronDown className="h-3 w-3" />
+        ) : (
+          <ChevronRight className="h-3 w-3" />
+        )}
+        <ModuleIcon className={`h-3.5 w-3.5 ${config.iconColor}`} />
+        <span>
+          {config.label} ({module.total})
+        </span>
+      </button>
+
+      {/* Results */}
+      {visibleResults.map((item) => {
+        // Find this item's flat index for highlight tracking
+        const flatIndex = flatResults.findIndex(
+          (fr) => fr.module === module.module && fr.item.id === item.id,
+        )
+        const isHighlighted = flatIndex === highlightedIndex
+
+        return (
+          <button
+            key={item.id}
+            data-result-index={flatIndex}
+            onClick={() => onResultClick(module.module, item)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left group ${
+              isHighlighted
+                ? 'bg-secondary'
+                : 'hover:bg-secondary'
+            }`}
+          >
+            <div
+              className={`h-9 w-9 rounded-lg ${config.bgColor} flex items-center justify-center shrink-0`}
+            >
+              <ModuleIcon className={`h-4 w-4 ${config.iconColor}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">
+                {item.title || item.file_name || item.subject || item.id}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-muted-foreground truncate">
+                  {truncate(getResultDescription(module.module, item), 100)}
+                </span>
+              </div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all shrink-0" />
+          </button>
+        )
+      })}
+
+      {/* Show more */}
+      {hasMore && (
+        <button
+          onClick={() => onToggleExpand(module.module)}
+          className="w-full text-center py-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
+        >
+          Mehr anzeigen ({module.results.length - 5} weitere)
+        </button>
+      )}
+    </div>
   )
 }

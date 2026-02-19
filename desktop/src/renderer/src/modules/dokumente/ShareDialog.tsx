@@ -1,3 +1,10 @@
+/**
+ * Share dialog connected to real API.
+ *
+ * Uses useShares and useShareEntity/useUnshareEntity mutations.
+ * Shows current shares with permission levels and allows
+ * adding/removing share recipients.
+ */
 import { useState } from 'react'
 import {
   Dialog,
@@ -16,40 +23,70 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Link, X, Users } from 'lucide-react'
+import { Link, X, Users, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  useShares,
+  useShareEntity,
+  useUnshareEntity,
+} from '@/api/hooks/useDocuments'
+import type { SharePermission } from '@/api/types/document-types'
 
 interface ShareDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  fileName: string
-  currentShares: { name: string; permission: 'view' | 'edit' }[]
-  onSave?: (shares: { name: string; permission: 'view' | 'edit' }[]) => void
+  entityType: 'file' | 'folder'
+  entityId: string
+  entityName: string
 }
 
-const availableUsers = [
-  'Anna Mueller', 'Michael Berg', 'Sarah Klein', 'Thomas Weber',
-  'Lisa Schmidt', 'Peter Koch', 'Jonas Diaz', 'Eva Brunner',
-]
+export function ShareDialog({
+  open,
+  onOpenChange,
+  entityType,
+  entityId,
+  entityName,
+}: ShareDialogProps) {
+  const { data: sharesData, isLoading } = useShares(entityType, entityId)
+  const shareEntity = useShareEntity()
+  const unshareEntity = useUnshareEntity()
 
-export function ShareDialog({ open, onOpenChange, fileName, currentShares, onSave }: ShareDialogProps) {
-  const [search, setSearch] = useState('')
-  const [shares, setShares] = useState(currentShares)
-  const [permission, setPermission] = useState<'view' | 'edit'>('view')
+  const [searchUserId, setSearchUserId] = useState('')
+  const [permission, setPermission] = useState<SharePermission>('read')
 
-  const filteredUsers = availableUsers.filter(
-    (u) =>
-      !shares.some((s) => s.name === u) &&
-      u.toLowerCase().includes(search.toLowerCase())
-  )
+  const shares = sharesData?.shares ?? []
 
-  const addShare = (name: string) => {
-    setShares([...shares, { name, permission }])
-    setSearch('')
+  const handleAddShare = () => {
+    if (!searchUserId.trim()) return
+
+    shareEntity.mutate(
+      {
+        entity_type: entityType,
+        entity_id: entityId,
+        shared_with_user_id: searchUserId.trim(),
+        permission,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Freigabe hinzugefuegt')
+          setSearchUserId('')
+        },
+        onError: (err) => {
+          toast.error(`Fehler: ${err.message}`)
+        },
+      },
+    )
   }
 
-  const removeShare = (name: string) => {
-    setShares(shares.filter((s) => s.name !== name))
+  const handleRemoveShare = (shareId: string) => {
+    unshareEntity.mutate(shareId, {
+      onSuccess: () => {
+        toast.success('Freigabe entfernt')
+      },
+      onError: (err) => {
+        toast.error(`Fehler: ${err.message}`)
+      },
+    })
   }
 
   const copyLink = () => {
@@ -62,70 +99,97 @@ export function ShareDialog({ open, onOpenChange, fileName, currentShares, onSav
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Datei teilen
+            {entityType === 'file' ? 'Datei' : 'Ordner'} teilen
           </DialogTitle>
         </DialogHeader>
 
-        <p className="text-sm text-muted-foreground truncate">{fileName}</p>
+        <p className="text-sm text-muted-foreground truncate">{entityName}</p>
 
         <div className="space-y-4 py-2">
           {/* Add person */}
           <div className="space-y-1.5">
-            <Label>Person hinzufügen</Label>
+            <Label>Person hinzufuegen</Label>
             <div className="flex gap-2">
               <Input
-                placeholder="Name suchen..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Benutzer-ID eingeben..."
+                value={searchUserId}
+                onChange={(e) => setSearchUserId(e.target.value)}
                 className="flex-1"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddShare()}
               />
-              <Select value={permission} onValueChange={(v) => setPermission(v as typeof permission)}>
+              <Select
+                value={permission}
+                onValueChange={(v) =>
+                  setPermission(v as SharePermission)
+                }
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="view">Ansehen</SelectItem>
-                  <SelectItem value="edit">Bearbeiten</SelectItem>
+                  <SelectItem value="read">Ansehen</SelectItem>
+                  <SelectItem value="write">Bearbeiten</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {search && filteredUsers.length > 0 && (
-              <div className="max-h-28 overflow-y-auto rounded-md border bg-card p-1">
-                {filteredUsers.map((user) => (
-                  <button
-                    key={user}
-                    onClick={() => addShare(user)}
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-secondary"
-                  >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
-                      {user.split(' ').map((n) => n[0]).join('')}
-                    </span>
-                    {user}
-                  </button>
-                ))}
-              </div>
+            {searchUserId.trim() && (
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={handleAddShare}
+                disabled={shareEntity.isPending}
+              >
+                {shareEntity.isPending ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                Freigeben
+              </Button>
             )}
           </div>
 
           {/* Current shares */}
-          {shares.length > 0 && (
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : shares.length > 0 ? (
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Geteilt mit</Label>
+              <Label className="text-xs text-muted-foreground">
+                Geteilt mit
+              </Label>
               {shares.map((s) => (
-                <div key={s.name} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+                >
                   <div className="flex items-center gap-2">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
-                      {s.name.split(' ').map((n) => n[0]).join('')}
+                      {s.shared_with_user_name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .slice(0, 2)}
                     </span>
-                    <span className="text-sm text-foreground">{s.name}</span>
+                    <div>
+                      <span className="text-sm text-foreground">
+                        {s.shared_with_user_name}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground">
+                        von {s.shared_by_name} &middot;{' '}
+                        {new Date(s.created_at).toLocaleDateString('de-CH')}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">
-                      {s.permission === 'edit' ? 'Bearbeiten' : 'Ansehen'}
+                      {s.permission === 'write'
+                        ? 'Bearbeiten'
+                        : 'Ansehen'}
                     </span>
                     <button
-                      onClick={() => removeShare(s.name)}
+                      onClick={() => handleRemoveShare(s.id)}
                       className="rounded p-0.5 text-muted-foreground hover:text-red-500"
+                      disabled={unshareEntity.isPending}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -133,7 +197,7 @@ export function ShareDialog({ open, onOpenChange, fileName, currentShares, onSav
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
 
           {/* Copy link */}
           <Button variant="outline" className="w-full" onClick={copyLink}>
@@ -143,12 +207,8 @@ export function ShareDialog({ open, onOpenChange, fileName, currentShares, onSav
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={() => {
-            onSave?.(shares)
-            onOpenChange(false)
-          }}>
-            Speichern
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Schliessen
           </Button>
         </DialogFooter>
       </DialogContent>

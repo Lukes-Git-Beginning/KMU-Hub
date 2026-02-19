@@ -35,7 +35,7 @@ import {
 } from '@/stores/team'
 import { useMeetingsStore } from '@/stores/meetings'
 import { useNavigationStore } from '@/stores/navigation'
-import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
 import { MemberDetailPanel } from './MemberDetailPanel'
 import { InviteMemberDialog } from './InviteMemberDialog'
 import { EditMemberDialog } from './EditMemberDialog'
@@ -263,7 +263,7 @@ export default function TeamPage() {
     toast.success('Antrag abgelehnt')
   }
 
-  const getMemberActions = (member: TeamMember) => [
+  const getMemberActions = (member: TeamMember): ActionItem[] => [
     { label: 'Profil ansehen', onClick: () => setSelectedMember(member) },
     { label: 'E-Mail senden', icon: Mail, onClick: () => handleEmail(member) },
     { label: 'Anrufen', icon: Phone, onClick: () => handleCall(member) },
@@ -367,8 +367,7 @@ export default function TeamPage() {
               icon={Users}
               title="Keine Mitglieder gefunden"
               description={search ? 'Passe deine Suche an' : 'Lade Mitglieder ein, um loszulegen'}
-              actionLabel={search ? undefined : 'Mitglied einladen'}
-              onAction={search ? undefined : () => setShowInvite(true)}
+              action={search ? undefined : { label: 'Mitglied einladen', onClick: () => setShowInvite(true) }}
             />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -813,7 +812,7 @@ export default function TeamPage() {
 
 interface MemberCardProps {
   member: TeamMember
-  actions: { label: string; icon?: any; onClick: () => void; variant?: string; separator?: boolean }[]
+  actions: ActionItem[]
   onEmail: () => void
   onMessage: () => void
   onCall: () => void
@@ -895,7 +894,7 @@ function MemberCard({ member, actions, onEmail, onMessage, onCall, onClick }: Me
 
 interface MemberRowProps {
   member: TeamMember
-  actions: { label: string; icon?: any; onClick: () => void; variant?: string; separator?: boolean }[]
+  actions: ActionItem[]
   onEmail: () => void
   onMessage: () => void
   onClick: () => void

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -67,6 +68,14 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("contacts", "delete")).Delete("/{id}", c.HandleDeleteContact)
 		r.With(middleware.RequirePermission("contacts", "write")).Post("/{id}/tags", c.HandleAddContactTags)
 		r.With(middleware.RequirePermission("contacts", "write")).Delete("/{id}/tags", c.HandleRemoveContactTags)
+		r.With(middleware.RequirePermission("contacts", "write")).Put("/{id}/visibility", c.HandleUpdateContactVisibility)
+
+		// Import/Export
+		r.With(middleware.RequirePermission("contacts", "write")).Post("/import/csv", c.HandleImportContactsCSV)
+		r.With(middleware.RequirePermission("contacts", "write")).Post("/import/vcard", c.HandleImportContactsVCard)
+		r.With(middleware.RequirePermission("contacts", "write")).Post("/import/preview", c.HandlePreviewImportCSV)
+		r.With(middleware.RequirePermission("contacts", "read")).Post("/export/csv", c.HandleExportContactsCSV)
+		r.With(middleware.RequirePermission("contacts", "read")).Post("/export/vcard", c.HandleExportContactsVCard)
 	})
 
 	// Companies
@@ -578,20 +587,26 @@ func (c *CRMRoutes) HandleListContacts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := middleware.GetUserID(r.Context())
+	isAdmin := middleware.IsAdmin(r.Context())
 	companyID := r.URL.Query().Get("company_id")
 	search := r.URL.Query().Get("search")
 	sortBy := r.URL.Query().Get("sort_by")
 	sortDesc := r.URL.Query().Get("sort_desc") == "true"
+	visibilityFilter := r.URL.Query().Get("visibility")
 	tagIDs := r.URL.Query()["tag_ids"]
 	page, pageSize := parsePagination(r, 1, 20)
 
 	grpcReq := &crmv1.ListContactsRequest{
-		Search:   search,
-		Page:     int32(page),
-		PageSize: int32(pageSize),
-		SortBy:   sortBy,
-		SortDesc: sortDesc,
-		TagIds:   tagIDs,
+		Search:           search,
+		Page:             int32(page),
+		PageSize:         int32(pageSize),
+		SortBy:           sortBy,
+		SortDesc:         sortDesc,
+		TagIds:           tagIDs,
+		UserId:           userID,
+		IsAdmin:          isAdmin,
+		VisibilityFilter: visibilityFilter,
 	}
 
 	if companyID != "" {
@@ -754,6 +769,280 @@ func (c *CRMRoutes) HandleRemoveContactTags(w http.ResponseWriter, r *http.Reque
 	resp, err := client.RemoveContactTags(r.Context(), &crmv1.RemoveContactTagsRequest{
 		ContactId: contactID,
 		TagIds:    req.TagIDs,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// ============================================================================
+// Contact Import/Export Handlers
+// ============================================================================
+
+func (c *CRMRoutes) HandleImportContactsCSV(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	if parseErr := r.ParseMultipartForm(10 << 20); parseErr != nil { // 10MB max
+		response.Error(w, http.StatusBadRequest, "invalid multipart form")
+		return
+	}
+
+	file, _, fileErr := r.FormFile("file")
+	if fileErr != nil {
+		response.Error(w, http.StatusBadRequest, "file is required")
+		return
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	if _, copyErr := buf.ReadFrom(file); copyErr != nil {
+		response.Error(w, http.StatusBadRequest, "failed to read file")
+		return
+	}
+
+	// Parse field mapping from form values
+	fieldMapping := make(map[string]string)
+	for key, values := range r.MultipartForm.Value {
+		if len(key) > 4 && key[:4] == "map_" {
+			fieldMapping[key[4:]] = values[0]
+		}
+	}
+
+	visibility := r.FormValue("visibility")
+	if visibility == "" {
+		visibility = "shared"
+	}
+	mergeByEmail := r.FormValue("merge_by_email") == "true"
+
+	resp, err := client.ImportContactsCSV(r.Context(), &crmv1.ImportContactsCSVRequest{
+		FileContent:  buf.Bytes(),
+		FieldMapping: fieldMapping,
+		Visibility:   visibility,
+		MergeByEmail: mergeByEmail,
+		UserId:       userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandleImportContactsVCard(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	if parseErr := r.ParseMultipartForm(10 << 20); parseErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid multipart form")
+		return
+	}
+
+	file, _, fileErr := r.FormFile("file")
+	if fileErr != nil {
+		response.Error(w, http.StatusBadRequest, "file is required")
+		return
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	if _, copyErr := buf.ReadFrom(file); copyErr != nil {
+		response.Error(w, http.StatusBadRequest, "failed to read file")
+		return
+	}
+
+	visibility := r.FormValue("visibility")
+	if visibility == "" {
+		visibility = "shared"
+	}
+	mergeByEmail := r.FormValue("merge_by_email") == "true"
+
+	resp, err := client.ImportContactsVCard(r.Context(), &crmv1.ImportContactsVCardRequest{
+		FileContent:  buf.Bytes(),
+		Visibility:   visibility,
+		MergeByEmail: mergeByEmail,
+		UserId:       userID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+func (c *CRMRoutes) HandlePreviewImportCSV(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	if parseErr := r.ParseMultipartForm(10 << 20); parseErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid multipart form")
+		return
+	}
+
+	file, _, fileErr := r.FormFile("file")
+	if fileErr != nil {
+		response.Error(w, http.StatusBadRequest, "file is required")
+		return
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	if _, copyErr := buf.ReadFrom(file); copyErr != nil {
+		response.Error(w, http.StatusBadRequest, "failed to read file")
+		return
+	}
+
+	resp, err := client.PreviewImportCSV(r.Context(), &crmv1.PreviewImportCSVRequest{
+		FileContent: buf.Bytes(),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+type exportContactsCSVRequest struct {
+	ContactIDs []string `json:"contact_ids"`
+	Fields     []string `json:"fields"`
+}
+
+func (c *CRMRoutes) HandleExportContactsCSV(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	isAdmin := middleware.IsAdmin(r.Context())
+
+	var req exportContactsCSVRequest
+	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.ExportContactsCSV(r.Context(), &crmv1.ExportContactsCSVRequest{
+		ContactIds: req.ContactIDs,
+		Fields:     req.Fields,
+		UserId:     userID,
+		IsAdmin:    isAdmin,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", resp.ContentType)
+	w.Header().Set("Content-Disposition", "attachment; filename="+resp.Filename)
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp.FileContent)
+}
+
+type exportContactsVCardRequest struct {
+	ContactIDs []string `json:"contact_ids"`
+}
+
+func (c *CRMRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	isAdmin := middleware.IsAdmin(r.Context())
+
+	var req exportContactsVCardRequest
+	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	resp, err := client.ExportContactsVCard(r.Context(), &crmv1.ExportContactsVCardRequest{
+		ContactIds: req.ContactIDs,
+		UserId:     userID,
+		IsAdmin:    isAdmin,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", resp.ContentType)
+	w.Header().Set("Content-Disposition", "attachment; filename="+resp.Filename)
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp.FileContent)
+}
+
+type updateContactVisibilityRequest struct {
+	Visibility string `json:"visibility"`
+}
+
+func (c *CRMRoutes) HandleUpdateContactVisibility(w http.ResponseWriter, r *http.Request) {
+	client, err := c.getCRMClient()
+	if err != nil {
+		respondServiceUnavailable(w, c.ServiceName())
+		return
+	}
+
+	contactID := chi.URLParam(r, "id")
+	if _, parseErr := uuid.Parse(contactID); parseErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid contact id")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+	isAdmin := middleware.IsAdmin(r.Context())
+
+	var req updateContactVisibilityRequest
+	if decErr := json.NewDecoder(r.Body).Decode(&req); decErr != nil {
+		response.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Visibility != "shared" && req.Visibility != "personal" {
+		response.Error(w, http.StatusBadRequest, "visibility must be 'shared' or 'personal'")
+		return
+	}
+
+	resp, err := client.UpdateContactVisibility(r.Context(), &crmv1.UpdateContactVisibilityRequest{
+		ContactId:  contactID,
+		Visibility: req.Visibility,
+		UserId:     userID,
+		IsAdmin:    isAdmin,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

@@ -45,6 +45,11 @@ service ChatService {
 
   // Search (Sprint 4)
   rpc SearchChat(SearchChatRequest) returns (SearchChatResponse);
+
+  // Reactions (Phase 8)
+  rpc ToggleReaction(ToggleReactionRequest) returns (ToggleReactionResponse);
+  rpc ListReactions(ListReactionsRequest) returns (ListReactionsResponse);
+  rpc GetReactionSummary(GetReactionSummaryRequest) returns (GetReactionSummaryResponse);
 }
 
 // ============================================================================
@@ -433,4 +438,55 @@ message ChatSearchResultProto {
 message SearchChatResponse {
   repeated ChatSearchResultProto results = 1;
   int32 total = 2;
+}
+
+// ============================================================================
+// Reaction Messages (Phase 8)
+// ============================================================================
+
+message Reaction {
+  string message_id = 1;
+  string user_id = 2;
+  string emoji = 3;
+  string created_at = 4;
+  // Denormalized user info
+  string first_name = 5;
+  string last_name = 6;
+}
+
+message ReactionSummary {
+  string message_id = 1;
+  string emoji = 2;
+  int32 count = 3;
+  repeated string user_ids = 4;
+  bool current_user_reacted = 5;
+}
+
+message ToggleReactionRequest {
+  string message_id = 1;
+  string user_id = 2;
+  string emoji = 3;
+}
+
+message ToggleReactionResponse {
+  repeated Reaction reactions = 1;
+  bool added = 2;
+}
+
+message ListReactionsRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message ListReactionsResponse {
+  repeated Reaction reactions = 1;
+}
+
+message GetReactionSummaryRequest {
+  repeated string message_ids = 1;
+  string user_id = 2;
+}
+
+message GetReactionSummaryResponse {
+  repeated ReactionSummary summaries = 1;
 }

@@ -19,23 +19,34 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName         = "/auth.v1.AuthService/Register"
-	AuthService_Login_FullMethodName            = "/auth.v1.AuthService/Login"
-	AuthService_RefreshToken_FullMethodName     = "/auth.v1.AuthService/RefreshToken"
-	AuthService_Logout_FullMethodName           = "/auth.v1.AuthService/Logout"
-	AuthService_ValidateToken_FullMethodName    = "/auth.v1.AuthService/ValidateToken"
-	AuthService_GetUser_FullMethodName          = "/auth.v1.AuthService/GetUser"
-	AuthService_ListUsers_FullMethodName        = "/auth.v1.AuthService/ListUsers"
-	AuthService_UpdateUser_FullMethodName       = "/auth.v1.AuthService/UpdateUser"
-	AuthService_AssignRole_FullMethodName       = "/auth.v1.AuthService/AssignRole"
-	AuthService_RemoveRole_FullMethodName       = "/auth.v1.AuthService/RemoveRole"
-	AuthService_CheckPermission_FullMethodName  = "/auth.v1.AuthService/CheckPermission"
-	AuthService_GetProfile_FullMethodName       = "/auth.v1.AuthService/GetProfile"
-	AuthService_ChangePassword_FullMethodName   = "/auth.v1.AuthService/ChangePassword"
-	AuthService_CreateInvitation_FullMethodName = "/auth.v1.AuthService/CreateInvitation"
-	AuthService_ListInvitations_FullMethodName  = "/auth.v1.AuthService/ListInvitations"
-	AuthService_AcceptInvitation_FullMethodName = "/auth.v1.AuthService/AcceptInvitation"
-	AuthService_CancelInvitation_FullMethodName = "/auth.v1.AuthService/CancelInvitation"
+	AuthService_Register_FullMethodName                = "/auth.v1.AuthService/Register"
+	AuthService_Login_FullMethodName                   = "/auth.v1.AuthService/Login"
+	AuthService_RefreshToken_FullMethodName            = "/auth.v1.AuthService/RefreshToken"
+	AuthService_Logout_FullMethodName                  = "/auth.v1.AuthService/Logout"
+	AuthService_ValidateToken_FullMethodName           = "/auth.v1.AuthService/ValidateToken"
+	AuthService_GetUser_FullMethodName                 = "/auth.v1.AuthService/GetUser"
+	AuthService_ListUsers_FullMethodName               = "/auth.v1.AuthService/ListUsers"
+	AuthService_UpdateUser_FullMethodName              = "/auth.v1.AuthService/UpdateUser"
+	AuthService_AssignRole_FullMethodName              = "/auth.v1.AuthService/AssignRole"
+	AuthService_RemoveRole_FullMethodName              = "/auth.v1.AuthService/RemoveRole"
+	AuthService_CheckPermission_FullMethodName         = "/auth.v1.AuthService/CheckPermission"
+	AuthService_GetProfile_FullMethodName              = "/auth.v1.AuthService/GetProfile"
+	AuthService_ChangePassword_FullMethodName          = "/auth.v1.AuthService/ChangePassword"
+	AuthService_CreateInvitation_FullMethodName        = "/auth.v1.AuthService/CreateInvitation"
+	AuthService_ListInvitations_FullMethodName         = "/auth.v1.AuthService/ListInvitations"
+	AuthService_AcceptInvitation_FullMethodName        = "/auth.v1.AuthService/AcceptInvitation"
+	AuthService_CancelInvitation_FullMethodName        = "/auth.v1.AuthService/CancelInvitation"
+	AuthService_Setup2FA_FullMethodName                = "/auth.v1.AuthService/Setup2FA"
+	AuthService_Verify2FA_FullMethodName               = "/auth.v1.AuthService/Verify2FA"
+	AuthService_Validate2FALogin_FullMethodName        = "/auth.v1.AuthService/Validate2FALogin"
+	AuthService_Disable2FA_FullMethodName              = "/auth.v1.AuthService/Disable2FA"
+	AuthService_RegenerateRecoveryCodes_FullMethodName = "/auth.v1.AuthService/RegenerateRecoveryCodes"
+	AuthService_AdminReset2FA_FullMethodName           = "/auth.v1.AuthService/AdminReset2FA"
+	AuthService_ListSessions_FullMethodName            = "/auth.v1.AuthService/ListSessions"
+	AuthService_TerminateSession_FullMethodName        = "/auth.v1.AuthService/TerminateSession"
+	AuthService_TerminateAllSessions_FullMethodName    = "/auth.v1.AuthService/TerminateAllSessions"
+	AuthService_GetTwoFactorPolicy_FullMethodName      = "/auth.v1.AuthService/GetTwoFactorPolicy"
+	AuthService_UpdateTwoFactorPolicy_FullMethodName   = "/auth.v1.AuthService/UpdateTwoFactorPolicy"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -61,6 +72,20 @@ type AuthServiceClient interface {
 	ListInvitations(ctx context.Context, in *ListInvitationsRequest, opts ...grpc.CallOption) (*ListInvitationsResponse, error)
 	AcceptInvitation(ctx context.Context, in *AcceptInvitationRequest, opts ...grpc.CallOption) (*AcceptInvitationResponse, error)
 	CancelInvitation(ctx context.Context, in *CancelInvitationRequest, opts ...grpc.CallOption) (*CancelInvitationResponse, error)
+	// Two-Factor Authentication
+	Setup2FA(ctx context.Context, in *Setup2FARequest, opts ...grpc.CallOption) (*Setup2FAResponse, error)
+	Verify2FA(ctx context.Context, in *Verify2FARequest, opts ...grpc.CallOption) (*Verify2FAResponse, error)
+	Validate2FALogin(ctx context.Context, in *Validate2FALoginRequest, opts ...grpc.CallOption) (*Validate2FALoginResponse, error)
+	Disable2FA(ctx context.Context, in *Disable2FARequest, opts ...grpc.CallOption) (*Disable2FAResponse, error)
+	RegenerateRecoveryCodes(ctx context.Context, in *RegenerateRecoveryCodesRequest, opts ...grpc.CallOption) (*RegenerateRecoveryCodesResponse, error)
+	AdminReset2FA(ctx context.Context, in *AdminReset2FARequest, opts ...grpc.CallOption) (*AdminReset2FAResponse, error)
+	// Sessions
+	ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error)
+	TerminateSession(ctx context.Context, in *TerminateSessionRequest, opts ...grpc.CallOption) (*TerminateSessionResponse, error)
+	TerminateAllSessions(ctx context.Context, in *TerminateAllSessionsRequest, opts ...grpc.CallOption) (*TerminateAllSessionsResponse, error)
+	// Two-Factor Policy
+	GetTwoFactorPolicy(ctx context.Context, in *GetTwoFactorPolicyRequest, opts ...grpc.CallOption) (*GetTwoFactorPolicyResponse, error)
+	UpdateTwoFactorPolicy(ctx context.Context, in *UpdateTwoFactorPolicyRequest, opts ...grpc.CallOption) (*UpdateTwoFactorPolicyResponse, error)
 }
 
 type authServiceClient struct {
@@ -241,6 +266,116 @@ func (c *authServiceClient) CancelInvitation(ctx context.Context, in *CancelInvi
 	return out, nil
 }
 
+func (c *authServiceClient) Setup2FA(ctx context.Context, in *Setup2FARequest, opts ...grpc.CallOption) (*Setup2FAResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Setup2FAResponse)
+	err := c.cc.Invoke(ctx, AuthService_Setup2FA_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) Verify2FA(ctx context.Context, in *Verify2FARequest, opts ...grpc.CallOption) (*Verify2FAResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Verify2FAResponse)
+	err := c.cc.Invoke(ctx, AuthService_Verify2FA_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) Validate2FALogin(ctx context.Context, in *Validate2FALoginRequest, opts ...grpc.CallOption) (*Validate2FALoginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Validate2FALoginResponse)
+	err := c.cc.Invoke(ctx, AuthService_Validate2FALogin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) Disable2FA(ctx context.Context, in *Disable2FARequest, opts ...grpc.CallOption) (*Disable2FAResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Disable2FAResponse)
+	err := c.cc.Invoke(ctx, AuthService_Disable2FA_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RegenerateRecoveryCodes(ctx context.Context, in *RegenerateRecoveryCodesRequest, opts ...grpc.CallOption) (*RegenerateRecoveryCodesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegenerateRecoveryCodesResponse)
+	err := c.cc.Invoke(ctx, AuthService_RegenerateRecoveryCodes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) AdminReset2FA(ctx context.Context, in *AdminReset2FARequest, opts ...grpc.CallOption) (*AdminReset2FAResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminReset2FAResponse)
+	err := c.cc.Invoke(ctx, AuthService_AdminReset2FA_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSessionsResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) TerminateSession(ctx context.Context, in *TerminateSessionRequest, opts ...grpc.CallOption) (*TerminateSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TerminateSessionResponse)
+	err := c.cc.Invoke(ctx, AuthService_TerminateSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) TerminateAllSessions(ctx context.Context, in *TerminateAllSessionsRequest, opts ...grpc.CallOption) (*TerminateAllSessionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TerminateAllSessionsResponse)
+	err := c.cc.Invoke(ctx, AuthService_TerminateAllSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetTwoFactorPolicy(ctx context.Context, in *GetTwoFactorPolicyRequest, opts ...grpc.CallOption) (*GetTwoFactorPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTwoFactorPolicyResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetTwoFactorPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) UpdateTwoFactorPolicy(ctx context.Context, in *UpdateTwoFactorPolicyRequest, opts ...grpc.CallOption) (*UpdateTwoFactorPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTwoFactorPolicyResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateTwoFactorPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -264,6 +399,20 @@ type AuthServiceServer interface {
 	ListInvitations(context.Context, *ListInvitationsRequest) (*ListInvitationsResponse, error)
 	AcceptInvitation(context.Context, *AcceptInvitationRequest) (*AcceptInvitationResponse, error)
 	CancelInvitation(context.Context, *CancelInvitationRequest) (*CancelInvitationResponse, error)
+	// Two-Factor Authentication
+	Setup2FA(context.Context, *Setup2FARequest) (*Setup2FAResponse, error)
+	Verify2FA(context.Context, *Verify2FARequest) (*Verify2FAResponse, error)
+	Validate2FALogin(context.Context, *Validate2FALoginRequest) (*Validate2FALoginResponse, error)
+	Disable2FA(context.Context, *Disable2FARequest) (*Disable2FAResponse, error)
+	RegenerateRecoveryCodes(context.Context, *RegenerateRecoveryCodesRequest) (*RegenerateRecoveryCodesResponse, error)
+	AdminReset2FA(context.Context, *AdminReset2FARequest) (*AdminReset2FAResponse, error)
+	// Sessions
+	ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error)
+	TerminateSession(context.Context, *TerminateSessionRequest) (*TerminateSessionResponse, error)
+	TerminateAllSessions(context.Context, *TerminateAllSessionsRequest) (*TerminateAllSessionsResponse, error)
+	// Two-Factor Policy
+	GetTwoFactorPolicy(context.Context, *GetTwoFactorPolicyRequest) (*GetTwoFactorPolicyResponse, error)
+	UpdateTwoFactorPolicy(context.Context, *UpdateTwoFactorPolicyRequest) (*UpdateTwoFactorPolicyResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -324,6 +473,39 @@ func (UnimplementedAuthServiceServer) AcceptInvitation(context.Context, *AcceptI
 }
 func (UnimplementedAuthServiceServer) CancelInvitation(context.Context, *CancelInvitationRequest) (*CancelInvitationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelInvitation not implemented")
+}
+func (UnimplementedAuthServiceServer) Setup2FA(context.Context, *Setup2FARequest) (*Setup2FAResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Setup2FA not implemented")
+}
+func (UnimplementedAuthServiceServer) Verify2FA(context.Context, *Verify2FARequest) (*Verify2FAResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Verify2FA not implemented")
+}
+func (UnimplementedAuthServiceServer) Validate2FALogin(context.Context, *Validate2FALoginRequest) (*Validate2FALoginResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Validate2FALogin not implemented")
+}
+func (UnimplementedAuthServiceServer) Disable2FA(context.Context, *Disable2FARequest) (*Disable2FAResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Disable2FA not implemented")
+}
+func (UnimplementedAuthServiceServer) RegenerateRecoveryCodes(context.Context, *RegenerateRecoveryCodesRequest) (*RegenerateRecoveryCodesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RegenerateRecoveryCodes not implemented")
+}
+func (UnimplementedAuthServiceServer) AdminReset2FA(context.Context, *AdminReset2FARequest) (*AdminReset2FAResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdminReset2FA not implemented")
+}
+func (UnimplementedAuthServiceServer) ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSessions not implemented")
+}
+func (UnimplementedAuthServiceServer) TerminateSession(context.Context, *TerminateSessionRequest) (*TerminateSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TerminateSession not implemented")
+}
+func (UnimplementedAuthServiceServer) TerminateAllSessions(context.Context, *TerminateAllSessionsRequest) (*TerminateAllSessionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TerminateAllSessions not implemented")
+}
+func (UnimplementedAuthServiceServer) GetTwoFactorPolicy(context.Context, *GetTwoFactorPolicyRequest) (*GetTwoFactorPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTwoFactorPolicy not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateTwoFactorPolicy(context.Context, *UpdateTwoFactorPolicyRequest) (*UpdateTwoFactorPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTwoFactorPolicy not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -652,6 +834,204 @@ func _AuthService_CancelInvitation_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_Setup2FA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Setup2FARequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).Setup2FA(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_Setup2FA_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).Setup2FA(ctx, req.(*Setup2FARequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_Verify2FA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Verify2FARequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).Verify2FA(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_Verify2FA_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).Verify2FA(ctx, req.(*Verify2FARequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_Validate2FALogin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Validate2FALoginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).Validate2FALogin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_Validate2FALogin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).Validate2FALogin(ctx, req.(*Validate2FALoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_Disable2FA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Disable2FARequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).Disable2FA(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_Disable2FA_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).Disable2FA(ctx, req.(*Disable2FARequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RegenerateRecoveryCodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegenerateRecoveryCodesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RegenerateRecoveryCodes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RegenerateRecoveryCodes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RegenerateRecoveryCodes(ctx, req.(*RegenerateRecoveryCodesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_AdminReset2FA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminReset2FARequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).AdminReset2FA(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_AdminReset2FA_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).AdminReset2FA(ctx, req.(*AdminReset2FARequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListSessions(ctx, req.(*ListSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_TerminateSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TerminateSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).TerminateSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_TerminateSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).TerminateSession(ctx, req.(*TerminateSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_TerminateAllSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TerminateAllSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).TerminateAllSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_TerminateAllSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).TerminateAllSessions(ctx, req.(*TerminateAllSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetTwoFactorPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTwoFactorPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetTwoFactorPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetTwoFactorPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetTwoFactorPolicy(ctx, req.(*GetTwoFactorPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_UpdateTwoFactorPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTwoFactorPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateTwoFactorPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateTwoFactorPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateTwoFactorPolicy(ctx, req.(*UpdateTwoFactorPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -726,6 +1106,50 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelInvitation",
 			Handler:    _AuthService_CancelInvitation_Handler,
+		},
+		{
+			MethodName: "Setup2FA",
+			Handler:    _AuthService_Setup2FA_Handler,
+		},
+		{
+			MethodName: "Verify2FA",
+			Handler:    _AuthService_Verify2FA_Handler,
+		},
+		{
+			MethodName: "Validate2FALogin",
+			Handler:    _AuthService_Validate2FALogin_Handler,
+		},
+		{
+			MethodName: "Disable2FA",
+			Handler:    _AuthService_Disable2FA_Handler,
+		},
+		{
+			MethodName: "RegenerateRecoveryCodes",
+			Handler:    _AuthService_RegenerateRecoveryCodes_Handler,
+		},
+		{
+			MethodName: "AdminReset2FA",
+			Handler:    _AuthService_AdminReset2FA_Handler,
+		},
+		{
+			MethodName: "ListSessions",
+			Handler:    _AuthService_ListSessions_Handler,
+		},
+		{
+			MethodName: "TerminateSession",
+			Handler:    _AuthService_TerminateSession_Handler,
+		},
+		{
+			MethodName: "TerminateAllSessions",
+			Handler:    _AuthService_TerminateAllSessions_Handler,
+		},
+		{
+			MethodName: "GetTwoFactorPolicy",
+			Handler:    _AuthService_GetTwoFactorPolicy_Handler,
+		},
+		{
+			MethodName: "UpdateTwoFactorPolicy",
+			Handler:    _AuthService_UpdateTwoFactorPolicy_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

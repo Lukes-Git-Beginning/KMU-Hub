@@ -1,0 +1,583 @@
+syntax = "proto3";
+
+package email.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/email/v1;emailv1";
+
+service EmailService {
+  // Account management
+  rpc CreateEmailAccount(CreateEmailAccountRequest) returns (CreateEmailAccountResponse);
+  rpc GetEmailAccount(GetEmailAccountRequest) returns (GetEmailAccountResponse);
+  rpc UpdateEmailAccount(UpdateEmailAccountRequest) returns (UpdateEmailAccountResponse);
+  rpc DeleteEmailAccount(DeleteEmailAccountRequest) returns (DeleteEmailAccountResponse);
+  rpc TestEmailConnection(TestEmailConnectionRequest) returns (TestEmailConnectionResponse);
+
+  // Folder operations
+  rpc ListFolders(ListFoldersRequest) returns (ListFoldersResponse);
+  rpc GetFolder(GetFolderRequest) returns (GetFolderResponse);
+  rpc SyncFolders(SyncFoldersRequest) returns (SyncFoldersResponse);
+
+  // Message operations
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+  rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
+  rpc GetThreadMessages(GetThreadMessagesRequest) returns (GetThreadMessagesResponse);
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+  rpc MarkUnread(MarkUnreadRequest) returns (MarkUnreadResponse);
+  rpc ToggleStar(ToggleStarRequest) returns (ToggleStarResponse);
+  rpc MoveToFolder(MoveToFolderRequest) returns (MoveToFolderResponse);
+  rpc DeleteMessage(DeleteMessageRequest) returns (DeleteMessageResponse);
+
+  // Send/compose operations
+  rpc SendEmail(SendEmailRequest) returns (SendEmailResponse);
+  rpc SaveDraft(SaveDraftRequest) returns (SaveDraftResponse);
+  rpc ReplyEmail(ReplyEmailRequest) returns (ReplyEmailResponse);
+  rpc ForwardEmail(ForwardEmailRequest) returns (ForwardEmailResponse);
+
+  // Signature operations
+  rpc CreateSignature(CreateSignatureRequest) returns (CreateSignatureResponse);
+  rpc GetSignature(GetSignatureRequest) returns (GetSignatureResponse);
+  rpc ListSignatures(ListSignaturesRequest) returns (ListSignaturesResponse);
+  rpc UpdateSignature(UpdateSignatureRequest) returns (UpdateSignatureResponse);
+  rpc DeleteSignature(DeleteSignatureRequest) returns (DeleteSignatureResponse);
+  rpc SetDefaultSignature(SetDefaultSignatureRequest) returns (SetDefaultSignatureResponse);
+
+  // CRM linking operations
+  rpc GetEmailContactLinks(GetEmailContactLinksRequest) returns (GetEmailContactLinksResponse);
+  rpc LinkEmailToContact(LinkEmailToContactRequest) returns (LinkEmailToContactResponse);
+  rpc UnlinkEmailFromContact(UnlinkEmailFromContactRequest) returns (UnlinkEmailFromContactResponse);
+  rpc GetContactEmails(GetContactEmailsRequest) returns (GetContactEmailsResponse);
+
+  // Sync operations
+  rpc TriggerSync(TriggerSyncRequest) returns (TriggerSyncResponse);
+  rpc GetSyncStatus(GetSyncStatusRequest) returns (GetSyncStatusResponse);
+  rpc SetReadFlag(SetReadFlagRequest) returns (SetReadFlagResponse);
+
+  // Attachment operations
+  rpc UploadAttachment(UploadAttachmentRequest) returns (UploadAttachmentResponse);
+  rpc GetAttachmentDownloadURL(GetAttachmentDownloadURLRequest) returns (GetAttachmentDownloadURLResponse);
+
+  // Contact import/export
+  rpc ImportContactsCSV(ImportContactsCSVRequest) returns (ImportContactsResponse);
+  rpc ImportContactsVCard(ImportContactsVCardRequest) returns (ImportContactsResponse);
+  rpc ExportContactsCSV(ExportContactsRequest) returns (ExportContactsResponse);
+  rpc ExportContactsVCard(ExportContactsRequest) returns (ExportContactsResponse);
+}
+
+// ============================================================================
+// Common Messages
+// ============================================================================
+
+message EmailAddress {
+  string name = 1;
+  string email = 2;
+}
+
+message EmailAttachmentInfo {
+  string id = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 size_bytes = 4;
+  string minio_key = 5;
+  string content_id = 6;   // For inline images (CID)
+  bool is_inline = 7;
+}
+
+// ============================================================================
+// Account Messages
+// ============================================================================
+
+message EmailAccountInfo {
+  string id = 1;
+  string user_id = 2;
+  string email_address = 3;
+  string display_name = 4;
+  string imap_host = 5;
+  int32 imap_port = 6;
+  string smtp_host = 7;
+  int32 smtp_port = 8;
+  string username = 9;
+  bool use_ssl = 10;
+  bool sync_enabled = 11;
+  string last_sync_at = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message CreateEmailAccountRequest {
+  string user_id = 1;
+  string email_address = 2;
+  string display_name = 3;
+  string imap_host = 4;
+  int32 imap_port = 5;
+  string smtp_host = 6;
+  int32 smtp_port = 7;
+  string username = 8;
+  string password = 9;       // Plaintext in proto -- encrypted at service layer
+  bool use_ssl = 10;
+  bool sync_enabled = 11;
+}
+
+message CreateEmailAccountResponse {
+  EmailAccountInfo account = 1;
+}
+
+message GetEmailAccountRequest {
+  string user_id = 1;
+}
+
+message GetEmailAccountResponse {
+  EmailAccountInfo account = 1;
+}
+
+message UpdateEmailAccountRequest {
+  string id = 1;
+  optional string display_name = 2;
+  optional string imap_host = 3;
+  optional int32 imap_port = 4;
+  optional string smtp_host = 5;
+  optional int32 smtp_port = 6;
+  optional string username = 7;
+  optional string password = 8;
+  optional bool use_ssl = 9;
+  optional bool sync_enabled = 10;
+}
+
+message UpdateEmailAccountResponse {
+  EmailAccountInfo account = 1;
+}
+
+message DeleteEmailAccountRequest {
+  string id = 1;
+}
+
+message DeleteEmailAccountResponse {}
+
+message TestEmailConnectionRequest {
+  string imap_host = 1;
+  int32 imap_port = 2;
+  string smtp_host = 3;
+  int32 smtp_port = 4;
+  string username = 5;
+  string password = 6;
+  bool use_ssl = 7;
+}
+
+message TestEmailConnectionResponse {
+  bool imap_ok = 1;
+  bool smtp_ok = 2;
+  string imap_error = 3;
+  string smtp_error = 4;
+}
+
+// ============================================================================
+// Folder Messages
+// ============================================================================
+
+message EmailFolderInfo {
+  string id = 1;
+  string account_id = 2;
+  string name = 3;
+  string imap_name = 4;
+  string folder_type = 5;   // inbox, sent, drafts, trash, spam, archive, custom
+  int64 uid_validity = 6;
+  int32 message_count = 7;
+  int32 unread_count = 8;
+  int32 sort_order = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message ListFoldersRequest {
+  string account_id = 1;
+}
+
+message ListFoldersResponse {
+  repeated EmailFolderInfo folders = 1;
+}
+
+message GetFolderRequest {
+  string id = 1;
+}
+
+message GetFolderResponse {
+  EmailFolderInfo folder = 1;
+}
+
+message SyncFoldersRequest {
+  string account_id = 1;
+}
+
+message SyncFoldersResponse {
+  repeated EmailFolderInfo folders = 1;
+}
+
+// ============================================================================
+// Message Messages
+// ============================================================================
+
+message EmailMessageInfo {
+  string id = 1;
+  string account_id = 2;
+  string folder_id = 3;
+  int64 uid = 4;
+  string message_id_header = 5;
+  string in_reply_to = 6;
+  repeated string references = 7;
+  string thread_id = 8;
+  EmailAddress from = 9;
+  repeated EmailAddress to = 10;
+  repeated EmailAddress cc = 11;
+  repeated EmailAddress bcc = 12;
+  string subject = 13;
+  string preview = 14;
+  string body_text = 15;
+  string body_html = 16;
+  bool is_read = 17;
+  bool is_starred = 18;
+  bool is_draft = 19;
+  bool has_attachments = 20;
+  string date = 21;
+  int64 size_bytes = 22;
+  repeated EmailAttachmentInfo attachments = 23;
+  string created_at = 24;
+  string updated_at = 25;
+}
+
+message ListMessagesRequest {
+  string folder_id = 1;
+  int32 page = 2;
+  int32 per_page = 3;
+  string search = 4;
+  string sort_by = 5;
+  bool sort_desc = 6;
+}
+
+message ListMessagesResponse {
+  repeated EmailMessageInfo messages = 1;
+  int32 total = 2;
+}
+
+message GetMessageRequest {
+  string id = 1;
+}
+
+message GetMessageResponse {
+  EmailMessageInfo message = 1;
+}
+
+message GetThreadMessagesRequest {
+  string thread_id = 1;
+}
+
+message GetThreadMessagesResponse {
+  repeated EmailMessageInfo messages = 1;
+}
+
+message MarkReadRequest {
+  string id = 1;
+}
+
+message MarkReadResponse {}
+
+message MarkUnreadRequest {
+  string id = 1;
+}
+
+message MarkUnreadResponse {}
+
+message ToggleStarRequest {
+  string id = 1;
+}
+
+message ToggleStarResponse {
+  bool is_starred = 1;
+}
+
+message MoveToFolderRequest {
+  string message_id = 1;
+  string target_folder_id = 2;
+}
+
+message MoveToFolderResponse {}
+
+message DeleteMessageRequest {
+  string id = 1;
+}
+
+message DeleteMessageResponse {}
+
+// ============================================================================
+// Send/Compose Messages
+// ============================================================================
+
+message SendEmailRequest {
+  string account_id = 1;
+  repeated EmailAddress to = 2;
+  repeated EmailAddress cc = 3;
+  repeated EmailAddress bcc = 4;
+  string subject = 5;
+  string body_html = 6;
+  string body_text = 7;
+  repeated string attachment_ids = 8;
+  optional string in_reply_to_message_id = 9;  // For threading
+  optional string signature_id = 10;
+}
+
+message SendEmailResponse {
+  EmailMessageInfo message = 1;
+}
+
+message SaveDraftRequest {
+  string account_id = 1;
+  optional string draft_id = 2;           // Update existing draft
+  repeated EmailAddress to = 3;
+  repeated EmailAddress cc = 4;
+  repeated EmailAddress bcc = 5;
+  string subject = 6;
+  string body_html = 7;
+  string body_text = 8;
+  repeated string attachment_ids = 9;
+  optional string in_reply_to_message_id = 10;
+}
+
+message SaveDraftResponse {
+  EmailMessageInfo message = 1;
+}
+
+message ReplyEmailRequest {
+  string account_id = 1;
+  string original_message_id = 2;
+  string body_html = 3;
+  string body_text = 4;
+  bool reply_all = 5;
+  repeated string attachment_ids = 6;
+}
+
+message ReplyEmailResponse {
+  EmailMessageInfo message = 1;
+}
+
+message ForwardEmailRequest {
+  string account_id = 1;
+  string original_message_id = 2;
+  repeated EmailAddress to = 3;
+  string body_html = 4;
+  string body_text = 5;
+  repeated string attachment_ids = 6;
+}
+
+message ForwardEmailResponse {
+  EmailMessageInfo message = 1;
+}
+
+// ============================================================================
+// Signature Messages
+// ============================================================================
+
+message EmailSignatureInfo {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  string html_content = 4;
+  bool is_default = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message CreateSignatureRequest {
+  string user_id = 1;
+  string name = 2;
+  string html_content = 3;
+  bool is_default = 4;
+}
+
+message CreateSignatureResponse {
+  EmailSignatureInfo signature = 1;
+}
+
+message GetSignatureRequest {
+  string id = 1;
+}
+
+message GetSignatureResponse {
+  EmailSignatureInfo signature = 1;
+}
+
+message ListSignaturesRequest {
+  string user_id = 1;
+}
+
+message ListSignaturesResponse {
+  repeated EmailSignatureInfo signatures = 1;
+}
+
+message UpdateSignatureRequest {
+  string id = 1;
+  optional string name = 2;
+  optional string html_content = 3;
+  optional bool is_default = 4;
+}
+
+message UpdateSignatureResponse {
+  EmailSignatureInfo signature = 1;
+}
+
+message DeleteSignatureRequest {
+  string id = 1;
+}
+
+message DeleteSignatureResponse {}
+
+message SetDefaultSignatureRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message SetDefaultSignatureResponse {
+  EmailSignatureInfo signature = 1;
+}
+
+// ============================================================================
+// CRM Linking Messages
+// ============================================================================
+
+message EmailContactLinkInfo {
+  string id = 1;
+  string message_id = 2;
+  string contact_id = 3;
+  string link_type = 4;   // auto, manual
+  string created_at = 5;
+}
+
+message GetEmailContactLinksRequest {
+  string message_id = 1;
+}
+
+message GetEmailContactLinksResponse {
+  repeated EmailContactLinkInfo links = 1;
+}
+
+message LinkEmailToContactRequest {
+  string message_id = 1;
+  string contact_id = 2;
+  string link_type = 3;
+}
+
+message LinkEmailToContactResponse {
+  EmailContactLinkInfo link = 1;
+}
+
+message UnlinkEmailFromContactRequest {
+  string message_id = 1;
+  string contact_id = 2;
+}
+
+message UnlinkEmailFromContactResponse {}
+
+message GetContactEmailsRequest {
+  string contact_id = 1;
+  int32 page = 2;
+  int32 per_page = 3;
+}
+
+message GetContactEmailsResponse {
+  repeated EmailMessageInfo messages = 1;
+  int32 total = 2;
+}
+
+// ============================================================================
+// Sync Messages
+// ============================================================================
+
+message TriggerSyncRequest {
+  string account_id = 1;
+}
+
+message TriggerSyncResponse {
+  string status = 1;   // started, already_syncing
+}
+
+message GetSyncStatusRequest {
+  string account_id = 1;
+}
+
+message GetSyncStatusResponse {
+  string status = 1;          // idle, syncing, error
+  string last_sync_at = 2;
+  string error_message = 3;
+}
+
+message SetReadFlagRequest {
+  string message_id = 1;
+  bool is_read = 2;
+}
+
+message SetReadFlagResponse {}
+
+// ============================================================================
+// Attachment Messages
+// ============================================================================
+
+message UploadAttachmentRequest {
+  string account_id = 1;
+  string filename = 2;
+  string content_type = 3;
+  bytes content = 4;
+}
+
+message UploadAttachmentResponse {
+  string id = 1;
+  string minio_key = 2;
+  int64 size_bytes = 3;
+}
+
+message GetAttachmentDownloadURLRequest {
+  string id = 1;
+}
+
+message GetAttachmentDownloadURLResponse {
+  string download_url = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 size_bytes = 4;
+}
+
+// ============================================================================
+// Contact Import/Export Messages
+// ============================================================================
+
+message ImportContactsCSVRequest {
+  bytes file_content = 1;
+  map<string, string> field_mapping = 2;
+  string visibility = 3;                   // shared, personal
+  bool merge_by_email = 4;
+}
+
+message ImportContactsVCardRequest {
+  bytes file_content = 1;
+  string visibility = 2;
+  bool merge_by_email = 3;
+}
+
+message ImportError {
+  int32 row = 1;
+  string field = 2;
+  string error = 3;
+}
+
+message ImportContactsResponse {
+  int32 imported_count = 1;
+  int32 merged_count = 2;
+  int32 skipped_count = 3;
+  repeated ImportError errors = 4;
+}
+
+message ExportContactsRequest {
+  repeated string contact_ids = 1;
+  repeated string fields = 2;
+}
+
+message ExportContactsResponse {
+  bytes file_content = 1;
+  string filename = 2;
+}

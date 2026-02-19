@@ -871,7 +871,7 @@ export default function EinkaufPage() {
               {/* Supplier */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Lieferant <span className="text-red-500">*</span>
+                  Lieferant <span className="text-destructive">*</span>
                 </label>
                 <select
                   value={newOrderSupplierId}
@@ -1029,7 +1029,7 @@ export default function EinkaufPage() {
             <div className="p-5 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Name <span className="text-red-500">*</span>
+                  Name <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"

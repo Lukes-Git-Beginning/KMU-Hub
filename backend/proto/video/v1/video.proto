@@ -1,0 +1,469 @@
+syntax = "proto3";
+
+package video.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/video/v1;videov1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service VideoService {
+  // Call Management
+  rpc CreateCall(CreateCallRequest) returns (CallSession);
+  rpc JoinCall(JoinCallRequest) returns (JoinCallResponse);
+  rpc EndCall(EndCallRequest) returns (google.protobuf.Empty);
+  rpc GetCall(GetCallRequest) returns (CallSession);
+  rpc ListActiveCalls(ListActiveCallsRequest) returns (ListActiveCallsResponse);
+
+  // Recording
+  rpc StartRecording(StartRecordingRequest) returns (Recording);
+  rpc StopRecording(StopRecordingRequest) returns (Recording);
+  rpc SetRecordingConsent(SetRecordingConsentRequest) returns (google.protobuf.Empty);
+  rpc GetRecordingConsent(GetRecordingConsentRequest) returns (RecordingConsentStatus);
+  rpc ListRecordings(ListRecordingsRequest) returns (ListRecordingsResponse);
+  rpc DeleteRecording(DeleteRecordingRequest) returns (google.protobuf.Empty);
+
+  // Meeting Management
+  rpc CreateMeeting(CreateMeetingRequest) returns (Meeting);
+  rpc GetMeeting(GetMeetingRequest) returns (Meeting);
+  rpc UpdateMeeting(UpdateMeetingRequest) returns (Meeting);
+  rpc DeleteMeeting(DeleteMeetingRequest) returns (google.protobuf.Empty);
+  rpc ListMeetings(ListMeetingsRequest) returns (ListMeetingsResponse);
+  rpc StartMeeting(StartMeetingRequest) returns (StartMeetingResponse);
+  rpc EndMeeting(EndMeetingRequest) returns (MeetingSummary);
+
+  // Meeting Notes and Action Items
+  rpc SaveMeetingNotes(SaveMeetingNotesRequest) returns (MeetingNotes);
+  rpc GetMeetingNotes(GetMeetingNotesRequest) returns (MeetingNotes);
+  rpc GetPreviousMeetingNotes(GetPreviousMeetingNotesRequest) returns (MeetingNotes);
+  rpc CreateActionItem(CreateActionItemRequest) returns (ActionItem);
+  rpc UpdateActionItem(UpdateActionItemRequest) returns (ActionItem);
+  rpc DeleteActionItem(DeleteActionItemRequest) returns (google.protobuf.Empty);
+  rpc ListActionItems(ListActionItemsRequest) returns (ListActionItemsResponse);
+  rpc ConvertActionItemsToTasks(ConvertActionItemsToTasksRequest) returns (ConvertActionItemsToTasksResponse);
+
+  // Presence
+  rpc GetPresence(GetPresenceRequest) returns (PresenceStatus);
+  rpc GetBulkPresence(GetBulkPresenceRequest) returns (GetBulkPresenceResponse);
+  rpc SetPresenceStatus(SetPresenceStatusRequest) returns (google.protobuf.Empty);
+  rpc UpdatePresenceConfig(UpdatePresenceConfigRequest) returns (google.protobuf.Empty);
+  rpc GetPresenceConfig(GetPresenceConfigRequest) returns (PresenceConfig);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum CallType {
+  CALL_TYPE_UNSPECIFIED = 0;
+  CALL_TYPE_ONE_TO_ONE = 1;
+  CALL_TYPE_GROUP = 2;
+}
+
+enum CallStatus {
+  CALL_STATUS_UNSPECIFIED = 0;
+  CALL_STATUS_RINGING = 1;
+  CALL_STATUS_ACTIVE = 2;
+  CALL_STATUS_ENDED = 3;
+}
+
+enum MeetingStatus {
+  MEETING_STATUS_UNSPECIFIED = 0;
+  MEETING_STATUS_SCHEDULED = 1;
+  MEETING_STATUS_IN_PROGRESS = 2;
+  MEETING_STATUS_COMPLETED = 3;
+  MEETING_STATUS_CANCELLED = 4;
+}
+
+enum RecordingStatus {
+  RECORDING_STATUS_UNSPECIFIED = 0;
+  RECORDING_STATUS_ACTIVE = 1;
+  RECORDING_STATUS_PROCESSING = 2;
+  RECORDING_STATUS_COMPLETED = 3;
+  RECORDING_STATUS_FAILED = 4;
+  RECORDING_STATUS_DELETED = 5;
+}
+
+enum PresenceLevel {
+  PRESENCE_UNSPECIFIED = 0;
+  PRESENCE_ONLINE = 1;
+  PRESENCE_AWAY = 2;
+  PRESENCE_DND = 3;
+  PRESENCE_IN_CALL = 4;
+  PRESENCE_OFFLINE = 5;
+}
+
+enum RsvpStatus {
+  RSVP_UNSPECIFIED = 0;
+  RSVP_PENDING = 1;
+  RSVP_ACCEPTED = 2;
+  RSVP_DECLINED = 3;
+  RSVP_TENTATIVE = 4;
+}
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+message CallSession {
+  string id = 1;
+  CallType call_type = 2;
+  CallStatus status = 3;
+  string room_name = 4;
+  string initiator_id = 5;
+  optional string channel_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  optional google.protobuf.Timestamp ended_at = 8;
+  optional int32 duration_seconds = 9;
+  repeated CallParticipant participants = 10;
+}
+
+message CallParticipant {
+  string call_id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp joined_at = 3;
+  optional google.protobuf.Timestamp left_at = 4;
+  bool has_video = 5;
+  bool has_audio = 6;
+  // Denormalized user info
+  string first_name = 7;
+  string last_name = 8;
+}
+
+message Meeting {
+  string id = 1;
+  string title = 2;
+  optional string description = 3;
+  optional string agenda = 4;
+  string organizer_id = 5;
+  MeetingStatus status = 6;
+  google.protobuf.Timestamp scheduled_start = 7;
+  google.protobuf.Timestamp scheduled_end = 8;
+  optional google.protobuf.Timestamp actual_start = 9;
+  optional google.protobuf.Timestamp actual_end = 10;
+  optional string room_name = 11;
+  optional string calendar_event_id = 12;
+  optional string recurring_meeting_id = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+  repeated MeetingAttendee attendees = 16;
+}
+
+message MeetingAttendee {
+  string meeting_id = 1;
+  string user_id = 2;
+  RsvpStatus rsvp_status = 3;
+  // Denormalized user info
+  string first_name = 4;
+  string last_name = 5;
+}
+
+message MeetingNotes {
+  string id = 1;
+  string meeting_id = 2;
+  string author_id = 3;
+  string content = 4;
+  bool is_private = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message ActionItem {
+  string id = 1;
+  string meeting_id = 2;
+  string description = 3;
+  optional string assignee_id = 4;
+  bool is_completed = 5;
+  optional string task_id = 6;
+  int32 sort_order = 7;
+  google.protobuf.Timestamp created_at = 8;
+  // Denormalized assignee info
+  optional string assignee_first_name = 9;
+  optional string assignee_last_name = 10;
+}
+
+message MeetingSummary {
+  string meeting_id = 1;
+  int32 duration_minutes = 2;
+  int32 attendee_count = 3;
+  optional string notes_summary = 4;
+  repeated ActionItem action_items = 5;
+}
+
+message Recording {
+  string id = 1;
+  optional string call_id = 2;
+  optional string meeting_id = 3;
+  RecordingStatus status = 4;
+  optional string egress_id = 5;
+  optional string file_url = 6;
+  optional int64 file_size_bytes = 7;
+  optional int32 duration_seconds = 8;
+  optional google.protobuf.Timestamp retention_expires_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message RecordingConsentStatus {
+  string recording_id = 1;
+  repeated RecordingConsent consents = 2;
+  bool all_consented = 3;
+}
+
+message RecordingConsent {
+  string recording_id = 1;
+  string user_id = 2;
+  bool consented = 3;
+  optional google.protobuf.Timestamp responded_at = 4;
+  // Denormalized user info
+  string first_name = 5;
+  string last_name = 6;
+}
+
+message PresenceStatus {
+  string user_id = 1;
+  PresenceLevel status = 2;
+  bool manual_override = 3;
+  optional google.protobuf.Timestamp last_activity = 4;
+  // Denormalized user info
+  string first_name = 5;
+  string last_name = 6;
+}
+
+message PresenceConfig {
+  int32 away_timeout_seconds = 1;
+}
+
+// ============================================================================
+// Call Management RPCs
+// ============================================================================
+
+message CreateCallRequest {
+  CallType call_type = 1;
+  string initiator_id = 2;
+  repeated string participant_ids = 3;
+  optional string channel_id = 4;
+}
+
+message JoinCallRequest {
+  string call_id = 1;
+  string user_id = 2;
+}
+
+message JoinCallResponse {
+  string token = 1;
+  string room_name = 2;
+  string ws_url = 3;
+  CallSession call = 4;
+}
+
+message EndCallRequest {
+  string call_id = 1;
+  string user_id = 2;
+}
+
+message GetCallRequest {
+  string call_id = 1;
+}
+
+message ListActiveCallsRequest {
+  string user_id = 1;
+}
+
+message ListActiveCallsResponse {
+  repeated CallSession calls = 1;
+}
+
+// ============================================================================
+// Recording RPCs
+// ============================================================================
+
+message StartRecordingRequest {
+  optional string call_id = 1;
+  optional string meeting_id = 2;
+  string user_id = 3;
+}
+
+message StopRecordingRequest {
+  string recording_id = 1;
+  string user_id = 2;
+}
+
+message SetRecordingConsentRequest {
+  string recording_id = 1;
+  string user_id = 2;
+  bool consented = 3;
+}
+
+message GetRecordingConsentRequest {
+  string recording_id = 1;
+}
+
+message ListRecordingsRequest {
+  optional string call_id = 1;
+  optional string meeting_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListRecordingsResponse {
+  repeated Recording recordings = 1;
+  int32 total = 2;
+}
+
+message DeleteRecordingRequest {
+  string recording_id = 1;
+  string user_id = 2;
+}
+
+// ============================================================================
+// Meeting Management RPCs
+// ============================================================================
+
+message CreateMeetingRequest {
+  string title = 1;
+  optional string description = 2;
+  optional string agenda = 3;
+  string organizer_id = 4;
+  google.protobuf.Timestamp scheduled_start = 5;
+  google.protobuf.Timestamp scheduled_end = 6;
+  optional string calendar_event_id = 7;
+  optional string recurring_meeting_id = 8;
+  repeated string attendee_user_ids = 9;
+}
+
+message GetMeetingRequest {
+  string meeting_id = 1;
+}
+
+message UpdateMeetingRequest {
+  string meeting_id = 1;
+  optional string title = 2;
+  optional string description = 3;
+  optional string agenda = 4;
+  optional google.protobuf.Timestamp scheduled_start = 5;
+  optional google.protobuf.Timestamp scheduled_end = 6;
+  repeated string attendee_user_ids = 7;
+}
+
+message DeleteMeetingRequest {
+  string meeting_id = 1;
+  string user_id = 2;
+}
+
+message ListMeetingsRequest {
+  string user_id = 1;
+  optional MeetingStatus status_filter = 2;
+  optional google.protobuf.Timestamp start_after = 3;
+  optional google.protobuf.Timestamp start_before = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListMeetingsResponse {
+  repeated Meeting meetings = 1;
+  int32 total = 2;
+}
+
+message StartMeetingRequest {
+  string meeting_id = 1;
+  string user_id = 2;
+}
+
+message StartMeetingResponse {
+  Meeting meeting = 1;
+  string token = 2;
+  string room_name = 3;
+  string ws_url = 4;
+}
+
+message EndMeetingRequest {
+  string meeting_id = 1;
+  string user_id = 2;
+}
+
+// ============================================================================
+// Meeting Notes and Action Items RPCs
+// ============================================================================
+
+message SaveMeetingNotesRequest {
+  string meeting_id = 1;
+  string author_id = 2;
+  string content = 3;
+  bool is_private = 4;
+}
+
+message GetMeetingNotesRequest {
+  string meeting_id = 1;
+  string user_id = 2;
+}
+
+message GetPreviousMeetingNotesRequest {
+  string recurring_meeting_id = 1;
+  string current_meeting_id = 2;
+  string user_id = 3;
+}
+
+message CreateActionItemRequest {
+  string meeting_id = 1;
+  string description = 2;
+  optional string assignee_id = 3;
+  optional int32 sort_order = 4;
+}
+
+message UpdateActionItemRequest {
+  string action_item_id = 1;
+  optional string description = 2;
+  optional string assignee_id = 3;
+  optional bool is_completed = 4;
+  optional int32 sort_order = 5;
+}
+
+message DeleteActionItemRequest {
+  string action_item_id = 1;
+}
+
+message ListActionItemsRequest {
+  string meeting_id = 1;
+}
+
+message ListActionItemsResponse {
+  repeated ActionItem action_items = 1;
+}
+
+message ConvertActionItemsToTasksRequest {
+  repeated string action_item_ids = 1;
+  string project_id = 2;
+  string user_id = 3;
+}
+
+message ConvertActionItemsToTasksResponse {
+  repeated ActionItem action_items = 1;
+  int32 converted_count = 2;
+}
+
+// ============================================================================
+// Presence RPCs
+// ============================================================================
+
+message GetPresenceRequest {
+  string user_id = 1;
+}
+
+message GetBulkPresenceRequest {
+  repeated string user_ids = 1;
+}
+
+message GetBulkPresenceResponse {
+  repeated PresenceStatus statuses = 1;
+}
+
+message SetPresenceStatusRequest {
+  string user_id = 1;
+  PresenceLevel status = 2;
+}
+
+message UpdatePresenceConfigRequest {
+  int32 away_timeout_seconds = 1;
+}
+
+message GetPresenceConfigRequest {}

@@ -68,3 +68,13 @@ func GetUserPermissions(ctx context.Context) []string {
 	}
 	return nil
 }
+
+// IsAdmin checks if the current user has the "admin" role.
+func IsAdmin(ctx context.Context) bool {
+	for _, role := range GetUserRoles(ctx) {
+		if role == "admin" {
+			return true
+		}
+	}
+	return false
+}

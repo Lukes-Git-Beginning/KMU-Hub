@@ -25,6 +25,10 @@ type Config struct {
 	NotificationGRPCAddress string `env:"NOTIFICATION_GRPC_ADDRESS,default=localhost:50054"`
 	WorkGRPCPort            string `env:"WORK_GRPC_PORT,default=:50055"`
 	WorkGRPCAddress         string `env:"WORK_GRPC_ADDRESS,default=localhost:50055"`
+	EmailGRPCPort           string `env:"EMAIL_GRPC_PORT,default=:50056"`
+	EmailGRPCAddress        string `env:"EMAIL_GRPC_ADDRESS,default=localhost:50056"`
+	DocumentGRPCPort        string `env:"DOCUMENT_GRPC_PORT,default=:50057"`
+	DocumentGRPCAddress     string `env:"DOCUMENT_GRPC_ADDRESS,default=localhost:50057"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -37,11 +41,25 @@ type Config struct {
 	ChatHealthPort         string `env:"CHAT_HEALTH_PORT,default=:9093"`
 	NotificationHealthPort string `env:"NOTIFICATION_HEALTH_PORT,default=:9094"`
 	WorkHealthPort         string `env:"WORK_HEALTH_PORT,default=:9095"`
+	EmailHealthPort        string `env:"EMAIL_HEALTH_PORT,default=:9096"`
+	DocumentHealthPort     string `env:"DOCUMENT_HEALTH_PORT,default=:9097"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
 	LiveKitAPISecret string `env:"LIVEKIT_API_SECRET,default="`
 	LiveKitWSURL     string `env:"LIVEKIT_WS_URL,default="`
+
+	// LiveKit Egress (Recording -- optional, requires LiveKit Egress service)
+	LiveKitEgressTemplateURL string `env:"LIVEKIT_EGRESS_TEMPLATE_URL,default="`
+
+	// LiveKit Webhook (optional, validates incoming LiveKit webhook signatures)
+	LiveKitWebhookSecret string `env:"LIVEKIT_WEBHOOK_SECRET,default="`
+
+	// Vault (secret encryption -- required for auth service)
+	VaultMasterSecret string `env:"VAULT_MASTER_SECRET,default="`
+
+	// WOPI (OnlyOffice collaborative editing)
+	WOPIJWTSecret string `env:"WOPI_JWT_SECRET,default=wopi-dev-secret-change-me"`
 
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`

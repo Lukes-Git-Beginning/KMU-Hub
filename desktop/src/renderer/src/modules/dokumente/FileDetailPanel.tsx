@@ -1,4 +1,9 @@
-import { useState } from 'react'
+/**
+ * File detail slide-over panel connected to real API.
+ *
+ * Shows: file metadata, tags (with add/remove), entity links,
+ * sharing status, version count. Uses hooks from useDocuments.ts.
+ */
 import {
   FileText,
   FileSpreadsheet,
@@ -13,51 +18,67 @@ import {
   Users,
   Download,
   Share2,
-  Lock,
   Star,
   Pencil,
   Trash2,
+  Link2,
+  HardDrive,
   Plus,
   X,
-  FolderInput,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { DetailPanel } from '@/components/shared'
-import type { DocFile } from '@/stores/documents'
+import {
+  useShares,
+  useFileVersions,
+  useFileLinks,
+  useDocumentTags,
+  useTagFile,
+  useUntagFile,
+} from '@/api/hooks/useDocuments'
+import type { DocumentFile } from '@/api/types/document-types'
 
 interface FileDetailPanelProps {
-  file: DocFile | null
+  file: DocumentFile | null
   open: boolean
   onClose: () => void
-  onPreview: (file: DocFile) => void
-  onRename: (file: DocFile) => void
-  onShare: (file: DocFile) => void
+  onPreview: (file: DocumentFile) => void
+  onRename: (file: DocumentFile) => void
+  onShare: (file: DocumentFile) => void
   onDelete: (fileId: string) => void
   onToggleFavorite: (fileId: string) => void
-  onUpdateTags: (fileId: string, tags: string[]) => void
-  onMove: (file: DocFile) => void
+  onVersionHistory: (fileId: string) => void
 }
 
-const typeIcons: Record<string, typeof FileText> = {
-  pdf: FileText,
-  word: FileText,
-  excel: FileSpreadsheet,
-  image: Image,
-  video: Film,
-  archive: Archive,
-  other: File,
+function formatBytes(bytes: number): string {
+  if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(1)} GB`
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${bytes} B`
 }
 
-const typeLabels: Record<string, string> = {
-  pdf: 'PDF-Dokument',
-  word: 'Word-Dokument',
-  excel: 'Excel-Tabelle',
-  image: 'Bilddatei',
-  video: 'Videodatei',
-  archive: 'Archiv',
-  other: 'Datei',
+function getMimeIcon(mimeType: string) {
+  if (mimeType.startsWith('image/')) return Image
+  if (mimeType === 'application/pdf') return FileText
+  if (mimeType.startsWith('video/')) return Film
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel'))
+    return FileSpreadsheet
+  if (mimeType.includes('zip') || mimeType.includes('archive')) return Archive
+  return File
+}
+
+function getMimeLabel(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'Bilddatei'
+  if (mimeType === 'application/pdf') return 'PDF-Dokument'
+  if (mimeType.startsWith('video/')) return 'Videodatei'
+  if (mimeType.includes('word') || mimeType.includes('document'))
+    return 'Word-Dokument'
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel'))
+    return 'Excel-Tabelle'
+  if (mimeType.includes('zip') || mimeType.includes('archive')) return 'Archiv'
+  return 'Datei'
 }
 
 export function FileDetailPanel({
@@ -69,46 +90,62 @@ export function FileDetailPanel({
   onShare,
   onDelete,
   onToggleFavorite,
-  onUpdateTags,
-  onMove,
+  onVersionHistory,
 }: FileDetailPanelProps) {
-  const [isEditingTags, setIsEditingTags] = useState(false)
-  const [tagInput, setTagInput] = useState('')
+  // API data
+  const { data: sharesData } = useShares('file', file?.id ?? '')
+  const { data: versionsData } = useFileVersions(file?.id ?? '')
+  const { data: linksData } = useFileLinks(file?.id ?? '')
+  const { data: allTagsData } = useDocumentTags()
+  const tagFile = useTagFile()
+  const untagFile = useUntagFile()
 
   if (!file) return null
 
-  const Icon = typeIcons[file.type] || File
+  const Icon = getMimeIcon(file.mime_type)
+  const shares = sharesData?.shares ?? []
+  const versions = versionsData?.versions ?? []
+  const links = linksData?.links ?? []
+  const allTags = allTagsData?.tags ?? []
+  const fileTags = file.tags ?? []
+  const fileTagIds = new Set(fileTags.map((t) => t.id))
+  const availableTags = allTags.filter((t) => !fileTagIds.has(t.id))
 
   return (
     <DetailPanel
       open={open}
       onClose={onClose}
-      title={file.name}
-      subtitle={typeLabels[file.type]}
+      title={file.filename}
+      subtitle={getMimeLabel(file.mime_type)}
       badge={
         <div className="flex items-center gap-1.5 ml-2">
-          {file.isVault && (
-            <Badge variant="outline" className="text-xs">
-              <Lock className="mr-1 h-3 w-3 text-green-500" />
-              Tresor
-            </Badge>
-          )}
-          {file.isShared && (
-            <Badge variant="outline" className="text-xs">
-              <Share2 className="mr-1 h-3 w-3 text-blue-500" />
-              Geteilt
-            </Badge>
+          {file.is_favorite && (
+            <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
           )}
         </div>
       }
       footer={
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={() => onPreview(file)}>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => onPreview(file)}
+          >
             <FileText className="mr-1.5 h-4 w-4" />
             Vorschau
           </Button>
-          <Button variant="outline" size="icon" onClick={() => onToggleFavorite(file.id)}>
-            <Star className={`h-4 w-4 ${file.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onToggleFavorite(file.id)}
+          >
+            <Star
+              className={`h-4 w-4 ${
+                file.is_favorite
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : ''
+              }`}
+            />
           </Button>
           <Button
             variant="outline"
@@ -125,19 +162,27 @@ export function FileDetailPanel({
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm">
           <Icon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-foreground">{typeLabels[file.type]} · {file.size}</span>
+          <span className="text-foreground">
+            {getMimeLabel(file.mime_type)} &middot;{' '}
+            {formatBytes(file.file_size)}
+          </span>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span className="text-foreground">
-            {new Date(file.date).toLocaleDateString('de-CH', {
-              weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+            {new Date(file.created_at).toLocaleDateString('de-CH', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
             })}
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <User className="h-4 w-4 text-muted-foreground" />
-          <span className="text-foreground">Erstellt von {file.createdBy}</span>
+          <HardDrive className="h-4 w-4 text-muted-foreground" />
+          <span className="text-foreground">
+            Version {file.current_version}
+          </span>
         </div>
       </div>
 
@@ -151,9 +196,13 @@ export function FileDetailPanel({
           <Share2 className="mr-1.5 h-3.5 w-3.5" />
           Teilen
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onMove(file)}>
-          <FolderInput className="mr-1.5 h-3.5 w-3.5" />
-          Verschieben
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onVersionHistory(file.id)}
+        >
+          <History className="mr-1.5 h-3.5 w-3.5" />
+          Versionen ({versions.length})
         </Button>
         <Button variant="outline" size="sm">
           <Download className="mr-1.5 h-3.5 w-3.5" />
@@ -164,91 +213,61 @@ export function FileDetailPanel({
       {/* Tags */}
       <Separator className="my-4" />
       <div>
-        <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center justify-between">
-          <span className="flex items-center gap-1">
-            <Tag className="h-3.5 w-3.5" />
-            Tags
-          </span>
-          <button
-            onClick={() => {
-              setIsEditingTags(!isEditingTags)
-              setTagInput('')
-            }}
-            className="text-[10px] normal-case font-normal text-primary hover:underline"
-          >
-            {isEditingTags ? 'Fertig' : 'Bearbeiten'}
-          </button>
+        <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center gap-1">
+          <Tag className="h-3.5 w-3.5" />
+          Tags
         </h4>
         <div className="flex flex-wrap gap-1.5">
-          {file.tags.map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-xs">
-              {tag}
-              {isEditingTags && (
-                <button
-                  onClick={() => onUpdateTags(file.id, file.tags.filter((t) => t !== tag))}
-                  className="ml-1 rounded-full hover:text-red-500"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
+          {fileTags.map((tag) => (
+            <Badge
+              key={tag.id}
+              variant="secondary"
+              className="text-xs group cursor-pointer"
+              onClick={() =>
+                untagFile.mutate({ fileId: file.id, tagId: tag.id })
+              }
+            >
+              {tag.name}
+              <X className="ml-1 h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Badge>
           ))}
-          {file.tags.length === 0 && !isEditingTags && (
-            <span className="text-xs text-muted-foreground">Keine Tags</span>
-          )}
-        </div>
-        {isEditingTags && (
-          <div className="mt-2 flex gap-1.5">
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && tagInput.trim()) {
-                  const newTag = tagInput.trim()
-                  if (!file.tags.includes(newTag)) {
-                    onUpdateTags(file.id, [...file.tags, newTag])
-                  }
-                  setTagInput('')
-                }
-              }}
-              placeholder="Tag eingeben + Enter"
-              className="flex-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              disabled={!tagInput.trim()}
+          {availableTags.length > 0 && (
+            <Badge
+              variant="outline"
+              className="text-xs cursor-pointer hover:bg-secondary"
               onClick={() => {
-                const newTag = tagInput.trim()
-                if (newTag && !file.tags.includes(newTag)) {
-                  onUpdateTags(file.id, [...file.tags, newTag])
-                }
-                setTagInput('')
+                // Add first available tag as quick action
+                const first = availableTags[0]
+                if (first) tagFile.mutate({ fileId: file.id, tagId: first.id })
               }}
             >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
+              <Plus className="mr-0.5 h-3 w-3" />
+              Tag
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Shared with */}
-      {file.sharedWith.length > 0 && (
+      {shares.length > 0 && (
         <>
           <Separator className="my-4" />
           <div>
             <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center gap-1">
               <Users className="h-3.5 w-3.5" />
-              Geteilt mit ({file.sharedWith.length})
+              Geteilt mit ({shares.length})
             </h4>
             <div className="space-y-1.5">
-              {file.sharedWith.map((s) => (
-                <div key={s.name} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                  <span className="text-sm text-foreground">{s.name}</span>
+              {shares.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+                >
+                  <span className="text-sm text-foreground">
+                    {s.shared_with_user_name}
+                  </span>
                   <Badge variant="outline" className="text-xs">
-                    {s.permission === 'edit' ? 'Bearbeiten' : 'Ansehen'}
+                    {s.permission === 'write' ? 'Bearbeiten' : 'Ansehen'}
                   </Badge>
                 </div>
               ))}
@@ -257,28 +276,27 @@ export function FileDetailPanel({
         </>
       )}
 
-      {/* Version history */}
-      {file.versions.length > 0 && (
+      {/* Entity links */}
+      {links.length > 0 && (
         <>
           <Separator className="my-4" />
           <div>
             <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center gap-1">
-              <History className="h-3.5 w-3.5" />
-              Versionen ({file.versions.length})
+              <Link2 className="h-3.5 w-3.5" />
+              Verknuepfungen ({links.length})
             </h4>
-            <div className="space-y-2">
-              {file.versions.map((v, i) => (
-                <div key={v.version} className="flex items-center gap-3">
-                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-                    i === 0 ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
-                  }`}>
-                    {v.version}
-                  </div>
+            <div className="space-y-1.5">
+              {links.map((link) => (
+                <div
+                  key={link.id}
+                  className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+                >
                   <div>
-                    <p className="text-sm text-foreground">{v.author}</p>
+                    <p className="text-sm text-foreground">
+                      {link.entity_name}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(v.date).toLocaleDateString('de-CH')}
-                      {i === 0 && ' · Aktuell'}
+                      {link.entity_type}
                     </p>
                   </div>
                 </div>

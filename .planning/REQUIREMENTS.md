@@ -49,26 +49,26 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Video & Voice Calls
 
-- [ ] **VID-01**: User can make 1:1 video calls via LiveKit
-- [ ] **VID-02**: User can join group video calls with up to 25 participants
-- [ ] **VID-03**: User can make audio-only calls (camera off)
-- [ ] **VID-04**: User can share their screen or a specific window during a call
-- [ ] **VID-05**: User can mute/unmute microphone and toggle camera during a call
-- [ ] **VID-06**: User can start a call directly from a chat channel or DM
-- [ ] **VID-07**: User can record calls with DSGVO-compliant participant consent (stored in MinIO)
+- [x] **VID-01**: User can make 1:1 video calls via LiveKit
+- [x] **VID-02**: User can join group video calls with up to 25 participants
+- [x] **VID-03**: User can make audio-only calls (camera off)
+- [x] **VID-04**: User can share their screen or a specific window during a call
+- [x] **VID-05**: User can mute/unmute microphone and toggle camera during a call
+- [x] **VID-06**: User can start a call directly from a chat channel or DM
+- [x] **VID-07**: User can record calls with DSGVO-compliant participant consent (stored in MinIO)
 
 ### Meetings
 
-- [ ] **MEET-01**: User can schedule a meeting with agenda, attendees, time slot, and optional recurring schedule
-- [ ] **MEET-02**: Meeting attendees see a pre-meeting lobby with agenda, attendee list, and shared documents
-- [ ] **MEET-03**: During a meeting, participants can take shared or private notes linked to the meeting record
-- [ ] **MEET-04**: After a meeting, a summary record with attendees, duration, notes, and action items is created
-- [ ] **MEET-05**: Meeting records are linked to calendar events and optionally to CRM entities
+- [x] **MEET-01**: User can schedule a meeting with agenda, attendees, time slot, and optional recurring schedule
+- [x] **MEET-02**: Meeting attendees see a pre-meeting lobby with agenda, attendee list, and shared documents
+- [x] **MEET-03**: During a meeting, participants can take shared or private notes linked to the meeting record
+- [x] **MEET-04**: After a meeting, a summary record with attendees, duration, notes, and action items is created
+- [x] **MEET-05**: Meeting records are linked to calendar events and optionally to CRM entities
 
 ### Chat Enhancements
 
-- [ ] **CHAT-01**: User can react to messages with emoji reactions (add, remove, reaction counts)
-- [ ] **CHAT-02**: Users see presence/online status of colleagues (online, away, offline, in a call) across the app
+- [x] **CHAT-01**: User can react to messages with emoji reactions (add, remove, reaction counts)
+- [x] **CHAT-02**: Users see presence/online status of colleagues (online, away, offline, in a call) across the app
 
 ### Security & Compliance
 
@@ -337,20 +337,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAL-05 | Phase 7 | Pending |
 | CAL-06 | Phase 7 | Pending |
 | CAL-07 | Phase 7 | Pending |
-| VID-01 | Phase 8 | Pending |
-| VID-02 | Phase 8 | Pending |
-| VID-03 | Phase 8 | Pending |
-| VID-04 | Phase 8 | Pending |
-| VID-05 | Phase 8 | Pending |
-| VID-06 | Phase 8 | Pending |
-| VID-07 | Phase 8 | Pending |
-| MEET-01 | Phase 8 | Pending |
-| MEET-02 | Phase 8 | Pending |
-| MEET-03 | Phase 8 | Pending |
-| MEET-04 | Phase 8 | Pending |
-| MEET-05 | Phase 8 | Pending |
-| CHAT-01 | Phase 8 | Pending |
-| CHAT-02 | Phase 8 | Pending |
+| VID-01 | Phase 8 | Complete |
+| VID-02 | Phase 8 | Complete |
+| VID-03 | Phase 8 | Complete |
+| VID-04 | Phase 8 | Complete |
+| VID-05 | Phase 8 | Complete |
+| VID-06 | Phase 8 | Complete |
+| VID-07 | Phase 8 | Complete |
+| MEET-01 | Phase 8 | Complete |
+| MEET-02 | Phase 8 | Complete |
+| MEET-03 | Phase 8 | Complete |
+| MEET-04 | Phase 8 | Complete |
+| MEET-05 | Phase 8 | Complete |
+| CHAT-01 | Phase 8 | Complete |
+| CHAT-02 | Phase 8 | Complete |
 | SEC-01 | Phase 9 | Pending |
 | SEC-02 | Phase 9 | Pending |
 | SEC-03 | Phase 9 | Pending |
@@ -434,4 +434,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-08 after second feature gap analysis (added Abacus, Run my Accounts, chat file permissions)*
+*Last updated: 2026-02-11 after Phase 8 completion (VID-01..07, MEET-01..05, CHAT-01..02 marked Complete)*
