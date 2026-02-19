@@ -176,6 +176,17 @@ Diese Aenderungen ziehen sich quer durch die gesamte Codebase und muessen frueh 
   - Tag: `[BACKEND-DEP]` (Datenabfrage/-loeschung serverseitig)
   - Abhaengigkeit: Luke Phase 10+
 
+### Q6: TanStack Query Migration (Cross-Cutting-Concern)
+
+> Hinweis von Luke (2026-02-19): Alle 25 Design-Module nutzen Zustand Mocks. Wenn Backend-APIs stehen, muss jede Page auf TanStack Query migriert werden. Luke hat dies bereits bei `DokumentePage` (Plan 11-05) als Referenz-Implementation gemacht.
+
+- [ ] **Alle Module schrittweise von Zustand-Mocks auf TanStack Query (React Query) migrieren** -- Betrifft alle ~25 Modul-Pages. Pattern: `useQuery`/`useMutation` statt lokaler Store-Arrays. Referenz-Implementation: `modules/dokumente/DokumentePage.tsx` auf `main`. Pro Modul: Query-Hooks erstellen, Store-Aufrufe ersetzen, Loading/Error-States einbauen, Optimistic Updates fuer Mutations.
+  - Dateien: Alle `modules/*/` Pages + neue `hooks/api/` Verzeichnisstruktur
+  - Aufwand: ~200-400 LOC pro Modul, ~5.000-10.000 LOC gesamt
+  - Tag: `[BACKEND-DEP]` (braucht fertige API-Endpoints pro Modul)
+  - Abhaengigkeit: Jeweilige Backend-Phase muss fertig sein
+  - **Nicht als eigene Wave, sondern rolling pro Modul wenn Backend-API verfuegbar wird**
+
 ---
 
 ## Wave 1: Foundation (Shared Components + Stores)
@@ -1811,33 +1822,122 @@ Alle Items die Lukes Backend-Arbeit benoetigen, gruppiert nach seinen Phasen.
 | 10.15 | 10 | LiveKit Integration |
 | 2.2 | 2 | Wiki Versioning (Server-side) |
 
-### Luke Phase 10 (E-Mail + Integrationen)
+### Luke Phase 8-11 — FERTIG (2026-02-17)
+
+> Alle 66 Plans abgeschlossen. WOPI-Endpoints Collabora-kompatibel.
+> APIs fuer Video, Security, E-Mail und Dokumente stehen bereit.
+
+| Item | Wave | Beschreibung | Status |
+|------|------|-------------|--------|
+| Q2 | Q | Kontakt-Dualitaet loesen (CRM API-Modell) | API ready (CRM Phase 4) |
+| 3.1 | 3 | CRM CRUD-Formulare (API-Hooks fuer Persist) | API ready (CRM Phase 4) |
+| 3.2 | 3 | Custom Fields (JSONB Persistenz) | API ready (CRM Phase 4) |
+| 3.3 | 3 | Firma Entity (company_contacts DB) | API ready (CRM Phase 4) |
+| 3.4 | 3 | Duplikaterkennung (Fuzzy-Matching) | API ready (CRM Phase 4) |
+| 3.5 | 3 | Kontakt-Timeline (Cross-Modul) | API ready (CRM Phase 4) |
+| 3.9 | 3 | CRM Import/Export (Massen-Import) | API ready (CRM Phase 4) |
+| 5.15 | 5 | E-Mail-zu-Ticket (IMAP-Listener) | API ready (Phase 10) |
+| 10.15 | 10 | LiveKit Video-Integration (Token) | API ready (Phase 8) |
+| 11.1 | 11 | Video Meeting Room UI (Token) | API ready (Phase 8) |
+| 11.2 | 11 | Notification Center (WebSocket Push) | API ready (Phase 8) |
+| 11.10 | 11 | "In Word oeffnen" (WebDAV spaeter, MVP: Download→Edit→Upload) | API ready (Phase 11) |
+| 11.10b | 11 | Collabora WOPI (CheckFileInfo, GetFile, PutFile) | API ready (Phase 11) |
+| 11.12 | 11 | Share Link Dialog (Signierte URLs) | API ready (Phase 11) |
+| 11.13 | 11 | Versionierung-Anzeige (Server-Versioning) | API ready (Phase 11) |
+
+### Luke Phase 12 (Rechnungen & Finanzen) — IN ARBEIT
+
+> Luke baut jetzt: Belegkette, GoBD, DATEV, QR-Rechnung, ZUGFeRD, PDF-Generierung.
+
+| Item | Wave | Beschreibung | Backend-Dep |
+|------|------|-------------|-------------|
+| Q4 | Q | PDF-Export real machen | PDF-Generierung (Go Library) |
+| 3.11 | 3 | Belegkette-Tab (Angebot→Rechnung) | Konvertierungs-Logik |
+| 3.12 | 3 | Exporte-Tab (DATEV + Bexio) | DATEV-Format-Generator |
+| 3.13 | 3 | QR-Rechnung Preview (Swiss QR-bill) | QR-Code-Generierung |
+| 3.17 | 3 | GoBD-konforme Rechnungen | Unveraenderbare Records, Audit-Log |
+| 3.18 | 3 | PDF-Vorschau Panel | Echte PDF-Generierung |
+| 3.19 | 3 | Stunden-zu-Rechnung Workflow | Cross-Modul-Logik |
+| 3.20 | 3 | Banking Widget (FinAPI) | FinAPI-Integration |
+| 6.2 | 6 | Stunden-zu-Rechnung Button | Cross-Modul (→ 3.19) |
+| 6.7 | 6 | Export-Button DATEV | DATEV-Format |
+| 6.9 | 6 | Genehmigungs-Banner | Workflow |
+| 7.13 | 7 | PDF-Export Wochenplan | PDF-Generierung |
+| 8.2 | 8 | Belegkette → Buchhaltung | Cross-Modul (→ 3.11) |
+| 8.6 | 8 | Inventar-Integration | Cross-Modul |
+| 8.13 | 8 | Belegkette-Anbindung Einkauf | Cross-Modul |
+| 9.9 | 9 | PDF-Export Tagesbericht | PDF-Generierung |
+| 12.5 | 12 | DATEV-Konfiguration | DATEV-Format |
+
+### Luke Phase 13 (HR + DSGVO)
+
+| Item | Wave | Beschreibung | Backend-Dep |
+|------|------|-------------|-------------|
+| Q5 | Q | DSGVO-Tools (Consent, Auskunft, Loeschung) | Server-side Datenabfrage |
+| 3.7 | 3 | Consent-Management pro Kontakt | Persistenz (consents Tabelle) |
+| 7.3 | 7 | Digitale Personalakte | Storage |
+| 7.6 | 7 | Self-Service-Portal | Rollen/Berechtigungen |
+| 13.1 | 13 | Consent-Management UI (erweitert) | Persistenz |
+| 13.2 | 13 | DSGVO-Auskunft-Tool | Cross-Modul-Suche |
+| 13.3 | 13 | DSGVO-Loeschung UI | Kaskadierung serverseitig |
+| 13.4 | 13 | Datenexport/Portabilitaet | ZIP-Generierung |
+
+### Luke Phase 14 (Unified Inbox = Frontend "Kommunikation")
+
+> **Klaerung:** "Kommunikation" (Frontend-Name) = "Unified Inbox" (Backend/Architektur-Name).
+> Gleiche Architektur, gleiche Channel-Adapter. Luke Phase 14 = unser Wave 2.1.
+
+| Item | Wave | Beschreibung | Backend-Dep |
+|------|------|-------------|-------------|
+| 2.1 | 2 | Kommunikation echte Kanaele (IMAP, Teams, WhatsApp, Widget) | Channel-Adapter-Endpoints |
+| 5.11 | 5 | Ticket-Zuweisung/Routing | Routing-Engine |
+| 5.12 | 5 | CSAT (Kundenzufriedenheit) | Kunden-seitige Bewertung |
+| 11.3 | 11 | E-Mail Invite senden | E-Mail-Versand |
+
+### Luke Phase 15+ (Integrationen)
+
+| Item | Wave | Beschreibung | Backend-Dep |
+|------|------|-------------|-------------|
+| 3.8 | 3 | Newsletter Panel (Brevo/CleverReach) | API-Connector |
+| 10.6 | 10 | E-Signatur Dialog (Skribble) | Skribble API |
+| 10.14 | 10 | Externer Buchungslink | Oeffentlicher Endpoint, Auth |
+| 11.15 | 11 | Nextcloud WebDAV Browser | WebDAV-Proxy |
+| 12.4 | 12 | BexioConfigPanel | OAuth2 |
+
+### Luke Phase 16+ (KI + Automation)
+
+| Item | Wave | Beschreibung | Backend-Dep |
+|------|------|-------------|-------------|
+| 10.3 | 10 | Automatische Aktionen (Vertraege, Formulare) | Server-Actions |
+| 10.8 | 10 | Erinnerungen/Benachrichtigungen | Server-Notifications |
+| 13.6 | 13 | KI: E-Mail-Entwuerfe | OpenAI Proxy |
+| 13.7 | 13 | KI: Meeting-Zusammenfassungen | OpenAI Proxy |
+| 13.8 | 13 | KI: Ticket-Response-Vorschlaege | OpenAI Proxy |
+| 13.9 | 13 | KI: Semantische Suche | Embedding-Service |
+| 13.10 | 13 | KI: Auto-Klassifizierung | KI-Service |
+
+### Noch nicht zugeordnet (Storage/Upload — generisch)
+
+> Diese Items brauchen generische File-Upload/Storage-APIs die in Phase 11 gebaut wurden.
+
+| Item | Wave | Beschreibung | Backend-Dep |
+|------|------|-------------|-------------|
+| 5.4 | 5 | File Sharing Chat (Drag & Drop) | Upload-Endpoint |
+| 8.8 | 8 | Barcode-Scanner | Electron native Module |
+| 8.14 | 8 | Materialverfuegbarkeits-Pruefung | Inventar-Abfrage |
+| 9.3 | 9 | Dokumente pro Fahrzeug | Storage (Phase 11 ready) |
+| 9.4 | 9 | Schadensmeldung mit Foto-Upload | File Upload (Phase 11 ready) |
+| 9.7 | 9 | Foto-Upload Rapporte | Storage (Phase 11 ready) |
+| 9.10 | 9 | Genehmigungs-Workflow | Workflow |
+| 10.4 | 10 | Oeffentlicher Zugang ohne Login | Auth-Ausnahme |
+| 11.14 | 11 | Server-Versioning | N/A — Phase 11 ready |
+
+### Cross-Cutting: TanStack Query Migration (Q6)
 
 | Item | Wave | Beschreibung |
 |------|------|-------------|
-| 2.1 | 2 | Kommunikation echte Kanaele (IMAP, Teams, WhatsApp) |
-| 3.12 | 3 | DATEV-Export (Format-Generator) |
-| 3.12 | 3 | Bexio-Sync (API-Connector) |
-| 5.15 | 5 | E-Mail-zu-Ticket (IMAP-Listener) |
-| Q4 | Q | PDF-Export real (Go PDF-Library) |
-
-### Luke Phase 11 (Office + E-Signatur)
-
-| Item | Wave | Beschreibung |
-|------|------|-------------|
-| 11.10 | 11 | "In Word oeffnen" — WebDAV-Server fuer direktes Oeffnen/Speichern ohne Download |
-| 11.10b | 11 | Collabora Enterprise — WOPI Endpoints (CheckFileInfo, GetFile, PutFile) + Collabora Docker |
-| 10.6 | 10 | E-Signatur Skribble (API-Integration) |
-| 3.8 | 3 | Newsletter Brevo (API-Connector) |
-
-### Luke Phase 12+ (DSGVO + KI)
-
-| Item | Wave | Beschreibung |
-|------|------|-------------|
-| Q5 | Q | DSGVO-Tools (Server-side Datenabfrage/-loeschung) |
-| 13.2 | 13 | DSGVO-Auskunft (Cross-Modul-Suche) |
-| 13.3 | 13 | DSGVO-Loeschung (Kaskadierung) |
-| 13.6-13.10 | 13 | KI-Features (Embedding-Service, Proxy) |
+| Q6 | Q | Alle 25 Module von Zustand-Mocks auf TanStack Query migrieren |
+| — | Rolling | Pro Modul wenn Backend-API verfuegbar (Referenz: DokumentePage auf main) |
 
 ---
 

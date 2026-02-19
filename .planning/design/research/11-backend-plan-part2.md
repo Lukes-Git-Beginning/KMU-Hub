@@ -1,9 +1,13 @@
 # Backend-Implementierungsplan Part 2: API-Endpoints, Integrationen, Sprint-Plan
 
-**Datum:** 2026-02-17
+**Datum:** 2026-02-17 (aktualisiert 2026-02-19 nach Luke-Feedback)
 **Referenzen:** `00-SYNTHESE.md`, `10-integrations-guide.md`, `13-vision-ergaenzungen.md`, `BACKEND-REQUIREMENTS-AUDIT.md`
 **Zielgruppe:** Luke (Backend-Dev)
 **Kontext:** Ergaenzt Luke's Phase 8-20 Roadmap um NEUE Features aus der Marktrecherche
+
+> **UPDATE 2026-02-19:** Phases 8-11 sind KOMPLETT FERTIG (66/66 Plans). Sprints 7-15
+> in diesem Dokument sind bereits gebaut. Verbleibender Aufwand: ~20-25 Wochen (statt 50).
+> OnlyOffice → Collabora Online (MPL 2.0, WOPI-kompatibel).
 
 ---
 
@@ -263,56 +267,24 @@ type IncomingMessage struct {
 - Dead-Letter-Queue fuer fehlgeschlagene Zustellungen
 - Worker-Pool: 1 Goroutine pro Kanal-Typ
 
-### 6.2 OnlyOffice (Document Server API)
+### 6.2 Collabora Online (WOPI-Protokoll) — FERTIG (Phase 11)
 
-Wir nutzen die **Document Server API** (nicht WOPI) -- einfacher, besser dokumentiert.
+> **UPDATE:** Luke hat in Phase 11 WOPI-Endpoints gebaut (CheckFileInfo, GetFile, PutFile).
+> Diese sind standardkonform und funktionieren mit Collabora Online.
+> Der Switch von OnlyOffice Document Server API zu Collabora WOPI ist ~1 Tag Arbeit.
 
-**Go-Endpoints:**
+**Was bereits gebaut ist (Phase 11):**
+- WOPI-Endpoints: `CheckFileInfo`, `GetFile`, `PutFile`
+- Token-basierte Authentifizierung pro User+Datei
+- File-Versionierung bei jedem Speichern
+- File-Locking (Optimistic via WOPI Lock/Unlock)
 
-```go
-// GET /api/v1/onlyoffice/config/{fileID}
-// Generiert Editor-Config mit JWT-signiertem Token
-func (h *OnlyOfficeHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
-    fileID := chi.URLParam(r, "fileID")
-    file, _ := h.fileService.GetByID(r.Context(), fileID)
+**Was noch angepasst werden muss:**
+- Docker-Container: `collabora/code` statt `onlyoffice/documentserver`
+- Collabora-spezifische Discovery-URL konfigurieren
+- Frontend: iframe-Einbettung der Collabora-UI (PostMessage API)
 
-    config := onlyoffice.EditorConfig{
-        Document: onlyoffice.Document{
-            FileType: filepath.Ext(file.Name)[1:],
-            Key:      fmt.Sprintf("%s-v%d", file.ID, file.Version),
-            Title:    file.Name,
-            URL:      fmt.Sprintf("%s/api/v1/files/%s/download", h.baseURL, file.ID),
-        },
-        EditorConfig: onlyoffice.Editor{
-            CallbackURL: fmt.Sprintf("%s/api/v1/onlyoffice/callback", h.baseURL),
-            User:        onlyoffice.User{ID: userID, Name: userName},
-            Lang:        "de",
-        },
-    }
-
-    token := h.signJWT(config) // HMAC-SHA256 mit ONLYOFFICE_JWT_SECRET
-    config.Token = token
-    respondJSON(w, http.StatusOK, config)
-}
-
-// POST /api/v1/onlyoffice/callback
-// OnlyOffice ruft dies auf wenn Dokument gespeichert wird
-func (h *OnlyOfficeHandler) Callback(w http.ResponseWriter, r *http.Request) {
-    // Status 2 = Dokument fertig bearbeitet
-    // Status 6 = Dokument wird bearbeitet (Force-Save)
-    // Neue Version von callback.url herunterladen und in S3 speichern
-}
-```
-
-**File-Locking:**
-- Optimistic Locking via `document.key` (Key aendert sich bei jeder Version)
-- Co-Editing: OnlyOffice verwaltet Locks intern
-- Callback-Status 1 = Dokument wird bearbeitet (Lock aktiv)
-- Callback-Status 4 = Dokument geschlossen ohne Aenderung (Lock freigeben)
-
-**JWT-Validierung:**
-- `golang-jwt/jwt/v5` fuer Token-Erstellung
-- Shared Secret zwischen Go-Backend und OnlyOffice Container (`ONLYOFFICE_JWT_SECRET`)
+**Lizenz:** MPL 2.0 (sauberer als AGPL). ~1,82 EUR/User/Monat (Business-Lizenz).
 
 ### 6.3 DATEV Export
 
@@ -535,9 +507,9 @@ type VideoProvider interface {
 | Belegkette: Auftraege + Lieferscheine (neue Entities) | **NEU** | 5-7 Tage | Finance-Modul |
 | Belegkette: Konvertierungs-Endpoints (Quote->Order->Invoice) | **NEU** | 3-5 Tage | Auftraege |
 
-### Sprint 7-8: Phase 8 -- Video/Meetings (Wochen 13-16)
+### Sprint 7-8: Phase 8 -- Video/Meetings (Wochen 13-16) — FERTIG (2026-02-11)
 
-> **Fokus:** Luke's Phase 8. Ergaenzt um Zoom-Fallback.
+> **FERTIG.** Luke hat Phase 8 am 2026-02-11 abgeschlossen.
 
 | Task | Typ | Aufwand | Abhaengigkeit |
 |------|-----|---------|---------------|
@@ -547,9 +519,9 @@ type VideoProvider interface {
 | VideoProvider Interface (LiveKit / Zoom) | **NEU** | 2-3 Tage | — |
 | Recording mit DSGVO-Consent-Flow | **ERWEITERUNG** | 3-4 Tage | LiveKit |
 
-### Sprint 9-10: Phase 9 -- Security & Compliance (Wochen 17-20)
+### Sprint 9-10: Phase 9 -- Security & Compliance (Wochen 17-20) — FERTIG (2026-02-11)
 
-> **Fokus:** Luke's Phase 9. Ergaenzt um DSGVO-Tools.
+> **FERTIG.** Luke hat Phase 9 am 2026-02-11 abgeschlossen.
 
 | Task | Typ | Aufwand | Abhaengigkeit |
 |------|-----|---------|---------------|
@@ -559,9 +531,9 @@ type VideoProvider interface {
 | i18n (DE/FR/IT/EN) | **PLANNED** | 5-7 Tage | — |
 | GoBD-konforme Rechnungen (unveraenderbar, lueckenlose Nummern) | **NEU** | 3-5 Tage | Finance |
 
-### Sprint 11-13: Phase 10 -- E-Mail + Unified Inbox (Wochen 21-26)
+### Sprint 11-13: Phase 10 -- E-Mail + Unified Inbox (Wochen 21-26) — FERTIG (2026-02-17)
 
-> **Fokus:** IMAP/SMTP (Luke) + Unified Inbox Architektur (NEU).
+> **FERTIG.** Luke hat Phase 10 (alle 7 Plans) am 2026-02-17 abgeschlossen.
 
 | Task | Typ | Aufwand | Abhaengigkeit |
 |------|-----|---------|---------------|
@@ -572,9 +544,10 @@ type VideoProvider interface {
 | Unified Inbox: E-Mail als erster Adapter | **NEU** | 3-5 Tage | ChannelAdapter |
 | Unified Inbox: Conversation-Management (Status, Assignment) | **NEU** | 3-5 Tage | Message-Model |
 
-### Sprint 14-15: Phase 11 -- Documents + OnlyOffice (Wochen 27-30)
+### Sprint 14-15: Phase 11 -- Documents + Collabora WOPI (Wochen 27-30) — FERTIG (2026-02-17)
 
-> **Fokus:** File-Management (Luke) + OnlyOffice-Integration (NEU).
+> **FERTIG.** Luke hat Phase 11 (alle 6 Plans) am 2026-02-17 abgeschlossen.
+> WOPI-Endpoints (CheckFileInfo/GetFile/PutFile) sind gebaut und Collabora-kompatibel.
 
 | Task | Typ | Aufwand | Abhaengigkeit |
 |------|-----|---------|---------------|
@@ -643,32 +616,37 @@ type VideoProvider interface {
 
 ---
 
-### Zusammenfassung: NEU vs. PLANNED
+### Zusammenfassung: NEU vs. PLANNED (aktualisiert 2026-02-19)
 
-| Kategorie | Sprints | Aufwand (Wochen) |
-|-----------|---------|------------------|
-| **NEU** (aus Marktrecherche) | ~60% der Arbeit | ~28-32 Wochen |
-| **PLANNED** (Luke's Roadmap) | ~30% der Arbeit | ~16-20 Wochen |
-| **ERWEITERUNG** (Geplant + Ergaenzung) | ~10% der Arbeit | ~6-8 Wochen |
-| **GESAMT** | 25 Sprints | ~50 Wochen |
+> **Phases 8-11 sind FERTIG.** Sprints 7-15 (16 Wochen) entfallen.
 
-### Kritischer Pfad
+| Kategorie | Verbleibende Sprints | Aufwand (Wochen) |
+|-----------|---------------------|------------------|
+| **NEU** (aus Marktrecherche) | Sprints 1-6, 16-25 | ~20-24 Wochen |
+| **PLANNED** (Luke's Roadmap, ab Phase 12) | Sprints 16-17, 24-25 | ~4-6 Wochen |
+| **ERWEITERUNG** (Geplant + Ergaenzung) | Sprints 18-23 | ~4-6 Wochen |
+| **FERTIG** (Sprints 7-15 / Phases 8-11) | — | ~~16 Wochen~~ DONE |
+| **VERBLEIBEND GESAMT** | ~12 Sprints | **~20-25 Wochen** |
+
+### Kritischer Pfad (aktualisiert)
 
 ```
 Sprint 1-2:  Foundation Gaps (MWSt, Titel, Firma, Consents)
     |
-Sprint 3-4:  DATEV + QR + PDF  ← Ohne das kein DE/CH-Verkauf
+Sprint 3-4:  DATEV + QR + PDF  ← Ohne das kein DE-Verkauf
     |
 Sprint 5-6:  Custom Fields + Belegkette  ← Ohne das kein echtes CRM
     |
-Sprint 11-13: E-Mail + Unified Inbox  ← Ohne das ist die App halb leer
+[Sprint 7-15: FERTIG — Phases 8-11 gebaut]
     |
-Sprint 16-17: Finance + ZUGFeRD  ← Pflicht ab 2027
+Sprint 16-17: Finance Erweiterung + ZUGFeRD  ← Pflicht ab 2027
     |
 Sprint 18-19: Bexio + Newsletter  ← CH-Markt + Marketing
+    |
+Sprint 20-21: Unified Inbox Channel Adapters (Teams, WhatsApp, Widget)
 ```
 
-**Empfehlung:** Sprints 1-6 (12 Wochen) als naechstes nach Phase 8 einplanen. Das schliesst die kritischsten Luecken fuer einen Beta-Launch bei Dienstleistern und Handwerkern.
+**Empfehlung:** Sprints 1-6 (12 Wochen) laufen parallel zu Luke's Phase 12 (Rechnungen & Finanzen). Das schliesst die kritischsten Luecken fuer einen Beta-Launch bei Dienstleistern und Handwerkern.
 
 ---
 
