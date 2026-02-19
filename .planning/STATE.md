@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 13 (HR & Zeiterfassung) -- plan 01 complete, 3 remaining
+**Current focus:** Phase 13 (HR & Zeiterfassung) -- plan 02 complete, 2 remaining
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
 Phase: 13 of 20 (HR & Zeiterfassung)
-Plan: 1 of 4 complete
+Plan: 2 of 4 complete
 Status: Business Suite milestone in progress
-Last activity: 2026-02-19 -- Phase 13 plan 01 (HR data foundation + compliance engine) complete
+Last activity: 2026-02-19 -- Phase 13 plan 02 (leave/absence/employee services) complete
 
-Progress: [██████████████████████████████░░] 96% (74/77 plans across phases 4-13)
+Progress: [██████████████████████████████░░] 97% (75/77 plans across phases 4-13)
 
 ## Performance Metrics
 
@@ -39,13 +39,13 @@ Progress: [███████████████████████
 | 11 | 6/6 | ~57min | ~9.5min |
 
 | 12 | 7/7 | ~75min | ~10.7min |
-| 13 | 1/4 | ~7min | ~7min |
+| 13 | 2/4 | ~16min | ~8min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
-- Phase 13 (HR & Zeiterfassung) started -- plan 01 complete (data foundation + compliance)
-- 74/77 plans done across Phases 4-13
+- Phase 13 (HR & Zeiterfassung) in progress -- plan 02 complete (leave/absence/employee services)
+- 75/77 plans done across Phases 4-13
 
 *Updated after each plan completion*
 
@@ -327,6 +327,12 @@ Recent decisions affecting current work:
 - [13-01]: Pure compliance functions use shopspring/decimal throughout for half-day precision
 - [13-01]: BUrlG carryover expires after March 31 (inclusive) with CarryoverExpired flag
 - [13-01]: ArbZG severity: 8h=Info, 9h=Warning, >10h=Error matching "warns at 8h, warns harder at 9h" requirement
+- [13-02]: Leave service EmployeeRepository interface for cross-package manager lookup (avoids circular import)
+- [13-02]: Overlap detection warns but allows approval (overlaps returned in ApproveResult for gRPC to surface)
+- [13-02]: HR fallback: when no manager assigned, service allows approval; gRPC layer enforces HR role
+- [13-02]: Leave balance auto-created on first access using BUrlG compliance engine with previous year carryover
+- [13-02]: Employee self-service uses hasRestrictedFields() check for cleaner role-based field restrictions
+- [13-02]: Absence calendar masks leave types to "Abwesend" with neutral gray (#9ca3af) when ShowAbsenceReason false
 
 ### Pending Todos
 
@@ -341,6 +347,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 13-01-PLAN.md
-Resume file: .planning/phases/13-hr-zeiterfassung/13-01-SUMMARY.md
-Next: Execute 13-02-PLAN.md
+Stopped at: Completed 13-02-PLAN.md
+Resume file: .planning/phases/13-hr-zeiterfassung/13-02-SUMMARY.md
+Next: Execute 13-03-PLAN.md
