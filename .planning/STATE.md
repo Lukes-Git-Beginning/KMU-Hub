@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 14 of 20 (Event Infrastructure + Unified Inbox)
-Plan: 1 of 4 complete
-Status: Business Suite milestone in progress (Phase 14 started)
-Last activity: 2026-02-20 -- Phase 14 plan 01 (proto + migrations + models + event emitters) complete
+Plan: 2 of 4 complete
+Status: Business Suite milestone in progress (Phase 14 in progress)
+Last activity: 2026-02-20 -- Phase 14 plan 02 (inbox service packages: adapters, message, team, routing) complete
 
-Progress: [████████████████████████████████] 100% (78/81 plans across phases 4-14)
+Progress: [████████████████████████████████] 100% (79/81 plans across phases 4-14)
 
 ## Performance Metrics
 
@@ -41,14 +41,14 @@ Progress: [███████████████████████
 | 12 | 7/7 | ~75min | ~10.7min |
 | 13 | 4/4 | ~64min | ~16min |
 
-| 14 | 1/4 | ~9min | ~9min |
+| 14 | 2/4 | ~16min | ~8min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
 - Phase 13 (HR & Zeiterfassung) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
-- Phase 14 (Event Infrastructure + Unified Inbox) IN PROGRESS -- 1/4 plans done
-- 78/81 plans done across Phases 4-14
+- Phase 14 (Event Infrastructure + Unified Inbox) IN PROGRESS -- 2/4 plans done
+- 79/81 plans done across Phases 4-14
 
 *Updated after each plan completion*
 
@@ -351,6 +351,10 @@ Recent decisions affecting current work:
 - [14-01]: Document shared event emitted on LinkToEntity (entity linking = sharing semantics)
 - [14-01]: 27 RPCs in InboxService proto (14 messages, 8 team inboxes, 5 routing rules)
 - [14-01]: Condition/Action JSON tree model designed for Phase 16 Automation reuse
+- [14-02]: Empty AND=true (vacuous truth), empty OR=false -- standard logic for condition tree evaluator
+- [14-02]: Routing rule cache stores all active rules, filters by channel at read time (simpler invalidation)
+- [14-02]: Auto-reply failure is non-fatal in routing actions (logs warning, continues processing)
+- [14-02]: GetBySourceID returns nil (not error) for missing entries to simplify dedup flow in message Create
 
 ### Pending Todos
 
@@ -365,6 +369,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 14-01-PLAN.md
-Resume file: .planning/phases/14-event-infrastructure-unified-inbox/14-01-SUMMARY.md
-Next: 14-02-PLAN.md (Inbox service packages, repository, routing evaluator)
+Stopped at: Completed 14-02-PLAN.md
+Resume file: .planning/phases/14-event-infrastructure-unified-inbox/14-02-SUMMARY.md
+Next: 14-03-PLAN.md (gRPC server + gateway routes)
