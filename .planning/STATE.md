@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 13 (HR & Zeiterfassung) -- COMPLETE, all 4 plans done
+**Current focus:** Phase 14 (Event Infrastructure + Unified Inbox) -- IN PROGRESS
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 13 of 20 (HR & Zeiterfassung) -- COMPLETE
-Plan: 4 of 4 complete
-Status: Business Suite milestone in progress (Phase 13 complete)
-Last activity: 2026-02-19 -- Phase 13 plan 04 (frontend TanStack Query integration + UI wiring) complete
+Phase: 14 of 20 (Event Infrastructure + Unified Inbox)
+Plan: 1 of 4 complete
+Status: Business Suite milestone in progress (Phase 14 started)
+Last activity: 2026-02-20 -- Phase 14 plan 01 (proto + migrations + models + event emitters) complete
 
-Progress: [████████████████████████████████] 100% (77/77 plans across phases 4-13)
+Progress: [████████████████████████████████] 100% (78/81 plans across phases 4-14)
 
 ## Performance Metrics
 
@@ -41,11 +41,14 @@ Progress: [███████████████████████
 | 12 | 7/7 | ~75min | ~10.7min |
 | 13 | 4/4 | ~64min | ~16min |
 
+| 14 | 1/4 | ~9min | ~9min |
+
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
 - Phase 13 (HR & Zeiterfassung) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
-- 77/77 plans done across Phases 4-13
+- Phase 14 (Event Infrastructure + Unified Inbox) IN PROGRESS -- 1/4 plans done
+- 78/81 plans done across Phases 4-14
 
 *Updated after each plan completion*
 
@@ -344,6 +347,11 @@ Recent decisions affecting current work:
 - [13-04]: Deutschland-First locale: EUR formatting, de-DE date locale throughout all HR pages
 - [13-04]: 30s polling for WorkTimeStatus in header ClockInButton for near-real-time display
 
+- [14-01]: HR timetracking event emitter in biz/hr/timetracking/ (plan said timeentry/ which doesn't exist)
+- [14-01]: Document shared event emitted on LinkToEntity (entity linking = sharing semantics)
+- [14-01]: 27 RPCs in InboxService proto (14 messages, 8 team inboxes, 5 routing rules)
+- [14-01]: Condition/Action JSON tree model designed for Phase 16 Automation reuse
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -356,7 +364,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-19
-Stopped at: Completed 13-04-PLAN.md (Phase 13 COMPLETE)
-Resume file: .planning/phases/13-hr-zeiterfassung/13-04-SUMMARY.md
-Next: Phase 14 (Unified Inbox) planning
+Last session: 2026-02-20
+Stopped at: Completed 14-01-PLAN.md
+Resume file: .planning/phases/14-event-infrastructure-unified-inbox/14-01-SUMMARY.md
+Next: 14-02-PLAN.md (Inbox service packages, repository, routing evaluator)
