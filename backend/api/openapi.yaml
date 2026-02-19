@@ -7637,6 +7637,572 @@ paths:
                 type: string
                 example: 'attachment; filename="EXTF_Buchungsstapel_20260101_20261231.csv"'
 
+  # ===========================================================================
+  # HR: Leave Management
+  # ===========================================================================
+  /api/v1/hr/leave/requests:
+    post:
+      summary: Create a new leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeaveRequestInput"
+      responses:
+        "201":
+          description: Leave request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+    get:
+      summary: List leave requests (filtered)
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: employee_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, approved, rejected, cancelled] }
+        - name: start_date
+          in: query
+          schema: { type: string, format: date }
+        - name: end_date
+          in: query
+          schema: { type: string, format: date }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: page_size, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: List of leave requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leave_requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaveRequest"
+                  total: { type: integer }
+
+  /api/v1/hr/leave/requests/{id}:
+    get:
+      summary: Get a single leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Leave request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /api/v1/hr/leave/requests/{id}/approve:
+    post:
+      summary: Approve a leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment: { type: string }
+      responses:
+        "200":
+          description: Leave request approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /api/v1/hr/leave/requests/{id}/reject:
+    post:
+      summary: Reject a leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment: { type: string }
+      responses:
+        "200":
+          description: Leave request rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /api/v1/hr/leave/requests/{id}/cancel:
+    post:
+      summary: Cancel a leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Leave request cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /api/v1/hr/leave/balance:
+    get:
+      summary: Get current user leave balance
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Leave balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveBalance"
+
+  /api/v1/hr/leave/balance/{userId}:
+    get:
+      summary: Get leave balance for a specific employee (manager view)
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Employee leave balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveBalance"
+
+  /api/v1/hr/leave/types:
+    get:
+      summary: List available leave types
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Leave types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaveType"
+
+  /api/v1/hr/leave/sick:
+    post:
+      summary: Record sick leave
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [start_date, end_date]
+              properties:
+                start_date: { type: string, format: date }
+                end_date: { type: string, format: date }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Sick leave recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leave_request:
+                    $ref: "#/components/schemas/LeaveRequest"
+                  au_document_required: { type: boolean }
+
+  # ===========================================================================
+  # HR: Time Tracking
+  # ===========================================================================
+  /api/v1/hr/time/clock-in:
+    post:
+      summary: Clock in to start a shift
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201":
+          description: Work time entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeEntry"
+
+  /api/v1/hr/time/clock-out:
+    post:
+      summary: Clock out to end a shift
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Work time entry completed with ArbZG compliance info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/WorkTimeEntry"
+                  severity: { type: string, enum: [none, info, warning, error] }
+                  arbzg_message: { type: string }
+
+  /api/v1/hr/time/break/start:
+    post:
+      summary: Start a break
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201":
+          description: Break started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakEntry"
+
+  /api/v1/hr/time/break/end:
+    post:
+      summary: End a break
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Break ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakEntry"
+
+  /api/v1/hr/time/active:
+    get:
+      summary: Get active shift and breaks
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Active shift info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/WorkTimeEntry"
+                  is_on_break: { type: boolean }
+                  active_break:
+                    $ref: "#/components/schemas/BreakEntry"
+
+  /api/v1/hr/time/status:
+    get:
+      summary: Get work time status for header quick-toggle
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current work time status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeStatus"
+
+  /api/v1/hr/time/entries:
+    get:
+      summary: List work time entries
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: employee_id, in: query, schema: { type: string, format: uuid } }
+        - { name: start_date, in: query, schema: { type: string, format: date } }
+        - { name: end_date, in: query, schema: { type: string, format: date } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: page_size, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Work time entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkTimeEntry"
+                  total: { type: integer }
+
+  /api/v1/hr/time/summary/daily:
+    get:
+      summary: Get daily work time summary
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Daily summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailySummary"
+
+  /api/v1/hr/time/summary/weekly:
+    get:
+      summary: Get weekly work time summary
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: week_start, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Weekly summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklySummary"
+
+  /api/v1/hr/time/corrections:
+    post:
+      summary: Submit a time correction
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitCorrectionInput"
+      responses:
+        "201":
+          description: Correction submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeEntry"
+
+  /api/v1/hr/time/corrections/{id}/approve:
+    post:
+      summary: Approve a time correction
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Correction approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeEntry"
+
+  # ===========================================================================
+  # HR: Absence Calendar
+  # ===========================================================================
+  /api/v1/hr/absences/calendar:
+    get:
+      summary: Get absence calendar for team view
+      tags: [hr-absence]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: start_date, in: query, required: true, schema: { type: string, format: date } }
+        - { name: end_date, in: query, required: true, schema: { type: string, format: date } }
+        - { name: department, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Absence calendar entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AbsenceEntry"
+
+  # ===========================================================================
+  # HR: Employee Profiles
+  # ===========================================================================
+  /api/v1/hr/employees:
+    get:
+      summary: List employees
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: department, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: page_size, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Employee list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmployeeProfile"
+                  total: { type: integer }
+
+  /api/v1/hr/employees/me:
+    get:
+      summary: Get own employee profile
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Own profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+    put:
+      summary: Update own profile (self-service fields only)
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSelfProfileInput"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+
+  /api/v1/hr/employees/{id}:
+    get:
+      summary: Get employee by ID
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Employee profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+    put:
+      summary: Update employee (admin/manager fields)
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmployeeInput"
+      responses:
+        "200":
+          description: Employee updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+
+  /api/v1/hr/employees/{id}/documents:
+    get:
+      summary: List employee documents
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Documents list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeDocument"
+    post:
+      summary: Upload a document for an employee
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category_id, file_id]
+              properties:
+                category_id: { type: string, format: uuid }
+                file_id: { type: string, format: uuid }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Document uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDocument"
+
+  # ===========================================================================
+  # HR: Settings (admin only)
+  # ===========================================================================
+  /api/v1/hr/settings:
+    get:
+      summary: Get HR company settings
+      tags: [hr-settings]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: HR settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HRSettings"
+    put:
+      summary: Update HR company settings
+      tags: [hr-settings]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHRSettingsInput"
+      responses:
+        "200":
+          description: HR settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HRSettings"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -11829,6 +12395,250 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DunningRecord"
+
+    # =========================================================================
+    # HR Schemas
+    # =========================================================================
+    CreateLeaveRequestInput:
+      type: object
+      required: [leave_type_id, start_date, end_date]
+      properties:
+        leave_type_id: { type: string, format: uuid }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        is_half_day_start: { type: boolean }
+        is_half_day_end: { type: boolean }
+        half_day_period_start: { type: string, enum: [morning, afternoon] }
+        half_day_period_end: { type: string, enum: [morning, afternoon] }
+        reason: { type: string }
+
+    LeaveRequest:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        leave_type_id: { type: string, format: uuid }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        is_half_day_start: { type: boolean }
+        is_half_day_end: { type: boolean }
+        half_day_period_start: { type: string, enum: [morning, afternoon] }
+        half_day_period_end: { type: string, enum: [morning, afternoon] }
+        total_days: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [pending, approved, rejected, cancelled] }
+        approved_by: { type: string, format: uuid }
+        approved_at: { type: string, format: date-time }
+        approval_comment: { type: string }
+        au_document_required: { type: boolean }
+        au_document_file_id: { type: string, format: uuid }
+        employee_name: { type: string }
+        leave_type_name: { type: string }
+        leave_type_color: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    LeaveBalance:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        year: { type: integer }
+        entitlement: { type: string }
+        carried_over: { type: string }
+        used: { type: string }
+        remaining: { type: string }
+        carryover_expires_at: { type: string, format: date }
+        carryover_notified: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    LeaveType:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        name: { type: string }
+        key: { type: string }
+        color: { type: string }
+        deducts_from_balance: { type: boolean }
+        requires_approval: { type: boolean }
+        requires_au_document: { type: boolean }
+        is_system: { type: boolean }
+        sort_order: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    WorkTimeEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        clock_in: { type: string, format: date-time }
+        clock_out: { type: string, format: date-time }
+        break_minutes: { type: integer }
+        auto_break_deducted: { type: integer }
+        net_work_minutes: { type: integer }
+        status: { type: string, enum: [active, completed, correction_pending, correction_approved] }
+        is_correction: { type: boolean }
+        original_entry_id: { type: string, format: uuid }
+        correction_reason: { type: string }
+        correction_approved_by: { type: string, format: uuid }
+        correction_approved_at: { type: string, format: date-time }
+        employee_name: { type: string }
+        breaks:
+          type: array
+          items:
+            $ref: "#/components/schemas/BreakEntry"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    BreakEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        work_time_entry_id: { type: string, format: uuid }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        duration_minutes: { type: integer }
+
+    WorkTimeStatus:
+      type: object
+      properties:
+        is_clocked_in: { type: boolean }
+        is_on_break: { type: boolean }
+        current_shift_start: { type: string, format: date-time }
+        current_break_start: { type: string, format: date-time }
+        today_total_minutes: { type: integer }
+        arbzg_severity: { type: string, enum: [none, info, warning, error] }
+
+    DailySummary:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        total_work_minutes: { type: integer }
+        total_break_minutes: { type: integer }
+        net_work_minutes: { type: integer }
+        overtime_minutes: { type: integer }
+
+    WeeklySummary:
+      type: object
+      properties:
+        week_start: { type: string, format: date }
+        week_end: { type: string, format: date }
+        total_work_minutes: { type: integer }
+        total_break_minutes: { type: integer }
+        net_work_minutes: { type: integer }
+        overtime_minutes: { type: integer }
+        work_days: { type: integer }
+        daily_summaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailySummary"
+
+    SubmitCorrectionInput:
+      type: object
+      required: [original_entry_id, corrected_clock_in, corrected_clock_out, reason]
+      properties:
+        original_entry_id: { type: string, format: uuid }
+        corrected_clock_in: { type: string, format: date-time }
+        corrected_clock_out: { type: string, format: date-time }
+        corrected_break_minutes: { type: integer }
+        reason: { type: string }
+
+    AbsenceEntry:
+      type: object
+      properties:
+        employee_id: { type: string, format: uuid }
+        employee_name: { type: string }
+        department: { type: string }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        leave_type_name: { type: string }
+        leave_type_color: { type: string }
+
+    EmployeeProfile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        department: { type: string }
+        position_title: { type: string }
+        contract_type: { type: string, enum: [full_time, part_time, mini_job, intern, temporary] }
+        work_days_per_week: { type: integer }
+        annual_leave_days: { type: integer }
+        start_date: { type: string, format: date }
+        manager_user_id: { type: string, format: uuid }
+        emergency_contact_name: { type: string }
+        emergency_contact_phone: { type: string }
+        address_street: { type: string }
+        address_city: { type: string }
+        address_postal_code: { type: string }
+        address_country: { type: string }
+        user_name: { type: string }
+        user_email: { type: string }
+        manager_name: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UpdateEmployeeInput:
+      type: object
+      properties:
+        department: { type: string }
+        position_title: { type: string }
+        contract_type: { type: string, enum: [full_time, part_time, mini_job, intern, temporary] }
+        work_days_per_week: { type: integer }
+        annual_leave_days: { type: integer }
+        manager_user_id: { type: string, format: uuid }
+        start_date: { type: string, format: date }
+
+    UpdateSelfProfileInput:
+      type: object
+      properties:
+        emergency_contact_name: { type: string }
+        emergency_contact_phone: { type: string }
+        address_street: { type: string }
+        address_city: { type: string }
+        address_postal_code: { type: string }
+        address_country: { type: string }
+
+    EmployeeDocument:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid }
+        file_id: { type: string, format: uuid }
+        uploaded_by: { type: string, format: uuid }
+        notes: { type: string }
+        category_name: { type: string }
+        file_name: { type: string }
+        file_size: { type: integer }
+        uploaded_by_name: { type: string }
+        created_at: { type: string, format: date-time }
+
+    HRSettings:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        au_threshold_days: { type: integer }
+        show_absence_reason: { type: boolean }
+        default_annual_leave_days: { type: integer }
+        timezone: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UpdateHRSettingsInput:
+      type: object
+      properties:
+        au_threshold_days: { type: integer }
+        show_absence_reason: { type: boolean }
+        default_annual_leave_days: { type: integer }
+        timezone: { type: string }
 
   responses:
     BadRequest:

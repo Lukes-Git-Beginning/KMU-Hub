@@ -140,6 +140,7 @@ func main() {
 		gateway.NewEmailRoutes(registry),
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
+		gateway.NewHRRoutes(registry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),

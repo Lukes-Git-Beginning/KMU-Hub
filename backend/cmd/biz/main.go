@@ -20,6 +20,10 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/leave"
+	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
@@ -32,6 +36,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
+	hrv1 "github.com/kmuhub/kmuhub/proto/hr/v1"
 )
 
 // crmDealUpdater implements quote.DealValueUpdater by calling CRM UpdateDeal RPC.
@@ -164,6 +169,30 @@ func main() {
 		companySettingsRepo,
 	)
 	bizv1.RegisterFinanceServiceServer(grpcServer, bizGRPC)
+
+	// =========================================================================
+	// HR Service Initialization (shares same gRPC server as finance)
+	// =========================================================================
+	leaveRequestRepo := leave.NewPostgresLeaveRequestRepo(pool)
+	leaveBalanceRepo := leave.NewPostgresLeaveBalanceRepo(pool)
+	leaveTypeRepo := leave.NewPostgresLeaveTypeRepo(pool)
+	hrSettingsRepo := leave.NewPostgresHRSettingsRepo(pool)
+	employeeRepo := employee.NewPostgresEmployeeRepo(pool)
+	docCategoryRepo := employee.NewPostgresDocCategoryRepo(pool)
+	employeeDocRepo := employee.NewPostgresEmployeeDocRepo(pool)
+	absenceRepo := absence.NewPostgresAbsenceRepo(pool)
+	workTimeRepo := timetracking.NewPostgresWorkTimeRepo(pool)
+	breakRepo := timetracking.NewPostgresBreakRepo(pool)
+
+	leaveSvc := leave.NewService(leaveRequestRepo, leaveBalanceRepo, leaveTypeRepo, hrSettingsRepo, employeeRepo)
+	employeeSvc := employee.NewService(employeeRepo, docCategoryRepo, employeeDocRepo)
+	absenceSvc := absence.NewService(absenceRepo, hrSettingsRepo)
+	timetrackingSvc := timetracking.NewService(workTimeRepo, breakRepo, employeeRepo, hrSettingsRepo, pool)
+
+	hrGRPC := server.NewHRGRPCServer(leaveSvc, timetrackingSvc, employeeSvc, absenceSvc, hrSettingsRepo)
+	hrv1.RegisterHRServiceServer(grpcServer, hrGRPC)
+
+	slog.Info("HR services registered on biz gRPC server")
 
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)
 
