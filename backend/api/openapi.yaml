@@ -101,6 +101,12 @@ tags:
     description: Finance dashboard and analytics
   - name: datev
     description: DATEV Buchungsstapel CSV export
+  - name: inbox-messages
+    description: Unified inbox message operations (list, read, star, archive, snooze, reply, assign)
+  - name: inbox-teams
+    description: Team inbox management (create, update, delete, members, claim)
+  - name: inbox-routing
+    description: Inbox routing rules (create, update, delete, test)
 
 paths:
   /health:
@@ -8203,6 +8209,528 @@ paths:
               schema:
                 $ref: "#/components/schemas/HRSettings"
 
+  # =========================================================================
+  # Inbox
+  # =========================================================================
+
+  /api/v1/inbox/messages:
+    get:
+      summary: List inbox messages
+      tags: [inbox-messages]
+      operationId: listInboxMessages
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: channel, in: query, schema: { type: string, enum: [email, chat, notification] } }
+        - { name: is_read, in: query, schema: { type: boolean } }
+        - { name: is_starred, in: query, schema: { type: boolean } }
+        - { name: team_inbox_id, in: query, schema: { type: string, format: uuid } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_token, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Inbox messages list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessageList"
+
+  /api/v1/inbox/messages/{id}:
+    get:
+      summary: Get inbox message by ID
+      tags: [inbox-messages]
+      operationId: getInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Inbox message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/read:
+    post:
+      summary: Mark message as read
+      tags: [inbox-messages]
+      operationId: markInboxMessageRead
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/unread:
+    post:
+      summary: Mark message as unread
+      tags: [inbox-messages]
+      operationId: markInboxMessageUnread
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message marked as unread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/star:
+    post:
+      summary: Toggle star on message
+      tags: [inbox-messages]
+      operationId: toggleInboxMessageStar
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Star toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/archive:
+    post:
+      summary: Archive message
+      tags: [inbox-messages]
+      operationId: archiveInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/unarchive:
+    post:
+      summary: Unarchive message
+      tags: [inbox-messages]
+      operationId: unarchiveInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message unarchived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/snooze:
+    post:
+      summary: Snooze message until a future time
+      tags: [inbox-messages]
+      operationId: snoozeInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snooze_until]
+              properties:
+                snooze_until: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Message snoozed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/unsnooze:
+    post:
+      summary: Unsnooze message
+      tags: [inbox-messages]
+      operationId: unsnoozeInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message unsnoozed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/reply:
+    post:
+      summary: Reply to message through originating channel
+      tags: [inbox-messages]
+      operationId: replyToInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string }
+      responses:
+        "200":
+          description: Reply sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+
+  /api/v1/inbox/messages/{id}/assign:
+    post:
+      summary: Assign message to a user
+      tags: [inbox-messages]
+      operationId: assignInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignee_id]
+              properties:
+                assignee_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Message assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/unread-count:
+    get:
+      summary: Get unread message count by channel
+      tags: [inbox-messages]
+      operationId: getInboxUnreadCount
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Unread counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxUnreadCount"
+
+  /api/v1/inbox/messages/bulk-read:
+    post:
+      summary: Mark multiple messages as read
+      tags: [inbox-messages]
+      operationId: bulkMarkInboxRead
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+
+  /api/v1/inbox/messages/bulk-archive:
+    post:
+      summary: Archive multiple messages
+      tags: [inbox-messages]
+      operationId: bulkArchiveInbox
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+
+  /api/v1/inbox/teams:
+    post:
+      summary: Create a team inbox (admin/manager only)
+      tags: [inbox-teams]
+      operationId: createTeamInbox
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeamInboxInput"
+      responses:
+        "201":
+          description: Team inbox created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamInbox"
+    get:
+      summary: List team inboxes for current user
+      tags: [inbox-teams]
+      operationId: listTeamInboxes
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Team inboxes list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team_inboxes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamInbox"
+
+  /api/v1/inbox/teams/{id}:
+    put:
+      summary: Update a team inbox
+      tags: [inbox-teams]
+      operationId: updateTeamInbox
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamInboxInput"
+      responses:
+        "200":
+          description: Team inbox updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamInbox"
+    delete:
+      summary: Delete a team inbox (admin/manager only)
+      tags: [inbox-teams]
+      operationId: deleteTeamInbox
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Team inbox deleted
+
+  /api/v1/inbox/teams/{id}/members:
+    post:
+      summary: Add member to team inbox
+      tags: [inbox-teams]
+      operationId: addTeamInboxMember
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [member_user_id]
+              properties:
+                member_user_id: { type: string, format: uuid }
+                role: { type: string, enum: [admin, member], default: member }
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamInboxMember"
+    get:
+      summary: List team inbox members
+      tags: [inbox-teams]
+      operationId: listTeamInboxMembers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Team inbox members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamInboxMember"
+
+  /api/v1/inbox/teams/{id}/members/{user_id}:
+    delete:
+      summary: Remove member from team inbox
+      tags: [inbox-teams]
+      operationId: removeTeamInboxMember
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: user_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Member removed
+
+  /api/v1/inbox/messages/{id}/claim:
+    post:
+      summary: Claim an unassigned team inbox message
+      tags: [inbox-teams]
+      operationId: claimInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message claimed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/rules:
+    post:
+      summary: Create a routing rule (admin/manager only)
+      tags: [inbox-routing]
+      operationId: createInboxRoutingRule
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoutingRuleInput"
+      responses:
+        "201":
+          description: Routing rule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingRule"
+    get:
+      summary: List routing rules
+      tags: [inbox-routing]
+      operationId: listInboxRoutingRules
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Routing rules list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RoutingRule"
+
+  /api/v1/inbox/rules/{id}:
+    put:
+      summary: Update a routing rule (admin/manager only)
+      tags: [inbox-routing]
+      operationId: updateInboxRoutingRule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoutingRuleInput"
+      responses:
+        "200":
+          description: Routing rule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingRule"
+    delete:
+      summary: Delete a routing rule (admin/manager only)
+      tags: [inbox-routing]
+      operationId: deleteInboxRoutingRule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Routing rule deleted
+
+  /api/v1/inbox/rules/test:
+    post:
+      summary: Test routing rule conditions against a sample message
+      tags: [inbox-routing]
+      operationId: testInboxRoutingRule
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [conditions, test_message]
+              properties:
+                conditions: { type: object }
+                test_message:
+                  $ref: "#/components/schemas/InboxMessage"
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matches: { type: boolean }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -12639,6 +13167,129 @@ components:
         show_absence_reason: { type: boolean }
         default_annual_leave_days: { type: integer }
         timezone: { type: string }
+
+    # =========================================================================
+    # Inbox Schemas
+    # =========================================================================
+
+    InboxMessage:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        channel: { type: string, enum: [email, chat, notification] }
+        source_id: { type: string }
+        sender_name: { type: string }
+        sender_id: { type: string, format: uuid }
+        sender_email: { type: string }
+        subject: { type: string }
+        preview: { type: string }
+        is_read: { type: boolean }
+        is_starred: { type: boolean }
+        is_archived: { type: boolean }
+        snoozed_until: { type: string, format: date-time }
+        assigned_to: { type: string, format: uuid }
+        team_inbox_id: { type: string, format: uuid }
+        tags: { type: array, items: { type: string } }
+        deep_link: { type: string }
+        crm_contact_id: { type: string, format: uuid }
+        metadata: { type: object }
+        received_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    InboxMessageList:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxMessage"
+        next_page_token: { type: string }
+        total_count: { type: integer }
+
+    InboxUnreadCount:
+      type: object
+      properties:
+        total: { type: integer }
+        by_channel:
+          type: array
+          items:
+            type: object
+            properties:
+              channel: { type: string, enum: [email, chat, notification] }
+              count: { type: integer }
+
+    TeamInbox:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        assignment_mode: { type: string, enum: [manual, round_robin] }
+        visibility: { type: string, enum: [open, private] }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateTeamInboxInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        assignment_mode: { type: string, enum: [manual, round_robin], default: manual }
+        visibility: { type: string, enum: [open, private], default: open }
+
+    UpdateTeamInboxInput:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        assignment_mode: { type: string, enum: [manual, round_robin] }
+        visibility: { type: string, enum: [open, private] }
+
+    TeamInboxMember:
+      type: object
+      properties:
+        team_inbox_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        role: { type: string, enum: [admin, member] }
+        created_at: { type: string, format: date-time }
+
+    RoutingRule:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        channel: { type: string, enum: [email, chat, notification] }
+        conditions: { type: object, description: "AND/OR condition tree with field/operator/value leaves" }
+        actions: { type: object, description: "Array of actions: route_to_team, assign_to, add_tags, auto_reply" }
+        priority: { type: integer }
+        is_active: { type: boolean }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateRoutingRuleInput:
+      type: object
+      required: [name, conditions, actions]
+      properties:
+        name: { type: string }
+        channel: { type: string, enum: [email, chat, notification] }
+        conditions: { type: object }
+        actions: { type: object }
+        priority: { type: integer, default: 100 }
+
+    UpdateRoutingRuleInput:
+      type: object
+      properties:
+        name: { type: string }
+        channel: { type: string, enum: [email, chat, notification] }
+        conditions: { type: object }
+        actions: { type: object }
+        priority: { type: integer }
+        is_active: { type: boolean }
 
   responses:
     BadRequest:
