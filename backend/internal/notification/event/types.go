@@ -25,12 +25,56 @@ const (
 	EventSystemAlert = "system.alert"
 )
 
+// Email events
+const (
+	EventEmailReceived = "email.message.received"
+	EventEmailSent     = "email.message.sent"
+	EventEmailDeleted  = "email.message.deleted"
+)
+
+// Document events
+const (
+	EventDocumentUploaded  = "document.file.uploaded"
+	EventDocumentShared    = "document.file.shared"
+	EventDocumentVersioned = "document.file.versioned"
+)
+
+// Finance (Biz) events
+const (
+	EventInvoiceCreated  = "biz.invoice.created"
+	EventInvoiceSent     = "biz.invoice.sent"
+	EventInvoiceOverdue  = "biz.invoice.overdue"
+	EventPaymentReceived = "biz.payment.received"
+	EventQuoteCreated    = "biz.quote.created"
+	EventDunningCreated  = "biz.dunning.created"
+)
+
+// HR events
+const (
+	EventLeaveRequested = "hr.leave.requested"
+	EventLeaveApproved  = "hr.leave.approved"
+	EventLeaveRejected  = "hr.leave.rejected"
+	EventShiftStarted   = "hr.shift.started"
+	EventShiftEnded     = "hr.shift.ended"
+)
+
+// Inbox events
+const (
+	EventInboxItemCreated  = "inbox.item.created"
+	EventInboxItemAssigned = "inbox.item.assigned"
+)
+
 // Well-known module IDs
 const (
-	ModuleChat   = "chat"
-	ModuleCRM    = "crm"
-	ModuleWork   = "work"
-	ModuleSystem = "system"
+	ModuleChat     = "chat"
+	ModuleCRM      = "crm"
+	ModuleWork     = "work"
+	ModuleSystem   = "system"
+	ModuleEmail    = "email"
+	ModuleDocument = "document"
+	ModuleBiz      = "biz"
+	ModuleHR       = "hr"
+	ModuleInbox    = "inbox"
 )
 
 // PostgreSQL LISTEN channel name for the event bus
