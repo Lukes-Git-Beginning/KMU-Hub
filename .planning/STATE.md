@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 13 (HR & Zeiterfassung) -- plan 03 complete, 1 remaining
+**Current focus:** Phase 13 (HR & Zeiterfassung) -- COMPLETE, all 4 plans done
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 13 of 20 (HR & Zeiterfassung)
-Plan: 3 of 4 complete
-Status: Business Suite milestone in progress
-Last activity: 2026-02-19 -- Phase 13 plan 03 (time tracking service + gRPC + gateway routes) complete
+Phase: 13 of 20 (HR & Zeiterfassung) -- COMPLETE
+Plan: 4 of 4 complete
+Status: Business Suite milestone in progress (Phase 13 complete)
+Last activity: 2026-02-19 -- Phase 13 plan 04 (frontend TanStack Query integration + UI wiring) complete
 
-Progress: [██████████████████████████████░░] 99% (76/77 plans across phases 4-13)
+Progress: [████████████████████████████████] 100% (77/77 plans across phases 4-13)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 66
+- Total plans completed: 67
 - Average duration: ~7 minutes
-- Total execution time: ~7h 10min
+- Total execution time: ~7h 23min
 
 **By Phase:**
 
@@ -39,13 +39,13 @@ Progress: [███████████████████████
 | 11 | 6/6 | ~57min | ~9.5min |
 
 | 12 | 7/7 | ~75min | ~10.7min |
-| 13 | 3/4 | ~51min | ~17min |
+| 13 | 4/4 | ~64min | ~16min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
-- Phase 13 (HR & Zeiterfassung) in progress -- plan 03 complete (time tracking + gRPC + gateway)
-- 76/77 plans done across Phases 4-13
+- Phase 13 (HR & Zeiterfassung) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
+- 77/77 plans done across Phases 4-13
 
 *Updated after each plan completion*
 
@@ -337,6 +337,12 @@ Recent decisions affecting current work:
 - [13-03]: GetWorkTimeStatus composed in gateway from GetActiveShift + GetDailySummary RPCs (no dedicated proto RPC)
 - [13-03]: ArbZG severity at exactly 600 min returns "warning" not "error" (CheckWorkTime uses > 600 for error)
 - [13-03]: HRRoutes ServiceName="biz" reuses existing gateway connection to biz gRPC server
+- [13-04]: requestAnimationFrame for ClockInButton live timer (matching Phase 6 pattern, smoother than setInterval)
+- [13-04]: Payroll/training tabs kept on Zustand mock stores (payroll = anti-feature, training not in Phase 13 scope)
+- [13-04]: MemberDetailPanel changed to memberId-based API lookup instead of full TeamMember prop
+- [13-04]: AbsenceCalendar changed to self-fetching (no props) instead of parent-provided data
+- [13-04]: Deutschland-First locale: EUR formatting, de-DE date locale throughout all HR pages
+- [13-04]: 30s polling for WorkTimeStatus in header ClockInButton for near-real-time display
 
 ### Pending Todos
 
@@ -351,6 +357,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 13-03-PLAN.md
-Resume file: .planning/phases/13-hr-zeiterfassung/13-03-SUMMARY.md
-Next: Execute 13-04-PLAN.md
+Stopped at: Completed 13-04-PLAN.md (Phase 13 COMPLETE)
+Resume file: .planning/phases/13-hr-zeiterfassung/13-04-SUMMARY.md
+Next: Phase 14 (Unified Inbox) planning
