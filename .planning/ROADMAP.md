@@ -293,12 +293,13 @@ Plans:
   5. Time tracking enforces ArbZG rules: warns at 8h, blocks at 10h daily, enforces 11h rest between shifts, and requires breaks
   6. Employee profiles include department, position, and contract type, with access-controlled document storage (contracts, Zeugnisse)
   7. Sick leave can be recorded with AU (doctor's note) upload required after 3 consecutive days
-**Plans**: 3-4 plans (estimated)
+**Plans**: 4 plans
 
 Plans:
-- [ ] 13-01: Leave management (request/approval workflow, BUrlG balance calculation, absence calendar integration)
-- [ ] 13-02: Time tracking (clock in/out, ArbZG rule enforcement, daily/weekly summaries, break validation)
-- [ ] 13-03: Employee profiles + documents (HR data extension of auth users, document storage in MinIO, sick leave with AU upload)
+- [ ] 13-01-PLAN.md -- HR data foundation (hr.proto ~30 RPCs, migration 000046 with 9 tables, Go models, BUrlG/ArbZG compliance TDD)
+- [ ] 13-02-PLAN.md -- Leave + absence + employee services (leave workflow, BUrlG balance, absence calendar, employee profiles, document management)
+- [ ] 13-03-PLAN.md -- Time tracking + gRPC + gateway (clock in/out with ArbZG enforcement, HRService gRPC server, ~30 HTTP routes, biz binary extension)
+- [ ] 13-04-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, UI wiring, header clock-in button, absence calendar, leave forms)
 
 ### Phase 14: Event Infrastructure + Unified Inbox
 **Goal**: All modules emit structured events via PostgreSQL LISTEN/NOTIFY, and users get a single aggregated inbox across Email, Chat, and Notifications -- the foundation for Automation Engine
@@ -430,7 +431,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 10. Email Integration | 3/7 | In progress | - |
 | 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
 | 12. Rechnungen & Finanzen | 7/7 | Complete    | 2026-02-18 |
-| 13. HR & Zeiterfassung | 0/3 | Not started | - |
+| 13. HR & Zeiterfassung | 0/4 | Not started | - |
 | 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
 | 15. CalDAV/CardDAV | 0/2 | Not started | - |
 | 16. Automation Engine | 0/3 | Not started | - |
