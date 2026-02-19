@@ -20,6 +20,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/leave"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // Service handles work time tracking business logic with ArbZG enforcement.
@@ -29,6 +30,7 @@ type Service struct {
 	employeeRepo employee.EmployeeRepository
 	settingsRepo leave.HRSettingsRepository
 	pool         *pgxpool.Pool // For event emission
+	emitter      EventEmitter
 }
 
 // NewService creates a new time tracking service.
@@ -45,6 +47,38 @@ func NewService(
 		employeeRepo: employeeRepo,
 		settingsRepo: settingsRepo,
 		pool:         pool,
+	}
+}
+
+// SetEventEmitter sets the optional event emitter for notification events.
+func (s *Service) SetEventEmitter(emitter EventEmitter) {
+	s.emitter = emitter
+}
+
+// emitEvent emits a notification event if the emitter is configured.
+// Nil-safe: does nothing if no emitter is set.
+func (s *Service) emitEvent(ctx context.Context, eventType, actorID, resourceID string, targetUserIDs []string, title, body, deepLink string) {
+	if s.emitter == nil {
+		return
+	}
+	payload := models.EventPayload{
+		Type:          eventType,
+		Priority:      "low",
+		ActorID:       actorID,
+		ModuleID:      event.ModuleHR,
+		ResourceID:    resourceID,
+		TargetUserIDs: targetUserIDs,
+		Title:         title,
+		Body:          body,
+		DeepLink:      deepLink,
+		Timestamp:     time.Now(),
+	}
+	if err := s.emitter.EmitHREvent(ctx, payload); err != nil {
+		slog.Error("failed to emit hr event",
+			"type", eventType,
+			"resource_id", resourceID,
+			"error", err,
+		)
 	}
 }
 
@@ -111,6 +145,9 @@ func (s *Service) ClockIn(ctx context.Context, tenantID, employeeID uuid.UUID) (
 		"employee_id", employeeID,
 		"rest_violation", restViolation,
 	)
+
+	s.emitEvent(ctx, event.EventShiftStarted, employeeID.String(), entry.ID.String(), nil,
+		"Schicht gestartet", "", "/hr/zeiterfassung")
 
 	return entry, checkResult, nil
 }
@@ -184,6 +221,9 @@ func (s *Service) ClockOut(ctx context.Context, tenantID, employeeID uuid.UUID) 
 		"net_work_minutes", netWorkMinutes,
 		"severity", checkResult.Severity,
 	)
+
+	s.emitEvent(ctx, event.EventShiftEnded, employeeID.String(), entry.ID.String(), nil,
+		"Schicht beendet", "", "/hr/zeiterfassung")
 
 	return entry, &checkResult, nil
 }

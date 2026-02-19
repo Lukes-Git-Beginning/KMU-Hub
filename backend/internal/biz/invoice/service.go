@@ -15,6 +15,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // Service handles invoice business logic with GoBD compliance.
@@ -23,6 +24,7 @@ type Service struct {
 	numberSeqRepo   NumberSequenceRepo
 	companySettings CompanySettingsRepo
 	quoteReader     QuoteReader
+	emitter         EventEmitter
 }
 
 // NewService creates a new invoice service.
@@ -38,6 +40,38 @@ func NewService(
 		numberSeqRepo:   numberSeqRepo,
 		companySettings: companySettings,
 		quoteReader:     quoteReader,
+	}
+}
+
+// SetEventEmitter sets the optional event emitter for notification events.
+func (s *Service) SetEventEmitter(emitter EventEmitter) {
+	s.emitter = emitter
+}
+
+// emitEvent emits a notification event if the emitter is configured.
+// Nil-safe: does nothing if no emitter is set.
+func (s *Service) emitEvent(ctx context.Context, eventType, actorID, resourceID string, targetUserIDs []string, title, body, deepLink string) {
+	if s.emitter == nil {
+		return
+	}
+	payload := models.EventPayload{
+		Type:          eventType,
+		Priority:      "normal",
+		ActorID:       actorID,
+		ModuleID:      event.ModuleBiz,
+		ResourceID:    resourceID,
+		TargetUserIDs: targetUserIDs,
+		Title:         title,
+		Body:          body,
+		DeepLink:      deepLink,
+		Timestamp:     time.Now(),
+	}
+	if err := s.emitter.EmitBizEvent(ctx, payload); err != nil {
+		slog.Error("failed to emit biz event",
+			"type", eventType,
+			"resource_id", resourceID,
+			"error", err,
+		)
 	}
 }
 
@@ -154,6 +188,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 		"gross_total", inv.GrossTotal,
 		"source_quote_id", inv.SourceQuoteID,
 	)
+
+	s.emitEvent(ctx, event.EventInvoiceCreated, input.UserID.String(), inv.ID.String(), nil,
+		"Rechnung erstellt", inv.CustomerName, "/finanzen/rechnungen/"+inv.ID.String())
 
 	return inv, nil
 }
@@ -378,6 +415,10 @@ func (s *Service) Send(ctx context.Context, tenantID, id, userID uuid.UUID) erro
 		"invoice_number", number,
 		"gross_total", inv.GrossTotal,
 	)
+
+	s.emitEvent(ctx, event.EventInvoiceSent, userID.String(), inv.ID.String(), nil,
+		"Rechnung versendet", inv.InvoiceNumber, "/finanzen/rechnungen/"+inv.ID.String())
+
 	return nil
 }
 

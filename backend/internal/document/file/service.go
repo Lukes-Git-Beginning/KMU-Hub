@@ -12,6 +12,7 @@ import (
 
 	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // Service handles document file business logic.
@@ -19,6 +20,7 @@ type Service struct {
 	repo    Repository
 	store   chatfile.FileStore
 	maxSize int64
+	emitter EventEmitter
 }
 
 // NewService creates a new document file service.
@@ -27,6 +29,38 @@ func NewService(repo Repository, store chatfile.FileStore, maxSizeBytes int64) *
 		repo:    repo,
 		store:   store,
 		maxSize: maxSizeBytes,
+	}
+}
+
+// SetEventEmitter sets the optional event emitter for notification events.
+func (s *Service) SetEventEmitter(emitter EventEmitter) {
+	s.emitter = emitter
+}
+
+// emitEvent emits a notification event if the emitter is configured.
+// Nil-safe: does nothing if no emitter is set.
+func (s *Service) emitEvent(ctx context.Context, eventType, actorID, resourceID string, targetUserIDs []string, title, body, deepLink string) {
+	if s.emitter == nil {
+		return
+	}
+	payload := models.EventPayload{
+		Type:          eventType,
+		Priority:      "normal",
+		ActorID:       actorID,
+		ModuleID:      event.ModuleDocument,
+		ResourceID:    resourceID,
+		TargetUserIDs: targetUserIDs,
+		Title:         title,
+		Body:          body,
+		DeepLink:      deepLink,
+		Timestamp:     time.Now(),
+	}
+	if err := s.emitter.EmitDocumentEvent(ctx, payload); err != nil {
+		slog.Error("failed to emit document event",
+			"type", eventType,
+			"resource_id", resourceID,
+			"error", err,
+		)
 	}
 }
 
@@ -119,6 +153,9 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.Docume
 		"folder_id", input.FolderID,
 		"owner_id", input.OwnerID,
 	)
+
+	s.emitEvent(ctx, event.EventDocumentUploaded, input.OwnerID.String(), fileID.String(), nil,
+		"Dokument hochgeladen", filename, "/documents/"+fileID.String())
 
 	return file, nil
 }
@@ -359,6 +396,9 @@ func (s *Service) CreateVersion(ctx context.Context, fileID uuid.UUID, input Ver
 		"created_by", input.UserID,
 	)
 
+	s.emitEvent(ctx, event.EventDocumentVersioned, input.UserID.String(), fileID.String(), nil,
+		"Neue Dokumentversion", fmt.Sprintf("Version %d", newVersionNumber), "/documents/"+fileID.String())
+
 	return version, nil
 }
 
@@ -470,6 +510,10 @@ func (s *Service) LinkToEntity(ctx context.Context, fileID uuid.UUID, entityType
 		"entity_id", entityID,
 		"linked_by", userID,
 	)
+
+	s.emitEvent(ctx, event.EventDocumentShared, userID.String(), fileID.String(), nil,
+		"Dokument geteilt", "", "/documents/"+fileID.String())
+
 	return nil
 }
 

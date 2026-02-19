@@ -14,6 +14,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/biz/tax"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // Service handles quote business logic.
@@ -22,6 +23,7 @@ type Service struct {
 	numberSeqRepo   NumberSequenceRepo
 	companySettings CompanySettingsRepo
 	dealUpdater     DealValueUpdater
+	emitter         EventEmitter
 }
 
 // NewService creates a new quote service.
@@ -37,6 +39,38 @@ func NewService(
 		numberSeqRepo:   numberSeqRepo,
 		companySettings: companySettings,
 		dealUpdater:     dealUpdater,
+	}
+}
+
+// SetEventEmitter sets the optional event emitter for notification events.
+func (s *Service) SetEventEmitter(emitter EventEmitter) {
+	s.emitter = emitter
+}
+
+// emitEvent emits a notification event if the emitter is configured.
+// Nil-safe: does nothing if no emitter is set.
+func (s *Service) emitEvent(ctx context.Context, eventType, actorID, resourceID string, targetUserIDs []string, title, body, deepLink string) {
+	if s.emitter == nil {
+		return
+	}
+	payload := models.EventPayload{
+		Type:          eventType,
+		Priority:      "normal",
+		ActorID:       actorID,
+		ModuleID:      event.ModuleBiz,
+		ResourceID:    resourceID,
+		TargetUserIDs: targetUserIDs,
+		Title:         title,
+		Body:          body,
+		DeepLink:      deepLink,
+		Timestamp:     time.Now(),
+	}
+	if err := s.emitter.EmitBizEvent(ctx, payload); err != nil {
+		slog.Error("failed to emit biz event",
+			"type", eventType,
+			"resource_id", resourceID,
+			"error", err,
+		)
 	}
 }
 
@@ -138,6 +172,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Quote,
 		"gross_total", quote.GrossTotal,
 		"deal_id", quote.DealID,
 	)
+
+	s.emitEvent(ctx, event.EventQuoteCreated, input.UserID.String(), quote.ID.String(), nil,
+		"Angebot erstellt", quote.CustomerName, "/finanzen/angebote/"+quote.ID.String())
 
 	// Deal value auto-sync (locked decision: quote gross_total syncs to CRM deal)
 	if input.DealID != nil && s.dealUpdater != nil {

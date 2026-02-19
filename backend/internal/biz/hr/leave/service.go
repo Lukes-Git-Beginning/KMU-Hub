@@ -15,6 +15,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/biz/hr/compliance"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // EmployeeRepository provides access to employee profiles for manager lookup.
@@ -29,6 +30,7 @@ type Service struct {
 	typeRepo     LeaveTypeRepository
 	settingsRepo HRSettingsRepository
 	employeeRepo EmployeeRepository
+	emitter      EventEmitter
 }
 
 // NewService creates a new leave service.
@@ -45,6 +47,38 @@ func NewService(
 		typeRepo:     typeRepo,
 		settingsRepo: settingsRepo,
 		employeeRepo: employeeRepo,
+	}
+}
+
+// SetEventEmitter sets the optional event emitter for notification events.
+func (s *Service) SetEventEmitter(emitter EventEmitter) {
+	s.emitter = emitter
+}
+
+// emitEvent emits a notification event if the emitter is configured.
+// Nil-safe: does nothing if no emitter is set.
+func (s *Service) emitEvent(ctx context.Context, eventType, actorID, resourceID string, targetUserIDs []string, title, body, deepLink string) {
+	if s.emitter == nil {
+		return
+	}
+	payload := models.EventPayload{
+		Type:          eventType,
+		Priority:      "normal",
+		ActorID:       actorID,
+		ModuleID:      event.ModuleHR,
+		ResourceID:    resourceID,
+		TargetUserIDs: targetUserIDs,
+		Title:         title,
+		Body:          body,
+		DeepLink:      deepLink,
+		Timestamp:     time.Now(),
+	}
+	if err := s.emitter.EmitHREvent(ctx, payload); err != nil {
+		slog.Error("failed to emit hr event",
+			"type", eventType,
+			"resource_id", resourceID,
+			"error", err,
+		)
 	}
 }
 
@@ -166,11 +200,11 @@ func (s *Service) CreateLeaveRequest(ctx context.Context, tenantID, employeeID u
 		return nil, createErr
 	}
 
-	eventType := "hr.leave.requested"
+	emitType := event.EventLeaveRequested
 	if status == models.LeaveStatusApproved {
-		eventType = "hr.leave.approved"
+		emitType = event.EventLeaveApproved
 	}
-	slog.Info(eventType,
+	slog.Info(emitType,
 		"leave_request_id", req.ID,
 		"employee_id", employeeID,
 		"leave_type", leaveType.Key,
@@ -178,6 +212,9 @@ func (s *Service) CreateLeaveRequest(ctx context.Context, tenantID, employeeID u
 		"status", status,
 		"au_document_required", auDocRequired,
 	)
+
+	s.emitEvent(ctx, emitType, employeeID.String(), req.ID.String(), nil,
+		"Urlaubsantrag eingereicht", input.Reason, "/hr/urlaub/"+req.ID.String())
 
 	return &CreateLeaveResult{Request: req}, nil
 }
@@ -244,6 +281,10 @@ func (s *Service) ApproveLeaveRequest(ctx context.Context, requestID, approverID
 		"overlaps_count", len(overlaps),
 	)
 
+	s.emitEvent(ctx, event.EventLeaveApproved, approverID.String(), requestID.String(),
+		[]string{req.EmployeeID.String()},
+		"Urlaubsantrag genehmigt", "", "/hr/urlaub/"+requestID.String())
+
 	return &ApproveResult{Request: req, Overlaps: overlaps}, nil
 }
 
@@ -283,6 +324,10 @@ func (s *Service) RejectLeaveRequest(ctx context.Context, requestID, approverID 
 		"approver_id", approverID,
 		"employee_id", req.EmployeeID,
 	)
+
+	s.emitEvent(ctx, event.EventLeaveRejected, approverID.String(), requestID.String(),
+		[]string{req.EmployeeID.String()},
+		"Urlaubsantrag abgelehnt", comment, "/hr/urlaub/"+requestID.String())
 
 	return nil
 }
