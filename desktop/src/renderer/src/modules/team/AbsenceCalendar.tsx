@@ -1,31 +1,16 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { TeamMember, HRRequest } from '@/stores/team'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useAbsenceCalendar, useEmployees, useHRSettings } from '@/api/hooks/hr-hooks'
+import type { AbsenceEntry } from '@/api/hr-types'
 
 const DAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr']
-
-const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  vacation: { bg: '#3d8abf', text: '#ffffff' },
-  sick: { bg: '#bf3d3d', text: '#ffffff' },
-  overtime: { bg: '#bf8a3d', text: '#ffffff' },
-  doctor: { bg: '#1e7e74', text: '#ffffff' },
-  homeoffice: { bg: '#4a7c6a', text: '#ffffff' },
-  education: { bg: '#7c5a8a', text: '#ffffff' },
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  vacation: 'Urlaub',
-  sick: 'Krank',
-  overtime: 'UE',
-  doctor: 'Arzt',
-  homeoffice: 'HO',
-  education: 'WB',
-}
-
-interface AbsenceCalendarProps {
-  members: TeamMember[]
-  requests: HRRequest[]
-}
 
 function getWeekDays(date: Date): Date[] {
   const d = new Date(date)
@@ -47,9 +32,10 @@ function isInRange(date: string, start: string, end: string): boolean {
   return date >= start && date <= end
 }
 
-export function AbsenceCalendar({ members, requests }: AbsenceCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 1, 9))
+export function AbsenceCalendar() {
+  const [currentDate, setCurrentDate] = useState(() => new Date())
   const [weeksToShow, setWeeksToShow] = useState(2)
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all')
 
   const weeks = useMemo(() => {
     const result: Date[][] = []
@@ -62,8 +48,45 @@ export function AbsenceCalendar({ members, requests }: AbsenceCalendarProps) {
   }, [currentDate, weeksToShow])
 
   const allDays = weeks.flat()
+  const startDate = formatDateKey(allDays[0])
+  const endDate = formatDateKey(allDays[allDays.length - 1])
 
-  const approvedRequests = requests.filter((r) => r.status === 'approved' || r.status === 'pending')
+  // Fetch absence calendar data from API
+  const { data: absenceEntries, isLoading } = useAbsenceCalendar({
+    start_date: startDate,
+    end_date: endDate,
+    department: departmentFilter !== 'all' ? departmentFilter : undefined,
+  })
+
+  // Fetch employees for department filter options
+  const { data: employeesData } = useEmployees()
+
+  // Fetch settings for reason visibility
+  const { data: settings } = useHRSettings()
+
+  // Extract unique departments from employees
+  const departments = useMemo(() => {
+    const employees = employeesData?.employees ?? []
+    const depts = [...new Set(employees.map((e) => e.department).filter(Boolean))] as string[]
+    return depts.sort()
+  }, [employeesData])
+
+  // Group absence entries by employee
+  const employeeAbsences = useMemo(() => {
+    const entries = absenceEntries ?? []
+    const map = new Map<string, { name: string; department: string; entries: AbsenceEntry[] }>()
+    for (const entry of entries) {
+      if (!map.has(entry.employeeId)) {
+        map.set(entry.employeeId, {
+          name: entry.employeeName,
+          department: entry.department,
+          entries: [],
+        })
+      }
+      map.get(entry.employeeId)!.entries.push(entry)
+    }
+    return [...map.entries()].sort(([, a], [, b]) => a.name.localeCompare(b.name))
+  }, [absenceEntries])
 
   const navigate = (dir: -1 | 1) => {
     const d = new Date(currentDate)
@@ -71,7 +94,7 @@ export function AbsenceCalendar({ members, requests }: AbsenceCalendarProps) {
     setCurrentDate(d)
   }
 
-  const activeMembers = members.filter((m) => m.isActive)
+  const showReasons = settings?.showAbsenceReason !== false
 
   return (
     <div className="space-y-4">
@@ -82,13 +105,26 @@ export function AbsenceCalendar({ members, requests }: AbsenceCalendarProps) {
             <ChevronLeft className="h-4 w-4" />
           </button>
           <span className="text-sm font-medium text-foreground min-w-[200px] text-center">
-            {allDays[0].toLocaleDateString('de-CH')} – {allDays[allDays.length - 1].toLocaleDateString('de-CH')}
+            {allDays[0].toLocaleDateString('de-DE')} – {allDays[allDays.length - 1].toLocaleDateString('de-DE')}
           </span>
           <button onClick={() => navigate(1)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
         <div className="flex items-center gap-2">
+          {/* Department filter */}
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue placeholder="Abteilung..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Abteilungen</SelectItem>
+              {departments.map((dept) => (
+                <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Week toggle */}
           {[2, 4].map((w) => (
             <button
               key={w}
@@ -103,96 +139,134 @@ export function AbsenceCalendar({ members, requests }: AbsenceCalendarProps) {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[700px] border-collapse">
-          <thead>
-            <tr className="bg-secondary/50">
-              <th className="w-40 border-r border-border px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                Mitarbeiter
-              </th>
-              {allDays.map((d, i) => {
-                const today = formatDateKey(d) === formatDateKey(new Date())
-                const isWeekStart = i % 5 === 0 && i > 0
-                return (
-                  <th
-                    key={i}
-                    className={`px-1 py-2 text-center ${isWeekStart ? 'border-l-2 border-border' : 'border-l border-border-muted'}`}
-                  >
-                    <p className="text-[9px] uppercase text-muted-foreground">{DAYS_SHORT[i % 5]}</p>
-                    <p className={`text-[10px] mt-0.5 ${
-                      today ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground font-medium' : 'text-foreground'
-                    }`}>
-                      {d.getDate()}
-                    </p>
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {activeMembers.map((member) => {
-              const memberRequests = approvedRequests.filter((r) => r.memberId === member.id)
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      )}
 
-              return (
-                <tr key={member.id} className="hover:bg-secondary/20 transition-colors">
+      {/* Grid */}
+      {!isLoading && (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[700px] border-collapse">
+            <thead>
+              <tr className="bg-secondary/50">
+                <th className="w-40 border-r border-border px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Mitarbeiter
+                </th>
+                {allDays.map((d, i) => {
+                  const today = formatDateKey(d) === formatDateKey(new Date())
+                  const isWeekStart = i % 5 === 0 && i > 0
+                  return (
+                    <th
+                      key={i}
+                      className={`px-1 py-2 text-center ${isWeekStart ? 'border-l-2 border-border' : 'border-l border-border-muted'}`}
+                    >
+                      <p className="text-[9px] uppercase text-muted-foreground">{DAYS_SHORT[i % 5]}</p>
+                      <p className={`text-[10px] mt-0.5 ${
+                        today ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground font-medium' : 'text-foreground'
+                      }`}>
+                        {d.getDate()}
+                      </p>
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {employeeAbsences.length === 0 && (
+                <tr>
+                  <td colSpan={allDays.length + 1} className="py-8 text-center text-sm text-muted-foreground">
+                    Keine Abwesenheiten im gewaehlten Zeitraum
+                  </td>
+                </tr>
+              )}
+              {employeeAbsences.map(([employeeId, data]) => (
+                <tr key={employeeId} className="hover:bg-secondary/20 transition-colors">
                   <td className="border-r border-border border-t px-3 py-2">
                     <div className="flex items-center gap-2">
                       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-light text-[9px] font-medium text-primary">
-                        {member.initials}
+                        {data.name
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">{member.firstName} {member.lastName}</p>
-                        <p className="text-[9px] text-muted-foreground truncate">{member.department}</p>
+                        <p className="text-xs font-medium text-foreground truncate">{data.name}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">{data.department}</p>
                       </div>
                     </div>
                   </td>
                   {allDays.map((d, i) => {
                     const dateKey = formatDateKey(d)
-                    const matchingReq = memberRequests.find((r) => isInRange(dateKey, r.startDate, r.endDate))
+                    const matchingEntry = data.entries.find((e) => isInRange(dateKey, e.startDate, e.endDate))
                     const isWeekStart = i % 5 === 0 && i > 0
-                    const colors = matchingReq ? TYPE_COLORS[matchingReq.type] : null
+
+                    // When showAbsenceReason is disabled, show neutral gray
+                    const barColor = matchingEntry
+                      ? showReasons
+                        ? matchingEntry.color
+                        : '#9ca3af'
+                      : null
+                    const barLabel = matchingEntry
+                      ? showReasons
+                        ? matchingEntry.leaveTypeName
+                        : 'Abwesend'
+                      : null
 
                     return (
                       <td
                         key={i}
                         className={`border-t ${isWeekStart ? 'border-l-2 border-border' : 'border-l border-border-muted'} px-0.5 py-1 text-center`}
                       >
-                        {matchingReq && colors && (
+                        {matchingEntry && barColor && (
                           <div
                             className="mx-auto rounded px-1 py-0.5 text-[8px] font-medium"
-                            style={{ backgroundColor: `${colors.bg}25`, color: colors.bg }}
-                            title={`${TYPE_LABELS[matchingReq.type]}: ${matchingReq.reason}${matchingReq.status === 'pending' ? ' (ausstehend)' : ''}`}
+                            style={{ backgroundColor: `${barColor}25`, color: barColor }}
+                            title={showReasons ? matchingEntry.leaveTypeName : 'Abwesend'}
                           >
-                            {TYPE_LABELS[matchingReq.type]}
-                            {matchingReq.status === 'pending' && '?'}
+                            {barLabel}
                           </div>
                         )}
                       </td>
                     )
                   })}
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-3">
-        {Object.entries(TYPE_LABELS).map(([key, label]) => {
-          const colors = TYPE_COLORS[key]
-          return (
-            <div key={key} className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded" style={{ backgroundColor: colors.bg }} />
-              <span className="text-[10px] text-muted-foreground">{label === 'UE' ? 'Überstunden' : label === 'HO' ? 'Homeoffice' : label === 'WB' ? 'Weiterbildung' : label}</span>
-            </div>
-          )
-        })}
-        <div className="flex items-center gap-1.5 ml-2">
-          <span className="text-[10px] text-muted-foreground italic">? = ausstehend</span>
+      {showReasons && (
+        <div className="flex flex-wrap items-center gap-3">
+          {(() => {
+            // Deduplicate leave type colors from entries
+            const seen = new Set<string>()
+            const legends: { key: string; label: string; color: string }[] = []
+            for (const entry of absenceEntries ?? []) {
+              if (!seen.has(entry.leaveTypeKey)) {
+                seen.add(entry.leaveTypeKey)
+                legends.push({
+                  key: entry.leaveTypeKey,
+                  label: entry.leaveTypeName,
+                  color: entry.color,
+                })
+              }
+            }
+            return legends.map((l) => (
+              <div key={l.key} className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded" style={{ backgroundColor: l.color }} />
+                <span className="text-[10px] text-muted-foreground">{l.label}</span>
+              </div>
+            ))
+          })()}
         </div>
-      </div>
+      )}
     </div>
   )
 }
