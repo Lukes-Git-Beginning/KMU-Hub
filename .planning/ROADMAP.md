@@ -311,12 +311,13 @@ Plans:
   3. User can reply, mark-read, and triage items from the unified inbox without switching modules
   4. Team inboxes allow shared mailbox concepts with assignment and routing rules
   5. Channel adapters normalize messages from different sources into a unified format
-**Plans**: 3 plans (estimated)
+**Plans**: 4 plans
 
 Plans:
-- [ ] 14-01: Event infrastructure (events table, pg_notify emitting in all services, event consumer framework)
-- [ ] 14-02: Unified Inbox service + channel adapters (EmailAdapter, ChatAdapter, NotificationAdapter, MessageNormalizer, inbox_messages materialized table)
-- [ ] 14-03: Unified Inbox UI + routing engine (three-column inbox, team inboxes, condition-action routing rules)
+- [ ] 14-01-PLAN.md -- Event infrastructure data foundation (inbox.proto ~27 RPCs, migrations for 4 tables, Go models, event type constants, PGEventEmitter retrofit for Email/Document/Biz/HR)
+- [ ] 14-02-PLAN.md -- Inbox service packages (channel adapters, message service with snooze worker, team inbox service with claim/assign, routing engine with AND/OR condition evaluator)
+- [ ] 14-03-PLAN.md -- Connection layer (InboxService gRPC server, gateway HTTP routes ~25 endpoints, inbox event consumer on EventBus, notification binary co-hosting)
+- [ ] 14-04-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, KommunikationPage three-column layout, inline reply, snooze, team inbox settings, routing rules editor)
 
 ### Phase 15: CalDAV/CardDAV Integration
 **Goal**: External calendar and contact clients (Outlook, Thunderbird, macOS) can sync bidirectionally with KMU Hub
@@ -432,7 +433,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
 | 12. Rechnungen & Finanzen | 7/7 | Complete    | 2026-02-18 |
 | 13. HR & Zeiterfassung | 4/4 | Complete    | 2026-02-19 |
-| 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
+| 14. Event Infra + Unified Inbox | 0/4 | Not started | - |
 | 15. CalDAV/CardDAV | 0/2 | Not started | - |
 | 16. Automation Engine | 0/3 | Not started | - |
 | 17. Integration: Teams & Slack | 0/2 | Not started | - |
