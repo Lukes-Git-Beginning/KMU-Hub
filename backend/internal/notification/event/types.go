@@ -80,8 +80,9 @@ const (
 	ModuleDocument = "document"
 	ModuleBiz      = "biz"
 	ModuleHR       = "hr"
-	ModuleInbox       = "inbox"
-	ModuleAutomation  = "automation"
+	ModuleInbox        = "inbox"
+	ModuleAutomation   = "automation"
+	ModuleIntegration  = "integration"
 )
 
 // PostgreSQL LISTEN channel name for the event bus
