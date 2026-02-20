@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 17 of 20 (Teams & Slack Integration)
-Plan: 1 of 3 complete
-Status: Plan 17-01 COMPLETE -- data foundation (migration, models, repository, proto, deps)
-Last activity: 2026-02-20 -- Phase 17 plan 01 (data foundation) complete
+Plan: 2 of 3 complete
+Status: Plan 17-02 COMPLETE -- forwarder engine, platform adapters, webhook handlers, gateway routes, binary integration
+Last activity: 2026-02-20 -- Phase 17 plan 02 (forwarder engine + platform adapters) complete
 
-Progress: [█████████████████████████████████] 100% (88/90 plans across phases 4-17)
+Progress: [█████████████████████████████████] 100% (89/90 plans across phases 4-17)
 
 ## Performance Metrics
 
@@ -44,7 +44,7 @@ Progress: [███████████████████████
 | 14 | 4/4 | ~33min | ~8min |
 | 15 | 3/3 | ~19min | ~6min |
 | 16 | 3/3 | ~48min | ~16min |
-| 17 | 1/3 | ~4min | ~4min |
+| 17 | 2/3 | ~8min | ~4min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -53,8 +53,8 @@ Progress: [███████████████████████
 - Phase 14 (Event Infrastructure + Unified Inbox) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
 - Phase 15 (CalDAV/CardDAV Integration) COMPLETE -- all 3 plans done (data foundation, backend adapters, gateway+frontend+push)
 - Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
-- Phase 17 (Teams & Slack Integration) IN PROGRESS -- 1/3 plans done (data foundation)
-- 88/90 plans done across Phases 4-17
+- Phase 17 (Teams & Slack Integration) IN PROGRESS -- 2/3 plans done (data foundation, forwarder + adapters)
+- 89/90 plans done across Phases 4-17
 
 *Updated after each plan completion*
 
@@ -411,6 +411,11 @@ Recent decisions affecting current work:
 - [17-01]: Upsert semantics on CreateAccountLink (ON CONFLICT DO UPDATE) per research pitfall #4
 - [17-01]: JSONB @> operator for module-level channel mapping filtering
 - [17-01]: Credentials vault key reference in config, never exposed in proto responses
+- [17-02]: PlatformPoster interface decouples forwarder from concrete Teams/Slack clients
+- [17-02]: Proto codegen regenerated (was missing from 17-01, blocking server/gateway compilation)
+- [17-02]: WithIntegration functional option pattern for backward-compatible gRPC server extension
+- [17-02]: Nil-safe platform initialization: missing env vars = platform disabled, not crash
+- [17-02]: Inbound webhook routes bypass JWT auth but verify platform-specific signatures
 
 ### Pending Todos
 
@@ -425,6 +430,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 17-01-PLAN.md
-Resume file: .planning/phases/17-integration-teams-slack/17-01-SUMMARY.md
-Next: Phase 17 plan 02 (forwarder engine + platform adapters)
+Stopped at: Completed 17-02-PLAN.md
+Resume file: .planning/phases/17-integration-teams-slack/17-02-SUMMARY.md
+Next: Phase 17 plan 03 (frontend -- TypeScript types, TanStack Query hooks, setup wizards, settings UI)

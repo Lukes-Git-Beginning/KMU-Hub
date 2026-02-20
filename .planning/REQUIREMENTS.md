@@ -142,7 +142,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **INT-03**: CalDAV/CardDAV supports per-user authenticated access with proper ACL
 - [x] **INT-04**: Admin can configure Microsoft Teams webhook for notification forwarding to a Teams channel
 - [x] **INT-05**: Admin can configure Slack webhook for notification forwarding to a Slack channel
-- [ ] **INT-06**: Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
+- [x] **INT-06**: Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
 - [ ] **INT-07**: Admin can connect to Bexio API via OAuth2 authentication
 - [ ] **INT-08**: Contacts sync bidirectionally between KMU Hub CRM and Bexio
 - [ ] **INT-09**: Invoices sync from KMU Hub Finance to Bexio accounting
@@ -401,18 +401,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-01 | Phase 15 | Complete |
 | INT-02 | Phase 15 | Complete |
 | INT-03 | Phase 15 | Complete |
-| INT-04 | Phase 15 | Complete |
-| INT-05 | Phase 15 | Complete |
-| INT-06 | Phase 15 | Pending |
-| INT-07 | Phase 16 | Pending |
-| INT-08 | Phase 16 | Pending |
-| INT-09 | Phase 16 | Pending |
-| INT-10 | Phase 17 | Pending |
-| INT-11 | Phase 17 | Pending |
-| INT-12 | Phase 17 | Pending |
-| INT-13 | Phase 18 | Pending |
-| INT-14 | Phase 18 | Pending |
-| INT-15 | Phase 18 | Pending |
+| INT-04 | Phase 17 | Complete |
+| INT-05 | Phase 17 | Complete |
+| INT-06 | Phase 17 | Complete |
+| INT-07 | Phase 18 | Pending |
+| INT-08 | Phase 18 | Pending |
+| INT-09 | Phase 18 | Pending |
+| INT-10 | Phase 19 | Pending |
+| INT-11 | Phase 19 | Pending |
+| INT-12 | Phase 19 | Pending |
+| INT-13 | Phase 19 | Pending |
+| INT-14 | Phase 19 | Pending |
+| INT-15 | Phase 19 | Pending |
 | AUTO-01 | Phase 16 | Complete |
 | AUTO-02 | Phase 16 | Complete |
 | AUTO-03 | Phase 16 | Complete |
