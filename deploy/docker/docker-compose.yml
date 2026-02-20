@@ -170,6 +170,13 @@ services:
       JWT_SECRET: docker-dev-secret-minimum-32-characters
       NOTIFICATION_GRPC_PORT: ":50054"
       NOTIFICATION_HEALTH_PORT: ":9094"
+      # Teams/Slack integration (optional -- integration disabled when not set)
+      TEAMS_APP_ID: ""
+      TEAMS_APP_PASSWORD: ""
+      SLACK_BOT_TOKEN: ""
+      SLACK_SIGNING_SECRET: ""
+      SLACK_CLIENT_ID: ""
+      SLACK_CLIENT_SECRET: ""
     ports:
       - "50054:50054"
       - "9094:9094"
@@ -470,6 +477,10 @@ services:
       MINIO_BUCKET: kmuhub-files
       MINIO_USE_SSL: "false"
       FILE_SIZE_LIMIT_MB: "50"
+      # Teams/Slack integration (optional -- for inbound webhook signature verification)
+      SLACK_SIGNING_SECRET: ""
+      TEAMS_APP_ID: ""
+      TEAMS_APP_PASSWORD: ""
     ports:
       - "8080:8080"
       - "9090:9090"

@@ -28,6 +28,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/delivery"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
+	"github.com/kmuhub/kmuhub/internal/notification/integration"
+	slackadapter "github.com/kmuhub/kmuhub/internal/notification/integration/slack"
+	teamsadapter "github.com/kmuhub/kmuhub/internal/notification/integration/teams"
 	"github.com/kmuhub/kmuhub/internal/notification/notification"
 	"github.com/kmuhub/kmuhub/internal/notification/preference"
 	"github.com/kmuhub/kmuhub/internal/server"
@@ -75,6 +78,43 @@ func main() {
 	grouper := notification.NewGrouper(notifRepo, 30*time.Second)
 	dispatcher := delivery.NewDispatcher()
 	notifService := notification.NewService(notifRepo, prefService, registry, grouper, dispatcher)
+
+	// =========================================================================
+	// Integration Forwarder (Teams & Slack notification forwarding)
+	// =========================================================================
+
+	integrationRepo := integration.NewPostgresRepository(pool)
+	accountLinkService := integration.NewAccountLinkService(integrationRepo)
+	rateLimiter := integration.NewRateLimiter()
+
+	// Initialize Teams client (nil-safe: disabled when env vars not set)
+	var teamsClient integration.PlatformPoster
+	teamsAppID := os.Getenv("TEAMS_APP_ID")
+	teamsAppPassword := os.Getenv("TEAMS_APP_PASSWORD")
+	if teamsAppID != "" && teamsAppPassword != "" {
+		tc, err := teamsadapter.NewClient(teamsAppID, teamsAppPassword)
+		if err != nil {
+			slog.Error("failed to create teams client", "error", err)
+		} else {
+			teamsClient = tc
+		}
+	}
+
+	// Initialize Slack client (nil-safe: disabled when env vars not set)
+	var slackClient integration.PlatformPoster
+	slackBotToken := os.Getenv("SLACK_BOT_TOKEN")
+	if slackBotToken != "" {
+		slackClient = slackadapter.NewClient(slackBotToken)
+	}
+
+	// Initialize forwarder and register as delivery callback
+	forwarder := integration.NewForwarder(integrationRepo, teamsClient, slackClient, rateLimiter)
+	dispatcher.OnDeliver(forwarder.HandleNotification)
+
+	slog.Info("integration forwarder initialized",
+		"teams_enabled", teamsClient != nil,
+		"slack_enabled", slackClient != nil,
+	)
 
 	// Initialize event bus
 	eventBus := event.NewEventBus(cfg.DatabaseURL, event.WithReconnectWait(5*time.Second))
@@ -144,7 +184,9 @@ func main() {
 			metricsRegistry.GRPCStreamInterceptor(),
 		),
 	)
-	notifGRPC := server.NewNotificationGRPCServer(notifService, prefService, registry)
+	notifGRPC := server.NewNotificationGRPCServer(notifService, prefService, registry,
+		server.WithIntegration(integrationRepo, accountLinkService),
+	)
 	notificationv1.RegisterNotificationServiceServer(grpcServer, notifGRPC)
 
 	// Register InboxService on the same gRPC server
