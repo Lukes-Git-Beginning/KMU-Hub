@@ -7,10 +7,19 @@
  * On submit calls useCreateAutomation() mutation.
  */
 import { useCallback } from 'react'
-import { X, ChevronLeft, ChevronRight, Workflow } from 'lucide-react'
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Workflow,
+  Play,
+  CheckCircle,
+  XCircle,
+  Loader2,
+} from 'lucide-react'
 import { useAutomatisierungStore } from '@/stores/automatisierung'
-import { useCreateAutomation, useUpdateAutomation } from '@/api/hooks/useAutomation'
-import type { ConditionConfig, ActionConfig } from '@/api/automation-types'
+import { useCreateAutomation, useUpdateAutomation, useDryRunAutomation } from '@/api/hooks/useAutomation'
+import type { ConditionConfig, ActionConfig, DryRunResponse } from '@/api/automation-types'
 import { TriggerSelector } from './TriggerSelector'
 import { ConditionBuilder } from './ConditionBuilder'
 import { ActionConfigurator } from './ActionConfigurator'
@@ -72,11 +81,22 @@ function StepIndicator({
 
 function ReviewStep() {
   const { draftWorkflow } = useAutomatisierungStore()
+  const dryRunMutation = useDryRunAutomation()
 
   if (!draftWorkflow) return null
 
   const conditions = draftWorkflow.conditions as ConditionConfig | undefined
   const actions = (draftWorkflow.actions ?? []) as ActionConfig[]
+
+  const handleDryRun = () => {
+    if (!draftWorkflow.id) return
+    dryRunMutation.mutate({
+      automation_id: draftWorkflow.id,
+      sample_env: {},
+    })
+  }
+
+  const dryResult = dryRunMutation.data as DryRunResponse | undefined
 
   return (
     <div className="space-y-6">
@@ -138,6 +158,109 @@ function ReviewStep() {
             </ul>
           )}
         </div>
+      </div>
+
+      {/* DryRun simulation */}
+      <div className="rounded-lg border border-border p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="text-xs font-medium text-foreground">Simulation</h4>
+            <p className="text-[11px] text-muted-foreground">
+              Testen Sie die Automatisierung mit Beispieldaten
+            </p>
+          </div>
+          <button
+            onClick={handleDryRun}
+            disabled={!draftWorkflow.id || dryRunMutation.isPending}
+            className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {dryRunMutation.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Play className="h-3 w-3" />
+            )}
+            {dryRunMutation.isPending ? 'Simuliere...' : 'Simulation starten'}
+          </button>
+        </div>
+
+        {!draftWorkflow.id && (
+          <p className="text-[11px] text-muted-foreground italic">
+            Speichern Sie die Automatisierung zuerst, um eine Simulation auszufuehren.
+          </p>
+        )}
+
+        {dryResult && (
+          <div className="space-y-2 pt-1">
+            {/* Condition result */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Bedingung:</span>
+              {dryResult.condition_result ? (
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Trifft zu
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-red-600">
+                  <XCircle className="h-3.5 w-3.5" />
+                  Trifft nicht zu
+                </span>
+              )}
+            </div>
+
+            {/* Would execute */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Ausfuehrung:</span>
+              <span className={dryResult.would_execute ? 'text-green-600' : 'text-muted-foreground'}>
+                {dryResult.would_execute
+                  ? 'Wuerde ausgefuehrt werden'
+                  : 'Wuerde nicht ausgefuehrt werden'}
+              </span>
+            </div>
+
+            {/* Simulated steps */}
+            {dryResult.steps.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">
+                  Simulierte Schritte ({dryResult.steps.length})
+                </p>
+                <div className="space-y-1.5">
+                  {dryResult.steps.map((step, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2 rounded-md bg-secondary/30 px-2.5 py-2 text-xs"
+                    >
+                      <span className="flex shrink-0 items-center justify-center h-5 w-5 rounded-full bg-secondary text-[10px] font-bold">
+                        {idx + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">{step.action_type}</p>
+                        {step.error ? (
+                          <p className="text-red-600 mt-0.5">{step.error}</p>
+                        ) : (
+                          <p className="text-muted-foreground mt-0.5">
+                            {step.duration_ms}ms
+                          </p>
+                        )}
+                      </div>
+                      {step.error ? (
+                        <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {dryRunMutation.isError && (
+          <div className="flex items-center gap-2 text-xs text-red-600">
+            <XCircle className="h-3.5 w-3.5" />
+            Simulation fehlgeschlagen: {(dryRunMutation.error as Error)?.message ?? 'Unbekannter Fehler'}
+          </div>
+        )}
       </div>
     </div>
   )

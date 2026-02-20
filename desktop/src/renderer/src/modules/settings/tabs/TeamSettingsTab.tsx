@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { Save, Plus, Trash2, Users, ShieldCheck, Clock, Palmtree } from 'lucide-react'
+import { Save, Plus, Trash2, Users, ShieldCheck, Clock, Palmtree, Stethoscope, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared'
 import { useSettingsStore, type LeaveType } from '@/stores/settings'
+import { useHRSettings, useUpdateHRSettings } from '@/api/hooks/hr-hooks'
 
 export function TeamSettingsTab() {
   const { teamAdmin, updateTeamAdmin } = useSettingsStore()
@@ -258,6 +259,11 @@ export function TeamSettingsTab() {
         </Button>
       </section>
 
+      <Separator className="mb-8" />
+
+      {/* HR Settings (from API) */}
+      <HRSettingsSection />
+
       {/* Confirm dialog for deletions */}
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -274,5 +280,110 @@ export function TeamSettingsTab() {
         }}
       />
     </div>
+  )
+}
+
+// ============================================================
+// HR Settings Section (API-backed)
+// ============================================================
+function HRSettingsSection() {
+  const { data: hrSettings, isLoading } = useHRSettings()
+  const updateMutation = useUpdateHRSettings()
+
+  const [auThreshold, setAuThreshold] = useState(3)
+  const [defaultLeaveDays, setDefaultLeaveDays] = useState(25)
+  const [showAbsenceReason, setShowAbsenceReason] = useState(false)
+  const [timezone, setTimezone] = useState('Europe/Zurich')
+
+  useEffect(() => {
+    if (!hrSettings) return
+    setAuThreshold(hrSettings.auThresholdDays ?? 3)
+    setDefaultLeaveDays(hrSettings.defaultAnnualLeaveDays ?? 25)
+    setShowAbsenceReason(hrSettings.showAbsenceReason ?? false)
+    setTimezone(hrSettings.timezone ?? 'Europe/Zurich')
+  }, [hrSettings])
+
+  const handleSave = () => {
+    updateMutation.mutate({
+      auThresholdDays: auThreshold,
+      defaultAnnualLeaveDays: defaultLeaveDays,
+      showAbsenceReason,
+      timezone,
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <section>
+        <div className="flex items-center gap-2 text-muted-foreground py-4">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">HR-Einstellungen werden geladen...</span>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-4">
+        <Stethoscope className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-medium text-foreground">HR-Einstellungen</h3>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>AU-Schwellenwert (Tage)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={auThreshold}
+              onChange={(e) => setAuThreshold(Number(e.target.value))}
+              className="w-full"
+            />
+            <p className="text-[10px] text-muted-foreground">Ab dieser Anzahl Krankheitstage wird ein Arztzeugnis verlangt</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Standard-Jahresurlaub (Tage)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={60}
+              value={defaultLeaveDays}
+              onChange={(e) => setDefaultLeaveDays(Number(e.target.value))}
+              className="w-full"
+            />
+            <p className="text-[10px] text-muted-foreground">Wird bei neuen Mitarbeitern als Standardwert gesetzt</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
+          <div>
+            <p className="text-sm text-foreground">Abwesenheitsgrund anzeigen</p>
+            <p className="text-xs text-muted-foreground">Wenn deaktiviert, sehen Kollegen nur "Abwesend" ohne Grund</p>
+          </div>
+          <Switch checked={showAbsenceReason} onCheckedChange={setShowAbsenceReason} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Zeitzone</Label>
+          <select
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+          >
+            <option value="Europe/Zurich">Europe/Zurich (GMT+1)</option>
+            <option value="Europe/Berlin">Europe/Berlin (GMT+1)</option>
+            <option value="Europe/Vienna">Europe/Vienna (GMT+1)</option>
+          </select>
+        </div>
+      </div>
+
+      <Button onClick={handleSave} className="mt-4" size="sm" disabled={updateMutation.isPending}>
+        <Save className="mr-1.5 h-4 w-4" />
+        HR-Einstellungen speichern
+      </Button>
+    </section>
   )
 }

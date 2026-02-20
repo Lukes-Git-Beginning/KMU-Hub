@@ -43,6 +43,7 @@ import { InviteMemberDialog } from './InviteMemberDialog'
 import { EditMemberDialog } from './EditMemberDialog'
 import { HRApprovalDialog } from './HRApprovalDialog'
 import { AbsenceCalendar } from './AbsenceCalendar'
+import { TimeCorrectionPanel } from './TimeCorrectionPanel'
 import {
   Dialog,
   DialogContent,
@@ -62,7 +63,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 
-type TabKey = 'members' | 'requests' | 'absences' | 'lohn' | 'schulungen'
+type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'lohn' | 'schulungen'
 
 const formatEUR = (amount: number) =>
   new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount)
@@ -316,6 +317,7 @@ export default function TeamPage() {
           { key: 'members' as const, label: `Mitglieder (${apiEmployees.length})`, icon: undefined },
           { key: 'requests' as const, label: `Anfragen (${pendingCount} offen)`, icon: undefined },
           { key: 'absences' as const, label: 'Abwesenheiten', icon: undefined },
+          { key: 'korrekturen' as const, label: 'Korrekturen', icon: Clock },
           { key: 'lohn' as const, label: 'Lohn', icon: Banknote },
           { key: 'schulungen' as const, label: 'Schulungen', icon: GraduationCap },
         ]).map((t) => (
@@ -440,6 +442,11 @@ export default function TeamPage() {
       {/* Absences Tab */}
       {tab === 'absences' && (
         <AbsenceCalendar />
+      )}
+
+      {/* Korrekturen Tab */}
+      {tab === 'korrekturen' && (
+        <TimeCorrectionPanel />
       )}
 
       {/* Lohn Tab (still Zustand mock -- payroll is anti-feature) */}

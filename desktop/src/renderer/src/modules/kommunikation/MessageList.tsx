@@ -15,6 +15,7 @@ import {
   UserPlus,
   Star,
   Inbox,
+  VolumeX,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { InboxMessage, InboxChannel } from '@/api/inbox-types'
@@ -24,6 +25,7 @@ import {
   useArchiveMessage,
   useSnoozeMessage,
 } from '@/api/hooks/useInbox'
+import { useMuteResource } from '@/api/hooks/useNotifications'
 import { SnoozePopover } from './SnoozePopover'
 import { EmptyState } from '@/components/shared'
 
@@ -125,6 +127,7 @@ export function MessageList({
   const markRead = useMarkRead()
   const toggleStar = useToggleStar()
   const archiveMsg = useArchiveMessage()
+  const muteResource = useMuteResource()
   const snoozeMsg = useSnoozeMessage()
 
   const handleSelect = (msg: InboxMessage) => {
@@ -291,6 +294,18 @@ export function MessageList({
                     msg.is_starred ? 'fill-warning text-warning' : ''
                   }`}
                 />
+              </button>
+              <button
+                onClick={() =>
+                  muteResource.mutate(
+                    { resourceType: 'conversation', resourceId: msg.id },
+                    { onSuccess: () => toast.success('Konversation stummgeschaltet') },
+                  )
+                }
+                className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                title="Stummschalten"
+              >
+                <VolumeX className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>

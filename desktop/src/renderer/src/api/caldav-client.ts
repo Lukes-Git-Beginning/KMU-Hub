@@ -184,6 +184,20 @@ export function disableCalDAV() {
   })
 }
 
+export interface CalDAVTestResult {
+  success: boolean
+  message?: string
+  caldav_reachable: boolean
+  carddav_reachable: boolean
+}
+
+export function testCalDAVConnection() {
+  return request<CalDAVTestResult>({
+    method: 'POST',
+    path: '/api/v1/caldav/test',
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Admin API
 // ---------------------------------------------------------------------------

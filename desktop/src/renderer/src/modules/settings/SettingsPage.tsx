@@ -21,14 +21,16 @@ import {
   X,
   Plus,
   Building2,
+  Landmark,
   RefreshCw,
+  Plug,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared'
-import { useSettingsStore, type NotificationModule, type NotificationPrefs } from '@/stores/settings'
+import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { canSeeSettingsTab } from '@/config/roles'
@@ -42,8 +44,11 @@ import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
 import { useProfileStore } from '@/stores/profile'
 import { BUSINESS_PROFILES } from '@/config/business-profiles'
 import { CalDAVSettingsTab } from './tabs/CalDAVSettingsTab'
+import { CompanySettingsTab } from './tabs/CompanySettingsTab'
+import { NotificationSettingsTab } from './tabs/NotificationSettingsTab'
+import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'caldav' | 'finance' | 'team' | 'privacy' | 'business' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'caldav' | 'finance' | 'company' | 'integrations' | 'team' | 'privacy' | 'business' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -62,6 +67,8 @@ const ALL_TABS: TabConfig[] = [
   { key: 'calendar', label: 'Kalender', icon: Calendar, group: 'Module' },
   { key: 'caldav', label: 'CalDAV/CardDAV', icon: RefreshCw, group: 'Module' },
   { key: 'finance', label: 'Buchhaltung', icon: Receipt, group: 'Module' },
+  { key: 'company', label: 'Firma', icon: Landmark, group: 'Admin' },
+  { key: 'integrations', label: 'Integrationen', icon: Plug, group: 'Admin' },
   { key: 'business', label: 'Branchenprofil', icon: Building2, group: 'Admin' },
   { key: 'team', label: 'Team & HR', icon: Users, group: 'Admin' },
   { key: 'privacy', label: 'Datenschutz', icon: Lock, group: 'Admin' },
@@ -124,11 +131,13 @@ export default function SettingsPage() {
         {effectiveTab === 'appearance' && <AppearanceTab />}
         {effectiveTab === 'language' && <LanguageTab />}
         {effectiveTab === 'security' && <SecurityTab />}
-        {effectiveTab === 'notifications' && <NotificationsTab />}
+        {effectiveTab === 'notifications' && <NotificationSettingsTab />}
         {effectiveTab === 'mail' && <MailSettingsTab />}
         {effectiveTab === 'calendar' && <CalendarSettingsTab />}
         {effectiveTab === 'caldav' && <CalDAVSettingsTab />}
         {effectiveTab === 'finance' && <FinanceSettingsTab />}
+        {effectiveTab === 'company' && <CompanySettingsTab />}
+        {effectiveTab === 'integrations' && <IntegrationSettingsTab />}
         {effectiveTab === 'team' && <TeamSettingsTab />}
         {effectiveTab === 'privacy' && <PrivacySettingsTab />}
         {effectiveTab === 'business' && <BusinessProfileTab />}
@@ -850,66 +859,6 @@ function SecurityTab() {
         variant="destructive"
         onConfirm={handleRevokeSession}
       />
-    </div>
-  )
-}
-
-// ============================================================
-// Notifications Tab — per-module matrix with 3 channels
-// ============================================================
-const NOTIFICATION_MODULES: { key: NotificationModule; label: string; desc: string }[] = [
-  { key: 'messages', label: 'Nachrichten', desc: 'Chat-Nachrichten und DMs' },
-  { key: 'tasks', label: 'Aufgaben', desc: 'Zuweisung, Status-Änderungen' },
-  { key: 'meetings', label: 'Meetings', desc: 'Erinnerungen und Einladungen' },
-  { key: 'mails', label: 'E-Mails', desc: 'Neue E-Mails und Antworten' },
-  { key: 'calendar', label: 'Kalender', desc: 'Termine und Änderungen' },
-  { key: 'team', label: 'Team', desc: 'HR-Antraege und Mitglieder-Updates' },
-  { key: 'finance', label: 'Buchhaltung', desc: 'Zahlungen und Fälligkeiten' },
-]
-
-function NotificationsTab() {
-  const { notifications, updateNotification } = useSettingsStore()
-
-  const channels: { key: keyof NotificationPrefs; label: string }[] = [
-    { key: 'email', label: 'E-Mail' },
-    { key: 'push', label: 'Push' },
-    { key: 'inApp', label: 'In-App' },
-  ]
-
-  return (
-    <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">Benachrichtigungen</h2>
-      <p className="text-sm text-muted-foreground mb-6">Stelle ein, wie du pro Modul benachrichtigt werden möchtest</p>
-
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        {/* Header */}
-        <div className="grid grid-cols-[1fr_70px_70px_70px] gap-2 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-          <span>Modul</span>
-          {channels.map((ch) => (
-            <span key={ch.key} className="text-center">{ch.label}</span>
-          ))}
-        </div>
-
-        {/* Rows */}
-        {NOTIFICATION_MODULES.map((mod) => (
-          <div key={mod.key} className="grid grid-cols-[1fr_70px_70px_70px] gap-2 items-center px-4 py-3 border-b border-border-muted last:border-b-0">
-            <div>
-              <p className="text-sm text-foreground">{mod.label}</p>
-              <p className="text-xs text-muted-foreground">{mod.desc}</p>
-            </div>
-            {channels.map((ch) => (
-              <div key={ch.key} className="flex justify-center">
-                <Switch
-                  checked={notifications[mod.key][ch.key]}
-                  onCheckedChange={(v) => updateNotification(mod.key, ch.key, v)}
-                />
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      <p className="text-xs text-muted-foreground mt-3">Änderungen werden automatisch gespeichert.</p>
     </div>
   )
 }
