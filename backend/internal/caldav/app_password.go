@@ -41,6 +41,11 @@ func NewAppPasswordService(repo AppPasswordRepository, pool *pgxpool.Pool) *AppP
 	}
 }
 
+// Pool returns the underlying database pool for direct queries.
+func (s *AppPasswordService) Pool() *pgxpool.Pool {
+	return s.pool
+}
+
 // Create generates a new app-specific password for the given user.
 // Returns the plaintext password (shown once) and the persisted record.
 func (s *AppPasswordService) Create(ctx context.Context, userID uuid.UUID, label string) (string, *models.AppSpecificPassword, error) {

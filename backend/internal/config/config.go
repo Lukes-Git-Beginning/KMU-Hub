@@ -64,6 +64,9 @@ type Config struct {
 	// WOPI (OnlyOffice collaborative editing)
 	WOPIJWTSecret string `env:"WOPI_JWT_SECRET,default=wopi-dev-secret-change-me"`
 
+	// CalDAV/CardDAV (external client sync)
+	CalDAVEnabled bool `env:"CALDAV_ENABLED,default=false"`
+
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
 	MinIOAccessKey  string `env:"MINIO_ACCESS_KEY,default=kmuhub"`
