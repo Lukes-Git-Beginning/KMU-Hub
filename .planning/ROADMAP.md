@@ -359,11 +359,12 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Admin can configure Teams/Slack webhook and KMU Hub notifications appear in the configured channel
   2. Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
-**Plans**: 2 plans (estimated)
+**Plans**: 3 plans
 
 Plans:
-- [ ] 17-01: Outbound webhooks (Teams + Slack webhook configuration, notification forwarding, message formatting)
-- [ ] 17-02: Inbound interactions (Teams/Slack interactive messages, response routing back to KMU Hub)
+- [ ] 17-01-PLAN.md -- Data foundation (migration 000053 with 5 integration tables, Go domain models, repository layer, proto extension with 13 RPCs, Go deps for Teams Bot Framework + Slack API + Adaptive Cards)
+- [ ] 17-02-PLAN.md -- Forwarder engine + platform adapters + connection layer (notification forwarder as DeliveryCallback, Teams Bot Framework client + Adaptive Cards, Slack API client + Block Kit, account linking service, rate limiter, inbound webhook handlers, gRPC server extension, 18 gateway HTTP routes, notification binary integration, Docker env vars)
+- [ ] 17-03-PLAN.md -- Frontend (TypeScript types, 14 TanStack Query hooks, Integrations settings tab, IntegrationCard reusable component, 4-step TeamsSetupWizard + SlackSetupWizard, ChannelMappingEditor, AccountLinkDialog, SettingsPage integration)
 
 ### Phase 18: Integration - Bexio
 **Goal**: Swiss SMBs can sync their CRM contacts and invoices with Bexio accounting software
@@ -437,7 +438,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 14. Event Infra + Unified Inbox | 4/4 | Complete    | 2026-02-20 |
 | 15. CalDAV/CardDAV | 1/3 | Complete    | 2026-02-20 |
 | 16. Automation Engine | 1/3 | Complete    | 2026-02-20 |
-| 17. Integration: Teams & Slack | 0/2 | Not started | - |
+| 17. Integration: Teams & Slack | 0/3 | Not started | - |
 | 18. Integration: Bexio | 0/2 | Not started | - |
 | 19. Integration: Abacus + RmA | 0/2 | Not started | - |
 | 20. Plugin System + Templates | 0/4 | Not started | - |
