@@ -10,7 +10,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - ✅ **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
 - ✅ **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
 - ✅ **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
-- 📋 **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
+- ✅ **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
 - 📋 **Integrations** - Phases 17-19 (Teams/Slack, Bexio, Abacus + Run my Accounts -- external DACH connectivity)
 - 📋 **Extensibility** - Phase 20 (Plugin System + Industry Templates -- customization layer)
 
@@ -48,7 +48,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 - [x] **Phase 14: Event Infrastructure + Unified Inbox** - PostgreSQL LISTEN/NOTIFY event system, channel adapters (Email/Chat/Notifications), materialized inbox, routing engine (completed 2026-02-20)
 - [x] **Phase 15: CalDAV/CardDAV Integration** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS (completed 2026-02-20)
-- [ ] **Phase 16: Automation Engine** - Trigger-condition-action workflows across all modules, pre-built automations
+- [x] **Phase 16: Automation Engine** - Trigger-condition-action workflows across all modules, pre-built automations (completed 2026-02-20)
 
 ### Integrations (Phases 17-19)
 
@@ -350,7 +350,7 @@ Plans:
 Plans:
 - [x] 16-01-PLAN.md -- Automation service data foundation (proto ~18 RPCs, migration 000052 with 3 tables, Go models, dual condition evaluator with expr-lang TDD, workflow repository, binary scaffold on :50059)
 - [x] 16-02-PLAN.md -- Workflow engine + triggers + actions + connection layer (14 triggers, 8 action executors via gRPC, EventBus consumer, time-based poller, 12 pre-built templates, gRPC server, 16 gateway routes, Docker)
-- [ ] 16-03-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, 4-step wizard, react-flow visual editor, template gallery, condition builder, execution log viewer)
+- [x] 16-03-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, 4-step wizard, react-flow visual editor, template gallery, condition builder, execution log viewer)
 
 ### Phase 17: Integration - Teams & Slack
 **Goal**: KMU Hub notifications and basic interactions flow to/from Microsoft Teams and Slack

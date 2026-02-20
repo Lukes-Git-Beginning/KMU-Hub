@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 16 (Automation Engine) -- IN PROGRESS
+**Current focus:** Phase 16 (Automation Engine) -- COMPLETE
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
 Phase: 16 of 20 (Automation Engine)
-Plan: 2 of 3 complete
-Status: Phase 16 IN PROGRESS -- plan 02 done (workflow engine, triggers, actions, gRPC server, gateway, Docker)
-Last activity: 2026-02-20 -- Phase 16 plan 02 (workflow execution engine) complete
+Plan: 3 of 3 complete
+Status: Phase 16 COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
+Last activity: 2026-02-20 -- Phase 16 plan 03 (automation frontend) complete
 
-Progress: [█████████████████████████████████] 100% (86/87 plans across phases 4-16)
+Progress: [█████████████████████████████████] 100% (87/87 plans across phases 4-16)
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [███████████████████████
 
 | 14 | 4/4 | ~33min | ~8min |
 | 15 | 3/3 | ~19min | ~6min |
-| 16 | 2/3 | ~33min | ~16.5min |
+| 16 | 3/3 | ~48min | ~16min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -51,8 +51,8 @@ Progress: [███████████████████████
 - Phase 13 (HR & Zeiterfassung) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
 - Phase 14 (Event Infrastructure + Unified Inbox) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
 - Phase 15 (CalDAV/CardDAV Integration) COMPLETE -- all 3 plans done (data foundation, backend adapters, gateway+frontend+push)
-- Phase 16 (Automation Engine) IN PROGRESS -- 2/3 plans done (data foundation + workflow engine)
-- 86/87 plans done across Phases 4-16
+- Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
+- 87/87 plans done across Phases 4-16
 
 *Updated after each plan completion*
 
@@ -398,6 +398,12 @@ Recent decisions affecting current work:
 - [16-02]: Semaphore of 20 concurrent executions + circuit breaker at 100/hour for resource protection
 - [16-02]: 30s TTL cache on TriggerMatcher for active automations
 - [16-02]: Loop prevention: events with module_id "automation" skipped by consumer
+- [16-03]: Single Zustand draft workflow as source of truth for both wizard and react-flow editor
+- [16-03]: @xyflow/react ^12.0.0 for visual node editor
+- [16-03]: Recursive AND/OR condition tree with arbitrarily nested groups in simple mode
+- [16-03]: Template variable {{key}} insertion in action parameter inputs
+- [16-03]: Module-grouped trigger/action catalogs with search filtering
+- [16-03]: Optimistic enable/disable mutations in TanStack Query hooks
 
 ### Pending Todos
 
@@ -412,6 +418,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 16-02-PLAN.md
-Resume file: .planning/phases/16-automation-engine/16-02-SUMMARY.md
-Next: Phase 16 plan 03 (frontend -- automation wizard, visual editor, template gallery)
+Stopped at: Completed 16-03-PLAN.md
+Resume file: .planning/phases/16-automation-engine/16-03-SUMMARY.md
+Next: Phase 17 (Teams/Slack Integration) planning
