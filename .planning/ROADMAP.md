@@ -345,12 +345,12 @@ Plans:
   4. User can add conditional logic with if/else branching and AND/OR operators (e.g., "only if deal value > 10000")
   5. User can view execution logs showing when each automation ran, what triggered it, what it did, and whether it succeeded or failed
   6. User can enable/disable automations without deleting them (pause and resume)
-**Plans**: 3 plans (estimated)
+**Plans**: 3 plans
 
 Plans:
-- [ ] 16-01: Automation service foundation (event consumer via LISTEN/NOTIFY, workflow storage, trigger registry, action registry)
-- [ ] 16-02: Workflow execution engine (condition evaluation with expr-lang, action execution via gRPC, execution logging, enable/disable)
-- [ ] 16-03: Pre-built automations (10-15 triggers + 8-10 actions across all modules, testing, documentation)
+- [ ] 16-01-PLAN.md -- Automation service data foundation (proto ~18 RPCs, migration 000052 with 3 tables, Go models, dual condition evaluator with expr-lang TDD, workflow repository, binary scaffold on :50059)
+- [ ] 16-02-PLAN.md -- Workflow engine + triggers + actions + connection layer (12-15 triggers, 8-10 action executors via gRPC, EventBus consumer, time-based poller, 12 pre-built templates, gRPC server, ~16 gateway routes, Docker)
+- [ ] 16-03-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, 4-step wizard, react-flow visual editor, template gallery, condition builder, execution log viewer)
 
 ### Phase 17: Integration - Teams & Slack
 **Goal**: KMU Hub notifications and basic interactions flow to/from Microsoft Teams and Slack
