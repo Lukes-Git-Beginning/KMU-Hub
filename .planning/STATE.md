@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 16 of 20 (Automation Engine)
-Plan: 1 of 3 complete
-Status: Phase 16 IN PROGRESS -- plan 01 done (data foundation: proto, migration, models, condition evaluator)
-Last activity: 2026-02-20 -- Phase 16 plan 01 (automation data foundation) complete
+Plan: 2 of 3 complete
+Status: Phase 16 IN PROGRESS -- plan 02 done (workflow engine, triggers, actions, gRPC server, gateway, Docker)
+Last activity: 2026-02-20 -- Phase 16 plan 02 (workflow execution engine) complete
 
-Progress: [█████████████████████████████████] 100% (85/87 plans across phases 4-16)
+Progress: [█████████████████████████████████] 100% (86/87 plans across phases 4-16)
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [███████████████████████
 
 | 14 | 4/4 | ~33min | ~8min |
 | 15 | 3/3 | ~19min | ~6min |
-| 16 | 1/3 | ~8min | ~8min |
+| 16 | 2/3 | ~33min | ~16.5min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -51,8 +51,8 @@ Progress: [███████████████████████
 - Phase 13 (HR & Zeiterfassung) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
 - Phase 14 (Event Infrastructure + Unified Inbox) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
 - Phase 15 (CalDAV/CardDAV Integration) COMPLETE -- all 3 plans done (data foundation, backend adapters, gateway+frontend+push)
-- Phase 16 (Automation Engine) IN PROGRESS -- 1/3 plans done (data foundation)
-- 85/87 plans done across Phases 4-16
+- Phase 16 (Automation Engine) IN PROGRESS -- 2/3 plans done (data foundation + workflow engine)
+- 86/87 plans done across Phases 4-16
 
 *Updated after each plan completion*
 
@@ -392,6 +392,12 @@ Recent decisions affecting current work:
 - [16-01]: Automation service as standalone binary on :50059 (gRPC) and :9099 (health/metrics)
 - [16-01]: ExprEnv typed environments per module for compile-time field validation in expressions
 - [16-01]: Dotted field path resolution in simple mode conditions (e.g., deal.value)
+- [16-02]: Function-reference adapter pattern to avoid workflow->trigger->workflow import cycle
+- [16-02]: Notification action standalone (slog-based) since notification service lacks CreateNotification RPC
+- [16-02]: Calendar action reuses work gRPC connection (co-hosted services)
+- [16-02]: Semaphore of 20 concurrent executions + circuit breaker at 100/hour for resource protection
+- [16-02]: 30s TTL cache on TriggerMatcher for active automations
+- [16-02]: Loop prevention: events with module_id "automation" skipped by consumer
 
 ### Pending Todos
 
@@ -406,6 +412,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 16-01-PLAN.md
-Resume file: .planning/phases/16-automation-engine/16-01-SUMMARY.md
-Next: Phase 16 plan 02 (workflow execution engine)
+Stopped at: Completed 16-02-PLAN.md
+Resume file: .planning/phases/16-automation-engine/16-02-SUMMARY.md
+Next: Phase 16 plan 03 (frontend -- automation wizard, visual editor, template gallery)

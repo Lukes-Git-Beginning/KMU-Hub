@@ -348,8 +348,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 16-01-PLAN.md -- Automation service data foundation (proto ~18 RPCs, migration 000052 with 3 tables, Go models, dual condition evaluator with expr-lang TDD, workflow repository, binary scaffold on :50059)
-- [ ] 16-02-PLAN.md -- Workflow engine + triggers + actions + connection layer (12-15 triggers, 8-10 action executors via gRPC, EventBus consumer, time-based poller, 12 pre-built templates, gRPC server, ~16 gateway routes, Docker)
+- [x] 16-01-PLAN.md -- Automation service data foundation (proto ~18 RPCs, migration 000052 with 3 tables, Go models, dual condition evaluator with expr-lang TDD, workflow repository, binary scaffold on :50059)
+- [x] 16-02-PLAN.md -- Workflow engine + triggers + actions + connection layer (14 triggers, 8 action executors via gRPC, EventBus consumer, time-based poller, 12 pre-built templates, gRPC server, 16 gateway routes, Docker)
 - [ ] 16-03-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, 4-step wizard, react-flow visual editor, template gallery, condition builder, execution log viewer)
 
 ### Phase 17: Integration - Teams & Slack
