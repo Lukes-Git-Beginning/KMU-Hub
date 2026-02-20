@@ -5,6 +5,7 @@ import {
   FileText,
   Calculator,
   MessageSquare,
+  MessageSquareText,
   Users,
   Mail,
   Contact,
@@ -58,6 +59,7 @@ export const navItems: NavItemConfig[] = [
   { id: 'zeiterfassung', to: '/zeiterfassung', icon: Timer, label: 'Zeiterfassung', enabled: true, section: 'main' },
   { id: 'documents', to: '/dokumente', icon: FileText, label: 'Dokumente', enabled: true, section: 'main' },
   { id: 'mail', to: '/mails', icon: Mail, label: 'E-Mail', enabled: true, section: 'main', badge: { type: 'text', value: '12' } },
+  { id: 'kommunikation', to: '/kommunikation', icon: MessageSquareText, label: 'Kommunikation', enabled: true, section: 'main', badge: { type: 'text', value: '' } },
 
   // -- Role-restricted --
   { id: 'finance', to: '/finanzen', icon: Calculator, label: 'Finanzen', enabled: true, section: 'main', badge: { type: 'text', value: 'Neu' } },
