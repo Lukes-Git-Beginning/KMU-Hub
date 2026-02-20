@@ -31,6 +31,8 @@ type Config struct {
 	DocumentGRPCAddress     string `env:"DOCUMENT_GRPC_ADDRESS,default=localhost:50057"`
 	BizGRPCPort             string `env:"BIZ_GRPC_PORT,default=:50058"`
 	BizGRPCAddress          string `env:"BIZ_GRPC_ADDRESS,default=localhost:50058"`
+	AutomationGRPCPort      string `env:"AUTOMATION_GRPC_PORT,default=:50059"`
+	AutomationGRPCAddress   string `env:"AUTOMATION_GRPC_ADDRESS,default=localhost:50059"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -46,6 +48,7 @@ type Config struct {
 	EmailHealthPort        string `env:"EMAIL_HEALTH_PORT,default=:9096"`
 	DocumentHealthPort     string `env:"DOCUMENT_HEALTH_PORT,default=:9097"`
 	BizHealthPort          string `env:"BIZ_HEALTH_PORT,default=:9098"`
+	AutomationHealthPort   string `env:"AUTOMATION_HEALTH_PORT,default=:9099"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`

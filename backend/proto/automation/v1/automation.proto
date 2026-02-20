@@ -1,0 +1,378 @@
+syntax = "proto3";
+
+package automation.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/automation/v1;automationv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+service AutomationService {
+  // =========================================================================
+  // CRUD (5 RPCs)
+  // =========================================================================
+  rpc CreateAutomation(CreateAutomationRequest) returns (CreateAutomationResponse);
+  rpc UpdateAutomation(UpdateAutomationRequest) returns (UpdateAutomationResponse);
+  rpc DeleteAutomation(DeleteAutomationRequest) returns (DeleteAutomationResponse);
+  rpc GetAutomation(GetAutomationRequest) returns (GetAutomationResponse);
+  rpc ListAutomations(ListAutomationsRequest) returns (ListAutomationsResponse);
+
+  // =========================================================================
+  // State (2 RPCs)
+  // =========================================================================
+  rpc EnableAutomation(EnableAutomationRequest) returns (EnableAutomationResponse);
+  rpc DisableAutomation(DisableAutomationRequest) returns (DisableAutomationResponse);
+
+  // =========================================================================
+  // Execution Logs (2 RPCs)
+  // =========================================================================
+  rpc ListExecutions(ListExecutionsRequest) returns (ListExecutionsResponse);
+  rpc GetExecution(GetExecutionRequest) returns (GetExecutionResponse);
+
+  // =========================================================================
+  // Catalog (2 RPCs)
+  // =========================================================================
+  rpc ListTriggerDefinitions(ListTriggerDefinitionsRequest) returns (ListTriggerDefinitionsResponse);
+  rpc ListActionDefinitions(ListActionDefinitionsRequest) returns (ListActionDefinitionsResponse);
+
+  // =========================================================================
+  // Templates (2 RPCs)
+  // =========================================================================
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+  rpc CreateFromTemplate(CreateFromTemplateRequest) returns (CreateFromTemplateResponse);
+
+  // =========================================================================
+  // Testing (2 RPCs)
+  // =========================================================================
+  rpc TestCondition(TestConditionRequest) returns (TestConditionResponse);
+  rpc DryRunAutomation(DryRunAutomationRequest) returns (DryRunAutomationResponse);
+
+  // =========================================================================
+  // Stats (1 RPC)
+  // =========================================================================
+  rpc GetAutomationStats(GetAutomationStatsRequest) returns (GetAutomationStatsResponse);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum AutomationScope {
+  SCOPE_UNSPECIFIED = 0;
+  SCOPE_PERSONAL = 1;
+  SCOPE_TEAM = 2;
+  SCOPE_ORGANIZATION = 3;
+}
+
+enum ExecutionStatus {
+  EXECUTION_STATUS_UNSPECIFIED = 0;
+  EXECUTION_STATUS_RUNNING = 1;
+  EXECUTION_STATUS_COMPLETED = 2;
+  EXECUTION_STATUS_FAILED = 3;
+  EXECUTION_STATUS_SKIPPED = 4;
+  EXECUTION_STATUS_ABORTED = 5;
+}
+
+enum TemplateComplexity {
+  COMPLEXITY_UNSPECIFIED = 0;
+  COMPLEXITY_SIMPLE = 1;
+  COMPLEXITY_MEDIUM = 2;
+  COMPLEXITY_ADVANCED = 3;
+}
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+message AutomationInfo {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  AutomationScope scope = 4;
+  string owner_id = 5;
+  string trigger_type = 6;
+  google.protobuf.Struct trigger_config = 7;
+  google.protobuf.Struct conditions = 8;
+  google.protobuf.Struct actions = 9;
+  bool is_active = 10;
+  int32 max_steps = 11;
+  optional string template_id = 12;
+  optional google.protobuf.Timestamp last_triggered_at = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message AutomationExecutionInfo {
+  string id = 1;
+  string automation_id = 2;
+  string chain_id = 3;
+  google.protobuf.Struct trigger_event = 4;
+  bool condition_result = 5;
+  ExecutionStatus status = 6;
+  repeated ExecutionStepInfo steps = 7;
+  string error_message = 8;
+  google.protobuf.Timestamp started_at = 9;
+  optional google.protobuf.Timestamp completed_at = 10;
+  optional int32 duration_ms = 11;
+}
+
+message ExecutionStepInfo {
+  string action_type = 1;
+  google.protobuf.Struct input = 2;
+  google.protobuf.Struct output = 3;
+  string error = 4;
+  int32 duration_ms = 5;
+}
+
+message AutomationTemplateInfo {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string category = 4;
+  TemplateComplexity complexity = 5;
+  string trigger_type = 6;
+  google.protobuf.Struct trigger_config = 7;
+  google.protobuf.Struct conditions = 8;
+  google.protobuf.Struct actions = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+message TriggerDefinition {
+  string type = 1;
+  string module = 2;
+  string name = 3;
+  string description = 4;
+  string event_type = 5;
+  repeated FieldDefinition fields = 6;
+  repeated ConfigParam config_params = 7;
+}
+
+message FieldDefinition {
+  string name = 1;
+  string type = 2;
+  string description = 3;
+}
+
+message ConfigParam {
+  string name = 1;
+  string type = 2;
+  string description = 3;
+  bool required = 4;
+  string default_value = 5;
+}
+
+message ActionDefinition {
+  string type = 1;
+  string module = 2;
+  string name = 3;
+  string description = 4;
+  repeated ConfigParam params = 5;
+  repeated FieldDefinition output_fields = 6;
+}
+
+// ============================================================================
+// CRUD RPCs - Requests & Responses
+// ============================================================================
+
+message CreateAutomationRequest {
+  string owner_id = 1;
+  string name = 2;
+  string description = 3;
+  AutomationScope scope = 4;
+  string trigger_type = 5;
+  google.protobuf.Struct trigger_config = 6;
+  google.protobuf.Struct conditions = 7;
+  google.protobuf.Struct actions = 8;
+  int32 max_steps = 9;
+}
+
+message CreateAutomationResponse {
+  AutomationInfo automation = 1;
+}
+
+message UpdateAutomationRequest {
+  string automation_id = 1;
+  string owner_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional AutomationScope scope = 5;
+  optional string trigger_type = 6;
+  optional google.protobuf.Struct trigger_config = 7;
+  optional google.protobuf.Struct conditions = 8;
+  optional google.protobuf.Struct actions = 9;
+  optional int32 max_steps = 10;
+}
+
+message UpdateAutomationResponse {
+  AutomationInfo automation = 1;
+}
+
+message DeleteAutomationRequest {
+  string automation_id = 1;
+  string owner_id = 2;
+}
+
+message DeleteAutomationResponse {}
+
+message GetAutomationRequest {
+  string automation_id = 1;
+  string owner_id = 2;
+}
+
+message GetAutomationResponse {
+  AutomationInfo automation = 1;
+}
+
+message ListAutomationsRequest {
+  string owner_id = 1;
+  optional AutomationScope scope = 2;
+  optional string trigger_type = 3;
+  optional bool is_active = 4;
+  int32 limit = 5;
+  int32 offset = 6;
+}
+
+message ListAutomationsResponse {
+  repeated AutomationInfo automations = 1;
+  int32 total_count = 2;
+}
+
+// ============================================================================
+// State RPCs - Requests & Responses
+// ============================================================================
+
+message EnableAutomationRequest {
+  string automation_id = 1;
+  string owner_id = 2;
+}
+
+message EnableAutomationResponse {
+  AutomationInfo automation = 1;
+}
+
+message DisableAutomationRequest {
+  string automation_id = 1;
+  string owner_id = 2;
+}
+
+message DisableAutomationResponse {
+  AutomationInfo automation = 1;
+}
+
+// ============================================================================
+// Execution Log RPCs - Requests & Responses
+// ============================================================================
+
+message ListExecutionsRequest {
+  string owner_id = 1;
+  optional string automation_id = 2;
+  optional ExecutionStatus status = 3;
+  optional google.protobuf.Timestamp started_after = 4;
+  optional google.protobuf.Timestamp started_before = 5;
+  int32 limit = 6;
+  int32 offset = 7;
+}
+
+message ListExecutionsResponse {
+  repeated AutomationExecutionInfo executions = 1;
+  int32 total_count = 2;
+}
+
+message GetExecutionRequest {
+  string execution_id = 1;
+  string owner_id = 2;
+}
+
+message GetExecutionResponse {
+  AutomationExecutionInfo execution = 1;
+}
+
+// ============================================================================
+// Catalog RPCs - Requests & Responses
+// ============================================================================
+
+message ListTriggerDefinitionsRequest {
+  optional string module = 1;
+}
+
+message ListTriggerDefinitionsResponse {
+  repeated TriggerDefinition triggers = 1;
+}
+
+message ListActionDefinitionsRequest {
+  optional string module = 1;
+}
+
+message ListActionDefinitionsResponse {
+  repeated ActionDefinition actions = 1;
+}
+
+// ============================================================================
+// Template RPCs - Requests & Responses
+// ============================================================================
+
+message ListTemplatesRequest {
+  optional string category = 1;
+}
+
+message ListTemplatesResponse {
+  repeated AutomationTemplateInfo templates = 1;
+}
+
+message CreateFromTemplateRequest {
+  string template_id = 1;
+  string owner_id = 2;
+  string name = 3;
+  optional string description = 4;
+  optional AutomationScope scope = 5;
+}
+
+message CreateFromTemplateResponse {
+  AutomationInfo automation = 1;
+}
+
+// ============================================================================
+// Testing RPCs - Requests & Responses
+// ============================================================================
+
+message TestConditionRequest {
+  string owner_id = 1;
+  google.protobuf.Struct conditions = 2;
+  google.protobuf.Struct sample_event = 3;
+}
+
+message TestConditionResponse {
+  bool matches = 1;
+  string error_message = 2;
+}
+
+message DryRunAutomationRequest {
+  string automation_id = 1;
+  string owner_id = 2;
+  google.protobuf.Struct sample_event = 3;
+}
+
+message DryRunAutomationResponse {
+  bool condition_matched = 1;
+  repeated ExecutionStepInfo simulated_steps = 2;
+  string error_message = 3;
+}
+
+// ============================================================================
+// Stats RPCs - Requests & Responses
+// ============================================================================
+
+message GetAutomationStatsRequest {
+  string owner_id = 1;
+  optional google.protobuf.Timestamp since = 2;
+}
+
+message GetAutomationStatsResponse {
+  int32 total_automations = 1;
+  int32 active_automations = 2;
+  int32 total_executions = 3;
+  int32 successful_executions = 4;
+  int32 failed_executions = 5;
+  int32 skipped_executions = 6;
+  double average_duration_ms = 7;
+}

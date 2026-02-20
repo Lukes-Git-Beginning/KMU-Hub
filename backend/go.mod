@@ -58,6 +58,7 @@ require (
 	github.com/dennwc/iters v1.2.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/f-amaral/go-async v0.3.0 // indirect
 	github.com/fatih/set v0.2.1 // indirect
 	github.com/frostbyte73/core v0.1.1 // indirect
