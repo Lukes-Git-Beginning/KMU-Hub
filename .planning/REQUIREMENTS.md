@@ -137,8 +137,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### External Integrations
 
-- [ ] **INT-01**: System exposes a CalDAV endpoint for bidirectional calendar sync with Outlook, Thunderbird, and macOS Calendar
-- [ ] **INT-02**: System exposes a CardDAV endpoint for bidirectional contact sync with external clients
+- [x] **INT-01**: System exposes a CalDAV endpoint for bidirectional calendar sync with Outlook, Thunderbird, and macOS Calendar
+- [x] **INT-02**: System exposes a CardDAV endpoint for bidirectional contact sync with external clients
 - [x] **INT-03**: CalDAV/CardDAV supports per-user authenticated access with proper ACL
 - [ ] **INT-04**: Admin can configure Microsoft Teams webhook for notification forwarding to a Teams channel
 - [ ] **INT-05**: Admin can configure Slack webhook for notification forwarding to a Slack channel
@@ -398,8 +398,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HR-05 | Phase 13 | Complete |
 | HR-06 | Phase 13 | Complete |
 | HR-07 | Phase 13 | Complete |
-| INT-01 | Phase 15 | In Progress |
-| INT-02 | Phase 15 | In Progress |
+| INT-01 | Phase 15 | Complete |
+| INT-02 | Phase 15 | Complete |
 | INT-03 | Phase 15 | Complete |
 | INT-04 | Phase 15 | Pending |
 | INT-05 | Phase 15 | Pending |

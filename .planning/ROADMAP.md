@@ -9,7 +9,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - ✅ **Foundation** - Phases 1-3 (Auth/Infra, CRM Core, Chat & Messaging)
 - ✅ **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
 - ✅ **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
-- 📋 **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
+- ✅ **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
 - 📋 **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
 - 📋 **Integrations** - Phases 17-19 (Teams/Slack, Bexio, Abacus + Run my Accounts -- external DACH connectivity)
 - 📋 **Extensibility** - Phase 20 (Plugin System + Industry Templates -- customization layer)
@@ -47,7 +47,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 ### Aggregation & Automation (Phases 14-16)
 
 - [x] **Phase 14: Event Infrastructure + Unified Inbox** - PostgreSQL LISTEN/NOTIFY event system, channel adapters (Email/Chat/Notifications), materialized inbox, routing engine (completed 2026-02-20)
-- [ ] **Phase 15: CalDAV/CardDAV Integration** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS
+- [x] **Phase 15: CalDAV/CardDAV Integration** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS (completed 2026-02-20)
 - [ ] **Phase 16: Automation Engine** - Trigger-condition-action workflows across all modules, pre-built automations
 
 ### Integrations (Phases 17-19)
@@ -332,7 +332,7 @@ Plans:
 Plans:
 - [x] 15-01-PLAN.md -- Data foundation (migrations for app_passwords + caldav_sync, Go models, app-specific password service, sync token service, go-webdav + go-ical deps)
 - [x] 15-02-PLAN.md -- CalDAV/CardDAV Backend adapters (caldav.Backend + carddav.Backend implementations, iCal/vCard converters, VTIMEZONE generator, ETag utility)
-- [ ] 15-03-PLAN.md -- Gateway integration + frontend (CalDAV/CardDAV gateway routes with Basic Auth, .well-known discovery, app password API, settings wizard, admin page)
+- [x] 15-03-PLAN.md -- Gateway integration + frontend (CalDAV/CardDAV gateway routes with Basic Auth, .well-known discovery, app password API, settings wizard, admin page, WebDAV-Push)
 
 ### Phase 16: Automation Engine
 **Goal**: Users can automate repetitive workflows across all Hub modules using simple trigger-action rules -- the "killer feature" of an all-in-one platform
