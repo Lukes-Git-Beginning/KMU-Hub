@@ -84,6 +84,23 @@ type LinkToken struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+// ActionType represents the type of action a user can take on a notification card.
+type ActionType string
+
+const (
+	ActionAcknowledge ActionType = "acknowledge"
+	ActionReply       ActionType = "reply"
+	ActionApprove     ActionType = "approve"
+	ActionReject      ActionType = "reject"
+)
+
+// DeliveryResult holds the result of sending a notification to an external platform.
+type DeliveryResult struct {
+	PlatformMessageID string `json:"platform_message_id,omitempty"`
+	Success           bool   `json:"success"`
+	ErrorMessage      string `json:"error_message,omitempty"`
+}
+
 // ModuleColors maps module IDs to their brand colors for notification cards.
 var ModuleColors = map[string]string{
 	"crm":      "#3b82f6", // Blue
