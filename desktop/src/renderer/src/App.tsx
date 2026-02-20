@@ -52,6 +52,7 @@ const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage')
 const ProfilPage = lazy(() => import('@/modules/profil/ProfilPage'))
 const ComposeWindowPage = lazy(() => import('@/modules/mails/ComposeWindowPage'))
 const KommunikationPage = lazy(() => import('@/modules/kommunikation/KommunikationPage'))
+const AutomatisierungPage = lazy(() => import('@/modules/automatisierung/AutomatisierungPage'))
 
 // Industry-specific module pages
 const InventarPage = lazy(() => import('@/modules/inventar/InventarPage'))
@@ -187,6 +188,7 @@ const router = createHashRouter([
       { path: 'dokumente', element: lazyRoute(DokumentePage) },
       { path: 'mails', element: lazyRoute(MailsPage) },
       { path: 'kommunikation', element: lazyRoute(KommunikationPage) },
+      { path: 'automatisierung', element: lazyRoute(AutomatisierungPage) },
       { path: 'team', element: lazyRoute(TeamPage) },
       { path: 'finanzen', element: lazyRoute(FinanzenPage) },
       { path: 'infrastruktur', element: lazyRoute(InfrastrukturPage) },
