@@ -13,7 +13,7 @@
  */
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Globe, Lock, LayoutDashboard, Shield, Calendar, Receipt, Mail, Users } from 'lucide-react'
+import { Globe, Lock, LayoutDashboard, Shield, Calendar, Receipt, Mail, Users, RefreshCw } from 'lucide-react'
 import { FormattedMessage } from 'react-intl'
 import { useAuthStore } from '@/stores/auth'
 import DashboardSettings from './DashboardSettings'
@@ -24,8 +24,9 @@ import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
 import { TeamSettingsTab } from './tabs/TeamSettingsTab'
+import { CalDAVSettingsTab } from './tabs/CalDAVSettingsTab'
 
-type TabKey = 'general' | 'security' | 'language' | 'privacy' | 'calendar' | 'finance' | 'mail' | 'team'
+type TabKey = 'general' | 'security' | 'language' | 'privacy' | 'calendar' | 'finance' | 'mail' | 'team' | 'caldav'
 
 interface TabConfig {
   key: TabKey
@@ -72,6 +73,13 @@ const TABS: TabConfig[] = [
     labelId: 'settings.calendar.title',
     subtitleId: 'settings.calendar.subtitle',
     icon: Calendar,
+    group: 'modules',
+  },
+  {
+    key: 'caldav',
+    labelId: 'settings.caldav.title',
+    subtitleId: 'settings.caldav.subtitle',
+    icon: RefreshCw,
     group: 'modules',
   },
   {
@@ -175,6 +183,7 @@ export default function SettingsPage() {
         {effectiveTab === 'language' && <LanguageSettingsTab />}
         {effectiveTab === 'privacy' && <PrivacySettingsTab />}
         {effectiveTab === 'calendar' && <CalendarSettingsTab />}
+        {effectiveTab === 'caldav' && <CalDAVSettingsTab />}
         {effectiveTab === 'finance' && <FinanceSettingsTab />}
         {effectiveTab === 'mail' && <MailSettingsTab />}
         {effectiveTab === 'team' && <TeamSettingsTab />}

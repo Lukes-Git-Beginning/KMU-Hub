@@ -39,6 +39,9 @@ const IPAccessPage = lazy(() => import('@/modules/security/IPAccessPage'))
 const GDPRExportPage = lazy(() => import('@/modules/security/GDPRExportPage'))
 const GDPRErasurePage = lazy(() => import('@/modules/security/GDPRErasurePage'))
 
+// CalDAV admin page
+const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
+
 // New module pages from design integration (mock data, Zustand stores)
 const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
@@ -175,6 +178,9 @@ const router = createHashRouter([
       { path: 'admin/security/ip-access', element: lazyRoute(IPAccessPage) },
       { path: 'admin/security/gdpr/exports', element: lazyRoute(GDPRExportPage) },
       { path: 'admin/security/gdpr/erasure', element: lazyRoute(GDPRErasurePage) },
+
+      // CalDAV admin
+      { path: 'admin/caldav', element: lazyRoute(CalDAVAdminPage) },
 
       // New modules from design integration (UI with mock data)
       { path: 'kontakte', element: lazyRoute(KontaktePage) },
