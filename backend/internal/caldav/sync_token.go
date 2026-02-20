@@ -21,12 +21,19 @@ const (
 // SyncTokenService manages sync version tracking and change logs
 // for CalDAV/CardDAV incremental sync (RFC 6578).
 type SyncTokenService struct {
-	pool *pgxpool.Pool
+	pool     *pgxpool.Pool
+	notifier *PushNotifier // may be nil (push disabled)
 }
 
 // NewSyncTokenService creates a new sync token service.
-func NewSyncTokenService(pool *pgxpool.Pool) *SyncTokenService {
-	return &SyncTokenService{pool: pool}
+// The optional PushNotifier parameter enables WebDAV-Push notifications
+// when sync tokens are incremented. Pass nil to disable push (graceful degradation).
+func NewSyncTokenService(pool *pgxpool.Pool, notifier ...*PushNotifier) *SyncTokenService {
+	var n *PushNotifier
+	if len(notifier) > 0 {
+		n = notifier[0]
+	}
+	return &SyncTokenService{pool: pool, notifier: n}
 }
 
 // GetSyncToken returns the current sync token for a collection.
@@ -100,6 +107,18 @@ func (s *SyncTokenService) IncrementAndLog(ctx context.Context, collectionType s
 		"change_type", changeType,
 		"new_version", newVersion,
 	)
+
+	// Fire push notifications to subscribed clients (non-blocking)
+	if s.notifier != nil {
+		if pushErr := s.notifier.NotifyCollectionChanged(ctx, collectionType, collectionID); pushErr != nil {
+			slog.Warn("failed to send push notifications after sync token increment",
+				"collection_type", collectionType,
+				"collection_id", collectionID,
+				"error", pushErr,
+			)
+		}
+	}
+
 	return nil
 }
 

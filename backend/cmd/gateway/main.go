@@ -163,7 +163,9 @@ func main() {
 	slog.Info("routes registered", "service", "wopi")
 
 	// CalDAV/CardDAV protocol routes (Basic Auth, not JWT)
-	caldavSyncService := caldavpkg.NewSyncTokenService(pool)
+	pushSubService := caldavpkg.NewPushSubscriptionService(pool)
+	pushNotifier := caldavpkg.NewPushNotifier(pushSubService)
+	caldavSyncService := caldavpkg.NewSyncTokenService(pool, pushNotifier)
 	caldavAppPwService := caldavpkg.NewAppPasswordService(
 		caldavpkg.NewPostgresAppPasswordRepository(pool), pool,
 	)
