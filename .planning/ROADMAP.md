@@ -330,8 +330,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 15-01-PLAN.md -- Data foundation (migrations for app_passwords + caldav_sync, Go models, app-specific password service, sync token service, go-webdav + go-ical deps)
-- [ ] 15-02-PLAN.md -- CalDAV/CardDAV Backend adapters (caldav.Backend + carddav.Backend implementations, iCal/vCard converters, VTIMEZONE generator, ETag utility)
+- [x] 15-01-PLAN.md -- Data foundation (migrations for app_passwords + caldav_sync, Go models, app-specific password service, sync token service, go-webdav + go-ical deps)
+- [x] 15-02-PLAN.md -- CalDAV/CardDAV Backend adapters (caldav.Backend + carddav.Backend implementations, iCal/vCard converters, VTIMEZONE generator, ETag utility)
 - [ ] 15-03-PLAN.md -- Gateway integration + frontend (CalDAV/CardDAV gateway routes with Basic Auth, .well-known discovery, app password API, settings wizard, admin page)
 
 ### Phase 16: Automation Engine

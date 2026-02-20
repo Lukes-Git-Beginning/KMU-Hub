@@ -398,9 +398,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HR-05 | Phase 13 | Complete |
 | HR-06 | Phase 13 | Complete |
 | HR-07 | Phase 13 | Complete |
-| INT-01 | Phase 14 | Pending |
-| INT-02 | Phase 14 | Pending |
-| INT-03 | Phase 14 | Complete |
+| INT-01 | Phase 15 | In Progress |
+| INT-02 | Phase 15 | In Progress |
+| INT-03 | Phase 15 | Complete |
 | INT-04 | Phase 15 | Pending |
 | INT-05 | Phase 15 | Pending |
 | INT-06 | Phase 15 | Pending |
