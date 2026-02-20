@@ -40,6 +40,7 @@ import type { EmployeeProfile, LeaveRequest } from '@/api/hr-types'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
 import { MemberDetailPanel } from './MemberDetailPanel'
 import { InviteMemberDialog } from './InviteMemberDialog'
+import { CreateEmployeeWizard } from './CreateEmployeeWizard'
 import { EditMemberDialog } from './EditMemberDialog'
 import { HRApprovalDialog } from './HRApprovalDialog'
 import { AbsenceCalendar } from './AbsenceCalendar'
@@ -174,6 +175,7 @@ export default function TeamPage() {
   const [selectedMemberName, setSelectedMemberName] = useState<string>('')
   const [selectedMemberInitials, setSelectedMemberInitials] = useState<string>('')
   const [showInvite, setShowInvite] = useState(false)
+  const [showCreateWizard, setShowCreateWizard] = useState(false)
   const [editMember, setEditMember] = useState<TeamMember | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [approvalRequest, setApprovalRequest] = useState<LeaveRequest | null>(null)
@@ -288,11 +290,11 @@ export default function TeamPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowInvite(true)}
+          onClick={() => setShowCreateWizard(true)}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
         >
           <Plus className="h-4 w-4" />
-          Mitglied einladen
+          Mitarbeiter erstellen
         </button>
       </div>
 
@@ -373,7 +375,7 @@ export default function TeamPage() {
               icon={Users}
               title="Keine Mitglieder gefunden"
               description={search ? 'Passe deine Suche an' : 'Lade Mitglieder ein, um loszulegen'}
-              action={search ? undefined : { label: 'Mitglied einladen', onClick: () => setShowInvite(true) }}
+              action={search ? undefined : { label: 'Mitarbeiter erstellen', onClick: () => setShowCreateWizard(true) }}
             />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -750,7 +752,12 @@ export default function TeamPage() {
         />
       )}
 
-      {/* Invite Dialog */}
+      {/* Create Employee Wizard */}
+      {showCreateWizard && (
+        <CreateEmployeeWizard onClose={() => setShowCreateWizard(false)} />
+      )}
+
+      {/* Invite Dialog (legacy, kept for quick invite) */}
       <InviteMemberDialog open={showInvite} onOpenChange={setShowInvite} />
 
       {/* Edit Dialog (kept for Zustand members if needed) */}

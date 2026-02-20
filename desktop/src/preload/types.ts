@@ -41,4 +41,9 @@ export interface ElectronAPI {
   compose: {
     openWindow: () => Promise<void>
   }
+
+  /** Employee wizard: open employee creation wizard in a separate OS window */
+  employeeWizard: {
+    openWindow: () => Promise<void>
+  }
 }

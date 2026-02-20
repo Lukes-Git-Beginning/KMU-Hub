@@ -18,6 +18,7 @@ import {
 } from '../hr-client'
 import type {
   CreateLeaveRequestInput,
+  CreateEmployeeInput,
   ApproveRejectInput,
   RecordSickLeaveInput,
   SubmitCorrectionInput,
@@ -29,6 +30,7 @@ import type {
   ListEmployeesParams,
   AbsenceCalendarParams,
   ArbZGComplianceResult,
+  HRSettings,
 } from '../hr-types'
 
 // ---------------------------------------------------------------------------
@@ -402,6 +404,20 @@ export function useEmployee(id: string) {
     queryFn: () => hrEmployeeApi.get(id),
     enabled: !!id,
     select: (data) => data.employee,
+  })
+}
+
+export function useCreateEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateEmployeeInput) => hrEmployeeApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hr', 'employees'] })
+      toast.success('Mitarbeiter erstellt')
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Mitarbeiter konnte nicht erstellt werden')
+    },
   })
 }
 

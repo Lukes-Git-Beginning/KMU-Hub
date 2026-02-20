@@ -243,6 +243,31 @@ export interface SubmitCorrectionInput {
   reason: string
 }
 
+export interface CreateEmployeeInput {
+  firstName: string
+  lastName: string
+  email: string
+  phone?: string
+  temporaryPassword: string
+  roles: string[]
+  department?: string
+  positionTitle?: string
+  contractType: ContractType
+  workDaysPerWeek: number
+  annualLeaveDays: number
+  workloadPercent: number
+  managerUserId?: string
+  startDate: string
+  location?: string
+  addressStreet?: string
+  addressCity?: string
+  addressPostalCode?: string
+  addressCountry: string
+  emergencyContactName?: string
+  emergencyContactPhone?: string
+  sendInviteEmail?: boolean
+}
+
 export interface UpdateEmployeeInput {
   department?: string
   positionTitle?: string

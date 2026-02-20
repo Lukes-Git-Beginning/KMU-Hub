@@ -38,6 +38,10 @@ const api: ElectronAPI = {
 
   compose: {
     openWindow: () => ipcRenderer.invoke('compose:open-window')
+  },
+
+  employeeWizard: {
+    openWindow: () => ipcRenderer.invoke('employee-wizard:open-window')
   }
 }
 
