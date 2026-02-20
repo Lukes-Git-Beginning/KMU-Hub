@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phases 10-11 complete. Next: Phase 12 (Finanzen)
+**Current focus:** Phase 17 (Teams & Slack Integration) -- IN PROGRESS
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 11 of 20 (Documents & Files + WOPI) -- COMPLETE
-Plan: All plans complete through Phase 11
-Status: Compliance & Comms milestone COMPLETE (Phases 9-11)
-Last activity: 2026-02-17 -- Phase 10 backend (10-04 to 10-07) + Phase 11 all complete
+Phase: 17 of 20 (Teams & Slack Integration)
+Plan: 2 of 3 complete
+Status: Plan 17-02 COMPLETE -- forwarder engine, platform adapters, webhook handlers, gateway routes, binary integration
+Last activity: 2026-02-20 -- Phase 17 plan 02 (forwarder engine + platform adapters) complete
 
-Progress: [██████████████████████████████] 100% (66/66 plans across phases 4-11)
+Progress: [█████████████████████████████████] 100% (89/90 plans across phases 4-17)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 62
+- Total plans completed: 70
 - Average duration: ~7 minutes
-- Total execution time: ~6h 40min
+- Total execution time: ~7h 35min
 
 **By Phase:**
 
@@ -38,10 +38,23 @@ Progress: [███████████████████████
 | 10 | 7/7 | ~80min | ~11min |
 | 11 | 6/6 | ~57min | ~9.5min |
 
+| 12 | 7/7 | ~75min | ~10.7min |
+| 13 | 4/4 | ~64min | ~16min |
+
+| 14 | 4/4 | ~33min | ~8min |
+| 15 | 3/3 | ~19min | ~6min |
+| 16 | 3/3 | ~48min | ~16min |
+| 17 | 2/3 | ~8min | ~4min |
+
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
-- 66/66 plans done across Phases 4-11
-- Next: Phase 12 (Rechnungen & Finanzen) -- first phase of Business Suite milestone
+- Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
+- Phase 13 (HR & Zeiterfassung) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
+- Phase 14 (Event Infrastructure + Unified Inbox) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
+- Phase 15 (CalDAV/CardDAV Integration) COMPLETE -- all 3 plans done (data foundation, backend adapters, gateway+frontend+push)
+- Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
+- Phase 17 (Teams & Slack Integration) IN PROGRESS -- 2/3 plans done (data foundation, forwarder + adapters)
+- 89/90 plans done across Phases 4-17
 
 *Updated after each plan completion*
 
@@ -276,6 +289,134 @@ Recent decisions affecting current work:
 - [11-03]: Virtual folder ListAll uses UNION ALL with per-source delegation for filtered requests
 - [11-03]: Extractor returns empty string on error rather than failing (search gracefully degrades)
 
+- [12-01]: 34 RPCs in FinanceService covering quotes, invoices, credit notes, payments, dunning, dashboard, DATEV export
+- [12-01]: Biz service on gRPC :50058, health/metrics on :9098 (following sequential port pattern)
+- [12-01]: All monetary values as string in proto (no native decimal), decimal.Decimal in Go models
+- [12-01]: JSONB for line_items, tax_breakdown, snapshot_data, company_snapshot (document flexibility)
+- [12-01]: Per-line rounding to 2dp in tax calculator prevents cent discrepancies
+- [12-01]: TaxByRate keys use truncated rate strings (e.g., "19" not "19.00") for clean aggregation
+- [12-01]: maroto/v2 added via tools/biz_deps.go for PDF generation in subsequent plans
+
+- [12-02]: DealValueUpdater interface for decoupled CRM deal sync (nil-safe, graceful degradation on failure)
+- [12-02]: Shared NumberSequenceRepo (SELECT FOR UPDATE) for gap-free numbering across document types
+- [12-02]: GoBD immutability enforced at service layer: ErrInvoiceImmutable for any non-draft modification
+- [12-02]: Invoice Send() builds complete JSONB snapshot (customer, company, line items, tax, metadata)
+- [12-02]: QuoteReader interface in invoice package avoids circular dependency with quote package
+- [12-02]: CompanySettings fallback chain: explicit input > company_settings table > hardcoded 30-day default
+
+- [12-03]: InvoiceReader/InvoiceStatusUpdater as separate interfaces for cross-service payment dependencies
+- [12-03]: ConfigRepository with upsert and lazy default creation for dunning config (14/14/14, 0/5/10 EUR)
+- [12-03]: Dashboard forecast: avg monthly revenue * remaining months (simple, no ML for v1)
+- [12-03]: PDF uses maroto/v2 with registered footer for Pflichtangaben on every page
+- [12-03]: Dunning tone escalation: Zahlungserinnerung -> 1. Mahnung -> 2. Mahnung (threatens Inkasso)
+
+- [12-04]: DealValueUpdater uses InexactFloat64() for CRM proto compatibility (Value is *float64)
+- [12-04]: Tenant ID passed through gateway as user ID (single-tenant mode, multi-tenant via JWT claims later)
+- [12-04]: PDF endpoints return 501 from gateway; biz gRPC service serves PDFs directly
+- [12-04]: CreateDunning/EscalateDunning RPCs map to DetectAndCreateDunnings service method
+- [12-04]: PostgresCompanySettingsRepo.Upsert added (INSERT ON CONFLICT DO UPDATE) for settings CRUD
+
+- [12-05]: Finance store (Zustand) holds only UI state; all server data via TanStack Query hooks
+- [12-05]: formatEUR centralized in stores/finance.ts for consistent EUR/de-DE formatting
+- [12-05]: requestBlob helper for PDF/CSV binary downloads via URL.createObjectURL
+- [12-05]: ExpenseFormDialog replaced with null stub (expenses not in Phase 12 scope)
+- [12-05]: DunningConfigDialog inline within DunningPanel (no separate file)
+- [12-05]: Finance query keys: ['finance', domain, ...params] for granular cache invalidation
+- [12-06]: Fresh pdf.Generator per request with latest company settings from DB (not reusing startup instance)
+- [12-06]: respondPDF gateway helper consolidates Content-Type/Disposition/Length for PDF binary streaming
+- [12-06]: Dunning PDF filename varies by level: Zahlungserinnerung (level 1), 1_Mahnung (2), 2_Mahnung (3)
+- [12-07]: Cross-service gRPC: BizRoutes.getCRMClient() enables CRM data enrichment in finance gateway
+- [12-07]: Customer name prefers company over contact (B2B DACH invoicing norm)
+- [12-07]: Contact/company fetch errors handled gracefully (quote created with partial data)
+- [12-07]: Tax mode defaults to standard 19% MWSt, user adjusts in quote form
+
+- [13-01]: 29 RPCs in single HRService proto (leave, time, absences, employees, settings)
+- [13-01]: System leave types and doc categories seeded with zero UUID tenant_id for per-tenant copy pattern
+- [13-01]: Partial unique index on active shifts ensures single active shift per employee at DB level
+- [13-01]: Pure compliance functions use shopspring/decimal throughout for half-day precision
+- [13-01]: BUrlG carryover expires after March 31 (inclusive) with CarryoverExpired flag
+- [13-01]: ArbZG severity: 8h=Info, 9h=Warning, >10h=Error matching "warns at 8h, warns harder at 9h" requirement
+- [13-02]: Leave service EmployeeRepository interface for cross-package manager lookup (avoids circular import)
+- [13-02]: Overlap detection warns but allows approval (overlaps returned in ApproveResult for gRPC to surface)
+- [13-02]: HR fallback: when no manager assigned, service allows approval; gRPC layer enforces HR role
+- [13-02]: Leave balance auto-created on first access using BUrlG compliance engine with previous year carryover
+- [13-02]: Employee self-service uses hasRestrictedFields() check for cleaner role-based field restrictions
+- [13-02]: Absence calendar masks leave types to "Abwesend" with neutral gray (#9ca3af) when ShowAbsenceReason false
+- [13-03]: HR services registered on same gRPC server as finance (biz binary), sharing port :50058
+- [13-03]: GetWorkTimeStatus composed in gateway from GetActiveShift + GetDailySummary RPCs (no dedicated proto RPC)
+- [13-03]: ArbZG severity at exactly 600 min returns "warning" not "error" (CheckWorkTime uses > 600 for error)
+- [13-03]: HRRoutes ServiceName="biz" reuses existing gateway connection to biz gRPC server
+- [13-04]: requestAnimationFrame for ClockInButton live timer (matching Phase 6 pattern, smoother than setInterval)
+- [13-04]: Payroll/training tabs kept on Zustand mock stores (payroll = anti-feature, training not in Phase 13 scope)
+- [13-04]: MemberDetailPanel changed to memberId-based API lookup instead of full TeamMember prop
+- [13-04]: AbsenceCalendar changed to self-fetching (no props) instead of parent-provided data
+- [13-04]: Deutschland-First locale: EUR formatting, de-DE date locale throughout all HR pages
+- [13-04]: 30s polling for WorkTimeStatus in header ClockInButton for near-real-time display
+
+- [14-01]: HR timetracking event emitter in biz/hr/timetracking/ (plan said timeentry/ which doesn't exist)
+- [14-01]: Document shared event emitted on LinkToEntity (entity linking = sharing semantics)
+- [14-01]: 27 RPCs in InboxService proto (14 messages, 8 team inboxes, 5 routing rules)
+- [14-01]: Condition/Action JSON tree model designed for Phase 16 Automation reuse
+- [14-02]: Empty AND=true (vacuous truth), empty OR=false -- standard logic for condition tree evaluator
+- [14-02]: Routing rule cache stores all active rules, filters by channel at read time (simpler invalidation)
+- [14-02]: Auto-reply failure is non-fatal in routing actions (logs warning, continues processing)
+- [14-02]: GetBySourceID returns nil (not error) for missing entries to simplify dedup flow in message Create
+- [14-03]: InboxRoutes ServiceName returns "notification" to reuse existing gRPC connection (co-hosted service)
+- [14-03]: InboxConsumer uses messageRepo directly for NotifyDelivery instead of exposing repo through service
+- [14-03]: Page token format is RFC3339Nano|UUID for cursor-based pagination
+- [14-03]: Docker Compose unchanged -- inbox co-hosted in notification container requires no new service
+- [14-04]: Channel-adaptive inline reply: email=textarea, chat=single-line, notification=no-reply
+- [14-04]: Keyboard shortcuts j/k/e/s/r for GTD-style inbox triage without mouse
+- [14-04]: 30s staleTime for messages, 15s for unread counts for near-real-time inbox
+- [14-04]: Routing rules test panel embedded in editor dialog (not separate page)
+- [14-04]: Channel badge colors: blue=email, green=chat, orange=notification (consistent across components)
+- [14-04]: Optimistic triage mutations: mark read/star/archive update cache immediately, rollback on error
+
+- [15-01]: User UUID as CalDAV username for v1 simplicity (avoids email resolution via auth gRPC)
+- [15-01]: Bcrypt cost 12 for app-specific passwords (balance of security and validation speed)
+- [15-01]: Sync token format "sync-token-{N}" for human-readable debugging
+- [15-01]: caldav_settings key-value table for org-level feature toggles with upsert semantics
+- [15-01]: go-webdav v0.7.0 and go-ical added via tools/caldav_deps.go build tag pattern
+- [15-02]: CalDAVBackend queries event_exceptions directly from DB (no dedicated gRPC RPC)
+- [15-02]: CardDAV two fixed address books per user: personal (Meine Kontakte) and company (Firmenkontakte)
+- [15-02]: VTIMEZONE cache via sync.Map; DACH CET/CEST hardcoded for Europe/Berlin, Europe/Zurich, Europe/Vienna
+- [15-02]: Compile-time interface compliance checks via var _ caldav.Backend = (*CalDAVBackend)(nil)
+- [15-02]: Sync collection ID for address books via uuid.NewSHA1(userID, bookType) for deterministic tracking
+- [15-03]: CalDAVPasswordService interface in gateway breaks import cycle (caldav->gateway->caldav)
+- [15-03]: Adapter pattern in main.go bridges AppPasswordService to CalDAVPasswordService interface
+- [15-03]: Variadic PushNotifier parameter on NewSyncTokenService for backward-compatible injection
+- [15-03]: Push notifications fire-and-forget in goroutines, never blocking CalDAV writes
+- [15-03]: Auto-unsubscribe on 410 Gone from push endpoints per WebDAV-Push draft spec
+- [15-03]: Pool() accessor on AppPasswordService for direct DB queries in route handlers
+
+- [16-01]: expr-lang/expr v1.17.8 for dual condition evaluation (simple AND/OR tree + expression mode)
+- [16-01]: sync.Map cache for compiled expr programs (concurrent safe, no TTL for immutable programs)
+- [16-01]: Automation service as standalone binary on :50059 (gRPC) and :9099 (health/metrics)
+- [16-01]: ExprEnv typed environments per module for compile-time field validation in expressions
+- [16-01]: Dotted field path resolution in simple mode conditions (e.g., deal.value)
+- [16-02]: Function-reference adapter pattern to avoid workflow->trigger->workflow import cycle
+- [16-02]: Notification action standalone (slog-based) since notification service lacks CreateNotification RPC
+- [16-02]: Calendar action reuses work gRPC connection (co-hosted services)
+- [16-02]: Semaphore of 20 concurrent executions + circuit breaker at 100/hour for resource protection
+- [16-02]: 30s TTL cache on TriggerMatcher for active automations
+- [16-02]: Loop prevention: events with module_id "automation" skipped by consumer
+- [16-03]: Single Zustand draft workflow as source of truth for both wizard and react-flow editor
+- [16-03]: @xyflow/react ^12.0.0 for visual node editor
+- [16-03]: Recursive AND/OR condition tree with arbitrarily nested groups in simple mode
+- [16-03]: Template variable {{key}} insertion in action parameter inputs
+- [16-03]: Module-grouped trigger/action catalogs with search filtering
+- [16-03]: Optimistic enable/disable mutations in TanStack Query hooks
+
+- [17-01]: msbotbuilder-go/core sub-package import (root package has no Go files)
+- [17-01]: Upsert semantics on CreateAccountLink (ON CONFLICT DO UPDATE) per research pitfall #4
+- [17-01]: JSONB @> operator for module-level channel mapping filtering
+- [17-01]: Credentials vault key reference in config, never exposed in proto responses
+- [17-02]: PlatformPoster interface decouples forwarder from concrete Teams/Slack clients
+- [17-02]: Proto codegen regenerated (was missing from 17-01, blocking server/gateway compilation)
+- [17-02]: WithIntegration functional option pattern for backward-compatible gRPC server extension
+- [17-02]: Nil-safe platform initialization: missing env vars = platform disabled, not crash
+- [17-02]: Inbound webhook routes bypass JWT auth but verify platform-specific signatures
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -288,7 +429,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Phases 10+11 complete, Darien review done, theme cleanup committed
-Resume file: .planning/darien-response-2026-02-17.md
-Next: Phase 12 (Rechnungen & Finanzen) planning and execution
+Last session: 2026-02-20
+Stopped at: Completed 17-02-PLAN.md
+Resume file: .planning/phases/17-integration-teams-slack/17-02-SUMMARY.md
+Next: Phase 17 plan 03 (frontend -- TypeScript types, TanStack Query hooks, setup wizards, settings UI)

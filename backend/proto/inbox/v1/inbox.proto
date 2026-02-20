@@ -1,0 +1,425 @@
+syntax = "proto3";
+
+package inbox.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/inbox/v1;inboxv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+service InboxService {
+  // =========================================================================
+  // Messages (14 RPCs)
+  // =========================================================================
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+  rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
+  rpc MarkRead(MarkReadRequest) returns (MarkReadResponse);
+  rpc MarkUnread(MarkUnreadRequest) returns (MarkUnreadResponse);
+  rpc ToggleStar(ToggleStarRequest) returns (ToggleStarResponse);
+  rpc ArchiveMessage(ArchiveMessageRequest) returns (ArchiveMessageResponse);
+  rpc UnarchiveMessage(UnarchiveMessageRequest) returns (UnarchiveMessageResponse);
+  rpc SnoozeMessage(SnoozeMessageRequest) returns (SnoozeMessageResponse);
+  rpc UnsnoozeMessage(UnsnoozeMessageRequest) returns (UnsnoozeMessageResponse);
+  rpc ReplyToMessage(ReplyToMessageRequest) returns (ReplyToMessageResponse);
+  rpc AssignMessage(AssignMessageRequest) returns (AssignMessageResponse);
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+  rpc BulkMarkRead(BulkMarkReadRequest) returns (BulkMarkReadResponse);
+  rpc BulkArchive(BulkArchiveRequest) returns (BulkArchiveResponse);
+
+  // =========================================================================
+  // Team Inboxes (8 RPCs)
+  // =========================================================================
+  rpc CreateTeamInbox(CreateTeamInboxRequest) returns (CreateTeamInboxResponse);
+  rpc UpdateTeamInbox(UpdateTeamInboxRequest) returns (UpdateTeamInboxResponse);
+  rpc DeleteTeamInbox(DeleteTeamInboxRequest) returns (DeleteTeamInboxResponse);
+  rpc ListTeamInboxes(ListTeamInboxesRequest) returns (ListTeamInboxesResponse);
+  rpc AddTeamMember(AddTeamMemberRequest) returns (AddTeamMemberResponse);
+  rpc RemoveTeamMember(RemoveTeamMemberRequest) returns (RemoveTeamMemberResponse);
+  rpc ListTeamMembers(ListTeamMembersRequest) returns (ListTeamMembersResponse);
+  rpc ClaimMessage(ClaimMessageRequest) returns (ClaimMessageResponse);
+
+  // =========================================================================
+  // Routing Rules (5 RPCs)
+  // =========================================================================
+  rpc CreateRoutingRule(CreateRoutingRuleRequest) returns (CreateRoutingRuleResponse);
+  rpc UpdateRoutingRule(UpdateRoutingRuleRequest) returns (UpdateRoutingRuleResponse);
+  rpc DeleteRoutingRule(DeleteRoutingRuleRequest) returns (DeleteRoutingRuleResponse);
+  rpc ListRoutingRules(ListRoutingRulesRequest) returns (ListRoutingRulesResponse);
+  rpc TestRoutingRule(TestRoutingRuleRequest) returns (TestRoutingRuleResponse);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum Channel {
+  CHANNEL_UNSPECIFIED = 0;
+  CHANNEL_EMAIL = 1;
+  CHANNEL_CHAT = 2;
+  CHANNEL_NOTIFICATION = 3;
+}
+
+enum AssignmentMode {
+  ASSIGNMENT_MODE_UNSPECIFIED = 0;
+  ASSIGNMENT_MODE_MANUAL = 1;
+  ASSIGNMENT_MODE_ROUND_ROBIN = 2;
+}
+
+enum TeamInboxVisibility {
+  VISIBILITY_UNSPECIFIED = 0;
+  VISIBILITY_OPEN = 1;
+  VISIBILITY_PRIVATE = 2;
+}
+
+enum TeamMemberRole {
+  TEAM_ROLE_UNSPECIFIED = 0;
+  TEAM_ROLE_ADMIN = 1;
+  TEAM_ROLE_MEMBER = 2;
+}
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+message InboxMessageInfo {
+  string id = 1;
+  string user_id = 2;
+  Channel channel = 3;
+  string source_id = 4;
+  string sender_name = 5;
+  optional string sender_id = 6;
+  optional string sender_email = 7;
+  string subject = 8;
+  string preview = 9;
+  bool is_read = 10;
+  bool is_starred = 11;
+  bool is_archived = 12;
+  optional google.protobuf.Timestamp snoozed_until = 13;
+  optional string assigned_to = 14;
+  optional string team_inbox_id = 15;
+  repeated string tags = 16;
+  string deep_link = 17;
+  optional string crm_contact_id = 18;
+  google.protobuf.Struct metadata = 19;
+  google.protobuf.Timestamp received_at = 20;
+  google.protobuf.Timestamp created_at = 21;
+  google.protobuf.Timestamp updated_at = 22;
+}
+
+message TeamInboxInfo {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  AssignmentMode assignment_mode = 4;
+  TeamInboxVisibility visibility = 5;
+  string created_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message TeamMemberInfo {
+  string team_inbox_id = 1;
+  string user_id = 2;
+  TeamMemberRole role = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message RoutingRuleInfo {
+  string id = 1;
+  string name = 2;
+  optional Channel channel = 3;
+  google.protobuf.Struct conditions = 4;
+  google.protobuf.Struct actions = 5;
+  int32 priority = 6;
+  bool is_active = 7;
+  string created_by = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message UnreadCountByChannel {
+  Channel channel = 1;
+  int32 count = 2;
+}
+
+// ============================================================================
+// Message RPCs - Requests & Responses
+// ============================================================================
+
+message ListMessagesRequest {
+  string user_id = 1;
+  optional Channel channel = 2;
+  optional bool is_read = 3;
+  optional bool is_starred = 4;
+  optional bool is_archived = 5;
+  optional string team_inbox_id = 6;
+  optional string search_query = 7;
+  int32 page_size = 8;
+  string page_token = 9;
+}
+
+message ListMessagesResponse {
+  repeated InboxMessageInfo messages = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message GetMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message GetMessageResponse {
+  InboxMessageInfo message = 1;
+}
+
+message MarkReadRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message MarkReadResponse {
+  InboxMessageInfo message = 1;
+}
+
+message MarkUnreadRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message MarkUnreadResponse {
+  InboxMessageInfo message = 1;
+}
+
+message ToggleStarRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message ToggleStarResponse {
+  InboxMessageInfo message = 1;
+}
+
+message ArchiveMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message ArchiveMessageResponse {
+  InboxMessageInfo message = 1;
+}
+
+message UnarchiveMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message UnarchiveMessageResponse {
+  InboxMessageInfo message = 1;
+}
+
+message SnoozeMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp snooze_until = 3;
+}
+
+message SnoozeMessageResponse {
+  InboxMessageInfo message = 1;
+}
+
+message UnsnoozeMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message UnsnoozeMessageResponse {
+  InboxMessageInfo message = 1;
+}
+
+message ReplyToMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+  string body = 3;
+}
+
+message ReplyToMessageResponse {
+  bool success = 1;
+}
+
+message AssignMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+  string assignee_id = 3;
+}
+
+message AssignMessageResponse {
+  InboxMessageInfo message = 1;
+}
+
+message GetUnreadCountRequest {
+  string user_id = 1;
+}
+
+message GetUnreadCountResponse {
+  int32 total = 1;
+  repeated UnreadCountByChannel by_channel = 2;
+}
+
+message BulkMarkReadRequest {
+  string user_id = 1;
+  repeated string message_ids = 2;
+}
+
+message BulkMarkReadResponse {
+  int32 updated_count = 1;
+}
+
+message BulkArchiveRequest {
+  string user_id = 1;
+  repeated string message_ids = 2;
+}
+
+message BulkArchiveResponse {
+  int32 updated_count = 1;
+}
+
+// ============================================================================
+// Team Inbox RPCs - Requests & Responses
+// ============================================================================
+
+message CreateTeamInboxRequest {
+  string user_id = 1;
+  string name = 2;
+  string description = 3;
+  AssignmentMode assignment_mode = 4;
+  TeamInboxVisibility visibility = 5;
+}
+
+message CreateTeamInboxResponse {
+  TeamInboxInfo team_inbox = 1;
+}
+
+message UpdateTeamInboxRequest {
+  string team_inbox_id = 1;
+  string user_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional AssignmentMode assignment_mode = 5;
+  optional TeamInboxVisibility visibility = 6;
+}
+
+message UpdateTeamInboxResponse {
+  TeamInboxInfo team_inbox = 1;
+}
+
+message DeleteTeamInboxRequest {
+  string team_inbox_id = 1;
+  string user_id = 2;
+}
+
+message DeleteTeamInboxResponse {}
+
+message ListTeamInboxesRequest {
+  string user_id = 1;
+}
+
+message ListTeamInboxesResponse {
+  repeated TeamInboxInfo team_inboxes = 1;
+}
+
+message AddTeamMemberRequest {
+  string team_inbox_id = 1;
+  string user_id = 2;
+  string member_user_id = 3;
+  TeamMemberRole role = 4;
+}
+
+message AddTeamMemberResponse {
+  TeamMemberInfo member = 1;
+}
+
+message RemoveTeamMemberRequest {
+  string team_inbox_id = 1;
+  string user_id = 2;
+  string member_user_id = 3;
+}
+
+message RemoveTeamMemberResponse {}
+
+message ListTeamMembersRequest {
+  string team_inbox_id = 1;
+  string user_id = 2;
+}
+
+message ListTeamMembersResponse {
+  repeated TeamMemberInfo members = 1;
+}
+
+message ClaimMessageRequest {
+  string message_id = 1;
+  string user_id = 2;
+}
+
+message ClaimMessageResponse {
+  InboxMessageInfo message = 1;
+}
+
+// ============================================================================
+// Routing Rule RPCs - Requests & Responses
+// ============================================================================
+
+message CreateRoutingRuleRequest {
+  string user_id = 1;
+  string name = 2;
+  optional Channel channel = 3;
+  google.protobuf.Struct conditions = 4;
+  google.protobuf.Struct actions = 5;
+  int32 priority = 6;
+}
+
+message CreateRoutingRuleResponse {
+  RoutingRuleInfo rule = 1;
+}
+
+message UpdateRoutingRuleRequest {
+  string rule_id = 1;
+  string user_id = 2;
+  optional string name = 3;
+  optional Channel channel = 4;
+  optional google.protobuf.Struct conditions = 5;
+  optional google.protobuf.Struct actions = 6;
+  optional int32 priority = 7;
+  optional bool is_active = 8;
+}
+
+message UpdateRoutingRuleResponse {
+  RoutingRuleInfo rule = 1;
+}
+
+message DeleteRoutingRuleRequest {
+  string rule_id = 1;
+  string user_id = 2;
+}
+
+message DeleteRoutingRuleResponse {}
+
+message ListRoutingRulesRequest {
+  string user_id = 1;
+  optional Channel channel = 2;
+  optional bool active_only = 3;
+}
+
+message ListRoutingRulesResponse {
+  repeated RoutingRuleInfo rules = 1;
+}
+
+message TestRoutingRuleRequest {
+  string user_id = 1;
+  google.protobuf.Struct conditions = 2;
+  InboxMessageInfo test_message = 3;
+}
+
+message TestRoutingRuleResponse {
+  bool matches = 1;
+}

@@ -85,6 +85,30 @@ tags:
     description: Meeting action items with task conversion
   - name: webhooks
     description: External service webhooks (LiveKit)
+  - name: finance-settings
+    description: Company settings for invoicing and finance
+  - name: quotes
+    description: Quote (Angebot) management
+  - name: invoices
+    description: Invoice (Rechnung) management
+  - name: credit-notes
+    description: Credit note (Gutschrift) management
+  - name: payments
+    description: Payment recording and tracking
+  - name: dunning
+    description: Dunning (Mahnwesen) management
+  - name: finance-dashboard
+    description: Finance dashboard and analytics
+  - name: datev
+    description: DATEV Buchungsstapel CSV export
+  - name: inbox-messages
+    description: Unified inbox message operations (list, read, star, archive, snooze, reply, assign)
+  - name: inbox-teams
+    description: Team inbox management (create, update, delete, members, claim)
+  - name: inbox-routing
+    description: Inbox routing rules (create, update, delete, test)
+  - name: automations
+    description: Automation workflow management (CRUD, enable/disable, execution logs, templates, catalog, testing)
 
 paths:
   /health:
@@ -6882,6 +6906,2251 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
 
+  # ===========================================================================
+  # Finance: Company Settings
+  # ===========================================================================
+  /api/v1/finance/settings:
+    get:
+      summary: Get company settings
+      tags: [finance-settings]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Company settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      summary: Update company settings
+      tags: [finance-settings]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanySettingsInput"
+      responses:
+        "200":
+          description: Updated company settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ===========================================================================
+  # Finance: Quotes
+  # ===========================================================================
+  /api/v1/finance/quotes:
+    post:
+      summary: Create a new quote
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteRequest"
+      responses:
+        "201":
+          description: Quote created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: List quotes
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, sent, accepted, rejected, expired]
+        - name: deal_id
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: List of quotes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quotes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Quote"
+                  total:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/finance/quotes/{id}:
+    get:
+      summary: Get a quote by ID
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Quote details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update a quote
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuoteRequest"
+      responses:
+        "200":
+          description: Updated quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete a quote
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Quote deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/finance/quotes/{id}/send:
+    post:
+      summary: Send a quote to the customer
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Quote sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/finance/quotes/{id}/accept:
+    post:
+      summary: Accept a quote
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Quote accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /api/v1/finance/quotes/{id}/reject:
+    post:
+      summary: Reject a quote
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Quote rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+
+  /api/v1/finance/quotes/{id}/convert:
+    post:
+      summary: Convert a quote to an invoice
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_date:
+                  type: string
+                  format: date
+                due_date:
+                  type: string
+                  format: date
+                delivery_date:
+                  type: string
+                  format: date
+                payment_terms:
+                  type: string
+      responses:
+        "201":
+          description: Invoice created from quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /api/v1/finance/quotes/{id}/pdf:
+    get:
+      summary: Generate PDF for a quote
+      tags: [quotes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "501":
+          description: PDF generation not yet available via gateway
+
+  # ===========================================================================
+  # Finance: Invoices
+  # ===========================================================================
+  /api/v1/finance/invoices:
+    post:
+      summary: Create a new invoice
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceRequest"
+      responses:
+        "201":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+    get:
+      summary: List invoices
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, sent, paid, overdue, cancelled]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Invoice"
+                  total:
+                    type: integer
+
+  /api/v1/finance/invoices/{id}:
+    get:
+      summary: Get an invoice by ID
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Invoice details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+    put:
+      summary: Update a draft invoice
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInvoiceRequest"
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "410":
+          description: Invoice is immutable (already sent)
+
+  /api/v1/finance/invoices/{id}/send:
+    post:
+      summary: Send an invoice (freezes snapshot, GoBD immutable)
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Invoice sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /api/v1/finance/invoices/{id}/pay:
+    post:
+      summary: Mark an invoice as fully paid
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Invoice marked as paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /api/v1/finance/invoices/{id}/cancel:
+    post:
+      summary: Cancel an invoice (creates reversal entry)
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Invoice cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /api/v1/finance/invoices/{id}/pdf:
+    get:
+      summary: Generate PDF for an invoice
+      tags: [invoices]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /api/v1/finance/invoices/{id}/payments:
+    post:
+      summary: Record a payment against an invoice
+      tags: [payments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordPaymentRequest"
+      responses:
+        "201":
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+    get:
+      summary: List payments for an invoice
+      tags: [payments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Payment"
+                  total:
+                    type: integer
+
+  # ===========================================================================
+  # Finance: Credit Notes
+  # ===========================================================================
+  /api/v1/finance/credit-notes:
+    post:
+      summary: Create a credit note
+      tags: [credit-notes]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditNoteRequest"
+      responses:
+        "201":
+          description: Credit note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNote"
+    get:
+      summary: List credit notes
+      tags: [credit-notes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: invoice_id
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: List of credit notes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credit_notes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CreditNote"
+                  total:
+                    type: integer
+
+  /api/v1/finance/credit-notes/{id}:
+    get:
+      summary: Get a credit note by ID
+      tags: [credit-notes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Credit note details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNote"
+
+  /api/v1/finance/credit-notes/{id}/send:
+    post:
+      summary: Send a credit note
+      tags: [credit-notes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Credit note sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNote"
+
+  /api/v1/finance/credit-notes/{id}/pdf:
+    get:
+      summary: Generate PDF for a credit note
+      tags: [credit-notes]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  # ===========================================================================
+  # Finance: Payments (top-level)
+  # ===========================================================================
+  /api/v1/finance/payments/{id}:
+    delete:
+      summary: Delete a payment
+      tags: [payments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Payment deleted
+
+  # ===========================================================================
+  # Finance: Dunning
+  # ===========================================================================
+  /api/v1/finance/dunning:
+    get:
+      summary: List dunning records
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: invoice_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, sent, paid]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/page_size"
+      responses:
+        "200":
+          description: List of dunning records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dunnings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DunningRecord"
+                  total:
+                    type: integer
+
+  /api/v1/finance/dunning/detect:
+    post:
+      summary: Detect overdue invoices and create dunning records
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_id:
+                  type: string
+                  description: Optional - target a specific invoice
+      responses:
+        "201":
+          description: Dunning record created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DunningRecord"
+
+  /api/v1/finance/dunning/{id}/send:
+    post:
+      summary: Send a dunning letter
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Dunning record sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DunningRecord"
+
+  /api/v1/finance/dunning/{id}/escalate:
+    post:
+      summary: Escalate a dunning to the next level
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoice_id]
+              properties:
+                invoice_id:
+                  type: string
+      responses:
+        "200":
+          description: Dunning escalated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DunningRecord"
+
+  /api/v1/finance/dunning/{id}/pdf:
+    get:
+      summary: Generate PDF for a dunning letter
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /api/v1/finance/dunning/config:
+    get:
+      summary: Get dunning configuration
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Dunning configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DunningConfig"
+    put:
+      summary: Update dunning configuration (admin only)
+      tags: [dunning]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DunningConfigInput"
+      responses:
+        "200":
+          description: Updated dunning config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DunningConfig"
+
+  # ===========================================================================
+  # Finance: Dashboard
+  # ===========================================================================
+  /api/v1/finance/dashboard:
+    get:
+      summary: Get finance dashboard data
+      tags: [finance-dashboard]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceDashboard"
+
+  # ===========================================================================
+  # Finance: DATEV Export
+  # ===========================================================================
+  /api/v1/finance/export/datev:
+    post:
+      summary: Export DATEV Buchungsstapel CSV
+      tags: [datev]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [start_date, end_date, fiscal_year_start]
+              properties:
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+                fiscal_year_start:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: DATEV CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="EXTF_Buchungsstapel_20260101_20261231.csv"'
+
+  # ===========================================================================
+  # HR: Leave Management
+  # ===========================================================================
+  /api/v1/hr/leave/requests:
+    post:
+      summary: Create a new leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeaveRequestInput"
+      responses:
+        "201":
+          description: Leave request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+    get:
+      summary: List leave requests (filtered)
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: employee_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, approved, rejected, cancelled] }
+        - name: start_date
+          in: query
+          schema: { type: string, format: date }
+        - name: end_date
+          in: query
+          schema: { type: string, format: date }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: page_size, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: List of leave requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leave_requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LeaveRequest"
+                  total: { type: integer }
+
+  /api/v1/hr/leave/requests/{id}:
+    get:
+      summary: Get a single leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Leave request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /api/v1/hr/leave/requests/{id}/approve:
+    post:
+      summary: Approve a leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment: { type: string }
+      responses:
+        "200":
+          description: Leave request approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /api/v1/hr/leave/requests/{id}/reject:
+    post:
+      summary: Reject a leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment: { type: string }
+      responses:
+        "200":
+          description: Leave request rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /api/v1/hr/leave/requests/{id}/cancel:
+    post:
+      summary: Cancel a leave request
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Leave request cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveRequest"
+
+  /api/v1/hr/leave/balance:
+    get:
+      summary: Get current user leave balance
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Leave balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveBalance"
+
+  /api/v1/hr/leave/balance/{userId}:
+    get:
+      summary: Get leave balance for a specific employee (manager view)
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Employee leave balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaveBalance"
+
+  /api/v1/hr/leave/types:
+    get:
+      summary: List available leave types
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Leave types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaveType"
+
+  /api/v1/hr/leave/sick:
+    post:
+      summary: Record sick leave
+      tags: [hr-leave]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [start_date, end_date]
+              properties:
+                start_date: { type: string, format: date }
+                end_date: { type: string, format: date }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Sick leave recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leave_request:
+                    $ref: "#/components/schemas/LeaveRequest"
+                  au_document_required: { type: boolean }
+
+  # ===========================================================================
+  # HR: Time Tracking
+  # ===========================================================================
+  /api/v1/hr/time/clock-in:
+    post:
+      summary: Clock in to start a shift
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201":
+          description: Work time entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeEntry"
+
+  /api/v1/hr/time/clock-out:
+    post:
+      summary: Clock out to end a shift
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Work time entry completed with ArbZG compliance info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/WorkTimeEntry"
+                  severity: { type: string, enum: [none, info, warning, error] }
+                  arbzg_message: { type: string }
+
+  /api/v1/hr/time/break/start:
+    post:
+      summary: Start a break
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201":
+          description: Break started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakEntry"
+
+  /api/v1/hr/time/break/end:
+    post:
+      summary: End a break
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Break ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BreakEntry"
+
+  /api/v1/hr/time/active:
+    get:
+      summary: Get active shift and breaks
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Active shift info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    $ref: "#/components/schemas/WorkTimeEntry"
+                  is_on_break: { type: boolean }
+                  active_break:
+                    $ref: "#/components/schemas/BreakEntry"
+
+  /api/v1/hr/time/status:
+    get:
+      summary: Get work time status for header quick-toggle
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current work time status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeStatus"
+
+  /api/v1/hr/time/entries:
+    get:
+      summary: List work time entries
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: employee_id, in: query, schema: { type: string, format: uuid } }
+        - { name: start_date, in: query, schema: { type: string, format: date } }
+        - { name: end_date, in: query, schema: { type: string, format: date } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: page_size, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Work time entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkTimeEntry"
+                  total: { type: integer }
+
+  /api/v1/hr/time/summary/daily:
+    get:
+      summary: Get daily work time summary
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Daily summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailySummary"
+
+  /api/v1/hr/time/summary/weekly:
+    get:
+      summary: Get weekly work time summary
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: week_start, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Weekly summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklySummary"
+
+  /api/v1/hr/time/corrections:
+    post:
+      summary: Submit a time correction
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitCorrectionInput"
+      responses:
+        "201":
+          description: Correction submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeEntry"
+
+  /api/v1/hr/time/corrections/{id}/approve:
+    post:
+      summary: Approve a time correction
+      tags: [hr-time]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Correction approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkTimeEntry"
+
+  # ===========================================================================
+  # HR: Absence Calendar
+  # ===========================================================================
+  /api/v1/hr/absences/calendar:
+    get:
+      summary: Get absence calendar for team view
+      tags: [hr-absence]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: start_date, in: query, required: true, schema: { type: string, format: date } }
+        - { name: end_date, in: query, required: true, schema: { type: string, format: date } }
+        - { name: department, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Absence calendar entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AbsenceEntry"
+
+  # ===========================================================================
+  # HR: Employee Profiles
+  # ===========================================================================
+  /api/v1/hr/employees:
+    get:
+      summary: List employees
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: department, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: page_size, in: query, schema: { type: integer } }
+      responses:
+        "200":
+          description: Employee list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmployeeProfile"
+                  total: { type: integer }
+
+  /api/v1/hr/employees/me:
+    get:
+      summary: Get own employee profile
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Own profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+    put:
+      summary: Update own profile (self-service fields only)
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSelfProfileInput"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+
+  /api/v1/hr/employees/{id}:
+    get:
+      summary: Get employee by ID
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Employee profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+    put:
+      summary: Update employee (admin/manager fields)
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmployeeInput"
+      responses:
+        "200":
+          description: Employee updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeProfile"
+
+  /api/v1/hr/employees/{id}/documents:
+    get:
+      summary: List employee documents
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Documents list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeDocument"
+    post:
+      summary: Upload a document for an employee
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category_id, file_id]
+              properties:
+                category_id: { type: string, format: uuid }
+                file_id: { type: string, format: uuid }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Document uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeDocument"
+
+  # ===========================================================================
+  # HR: Settings (admin only)
+  # ===========================================================================
+  /api/v1/hr/settings:
+    get:
+      summary: Get HR company settings
+      tags: [hr-settings]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: HR settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HRSettings"
+    put:
+      summary: Update HR company settings
+      tags: [hr-settings]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHRSettingsInput"
+      responses:
+        "200":
+          description: HR settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HRSettings"
+
+  # =========================================================================
+  # Inbox
+  # =========================================================================
+
+  /api/v1/inbox/messages:
+    get:
+      summary: List inbox messages
+      tags: [inbox-messages]
+      operationId: listInboxMessages
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: channel, in: query, schema: { type: string, enum: [email, chat, notification] } }
+        - { name: is_read, in: query, schema: { type: boolean } }
+        - { name: is_starred, in: query, schema: { type: boolean } }
+        - { name: team_inbox_id, in: query, schema: { type: string, format: uuid } }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_token, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Inbox messages list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessageList"
+
+  /api/v1/inbox/messages/{id}:
+    get:
+      summary: Get inbox message by ID
+      tags: [inbox-messages]
+      operationId: getInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Inbox message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/read:
+    post:
+      summary: Mark message as read
+      tags: [inbox-messages]
+      operationId: markInboxMessageRead
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/unread:
+    post:
+      summary: Mark message as unread
+      tags: [inbox-messages]
+      operationId: markInboxMessageUnread
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message marked as unread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/star:
+    post:
+      summary: Toggle star on message
+      tags: [inbox-messages]
+      operationId: toggleInboxMessageStar
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Star toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/archive:
+    post:
+      summary: Archive message
+      tags: [inbox-messages]
+      operationId: archiveInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/unarchive:
+    post:
+      summary: Unarchive message
+      tags: [inbox-messages]
+      operationId: unarchiveInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message unarchived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/snooze:
+    post:
+      summary: Snooze message until a future time
+      tags: [inbox-messages]
+      operationId: snoozeInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [snooze_until]
+              properties:
+                snooze_until: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Message snoozed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/unsnooze:
+    post:
+      summary: Unsnooze message
+      tags: [inbox-messages]
+      operationId: unsnoozeInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message unsnoozed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/messages/{id}/reply:
+    post:
+      summary: Reply to message through originating channel
+      tags: [inbox-messages]
+      operationId: replyToInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string }
+      responses:
+        "200":
+          description: Reply sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+
+  /api/v1/inbox/messages/{id}/assign:
+    post:
+      summary: Assign message to a user
+      tags: [inbox-messages]
+      operationId: assignInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignee_id]
+              properties:
+                assignee_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Message assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/unread-count:
+    get:
+      summary: Get unread message count by channel
+      tags: [inbox-messages]
+      operationId: getInboxUnreadCount
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Unread counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxUnreadCount"
+
+  /api/v1/inbox/messages/bulk-read:
+    post:
+      summary: Mark multiple messages as read
+      tags: [inbox-messages]
+      operationId: bulkMarkInboxRead
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+
+  /api/v1/inbox/messages/bulk-archive:
+    post:
+      summary: Archive multiple messages
+      tags: [inbox-messages]
+      operationId: bulkArchiveInbox
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+
+  /api/v1/inbox/teams:
+    post:
+      summary: Create a team inbox (admin/manager only)
+      tags: [inbox-teams]
+      operationId: createTeamInbox
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeamInboxInput"
+      responses:
+        "201":
+          description: Team inbox created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamInbox"
+    get:
+      summary: List team inboxes for current user
+      tags: [inbox-teams]
+      operationId: listTeamInboxes
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Team inboxes list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  team_inboxes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamInbox"
+
+  /api/v1/inbox/teams/{id}:
+    put:
+      summary: Update a team inbox
+      tags: [inbox-teams]
+      operationId: updateTeamInbox
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamInboxInput"
+      responses:
+        "200":
+          description: Team inbox updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamInbox"
+    delete:
+      summary: Delete a team inbox (admin/manager only)
+      tags: [inbox-teams]
+      operationId: deleteTeamInbox
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Team inbox deleted
+
+  /api/v1/inbox/teams/{id}/members:
+    post:
+      summary: Add member to team inbox
+      tags: [inbox-teams]
+      operationId: addTeamInboxMember
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [member_user_id]
+              properties:
+                member_user_id: { type: string, format: uuid }
+                role: { type: string, enum: [admin, member], default: member }
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamInboxMember"
+    get:
+      summary: List team inbox members
+      tags: [inbox-teams]
+      operationId: listTeamInboxMembers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Team inbox members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TeamInboxMember"
+
+  /api/v1/inbox/teams/{id}/members/{user_id}:
+    delete:
+      summary: Remove member from team inbox
+      tags: [inbox-teams]
+      operationId: removeTeamInboxMember
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: user_id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Member removed
+
+  /api/v1/inbox/messages/{id}/claim:
+    post:
+      summary: Claim an unassigned team inbox message
+      tags: [inbox-teams]
+      operationId: claimInboxMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Message claimed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxMessage"
+
+  /api/v1/inbox/rules:
+    post:
+      summary: Create a routing rule (admin/manager only)
+      tags: [inbox-routing]
+      operationId: createInboxRoutingRule
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoutingRuleInput"
+      responses:
+        "201":
+          description: Routing rule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingRule"
+    get:
+      summary: List routing rules
+      tags: [inbox-routing]
+      operationId: listInboxRoutingRules
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Routing rules list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RoutingRule"
+
+  /api/v1/inbox/rules/{id}:
+    put:
+      summary: Update a routing rule (admin/manager only)
+      tags: [inbox-routing]
+      operationId: updateInboxRoutingRule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoutingRuleInput"
+      responses:
+        "200":
+          description: Routing rule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingRule"
+    delete:
+      summary: Delete a routing rule (admin/manager only)
+      tags: [inbox-routing]
+      operationId: deleteInboxRoutingRule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Routing rule deleted
+
+  /api/v1/inbox/rules/test:
+    post:
+      summary: Test routing rule conditions against a sample message
+      tags: [inbox-routing]
+      operationId: testInboxRoutingRule
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [conditions, test_message]
+              properties:
+                conditions: { type: object }
+                test_message:
+                  $ref: "#/components/schemas/InboxMessage"
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  matches: { type: boolean }
+
+  # =========================================================================
+  # Automations
+  # =========================================================================
+
+  /api/v1/automations:
+    post:
+      summary: Create a new automation
+      tags: [automations]
+      operationId: createAutomation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAutomationRequest"
+      responses:
+        "201":
+          description: Automation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: List automations
+      tags: [automations]
+      operationId: listAutomations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: owner_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: scope
+          in: query
+          schema: { type: string, enum: [personal, team, organization] }
+        - name: trigger_type
+          in: query
+          schema: { type: string }
+        - name: is_active
+          in: query
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of automations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Automation"
+                  total_count: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/automations/{id}:
+    get:
+      summary: Get automation by ID
+      tags: [automations]
+      operationId: getAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Automation details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update automation
+      tags: [automations]
+      operationId: updateAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAutomationRequest"
+      responses:
+        "200":
+          description: Automation updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete automation
+      tags: [automations]
+      operationId: deleteAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Automation deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/{id}/enable:
+    post:
+      summary: Enable automation
+      tags: [automations]
+      operationId: enableAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Automation enabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/{id}/disable:
+    post:
+      summary: Disable automation
+      tags: [automations]
+      operationId: disableAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Automation disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/{id}/executions:
+    get:
+      summary: List execution logs for an automation
+      tags: [automations]
+      operationId: listAutomationExecutions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [running, completed, failed, skipped, aborted] }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AutomationExecution"
+                  total_count: { type: integer }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/executions/{executionId}:
+    get:
+      summary: Get a single execution log
+      tags: [automations]
+      operationId: getAutomationExecution
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Execution details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  execution:
+                    $ref: "#/components/schemas/AutomationExecution"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/triggers:
+    get:
+      summary: List all available trigger definitions
+      tags: [automations]
+      operationId: listTriggerDefinitions
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Trigger catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  triggers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TriggerDefinition"
+
+  /api/v1/automations/actions:
+    get:
+      summary: List all available action definitions
+      tags: [automations]
+      operationId: listActionDefinitions
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Action catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ActionDefinition"
+
+  /api/v1/automations/templates:
+    get:
+      summary: List automation templates
+      tags: [automations]
+      operationId: listAutomationTemplates
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AutomationTemplate"
+
+  /api/v1/automations/templates/{templateId}/create:
+    post:
+      summary: Create automation from template
+      tags: [automations]
+      operationId: createAutomationFromTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: Automation created from template
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/test-condition:
+    post:
+      summary: Test a condition against sample data
+      tags: [automations]
+      operationId: testAutomationCondition
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                condition: { type: object }
+                sample_env: { type: object }
+      responses:
+        "200":
+          description: Condition test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result: { type: boolean }
+
+  /api/v1/automations/dry-run:
+    post:
+      summary: Dry-run an automation without executing real actions
+      tags: [automations]
+      operationId: dryRunAutomation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [automation_id]
+              properties:
+                automation_id: { type: string, format: uuid }
+                sample_env: { type: object }
+      responses:
+        "200":
+          description: Dry-run result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  condition_result: { type: boolean }
+                  steps:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DryRunStep"
+
+  /api/v1/automations/stats:
+    get:
+      summary: Get automation statistics (admin only)
+      tags: [automations]
+      operationId: getAutomationStats
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Automation statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationStats"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -10530,6 +12799,1038 @@ components:
     #
     # Reaction Events:
     #   reaction.toggled (Server -> Client) - Reaction added/removed on a message
+
+    # =========================================================================
+    # Finance Schemas
+    # =========================================================================
+
+    LineItem:
+      type: object
+      properties:
+        id:
+          type: string
+        position:
+          type: integer
+        description:
+          type: string
+        quantity:
+          type: string
+          description: Decimal as string
+        unit_price:
+          type: string
+          description: Decimal as string
+        tax_rate:
+          type: string
+          description: Decimal as string (e.g. "19.00", "7.00")
+        line_total:
+          type: string
+          description: Decimal as string (quantity * unit_price)
+
+    TaxBreakdown:
+      type: object
+      properties:
+        subtotal:
+          type: string
+        tax_by_rate:
+          type: object
+          additionalProperties:
+            type: string
+        total_tax:
+          type: string
+        gross_total:
+          type: string
+
+    CustomerSnapshot:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        email:
+          type: string
+        ust_id_nr:
+          type: string
+
+    CompanySettings:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        street:
+          type: string
+        plz:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        steuernummer:
+          type: string
+        ust_id_nr:
+          type: string
+        handelsregister:
+          type: string
+        bank_name:
+          type: string
+        iban:
+          type: string
+        bic:
+          type: string
+        logo_url:
+          type: string
+        accent_color:
+          type: string
+        is_kleinunternehmer:
+          type: boolean
+        default_payment_terms_days:
+          type: integer
+        default_quote_validity_days:
+          type: integer
+        basiszinssatz:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CompanySettingsInput:
+      type: object
+      properties:
+        name:
+          type: string
+        street:
+          type: string
+        plz:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        steuernummer:
+          type: string
+        ust_id_nr:
+          type: string
+        handelsregister:
+          type: string
+        bank_name:
+          type: string
+        iban:
+          type: string
+        bic:
+          type: string
+        logo_url:
+          type: string
+        accent_color:
+          type: string
+        is_kleinunternehmer:
+          type: boolean
+        default_payment_terms_days:
+          type: integer
+        default_quote_validity_days:
+          type: integer
+        basiszinssatz:
+          type: string
+
+    Quote:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quote_number:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, accepted, rejected, expired]
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+          enum: [standard, reverse_charge, kleinunternehmer]
+        tax_breakdown:
+          $ref: "#/components/schemas/TaxBreakdown"
+        valid_until:
+          type: string
+          format: date
+        notes:
+          type: string
+        deal_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateQuoteRequest:
+      type: object
+      required: [customer, line_items, tax_mode]
+      properties:
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+          enum: [standard, reverse_charge, kleinunternehmer]
+        valid_until:
+          type: string
+          format: date
+        notes:
+          type: string
+        deal_id:
+          type: string
+          format: uuid
+
+    UpdateQuoteRequest:
+      type: object
+      properties:
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+          enum: [standard, reverse_charge, kleinunternehmer]
+        valid_until:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_number:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, paid, overdue, cancelled]
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+        tax_breakdown:
+          $ref: "#/components/schemas/TaxBreakdown"
+        invoice_date:
+          type: string
+          format: date
+        delivery_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        payment_terms:
+          type: string
+        notes:
+          type: string
+        source_quote_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateInvoiceRequest:
+      type: object
+      required: [customer, line_items, tax_mode, invoice_date, due_date]
+      properties:
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+          enum: [standard, reverse_charge, kleinunternehmer]
+        invoice_date:
+          type: string
+          format: date
+        delivery_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        payment_terms:
+          type: string
+        notes:
+          type: string
+        source_quote_id:
+          type: string
+          format: uuid
+
+    UpdateInvoiceRequest:
+      type: object
+      properties:
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+        invoice_date:
+          type: string
+          format: date
+        delivery_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        payment_terms:
+          type: string
+        notes:
+          type: string
+
+    CreditNote:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        credit_note_number:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent]
+        original_invoice_id:
+          type: string
+          format: uuid
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+        tax_breakdown:
+          $ref: "#/components/schemas/TaxBreakdown"
+        reason:
+          type: string
+        tenant_id:
+          type: string
+          format: uuid
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateCreditNoteRequest:
+      type: object
+      required: [original_invoice_id, customer, line_items, tax_mode]
+      properties:
+        original_invoice_id:
+          type: string
+          format: uuid
+        customer:
+          $ref: "#/components/schemas/CustomerSnapshot"
+        line_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        tax_mode:
+          type: string
+          enum: [standard, reverse_charge, kleinunternehmer]
+        reason:
+          type: string
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        payment_date:
+          type: string
+          format: date
+        method:
+          type: string
+          enum: [bank_transfer, cash, credit_card, other]
+        reference:
+          type: string
+        notes:
+          type: string
+        tenant_id:
+          type: string
+          format: uuid
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    RecordPaymentRequest:
+      type: object
+      required: [amount, payment_date, method]
+      properties:
+        amount:
+          type: string
+          description: Decimal as string
+        payment_date:
+          type: string
+          format: date
+        method:
+          type: string
+          enum: [bank_transfer, cash, credit_card, other]
+        reference:
+          type: string
+        notes:
+          type: string
+
+    DunningRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        level:
+          type: integer
+          description: "1, 2, or 3"
+        status:
+          type: string
+          enum: [draft, sent, paid]
+        fee:
+          type: string
+        interest:
+          type: string
+        sent_at:
+          type: string
+          format: date-time
+        tenant_id:
+          type: string
+          format: uuid
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    DunningConfig:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        level1_days_after_due:
+          type: integer
+        level2_days_after_level1:
+          type: integer
+        level3_days_after_level2:
+          type: integer
+        level1_fee:
+          type: string
+        level2_fee:
+          type: string
+        level3_fee:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+
+    DunningConfigInput:
+      type: object
+      properties:
+        level1_days_after_due:
+          type: integer
+        level2_days_after_level1:
+          type: integer
+        level3_days_after_level2:
+          type: integer
+        level1_fee:
+          type: string
+        level2_fee:
+          type: string
+        level3_fee:
+          type: string
+
+    FinanceDashboard:
+      type: object
+      properties:
+        total_invoiced:
+          type: string
+        total_paid:
+          type: string
+        total_outstanding:
+          type: string
+        overdue_amount:
+          type: string
+        quotes_pending:
+          type: integer
+        conversion_rate:
+          type: string
+        average_deal_size:
+          type: string
+        revenue_forecast:
+          type: string
+        status_breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+        recent_invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+        expiring_quotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quote"
+        pending_dunnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/DunningRecord"
+
+    # =========================================================================
+    # HR Schemas
+    # =========================================================================
+    CreateLeaveRequestInput:
+      type: object
+      required: [leave_type_id, start_date, end_date]
+      properties:
+        leave_type_id: { type: string, format: uuid }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        is_half_day_start: { type: boolean }
+        is_half_day_end: { type: boolean }
+        half_day_period_start: { type: string, enum: [morning, afternoon] }
+        half_day_period_end: { type: string, enum: [morning, afternoon] }
+        reason: { type: string }
+
+    LeaveRequest:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        leave_type_id: { type: string, format: uuid }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        is_half_day_start: { type: boolean }
+        is_half_day_end: { type: boolean }
+        half_day_period_start: { type: string, enum: [morning, afternoon] }
+        half_day_period_end: { type: string, enum: [morning, afternoon] }
+        total_days: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [pending, approved, rejected, cancelled] }
+        approved_by: { type: string, format: uuid }
+        approved_at: { type: string, format: date-time }
+        approval_comment: { type: string }
+        au_document_required: { type: boolean }
+        au_document_file_id: { type: string, format: uuid }
+        employee_name: { type: string }
+        leave_type_name: { type: string }
+        leave_type_color: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    LeaveBalance:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        year: { type: integer }
+        entitlement: { type: string }
+        carried_over: { type: string }
+        used: { type: string }
+        remaining: { type: string }
+        carryover_expires_at: { type: string, format: date }
+        carryover_notified: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    LeaveType:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        name: { type: string }
+        key: { type: string }
+        color: { type: string }
+        deducts_from_balance: { type: boolean }
+        requires_approval: { type: boolean }
+        requires_au_document: { type: boolean }
+        is_system: { type: boolean }
+        sort_order: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    WorkTimeEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        clock_in: { type: string, format: date-time }
+        clock_out: { type: string, format: date-time }
+        break_minutes: { type: integer }
+        auto_break_deducted: { type: integer }
+        net_work_minutes: { type: integer }
+        status: { type: string, enum: [active, completed, correction_pending, correction_approved] }
+        is_correction: { type: boolean }
+        original_entry_id: { type: string, format: uuid }
+        correction_reason: { type: string }
+        correction_approved_by: { type: string, format: uuid }
+        correction_approved_at: { type: string, format: date-time }
+        employee_name: { type: string }
+        breaks:
+          type: array
+          items:
+            $ref: "#/components/schemas/BreakEntry"
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    BreakEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        work_time_entry_id: { type: string, format: uuid }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        duration_minutes: { type: integer }
+
+    WorkTimeStatus:
+      type: object
+      properties:
+        is_clocked_in: { type: boolean }
+        is_on_break: { type: boolean }
+        current_shift_start: { type: string, format: date-time }
+        current_break_start: { type: string, format: date-time }
+        today_total_minutes: { type: integer }
+        arbzg_severity: { type: string, enum: [none, info, warning, error] }
+
+    DailySummary:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        total_work_minutes: { type: integer }
+        total_break_minutes: { type: integer }
+        net_work_minutes: { type: integer }
+        overtime_minutes: { type: integer }
+
+    WeeklySummary:
+      type: object
+      properties:
+        week_start: { type: string, format: date }
+        week_end: { type: string, format: date }
+        total_work_minutes: { type: integer }
+        total_break_minutes: { type: integer }
+        net_work_minutes: { type: integer }
+        overtime_minutes: { type: integer }
+        work_days: { type: integer }
+        daily_summaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailySummary"
+
+    SubmitCorrectionInput:
+      type: object
+      required: [original_entry_id, corrected_clock_in, corrected_clock_out, reason]
+      properties:
+        original_entry_id: { type: string, format: uuid }
+        corrected_clock_in: { type: string, format: date-time }
+        corrected_clock_out: { type: string, format: date-time }
+        corrected_break_minutes: { type: integer }
+        reason: { type: string }
+
+    AbsenceEntry:
+      type: object
+      properties:
+        employee_id: { type: string, format: uuid }
+        employee_name: { type: string }
+        department: { type: string }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        leave_type_name: { type: string }
+        leave_type_color: { type: string }
+
+    EmployeeProfile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        department: { type: string }
+        position_title: { type: string }
+        contract_type: { type: string, enum: [full_time, part_time, mini_job, intern, temporary] }
+        work_days_per_week: { type: integer }
+        annual_leave_days: { type: integer }
+        start_date: { type: string, format: date }
+        manager_user_id: { type: string, format: uuid }
+        emergency_contact_name: { type: string }
+        emergency_contact_phone: { type: string }
+        address_street: { type: string }
+        address_city: { type: string }
+        address_postal_code: { type: string }
+        address_country: { type: string }
+        user_name: { type: string }
+        user_email: { type: string }
+        manager_name: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UpdateEmployeeInput:
+      type: object
+      properties:
+        department: { type: string }
+        position_title: { type: string }
+        contract_type: { type: string, enum: [full_time, part_time, mini_job, intern, temporary] }
+        work_days_per_week: { type: integer }
+        annual_leave_days: { type: integer }
+        manager_user_id: { type: string, format: uuid }
+        start_date: { type: string, format: date }
+
+    UpdateSelfProfileInput:
+      type: object
+      properties:
+        emergency_contact_name: { type: string }
+        emergency_contact_phone: { type: string }
+        address_street: { type: string }
+        address_city: { type: string }
+        address_postal_code: { type: string }
+        address_country: { type: string }
+
+    EmployeeDocument:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        employee_id: { type: string, format: uuid }
+        category_id: { type: string, format: uuid }
+        file_id: { type: string, format: uuid }
+        uploaded_by: { type: string, format: uuid }
+        notes: { type: string }
+        category_name: { type: string }
+        file_name: { type: string }
+        file_size: { type: integer }
+        uploaded_by_name: { type: string }
+        created_at: { type: string, format: date-time }
+
+    HRSettings:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenant_id: { type: string, format: uuid }
+        au_threshold_days: { type: integer }
+        show_absence_reason: { type: boolean }
+        default_annual_leave_days: { type: integer }
+        timezone: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UpdateHRSettingsInput:
+      type: object
+      properties:
+        au_threshold_days: { type: integer }
+        show_absence_reason: { type: boolean }
+        default_annual_leave_days: { type: integer }
+        timezone: { type: string }
+
+    # =========================================================================
+    # Inbox Schemas
+    # =========================================================================
+
+    InboxMessage:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        channel: { type: string, enum: [email, chat, notification] }
+        source_id: { type: string }
+        sender_name: { type: string }
+        sender_id: { type: string, format: uuid }
+        sender_email: { type: string }
+        subject: { type: string }
+        preview: { type: string }
+        is_read: { type: boolean }
+        is_starred: { type: boolean }
+        is_archived: { type: boolean }
+        snoozed_until: { type: string, format: date-time }
+        assigned_to: { type: string, format: uuid }
+        team_inbox_id: { type: string, format: uuid }
+        tags: { type: array, items: { type: string } }
+        deep_link: { type: string }
+        crm_contact_id: { type: string, format: uuid }
+        metadata: { type: object }
+        received_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    InboxMessageList:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxMessage"
+        next_page_token: { type: string }
+        total_count: { type: integer }
+
+    InboxUnreadCount:
+      type: object
+      properties:
+        total: { type: integer }
+        by_channel:
+          type: array
+          items:
+            type: object
+            properties:
+              channel: { type: string, enum: [email, chat, notification] }
+              count: { type: integer }
+
+    TeamInbox:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        assignment_mode: { type: string, enum: [manual, round_robin] }
+        visibility: { type: string, enum: [open, private] }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateTeamInboxInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        assignment_mode: { type: string, enum: [manual, round_robin], default: manual }
+        visibility: { type: string, enum: [open, private], default: open }
+
+    UpdateTeamInboxInput:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        assignment_mode: { type: string, enum: [manual, round_robin] }
+        visibility: { type: string, enum: [open, private] }
+
+    TeamInboxMember:
+      type: object
+      properties:
+        team_inbox_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        role: { type: string, enum: [admin, member] }
+        created_at: { type: string, format: date-time }
+
+    RoutingRule:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        channel: { type: string, enum: [email, chat, notification] }
+        conditions: { type: object, description: "AND/OR condition tree with field/operator/value leaves" }
+        actions: { type: object, description: "Array of actions: route_to_team, assign_to, add_tags, auto_reply" }
+        priority: { type: integer }
+        is_active: { type: boolean }
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateRoutingRuleInput:
+      type: object
+      required: [name, conditions, actions]
+      properties:
+        name: { type: string }
+        channel: { type: string, enum: [email, chat, notification] }
+        conditions: { type: object }
+        actions: { type: object }
+        priority: { type: integer, default: 100 }
+
+    UpdateRoutingRuleInput:
+      type: object
+      properties:
+        name: { type: string }
+        channel: { type: string, enum: [email, chat, notification] }
+        conditions: { type: object }
+        actions: { type: object }
+        priority: { type: integer }
+        is_active: { type: boolean }
+
+    # =======================================================================
+    # Automation schemas
+    # =======================================================================
+
+    Automation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        scope: { type: string, enum: [personal, team, organization] }
+        owner_id: { type: string, format: uuid }
+        trigger_type: { type: string }
+        trigger_config: { type: object }
+        conditions: { type: object }
+        actions: { type: object }
+        is_active: { type: boolean }
+        max_steps: { type: integer }
+        template_id: { type: string, nullable: true }
+        last_triggered_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateAutomationRequest:
+      type: object
+      required: [name, trigger_type]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        scope: { type: string, enum: [personal, team, organization], default: personal }
+        trigger_type: { type: string }
+        trigger_config: { type: object }
+        conditions: { type: object }
+        actions: { type: object }
+        max_steps: { type: integer, default: 10 }
+
+    UpdateAutomationRequest:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        scope: { type: string, enum: [personal, team, organization] }
+        trigger_type: { type: string }
+        trigger_config: { type: object }
+        conditions: { type: object }
+        actions: { type: object }
+        max_steps: { type: integer }
+
+    AutomationExecution:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        automation_id: { type: string, format: uuid }
+        chain_id: { type: string, format: uuid }
+        trigger_event: { type: object }
+        condition_result: { type: boolean }
+        status: { type: string, enum: [running, completed, failed, skipped, aborted] }
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionStep"
+        error_message: { type: string, nullable: true }
+        started_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time, nullable: true }
+        duration_ms: { type: integer, nullable: true }
+
+    ExecutionStep:
+      type: object
+      properties:
+        action_type: { type: string }
+        input: { type: object }
+        output: { type: object }
+        error: { type: string, nullable: true }
+        duration_ms: { type: integer }
+
+    TriggerDefinition:
+      type: object
+      properties:
+        type: { type: string }
+        module: { type: string }
+        name: { type: string }
+        description: { type: string }
+
+    ActionDefinition:
+      type: object
+      properties:
+        type: { type: string }
+        module: { type: string }
+        name: { type: string }
+        description: { type: string }
+
+    AutomationTemplate:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        complexity: { type: string, enum: [simple, medium, advanced] }
+        trigger_type: { type: string }
+        trigger_config: { type: object }
+        conditions: { type: object }
+        actions: { type: object }
+        created_at: { type: string, format: date-time }
+
+    DryRunStep:
+      type: object
+      properties:
+        action_type: { type: string }
+        action_name: { type: string }
+        would_run: { type: boolean }
+        error: { type: string, nullable: true }
+
+    AutomationStats:
+      type: object
+      properties:
+        total_automations: { type: integer }
+        active_automations: { type: integer }
+        total_executions: { type: integer }
+        success_rate: { type: number, format: float }
 
   responses:
     BadRequest:

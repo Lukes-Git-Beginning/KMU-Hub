@@ -29,6 +29,25 @@ service NotificationService {
 
   // Event Types
   rpc ListEventTypes(ListEventTypesRequest) returns (ListEventTypesResponse);
+
+  // Integration Configuration
+  rpc ListIntegrationConfigs(ListIntegrationConfigsRequest) returns (ListIntegrationConfigsResponse);
+  rpc GetIntegrationConfig(GetIntegrationConfigRequest) returns (GetIntegrationConfigResponse);
+  rpc CreateIntegrationConfig(CreateIntegrationConfigRequest) returns (CreateIntegrationConfigResponse);
+  rpc UpdateIntegrationConfig(UpdateIntegrationConfigRequest) returns (UpdateIntegrationConfigResponse);
+  rpc DeleteIntegrationConfig(DeleteIntegrationConfigRequest) returns (DeleteIntegrationConfigResponse);
+  rpc TestIntegrationConfig(TestIntegrationConfigRequest) returns (TestIntegrationConfigResponse);
+
+  // Channel Mappings
+  rpc ListChannelMappings(ListChannelMappingsRequest) returns (ListChannelMappingsResponse);
+  rpc CreateChannelMapping(CreateChannelMappingRequest) returns (CreateChannelMappingResponse);
+  rpc UpdateChannelMapping(UpdateChannelMappingRequest) returns (UpdateChannelMappingResponse);
+  rpc DeleteChannelMapping(DeleteChannelMappingRequest) returns (DeleteChannelMappingResponse);
+
+  // Account Linking
+  rpc LinkAccount(LinkAccountRequest) returns (LinkAccountResponse);
+  rpc UnlinkAccount(UnlinkAccountRequest) returns (UnlinkAccountResponse);
+  rpc GetAccountLinkStatus(GetAccountLinkStatusRequest) returns (GetAccountLinkStatusResponse);
 }
 
 // ============================================================================
@@ -257,4 +276,157 @@ message ListEventTypesRequest {
 
 message ListEventTypesResponse {
   repeated EventTypeInfo event_types = 1;
+}
+
+// ============================================================================
+// Integration Configuration Messages
+// ============================================================================
+
+message IntegrationConfigInfo {
+  string id = 1;
+  string platform = 2;
+  bool is_active = 3;
+  // NOTE: credentials_vault_key intentionally omitted -- secrets stay server-side
+  string metadata = 4; // JSON string with platform-specific metadata
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message ListIntegrationConfigsRequest {}
+
+message ListIntegrationConfigsResponse {
+  repeated IntegrationConfigInfo configs = 1;
+}
+
+message GetIntegrationConfigRequest {
+  string platform = 1;
+}
+
+message GetIntegrationConfigResponse {
+  IntegrationConfigInfo config = 1;
+}
+
+message CreateIntegrationConfigRequest {
+  string platform = 1;
+  string credentials_vault_key = 2;
+  string metadata = 3; // JSON string
+  string created_by = 4;
+}
+
+message CreateIntegrationConfigResponse {
+  IntegrationConfigInfo config = 1;
+}
+
+message UpdateIntegrationConfigRequest {
+  string id = 1;
+  bool is_active = 2;
+  optional string credentials_vault_key = 3;
+  string metadata = 4; // JSON string
+}
+
+message UpdateIntegrationConfigResponse {
+  IntegrationConfigInfo config = 1;
+}
+
+message DeleteIntegrationConfigRequest {
+  string id = 1;
+}
+
+message DeleteIntegrationConfigResponse {}
+
+message TestIntegrationConfigRequest {
+  string platform = 1;
+}
+
+message TestIntegrationConfigResponse {
+  bool success = 1;
+  optional string error_message = 2;
+}
+
+// ============================================================================
+// Channel Mapping Messages
+// ============================================================================
+
+message ChannelMappingInfo {
+  string id = 1;
+  string config_id = 2;
+  string channel_id = 3;
+  string channel_name = 4;
+  repeated string modules = 5;
+  bool is_active = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message ListChannelMappingsRequest {
+  string config_id = 1;
+}
+
+message ListChannelMappingsResponse {
+  repeated ChannelMappingInfo mappings = 1;
+}
+
+message CreateChannelMappingRequest {
+  string config_id = 1;
+  string channel_id = 2;
+  string channel_name = 3;
+  repeated string modules = 4;
+}
+
+message CreateChannelMappingResponse {
+  ChannelMappingInfo mapping = 1;
+}
+
+message UpdateChannelMappingRequest {
+  string id = 1;
+  string channel_id = 2;
+  string channel_name = 3;
+  repeated string modules = 4;
+  bool is_active = 5;
+}
+
+message UpdateChannelMappingResponse {
+  ChannelMappingInfo mapping = 1;
+}
+
+message DeleteChannelMappingRequest {
+  string id = 1;
+}
+
+message DeleteChannelMappingResponse {}
+
+// ============================================================================
+// Account Linking Messages
+// ============================================================================
+
+message LinkAccountRequest {
+  string token = 1; // Raw token (hashed server-side for lookup)
+  string user_id = 2; // KMU Hub user performing the link
+}
+
+message LinkAccountResponse {
+  string platform = 1;
+  string external_display_name = 2;
+}
+
+message UnlinkAccountRequest {
+  string platform = 1;
+  string user_id = 2;
+}
+
+message UnlinkAccountResponse {}
+
+message GetAccountLinkStatusRequest {
+  string user_id = 1;
+}
+
+message AccountLinkInfo {
+  string platform = 1;
+  string external_display_name = 2;
+  google.protobuf.Timestamp linked_at = 3;
+}
+
+message GetAccountLinkStatusResponse {
+  repeated AccountLinkInfo links = 1;
 }

@@ -21,6 +21,7 @@ import {
   X,
   Plus,
   Building2,
+  RefreshCw,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -40,8 +41,9 @@ import { TeamSettingsTab } from './tabs/TeamSettingsTab'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
 import { useProfileStore } from '@/stores/profile'
 import { BUSINESS_PROFILES } from '@/config/business-profiles'
+import { CalDAVSettingsTab } from './tabs/CalDAVSettingsTab'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'team' | 'privacy' | 'business' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'caldav' | 'finance' | 'team' | 'privacy' | 'business' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -58,6 +60,7 @@ const ALL_TABS: TabConfig[] = [
   { key: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'Persönlich' },
   { key: 'mail', label: 'E-Mail', icon: Mail, group: 'Module' },
   { key: 'calendar', label: 'Kalender', icon: Calendar, group: 'Module' },
+  { key: 'caldav', label: 'CalDAV/CardDAV', icon: RefreshCw, group: 'Module' },
   { key: 'finance', label: 'Buchhaltung', icon: Receipt, group: 'Module' },
   { key: 'business', label: 'Branchenprofil', icon: Building2, group: 'Admin' },
   { key: 'team', label: 'Team & HR', icon: Users, group: 'Admin' },
@@ -124,6 +127,7 @@ export default function SettingsPage() {
         {effectiveTab === 'notifications' && <NotificationsTab />}
         {effectiveTab === 'mail' && <MailSettingsTab />}
         {effectiveTab === 'calendar' && <CalendarSettingsTab />}
+        {effectiveTab === 'caldav' && <CalDAVSettingsTab />}
         {effectiveTab === 'finance' && <FinanceSettingsTab />}
         {effectiveTab === 'team' && <TeamSettingsTab />}
         {effectiveTab === 'privacy' && <PrivacySettingsTab />}

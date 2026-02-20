@@ -18,9 +18,11 @@ import {
   Building2,
   Plus,
   Calendar,
+  FileText,
 } from 'lucide-react'
 import { cn } from '@/lib'
 import { useDeal } from '@/api/hooks/useDeals'
+import { useCreateQuoteFromDeal } from '@/api/hooks/useFinance'
 import { useActivities } from '@/api/hooks/useActivities'
 import { useEntityTasks } from '@/api/hooks/useTasks'
 import { Button } from '@/components/ui/button'
@@ -65,6 +67,7 @@ export default function DealDetailPage() {
     page_size: 10,
   })
   const { data: tasksData } = useEntityTasks('deal', id ?? '')
+  const createQuoteFromDeal = useCreateQuoteFromDeal()
 
   const deal = data?.deal
   const activities = activitiesData?.activities ?? []
@@ -78,6 +81,19 @@ export default function DealDetailPage() {
   function handleCreateTaskFromDeal() {
     if (!deal) return
     navigate(`/work/my-tasks?from_deal=${id}`)
+  }
+
+  /** Create a quote pre-populated with deal customer data */
+  function handleCreateQuoteFromDeal() {
+    if (!id) return
+    createQuoteFromDeal.mutate(id, {
+      onSuccess: () => {
+        navigate('/finanzen')
+      },
+      onError: () => {
+        alert('Fehler beim Erstellen des Angebots')
+      },
+    })
   }
 
   if (error) {
@@ -150,6 +166,15 @@ export default function DealDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCreateQuoteFromDeal}
+            disabled={createQuoteFromDeal.isPending}
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            {createQuoteFromDeal.isPending ? 'Erstelle...' : 'Angebot erstellen'}
+          </Button>
           <Button variant="outline" size="sm" onClick={showComingSoon}>
             <Pencil className="h-4 w-4 mr-1" />
             Bearbeiten

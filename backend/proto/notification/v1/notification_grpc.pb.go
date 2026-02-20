@@ -32,6 +32,19 @@ const (
 	NotificationService_UpdateQuietHours_FullMethodName             = "/notification.v1.NotificationService/UpdateQuietHours"
 	NotificationService_ToggleManualDND_FullMethodName              = "/notification.v1.NotificationService/ToggleManualDND"
 	NotificationService_ListEventTypes_FullMethodName               = "/notification.v1.NotificationService/ListEventTypes"
+	NotificationService_ListIntegrationConfigs_FullMethodName       = "/notification.v1.NotificationService/ListIntegrationConfigs"
+	NotificationService_GetIntegrationConfig_FullMethodName         = "/notification.v1.NotificationService/GetIntegrationConfig"
+	NotificationService_CreateIntegrationConfig_FullMethodName      = "/notification.v1.NotificationService/CreateIntegrationConfig"
+	NotificationService_UpdateIntegrationConfig_FullMethodName      = "/notification.v1.NotificationService/UpdateIntegrationConfig"
+	NotificationService_DeleteIntegrationConfig_FullMethodName      = "/notification.v1.NotificationService/DeleteIntegrationConfig"
+	NotificationService_TestIntegrationConfig_FullMethodName        = "/notification.v1.NotificationService/TestIntegrationConfig"
+	NotificationService_ListChannelMappings_FullMethodName          = "/notification.v1.NotificationService/ListChannelMappings"
+	NotificationService_CreateChannelMapping_FullMethodName         = "/notification.v1.NotificationService/CreateChannelMapping"
+	NotificationService_UpdateChannelMapping_FullMethodName         = "/notification.v1.NotificationService/UpdateChannelMapping"
+	NotificationService_DeleteChannelMapping_FullMethodName         = "/notification.v1.NotificationService/DeleteChannelMapping"
+	NotificationService_LinkAccount_FullMethodName                  = "/notification.v1.NotificationService/LinkAccount"
+	NotificationService_UnlinkAccount_FullMethodName                = "/notification.v1.NotificationService/UnlinkAccount"
+	NotificationService_GetAccountLinkStatus_FullMethodName         = "/notification.v1.NotificationService/GetAccountLinkStatus"
 )
 
 // NotificationServiceClient is the client API for NotificationService service.
@@ -56,6 +69,22 @@ type NotificationServiceClient interface {
 	ToggleManualDND(ctx context.Context, in *ToggleManualDNDRequest, opts ...grpc.CallOption) (*ToggleManualDNDResponse, error)
 	// Event Types
 	ListEventTypes(ctx context.Context, in *ListEventTypesRequest, opts ...grpc.CallOption) (*ListEventTypesResponse, error)
+	// Integration Configuration
+	ListIntegrationConfigs(ctx context.Context, in *ListIntegrationConfigsRequest, opts ...grpc.CallOption) (*ListIntegrationConfigsResponse, error)
+	GetIntegrationConfig(ctx context.Context, in *GetIntegrationConfigRequest, opts ...grpc.CallOption) (*GetIntegrationConfigResponse, error)
+	CreateIntegrationConfig(ctx context.Context, in *CreateIntegrationConfigRequest, opts ...grpc.CallOption) (*CreateIntegrationConfigResponse, error)
+	UpdateIntegrationConfig(ctx context.Context, in *UpdateIntegrationConfigRequest, opts ...grpc.CallOption) (*UpdateIntegrationConfigResponse, error)
+	DeleteIntegrationConfig(ctx context.Context, in *DeleteIntegrationConfigRequest, opts ...grpc.CallOption) (*DeleteIntegrationConfigResponse, error)
+	TestIntegrationConfig(ctx context.Context, in *TestIntegrationConfigRequest, opts ...grpc.CallOption) (*TestIntegrationConfigResponse, error)
+	// Channel Mappings
+	ListChannelMappings(ctx context.Context, in *ListChannelMappingsRequest, opts ...grpc.CallOption) (*ListChannelMappingsResponse, error)
+	CreateChannelMapping(ctx context.Context, in *CreateChannelMappingRequest, opts ...grpc.CallOption) (*CreateChannelMappingResponse, error)
+	UpdateChannelMapping(ctx context.Context, in *UpdateChannelMappingRequest, opts ...grpc.CallOption) (*UpdateChannelMappingResponse, error)
+	DeleteChannelMapping(ctx context.Context, in *DeleteChannelMappingRequest, opts ...grpc.CallOption) (*DeleteChannelMappingResponse, error)
+	// Account Linking
+	LinkAccount(ctx context.Context, in *LinkAccountRequest, opts ...grpc.CallOption) (*LinkAccountResponse, error)
+	UnlinkAccount(ctx context.Context, in *UnlinkAccountRequest, opts ...grpc.CallOption) (*UnlinkAccountResponse, error)
+	GetAccountLinkStatus(ctx context.Context, in *GetAccountLinkStatusRequest, opts ...grpc.CallOption) (*GetAccountLinkStatusResponse, error)
 }
 
 type notificationServiceClient struct {
@@ -196,6 +225,136 @@ func (c *notificationServiceClient) ListEventTypes(ctx context.Context, in *List
 	return out, nil
 }
 
+func (c *notificationServiceClient) ListIntegrationConfigs(ctx context.Context, in *ListIntegrationConfigsRequest, opts ...grpc.CallOption) (*ListIntegrationConfigsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListIntegrationConfigsResponse)
+	err := c.cc.Invoke(ctx, NotificationService_ListIntegrationConfigs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) GetIntegrationConfig(ctx context.Context, in *GetIntegrationConfigRequest, opts ...grpc.CallOption) (*GetIntegrationConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetIntegrationConfigResponse)
+	err := c.cc.Invoke(ctx, NotificationService_GetIntegrationConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) CreateIntegrationConfig(ctx context.Context, in *CreateIntegrationConfigRequest, opts ...grpc.CallOption) (*CreateIntegrationConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateIntegrationConfigResponse)
+	err := c.cc.Invoke(ctx, NotificationService_CreateIntegrationConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) UpdateIntegrationConfig(ctx context.Context, in *UpdateIntegrationConfigRequest, opts ...grpc.CallOption) (*UpdateIntegrationConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateIntegrationConfigResponse)
+	err := c.cc.Invoke(ctx, NotificationService_UpdateIntegrationConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) DeleteIntegrationConfig(ctx context.Context, in *DeleteIntegrationConfigRequest, opts ...grpc.CallOption) (*DeleteIntegrationConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteIntegrationConfigResponse)
+	err := c.cc.Invoke(ctx, NotificationService_DeleteIntegrationConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) TestIntegrationConfig(ctx context.Context, in *TestIntegrationConfigRequest, opts ...grpc.CallOption) (*TestIntegrationConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestIntegrationConfigResponse)
+	err := c.cc.Invoke(ctx, NotificationService_TestIntegrationConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) ListChannelMappings(ctx context.Context, in *ListChannelMappingsRequest, opts ...grpc.CallOption) (*ListChannelMappingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListChannelMappingsResponse)
+	err := c.cc.Invoke(ctx, NotificationService_ListChannelMappings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) CreateChannelMapping(ctx context.Context, in *CreateChannelMappingRequest, opts ...grpc.CallOption) (*CreateChannelMappingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateChannelMappingResponse)
+	err := c.cc.Invoke(ctx, NotificationService_CreateChannelMapping_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) UpdateChannelMapping(ctx context.Context, in *UpdateChannelMappingRequest, opts ...grpc.CallOption) (*UpdateChannelMappingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateChannelMappingResponse)
+	err := c.cc.Invoke(ctx, NotificationService_UpdateChannelMapping_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) DeleteChannelMapping(ctx context.Context, in *DeleteChannelMappingRequest, opts ...grpc.CallOption) (*DeleteChannelMappingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteChannelMappingResponse)
+	err := c.cc.Invoke(ctx, NotificationService_DeleteChannelMapping_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) LinkAccount(ctx context.Context, in *LinkAccountRequest, opts ...grpc.CallOption) (*LinkAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LinkAccountResponse)
+	err := c.cc.Invoke(ctx, NotificationService_LinkAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) UnlinkAccount(ctx context.Context, in *UnlinkAccountRequest, opts ...grpc.CallOption) (*UnlinkAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnlinkAccountResponse)
+	err := c.cc.Invoke(ctx, NotificationService_UnlinkAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) GetAccountLinkStatus(ctx context.Context, in *GetAccountLinkStatusRequest, opts ...grpc.CallOption) (*GetAccountLinkStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAccountLinkStatusResponse)
+	err := c.cc.Invoke(ctx, NotificationService_GetAccountLinkStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NotificationServiceServer is the server API for NotificationService service.
 // All implementations must embed UnimplementedNotificationServiceServer
 // for forward compatibility.
@@ -218,6 +377,22 @@ type NotificationServiceServer interface {
 	ToggleManualDND(context.Context, *ToggleManualDNDRequest) (*ToggleManualDNDResponse, error)
 	// Event Types
 	ListEventTypes(context.Context, *ListEventTypesRequest) (*ListEventTypesResponse, error)
+	// Integration Configuration
+	ListIntegrationConfigs(context.Context, *ListIntegrationConfigsRequest) (*ListIntegrationConfigsResponse, error)
+	GetIntegrationConfig(context.Context, *GetIntegrationConfigRequest) (*GetIntegrationConfigResponse, error)
+	CreateIntegrationConfig(context.Context, *CreateIntegrationConfigRequest) (*CreateIntegrationConfigResponse, error)
+	UpdateIntegrationConfig(context.Context, *UpdateIntegrationConfigRequest) (*UpdateIntegrationConfigResponse, error)
+	DeleteIntegrationConfig(context.Context, *DeleteIntegrationConfigRequest) (*DeleteIntegrationConfigResponse, error)
+	TestIntegrationConfig(context.Context, *TestIntegrationConfigRequest) (*TestIntegrationConfigResponse, error)
+	// Channel Mappings
+	ListChannelMappings(context.Context, *ListChannelMappingsRequest) (*ListChannelMappingsResponse, error)
+	CreateChannelMapping(context.Context, *CreateChannelMappingRequest) (*CreateChannelMappingResponse, error)
+	UpdateChannelMapping(context.Context, *UpdateChannelMappingRequest) (*UpdateChannelMappingResponse, error)
+	DeleteChannelMapping(context.Context, *DeleteChannelMappingRequest) (*DeleteChannelMappingResponse, error)
+	// Account Linking
+	LinkAccount(context.Context, *LinkAccountRequest) (*LinkAccountResponse, error)
+	UnlinkAccount(context.Context, *UnlinkAccountRequest) (*UnlinkAccountResponse, error)
+	GetAccountLinkStatus(context.Context, *GetAccountLinkStatusRequest) (*GetAccountLinkStatusResponse, error)
 	mustEmbedUnimplementedNotificationServiceServer()
 }
 
@@ -266,6 +441,45 @@ func (UnimplementedNotificationServiceServer) ToggleManualDND(context.Context, *
 }
 func (UnimplementedNotificationServiceServer) ListEventTypes(context.Context, *ListEventTypesRequest) (*ListEventTypesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListEventTypes not implemented")
+}
+func (UnimplementedNotificationServiceServer) ListIntegrationConfigs(context.Context, *ListIntegrationConfigsRequest) (*ListIntegrationConfigsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListIntegrationConfigs not implemented")
+}
+func (UnimplementedNotificationServiceServer) GetIntegrationConfig(context.Context, *GetIntegrationConfigRequest) (*GetIntegrationConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetIntegrationConfig not implemented")
+}
+func (UnimplementedNotificationServiceServer) CreateIntegrationConfig(context.Context, *CreateIntegrationConfigRequest) (*CreateIntegrationConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateIntegrationConfig not implemented")
+}
+func (UnimplementedNotificationServiceServer) UpdateIntegrationConfig(context.Context, *UpdateIntegrationConfigRequest) (*UpdateIntegrationConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateIntegrationConfig not implemented")
+}
+func (UnimplementedNotificationServiceServer) DeleteIntegrationConfig(context.Context, *DeleteIntegrationConfigRequest) (*DeleteIntegrationConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteIntegrationConfig not implemented")
+}
+func (UnimplementedNotificationServiceServer) TestIntegrationConfig(context.Context, *TestIntegrationConfigRequest) (*TestIntegrationConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestIntegrationConfig not implemented")
+}
+func (UnimplementedNotificationServiceServer) ListChannelMappings(context.Context, *ListChannelMappingsRequest) (*ListChannelMappingsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListChannelMappings not implemented")
+}
+func (UnimplementedNotificationServiceServer) CreateChannelMapping(context.Context, *CreateChannelMappingRequest) (*CreateChannelMappingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateChannelMapping not implemented")
+}
+func (UnimplementedNotificationServiceServer) UpdateChannelMapping(context.Context, *UpdateChannelMappingRequest) (*UpdateChannelMappingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateChannelMapping not implemented")
+}
+func (UnimplementedNotificationServiceServer) DeleteChannelMapping(context.Context, *DeleteChannelMappingRequest) (*DeleteChannelMappingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteChannelMapping not implemented")
+}
+func (UnimplementedNotificationServiceServer) LinkAccount(context.Context, *LinkAccountRequest) (*LinkAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LinkAccount not implemented")
+}
+func (UnimplementedNotificationServiceServer) UnlinkAccount(context.Context, *UnlinkAccountRequest) (*UnlinkAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnlinkAccount not implemented")
+}
+func (UnimplementedNotificationServiceServer) GetAccountLinkStatus(context.Context, *GetAccountLinkStatusRequest) (*GetAccountLinkStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAccountLinkStatus not implemented")
 }
 func (UnimplementedNotificationServiceServer) mustEmbedUnimplementedNotificationServiceServer() {}
 func (UnimplementedNotificationServiceServer) testEmbeddedByValue()                             {}
@@ -522,6 +736,240 @@ func _NotificationService_ListEventTypes_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NotificationService_ListIntegrationConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListIntegrationConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).ListIntegrationConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_ListIntegrationConfigs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).ListIntegrationConfigs(ctx, req.(*ListIntegrationConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_GetIntegrationConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetIntegrationConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).GetIntegrationConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_GetIntegrationConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).GetIntegrationConfig(ctx, req.(*GetIntegrationConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_CreateIntegrationConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateIntegrationConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).CreateIntegrationConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_CreateIntegrationConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).CreateIntegrationConfig(ctx, req.(*CreateIntegrationConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_UpdateIntegrationConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateIntegrationConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).UpdateIntegrationConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_UpdateIntegrationConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).UpdateIntegrationConfig(ctx, req.(*UpdateIntegrationConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_DeleteIntegrationConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteIntegrationConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).DeleteIntegrationConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_DeleteIntegrationConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).DeleteIntegrationConfig(ctx, req.(*DeleteIntegrationConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_TestIntegrationConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestIntegrationConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).TestIntegrationConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_TestIntegrationConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).TestIntegrationConfig(ctx, req.(*TestIntegrationConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_ListChannelMappings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListChannelMappingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).ListChannelMappings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_ListChannelMappings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).ListChannelMappings(ctx, req.(*ListChannelMappingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_CreateChannelMapping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateChannelMappingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).CreateChannelMapping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_CreateChannelMapping_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).CreateChannelMapping(ctx, req.(*CreateChannelMappingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_UpdateChannelMapping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateChannelMappingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).UpdateChannelMapping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_UpdateChannelMapping_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).UpdateChannelMapping(ctx, req.(*UpdateChannelMappingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_DeleteChannelMapping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteChannelMappingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).DeleteChannelMapping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_DeleteChannelMapping_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).DeleteChannelMapping(ctx, req.(*DeleteChannelMappingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_LinkAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LinkAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).LinkAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_LinkAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).LinkAccount(ctx, req.(*LinkAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_UnlinkAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnlinkAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).UnlinkAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_UnlinkAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).UnlinkAccount(ctx, req.(*UnlinkAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_GetAccountLinkStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAccountLinkStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).GetAccountLinkStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_GetAccountLinkStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).GetAccountLinkStatus(ctx, req.(*GetAccountLinkStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NotificationService_ServiceDesc is the grpc.ServiceDesc for NotificationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -580,6 +1028,58 @@ var NotificationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListEventTypes",
 			Handler:    _NotificationService_ListEventTypes_Handler,
+		},
+		{
+			MethodName: "ListIntegrationConfigs",
+			Handler:    _NotificationService_ListIntegrationConfigs_Handler,
+		},
+		{
+			MethodName: "GetIntegrationConfig",
+			Handler:    _NotificationService_GetIntegrationConfig_Handler,
+		},
+		{
+			MethodName: "CreateIntegrationConfig",
+			Handler:    _NotificationService_CreateIntegrationConfig_Handler,
+		},
+		{
+			MethodName: "UpdateIntegrationConfig",
+			Handler:    _NotificationService_UpdateIntegrationConfig_Handler,
+		},
+		{
+			MethodName: "DeleteIntegrationConfig",
+			Handler:    _NotificationService_DeleteIntegrationConfig_Handler,
+		},
+		{
+			MethodName: "TestIntegrationConfig",
+			Handler:    _NotificationService_TestIntegrationConfig_Handler,
+		},
+		{
+			MethodName: "ListChannelMappings",
+			Handler:    _NotificationService_ListChannelMappings_Handler,
+		},
+		{
+			MethodName: "CreateChannelMapping",
+			Handler:    _NotificationService_CreateChannelMapping_Handler,
+		},
+		{
+			MethodName: "UpdateChannelMapping",
+			Handler:    _NotificationService_UpdateChannelMapping_Handler,
+		},
+		{
+			MethodName: "DeleteChannelMapping",
+			Handler:    _NotificationService_DeleteChannelMapping_Handler,
+		},
+		{
+			MethodName: "LinkAccount",
+			Handler:    _NotificationService_LinkAccount_Handler,
+		},
+		{
+			MethodName: "UnlinkAccount",
+			Handler:    _NotificationService_UnlinkAccount_Handler,
+		},
+		{
+			MethodName: "GetAccountLinkStatus",
+			Handler:    _NotificationService_GetAccountLinkStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

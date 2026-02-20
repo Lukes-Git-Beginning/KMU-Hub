@@ -3,16 +3,19 @@ package message
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
 // Service handles email message business logic.
 type Service struct {
 	repo       Repository
 	folderRepo FolderRepository
+	emitter    EventEmitter
 }
 
 // NewService creates a new message service.
@@ -20,6 +23,37 @@ func NewService(repo Repository, folderRepo FolderRepository) *Service {
 	return &Service{
 		repo:       repo,
 		folderRepo: folderRepo,
+	}
+}
+
+// SetEventEmitter sets the optional event emitter for notification events.
+func (s *Service) SetEventEmitter(emitter EventEmitter) {
+	s.emitter = emitter
+}
+
+// emitEvent emits a notification event if the emitter is configured.
+// Nil-safe: does nothing if no emitter is set.
+func (s *Service) emitEvent(ctx context.Context, eventType, resourceID string, targetUserIDs []string, title, body, deepLink string) {
+	if s.emitter == nil {
+		return
+	}
+	payload := models.EventPayload{
+		Type:          eventType,
+		Priority:      "normal",
+		ModuleID:      event.ModuleEmail,
+		ResourceID:    resourceID,
+		TargetUserIDs: targetUserIDs,
+		Title:         title,
+		Body:          body,
+		DeepLink:      deepLink,
+		Timestamp:     time.Now(),
+	}
+	if err := s.emitter.EmitEmailEvent(ctx, payload); err != nil {
+		slog.Error("failed to emit email event",
+			"type", eventType,
+			"resource_id", resourceID,
+			"error", err,
+		)
 	}
 }
 
@@ -35,6 +69,9 @@ func (s *Service) Create(ctx context.Context, msg *models.EmailMessage) error {
 			"error", err,
 		)
 	}
+
+	s.emitEvent(ctx, event.EventEmailReceived, msg.ID.String(), nil,
+		"E-Mail empfangen", msg.Subject, "/mail/"+msg.ID.String())
 
 	return nil
 }
@@ -100,7 +137,14 @@ func (s *Service) MoveToFolder(ctx context.Context, id uuid.UUID, folderID uuid.
 
 // Delete deletes a message.
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	s.emitEvent(ctx, event.EventEmailDeleted, id.String(), nil,
+		"E-Mail geloescht", "", "")
+
+	return nil
 }
 
 // GetFolderByID returns a folder by ID.

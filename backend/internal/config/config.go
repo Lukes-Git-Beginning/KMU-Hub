@@ -29,6 +29,10 @@ type Config struct {
 	EmailGRPCAddress        string `env:"EMAIL_GRPC_ADDRESS,default=localhost:50056"`
 	DocumentGRPCPort        string `env:"DOCUMENT_GRPC_PORT,default=:50057"`
 	DocumentGRPCAddress     string `env:"DOCUMENT_GRPC_ADDRESS,default=localhost:50057"`
+	BizGRPCPort             string `env:"BIZ_GRPC_PORT,default=:50058"`
+	BizGRPCAddress          string `env:"BIZ_GRPC_ADDRESS,default=localhost:50058"`
+	AutomationGRPCPort      string `env:"AUTOMATION_GRPC_PORT,default=:50059"`
+	AutomationGRPCAddress   string `env:"AUTOMATION_GRPC_ADDRESS,default=localhost:50059"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -43,6 +47,8 @@ type Config struct {
 	WorkHealthPort         string `env:"WORK_HEALTH_PORT,default=:9095"`
 	EmailHealthPort        string `env:"EMAIL_HEALTH_PORT,default=:9096"`
 	DocumentHealthPort     string `env:"DOCUMENT_HEALTH_PORT,default=:9097"`
+	BizHealthPort          string `env:"BIZ_HEALTH_PORT,default=:9098"`
+	AutomationHealthPort   string `env:"AUTOMATION_HEALTH_PORT,default=:9099"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
@@ -60,6 +66,9 @@ type Config struct {
 
 	// WOPI (OnlyOffice collaborative editing)
 	WOPIJWTSecret string `env:"WOPI_JWT_SECRET,default=wopi-dev-secret-change-me"`
+
+	// CalDAV/CardDAV (external client sync)
+	CalDAVEnabled bool `env:"CALDAV_ENABLED,default=false"`
 
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`

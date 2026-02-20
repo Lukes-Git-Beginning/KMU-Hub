@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -16,80 +16,116 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Info } from 'lucide-react'
 import { toast } from 'sonner'
-import { useFinanceStore, type Invoice, type LineItem, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
+import { useCreateInvoice, useUpdateInvoice, useCompanySettings } from '@/api/hooks/useFinance'
+import { formatEUR, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
+import type { Invoice, TaxMode } from '@/types/finance-types'
 
-function formatCHF(n: number): string {
-  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(n)
+interface LineItemDraft {
+  key: string
+  position: number
+  description: string
+  quantity: string
+  unit_price: string
+  tax_rate: string
+}
+
+const TAX_RATES = [
+  { value: '19', label: '19% (Standard)' },
+  { value: '7', label: '7% (Ermaessigt)' },
+  { value: '0', label: '0%' },
+]
+
+function emptyItem(position: number): LineItemDraft {
+  return {
+    key: String(Date.now()) + position,
+    position,
+    description: '',
+    quantity: '1',
+    unit_price: '0',
+    tax_rate: '19',
+  }
 }
 
 interface InvoiceFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   editInvoice?: Invoice | null
-  defaultType?: 'invoice' | 'quote'
+  sourceQuoteId?: string
 }
 
-const VAT_RATES = [
-  { value: '0', label: '0%' },
-  { value: '7.7', label: '7.7%' },
-  { value: '8.1', label: '8.1% (Standard)' },
-]
+export function InvoiceFormDialog({
+  open,
+  onOpenChange,
+  editInvoice,
+  sourceQuoteId,
+}: InvoiceFormDialogProps) {
+  const createInvoice = useCreateInvoice()
+  const updateInvoice = useUpdateInvoice()
+  const { data: settings } = useCompanySettings()
 
-const PAYMENT_TERMS = [
-  '10 Tage netto',
-  '30 Tage netto',
-  '60 Tage netto',
-  '50% Anzahlung, 50% bei Abnahme',
-  'Sofort fällig',
-]
-
-export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType = 'invoice' }: InvoiceFormDialogProps) {
-  const { addInvoice, updateInvoice, nextInvoiceNum } = useFinanceStore()
-
-  const [type, setType] = useState<'invoice' | 'quote'>(defaultType)
-  const [client, setClient] = useState('')
-  const [clientEmail, setClientEmail] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [dueDate, setDueDate] = useState('')
-  const [paymentTerms, setPaymentTerms] = useState('30 Tage netto')
+  const [customerName, setCustomerName] = useState('')
+  const [customerAddress, setCustomerAddress] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerUstIdNr, setCustomerUstIdNr] = useState('')
+  const [taxMode, setTaxMode] = useState<TaxMode>('standard')
+  const [invoiceDate, setInvoiceDate] = useState('')
+  const [deliveryDate, setDeliveryDate] = useState('')
+  const [paymentTermsDays, setPaymentTermsDays] = useState('30')
   const [notes, setNotes] = useState('')
-  const [items, setItems] = useState<LineItem[]>([
-    { id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 8.1, discount: 0 },
-  ])
+  const [items, setItems] = useState<LineItemDraft[]>([emptyItem(1)])
+
+  const resetForm = useCallback(() => {
+    setCustomerName('')
+    setCustomerAddress('')
+    setCustomerEmail('')
+    setCustomerUstIdNr('')
+    setTaxMode('standard')
+    setInvoiceDate(new Date().toISOString().split('T')[0])
+    setDeliveryDate('')
+    setPaymentTermsDays(
+      String(settings?.default_payment_terms_days ?? 30),
+    )
+    setNotes('')
+    setItems([emptyItem(1)])
+  }, [settings])
 
   useEffect(() => {
     if (!open) return
     if (editInvoice) {
-      setType(editInvoice.type)
-      setClient(editInvoice.client)
-      setClientEmail(editInvoice.clientEmail ?? '')
-      setDate(editInvoice.date)
-      setDueDate(editInvoice.dueDate)
-      setPaymentTerms(editInvoice.paymentTerms)
+      setCustomerName(editInvoice.customer.name)
+      setCustomerAddress(editInvoice.customer.address)
+      setCustomerEmail(editInvoice.customer.email)
+      setCustomerUstIdNr(editInvoice.customer.ust_id_nr ?? '')
+      setTaxMode(editInvoice.tax_mode)
+      setInvoiceDate(editInvoice.invoice_date)
+      setDeliveryDate(editInvoice.delivery_date ?? '')
+      setPaymentTermsDays(editInvoice.payment_terms ?? '30')
       setNotes(editInvoice.notes ?? '')
-      setItems(editInvoice.items.length > 0 ? editInvoice.items : [{ id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 8.1, discount: 0 }])
+      setItems(
+        editInvoice.line_items.map((li, idx) => ({
+          key: li.id,
+          position: li.position || idx + 1,
+          description: li.description,
+          quantity: li.quantity,
+          unit_price: li.unit_price,
+          tax_rate: li.tax_rate,
+        })),
+      )
     } else {
-      setType(defaultType)
-      setClient('')
-      setClientEmail('')
-      setDate(new Date().toISOString().split('T')[0])
-      const due = new Date()
-      due.setDate(due.getDate() + 30)
-      setDueDate(due.toISOString().split('T')[0])
-      setPaymentTerms('30 Tage netto')
-      setNotes('')
-      setItems([{ id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 8.1, discount: 0 }])
+      resetForm()
     }
-  }, [open, editInvoice, defaultType])
+  }, [open, editInvoice, resetForm])
 
-  const updateItem = (idx: number, updates: Partial<LineItem>) => {
-    setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, ...updates } : item)))
+  const updateItem = (idx: number, updates: Partial<LineItemDraft>) => {
+    setItems((prev) =>
+      prev.map((item, i) => (i === idx ? { ...item, ...updates } : item)),
+    )
   }
 
   const addItem = () => {
-    setItems((prev) => [...prev, { id: String(Date.now()), description: '', quantity: 1, unitPrice: 0, vatRate: 8.1, discount: 0 }])
+    setItems((prev) => [...prev, emptyItem(prev.length + 1)])
   }
 
   const removeItem = (idx: number) => {
@@ -98,107 +134,223 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
   }
 
   const handleSave = () => {
-    if (!client.trim()) return
-    const validItems = items.filter((i) => i.description.trim() && i.unitPrice > 0)
+    if (!customerName.trim()) return
+    const validItems = items.filter(
+      (i) => i.description.trim() && Number(i.unit_price) > 0,
+    )
     if (validItems.length === 0) return
 
-    const prefix = type === 'quote' ? 'QUO' : 'INV'
-    const num = editInvoice ? editInvoice.number : `${prefix}-2026-${String(nextInvoiceNum + 1).padStart(3, '0')}`
+    const lineItems = validItems.map((i, idx) => ({
+      position: idx + 1,
+      description: i.description.trim(),
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+      tax_rate: taxMode === 'kleinunternehmer' ? '0' : i.tax_rate,
+    }))
+
+    const customer = {
+      name: customerName.trim(),
+      address: customerAddress.trim(),
+      email: customerEmail.trim(),
+      ...(customerUstIdNr.trim() ? { ust_id_nr: customerUstIdNr.trim() } : {}),
+    }
 
     if (editInvoice) {
-      updateInvoice(editInvoice.id, {
-        type, client: client.trim(), clientEmail: clientEmail.trim() || undefined,
-        date, dueDate, paymentTerms, notes: notes.trim() || undefined, items: validItems,
-      })
-      toast.success(`${type === 'quote' ? 'Angebot' : 'Rechnung'} aktualisiert`)
+      updateInvoice.mutate(
+        {
+          id: editInvoice.id,
+          customer,
+          tax_mode: taxMode,
+          line_items: lineItems,
+          invoice_date: invoiceDate,
+          delivery_date: deliveryDate || undefined,
+          payment_terms_days: Number(paymentTermsDays),
+          notes: notes.trim() || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success('Rechnung aktualisiert')
+            onOpenChange(false)
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      )
     } else {
-      addInvoice({
-        number: num, type, client: client.trim(), clientEmail: clientEmail.trim() || undefined,
-        date, dueDate, status: 'draft', paymentTerms, notes: notes.trim() || undefined, items: validItems,
-      })
-      toast.success(`${type === 'quote' ? 'Angebot' : 'Rechnung'} ${num} erstellt`)
+      createInvoice.mutate(
+        {
+          customer,
+          tax_mode: taxMode,
+          line_items: lineItems,
+          invoice_date: invoiceDate,
+          delivery_date: deliveryDate || undefined,
+          payment_terms_days: Number(paymentTermsDays),
+          notes: notes.trim() || undefined,
+          source_quote_id: sourceQuoteId,
+        },
+        {
+          onSuccess: () => {
+            toast.success('Rechnung erstellt')
+            onOpenChange(false)
+          },
+          onError: (err) => toast.error(err.message),
+        },
+      )
     }
-    onOpenChange(false)
   }
 
-  const subtotal = calcInvoiceSubtotal(items)
-  const tax = calcInvoiceTax(items)
-  const total = calcInvoiceTotal(items)
+  const effectiveItems = items.map((i) => ({
+    quantity: i.quantity,
+    unit_price: i.unit_price,
+    tax_rate: taxMode === 'kleinunternehmer' ? '0' : i.tax_rate,
+  }))
+  const subtotal = calcInvoiceSubtotal(effectiveItems)
+  const tax = calcInvoiceTax(effectiveItems)
+  const total = calcInvoiceTotal(effectiveItems)
+
+  const isPending = createInvoice.isPending || updateInvoice.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {editInvoice ? `${type === 'quote' ? 'Angebot' : 'Rechnung'} bearbeiten` : `${type === 'quote' ? 'Neues Angebot' : 'Neue Rechnung'}`}
+            {editInvoice ? 'Rechnung bearbeiten' : 'Neue Rechnung'}
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
-          {/* Type & Client */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label>Typ</Label>
-              <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="invoice">Rechnung</SelectItem>
-                  <SelectItem value="quote">Angebot</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Customer */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Kunde *</Label>
-              <Input placeholder="Firma / Person" value={client} onChange={(e) => setClient(e.target.value)} />
+              <Input
+                placeholder="Firma / Person"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>E-Mail</Label>
-              <Input type="email" placeholder="email@firma.ch" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
+              <Input
+                type="email"
+                placeholder="email@firma.de"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Adresse</Label>
+              <Textarea
+                placeholder="Strasse, PLZ Ort"
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>USt-IdNr. (optional)</Label>
+              <Input
+                placeholder="DE123456789"
+                value={customerUstIdNr}
+                onChange={(e) => setCustomerUstIdNr(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Dates & Terms */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Tax mode, dates, terms */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Datum</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Fällig am</Label>
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Zahlungsbedingungen</Label>
-              <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Label>Steuerbehandlung</Label>
+              <Select
+                value={taxMode}
+                onValueChange={(v) => setTaxMode(v as TaxMode)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {PAYMENT_TERMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  <SelectItem value="standard">Standard (19% / 7%)</SelectItem>
+                  <SelectItem value="reverse_charge">Reverse Charge</SelectItem>
+                  <SelectItem value="kleinunternehmer">Kleinunternehmer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label>Zahlungsziel (Tage)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={paymentTermsDays}
+                onChange={(e) => setPaymentTermsDays(e.target.value)}
+              />
+            </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Rechnungsdatum</Label>
+              <Input
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Leistungsdatum</Label>
+              <Input
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Tax mode info banners */}
+          {taxMode === 'reverse_charge' && (
+            <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info">
+              <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                Reverse Charge -- Steuerschuldnerschaft des Leistungsempfaengers
+              </span>
+            </div>
+          )}
+          {taxMode === 'kleinunternehmer' && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+              <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                Kein Ausweis von Umsatzsteuer gemaess Paragraph 19 UStG
+              </span>
+            </div>
+          )}
 
           {/* Line Items */}
           <div className="space-y-2">
             <Label>Positionen</Label>
             <div className="rounded-lg border border-border overflow-hidden">
-              {/* Header */}
-              <div className="grid grid-cols-[1fr_60px_80px_70px_50px_80px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
-                <span>Beschreibung</span>
+              <div className="grid grid-cols-[2rem_1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
+                <span>Nr.</span>
+                <span>Bezeichnung</span>
                 <span>Menge</span>
-                <span>Preis</span>
+                <span>Einzelpreis</span>
                 <span>MwSt</span>
-                <span>Rabatt</span>
-                <span className="text-right">Total</span>
+                <span className="text-right">Gesamt</span>
                 <span />
               </div>
-              {/* Items */}
               {items.map((item, idx) => (
-                <div key={item.id} className="grid grid-cols-[1fr_60px_80px_70px_50px_80px_32px] gap-2 px-3 py-1.5 border-t border-border-muted items-center">
+                <div
+                  key={item.key}
+                  className="grid grid-cols-[2rem_1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-1.5 border-t border-border-muted items-center"
+                >
+                  <span className="text-xs text-muted-foreground">
+                    {idx + 1}
+                  </span>
                   <Input
                     placeholder="Beschreibung..."
                     value={item.description}
-                    onChange={(e) => updateItem(idx, { description: e.target.value })}
+                    onChange={(e) =>
+                      updateItem(idx, { description: e.target.value })
+                    }
                     className="h-7 text-xs"
                   />
                   <Input
@@ -206,34 +358,42 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
                     min={0.01}
                     step={0.5}
                     value={item.quantity}
-                    onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })}
+                    onChange={(e) =>
+                      updateItem(idx, { quantity: e.target.value })
+                    }
                     className="h-7 text-xs"
                   />
                   <Input
                     type="number"
                     min={0}
                     step={0.01}
-                    value={item.unitPrice}
-                    onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })}
+                    value={item.unit_price}
+                    onChange={(e) =>
+                      updateItem(idx, { unit_price: e.target.value })
+                    }
                     className="h-7 text-xs"
                   />
-                  <select
-                    value={item.vatRate}
-                    onChange={(e) => updateItem(idx, { vatRate: Number(e.target.value) })}
-                    className="h-7 rounded border border-input-border bg-input-background px-1 text-[10px] text-foreground outline-none"
-                  >
-                    {VAT_RATES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={item.discount}
-                    onChange={(e) => updateItem(idx, { discount: Number(e.target.value) })}
-                    className="h-7 text-xs"
-                  />
+                  {taxMode !== 'kleinunternehmer' ? (
+                    <select
+                      value={item.tax_rate}
+                      onChange={(e) =>
+                        updateItem(idx, { tax_rate: e.target.value })
+                      }
+                      className="h-7 rounded border border-input-border bg-input-background px-1 text-[10px] text-foreground outline-none"
+                    >
+                      {TAX_RATES.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-xs text-muted-foreground px-1">
+                      0%
+                    </span>
+                  )}
                   <span className="text-xs text-foreground text-right font-medium">
-                    {formatCHF(calcLineTotal(item))}
+                    {formatEUR(calcLineTotal(item.quantity, item.unit_price))}
                   </span>
                   <button
                     onClick={() => removeItem(idx)}
@@ -244,31 +404,32 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
                   </button>
                 </div>
               ))}
-              {/* Add item */}
               <button
                 onClick={addItem}
                 className="flex items-center gap-1.5 w-full px-3 py-2 text-xs text-primary hover:bg-primary/5 transition-colors border-t border-border-muted"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Position hinzufügen
+                Position hinzufuegen
               </button>
             </div>
           </div>
 
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-60 space-y-1.5 text-xs">
+            <div className="w-64 space-y-1.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
-                <span>Zwischensumme</span>
-                <span>{formatCHF(subtotal)}</span>
+                <span>Zwischensumme (netto)</span>
+                <span>{formatEUR(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>MwSt</span>
-                <span>{formatCHF(tax)}</span>
-              </div>
+              {taxMode !== 'kleinunternehmer' && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>MwSt</span>
+                  <span>{formatEUR(tax)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
-                <span>Gesamt</span>
-                <span>{formatCHF(total)}</span>
+                <span>Gesamtbetrag</span>
+                <span>{formatEUR(total)}</span>
               </div>
             </div>
           </div>
@@ -276,15 +437,29 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
           {/* Notes */}
           <div className="space-y-1.5">
             <Label>Notizen</Label>
-            <Textarea placeholder="Zusätzliche Informationen..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            <Textarea
+              placeholder="Zusaetzliche Informationen..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleSave} disabled={!client.trim()}>
-            {editInvoice ? 'Speichern' : 'Erstellen'}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={!customerName.trim() || isPending}
+          >
+            {isPending
+              ? 'Speichert...'
+              : editInvoice
+                ? 'Speichern'
+                : 'Erstellen'}
           </Button>
         </div>
       </DialogContent>

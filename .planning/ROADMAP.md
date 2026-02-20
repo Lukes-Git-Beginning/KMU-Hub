@@ -9,8 +9,8 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - ✅ **Foundation** - Phases 1-3 (Auth/Infra, CRM Core, Chat & Messaging)
 - ✅ **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
 - ✅ **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
-- 📋 **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
-- 📋 **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
+- ✅ **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
+- ✅ **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
 - 📋 **Integrations** - Phases 17-19 (Teams/Slack, Bexio, Abacus + Run my Accounts -- external DACH connectivity)
 - 📋 **Extensibility** - Phase 20 (Plugin System + Industry Templates -- customization layer)
 
@@ -41,14 +41,14 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 ### Business Suite (Phases 12-13)
 
-- [ ] **Phase 12: Rechnungen & Finanzen** - GoBD-compliant quotes and invoices, tax calculation, DATEV export, 3-level dunning (NO full accounting, NO payroll)
-- [ ] **Phase 13: HR & Zeiterfassung** - Leave management, time tracking, employee profiles, ArbZG/BUrlG compliance
+- [x] **Phase 12: Rechnungen & Finanzen** - GoBD-compliant quotes and invoices, tax calculation, DATEV export, 3-level dunning (NO full accounting, NO payroll) (completed 2026-02-18)
+- [x] **Phase 13: HR & Zeiterfassung** - Leave management, time tracking, employee profiles, ArbZG/BUrlG compliance (completed 2026-02-19)
 
 ### Aggregation & Automation (Phases 14-16)
 
-- [ ] **Phase 14: Event Infrastructure + Unified Inbox** - PostgreSQL LISTEN/NOTIFY event system, channel adapters (Email/Chat/Notifications), materialized inbox, routing engine
-- [ ] **Phase 15: CalDAV/CardDAV Integration** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS
-- [ ] **Phase 16: Automation Engine** - Trigger-condition-action workflows across all modules, pre-built automations
+- [x] **Phase 14: Event Infrastructure + Unified Inbox** - PostgreSQL LISTEN/NOTIFY event system, channel adapters (Email/Chat/Notifications), materialized inbox, routing engine (completed 2026-02-20)
+- [x] **Phase 15: CalDAV/CardDAV Integration** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS (completed 2026-02-20)
+- [x] **Phase 16: Automation Engine** - Trigger-condition-action workflows across all modules, pre-built automations (completed 2026-02-20)
 
 ### Integrations (Phases 17-19)
 
@@ -269,12 +269,16 @@ Plans:
   6. User can export a Buchungsstapel in DATEV-compatible CSV format (SKR03) for their Steuerberater
   7. User can create credit notes (Gutschriften) that properly reference the original invoice
   8. User can manage 3-level dunning (Mahnwesen) with automatic overdue detection and escalation
-**Plans**: 3-4 plans (estimated)
+**Plans**: 7 plans
 
 Plans:
-- [ ] 12-01: Biz service foundation + document models (immutable invoice data model, sequential numbering, GoBD constraints, quote/invoice/credit note CRUD)
-- [ ] 12-02: Tax calculation + PDF generation (MwSt/USt rules, Reverse Charge, Kleinunternehmer, PDF templates with Pflichtangaben)
-- [ ] 12-03: Finance workflows + export (deal-to-quote-to-invoice flow, payment tracking, 3-level dunning, overdue alerts, DATEV Buchungsstapel CSV export)
+- [ ] 12-01-PLAN.md -- Biz service data foundation (proto, migrations, models, config, biz binary scaffold, tax calculator TDD)
+- [ ] 12-02-PLAN.md -- Quote + invoice services (GoBD-critical: immutability, sequential numbering, deal value auto-sync)
+- [ ] 12-03-PLAN.md -- Supporting services (credit note, payment, dunning, dashboard, PDF generator)
+- [ ] 12-04-PLAN.md -- Connection layer (gRPC server, gateway routes, Docker, DATEV export, CRM deal integration, DealValueUpdater)
+- [ ] 12-05-PLAN.md -- Frontend rewrite (TypeScript types, TanStack Query hooks, FinanzenPage + all components, EUR/de-DE)
+- [ ] 12-06-PLAN.md -- Gap closure: PDF binary streaming (proto PDF RPCs, gRPC server impl, gateway HTTP wiring)
+- [ ] 12-07-PLAN.md -- Gap closure: Deal-to-quote route + DealDetailPage UI trigger
 
 ### Phase 13: HR & Zeiterfassung
 **Goal**: Employees can manage leave, track time, and access HR documents within the Hub, fully compliant with German/Swiss labor law. NO payroll -- salary/Lohn is handled by external integrations (Bexio, Abacus, RmA).
@@ -289,12 +293,13 @@ Plans:
   5. Time tracking enforces ArbZG rules: warns at 8h, blocks at 10h daily, enforces 11h rest between shifts, and requires breaks
   6. Employee profiles include department, position, and contract type, with access-controlled document storage (contracts, Zeugnisse)
   7. Sick leave can be recorded with AU (doctor's note) upload required after 3 consecutive days
-**Plans**: 3-4 plans (estimated)
+**Plans**: 4 plans
 
 Plans:
-- [ ] 13-01: Leave management (request/approval workflow, BUrlG balance calculation, absence calendar integration)
-- [ ] 13-02: Time tracking (clock in/out, ArbZG rule enforcement, daily/weekly summaries, break validation)
-- [ ] 13-03: Employee profiles + documents (HR data extension of auth users, document storage in MinIO, sick leave with AU upload)
+- [ ] 13-01-PLAN.md -- HR data foundation (hr.proto ~30 RPCs, migration 000046 with 9 tables, Go models, BUrlG/ArbZG compliance TDD)
+- [ ] 13-02-PLAN.md -- Leave + absence + employee services (leave workflow, BUrlG balance, absence calendar, employee profiles, document management)
+- [ ] 13-03-PLAN.md -- Time tracking + gRPC + gateway (clock in/out with ArbZG enforcement, HRService gRPC server, ~30 HTTP routes, biz binary extension)
+- [ ] 13-04-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, UI wiring, header clock-in button, absence calendar, leave forms)
 
 ### Phase 14: Event Infrastructure + Unified Inbox
 **Goal**: All modules emit structured events via PostgreSQL LISTEN/NOTIFY, and users get a single aggregated inbox across Email, Chat, and Notifications -- the foundation for Automation Engine
@@ -306,12 +311,13 @@ Plans:
   3. User can reply, mark-read, and triage items from the unified inbox without switching modules
   4. Team inboxes allow shared mailbox concepts with assignment and routing rules
   5. Channel adapters normalize messages from different sources into a unified format
-**Plans**: 3 plans (estimated)
+**Plans**: 4 plans
 
 Plans:
-- [ ] 14-01: Event infrastructure (events table, pg_notify emitting in all services, event consumer framework)
-- [ ] 14-02: Unified Inbox service + channel adapters (EmailAdapter, ChatAdapter, NotificationAdapter, MessageNormalizer, inbox_messages materialized table)
-- [ ] 14-03: Unified Inbox UI + routing engine (three-column inbox, team inboxes, condition-action routing rules)
+- [x] 14-01-PLAN.md -- Event infrastructure data foundation (inbox.proto ~27 RPCs, migrations for 4 tables, Go models, event type constants, PGEventEmitter retrofit for Email/Document/Biz/HR)
+- [x] 14-02-PLAN.md -- Inbox service packages (channel adapters, message service with snooze worker, team inbox service with claim/assign, routing engine with AND/OR condition evaluator)
+- [x] 14-03-PLAN.md -- Connection layer (InboxService gRPC server, gateway HTTP routes ~25 endpoints, inbox event consumer on EventBus, notification binary co-hosting)
+- [x] 14-04-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, KommunikationPage three-column layout, inline reply, snooze, team inbox settings, routing rules editor)
 
 ### Phase 15: CalDAV/CardDAV Integration
 **Goal**: External calendar and contact clients (Outlook, Thunderbird, macOS) can sync bidirectionally with KMU Hub
@@ -321,11 +327,12 @@ Plans:
   1. User can add their KMU Hub calendar to Outlook/Thunderbird via CalDAV URL and see events sync bidirectionally
   2. User can add their KMU Hub contacts to an external client via CardDAV URL
   3. Sync is authenticated per user with proper access control
-**Plans**: 2 plans (estimated)
+**Plans**: 3 plans
 
 Plans:
-- [ ] 15-01: CalDAV server (go-webdav integration, event CRUD via CalDAV protocol, auth, ACL)
-- [ ] 15-02: CardDAV server + sync testing (contact CRUD via CardDAV, multi-client testing)
+- [x] 15-01-PLAN.md -- Data foundation (migrations for app_passwords + caldav_sync, Go models, app-specific password service, sync token service, go-webdav + go-ical deps)
+- [x] 15-02-PLAN.md -- CalDAV/CardDAV Backend adapters (caldav.Backend + carddav.Backend implementations, iCal/vCard converters, VTIMEZONE generator, ETag utility)
+- [x] 15-03-PLAN.md -- Gateway integration + frontend (CalDAV/CardDAV gateway routes with Basic Auth, .well-known discovery, app password API, settings wizard, admin page, WebDAV-Push)
 
 ### Phase 16: Automation Engine
 **Goal**: Users can automate repetitive workflows across all Hub modules using simple trigger-action rules -- the "killer feature" of an all-in-one platform
@@ -338,12 +345,12 @@ Plans:
   4. User can add conditional logic with if/else branching and AND/OR operators (e.g., "only if deal value > 10000")
   5. User can view execution logs showing when each automation ran, what triggered it, what it did, and whether it succeeded or failed
   6. User can enable/disable automations without deleting them (pause and resume)
-**Plans**: 3 plans (estimated)
+**Plans**: 3 plans
 
 Plans:
-- [ ] 16-01: Automation service foundation (event consumer via LISTEN/NOTIFY, workflow storage, trigger registry, action registry)
-- [ ] 16-02: Workflow execution engine (condition evaluation with expr-lang, action execution via gRPC, execution logging, enable/disable)
-- [ ] 16-03: Pre-built automations (10-15 triggers + 8-10 actions across all modules, testing, documentation)
+- [x] 16-01-PLAN.md -- Automation service data foundation (proto ~18 RPCs, migration 000052 with 3 tables, Go models, dual condition evaluator with expr-lang TDD, workflow repository, binary scaffold on :50059)
+- [x] 16-02-PLAN.md -- Workflow engine + triggers + actions + connection layer (14 triggers, 8 action executors via gRPC, EventBus consumer, time-based poller, 12 pre-built templates, gRPC server, 16 gateway routes, Docker)
+- [x] 16-03-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, 4-step wizard, react-flow visual editor, template gallery, condition builder, execution log viewer)
 
 ### Phase 17: Integration - Teams & Slack
 **Goal**: KMU Hub notifications and basic interactions flow to/from Microsoft Teams and Slack
@@ -352,11 +359,12 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Admin can configure Teams/Slack webhook and KMU Hub notifications appear in the configured channel
   2. Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
-**Plans**: 2 plans (estimated)
+**Plans**: 3 plans
 
 Plans:
-- [ ] 17-01: Outbound webhooks (Teams + Slack webhook configuration, notification forwarding, message formatting)
-- [ ] 17-02: Inbound interactions (Teams/Slack interactive messages, response routing back to KMU Hub)
+- [ ] 17-01-PLAN.md -- Data foundation (migration 000053 with 5 integration tables, Go domain models, repository layer, proto extension with 13 RPCs, Go deps for Teams Bot Framework + Slack API + Adaptive Cards)
+- [ ] 17-02-PLAN.md -- Forwarder engine + platform adapters + connection layer (notification forwarder as DeliveryCallback, Teams Bot Framework client + Adaptive Cards, Slack API client + Block Kit, account linking service, rate limiter, inbound webhook handlers, gRPC server extension, 18 gateway HTTP routes, notification binary integration, Docker env vars)
+- [ ] 17-03-PLAN.md -- Frontend (TypeScript types, 14 TanStack Query hooks, Integrations settings tab, IntegrationCard reusable component, 4-step TeamsSetupWizard + SlackSetupWizard, ChannelMappingEditor, AccountLinkDialog, SettingsPage integration)
 
 ### Phase 18: Integration - Bexio
 **Goal**: Swiss SMBs can sync their CRM contacts and invoices with Bexio accounting software
@@ -425,12 +433,12 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
 | 10. Email Integration | 3/7 | In progress | - |
 | 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
-| 12. Rechnungen & Finanzen | 0/3 | Not started | - |
-| 13. HR & Zeiterfassung | 0/3 | Not started | - |
-| 14. Event Infra + Unified Inbox | 0/3 | Not started | - |
-| 15. CalDAV/CardDAV | 0/2 | Not started | - |
-| 16. Automation Engine | 0/3 | Not started | - |
-| 17. Integration: Teams & Slack | 0/2 | Not started | - |
+| 12. Rechnungen & Finanzen | 7/7 | Complete    | 2026-02-18 |
+| 13. HR & Zeiterfassung | 4/4 | Complete    | 2026-02-19 |
+| 14. Event Infra + Unified Inbox | 4/4 | Complete    | 2026-02-20 |
+| 15. CalDAV/CardDAV | 1/3 | Complete    | 2026-02-20 |
+| 16. Automation Engine | 1/3 | Complete    | 2026-02-20 |
+| 17. Integration: Teams & Slack | 2/3 | In Progress|  |
 | 18. Integration: Bexio | 0/2 | Not started | - |
 | 19. Integration: Abacus + RmA | 0/2 | Not started | - |
 | 20. Plugin System + Templates | 0/4 | Not started | - |

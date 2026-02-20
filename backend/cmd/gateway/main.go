@@ -11,9 +11,14 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/emersion/go-webdav/caldav"
+	"github.com/emersion/go-webdav/carddav"
+
 	"github.com/kmuhub/kmuhub/internal/auth"
+	caldavpkg "github.com/kmuhub/kmuhub/internal/caldav"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
@@ -57,6 +62,8 @@ func main() {
 	registry.Register("work", cfg.WorkGRPCAddress)
 	registry.Register("email", cfg.EmailGRPCAddress)
 	registry.Register("document", cfg.DocumentGRPCAddress)
+	registry.Register("biz", cfg.BizGRPCAddress)
+	registry.Register("automation", cfg.AutomationGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -138,6 +145,10 @@ func main() {
 		gateway.NewSecurityRoutes(registry),
 		gateway.NewEmailRoutes(registry),
 		gateway.NewDocumentRoutes(registry),
+		gateway.NewBizRoutes(registry),
+		gateway.NewHRRoutes(registry),
+		gateway.NewInboxRoutes(registry),
+		gateway.NewAutomationRoutes(registry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),
@@ -152,6 +163,28 @@ func main() {
 	wopiRoutes := gateway.NewWOPIRoutes(wopiHandler)
 	wopiRoutes.RegisterRoutes(r, nil)
 	slog.Info("routes registered", "service", "wopi")
+
+	// CalDAV/CardDAV protocol routes (Basic Auth, not JWT)
+	pushSubService := caldavpkg.NewPushSubscriptionService(pool)
+	pushNotifier := caldavpkg.NewPushNotifier(pushSubService)
+	caldavSyncService := caldavpkg.NewSyncTokenService(pool, pushNotifier)
+	caldavAppPwService := caldavpkg.NewAppPasswordService(
+		caldavpkg.NewPostgresAppPasswordRepository(pool), pool,
+	)
+	caldavBackend := caldavpkg.NewCalDAVBackend(registry, caldavSyncService, pool)
+	carddavBackend := caldavpkg.NewCardDAVBackend(registry, caldavSyncService, pool)
+
+	caldavHandler := &caldav.Handler{Backend: caldavBackend, Prefix: "/caldav"}
+	carddavHandler := &carddav.Handler{Backend: carddavBackend, Prefix: "/carddav"}
+
+	caldavPwAdapter := &caldavPasswordAdapter{svc: caldavAppPwService}
+	caldavRoutes := gateway.NewCalDAVRoutes(
+		caldavHandler, carddavHandler,
+		caldavPwAdapter, caldavpkg.CtxWithUser,
+		pool, authMiddleware,
+	)
+	caldavRoutes.RegisterRoutes(r)
+	slog.Info("routes registered", "service", "caldav")
 
 	// =========================================================================
 	// WebSocket hub (cross-cutting: needs chat + auth gRPC clients)
@@ -315,4 +348,60 @@ func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.Token
 		}
 		return resp.User.FirstName, resp.User.LastName, nil
 	})
+}
+
+// caldavPasswordAdapter adapts caldavpkg.AppPasswordService to gateway.CalDAVPasswordService,
+// breaking the import cycle between gateway and caldav packages.
+type caldavPasswordAdapter struct {
+	svc *caldavpkg.AppPasswordService
+}
+
+func (a *caldavPasswordAdapter) Validate(ctx context.Context, username, password string) (uuid.UUID, error) {
+	return a.svc.Validate(ctx, username, password)
+}
+
+func (a *caldavPasswordAdapter) Create(ctx context.Context, userID uuid.UUID, label string) (string, *gateway.CalDAVPasswordInfo, error) {
+	plaintext, pw, err := a.svc.Create(ctx, userID, label)
+	if err != nil {
+		return "", nil, err
+	}
+	return plaintext, &gateway.CalDAVPasswordInfo{
+		ID:             pw.ID,
+		Label:          pw.Label,
+		PasswordPrefix: pw.PasswordPrefix,
+		LastUsedAt:     pw.LastUsedAt,
+		CreatedAt:      pw.CreatedAt,
+		RevokedAt:      pw.RevokedAt,
+	}, nil
+}
+
+func (a *caldavPasswordAdapter) List(ctx context.Context, userID uuid.UUID) ([]*gateway.CalDAVPasswordInfo, error) {
+	passwords, err := a.svc.List(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*gateway.CalDAVPasswordInfo, len(passwords))
+	for i, pw := range passwords {
+		result[i] = &gateway.CalDAVPasswordInfo{
+			ID:             pw.ID,
+			Label:          pw.Label,
+			PasswordPrefix: pw.PasswordPrefix,
+			LastUsedAt:     pw.LastUsedAt,
+			CreatedAt:      pw.CreatedAt,
+			RevokedAt:      pw.RevokedAt,
+		}
+	}
+	return result, nil
+}
+
+func (a *caldavPasswordAdapter) Revoke(ctx context.Context, id, userID uuid.UUID) error {
+	return a.svc.Revoke(ctx, id, userID)
+}
+
+func (a *caldavPasswordAdapter) IsOrgEnabled(ctx context.Context) (bool, error) {
+	return a.svc.IsOrgEnabled(ctx)
+}
+
+func (a *caldavPasswordAdapter) SetOrgEnabled(ctx context.Context, enabled bool) error {
+	return a.svc.SetOrgEnabled(ctx, enabled)
 }

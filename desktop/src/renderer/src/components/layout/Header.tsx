@@ -23,6 +23,7 @@ import {
   HeaderClock,
   DailyPlannerWidget,
   TimeTrackerWidget,
+  ClockInButton,
   LanguageSwitcher,
   ProfileSwitcher,
   ProfileMenu,
@@ -65,6 +66,11 @@ export function Header() {
         {/* Daily Planner */}
         <div className="hidden sm:block">
           <DailyPlannerWidget />
+        </div>
+
+        {/* HR Clock In/Out */}
+        <div className="hidden sm:block">
+          <ClockInButton />
         </div>
 
         {/* Time Tracker */}

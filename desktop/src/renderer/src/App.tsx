@@ -35,6 +35,9 @@ const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
 // Security admin hub (lazy-loaded, admin-only)
 const SecurityAdminPage = lazy(() => import('@/modules/security/SecurityAdminPage'))
 
+// CalDAV admin page
+const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
+
 // New module pages from design integration (mock data, Zustand stores)
 const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
@@ -44,6 +47,8 @@ const FinanzenPage = lazy(() => import('@/modules/finanzen/FinanzenPage'))
 const InfrastrukturPage = lazy(() => import('@/modules/admin/InfrastrukturPage'))
 const ProfilPage = lazy(() => import('@/modules/profil/ProfilPage'))
 const ComposeWindowPage = lazy(() => import('@/modules/mails/ComposeWindowPage'))
+const KommunikationPage = lazy(() => import('@/modules/kommunikation/KommunikationPage'))
+const AutomatisierungPage = lazy(() => import('@/modules/automatisierung/AutomatisierungPage'))
 
 // Industry-specific module pages
 const InventarPage = lazy(() => import('@/modules/inventar/InventarPage'))
@@ -172,10 +177,15 @@ const router = createHashRouter([
       // Admin security hub
       { path: 'admin/security', element: lazyRoute(SecurityAdminPage) },
 
+      // CalDAV admin
+      { path: 'admin/caldav', element: lazyRoute(CalDAVAdminPage) },
+
       // New modules from design integration
       { path: 'kontakte', element: lazyRoute(KontaktePage) },
       { path: 'dokumente', element: lazyRoute(DokumentePage) },
       { path: 'mails', element: lazyRoute(MailsPage) },
+      { path: 'kommunikation', element: lazyRoute(KommunikationPage) },
+      { path: 'automatisierung', element: lazyRoute(AutomatisierungPage) },
       { path: 'team', element: lazyRoute(TeamPage) },
       { path: 'finanzen', element: lazyRoute(FinanzenPage) },
       { path: 'infrastruktur', element: lazyRoute(InfrastrukturPage) },

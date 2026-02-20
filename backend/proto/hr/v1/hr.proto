@@ -1,0 +1,634 @@
+syntax = "proto3";
+
+package hr.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/hr/v1;hrv1";
+
+import "google/protobuf/timestamp.proto";
+
+service HRService {
+  // ==================== Leave Management ====================
+  rpc CreateLeaveRequest(CreateLeaveRequestReq) returns (CreateLeaveRequestResp);
+  rpc GetLeaveRequest(GetLeaveRequestReq) returns (GetLeaveRequestResp);
+  rpc ListLeaveRequests(ListLeaveRequestsReq) returns (ListLeaveRequestsResp);
+  rpc ApproveLeaveRequest(ApproveLeaveRequestReq) returns (ApproveLeaveRequestResp);
+  rpc RejectLeaveRequest(RejectLeaveRequestReq) returns (RejectLeaveRequestResp);
+  rpc CancelLeaveRequest(CancelLeaveRequestReq) returns (CancelLeaveRequestResp);
+  rpc GetLeaveBalance(GetLeaveBalanceReq) returns (GetLeaveBalanceResp);
+  rpc GetEmployeeLeaveBalance(GetEmployeeLeaveBalanceReq) returns (GetEmployeeLeaveBalanceResp);
+  rpc ListLeaveTypes(ListLeaveTypesReq) returns (ListLeaveTypesResp);
+  rpc RecordSickLeave(RecordSickLeaveReq) returns (RecordSickLeaveResp);
+
+  // ==================== Time Tracking ====================
+  rpc ClockIn(ClockInReq) returns (ClockInResp);
+  rpc ClockOut(ClockOutReq) returns (ClockOutResp);
+  rpc StartBreak(StartBreakReq) returns (StartBreakResp);
+  rpc EndBreak(EndBreakReq) returns (EndBreakResp);
+  rpc GetActiveShift(GetActiveShiftReq) returns (GetActiveShiftResp);
+  rpc ListWorkTimeEntries(ListWorkTimeEntriesReq) returns (ListWorkTimeEntriesResp);
+  rpc GetDailySummary(GetDailySummaryReq) returns (GetDailySummaryResp);
+  rpc GetWeeklySummary(GetWeeklySummaryReq) returns (GetWeeklySummaryResp);
+  rpc SubmitTimeCorrection(SubmitTimeCorrectionReq) returns (SubmitTimeCorrectionResp);
+  rpc ApproveTimeCorrection(ApproveTimeCorrectionReq) returns (ApproveTimeCorrectionResp);
+
+  // ==================== Absences ====================
+  rpc GetAbsenceCalendar(GetAbsenceCalendarReq) returns (GetAbsenceCalendarResp);
+
+  // ==================== Employee Profiles ====================
+  rpc ListEmployees(ListEmployeesReq) returns (ListEmployeesResp);
+  rpc GetEmployee(GetEmployeeReq) returns (GetEmployeeResp);
+  rpc UpdateEmployee(UpdateEmployeeReq) returns (UpdateEmployeeResp);
+  rpc UpdateSelfProfile(UpdateSelfProfileReq) returns (UpdateSelfProfileResp);
+  rpc ListEmployeeDocuments(ListEmployeeDocumentsReq) returns (ListEmployeeDocumentsResp);
+  rpc UploadEmployeeDocument(UploadEmployeeDocumentReq) returns (UploadEmployeeDocumentResp);
+
+  // ==================== HR Settings ====================
+  rpc GetHRSettings(GetHRSettingsReq) returns (GetHRSettingsResp);
+  rpc UpdateHRSettings(UpdateHRSettingsReq) returns (UpdateHRSettingsResp);
+}
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+enum LeaveRequestStatus {
+  LEAVE_REQUEST_STATUS_UNSPECIFIED = 0;
+  LEAVE_PENDING = 1;
+  LEAVE_APPROVED = 2;
+  LEAVE_REJECTED = 3;
+  LEAVE_CANCELLED = 4;
+}
+
+enum WorkTimeEntryStatus {
+  WORK_TIME_ENTRY_STATUS_UNSPECIFIED = 0;
+  WORK_TIME_ACTIVE = 1;
+  WORK_TIME_COMPLETED = 2;
+  WORK_TIME_CORRECTION_PENDING = 3;
+  WORK_TIME_CORRECTION_APPROVED = 4;
+}
+
+enum ContractType {
+  CONTRACT_TYPE_UNSPECIFIED = 0;
+  CONTRACT_FULL_TIME = 1;
+  CONTRACT_PART_TIME = 2;
+  CONTRACT_MINI_JOB = 3;
+  CONTRACT_INTERN = 4;
+  CONTRACT_TEMPORARY = 5;
+}
+
+enum HalfDayPeriod {
+  HALF_DAY_PERIOD_UNSPECIFIED = 0;
+  HALF_DAY_MORNING = 1;
+  HALF_DAY_AFTERNOON = 2;
+}
+
+enum DocumentVisibility {
+  DOCUMENT_VISIBILITY_UNSPECIFIED = 0;
+  DOCUMENT_VISIBILITY_HR_ONLY = 1;
+  DOCUMENT_VISIBILITY_MANAGER = 2;
+  DOCUMENT_VISIBILITY_EMPLOYEE = 3;
+}
+
+// ============================================================================
+// Domain Messages
+// ============================================================================
+
+message LeaveType {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string key = 4;
+  string color = 5;
+  bool deducts_from_balance = 6;
+  bool requires_approval = 7;
+  bool requires_au_document = 8;
+  bool is_system = 9;
+  int32 sort_order = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message LeaveRequest {
+  string id = 1;
+  string tenant_id = 2;
+  string employee_id = 3;
+  string leave_type_id = 4;
+  string start_date = 5;               // YYYY-MM-DD
+  string end_date = 6;                 // YYYY-MM-DD
+  bool is_half_day_start = 7;
+  HalfDayPeriod half_day_period_start = 8;
+  bool is_half_day_end = 9;
+  HalfDayPeriod half_day_period_end = 10;
+  string total_days = 11;              // Decimal as string (e.g., "2.5")
+  string reason = 12;
+  LeaveRequestStatus status = 13;
+  string approved_by = 14;
+  string approval_comment = 15;
+  google.protobuf.Timestamp approved_at = 16;
+  bool au_document_required = 17;
+  string au_document_file_id = 18;
+  google.protobuf.Timestamp created_at = 19;
+  google.protobuf.Timestamp updated_at = 20;
+  // Denormalized fields for display
+  string employee_name = 21;
+  string leave_type_name = 22;
+  string leave_type_color = 23;
+}
+
+message LeaveBalance {
+  string id = 1;
+  string tenant_id = 2;
+  string employee_id = 3;
+  int32 year = 4;
+  string entitlement = 5;              // Decimal as string
+  string carried_over = 6;             // Decimal as string
+  string used = 7;                     // Decimal as string
+  string remaining = 8;               // Decimal as string
+  string carryover_expires_at = 9;     // YYYY-MM-DD
+  bool carryover_notified = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message WorkTimeEntry {
+  string id = 1;
+  string tenant_id = 2;
+  string employee_id = 3;
+  google.protobuf.Timestamp clock_in = 4;
+  google.protobuf.Timestamp clock_out = 5;
+  int32 break_minutes = 6;
+  int32 auto_break_deducted = 7;
+  int32 net_work_minutes = 8;
+  WorkTimeEntryStatus status = 9;
+  bool is_correction = 10;
+  string original_entry_id = 11;
+  string correction_reason = 12;
+  string correction_approved_by = 13;
+  google.protobuf.Timestamp correction_approved_at = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+  // Nested break entries for detail view
+  repeated BreakEntry breaks = 17;
+  // Denormalized employee name for display
+  string employee_name = 18;
+}
+
+message BreakEntry {
+  string id = 1;
+  string work_time_entry_id = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  int32 duration_minutes = 5;
+}
+
+message EmployeeProfile {
+  string id = 1;
+  string user_id = 2;
+  string department = 3;
+  string position_title = 4;
+  ContractType contract_type = 5;
+  int32 work_days_per_week = 6;
+  int32 annual_leave_days = 7;
+  string manager_user_id = 8;
+  string start_date = 9;               // YYYY-MM-DD
+  string emergency_contact_name = 10;
+  string emergency_contact_phone = 11;
+  string address_street = 12;
+  string address_city = 13;
+  string address_postal_code = 14;
+  string address_country = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+  // Denormalized fields for display
+  string user_name = 18;
+  string user_email = 19;
+  string manager_name = 20;
+}
+
+message HRDocumentCategory {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string key = 4;
+  DocumentVisibility visibility = 5;
+  bool is_system = 6;
+  int32 sort_order = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message EmployeeDocument {
+  string id = 1;
+  string tenant_id = 2;
+  string employee_id = 3;
+  string category_id = 4;
+  string file_id = 5;
+  string uploaded_by = 6;
+  string notes = 7;
+  google.protobuf.Timestamp created_at = 8;
+  // Denormalized fields for display
+  string category_name = 9;
+  string file_name = 10;
+  string file_size = 11;
+  string uploaded_by_name = 12;
+}
+
+message HRSettings {
+  string id = 1;
+  string tenant_id = 2;
+  int32 au_threshold_days = 3;
+  bool show_absence_reason = 4;
+  int32 default_annual_leave_days = 5;
+  string timezone = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message AbsenceEntry {
+  string employee_id = 1;
+  string employee_name = 2;
+  string department = 3;
+  string start_date = 4;               // YYYY-MM-DD
+  string end_date = 5;                 // YYYY-MM-DD
+  string leave_type_name = 6;
+  string leave_type_color = 7;
+  string total_days = 8;               // Decimal as string
+}
+
+message DailySummary {
+  string date = 1;                     // YYYY-MM-DD
+  int32 total_work_minutes = 2;
+  int32 total_break_minutes = 3;
+  int32 net_work_minutes = 4;
+  int32 overtime_minutes = 5;
+  string severity = 6;                 // none, info, warning, error
+  string message = 7;
+  repeated WorkTimeEntry entries = 8;
+}
+
+message WeeklySummary {
+  string week_start = 1;               // YYYY-MM-DD (Monday)
+  string week_end = 2;                 // YYYY-MM-DD (Sunday)
+  int32 total_work_minutes = 3;
+  int32 total_break_minutes = 4;
+  int32 net_work_minutes = 5;
+  int32 overtime_minutes = 6;
+  int32 work_days = 7;
+  repeated DailySummary daily_summaries = 8;
+}
+
+// ============================================================================
+// Leave Management Requests/Responses
+// ============================================================================
+
+message CreateLeaveRequestReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  string leave_type_id = 3;
+  string start_date = 4;               // YYYY-MM-DD
+  string end_date = 5;                 // YYYY-MM-DD
+  bool is_half_day_start = 6;
+  HalfDayPeriod half_day_period_start = 7;
+  bool is_half_day_end = 8;
+  HalfDayPeriod half_day_period_end = 9;
+  string reason = 10;
+}
+
+message CreateLeaveRequestResp {
+  LeaveRequest leave_request = 1;
+}
+
+message GetLeaveRequestReq {
+  string id = 1;
+  string tenant_id = 2;
+}
+
+message GetLeaveRequestResp {
+  LeaveRequest leave_request = 1;
+}
+
+message ListLeaveRequestsReq {
+  string tenant_id = 1;
+  string employee_id = 2;              // Optional: filter by employee
+  string status = 3;                   // Optional: filter by status
+  string start_date = 4;               // Optional: filter by date range
+  string end_date = 5;
+  int32 page = 6;
+  int32 per_page = 7;
+}
+
+message ListLeaveRequestsResp {
+  repeated LeaveRequest leave_requests = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message ApproveLeaveRequestReq {
+  string id = 1;
+  string tenant_id = 2;
+  string approver_id = 3;
+  string comment = 4;
+}
+
+message ApproveLeaveRequestResp {
+  LeaveRequest leave_request = 1;
+}
+
+message RejectLeaveRequestReq {
+  string id = 1;
+  string tenant_id = 2;
+  string approver_id = 3;
+  string comment = 4;
+}
+
+message RejectLeaveRequestResp {
+  LeaveRequest leave_request = 1;
+}
+
+message CancelLeaveRequestReq {
+  string id = 1;
+  string tenant_id = 2;
+  string user_id = 3;
+}
+
+message CancelLeaveRequestResp {
+  LeaveRequest leave_request = 1;
+}
+
+message GetLeaveBalanceReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  int32 year = 3;
+}
+
+message GetLeaveBalanceResp {
+  LeaveBalance balance = 1;
+}
+
+message GetEmployeeLeaveBalanceReq {
+  string employee_id = 1;
+  string tenant_id = 2;
+  int32 year = 3;
+}
+
+message GetEmployeeLeaveBalanceResp {
+  LeaveBalance balance = 1;
+}
+
+message ListLeaveTypesReq {
+  string tenant_id = 1;
+}
+
+message ListLeaveTypesResp {
+  repeated LeaveType leave_types = 1;
+}
+
+message RecordSickLeaveReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  string start_date = 3;               // YYYY-MM-DD
+  string end_date = 4;                 // YYYY-MM-DD
+  string notes = 5;
+}
+
+message RecordSickLeaveResp {
+  LeaveRequest leave_request = 1;
+  bool au_document_required = 2;       // True if sick days exceed AU threshold
+}
+
+// ============================================================================
+// Time Tracking Requests/Responses
+// ============================================================================
+
+message ClockInReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  google.protobuf.Timestamp timestamp = 3; // Optional: defaults to now
+}
+
+message ClockInResp {
+  WorkTimeEntry entry = 1;
+}
+
+message ClockOutReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  google.protobuf.Timestamp timestamp = 3; // Optional: defaults to now
+}
+
+message ClockOutResp {
+  WorkTimeEntry entry = 1;
+  string severity = 2;                // ArbZG severity (none, info, warning, error)
+  string arbzg_message = 3;           // ArbZG compliance message
+}
+
+message StartBreakReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message StartBreakResp {
+  BreakEntry break_entry = 1;
+}
+
+message EndBreakReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message EndBreakResp {
+  BreakEntry break_entry = 1;
+}
+
+message GetActiveShiftReq {
+  string user_id = 1;
+  string tenant_id = 2;
+}
+
+message GetActiveShiftResp {
+  WorkTimeEntry entry = 1;             // nil if no active shift
+  bool is_on_break = 2;
+  BreakEntry active_break = 3;         // nil if not on break
+}
+
+message ListWorkTimeEntriesReq {
+  string tenant_id = 1;
+  string employee_id = 2;              // Optional: filter by employee
+  string start_date = 3;               // YYYY-MM-DD
+  string end_date = 4;                 // YYYY-MM-DD
+  int32 page = 5;
+  int32 per_page = 6;
+}
+
+message ListWorkTimeEntriesResp {
+  repeated WorkTimeEntry entries = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message GetDailySummaryReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  string date = 3;                     // YYYY-MM-DD
+}
+
+message GetDailySummaryResp {
+  DailySummary summary = 1;
+}
+
+message GetWeeklySummaryReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  string week_start = 3;               // YYYY-MM-DD (Monday)
+}
+
+message GetWeeklySummaryResp {
+  WeeklySummary summary = 1;
+}
+
+message SubmitTimeCorrectionReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  string original_entry_id = 3;
+  google.protobuf.Timestamp corrected_clock_in = 4;
+  google.protobuf.Timestamp corrected_clock_out = 5;
+  int32 corrected_break_minutes = 6;
+  string reason = 7;
+}
+
+message SubmitTimeCorrectionResp {
+  WorkTimeEntry correction = 1;
+}
+
+message ApproveTimeCorrectionReq {
+  string id = 1;
+  string tenant_id = 2;
+  string approver_id = 3;
+}
+
+message ApproveTimeCorrectionResp {
+  WorkTimeEntry correction = 1;
+}
+
+// ============================================================================
+// Absence Calendar Requests/Responses
+// ============================================================================
+
+message GetAbsenceCalendarReq {
+  string tenant_id = 1;
+  string start_date = 2;               // YYYY-MM-DD
+  string end_date = 3;                 // YYYY-MM-DD
+  string department = 4;               // Optional: filter by department
+}
+
+message GetAbsenceCalendarResp {
+  repeated AbsenceEntry absences = 1;
+}
+
+// ============================================================================
+// Employee Profile Requests/Responses
+// ============================================================================
+
+message ListEmployeesReq {
+  string tenant_id = 1;
+  string department = 2;               // Optional: filter by department
+  string search = 3;                   // Optional: search by name/email
+  int32 page = 4;
+  int32 per_page = 5;
+}
+
+message ListEmployeesResp {
+  repeated EmployeeProfile employees = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 per_page = 4;
+}
+
+message GetEmployeeReq {
+  string user_id = 1;
+  string tenant_id = 2;
+}
+
+message GetEmployeeResp {
+  EmployeeProfile employee = 1;
+}
+
+message UpdateEmployeeReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  string department = 3;
+  string position_title = 4;
+  ContractType contract_type = 5;
+  int32 work_days_per_week = 6;
+  int32 annual_leave_days = 7;
+  string manager_user_id = 8;
+  string start_date = 9;               // YYYY-MM-DD
+}
+
+message UpdateEmployeeResp {
+  EmployeeProfile employee = 1;
+}
+
+message UpdateSelfProfileReq {
+  string user_id = 1;
+  string tenant_id = 2;
+  string emergency_contact_name = 3;
+  string emergency_contact_phone = 4;
+  string address_street = 5;
+  string address_city = 6;
+  string address_postal_code = 7;
+  string address_country = 8;
+}
+
+message UpdateSelfProfileResp {
+  EmployeeProfile employee = 1;
+}
+
+message ListEmployeeDocumentsReq {
+  string employee_id = 1;
+  string tenant_id = 2;
+  string category_id = 3;              // Optional: filter by category
+}
+
+message ListEmployeeDocumentsResp {
+  repeated EmployeeDocument documents = 1;
+}
+
+message UploadEmployeeDocumentReq {
+  string employee_id = 1;
+  string tenant_id = 2;
+  string category_id = 3;
+  string file_id = 4;                  // Reference to document_files.id from Phase 11
+  string uploaded_by = 5;
+  string notes = 6;
+}
+
+message UploadEmployeeDocumentResp {
+  EmployeeDocument document = 1;
+}
+
+// ============================================================================
+// HR Settings Requests/Responses
+// ============================================================================
+
+message GetHRSettingsReq {
+  string tenant_id = 1;
+}
+
+message GetHRSettingsResp {
+  HRSettings settings = 1;
+}
+
+message UpdateHRSettingsReq {
+  string tenant_id = 1;
+  int32 au_threshold_days = 2;
+  bool show_absence_reason = 3;
+  int32 default_annual_leave_days = 4;
+  string timezone = 5;
+}
+
+message UpdateHRSettingsResp {
+  HRSettings settings = 1;
+}

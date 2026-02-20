@@ -117,32 +117,32 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Finance Module
 
-- [ ] **FIN-01**: User can create quotes (Angebote) with line items, tax calculation, and PDF generation
-- [ ] **FIN-02**: User can create invoices (Rechnungen) compliant with GoBD (immutable once sent, sequential numbering, all Pflichtangaben)
-- [ ] **FIN-03**: System calculates MwSt/USt correctly (19% standard, 7% reduced, 0% Reverse Charge for EU B2B, Kleinunternehmerregelung)
-- [ ] **FIN-04**: User can track payment status per invoice (draft, sent, overdue, paid, cancelled)
-- [ ] **FIN-05**: User can convert a CRM deal to a quote and then to an invoice in a seamless flow
-- [ ] **FIN-06**: User can export Buchungsstapel in DATEV-compatible CSV format for Steuerberater
-- [ ] **FIN-07**: User can create credit notes (Gutschriften) referencing original invoices
+- [x] **FIN-01**: User can create quotes (Angebote) with line items, tax calculation, and PDF generation
+- [x] **FIN-02**: User can create invoices (Rechnungen) compliant with GoBD (immutable once sent, sequential numbering, all Pflichtangaben)
+- [x] **FIN-03**: System calculates MwSt/USt correctly (19% standard, 7% reduced, 0% Reverse Charge for EU B2B, Kleinunternehmerregelung)
+- [x] **FIN-04**: User can track payment status per invoice (draft, sent, overdue, paid, cancelled)
+- [x] **FIN-05**: User can convert a CRM deal to a quote and then to an invoice in a seamless flow
+- [x] **FIN-06**: User can export Buchungsstapel in DATEV-compatible CSV format for Steuerberater
+- [x] **FIN-07**: User can create credit notes (Gutschriften) referencing original invoices
 
 ### HR Module
 
-- [ ] **HR-01**: Employee can submit leave/vacation requests for manager approval with workflow
-- [ ] **HR-02**: System tracks leave balance with Urlaubsanspruch calculation (BUrlG-konform, pro-rata, carry-over)
-- [ ] **HR-03**: Team absence calendar shows who is out when (integrated with main calendar)
-- [ ] **HR-04**: Employee can clock in/out for time tracking with daily and weekly summaries
-- [ ] **HR-05**: Time tracking enforces Arbeitszeitgesetz rules (max 8h/10h, 11h rest, break requirements)
-- [ ] **HR-06**: Employee profiles include department, position, contract type, and access-controlled document storage
-- [ ] **HR-07**: Sick leave recording with AU (doctor's note) upload after 3 days
+- [x] **HR-01**: Employee can submit leave/vacation requests for manager approval with workflow
+- [x] **HR-02**: System tracks leave balance with Urlaubsanspruch calculation (BUrlG-konform, pro-rata, carry-over)
+- [x] **HR-03**: Team absence calendar shows who is out when (integrated with main calendar)
+- [x] **HR-04**: Employee can clock in/out for time tracking with daily and weekly summaries
+- [x] **HR-05**: Time tracking enforces Arbeitszeitgesetz rules (max 8h/10h, 11h rest, break requirements)
+- [x] **HR-06**: Employee profiles include department, position, contract type, and access-controlled document storage
+- [x] **HR-07**: Sick leave recording with AU (doctor's note) upload after 3 days
 
 ### External Integrations
 
-- [ ] **INT-01**: System exposes a CalDAV endpoint for bidirectional calendar sync with Outlook, Thunderbird, and macOS Calendar
-- [ ] **INT-02**: System exposes a CardDAV endpoint for bidirectional contact sync with external clients
-- [ ] **INT-03**: CalDAV/CardDAV supports per-user authenticated access with proper ACL
-- [ ] **INT-04**: Admin can configure Microsoft Teams webhook for notification forwarding to a Teams channel
-- [ ] **INT-05**: Admin can configure Slack webhook for notification forwarding to a Slack channel
-- [ ] **INT-06**: Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
+- [x] **INT-01**: System exposes a CalDAV endpoint for bidirectional calendar sync with Outlook, Thunderbird, and macOS Calendar
+- [x] **INT-02**: System exposes a CardDAV endpoint for bidirectional contact sync with external clients
+- [x] **INT-03**: CalDAV/CardDAV supports per-user authenticated access with proper ACL
+- [x] **INT-04**: Admin can configure Microsoft Teams webhook for notification forwarding to a Teams channel
+- [x] **INT-05**: Admin can configure Slack webhook for notification forwarding to a Slack channel
+- [x] **INT-06**: Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
 - [ ] **INT-07**: Admin can connect to Bexio API via OAuth2 authentication
 - [ ] **INT-08**: Contacts sync bidirectionally between KMU Hub CRM and Bexio
 - [ ] **INT-09**: Invoices sync from KMU Hub Finance to Bexio accounting
@@ -155,12 +155,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Automation Engine
 
-- [ ] **AUTO-01**: User can create automations using trigger-action model ("When X happens, do Y")
-- [ ] **AUTO-02**: System provides 10-15 pre-built triggers across all modules (deal stage change, task complete, invoice overdue, etc.)
-- [ ] **AUTO-03**: System provides 8-10 pre-built actions across all modules (send notification, create task, send email, update field, etc.)
-- [ ] **AUTO-04**: User can add conditional logic (if/else with field-value conditions, AND/OR operators) to automations
-- [ ] **AUTO-05**: User can view automation execution logs with timestamps, inputs/outputs, and success/failure status
-- [ ] **AUTO-06**: User can enable/disable automations without deleting them
+- [x] **AUTO-01**: User can create automations using trigger-action model ("When X happens, do Y")
+- [x] **AUTO-02**: System provides 10-15 pre-built triggers across all modules (deal stage change, task complete, invoice overdue, etc.)
+- [x] **AUTO-03**: System provides 8-10 pre-built actions across all modules (send notification, create task, send email, update field, etc.)
+- [x] **AUTO-04**: User can add conditional logic (if/else with field-value conditions, AND/OR operators) to automations
+- [x] **AUTO-05**: User can view automation execution logs with timestamps, inputs/outputs, and success/failure status
+- [x] **AUTO-06**: User can enable/disable automations without deleting them
 
 ### Plugin System
 
@@ -384,41 +384,41 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOC-08 | Phase 11 | Pending |
 | DOC-09 | Phase 11 | Pending |
 | DOC-10 | Phase 11 | Pending |
-| FIN-01 | Phase 12 | Pending |
-| FIN-02 | Phase 12 | Pending |
-| FIN-03 | Phase 12 | Pending |
-| FIN-04 | Phase 12 | Pending |
-| FIN-05 | Phase 12 | Pending |
-| FIN-06 | Phase 12 | Pending |
-| FIN-07 | Phase 12 | Pending |
-| HR-01 | Phase 13 | Pending |
-| HR-02 | Phase 13 | Pending |
-| HR-03 | Phase 13 | Pending |
-| HR-04 | Phase 13 | Pending |
-| HR-05 | Phase 13 | Pending |
-| HR-06 | Phase 13 | Pending |
-| HR-07 | Phase 13 | Pending |
-| INT-01 | Phase 14 | Pending |
-| INT-02 | Phase 14 | Pending |
-| INT-03 | Phase 14 | Pending |
-| INT-04 | Phase 15 | Pending |
-| INT-05 | Phase 15 | Pending |
-| INT-06 | Phase 15 | Pending |
-| INT-07 | Phase 16 | Pending |
-| INT-08 | Phase 16 | Pending |
-| INT-09 | Phase 16 | Pending |
-| INT-10 | Phase 17 | Pending |
-| INT-11 | Phase 17 | Pending |
-| INT-12 | Phase 17 | Pending |
-| INT-13 | Phase 18 | Pending |
-| INT-14 | Phase 18 | Pending |
-| INT-15 | Phase 18 | Pending |
-| AUTO-01 | Phase 19 | Pending |
-| AUTO-02 | Phase 19 | Pending |
-| AUTO-03 | Phase 19 | Pending |
-| AUTO-04 | Phase 19 | Pending |
-| AUTO-05 | Phase 19 | Pending |
-| AUTO-06 | Phase 19 | Pending |
+| FIN-01 | Phase 12 | Complete |
+| FIN-02 | Phase 12 | Complete |
+| FIN-03 | Phase 12 | Complete |
+| FIN-04 | Phase 12 | Complete |
+| FIN-05 | Phase 12 | Complete |
+| FIN-06 | Phase 12 | Complete |
+| FIN-07 | Phase 12 | Complete |
+| HR-01 | Phase 13 | Complete |
+| HR-02 | Phase 13 | Complete |
+| HR-03 | Phase 13 | Complete |
+| HR-04 | Phase 13 | Complete |
+| HR-05 | Phase 13 | Complete |
+| HR-06 | Phase 13 | Complete |
+| HR-07 | Phase 13 | Complete |
+| INT-01 | Phase 15 | Complete |
+| INT-02 | Phase 15 | Complete |
+| INT-03 | Phase 15 | Complete |
+| INT-04 | Phase 17 | Complete |
+| INT-05 | Phase 17 | Complete |
+| INT-06 | Phase 17 | Complete |
+| INT-07 | Phase 18 | Pending |
+| INT-08 | Phase 18 | Pending |
+| INT-09 | Phase 18 | Pending |
+| INT-10 | Phase 19 | Pending |
+| INT-11 | Phase 19 | Pending |
+| INT-12 | Phase 19 | Pending |
+| INT-13 | Phase 19 | Pending |
+| INT-14 | Phase 19 | Pending |
+| INT-15 | Phase 19 | Pending |
+| AUTO-01 | Phase 16 | Complete |
+| AUTO-02 | Phase 16 | Complete |
+| AUTO-03 | Phase 16 | Complete |
+| AUTO-04 | Phase 16 | Complete |
+| AUTO-05 | Phase 16 | Complete |
+| AUTO-06 | Phase 16 | Complete |
 | PLUG-01 | Phase 20 | Pending |
 | PLUG-02 | Phase 20 | Pending |
 | PLUG-03 | Phase 20 | Pending |
