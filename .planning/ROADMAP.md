@@ -327,11 +327,12 @@ Plans:
   1. User can add their KMU Hub calendar to Outlook/Thunderbird via CalDAV URL and see events sync bidirectionally
   2. User can add their KMU Hub contacts to an external client via CardDAV URL
   3. Sync is authenticated per user with proper access control
-**Plans**: 2 plans (estimated)
+**Plans**: 3 plans
 
 Plans:
-- [ ] 15-01: CalDAV server (go-webdav integration, event CRUD via CalDAV protocol, auth, ACL)
-- [ ] 15-02: CardDAV server + sync testing (contact CRUD via CardDAV, multi-client testing)
+- [ ] 15-01-PLAN.md -- Data foundation (migrations for app_passwords + caldav_sync, Go models, app-specific password service, sync token service, go-webdav + go-ical deps)
+- [ ] 15-02-PLAN.md -- CalDAV/CardDAV Backend adapters (caldav.Backend + carddav.Backend implementations, iCal/vCard converters, VTIMEZONE generator, ETag utility)
+- [ ] 15-03-PLAN.md -- Gateway integration + frontend (CalDAV/CardDAV gateway routes with Basic Auth, .well-known discovery, app password API, settings wizard, admin page)
 
 ### Phase 16: Automation Engine
 **Goal**: Users can automate repetitive workflows across all Hub modules using simple trigger-action rules -- the "killer feature" of an all-in-one platform
@@ -434,7 +435,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 12. Rechnungen & Finanzen | 7/7 | Complete    | 2026-02-18 |
 | 13. HR & Zeiterfassung | 4/4 | Complete    | 2026-02-19 |
 | 14. Event Infra + Unified Inbox | 4/4 | Complete    | 2026-02-20 |
-| 15. CalDAV/CardDAV | 0/2 | Not started | - |
+| 15. CalDAV/CardDAV | 0/3 | Not started | - |
 | 16. Automation Engine | 0/3 | Not started | - |
 | 17. Integration: Teams & Slack | 0/2 | Not started | - |
 | 18. Integration: Bexio | 0/2 | Not started | - |
