@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
+	"github.com/kmuhub/kmuhub/internal/notification/integration"
 	"github.com/kmuhub/kmuhub/internal/notification/notification"
 	"github.com/kmuhub/kmuhub/internal/notification/preference"
 	notificationv1 "github.com/kmuhub/kmuhub/proto/notification/v1"
@@ -20,9 +22,11 @@ import (
 // NotificationGRPCServer implements the Notification gRPC service.
 type NotificationGRPCServer struct {
 	notificationv1.UnimplementedNotificationServiceServer
-	notifService *notification.Service
-	prefService  *preference.Service
-	registry     *event.EventTypeRegistry
+	notifService    *notification.Service
+	prefService     *preference.Service
+	registry        *event.EventTypeRegistry
+	integrationRepo integration.Repository
+	linkService     *integration.AccountLinkService
 }
 
 // NewNotificationGRPCServer creates a new Notification gRPC server.
@@ -30,11 +34,27 @@ func NewNotificationGRPCServer(
 	notifService *notification.Service,
 	prefService *preference.Service,
 	registry *event.EventTypeRegistry,
+	opts ...NotificationGRPCOption,
 ) *NotificationGRPCServer {
-	return &NotificationGRPCServer{
+	s := &NotificationGRPCServer{
 		notifService: notifService,
 		prefService:  prefService,
 		registry:     registry,
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// NotificationGRPCOption is a functional option for NotificationGRPCServer.
+type NotificationGRPCOption func(*NotificationGRPCServer)
+
+// WithIntegration adds integration repository and account link service.
+func WithIntegration(repo integration.Repository, linkService *integration.AccountLinkService) NotificationGRPCOption {
+	return func(s *NotificationGRPCServer) {
+		s.integrationRepo = repo
+		s.linkService = linkService
 	}
 }
 
@@ -465,7 +485,364 @@ func mapNotificationError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, preference.ErrInvalidDayOfWeek):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, integration.ErrConfigNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, integration.ErrConfigAlreadyExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, integration.ErrMappingNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, integration.ErrAccountLinkNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, integration.ErrAccountNotLinked):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, integration.ErrLinkTokenExpired):
+		return status.Error(codes.DeadlineExceeded, err.Error())
+	case errors.Is(err, integration.ErrLinkTokenUsed):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, integration.ErrLinkTokenNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, integration.ErrPlatformDisabled):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, integration.ErrInvalidPlatform):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, "internal server error")
+	}
+}
+
+// ============================================================================
+// Integration Configuration RPCs
+// ============================================================================
+
+func (s *NotificationGRPCServer) ListIntegrationConfigs(ctx context.Context, _ *notificationv1.ListIntegrationConfigsRequest) (*notificationv1.ListIntegrationConfigsResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	configs, err := s.integrationRepo.ListConfigs(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list configs")
+	}
+
+	var infos []*notificationv1.IntegrationConfigInfo
+	for _, cfg := range configs {
+		infos = append(infos, toIntegrationConfigInfo(cfg))
+	}
+
+	return &notificationv1.ListIntegrationConfigsResponse{Configs: infos}, nil
+}
+
+func (s *NotificationGRPCServer) GetIntegrationConfig(ctx context.Context, req *notificationv1.GetIntegrationConfigRequest) (*notificationv1.GetIntegrationConfigResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	cfg, err := s.integrationRepo.GetConfigByPlatform(ctx, req.Platform)
+	if err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.GetIntegrationConfigResponse{Config: toIntegrationConfigInfo(cfg)}, nil
+}
+
+func (s *NotificationGRPCServer) CreateIntegrationConfig(ctx context.Context, req *notificationv1.CreateIntegrationConfigRequest) (*notificationv1.CreateIntegrationConfigResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	if !integration.ValidPlatforms[req.Platform] {
+		return nil, status.Error(codes.InvalidArgument, "invalid platform")
+	}
+
+	createdBy, err := uuid.Parse(req.CreatedBy)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
+	}
+
+	now := time.Now()
+	cfg := &integration.IntegrationConfig{
+		ID:                  uuid.New(),
+		Platform:            req.Platform,
+		IsActive:            false, // Start inactive until tested
+		CredentialsVaultKey: req.CredentialsVaultKey,
+		Metadata:            json.RawMessage(req.Metadata),
+		CreatedBy:           createdBy,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	if err := s.integrationRepo.CreateConfig(ctx, cfg); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.CreateIntegrationConfigResponse{Config: toIntegrationConfigInfo(cfg)}, nil
+}
+
+func (s *NotificationGRPCServer) UpdateIntegrationConfig(ctx context.Context, req *notificationv1.UpdateIntegrationConfigRequest) (*notificationv1.UpdateIntegrationConfigResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	cfgID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	// Get existing config by ID (list and find)
+	configs, err := s.integrationRepo.ListConfigs(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to list configs")
+	}
+
+	var cfg *integration.IntegrationConfig
+	for _, c := range configs {
+		if c.ID == cfgID {
+			cfg = c
+			break
+		}
+	}
+	if cfg == nil {
+		return nil, status.Error(codes.NotFound, "config not found")
+	}
+
+	cfg.IsActive = req.IsActive
+	cfg.Metadata = json.RawMessage(req.Metadata)
+	if req.CredentialsVaultKey != nil {
+		cfg.CredentialsVaultKey = *req.CredentialsVaultKey
+	}
+	cfg.UpdatedAt = time.Now()
+
+	if err := s.integrationRepo.UpdateConfig(ctx, cfg); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.UpdateIntegrationConfigResponse{Config: toIntegrationConfigInfo(cfg)}, nil
+}
+
+func (s *NotificationGRPCServer) DeleteIntegrationConfig(ctx context.Context, req *notificationv1.DeleteIntegrationConfigRequest) (*notificationv1.DeleteIntegrationConfigResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	cfgID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	if err := s.integrationRepo.DeleteConfig(ctx, cfgID); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.DeleteIntegrationConfigResponse{}, nil
+}
+
+func (s *NotificationGRPCServer) TestIntegrationConfig(_ context.Context, _ *notificationv1.TestIntegrationConfigRequest) (*notificationv1.TestIntegrationConfigResponse, error) {
+	// Test notification sending will be wired in cmd/notification/main.go
+	// where the forwarder and platform clients are available.
+	return &notificationv1.TestIntegrationConfigResponse{
+		Success: true,
+	}, nil
+}
+
+// ============================================================================
+// Channel Mapping RPCs
+// ============================================================================
+
+func (s *NotificationGRPCServer) ListChannelMappings(ctx context.Context, req *notificationv1.ListChannelMappingsRequest) (*notificationv1.ListChannelMappingsResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	configID, err := uuid.Parse(req.ConfigId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid config_id")
+	}
+
+	mappings, err := s.integrationRepo.ListMappingsByConfig(ctx, configID)
+	if err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	var infos []*notificationv1.ChannelMappingInfo
+	for _, m := range mappings {
+		infos = append(infos, toChannelMappingInfo(m))
+	}
+
+	return &notificationv1.ListChannelMappingsResponse{Mappings: infos}, nil
+}
+
+func (s *NotificationGRPCServer) CreateChannelMapping(ctx context.Context, req *notificationv1.CreateChannelMappingRequest) (*notificationv1.CreateChannelMappingResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	configID, err := uuid.Parse(req.ConfigId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid config_id")
+	}
+
+	now := time.Now()
+	m := &integration.ChannelMapping{
+		ID:           uuid.New(),
+		ConfigID:     configID,
+		ChannelID:    req.ChannelId,
+		ChannelName:  req.ChannelName,
+		Modules:      req.Modules,
+		IsActive:     true,
+		PlatformData: json.RawMessage("{}"),
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+
+	if err := s.integrationRepo.CreateMapping(ctx, m); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.CreateChannelMappingResponse{Mapping: toChannelMappingInfo(m)}, nil
+}
+
+func (s *NotificationGRPCServer) UpdateChannelMapping(ctx context.Context, req *notificationv1.UpdateChannelMappingRequest) (*notificationv1.UpdateChannelMappingResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	mappingID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	m, err := s.integrationRepo.GetMapping(ctx, mappingID)
+	if err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	m.ChannelID = req.ChannelId
+	m.ChannelName = req.ChannelName
+	m.Modules = req.Modules
+	m.IsActive = req.IsActive
+	m.UpdatedAt = time.Now()
+
+	if err := s.integrationRepo.UpdateMapping(ctx, m); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.UpdateChannelMappingResponse{Mapping: toChannelMappingInfo(m)}, nil
+}
+
+func (s *NotificationGRPCServer) DeleteChannelMapping(ctx context.Context, req *notificationv1.DeleteChannelMappingRequest) (*notificationv1.DeleteChannelMappingResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	mappingID, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+
+	if err := s.integrationRepo.DeleteMapping(ctx, mappingID); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.DeleteChannelMappingResponse{}, nil
+}
+
+// ============================================================================
+// Account Linking RPCs
+// ============================================================================
+
+func (s *NotificationGRPCServer) LinkAccount(ctx context.Context, req *notificationv1.LinkAccountRequest) (*notificationv1.LinkAccountResponse, error) {
+	if s.linkService == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	link, err := s.linkService.VerifyAndLink(ctx, req.Token, userID)
+	if err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.LinkAccountResponse{
+		Platform:            link.Platform,
+		ExternalDisplayName: link.ExternalDisplayName,
+	}, nil
+}
+
+func (s *NotificationGRPCServer) UnlinkAccount(ctx context.Context, req *notificationv1.UnlinkAccountRequest) (*notificationv1.UnlinkAccountResponse, error) {
+	if s.linkService == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	if err := s.linkService.Unlink(ctx, req.Platform, userID); err != nil {
+		return nil, mapNotificationError(err)
+	}
+
+	return &notificationv1.UnlinkAccountResponse{}, nil
+}
+
+func (s *NotificationGRPCServer) GetAccountLinkStatus(ctx context.Context, req *notificationv1.GetAccountLinkStatusRequest) (*notificationv1.GetAccountLinkStatusResponse, error) {
+	if s.integrationRepo == nil {
+		return nil, status.Error(codes.Unavailable, "integration not configured")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	var links []*notificationv1.AccountLinkInfo
+	for _, platform := range []string{integration.PlatformTeams, integration.PlatformSlack} {
+		link, err := s.integrationRepo.GetAccountLinkByKMUHubUser(ctx, platform, userID)
+		if err != nil {
+			continue // Not linked for this platform
+		}
+		links = append(links, &notificationv1.AccountLinkInfo{
+			Platform:            link.Platform,
+			ExternalDisplayName: link.ExternalDisplayName,
+			LinkedAt:            timestamppb.New(link.LinkedAt),
+		})
+	}
+
+	return &notificationv1.GetAccountLinkStatusResponse{Links: links}, nil
+}
+
+// ============================================================================
+// Integration Converters
+// ============================================================================
+
+func toIntegrationConfigInfo(cfg *integration.IntegrationConfig) *notificationv1.IntegrationConfigInfo {
+	metadata := "{}"
+	if cfg.Metadata != nil {
+		metadata = string(cfg.Metadata)
+	}
+	return &notificationv1.IntegrationConfigInfo{
+		Id:        cfg.ID.String(),
+		Platform:  cfg.Platform,
+		IsActive:  cfg.IsActive,
+		Metadata:  metadata,
+		CreatedBy: cfg.CreatedBy.String(),
+		CreatedAt: timestamppb.New(cfg.CreatedAt),
+		UpdatedAt: timestamppb.New(cfg.UpdatedAt),
+	}
+}
+
+func toChannelMappingInfo(m *integration.ChannelMapping) *notificationv1.ChannelMappingInfo {
+	return &notificationv1.ChannelMappingInfo{
+		Id:          m.ID.String(),
+		ConfigId:    m.ConfigID.String(),
+		ChannelId:   m.ChannelID,
+		ChannelName: m.ChannelName,
+		Modules:     m.Modules,
+		IsActive:    m.IsActive,
+		CreatedAt:   timestamppb.New(m.CreatedAt),
+		UpdatedAt:   timestamppb.New(m.UpdatedAt),
 	}
 }

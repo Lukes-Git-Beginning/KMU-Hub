@@ -2030,6 +2030,1507 @@ func (x *ListEventTypesResponse) GetEventTypes() []*EventTypeInfo {
 	return nil
 }
 
+type IntegrationConfigInfo struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Platform string                 `protobuf:"bytes,2,opt,name=platform,proto3" json:"platform,omitempty"`
+	IsActive bool                   `protobuf:"varint,3,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	// NOTE: credentials_vault_key intentionally omitted -- secrets stay server-side
+	Metadata      string                 `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"` // JSON string with platform-specific metadata
+	CreatedBy     string                 `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IntegrationConfigInfo) Reset() {
+	*x = IntegrationConfigInfo{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IntegrationConfigInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IntegrationConfigInfo) ProtoMessage() {}
+
+func (x *IntegrationConfigInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IntegrationConfigInfo.ProtoReflect.Descriptor instead.
+func (*IntegrationConfigInfo) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *IntegrationConfigInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *IntegrationConfigInfo) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *IntegrationConfigInfo) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+func (x *IntegrationConfigInfo) GetMetadata() string {
+	if x != nil {
+		return x.Metadata
+	}
+	return ""
+}
+
+func (x *IntegrationConfigInfo) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *IntegrationConfigInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *IntegrationConfigInfo) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type ListIntegrationConfigsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListIntegrationConfigsRequest) Reset() {
+	*x = ListIntegrationConfigsRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListIntegrationConfigsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListIntegrationConfigsRequest) ProtoMessage() {}
+
+func (x *ListIntegrationConfigsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListIntegrationConfigsRequest.ProtoReflect.Descriptor instead.
+func (*ListIntegrationConfigsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{32}
+}
+
+type ListIntegrationConfigsResponse struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Configs       []*IntegrationConfigInfo `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListIntegrationConfigsResponse) Reset() {
+	*x = ListIntegrationConfigsResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListIntegrationConfigsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListIntegrationConfigsResponse) ProtoMessage() {}
+
+func (x *ListIntegrationConfigsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListIntegrationConfigsResponse.ProtoReflect.Descriptor instead.
+func (*ListIntegrationConfigsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *ListIntegrationConfigsResponse) GetConfigs() []*IntegrationConfigInfo {
+	if x != nil {
+		return x.Configs
+	}
+	return nil
+}
+
+type GetIntegrationConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Platform      string                 `protobuf:"bytes,1,opt,name=platform,proto3" json:"platform,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetIntegrationConfigRequest) Reset() {
+	*x = GetIntegrationConfigRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetIntegrationConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetIntegrationConfigRequest) ProtoMessage() {}
+
+func (x *GetIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetIntegrationConfigRequest.ProtoReflect.Descriptor instead.
+func (*GetIntegrationConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *GetIntegrationConfigRequest) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+type GetIntegrationConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Config        *IntegrationConfigInfo `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetIntegrationConfigResponse) Reset() {
+	*x = GetIntegrationConfigResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetIntegrationConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetIntegrationConfigResponse) ProtoMessage() {}
+
+func (x *GetIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetIntegrationConfigResponse.ProtoReflect.Descriptor instead.
+func (*GetIntegrationConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *GetIntegrationConfigResponse) GetConfig() *IntegrationConfigInfo {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+type CreateIntegrationConfigRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Platform            string                 `protobuf:"bytes,1,opt,name=platform,proto3" json:"platform,omitempty"`
+	CredentialsVaultKey string                 `protobuf:"bytes,2,opt,name=credentials_vault_key,json=credentialsVaultKey,proto3" json:"credentials_vault_key,omitempty"`
+	Metadata            string                 `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"` // JSON string
+	CreatedBy           string                 `protobuf:"bytes,4,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *CreateIntegrationConfigRequest) Reset() {
+	*x = CreateIntegrationConfigRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateIntegrationConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateIntegrationConfigRequest) ProtoMessage() {}
+
+func (x *CreateIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateIntegrationConfigRequest.ProtoReflect.Descriptor instead.
+func (*CreateIntegrationConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *CreateIntegrationConfigRequest) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *CreateIntegrationConfigRequest) GetCredentialsVaultKey() string {
+	if x != nil {
+		return x.CredentialsVaultKey
+	}
+	return ""
+}
+
+func (x *CreateIntegrationConfigRequest) GetMetadata() string {
+	if x != nil {
+		return x.Metadata
+	}
+	return ""
+}
+
+func (x *CreateIntegrationConfigRequest) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+type CreateIntegrationConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Config        *IntegrationConfigInfo `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateIntegrationConfigResponse) Reset() {
+	*x = CreateIntegrationConfigResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateIntegrationConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateIntegrationConfigResponse) ProtoMessage() {}
+
+func (x *CreateIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateIntegrationConfigResponse.ProtoReflect.Descriptor instead.
+func (*CreateIntegrationConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *CreateIntegrationConfigResponse) GetConfig() *IntegrationConfigInfo {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+type UpdateIntegrationConfigRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	IsActive            bool                   `protobuf:"varint,2,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	CredentialsVaultKey *string                `protobuf:"bytes,3,opt,name=credentials_vault_key,json=credentialsVaultKey,proto3,oneof" json:"credentials_vault_key,omitempty"`
+	Metadata            string                 `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"` // JSON string
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *UpdateIntegrationConfigRequest) Reset() {
+	*x = UpdateIntegrationConfigRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateIntegrationConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateIntegrationConfigRequest) ProtoMessage() {}
+
+func (x *UpdateIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateIntegrationConfigRequest.ProtoReflect.Descriptor instead.
+func (*UpdateIntegrationConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *UpdateIntegrationConfigRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateIntegrationConfigRequest) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+func (x *UpdateIntegrationConfigRequest) GetCredentialsVaultKey() string {
+	if x != nil && x.CredentialsVaultKey != nil {
+		return *x.CredentialsVaultKey
+	}
+	return ""
+}
+
+func (x *UpdateIntegrationConfigRequest) GetMetadata() string {
+	if x != nil {
+		return x.Metadata
+	}
+	return ""
+}
+
+type UpdateIntegrationConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Config        *IntegrationConfigInfo `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateIntegrationConfigResponse) Reset() {
+	*x = UpdateIntegrationConfigResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateIntegrationConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateIntegrationConfigResponse) ProtoMessage() {}
+
+func (x *UpdateIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateIntegrationConfigResponse.ProtoReflect.Descriptor instead.
+func (*UpdateIntegrationConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *UpdateIntegrationConfigResponse) GetConfig() *IntegrationConfigInfo {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+type DeleteIntegrationConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteIntegrationConfigRequest) Reset() {
+	*x = DeleteIntegrationConfigRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteIntegrationConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteIntegrationConfigRequest) ProtoMessage() {}
+
+func (x *DeleteIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteIntegrationConfigRequest.ProtoReflect.Descriptor instead.
+func (*DeleteIntegrationConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *DeleteIntegrationConfigRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteIntegrationConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteIntegrationConfigResponse) Reset() {
+	*x = DeleteIntegrationConfigResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteIntegrationConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteIntegrationConfigResponse) ProtoMessage() {}
+
+func (x *DeleteIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteIntegrationConfigResponse.ProtoReflect.Descriptor instead.
+func (*DeleteIntegrationConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{41}
+}
+
+type TestIntegrationConfigRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Platform      string                 `protobuf:"bytes,1,opt,name=platform,proto3" json:"platform,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestIntegrationConfigRequest) Reset() {
+	*x = TestIntegrationConfigRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestIntegrationConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestIntegrationConfigRequest) ProtoMessage() {}
+
+func (x *TestIntegrationConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestIntegrationConfigRequest.ProtoReflect.Descriptor instead.
+func (*TestIntegrationConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *TestIntegrationConfigRequest) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+type TestIntegrationConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	ErrorMessage  *string                `protobuf:"bytes,2,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestIntegrationConfigResponse) Reset() {
+	*x = TestIntegrationConfigResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestIntegrationConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestIntegrationConfigResponse) ProtoMessage() {}
+
+func (x *TestIntegrationConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestIntegrationConfigResponse.ProtoReflect.Descriptor instead.
+func (*TestIntegrationConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *TestIntegrationConfigResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *TestIntegrationConfigResponse) GetErrorMessage() string {
+	if x != nil && x.ErrorMessage != nil {
+		return *x.ErrorMessage
+	}
+	return ""
+}
+
+type ChannelMappingInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ConfigId      string                 `protobuf:"bytes,2,opt,name=config_id,json=configId,proto3" json:"config_id,omitempty"`
+	ChannelId     string                 `protobuf:"bytes,3,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
+	ChannelName   string                 `protobuf:"bytes,4,opt,name=channel_name,json=channelName,proto3" json:"channel_name,omitempty"`
+	Modules       []string               `protobuf:"bytes,5,rep,name=modules,proto3" json:"modules,omitempty"`
+	IsActive      bool                   `protobuf:"varint,6,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChannelMappingInfo) Reset() {
+	*x = ChannelMappingInfo{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChannelMappingInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChannelMappingInfo) ProtoMessage() {}
+
+func (x *ChannelMappingInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChannelMappingInfo.ProtoReflect.Descriptor instead.
+func (*ChannelMappingInfo) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ChannelMappingInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ChannelMappingInfo) GetConfigId() string {
+	if x != nil {
+		return x.ConfigId
+	}
+	return ""
+}
+
+func (x *ChannelMappingInfo) GetChannelId() string {
+	if x != nil {
+		return x.ChannelId
+	}
+	return ""
+}
+
+func (x *ChannelMappingInfo) GetChannelName() string {
+	if x != nil {
+		return x.ChannelName
+	}
+	return ""
+}
+
+func (x *ChannelMappingInfo) GetModules() []string {
+	if x != nil {
+		return x.Modules
+	}
+	return nil
+}
+
+func (x *ChannelMappingInfo) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+func (x *ChannelMappingInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *ChannelMappingInfo) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type ListChannelMappingsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ConfigId      string                 `protobuf:"bytes,1,opt,name=config_id,json=configId,proto3" json:"config_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListChannelMappingsRequest) Reset() {
+	*x = ListChannelMappingsRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListChannelMappingsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListChannelMappingsRequest) ProtoMessage() {}
+
+func (x *ListChannelMappingsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListChannelMappingsRequest.ProtoReflect.Descriptor instead.
+func (*ListChannelMappingsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListChannelMappingsRequest) GetConfigId() string {
+	if x != nil {
+		return x.ConfigId
+	}
+	return ""
+}
+
+type ListChannelMappingsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Mappings      []*ChannelMappingInfo  `protobuf:"bytes,1,rep,name=mappings,proto3" json:"mappings,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListChannelMappingsResponse) Reset() {
+	*x = ListChannelMappingsResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListChannelMappingsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListChannelMappingsResponse) ProtoMessage() {}
+
+func (x *ListChannelMappingsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListChannelMappingsResponse.ProtoReflect.Descriptor instead.
+func (*ListChannelMappingsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ListChannelMappingsResponse) GetMappings() []*ChannelMappingInfo {
+	if x != nil {
+		return x.Mappings
+	}
+	return nil
+}
+
+type CreateChannelMappingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ConfigId      string                 `protobuf:"bytes,1,opt,name=config_id,json=configId,proto3" json:"config_id,omitempty"`
+	ChannelId     string                 `protobuf:"bytes,2,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
+	ChannelName   string                 `protobuf:"bytes,3,opt,name=channel_name,json=channelName,proto3" json:"channel_name,omitempty"`
+	Modules       []string               `protobuf:"bytes,4,rep,name=modules,proto3" json:"modules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateChannelMappingRequest) Reset() {
+	*x = CreateChannelMappingRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateChannelMappingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateChannelMappingRequest) ProtoMessage() {}
+
+func (x *CreateChannelMappingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateChannelMappingRequest.ProtoReflect.Descriptor instead.
+func (*CreateChannelMappingRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *CreateChannelMappingRequest) GetConfigId() string {
+	if x != nil {
+		return x.ConfigId
+	}
+	return ""
+}
+
+func (x *CreateChannelMappingRequest) GetChannelId() string {
+	if x != nil {
+		return x.ChannelId
+	}
+	return ""
+}
+
+func (x *CreateChannelMappingRequest) GetChannelName() string {
+	if x != nil {
+		return x.ChannelName
+	}
+	return ""
+}
+
+func (x *CreateChannelMappingRequest) GetModules() []string {
+	if x != nil {
+		return x.Modules
+	}
+	return nil
+}
+
+type CreateChannelMappingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Mapping       *ChannelMappingInfo    `protobuf:"bytes,1,opt,name=mapping,proto3" json:"mapping,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateChannelMappingResponse) Reset() {
+	*x = CreateChannelMappingResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateChannelMappingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateChannelMappingResponse) ProtoMessage() {}
+
+func (x *CreateChannelMappingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateChannelMappingResponse.ProtoReflect.Descriptor instead.
+func (*CreateChannelMappingResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *CreateChannelMappingResponse) GetMapping() *ChannelMappingInfo {
+	if x != nil {
+		return x.Mapping
+	}
+	return nil
+}
+
+type UpdateChannelMappingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ChannelId     string                 `protobuf:"bytes,2,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
+	ChannelName   string                 `protobuf:"bytes,3,opt,name=channel_name,json=channelName,proto3" json:"channel_name,omitempty"`
+	Modules       []string               `protobuf:"bytes,4,rep,name=modules,proto3" json:"modules,omitempty"`
+	IsActive      bool                   `protobuf:"varint,5,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateChannelMappingRequest) Reset() {
+	*x = UpdateChannelMappingRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateChannelMappingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateChannelMappingRequest) ProtoMessage() {}
+
+func (x *UpdateChannelMappingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateChannelMappingRequest.ProtoReflect.Descriptor instead.
+func (*UpdateChannelMappingRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *UpdateChannelMappingRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateChannelMappingRequest) GetChannelId() string {
+	if x != nil {
+		return x.ChannelId
+	}
+	return ""
+}
+
+func (x *UpdateChannelMappingRequest) GetChannelName() string {
+	if x != nil {
+		return x.ChannelName
+	}
+	return ""
+}
+
+func (x *UpdateChannelMappingRequest) GetModules() []string {
+	if x != nil {
+		return x.Modules
+	}
+	return nil
+}
+
+func (x *UpdateChannelMappingRequest) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+type UpdateChannelMappingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Mapping       *ChannelMappingInfo    `protobuf:"bytes,1,opt,name=mapping,proto3" json:"mapping,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateChannelMappingResponse) Reset() {
+	*x = UpdateChannelMappingResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateChannelMappingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateChannelMappingResponse) ProtoMessage() {}
+
+func (x *UpdateChannelMappingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateChannelMappingResponse.ProtoReflect.Descriptor instead.
+func (*UpdateChannelMappingResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *UpdateChannelMappingResponse) GetMapping() *ChannelMappingInfo {
+	if x != nil {
+		return x.Mapping
+	}
+	return nil
+}
+
+type DeleteChannelMappingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteChannelMappingRequest) Reset() {
+	*x = DeleteChannelMappingRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteChannelMappingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteChannelMappingRequest) ProtoMessage() {}
+
+func (x *DeleteChannelMappingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteChannelMappingRequest.ProtoReflect.Descriptor instead.
+func (*DeleteChannelMappingRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *DeleteChannelMappingRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteChannelMappingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteChannelMappingResponse) Reset() {
+	*x = DeleteChannelMappingResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteChannelMappingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteChannelMappingResponse) ProtoMessage() {}
+
+func (x *DeleteChannelMappingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteChannelMappingResponse.ProtoReflect.Descriptor instead.
+func (*DeleteChannelMappingResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{52}
+}
+
+type LinkAccountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`                 // Raw token (hashed server-side for lookup)
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // KMU Hub user performing the link
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LinkAccountRequest) Reset() {
+	*x = LinkAccountRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LinkAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LinkAccountRequest) ProtoMessage() {}
+
+func (x *LinkAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LinkAccountRequest.ProtoReflect.Descriptor instead.
+func (*LinkAccountRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *LinkAccountRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *LinkAccountRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type LinkAccountResponse struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Platform            string                 `protobuf:"bytes,1,opt,name=platform,proto3" json:"platform,omitempty"`
+	ExternalDisplayName string                 `protobuf:"bytes,2,opt,name=external_display_name,json=externalDisplayName,proto3" json:"external_display_name,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *LinkAccountResponse) Reset() {
+	*x = LinkAccountResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LinkAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LinkAccountResponse) ProtoMessage() {}
+
+func (x *LinkAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LinkAccountResponse.ProtoReflect.Descriptor instead.
+func (*LinkAccountResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *LinkAccountResponse) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *LinkAccountResponse) GetExternalDisplayName() string {
+	if x != nil {
+		return x.ExternalDisplayName
+	}
+	return ""
+}
+
+type UnlinkAccountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Platform      string                 `protobuf:"bytes,1,opt,name=platform,proto3" json:"platform,omitempty"`
+	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnlinkAccountRequest) Reset() {
+	*x = UnlinkAccountRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnlinkAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnlinkAccountRequest) ProtoMessage() {}
+
+func (x *UnlinkAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnlinkAccountRequest.ProtoReflect.Descriptor instead.
+func (*UnlinkAccountRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *UnlinkAccountRequest) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *UnlinkAccountRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type UnlinkAccountResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnlinkAccountResponse) Reset() {
+	*x = UnlinkAccountResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnlinkAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnlinkAccountResponse) ProtoMessage() {}
+
+func (x *UnlinkAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnlinkAccountResponse.ProtoReflect.Descriptor instead.
+func (*UnlinkAccountResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{56}
+}
+
+type GetAccountLinkStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccountLinkStatusRequest) Reset() {
+	*x = GetAccountLinkStatusRequest{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccountLinkStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccountLinkStatusRequest) ProtoMessage() {}
+
+func (x *GetAccountLinkStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccountLinkStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetAccountLinkStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *GetAccountLinkStatusRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type AccountLinkInfo struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Platform            string                 `protobuf:"bytes,1,opt,name=platform,proto3" json:"platform,omitempty"`
+	ExternalDisplayName string                 `protobuf:"bytes,2,opt,name=external_display_name,json=externalDisplayName,proto3" json:"external_display_name,omitempty"`
+	LinkedAt            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=linked_at,json=linkedAt,proto3" json:"linked_at,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *AccountLinkInfo) Reset() {
+	*x = AccountLinkInfo{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccountLinkInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccountLinkInfo) ProtoMessage() {}
+
+func (x *AccountLinkInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccountLinkInfo.ProtoReflect.Descriptor instead.
+func (*AccountLinkInfo) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *AccountLinkInfo) GetPlatform() string {
+	if x != nil {
+		return x.Platform
+	}
+	return ""
+}
+
+func (x *AccountLinkInfo) GetExternalDisplayName() string {
+	if x != nil {
+		return x.ExternalDisplayName
+	}
+	return ""
+}
+
+func (x *AccountLinkInfo) GetLinkedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LinkedAt
+	}
+	return nil
+}
+
+type GetAccountLinkStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Links         []*AccountLinkInfo     `protobuf:"bytes,1,rep,name=links,proto3" json:"links,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccountLinkStatusResponse) Reset() {
+	*x = GetAccountLinkStatusResponse{}
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccountLinkStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccountLinkStatusResponse) ProtoMessage() {}
+
+func (x *GetAccountLinkStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_notification_v1_notification_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccountLinkStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetAccountLinkStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_notification_v1_notification_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *GetAccountLinkStatusResponse) GetLinks() []*AccountLinkInfo {
+	if x != nil {
+		return x.Links
+	}
+	return nil
+}
+
 var File_proto_notification_v1_notification_proto protoreflect.FileDescriptor
 
 const file_proto_notification_v1_notification_proto_rawDesc = "" +
@@ -2227,12 +3728,109 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"_module_id\"Y\n" +
 	"\x16ListEventTypesResponse\x12?\n" +
 	"\vevent_types\x18\x01 \x03(\v2\x1e.notification.v1.EventTypeInfoR\n" +
-	"eventTypes*`\n" +
+	"eventTypes\"\x91\x02\n" +
+	"\x15IntegrationConfigInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bplatform\x18\x02 \x01(\tR\bplatform\x12\x1b\n" +
+	"\tis_active\x18\x03 \x01(\bR\bisActive\x12\x1a\n" +
+	"\bmetadata\x18\x04 \x01(\tR\bmetadata\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x05 \x01(\tR\tcreatedBy\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x1f\n" +
+	"\x1dListIntegrationConfigsRequest\"b\n" +
+	"\x1eListIntegrationConfigsResponse\x12@\n" +
+	"\aconfigs\x18\x01 \x03(\v2&.notification.v1.IntegrationConfigInfoR\aconfigs\"9\n" +
+	"\x1bGetIntegrationConfigRequest\x12\x1a\n" +
+	"\bplatform\x18\x01 \x01(\tR\bplatform\"^\n" +
+	"\x1cGetIntegrationConfigResponse\x12>\n" +
+	"\x06config\x18\x01 \x01(\v2&.notification.v1.IntegrationConfigInfoR\x06config\"\xab\x01\n" +
+	"\x1eCreateIntegrationConfigRequest\x12\x1a\n" +
+	"\bplatform\x18\x01 \x01(\tR\bplatform\x122\n" +
+	"\x15credentials_vault_key\x18\x02 \x01(\tR\x13credentialsVaultKey\x12\x1a\n" +
+	"\bmetadata\x18\x03 \x01(\tR\bmetadata\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x04 \x01(\tR\tcreatedBy\"a\n" +
+	"\x1fCreateIntegrationConfigResponse\x12>\n" +
+	"\x06config\x18\x01 \x01(\v2&.notification.v1.IntegrationConfigInfoR\x06config\"\xbc\x01\n" +
+	"\x1eUpdateIntegrationConfigRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tis_active\x18\x02 \x01(\bR\bisActive\x127\n" +
+	"\x15credentials_vault_key\x18\x03 \x01(\tH\x00R\x13credentialsVaultKey\x88\x01\x01\x12\x1a\n" +
+	"\bmetadata\x18\x04 \x01(\tR\bmetadataB\x18\n" +
+	"\x16_credentials_vault_key\"a\n" +
+	"\x1fUpdateIntegrationConfigResponse\x12>\n" +
+	"\x06config\x18\x01 \x01(\v2&.notification.v1.IntegrationConfigInfoR\x06config\"0\n" +
+	"\x1eDeleteIntegrationConfigRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"!\n" +
+	"\x1fDeleteIntegrationConfigResponse\":\n" +
+	"\x1cTestIntegrationConfigRequest\x12\x1a\n" +
+	"\bplatform\x18\x01 \x01(\tR\bplatform\"u\n" +
+	"\x1dTestIntegrationConfigResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12(\n" +
+	"\rerror_message\x18\x02 \x01(\tH\x00R\ferrorMessage\x88\x01\x01B\x10\n" +
+	"\x0e_error_message\"\xb0\x02\n" +
+	"\x12ChannelMappingInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tconfig_id\x18\x02 \x01(\tR\bconfigId\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x03 \x01(\tR\tchannelId\x12!\n" +
+	"\fchannel_name\x18\x04 \x01(\tR\vchannelName\x12\x18\n" +
+	"\amodules\x18\x05 \x03(\tR\amodules\x12\x1b\n" +
+	"\tis_active\x18\x06 \x01(\bR\bisActive\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"9\n" +
+	"\x1aListChannelMappingsRequest\x12\x1b\n" +
+	"\tconfig_id\x18\x01 \x01(\tR\bconfigId\"^\n" +
+	"\x1bListChannelMappingsResponse\x12?\n" +
+	"\bmappings\x18\x01 \x03(\v2#.notification.v1.ChannelMappingInfoR\bmappings\"\x96\x01\n" +
+	"\x1bCreateChannelMappingRequest\x12\x1b\n" +
+	"\tconfig_id\x18\x01 \x01(\tR\bconfigId\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x02 \x01(\tR\tchannelId\x12!\n" +
+	"\fchannel_name\x18\x03 \x01(\tR\vchannelName\x12\x18\n" +
+	"\amodules\x18\x04 \x03(\tR\amodules\"]\n" +
+	"\x1cCreateChannelMappingResponse\x12=\n" +
+	"\amapping\x18\x01 \x01(\v2#.notification.v1.ChannelMappingInfoR\amapping\"\xa6\x01\n" +
+	"\x1bUpdateChannelMappingRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x02 \x01(\tR\tchannelId\x12!\n" +
+	"\fchannel_name\x18\x03 \x01(\tR\vchannelName\x12\x18\n" +
+	"\amodules\x18\x04 \x03(\tR\amodules\x12\x1b\n" +
+	"\tis_active\x18\x05 \x01(\bR\bisActive\"]\n" +
+	"\x1cUpdateChannelMappingResponse\x12=\n" +
+	"\amapping\x18\x01 \x01(\v2#.notification.v1.ChannelMappingInfoR\amapping\"-\n" +
+	"\x1bDeleteChannelMappingRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x1e\n" +
+	"\x1cDeleteChannelMappingResponse\"C\n" +
+	"\x12LinkAccountRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"e\n" +
+	"\x13LinkAccountResponse\x12\x1a\n" +
+	"\bplatform\x18\x01 \x01(\tR\bplatform\x122\n" +
+	"\x15external_display_name\x18\x02 \x01(\tR\x13externalDisplayName\"K\n" +
+	"\x14UnlinkAccountRequest\x12\x1a\n" +
+	"\bplatform\x18\x01 \x01(\tR\bplatform\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"\x17\n" +
+	"\x15UnlinkAccountResponse\"6\n" +
+	"\x1bGetAccountLinkStatusRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x9a\x01\n" +
+	"\x0fAccountLinkInfo\x12\x1a\n" +
+	"\bplatform\x18\x01 \x01(\tR\bplatform\x122\n" +
+	"\x15external_display_name\x18\x02 \x01(\tR\x13externalDisplayName\x127\n" +
+	"\tlinked_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\blinkedAt\"V\n" +
+	"\x1cGetAccountLinkStatusResponse\x126\n" +
+	"\x05links\x18\x01 \x03(\v2 .notification.v1.AccountLinkInfoR\x05links*`\n" +
 	"\bPriority\x12\x18\n" +
 	"\x14PRIORITY_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fPRIORITY_URGENT\x10\x01\x12\x13\n" +
 	"\x0fPRIORITY_NORMAL\x10\x02\x12\x10\n" +
-	"\fPRIORITY_LOW\x10\x032\xb1\v\n" +
+	"\fPRIORITY_LOW\x10\x032\x93\x17\n" +
 	"\x13NotificationService\x12j\n" +
 	"\x11ListNotifications\x12).notification.v1.ListNotificationsRequest\x1a*.notification.v1.ListNotificationsResponse\x12a\n" +
 	"\x0eGetUnreadCount\x12&.notification.v1.GetUnreadCountRequest\x1a'.notification.v1.GetUnreadCountResponse\x12s\n" +
@@ -2246,7 +3844,20 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\rGetQuietHours\x12%.notification.v1.GetQuietHoursRequest\x1a&.notification.v1.GetQuietHoursResponse\x12g\n" +
 	"\x10UpdateQuietHours\x12(.notification.v1.UpdateQuietHoursRequest\x1a).notification.v1.UpdateQuietHoursResponse\x12d\n" +
 	"\x0fToggleManualDND\x12'.notification.v1.ToggleManualDNDRequest\x1a(.notification.v1.ToggleManualDNDResponse\x12a\n" +
-	"\x0eListEventTypes\x12&.notification.v1.ListEventTypesRequest\x1a'.notification.v1.ListEventTypesResponseB?Z=github.com/kmuhub/kmuhub/proto/notification/v1;notificationv1b\x06proto3"
+	"\x0eListEventTypes\x12&.notification.v1.ListEventTypesRequest\x1a'.notification.v1.ListEventTypesResponse\x12y\n" +
+	"\x16ListIntegrationConfigs\x12..notification.v1.ListIntegrationConfigsRequest\x1a/.notification.v1.ListIntegrationConfigsResponse\x12s\n" +
+	"\x14GetIntegrationConfig\x12,.notification.v1.GetIntegrationConfigRequest\x1a-.notification.v1.GetIntegrationConfigResponse\x12|\n" +
+	"\x17CreateIntegrationConfig\x12/.notification.v1.CreateIntegrationConfigRequest\x1a0.notification.v1.CreateIntegrationConfigResponse\x12|\n" +
+	"\x17UpdateIntegrationConfig\x12/.notification.v1.UpdateIntegrationConfigRequest\x1a0.notification.v1.UpdateIntegrationConfigResponse\x12|\n" +
+	"\x17DeleteIntegrationConfig\x12/.notification.v1.DeleteIntegrationConfigRequest\x1a0.notification.v1.DeleteIntegrationConfigResponse\x12v\n" +
+	"\x15TestIntegrationConfig\x12-.notification.v1.TestIntegrationConfigRequest\x1a..notification.v1.TestIntegrationConfigResponse\x12p\n" +
+	"\x13ListChannelMappings\x12+.notification.v1.ListChannelMappingsRequest\x1a,.notification.v1.ListChannelMappingsResponse\x12s\n" +
+	"\x14CreateChannelMapping\x12,.notification.v1.CreateChannelMappingRequest\x1a-.notification.v1.CreateChannelMappingResponse\x12s\n" +
+	"\x14UpdateChannelMapping\x12,.notification.v1.UpdateChannelMappingRequest\x1a-.notification.v1.UpdateChannelMappingResponse\x12s\n" +
+	"\x14DeleteChannelMapping\x12,.notification.v1.DeleteChannelMappingRequest\x1a-.notification.v1.DeleteChannelMappingResponse\x12X\n" +
+	"\vLinkAccount\x12#.notification.v1.LinkAccountRequest\x1a$.notification.v1.LinkAccountResponse\x12^\n" +
+	"\rUnlinkAccount\x12%.notification.v1.UnlinkAccountRequest\x1a&.notification.v1.UnlinkAccountResponse\x12s\n" +
+	"\x14GetAccountLinkStatus\x12,.notification.v1.GetAccountLinkStatusRequest\x1a-.notification.v1.GetAccountLinkStatusResponseB?Z=github.com/kmuhub/kmuhub/proto/notification/v1;notificationv1b\x06proto3"
 
 var (
 	file_proto_notification_v1_notification_proto_rawDescOnce sync.Once
@@ -2261,7 +3872,7 @@ func file_proto_notification_v1_notification_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_notification_v1_notification_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_notification_v1_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
+var file_proto_notification_v1_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 60)
 var file_proto_notification_v1_notification_proto_goTypes = []any{
 	(Priority)(0),                                // 0: notification.v1.Priority
 	(*NotificationInfo)(nil),                     // 1: notification.v1.NotificationInfo
@@ -2295,63 +3906,131 @@ var file_proto_notification_v1_notification_proto_goTypes = []any{
 	(*EventTypeInfo)(nil),                        // 29: notification.v1.EventTypeInfo
 	(*ListEventTypesRequest)(nil),                // 30: notification.v1.ListEventTypesRequest
 	(*ListEventTypesResponse)(nil),               // 31: notification.v1.ListEventTypesResponse
-	(*timestamppb.Timestamp)(nil),                // 32: google.protobuf.Timestamp
+	(*IntegrationConfigInfo)(nil),                // 32: notification.v1.IntegrationConfigInfo
+	(*ListIntegrationConfigsRequest)(nil),        // 33: notification.v1.ListIntegrationConfigsRequest
+	(*ListIntegrationConfigsResponse)(nil),       // 34: notification.v1.ListIntegrationConfigsResponse
+	(*GetIntegrationConfigRequest)(nil),          // 35: notification.v1.GetIntegrationConfigRequest
+	(*GetIntegrationConfigResponse)(nil),         // 36: notification.v1.GetIntegrationConfigResponse
+	(*CreateIntegrationConfigRequest)(nil),       // 37: notification.v1.CreateIntegrationConfigRequest
+	(*CreateIntegrationConfigResponse)(nil),      // 38: notification.v1.CreateIntegrationConfigResponse
+	(*UpdateIntegrationConfigRequest)(nil),       // 39: notification.v1.UpdateIntegrationConfigRequest
+	(*UpdateIntegrationConfigResponse)(nil),      // 40: notification.v1.UpdateIntegrationConfigResponse
+	(*DeleteIntegrationConfigRequest)(nil),       // 41: notification.v1.DeleteIntegrationConfigRequest
+	(*DeleteIntegrationConfigResponse)(nil),      // 42: notification.v1.DeleteIntegrationConfigResponse
+	(*TestIntegrationConfigRequest)(nil),         // 43: notification.v1.TestIntegrationConfigRequest
+	(*TestIntegrationConfigResponse)(nil),        // 44: notification.v1.TestIntegrationConfigResponse
+	(*ChannelMappingInfo)(nil),                   // 45: notification.v1.ChannelMappingInfo
+	(*ListChannelMappingsRequest)(nil),           // 46: notification.v1.ListChannelMappingsRequest
+	(*ListChannelMappingsResponse)(nil),          // 47: notification.v1.ListChannelMappingsResponse
+	(*CreateChannelMappingRequest)(nil),          // 48: notification.v1.CreateChannelMappingRequest
+	(*CreateChannelMappingResponse)(nil),         // 49: notification.v1.CreateChannelMappingResponse
+	(*UpdateChannelMappingRequest)(nil),          // 50: notification.v1.UpdateChannelMappingRequest
+	(*UpdateChannelMappingResponse)(nil),         // 51: notification.v1.UpdateChannelMappingResponse
+	(*DeleteChannelMappingRequest)(nil),          // 52: notification.v1.DeleteChannelMappingRequest
+	(*DeleteChannelMappingResponse)(nil),         // 53: notification.v1.DeleteChannelMappingResponse
+	(*LinkAccountRequest)(nil),                   // 54: notification.v1.LinkAccountRequest
+	(*LinkAccountResponse)(nil),                  // 55: notification.v1.LinkAccountResponse
+	(*UnlinkAccountRequest)(nil),                 // 56: notification.v1.UnlinkAccountRequest
+	(*UnlinkAccountResponse)(nil),                // 57: notification.v1.UnlinkAccountResponse
+	(*GetAccountLinkStatusRequest)(nil),          // 58: notification.v1.GetAccountLinkStatusRequest
+	(*AccountLinkInfo)(nil),                      // 59: notification.v1.AccountLinkInfo
+	(*GetAccountLinkStatusResponse)(nil),         // 60: notification.v1.GetAccountLinkStatusResponse
+	(*timestamppb.Timestamp)(nil),                // 61: google.protobuf.Timestamp
 }
 var file_proto_notification_v1_notification_proto_depIdxs = []int32{
 	0,  // 0: notification.v1.NotificationInfo.priority:type_name -> notification.v1.Priority
-	32, // 1: notification.v1.NotificationInfo.read_at:type_name -> google.protobuf.Timestamp
-	32, // 2: notification.v1.NotificationInfo.created_at:type_name -> google.protobuf.Timestamp
+	61, // 1: notification.v1.NotificationInfo.read_at:type_name -> google.protobuf.Timestamp
+	61, // 2: notification.v1.NotificationInfo.created_at:type_name -> google.protobuf.Timestamp
 	1,  // 3: notification.v1.ListNotificationsResponse.notifications:type_name -> notification.v1.NotificationInfo
 	1,  // 4: notification.v1.MarkNotificationReadResponse.notification:type_name -> notification.v1.NotificationInfo
-	32, // 5: notification.v1.NotificationPreferenceInfo.created_at:type_name -> google.protobuf.Timestamp
-	32, // 6: notification.v1.NotificationPreferenceInfo.updated_at:type_name -> google.protobuf.Timestamp
+	61, // 5: notification.v1.NotificationPreferenceInfo.created_at:type_name -> google.protobuf.Timestamp
+	61, // 6: notification.v1.NotificationPreferenceInfo.updated_at:type_name -> google.protobuf.Timestamp
 	10, // 7: notification.v1.GetNotificationPreferencesResponse.preferences:type_name -> notification.v1.NotificationPreferenceInfo
 	10, // 8: notification.v1.UpdateNotificationPreferenceResponse.preference:type_name -> notification.v1.NotificationPreferenceInfo
-	32, // 9: notification.v1.MuteInfo.created_at:type_name -> google.protobuf.Timestamp
+	61, // 9: notification.v1.MuteInfo.created_at:type_name -> google.protobuf.Timestamp
 	15, // 10: notification.v1.MuteResourceResponse.mute:type_name -> notification.v1.MuteInfo
 	15, // 11: notification.v1.ListMutedResourcesResponse.mutes:type_name -> notification.v1.MuteInfo
-	32, // 12: notification.v1.QuietHoursInfo.manual_dnd_until:type_name -> google.protobuf.Timestamp
-	32, // 13: notification.v1.QuietHoursInfo.created_at:type_name -> google.protobuf.Timestamp
-	32, // 14: notification.v1.QuietHoursInfo.updated_at:type_name -> google.protobuf.Timestamp
+	61, // 12: notification.v1.QuietHoursInfo.manual_dnd_until:type_name -> google.protobuf.Timestamp
+	61, // 13: notification.v1.QuietHoursInfo.created_at:type_name -> google.protobuf.Timestamp
+	61, // 14: notification.v1.QuietHoursInfo.updated_at:type_name -> google.protobuf.Timestamp
 	22, // 15: notification.v1.GetQuietHoursResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
 	22, // 16: notification.v1.UpdateQuietHoursResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
-	32, // 17: notification.v1.ToggleManualDNDRequest.until:type_name -> google.protobuf.Timestamp
+	61, // 17: notification.v1.ToggleManualDNDRequest.until:type_name -> google.protobuf.Timestamp
 	22, // 18: notification.v1.ToggleManualDNDResponse.quiet_hours:type_name -> notification.v1.QuietHoursInfo
 	0,  // 19: notification.v1.EventTypeInfo.default_priority:type_name -> notification.v1.Priority
-	32, // 20: notification.v1.EventTypeInfo.created_at:type_name -> google.protobuf.Timestamp
-	32, // 21: notification.v1.EventTypeInfo.updated_at:type_name -> google.protobuf.Timestamp
+	61, // 20: notification.v1.EventTypeInfo.created_at:type_name -> google.protobuf.Timestamp
+	61, // 21: notification.v1.EventTypeInfo.updated_at:type_name -> google.protobuf.Timestamp
 	29, // 22: notification.v1.ListEventTypesResponse.event_types:type_name -> notification.v1.EventTypeInfo
-	2,  // 23: notification.v1.NotificationService.ListNotifications:input_type -> notification.v1.ListNotificationsRequest
-	4,  // 24: notification.v1.NotificationService.GetUnreadCount:input_type -> notification.v1.GetUnreadCountRequest
-	6,  // 25: notification.v1.NotificationService.MarkNotificationRead:input_type -> notification.v1.MarkNotificationReadRequest
-	8,  // 26: notification.v1.NotificationService.MarkAllNotificationsRead:input_type -> notification.v1.MarkAllNotificationsReadRequest
-	11, // 27: notification.v1.NotificationService.GetNotificationPreferences:input_type -> notification.v1.GetNotificationPreferencesRequest
-	13, // 28: notification.v1.NotificationService.UpdateNotificationPreference:input_type -> notification.v1.UpdateNotificationPreferenceRequest
-	16, // 29: notification.v1.NotificationService.MuteResource:input_type -> notification.v1.MuteResourceRequest
-	18, // 30: notification.v1.NotificationService.UnmuteResource:input_type -> notification.v1.UnmuteResourceRequest
-	20, // 31: notification.v1.NotificationService.ListMutedResources:input_type -> notification.v1.ListMutedResourcesRequest
-	23, // 32: notification.v1.NotificationService.GetQuietHours:input_type -> notification.v1.GetQuietHoursRequest
-	25, // 33: notification.v1.NotificationService.UpdateQuietHours:input_type -> notification.v1.UpdateQuietHoursRequest
-	27, // 34: notification.v1.NotificationService.ToggleManualDND:input_type -> notification.v1.ToggleManualDNDRequest
-	30, // 35: notification.v1.NotificationService.ListEventTypes:input_type -> notification.v1.ListEventTypesRequest
-	3,  // 36: notification.v1.NotificationService.ListNotifications:output_type -> notification.v1.ListNotificationsResponse
-	5,  // 37: notification.v1.NotificationService.GetUnreadCount:output_type -> notification.v1.GetUnreadCountResponse
-	7,  // 38: notification.v1.NotificationService.MarkNotificationRead:output_type -> notification.v1.MarkNotificationReadResponse
-	9,  // 39: notification.v1.NotificationService.MarkAllNotificationsRead:output_type -> notification.v1.MarkAllNotificationsReadResponse
-	12, // 40: notification.v1.NotificationService.GetNotificationPreferences:output_type -> notification.v1.GetNotificationPreferencesResponse
-	14, // 41: notification.v1.NotificationService.UpdateNotificationPreference:output_type -> notification.v1.UpdateNotificationPreferenceResponse
-	17, // 42: notification.v1.NotificationService.MuteResource:output_type -> notification.v1.MuteResourceResponse
-	19, // 43: notification.v1.NotificationService.UnmuteResource:output_type -> notification.v1.UnmuteResourceResponse
-	21, // 44: notification.v1.NotificationService.ListMutedResources:output_type -> notification.v1.ListMutedResourcesResponse
-	24, // 45: notification.v1.NotificationService.GetQuietHours:output_type -> notification.v1.GetQuietHoursResponse
-	26, // 46: notification.v1.NotificationService.UpdateQuietHours:output_type -> notification.v1.UpdateQuietHoursResponse
-	28, // 47: notification.v1.NotificationService.ToggleManualDND:output_type -> notification.v1.ToggleManualDNDResponse
-	31, // 48: notification.v1.NotificationService.ListEventTypes:output_type -> notification.v1.ListEventTypesResponse
-	36, // [36:49] is the sub-list for method output_type
-	23, // [23:36] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	61, // 23: notification.v1.IntegrationConfigInfo.created_at:type_name -> google.protobuf.Timestamp
+	61, // 24: notification.v1.IntegrationConfigInfo.updated_at:type_name -> google.protobuf.Timestamp
+	32, // 25: notification.v1.ListIntegrationConfigsResponse.configs:type_name -> notification.v1.IntegrationConfigInfo
+	32, // 26: notification.v1.GetIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
+	32, // 27: notification.v1.CreateIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
+	32, // 28: notification.v1.UpdateIntegrationConfigResponse.config:type_name -> notification.v1.IntegrationConfigInfo
+	61, // 29: notification.v1.ChannelMappingInfo.created_at:type_name -> google.protobuf.Timestamp
+	61, // 30: notification.v1.ChannelMappingInfo.updated_at:type_name -> google.protobuf.Timestamp
+	45, // 31: notification.v1.ListChannelMappingsResponse.mappings:type_name -> notification.v1.ChannelMappingInfo
+	45, // 32: notification.v1.CreateChannelMappingResponse.mapping:type_name -> notification.v1.ChannelMappingInfo
+	45, // 33: notification.v1.UpdateChannelMappingResponse.mapping:type_name -> notification.v1.ChannelMappingInfo
+	61, // 34: notification.v1.AccountLinkInfo.linked_at:type_name -> google.protobuf.Timestamp
+	59, // 35: notification.v1.GetAccountLinkStatusResponse.links:type_name -> notification.v1.AccountLinkInfo
+	2,  // 36: notification.v1.NotificationService.ListNotifications:input_type -> notification.v1.ListNotificationsRequest
+	4,  // 37: notification.v1.NotificationService.GetUnreadCount:input_type -> notification.v1.GetUnreadCountRequest
+	6,  // 38: notification.v1.NotificationService.MarkNotificationRead:input_type -> notification.v1.MarkNotificationReadRequest
+	8,  // 39: notification.v1.NotificationService.MarkAllNotificationsRead:input_type -> notification.v1.MarkAllNotificationsReadRequest
+	11, // 40: notification.v1.NotificationService.GetNotificationPreferences:input_type -> notification.v1.GetNotificationPreferencesRequest
+	13, // 41: notification.v1.NotificationService.UpdateNotificationPreference:input_type -> notification.v1.UpdateNotificationPreferenceRequest
+	16, // 42: notification.v1.NotificationService.MuteResource:input_type -> notification.v1.MuteResourceRequest
+	18, // 43: notification.v1.NotificationService.UnmuteResource:input_type -> notification.v1.UnmuteResourceRequest
+	20, // 44: notification.v1.NotificationService.ListMutedResources:input_type -> notification.v1.ListMutedResourcesRequest
+	23, // 45: notification.v1.NotificationService.GetQuietHours:input_type -> notification.v1.GetQuietHoursRequest
+	25, // 46: notification.v1.NotificationService.UpdateQuietHours:input_type -> notification.v1.UpdateQuietHoursRequest
+	27, // 47: notification.v1.NotificationService.ToggleManualDND:input_type -> notification.v1.ToggleManualDNDRequest
+	30, // 48: notification.v1.NotificationService.ListEventTypes:input_type -> notification.v1.ListEventTypesRequest
+	33, // 49: notification.v1.NotificationService.ListIntegrationConfigs:input_type -> notification.v1.ListIntegrationConfigsRequest
+	35, // 50: notification.v1.NotificationService.GetIntegrationConfig:input_type -> notification.v1.GetIntegrationConfigRequest
+	37, // 51: notification.v1.NotificationService.CreateIntegrationConfig:input_type -> notification.v1.CreateIntegrationConfigRequest
+	39, // 52: notification.v1.NotificationService.UpdateIntegrationConfig:input_type -> notification.v1.UpdateIntegrationConfigRequest
+	41, // 53: notification.v1.NotificationService.DeleteIntegrationConfig:input_type -> notification.v1.DeleteIntegrationConfigRequest
+	43, // 54: notification.v1.NotificationService.TestIntegrationConfig:input_type -> notification.v1.TestIntegrationConfigRequest
+	46, // 55: notification.v1.NotificationService.ListChannelMappings:input_type -> notification.v1.ListChannelMappingsRequest
+	48, // 56: notification.v1.NotificationService.CreateChannelMapping:input_type -> notification.v1.CreateChannelMappingRequest
+	50, // 57: notification.v1.NotificationService.UpdateChannelMapping:input_type -> notification.v1.UpdateChannelMappingRequest
+	52, // 58: notification.v1.NotificationService.DeleteChannelMapping:input_type -> notification.v1.DeleteChannelMappingRequest
+	54, // 59: notification.v1.NotificationService.LinkAccount:input_type -> notification.v1.LinkAccountRequest
+	56, // 60: notification.v1.NotificationService.UnlinkAccount:input_type -> notification.v1.UnlinkAccountRequest
+	58, // 61: notification.v1.NotificationService.GetAccountLinkStatus:input_type -> notification.v1.GetAccountLinkStatusRequest
+	3,  // 62: notification.v1.NotificationService.ListNotifications:output_type -> notification.v1.ListNotificationsResponse
+	5,  // 63: notification.v1.NotificationService.GetUnreadCount:output_type -> notification.v1.GetUnreadCountResponse
+	7,  // 64: notification.v1.NotificationService.MarkNotificationRead:output_type -> notification.v1.MarkNotificationReadResponse
+	9,  // 65: notification.v1.NotificationService.MarkAllNotificationsRead:output_type -> notification.v1.MarkAllNotificationsReadResponse
+	12, // 66: notification.v1.NotificationService.GetNotificationPreferences:output_type -> notification.v1.GetNotificationPreferencesResponse
+	14, // 67: notification.v1.NotificationService.UpdateNotificationPreference:output_type -> notification.v1.UpdateNotificationPreferenceResponse
+	17, // 68: notification.v1.NotificationService.MuteResource:output_type -> notification.v1.MuteResourceResponse
+	19, // 69: notification.v1.NotificationService.UnmuteResource:output_type -> notification.v1.UnmuteResourceResponse
+	21, // 70: notification.v1.NotificationService.ListMutedResources:output_type -> notification.v1.ListMutedResourcesResponse
+	24, // 71: notification.v1.NotificationService.GetQuietHours:output_type -> notification.v1.GetQuietHoursResponse
+	26, // 72: notification.v1.NotificationService.UpdateQuietHours:output_type -> notification.v1.UpdateQuietHoursResponse
+	28, // 73: notification.v1.NotificationService.ToggleManualDND:output_type -> notification.v1.ToggleManualDNDResponse
+	31, // 74: notification.v1.NotificationService.ListEventTypes:output_type -> notification.v1.ListEventTypesResponse
+	34, // 75: notification.v1.NotificationService.ListIntegrationConfigs:output_type -> notification.v1.ListIntegrationConfigsResponse
+	36, // 76: notification.v1.NotificationService.GetIntegrationConfig:output_type -> notification.v1.GetIntegrationConfigResponse
+	38, // 77: notification.v1.NotificationService.CreateIntegrationConfig:output_type -> notification.v1.CreateIntegrationConfigResponse
+	40, // 78: notification.v1.NotificationService.UpdateIntegrationConfig:output_type -> notification.v1.UpdateIntegrationConfigResponse
+	42, // 79: notification.v1.NotificationService.DeleteIntegrationConfig:output_type -> notification.v1.DeleteIntegrationConfigResponse
+	44, // 80: notification.v1.NotificationService.TestIntegrationConfig:output_type -> notification.v1.TestIntegrationConfigResponse
+	47, // 81: notification.v1.NotificationService.ListChannelMappings:output_type -> notification.v1.ListChannelMappingsResponse
+	49, // 82: notification.v1.NotificationService.CreateChannelMapping:output_type -> notification.v1.CreateChannelMappingResponse
+	51, // 83: notification.v1.NotificationService.UpdateChannelMapping:output_type -> notification.v1.UpdateChannelMappingResponse
+	53, // 84: notification.v1.NotificationService.DeleteChannelMapping:output_type -> notification.v1.DeleteChannelMappingResponse
+	55, // 85: notification.v1.NotificationService.LinkAccount:output_type -> notification.v1.LinkAccountResponse
+	57, // 86: notification.v1.NotificationService.UnlinkAccount:output_type -> notification.v1.UnlinkAccountResponse
+	60, // 87: notification.v1.NotificationService.GetAccountLinkStatus:output_type -> notification.v1.GetAccountLinkStatusResponse
+	62, // [62:88] is the sub-list for method output_type
+	36, // [36:62] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_proto_notification_v1_notification_proto_init() }
@@ -2370,13 +4049,15 @@ func file_proto_notification_v1_notification_proto_init() {
 	file_proto_notification_v1_notification_proto_msgTypes[26].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[28].OneofWrappers = []any{}
 	file_proto_notification_v1_notification_proto_msgTypes[29].OneofWrappers = []any{}
+	file_proto_notification_v1_notification_proto_msgTypes[38].OneofWrappers = []any{}
+	file_proto_notification_v1_notification_proto_msgTypes[43].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_notification_v1_notification_proto_rawDesc), len(file_proto_notification_v1_notification_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   31,
+			NumMessages:   60,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
