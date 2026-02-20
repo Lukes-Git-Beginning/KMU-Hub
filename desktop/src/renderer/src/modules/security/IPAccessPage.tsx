@@ -7,22 +7,9 @@
  */
 import { useState, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Plus, Trash2, Shield, Info } from 'lucide-react'
-import { FormattedMessage, FormattedDate } from 'react-intl'
+import { Globe, Plus, Trash2, Info, X } from 'lucide-react'
+import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -34,6 +21,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useIPRules, useCreateIPRule, useDeleteIPRule } from '@/api/hooks/useSecurity'
 
 export default function IPAccessPage() {
+  const intl = useIntl()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -50,6 +38,9 @@ export default function IPAccessPage() {
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
+  const allowCount = rules?.filter((r) => r.rule_type === 'allow').length ?? 0
+  const blockCount = rules?.filter((r) => r.rule_type === 'block').length ?? 0
+
   const handleAdd = useCallback(() => {
     if (!newCidr.trim()) return
     createRule.mutate(
@@ -60,183 +51,195 @@ export default function IPAccessPage() {
       },
       {
         onSuccess: () => {
-          toast.success(<FormattedMessage id="common.success" />)
+          toast.success(intl.formatMessage({ id: 'common.success' }))
           setShowAdd(false)
           setNewCidr('')
           setNewType('allow')
           setNewDescription('')
         },
-        onError: () => toast.error(<FormattedMessage id="common.error" />),
-      }
+        onError: () => toast.error(intl.formatMessage({ id: 'common.error' })),
+      },
     )
-  }, [newCidr, newType, newDescription, createRule])
+  }, [newCidr, newType, newDescription, createRule, intl])
 
   const handleDelete = useCallback(() => {
     if (!deleteId) return
     deleteRule.mutate(deleteId, {
       onSuccess: () => {
-        toast.success(<FormattedMessage id="common.success" />)
+        toast.success(intl.formatMessage({ id: 'common.success' }))
         setDeleteId(null)
       },
-      onError: () => toast.error(<FormattedMessage id="common.error" />),
+      onError: () => toast.error(intl.formatMessage({ id: 'common.error' })),
     })
-  }, [deleteId, deleteRule])
+  }, [deleteId, deleteRule, intl])
 
   if (!isAdmin) {
     return <Navigate to="/" replace />
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="mx-auto max-w-4xl px-6 py-6 space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="flex-1 overflow-y-auto p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-info-light">
+            <Globe className="h-6 w-6 text-info" />
+          </div>
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">
+            <h1 className="text-foreground">
               <FormattedMessage id="ipAccess.title" />
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              <FormattedMessage id="ipAccess.description" />
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="rounded-full bg-success-light px-2.5 py-0.5 text-xs font-medium text-success">
+                {allowCount} Allow
+              </span>
+              <span className="rounded-full bg-error-light px-2.5 py-0.5 text-xs font-medium text-error">
+                {blockCount} Block
+              </span>
+            </div>
           </div>
-          <Button onClick={() => setShowAdd(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            <FormattedMessage id="ipAccess.addRule" />
-          </Button>
         </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <FormattedMessage id="ipAccess.addRule" />
+        </button>
+      </div>
 
-        {/* Info Box */}
-        <div className="flex gap-3 rounded-lg bg-blue-50 p-4 dark:bg-blue-950/30">
-          <Info className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-          <p className="text-sm text-blue-800 dark:text-blue-300">
-            <FormattedMessage id="ipAccess.allowlistInfo" />
-          </p>
-        </div>
+      {/* Info Box */}
+      <div className="flex gap-3 rounded-lg bg-info-light p-4 mb-6">
+        <Info className="h-5 w-5 shrink-0 text-info mt-0.5" />
+        <p className="text-sm text-info">
+          <FormattedMessage id="ipAccess.allowlistInfo" />
+        </p>
+      </div>
 
-        {/* Rules Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Shield className="h-5 w-5" />
-              <FormattedMessage id="ipAccess.title" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">
-                <FormattedMessage id="common.loading" />
-              </p>
-            ) : !rules || rules.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">
+      {/* Rules Table */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden glass-surface">
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">
+              <FormattedMessage id="common.loading" />
+            </p>
+          ) : !rules || rules.length === 0 ? (
+            <div className="py-12 text-center">
+              <Globe className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">
                 <FormattedMessage id="ipAccess.noRules" />
               </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="ipAccess.cidr" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="ipAccess.type" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="ipAccess.description_field" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="ipAccess.createdAt" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="common.actions" />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {rules.map((rule) => (
-                      <tr key={rule.id} className="group">
-                        <td className="py-3 text-sm font-mono text-foreground">
-                          {rule.ip_cidr}
-                        </td>
-                        <td className="py-3">
-                          <Badge
-                            variant="secondary"
-                            className={
-                              rule.rule_type === 'allow'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }
-                          >
-                            <FormattedMessage
-                              id={
-                                rule.rule_type === 'allow'
-                                  ? 'ipAccess.type.allow'
-                                  : 'ipAccess.type.block'
-                              }
-                            />
-                          </Badge>
-                        </td>
-                        <td className="py-3 text-sm text-muted-foreground">
-                          {rule.description ?? '-'}
-                        </td>
-                        <td className="py-3 text-sm text-muted-foreground">
-                          {rule.created_at ? (
-                            <FormattedDate
-                              value={rule.created_at}
-                              year="numeric"
-                              month="short"
-                              day="numeric"
-                            />
-                          ) : (
-                            '-'
-                          )}
-                        </td>
-                        <td className="py-3">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => setDeleteId(rule.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="ipAccess.cidr" />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="ipAccess.type" />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="ipAccess.description_field" />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="ipAccess.createdAt" />
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="common.actions" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rules.map((rule) => (
+                  <tr
+                    key={rule.id}
+                    className="group border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
+                  >
+                    <td className="px-4 py-3 font-mono text-sm font-medium text-foreground">
+                      {rule.ip_cidr}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          rule.rule_type === 'allow'
+                            ? 'bg-success-light text-success'
+                            : 'bg-error-light text-error'
+                        }`}
+                      >
+                        <FormattedMessage
+                          id={rule.rule_type === 'allow' ? 'ipAccess.type.allow' : 'ipAccess.type.block'}
+                        />
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {rule.description ?? '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {rule.created_at ? (
+                        <FormattedDate
+                          value={rule.created_at}
+                          year="numeric"
+                          month="short"
+                          day="numeric"
+                        />
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setDeleteId(rule.id)}
+                        className="rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-error hover:bg-error-light transition-all"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
 
-        {/* Add Rule Dialog */}
-        <Dialog open={showAdd} onOpenChange={setShowAdd}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
+      {/* Add Rule Dialog */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setShowAdd(false)} />
+          <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-foreground">
                 <FormattedMessage id="ipAccess.addRule" />
-              </DialogTitle>
-              <DialogDescription>
-                <FormattedMessage id="ipAccess.description" />
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
+              </h2>
+              <button
+                onClick={() => setShowAdd(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label>
+                <label className="text-sm font-medium text-foreground">
                   <FormattedMessage id="ipAccess.cidr" />
-                </Label>
-                <Input
+                </label>
+                <input
                   value={newCidr}
                   onChange={(e) => setNewCidr(e.target.value)}
                   placeholder="192.168.1.0/24"
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground font-mono placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
+
               <div className="space-y-1.5">
-                <Label>
+                <label className="text-sm font-medium text-foreground">
                   <FormattedMessage id="ipAccess.type" />
-                </Label>
+                </label>
                 <Select value={newType} onValueChange={(v) => setNewType(v as 'allow' | 'block')}>
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-lg border-border bg-card text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -249,52 +252,68 @@ export default function IPAccessPage() {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-1.5">
-                <Label>
-                  <FormattedMessage id="ipAccess.description_field" /> (
-                  <FormattedMessage id="common.optional" />)
-                </Label>
-                <Input
+                <label className="text-sm font-medium text-foreground">
+                  <FormattedMessage id="ipAccess.description_field" />{' '}
+                  <span className="text-xs text-muted-foreground font-normal">
+                    (<FormattedMessage id="common.optional" />)
+                  </span>
+                </label>
+                <input
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   placeholder="Office network"
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAdd(false)}>
-                <FormattedMessage id="common.cancel" />
-              </Button>
-              <Button onClick={handleAdd} disabled={!newCidr.trim() || createRule.isPending}>
-                <FormattedMessage id="common.create" />
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={deleteId !== null} onOpenChange={(open) => { if (!open) setDeleteId(null) }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                <FormattedMessage id="ipAccess.deleteConfirm" />
-              </DialogTitle>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteId(null)}>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setShowAdd(false)}
+                className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
                 <FormattedMessage id="common.cancel" />
-              </Button>
-              <Button
-                variant="destructive"
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={!newCidr.trim() || createRule.isPending}
+                className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
+              >
+                <FormattedMessage id="common.create" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setDeleteId(null)} />
+          <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
+              <FormattedMessage id="ipAccess.deleteConfirm" />
+            </h2>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <FormattedMessage id="common.cancel" />
+              </button>
+              <button
                 onClick={handleDelete}
                 disabled={deleteRule.isPending}
+                className="rounded-lg bg-error px-4 py-2 text-sm text-white hover:bg-error/90 transition-colors disabled:opacity-50"
               >
                 <FormattedMessage id="common.delete" />
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -22,6 +22,7 @@ export const RESTRICTED_NAV_ITEMS: Record<string, RoleId[]> = {
   team:           ['admin', 'manager', 'hr'],
   finance:        ['admin'],
   infrastructure: ['admin', 'it_support'],
+  'security-admin': ['admin'],
   settings:       ['admin', 'it_support'],
 }
 

@@ -32,14 +32,8 @@ const NotificationCenter = lazy(() => import('@/modules/notifications/Notificati
 const DashboardSettings = lazy(() => import('@/modules/settings/DashboardSettings'))
 const SettingsPage = lazy(() => import('@/modules/settings/SettingsPage'))
 
-// Security admin pages (lazy-loaded, admin-only)
-const AuditLogPage = lazy(() => import('@/modules/security/AuditLogPage'))
-const SessionsPage = lazy(() => import('@/modules/security/SessionsPage'))
-const VaultPage = lazy(() => import('@/modules/security/VaultPage'))
-const PasswordPolicyPage = lazy(() => import('@/modules/security/PasswordPolicyPage'))
-const IPAccessPage = lazy(() => import('@/modules/security/IPAccessPage'))
-const GDPRExportPage = lazy(() => import('@/modules/security/GDPRExportPage'))
-const GDPRErasurePage = lazy(() => import('@/modules/security/GDPRErasurePage'))
+// Security admin hub (lazy-loaded, admin-only)
+const SecurityAdminPage = lazy(() => import('@/modules/security/SecurityAdminPage'))
 
 // New module pages from design integration (mock data, Zustand stores)
 const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
@@ -175,14 +169,8 @@ const router = createHashRouter([
       { path: 'settings/dashboard', element: lazyRoute(DashboardSettings) },
       { path: 'settings', element: lazyRoute(SettingsPage) },
 
-      // Admin security routes
-      { path: 'admin/security/audit', element: lazyRoute(AuditLogPage) },
-      { path: 'admin/security/sessions', element: lazyRoute(SessionsPage) },
-      { path: 'admin/security/vault', element: lazyRoute(VaultPage) },
-      { path: 'admin/security/password-policy', element: lazyRoute(PasswordPolicyPage) },
-      { path: 'admin/security/ip-access', element: lazyRoute(IPAccessPage) },
-      { path: 'admin/security/gdpr/exports', element: lazyRoute(GDPRExportPage) },
-      { path: 'admin/security/gdpr/erasure', element: lazyRoute(GDPRErasurePage) },
+      // Admin security hub
+      { path: 'admin/security', element: lazyRoute(SecurityAdminPage) },
 
       // New modules from design integration
       { path: 'kontakte', element: lazyRoute(KontaktePage) },

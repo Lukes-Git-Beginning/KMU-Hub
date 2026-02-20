@@ -32,7 +32,7 @@ export interface BusinessProfile {
 }
 
 /** Always-visible modules that every profile includes implicitly */
-export const ALWAYS_VISIBLE_MODULES = ['dashboard', 'settings', 'profil', 'notifications', 'contacts']
+export const ALWAYS_VISIBLE_MODULES = ['dashboard', 'settings', 'security-admin', 'profil', 'notifications', 'contacts']
 
 export const BUSINESS_PROFILES: BusinessProfile[] = [
   {

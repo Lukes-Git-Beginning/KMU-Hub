@@ -11,24 +11,11 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  Clock,
   Download,
-  Filter,
+  X,
 } from 'lucide-react'
-import { FormattedMessage, FormattedDate } from 'react-intl'
+import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
 import { useAuthStore } from '@/stores/auth'
 import { useGDPRExports, useApproveExport, useDenyExport } from '@/api/hooks/useSecurity'
 
@@ -42,14 +29,15 @@ const FILTER_OPTIONS: { key: StatusFilter; labelId: string }[] = [
 ]
 
 const STATUS_BADGE: Record<string, { className: string; labelId: string }> = {
-  pending: { className: 'bg-yellow-100 text-yellow-800', labelId: 'gdpr.exportPending' },
-  approved: { className: 'bg-blue-100 text-blue-800', labelId: 'gdpr.exportApproved' },
-  processing: { className: 'bg-blue-100 text-blue-800', labelId: 'gdpr.exportProcessing' },
-  ready: { className: 'bg-green-100 text-green-800', labelId: 'gdpr.exportReady' },
-  denied: { className: 'bg-red-100 text-red-800', labelId: 'gdpr.exportDenied' },
+  pending: { className: 'bg-warning-light text-warning', labelId: 'gdpr.exportPending' },
+  approved: { className: 'bg-info-light text-info', labelId: 'gdpr.exportApproved' },
+  processing: { className: 'bg-info-light text-info', labelId: 'gdpr.exportProcessing' },
+  ready: { className: 'bg-success-light text-success', labelId: 'gdpr.exportReady' },
+  denied: { className: 'bg-error-light text-error', labelId: 'gdpr.exportDenied' },
 }
 
 export default function GDPRExportPage() {
+  const intl = useIntl()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -61,19 +49,23 @@ export default function GDPRExportPage() {
   const [denyId, setDenyId] = useState<string | null>(null)
   const [denyReason, setDenyReason] = useState('')
 
-  const filteredExports = (exports ?? []).filter((exp) => {
+  const allExports = exports ?? []
+  const filteredExports = allExports.filter((exp) => {
     if (statusFilter === 'all') return true
     return exp.status === statusFilter
   })
 
+  const pendingCount = allExports.filter((e) => e.status === 'pending').length
+  const readyCount = allExports.filter((e) => e.status === 'ready').length
+
   const handleApprove = useCallback(
     (id: string) => {
       approveExport.mutate({ id }, {
-        onSuccess: () => toast.success(<FormattedMessage id="gdpr.exportApproved" />),
-        onError: () => toast.error(<FormattedMessage id="common.error" />),
+        onSuccess: () => toast.success(intl.formatMessage({ id: 'gdpr.exportApproved' })),
+        onError: () => toast.error(intl.formatMessage({ id: 'common.error' })),
       })
     },
-    [approveExport]
+    [approveExport, intl],
   )
 
   const handleDeny = useCallback(() => {
@@ -82,184 +74,218 @@ export default function GDPRExportPage() {
       { id: denyId, note: denyReason.trim() },
       {
         onSuccess: () => {
-          toast.success(<FormattedMessage id="gdpr.exportDenied" />)
+          toast.success(intl.formatMessage({ id: 'gdpr.exportDenied' }))
           setDenyId(null)
           setDenyReason('')
         },
-        onError: () => toast.error(<FormattedMessage id="common.error" />),
-      }
+        onError: () => toast.error(intl.formatMessage({ id: 'common.error' })),
+      },
     )
-  }, [denyId, denyReason, denyExport])
+  }, [denyId, denyReason, denyExport, intl])
 
   if (!isAdmin) {
     return <Navigate to="/" replace />
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="mx-auto max-w-4xl px-6 py-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            <FormattedMessage id="gdpr.admin.title" />
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            <FormattedMessage id="gdpr.admin.description" />
-          </p>
-        </div>
-
-        {/* Status Filter */}
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          {FILTER_OPTIONS.map((opt) => (
-            <Button
-              key={opt.key}
-              variant={statusFilter === opt.key ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setStatusFilter(opt.key)}
-            >
-              <FormattedMessage id={opt.labelId} />
-            </Button>
-          ))}
-        </div>
-
-        {/* Exports Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <FileText className="h-5 w-5" />
+    <div className="flex-1 overflow-y-auto p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success-light">
+            <FileText className="h-6 w-6 text-success" />
+          </div>
+          <div>
+            <h1 className="text-foreground">
               <FormattedMessage id="gdpr.admin.title" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              {pendingCount > 0 && (
+                <span className="rounded-full bg-warning-light px-2.5 py-0.5 text-xs font-medium text-warning">
+                  {pendingCount} Pending
+                </span>
+              )}
+              {readyCount > 0 && (
+                <span className="rounded-full bg-success-light px-2.5 py-0.5 text-xs font-medium text-success">
+                  {readyCount} Ready
+                </span>
+              )}
+              <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                {allExports.length} Total
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Filter Tabs */}
+      <div className="flex items-center gap-1 rounded-lg border border-border p-1 mb-6 w-fit">
+        {FILTER_OPTIONS.map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setStatusFilter(opt.key)}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              statusFilter === opt.key
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-secondary'
+            }`}
+          >
+            <FormattedMessage id={opt.labelId} />
+          </button>
+        ))}
+      </div>
+
+      {/* Exports Table */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden glass-surface">
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="py-12 text-center">
+              <p className="text-sm text-muted-foreground">
                 <FormattedMessage id="common.loading" />
               </p>
-            ) : filteredExports.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">
+            </div>
+          ) : filteredExports.length === 0 ? (
+            <div className="py-12 text-center">
+              <FileText className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground">
                 <FormattedMessage id="common.noResults" />
               </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="gdpr.admin.requestedBy" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="common.status" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="gdpr.admin.requestedAt" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="gdpr.admin.reviewedBy" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="common.actions" />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filteredExports.map((exp) => {
-                      const badge = STATUS_BADGE[exp.status] ?? STATUS_BADGE.pending
-                      return (
-                        <tr key={exp.id}>
-                          <td className="py-3 text-sm text-foreground">
-                            {exp.user_id}
-                          </td>
-                          <td className="py-3">
-                            <Badge variant="secondary" className={badge.className}>
-                              <FormattedMessage id={badge.labelId} />
-                            </Badge>
-                          </td>
-                          <td className="py-3 text-sm text-muted-foreground">
-                            <FormattedDate
-                              value={exp.requested_at}
-                              year="numeric"
-                              month="short"
-                              day="numeric"
-                            />
-                          </td>
-                          <td className="py-3 text-sm text-muted-foreground">
-                            {exp.reviewed_by ?? '-'}
-                          </td>
-                          <td className="py-3">
-                            {exp.status === 'pending' && (
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleApprove(exp.id)}
-                                  disabled={approveExport.isPending}
-                                >
-                                  <CheckCircle className="mr-1 h-3 w-3" />
-                                  <FormattedMessage id="gdpr.admin.approve" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-destructive"
-                                  onClick={() => setDenyId(exp.id)}
-                                >
-                                  <XCircle className="mr-1 h-3 w-3" />
-                                  <FormattedMessage id="gdpr.admin.deny" />
-                                </Button>
-                              </div>
-                            )}
-                            {exp.status === 'ready' && exp.download_token && (
-                              <Button variant="outline" size="sm" asChild>
-                                <a href={`/api/v1/gdpr/exports/${exp.id}/download?token=${exp.download_token}`} download>
-                                  <Download className="mr-1 h-3 w-3" />
-                                  <FormattedMessage id="gdpr.downloadExport" />
-                                </a>
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Deny Reason Dialog */}
-        <Dialog open={denyId !== null} onOpenChange={(open) => { if (!open) { setDenyId(null); setDenyReason('') } }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                <FormattedMessage id="gdpr.admin.deny" />
-              </DialogTitle>
-              <DialogDescription>
-                <FormattedMessage id="gdpr.admin.denyReason" />
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <Input
-                value={denyReason}
-                onChange={(e) => setDenyReason(e.target.value)}
-                placeholder="Reason for denial..."
-              />
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setDenyId(null); setDenyReason('') }}>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="gdpr.admin.requestedBy" />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="common.status" />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="gdpr.admin.requestedAt" />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="gdpr.admin.reviewedBy" />
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
+                    <FormattedMessage id="common.actions" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredExports.map((exp) => {
+                  const badge = STATUS_BADGE[exp.status] ?? STATUS_BADGE.pending
+                  return (
+                    <tr
+                      key={exp.id}
+                      className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-sm text-foreground">
+                        {exp.user_id}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>
+                          <FormattedMessage id={badge.labelId} />
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        <FormattedDate
+                          value={exp.requested_at}
+                          year="numeric"
+                          month="short"
+                          day="numeric"
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {exp.reviewed_by ?? '-'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {exp.status === 'pending' && (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleApprove(exp.id)}
+                              disabled={approveExport.isPending}
+                              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+                            >
+                              <CheckCircle className="h-3 w-3 text-success" />
+                              <FormattedMessage id="gdpr.admin.approve" />
+                            </button>
+                            <button
+                              onClick={() => setDenyId(exp.id)}
+                              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-error hover:bg-error-light transition-colors"
+                            >
+                              <XCircle className="h-3 w-3" />
+                              <FormattedMessage id="gdpr.admin.deny" />
+                            </button>
+                          </div>
+                        )}
+                        {exp.status === 'ready' && exp.download_token && (
+                          <a
+                            href={`/api/v1/gdpr/exports/${exp.id}/download?token=${exp.download_token}`}
+                            download
+                            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                          >
+                            <Download className="h-3 w-3" />
+                            <FormattedMessage id="gdpr.downloadExport" />
+                          </a>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Deny Reason Dialog */}
+      {denyId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => { setDenyId(null); setDenyReason('') }} />
+          <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-foreground">
+                <FormattedMessage id="gdpr.admin.deny" />
+              </h2>
+              <button
+                onClick={() => { setDenyId(null); setDenyReason('') }}
+                className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              <FormattedMessage id="gdpr.admin.denyReason" />
+            </p>
+
+            <input
+              value={denyReason}
+              onChange={(e) => setDenyReason(e.target.value)}
+              placeholder="Reason for denial..."
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              autoFocus
+            />
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => { setDenyId(null); setDenyReason('') }}
+                className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
                 <FormattedMessage id="common.cancel" />
-              </Button>
-              <Button
-                variant="destructive"
+              </button>
+              <button
                 onClick={handleDeny}
                 disabled={!denyReason.trim() || denyExport.isPending}
+                className="rounded-lg bg-error px-4 py-2 text-sm text-white hover:bg-error/90 transition-colors disabled:opacity-50"
               >
                 <FormattedMessage id="gdpr.admin.deny" />
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

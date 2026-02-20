@@ -19,11 +19,6 @@ import { SidebarBranding } from './SidebarBranding'
 import { SidebarNav } from './SidebarNav'
 import { SidebarUser } from './SidebarUser'
 import { NavLink } from 'react-router-dom'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 
 interface SidebarProps {
   collapsed: boolean
@@ -67,36 +62,27 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
       <SidebarNav items={mainItems} collapsed={collapsed} onItemClick={onMobileClose} />
 
       {/* Bottom: Settings + User */}
-      <div className="mt-auto border-t border-sidebar-border glass-elevated">
+      <div className="mt-auto border-t border-sidebar-border glass-elevated p-3 space-y-1">
         {bottomItems.map((item) => {
           const Icon = item.icon
           return (
-            <div key={item.id} className="p-3 pb-1">
-              <Tooltip delayDuration={collapsed ? 100 : 999999}>
-                <TooltipTrigger asChild>
-                  <NavLink
-                    to={item.to}
-                    onClick={onMobileClose}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                        isActive
-                          ? 'border-l-2 border-sidebar-active-border bg-sidebar-active text-sidebar-primary'
-                          : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                        collapsed && 'justify-center px-2',
-                        collapsed && isActive && 'border-l-0'
-                      )
-                    }
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
-                  </NavLink>
-                </TooltipTrigger>
-                {collapsed && (
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                )}
-              </Tooltip>
-            </div>
+            <NavLink
+              key={item.id}
+              to={item.to}
+              onClick={onMobileClose}
+              className={({ isActive }) =>
+                cn(
+                  'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-sidebar-active text-sidebar-primary'
+                    : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  collapsed && 'justify-center px-2'
+                )
+              }
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>{item.label}</span>}
+            </NavLink>
           )
         })}
 

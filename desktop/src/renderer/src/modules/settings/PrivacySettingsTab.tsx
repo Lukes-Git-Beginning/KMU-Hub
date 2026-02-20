@@ -172,7 +172,7 @@ export function PrivacySettingsTab() {
 
           {isAdmin && (
             <Link
-              to="/admin/security/gdpr/erasure"
+              to="/admin/security"
               className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
             >
               <FormattedMessage id="settings.privacy.adminErasureLink" />

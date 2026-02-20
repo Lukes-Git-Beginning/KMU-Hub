@@ -24,6 +24,7 @@ import {
   KeyRound,
   HardHat,
   Timer,
+  ShieldCheck,
 } from 'lucide-react'
 
 export interface NavBadge {
@@ -77,5 +78,6 @@ export const navItems: NavItemConfig[] = [
   { id: 'rapporte', to: '/rapporte', icon: HardHat, label: 'Rapporte', enabled: true, section: 'main' },
 
   // -- Bottom: Admin/IT only in sidebar --
+  { id: 'security-admin', to: '/admin/security', icon: ShieldCheck, label: 'Sicherheit', enabled: true, section: 'bottom' },
   { id: 'settings', to: '/settings', icon: Cog, label: 'Einstellungen', enabled: true, section: 'bottom' },
 ]

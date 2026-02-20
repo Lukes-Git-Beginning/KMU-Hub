@@ -8,14 +8,10 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Save, Info, TestTube } from 'lucide-react'
-import { FormattedMessage } from 'react-intl'
+import { KeyRound, Save, Info, TestTube } from 'lucide-react'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/auth'
 import { usePasswordPolicy, useUpdatePasswordPolicy, useValidatePassword } from '@/api/hooks/useSecurity'
 
@@ -23,16 +19,16 @@ import { usePasswordPolicy, useUpdatePasswordPolicy, useValidatePassword } from 
 function StrengthBar({ score }: { score: number }) {
   const level =
     score >= 80
-      ? { labelId: 'password.policy.strength.strong', color: 'bg-green-500', pct: 100 }
+      ? { labelId: 'password.policy.strength.strong', color: 'bg-success', pct: 100 }
       : score >= 60
-        ? { labelId: 'password.policy.strength.good', color: 'bg-blue-500', pct: 75 }
+        ? { labelId: 'password.policy.strength.good', color: 'bg-info', pct: 75 }
         : score >= 40
-          ? { labelId: 'password.policy.strength.fair', color: 'bg-yellow-500', pct: 50 }
-          : { labelId: 'password.policy.strength.weak', color: 'bg-red-500', pct: 25 }
+          ? { labelId: 'password.policy.strength.fair', color: 'bg-warning', pct: 50 }
+          : { labelId: 'password.policy.strength.weak', color: 'bg-error', pct: 25 }
 
   return (
     <div className="space-y-1">
-      <div className="h-2 w-full rounded-full bg-muted">
+      <div className="h-2 w-full rounded-full bg-secondary">
         <div
           className={`h-2 rounded-full transition-all duration-300 ${level.color}`}
           style={{ width: `${level.pct}%` }}
@@ -46,6 +42,7 @@ function StrengthBar({ score }: { score: number }) {
 }
 
 export default function PasswordPolicyPage() {
+  const intl = useIntl()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -93,21 +90,35 @@ export default function PasswordPolicyPage() {
         require_special: requireSpecial,
       } as Parameters<typeof updatePolicy.mutate>[0],
       {
-        onSuccess: () => toast.success(<FormattedMessage id="password.policy.saved" />),
-        onError: () => toast.error(<FormattedMessage id="common.error" />),
-      }
+        onSuccess: () => toast.success(intl.formatMessage({ id: 'password.policy.saved' })),
+        onError: () => toast.error(intl.formatMessage({ id: 'common.error' })),
+      },
     )
   }, [
-    minLength,
-    minEntropy,
-    maxAgeDays,
-    reuseCount,
-    requireUppercase,
-    requireLowercase,
-    requireDigit,
-    requireSpecial,
-    updatePolicy,
+    minLength, minEntropy, maxAgeDays, reuseCount,
+    requireUppercase, requireLowercase, requireDigit, requireSpecial,
+    updatePolicy, intl,
   ])
+
+  // Compute policy strength indicator
+  const policyStrength = (() => {
+    let score = 0
+    if (minLength >= 12) score += 25
+    else if (minLength >= 8) score += 10
+    if (minEntropy >= 50) score += 25
+    else if (minEntropy >= 30) score += 10
+    if (requireUppercase) score += 10
+    if (requireLowercase) score += 10
+    if (requireDigit) score += 10
+    if (requireSpecial) score += 10
+    if (reuseCount >= 5) score += 10
+    return score
+  })()
+
+  const strengthLabel =
+    policyStrength >= 80 ? { text: 'Strong', css: 'bg-success-light text-success' }
+      : policyStrength >= 50 ? { text: 'Moderate', css: 'bg-warning-light text-warning' }
+        : { text: 'Weak', css: 'bg-error-light text-error' }
 
   if (!isAdmin) {
     return <Navigate to="/" replace />
@@ -123,195 +134,192 @@ export default function PasswordPolicyPage() {
     )
   }
 
+  const switchRows: { labelId: string; checked: boolean; onChange: (v: boolean) => void }[] = [
+    { labelId: 'password.policy.requireUppercase', checked: requireUppercase, onChange: setRequireUppercase },
+    { labelId: 'password.policy.requireLowercase', checked: requireLowercase, onChange: setRequireLowercase },
+    { labelId: 'password.policy.requireDigit', checked: requireDigit, onChange: setRequireDigit },
+    { labelId: 'password.policy.requireSpecial', checked: requireSpecial, onChange: setRequireSpecial },
+  ]
+
   return (
-    <div className="h-full overflow-auto">
-      <div className="mx-auto max-w-3xl px-6 py-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            <FormattedMessage id="password.policy.title" />
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            <FormattedMessage id="password.policy.description" />
-          </p>
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="mx-auto max-w-3xl">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary-light">
+              <KeyRound className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-foreground">
+                <FormattedMessage id="password.policy.title" />
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${strengthLabel.css}`}>
+                  {strengthLabel.text}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={updatePolicy.isPending}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" />
+            <FormattedMessage id="common.save" />
+          </button>
         </div>
 
         {/* Core Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              <FormattedMessage id="password.policy.title" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Min Length */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>
-                  <FormattedMessage id="password.policy.minLength" />
-                </Label>
-                <Input
-                  type="number"
-                  min={8}
-                  max={128}
-                  value={minLength}
-                  onChange={(e) => setMinLength(Number(e.target.value))}
-                />
-                <p className="text-xs text-muted-foreground">
-                  <FormattedMessage
-                    id="password.policy.minLengthChars"
-                    values={{ count: minLength }}
-                  />
-                </p>
-              </div>
+        <div className="rounded-lg border border-border bg-card p-6 glass-surface mb-6">
+          <h3 className="text-base font-semibold text-foreground mb-5">
+            <FormattedMessage id="password.policy.title" />
+          </h3>
 
-              {/* Min Entropy */}
-              <div className="space-y-1.5">
-                <Label>
-                  <FormattedMessage id="password.policy.minEntropy" />
-                </Label>
-                <Input
-                  type="number"
-                  min={20}
-                  max={200}
-                  value={minEntropy}
-                  onChange={(e) => setMinEntropy(Number(e.target.value))}
-                />
-                <p className="text-xs text-muted-foreground">{minEntropy} bits</p>
-              </div>
-            </div>
-
-            {/* Max Age & Reuse */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>
-                  <FormattedMessage id="password.policy.maxAge" />
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={365}
-                  value={maxAgeDays}
-                  onChange={(e) => setMaxAgeDays(Number(e.target.value))}
-                  placeholder="0 = no expiry"
-                />
-                {maxAgeDays > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    <FormattedMessage
-                      id="password.policy.maxAgeDays"
-                      values={{ days: maxAgeDays }}
-                    />
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>
-                  <FormattedMessage id="password.policy.reuseCount" />
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={24}
-                  value={reuseCount}
-                  onChange={(e) => setReuseCount(Number(e.target.value))}
-                />
-                <p className="text-xs text-muted-foreground">
-                  <FormattedMessage
-                    id="password.policy.reuseCountPasswords"
-                    values={{ count: reuseCount }}
-                  />
-                </p>
-              </div>
-            </div>
-
-            {/* Complexity Toggles */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>
-                  <FormattedMessage id="password.policy.requireUppercase" />
-                </Label>
-                <Switch checked={requireUppercase} onCheckedChange={setRequireUppercase} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label>
-                  <FormattedMessage id="password.policy.requireLowercase" />
-                </Label>
-                <Switch checked={requireLowercase} onCheckedChange={setRequireLowercase} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label>
-                  <FormattedMessage id="password.policy.requireDigit" />
-                </Label>
-                <Switch checked={requireDigit} onCheckedChange={setRequireDigit} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label>
-                  <FormattedMessage id="password.policy.requireSpecial" />
-                </Label>
-                <Switch checked={requireSpecial} onCheckedChange={setRequireSpecial} />
-              </div>
-            </div>
-
-            {/* NIST Info Box */}
-            <div className="flex gap-3 rounded-lg bg-blue-50 p-4 dark:bg-blue-950/30">
-              <Info className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-              <p className="text-sm text-blue-800 dark:text-blue-300">
-                <FormattedMessage id="password.policy.entropyInfo" />
+          {/* Min Length & Entropy */}
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                <FormattedMessage id="password.policy.minLength" />
+              </label>
+              <input
+                type="number"
+                min={8}
+                max={128}
+                value={minLength}
+                onChange={(e) => setMinLength(Number(e.target.value))}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+              <p className="text-xs text-muted-foreground">
+                <FormattedMessage id="password.policy.minLengthChars" values={{ count: minLength }} />
               </p>
             </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                <FormattedMessage id="password.policy.minEntropy" />
+              </label>
+              <input
+                type="number"
+                min={20}
+                max={200}
+                value={minEntropy}
+                onChange={(e) => setMinEntropy(Number(e.target.value))}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+              <p className="text-xs text-muted-foreground">{minEntropy} bits</p>
+            </div>
+          </div>
 
-            {/* Save */}
-            <Button onClick={handleSave} disabled={updatePolicy.isPending}>
-              <Save className="mr-2 h-4 w-4" />
-              <FormattedMessage id="common.save" />
-            </Button>
-          </CardContent>
-        </Card>
+          {/* Max Age & Reuse */}
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                <FormattedMessage id="password.policy.maxAge" />
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={365}
+                value={maxAgeDays}
+                onChange={(e) => setMaxAgeDays(Number(e.target.value))}
+                placeholder="0 = no expiry"
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground tabular-nums placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+              {maxAgeDays > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  <FormattedMessage id="password.policy.maxAgeDays" values={{ days: maxAgeDays }} />
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                <FormattedMessage id="password.policy.reuseCount" />
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={24}
+                value={reuseCount}
+                onChange={(e) => setReuseCount(Number(e.target.value))}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+              <p className="text-xs text-muted-foreground">
+                <FormattedMessage id="password.policy.reuseCountPasswords" values={{ count: reuseCount }} />
+              </p>
+            </div>
+          </div>
+
+          {/* Complexity Toggles */}
+          <div className="mb-5">
+            {switchRows.map((row, i) => (
+              <div
+                key={row.labelId}
+                className={`flex items-center justify-between py-3 ${
+                  i < switchRows.length - 1 ? 'border-b border-border-muted' : ''
+                }`}
+              >
+                <label className="text-sm text-foreground">
+                  <FormattedMessage id={row.labelId} />
+                </label>
+                <Switch checked={row.checked} onCheckedChange={row.onChange} />
+              </div>
+            ))}
+          </div>
+
+          {/* NIST Info Box */}
+          <div className="flex gap-3 rounded-lg bg-info-light p-4">
+            <Info className="h-5 w-5 shrink-0 text-info mt-0.5" />
+            <p className="text-sm text-info">
+              <FormattedMessage id="password.policy.entropyInfo" />
+            </p>
+          </div>
+        </div>
 
         {/* Live Test */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <TestTube className="h-5 w-5" />
+        <div className="rounded-lg border border-border bg-card p-6 glass-surface">
+          <div className="flex items-center gap-2 mb-4">
+            <TestTube className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-semibold text-foreground">
               <FormattedMessage id="password.policy.testPassword" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                value={testPassword}
-                onChange={(e) => setTestPassword(e.target.value)}
-                placeholder="Enter a password to test..."
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                onClick={() => { if (testPassword) validatePw.mutate(testPassword) }}
-                disabled={!testPassword || validatePw.isPending}
-              >
-                <FormattedMessage id="password.policy.testPassword" />
-              </Button>
+            </h3>
+          </div>
+
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={testPassword}
+              onChange={(e) => setTestPassword(e.target.value)}
+              placeholder="Enter a password to test..."
+              className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+            <button
+              onClick={() => { if (testPassword) validatePw.mutate(testPassword) }}
+              disabled={!testPassword || validatePw.isPending}
+              className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+            >
+              <FormattedMessage id="password.policy.testPassword" />
+            </button>
+          </div>
+
+          {validatePw.data && (
+            <div className="space-y-2">
+              <StrengthBar score={validatePw.data.valid ? 80 : Math.max(10, 80 - validatePw.data.failures.length * 20)} />
+              {validatePw.data.failures && validatePw.data.failures.length > 0 && (
+                <ul className="text-xs text-error space-y-1">
+                  {validatePw.data.failures.map((err: string, i: number) => (
+                    <li key={i}>- {err}</li>
+                  ))}
+                </ul>
+              )}
+              {validatePw.data.valid && (
+                <p className="text-xs text-success font-medium">
+                  <FormattedMessage id="common.success" />
+                </p>
+              )}
             </div>
-            {validatePw.data && (
-              <div className="space-y-2">
-                <StrengthBar score={validatePw.data.valid ? 80 : Math.max(10, 80 - validatePw.data.failures.length * 20)} />
-                {validatePw.data.failures && validatePw.data.failures.length > 0 && (
-                  <ul className="text-xs text-destructive space-y-1">
-                    {validatePw.data.failures.map((err: string, i: number) => (
-                      <li key={i}>- {err}</li>
-                    ))}
-                  </ul>
-                )}
-                {validatePw.data.valid && (
-                  <p className="text-xs text-green-600">
-                    <FormattedMessage id="common.success" />
-                  </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
     </div>
   )
