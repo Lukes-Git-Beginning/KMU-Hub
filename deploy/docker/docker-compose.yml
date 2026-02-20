@@ -353,6 +353,38 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  automation:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.automation
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      AUTOMATION_GRPC_PORT: ":50059"
+      AUTOMATION_HEALTH_PORT: ":9099"
+      CRM_GRPC_ADDRESS: crm:50052
+      WORK_GRPC_ADDRESS: work:50055
+      EMAIL_GRPC_ADDRESS: email:50056
+      BIZ_GRPC_ADDRESS: biz:50058
+    ports:
+      - "50059:50059"
+      - "9099:9099"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9099/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
   onlyoffice:
     image: onlyoffice/documentserver:latest
     environment:
@@ -392,6 +424,8 @@ services:
         condition: service_started
       biz:
         condition: service_started
+      automation:
+        condition: service_started
       livekit:
         condition: service_healthy
       minio:
@@ -422,6 +456,8 @@ services:
       DOCUMENT_GRPC_PORT: ":50057"
       BIZ_GRPC_ADDRESS: biz:50058
       BIZ_GRPC_PORT: ":50058"
+      AUTOMATION_GRPC_ADDRESS: automation:50059
+      AUTOMATION_GRPC_PORT: ":50059"
       WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"

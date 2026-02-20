@@ -26,6 +26,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 	"github.com/kmuhub/kmuhub/internal/server"
+	automationv1 "github.com/kmuhub/kmuhub/proto/automation/v1"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 	calendarv1 "github.com/kmuhub/kmuhub/proto/calendar/v1"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
@@ -193,7 +194,7 @@ func main() {
 		},
 		condEvaluator,
 	)
-	_ = workflowService // Used by gRPC server in Task 3
+	// workflowService is used below by AutomationGRPCServer
 
 	// =========================================================================
 	// Template seeding
@@ -220,9 +221,8 @@ func main() {
 		),
 	)
 
-	// TODO: AutomationGRPCServer registered in Task 3
-	// automationGRPC := server.NewAutomationGRPCServer(workflowService)
-	// automationv1.RegisterAutomationServiceServer(grpcServer, automationGRPC)
+	automationGRPC := server.NewAutomationGRPCServer(workflowService)
+	automationv1.RegisterAutomationServiceServer(grpcServer, automationGRPC)
 
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)
 

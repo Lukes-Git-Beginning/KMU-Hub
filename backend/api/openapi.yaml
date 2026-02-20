@@ -107,6 +107,8 @@ tags:
     description: Team inbox management (create, update, delete, members, claim)
   - name: inbox-routing
     description: Inbox routing rules (create, update, delete, test)
+  - name: automations
+    description: Automation workflow management (CRUD, enable/disable, execution logs, templates, catalog, testing)
 
 paths:
   /health:
@@ -8731,6 +8733,424 @@ paths:
                 properties:
                   matches: { type: boolean }
 
+  # =========================================================================
+  # Automations
+  # =========================================================================
+
+  /api/v1/automations:
+    post:
+      summary: Create a new automation
+      tags: [automations]
+      operationId: createAutomation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAutomationRequest"
+      responses:
+        "201":
+          description: Automation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      summary: List automations
+      tags: [automations]
+      operationId: listAutomations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: owner_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: scope
+          in: query
+          schema: { type: string, enum: [personal, team, organization] }
+        - name: trigger_type
+          in: query
+          schema: { type: string }
+        - name: is_active
+          in: query
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of automations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Automation"
+                  total_count: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/automations/{id}:
+    get:
+      summary: Get automation by ID
+      tags: [automations]
+      operationId: getAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Automation details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update automation
+      tags: [automations]
+      operationId: updateAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAutomationRequest"
+      responses:
+        "200":
+          description: Automation updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete automation
+      tags: [automations]
+      operationId: deleteAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Automation deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/{id}/enable:
+    post:
+      summary: Enable automation
+      tags: [automations]
+      operationId: enableAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Automation enabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/{id}/disable:
+    post:
+      summary: Disable automation
+      tags: [automations]
+      operationId: disableAutomation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Automation disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/{id}/executions:
+    get:
+      summary: List execution logs for an automation
+      tags: [automations]
+      operationId: listAutomationExecutions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { type: string, enum: [running, completed, failed, skipped, aborted] }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AutomationExecution"
+                  total_count: { type: integer }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/executions/{executionId}:
+    get:
+      summary: Get a single execution log
+      tags: [automations]
+      operationId: getAutomationExecution
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Execution details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  execution:
+                    $ref: "#/components/schemas/AutomationExecution"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/triggers:
+    get:
+      summary: List all available trigger definitions
+      tags: [automations]
+      operationId: listTriggerDefinitions
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Trigger catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  triggers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TriggerDefinition"
+
+  /api/v1/automations/actions:
+    get:
+      summary: List all available action definitions
+      tags: [automations]
+      operationId: listActionDefinitions
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Action catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ActionDefinition"
+
+  /api/v1/automations/templates:
+    get:
+      summary: List automation templates
+      tags: [automations]
+      operationId: listAutomationTemplates
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: category
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AutomationTemplate"
+
+  /api/v1/automations/templates/{templateId}/create:
+    post:
+      summary: Create automation from template
+      tags: [automations]
+      operationId: createAutomationFromTemplate
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: Automation created from template
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  automation:
+                    $ref: "#/components/schemas/Automation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/automations/test-condition:
+    post:
+      summary: Test a condition against sample data
+      tags: [automations]
+      operationId: testAutomationCondition
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                condition: { type: object }
+                sample_env: { type: object }
+      responses:
+        "200":
+          description: Condition test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result: { type: boolean }
+
+  /api/v1/automations/dry-run:
+    post:
+      summary: Dry-run an automation without executing real actions
+      tags: [automations]
+      operationId: dryRunAutomation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [automation_id]
+              properties:
+                automation_id: { type: string, format: uuid }
+                sample_env: { type: object }
+      responses:
+        "200":
+          description: Dry-run result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  condition_result: { type: boolean }
+                  steps:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DryRunStep"
+
+  /api/v1/automations/stats:
+    get:
+      summary: Get automation statistics (admin only)
+      tags: [automations]
+      operationId: getAutomationStats
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Automation statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationStats"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -13290,6 +13710,127 @@ components:
         actions: { type: object }
         priority: { type: integer }
         is_active: { type: boolean }
+
+    # =======================================================================
+    # Automation schemas
+    # =======================================================================
+
+    Automation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        scope: { type: string, enum: [personal, team, organization] }
+        owner_id: { type: string, format: uuid }
+        trigger_type: { type: string }
+        trigger_config: { type: object }
+        conditions: { type: object }
+        actions: { type: object }
+        is_active: { type: boolean }
+        max_steps: { type: integer }
+        template_id: { type: string, nullable: true }
+        last_triggered_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateAutomationRequest:
+      type: object
+      required: [name, trigger_type]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        scope: { type: string, enum: [personal, team, organization], default: personal }
+        trigger_type: { type: string }
+        trigger_config: { type: object }
+        conditions: { type: object }
+        actions: { type: object }
+        max_steps: { type: integer, default: 10 }
+
+    UpdateAutomationRequest:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        scope: { type: string, enum: [personal, team, organization] }
+        trigger_type: { type: string }
+        trigger_config: { type: object }
+        conditions: { type: object }
+        actions: { type: object }
+        max_steps: { type: integer }
+
+    AutomationExecution:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        automation_id: { type: string, format: uuid }
+        chain_id: { type: string, format: uuid }
+        trigger_event: { type: object }
+        condition_result: { type: boolean }
+        status: { type: string, enum: [running, completed, failed, skipped, aborted] }
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionStep"
+        error_message: { type: string, nullable: true }
+        started_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time, nullable: true }
+        duration_ms: { type: integer, nullable: true }
+
+    ExecutionStep:
+      type: object
+      properties:
+        action_type: { type: string }
+        input: { type: object }
+        output: { type: object }
+        error: { type: string, nullable: true }
+        duration_ms: { type: integer }
+
+    TriggerDefinition:
+      type: object
+      properties:
+        type: { type: string }
+        module: { type: string }
+        name: { type: string }
+        description: { type: string }
+
+    ActionDefinition:
+      type: object
+      properties:
+        type: { type: string }
+        module: { type: string }
+        name: { type: string }
+        description: { type: string }
+
+    AutomationTemplate:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        complexity: { type: string, enum: [simple, medium, advanced] }
+        trigger_type: { type: string }
+        trigger_config: { type: object }
+        conditions: { type: object }
+        actions: { type: object }
+        created_at: { type: string, format: date-time }
+
+    DryRunStep:
+      type: object
+      properties:
+        action_type: { type: string }
+        action_name: { type: string }
+        would_run: { type: boolean }
+        error: { type: string, nullable: true }
+
+    AutomationStats:
+      type: object
+      properties:
+        total_automations: { type: integer }
+        active_automations: { type: integer }
+        total_executions: { type: integer }
+        success_rate: { type: number, format: float }
 
   responses:
     BadRequest:
