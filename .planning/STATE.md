@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 14 (Event Infrastructure + Unified Inbox) -- IN PROGRESS
+**Current focus:** Phase 14 (Event Infrastructure + Unified Inbox) -- COMPLETE
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
 Phase: 14 of 20 (Event Infrastructure + Unified Inbox)
-Plan: 3 of 4 complete
-Status: Business Suite milestone in progress (Phase 14 in progress)
-Last activity: 2026-02-20 -- Phase 14 plan 03 (inbox gRPC server, gateway routes, event consumer) complete
+Plan: 4 of 4 complete
+Status: Phase 14 COMPLETE -- ready for Phase 15 (CalDAV Sync)
+Last activity: 2026-02-20 -- Phase 14 plan 04 (Unified Inbox frontend: KommunikationPage, hooks, components) complete
 
-Progress: [████████████████████████████████] 100% (80/81 plans across phases 4-14)
+Progress: [████████████████████████████████] 100% (81/81 plans across phases 4-14)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 67
+- Total plans completed: 68
 - Average duration: ~7 minutes
-- Total execution time: ~7h 23min
+- Total execution time: ~7h 32min
 
 **By Phase:**
 
@@ -41,14 +41,14 @@ Progress: [███████████████████████
 | 12 | 7/7 | ~75min | ~10.7min |
 | 13 | 4/4 | ~64min | ~16min |
 
-| 14 | 3/4 | ~24min | ~8min |
+| 14 | 4/4 | ~33min | ~8min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
 - Phase 13 (HR & Zeiterfassung) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
-- Phase 14 (Event Infrastructure + Unified Inbox) IN PROGRESS -- 3/4 plans done
-- 80/81 plans done across Phases 4-14
+- Phase 14 (Event Infrastructure + Unified Inbox) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
+- 81/81 plans done across Phases 4-14
 
 *Updated after each plan completion*
 
@@ -359,6 +359,12 @@ Recent decisions affecting current work:
 - [14-03]: InboxConsumer uses messageRepo directly for NotifyDelivery instead of exposing repo through service
 - [14-03]: Page token format is RFC3339Nano|UUID for cursor-based pagination
 - [14-03]: Docker Compose unchanged -- inbox co-hosted in notification container requires no new service
+- [14-04]: Channel-adaptive inline reply: email=textarea, chat=single-line, notification=no-reply
+- [14-04]: Keyboard shortcuts j/k/e/s/r for GTD-style inbox triage without mouse
+- [14-04]: 30s staleTime for messages, 15s for unread counts for near-real-time inbox
+- [14-04]: Routing rules test panel embedded in editor dialog (not separate page)
+- [14-04]: Channel badge colors: blue=email, green=chat, orange=notification (consistent across components)
+- [14-04]: Optimistic triage mutations: mark read/star/archive update cache immediately, rollback on error
 
 ### Pending Todos
 
@@ -373,6 +379,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 14-03-PLAN.md
-Resume file: .planning/phases/14-event-infrastructure-unified-inbox/14-03-SUMMARY.md
-Next: 14-04-PLAN.md (frontend: KommunikationPage, TanStack Query hooks, inline reply, team inbox settings)
+Stopped at: Completed 14-04-PLAN.md (Phase 14 COMPLETE)
+Resume file: .planning/phases/14-event-infrastructure-unified-inbox/14-04-SUMMARY.md
+Next: Phase 15 (CalDAV Sync) -- plan phase needed

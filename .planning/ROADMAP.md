@@ -46,7 +46,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 ### Aggregation & Automation (Phases 14-16)
 
-- [ ] **Phase 14: Event Infrastructure + Unified Inbox** - PostgreSQL LISTEN/NOTIFY event system, channel adapters (Email/Chat/Notifications), materialized inbox, routing engine
+- [x] **Phase 14: Event Infrastructure + Unified Inbox** - PostgreSQL LISTEN/NOTIFY event system, channel adapters (Email/Chat/Notifications), materialized inbox, routing engine (completed 2026-02-20)
 - [ ] **Phase 15: CalDAV/CardDAV Integration** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS
 - [ ] **Phase 16: Automation Engine** - Trigger-condition-action workflows across all modules, pre-built automations
 
@@ -314,10 +314,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 14-01-PLAN.md -- Event infrastructure data foundation (inbox.proto ~27 RPCs, migrations for 4 tables, Go models, event type constants, PGEventEmitter retrofit for Email/Document/Biz/HR)
-- [ ] 14-02-PLAN.md -- Inbox service packages (channel adapters, message service with snooze worker, team inbox service with claim/assign, routing engine with AND/OR condition evaluator)
-- [ ] 14-03-PLAN.md -- Connection layer (InboxService gRPC server, gateway HTTP routes ~25 endpoints, inbox event consumer on EventBus, notification binary co-hosting)
-- [ ] 14-04-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, KommunikationPage three-column layout, inline reply, snooze, team inbox settings, routing rules editor)
+- [x] 14-01-PLAN.md -- Event infrastructure data foundation (inbox.proto ~27 RPCs, migrations for 4 tables, Go models, event type constants, PGEventEmitter retrofit for Email/Document/Biz/HR)
+- [x] 14-02-PLAN.md -- Inbox service packages (channel adapters, message service with snooze worker, team inbox service with claim/assign, routing engine with AND/OR condition evaluator)
+- [x] 14-03-PLAN.md -- Connection layer (InboxService gRPC server, gateway HTTP routes ~25 endpoints, inbox event consumer on EventBus, notification binary co-hosting)
+- [x] 14-04-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, KommunikationPage three-column layout, inline reply, snooze, team inbox settings, routing rules editor)
 
 ### Phase 15: CalDAV/CardDAV Integration
 **Goal**: External calendar and contact clients (Outlook, Thunderbird, macOS) can sync bidirectionally with KMU Hub
@@ -433,7 +433,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
 | 12. Rechnungen & Finanzen | 7/7 | Complete    | 2026-02-18 |
 | 13. HR & Zeiterfassung | 4/4 | Complete    | 2026-02-19 |
-| 14. Event Infra + Unified Inbox | 3/4 | In Progress|  |
+| 14. Event Infra + Unified Inbox | 4/4 | Complete | 2026-02-20 |
 | 15. CalDAV/CardDAV | 0/2 | Not started | - |
 | 16. Automation Engine | 0/3 | Not started | - |
 | 17. Integration: Teams & Slack | 0/2 | Not started | - |
