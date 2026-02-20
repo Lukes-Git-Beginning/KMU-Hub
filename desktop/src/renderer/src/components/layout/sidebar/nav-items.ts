@@ -26,6 +26,7 @@ import {
   HardHat,
   Timer,
   ShieldCheck,
+  BookOpen,
 } from 'lucide-react'
 
 export interface NavBadge {
@@ -59,6 +60,7 @@ export const navItems: NavItemConfig[] = [
   { id: 'calendar', to: '/kalender', icon: Calendar, label: 'Kalender', enabled: true, section: 'main' },
   { id: 'zeiterfassung', to: '/zeiterfassung', icon: Timer, label: 'Zeiterfassung', enabled: true, section: 'main' },
   { id: 'documents', to: '/dokumente', icon: FileText, label: 'Dokumente', enabled: true, section: 'main' },
+  { id: 'wiki', to: '/wiki', icon: BookOpen, label: 'Wiki', enabled: true, section: 'main' },
   { id: 'mail', to: '/mails', icon: Mail, label: 'E-Mail', enabled: true, section: 'main', badge: { type: 'text', value: '12' } },
   { id: 'kommunikation', to: '/kommunikation', icon: MessageSquareText, label: 'Kommunikation', enabled: true, section: 'main', badge: { type: 'text', value: '' } },
 

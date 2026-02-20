@@ -19,10 +19,7 @@ import {
 import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useFinanceStore, type Invoice, type LineItem, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
-
-function formatCHF(n: number): string {
-  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(n)
-}
+import { formatCurrency } from '@/lib/format'
 
 interface InvoiceFormDialogProps {
   open: boolean
@@ -233,7 +230,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
                     className="h-7 text-xs"
                   />
                   <span className="text-xs text-foreground text-right font-medium">
-                    {formatCHF(calcLineTotal(item))}
+                    {formatCurrency(calcLineTotal(item))}
                   </span>
                   <button
                     onClick={() => removeItem(idx)}
@@ -260,15 +257,15 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
             <div className="w-60 space-y-1.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Zwischensumme</span>
-                <span>{formatCHF(subtotal)}</span>
+                <span>{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>MwSt</span>
-                <span>{formatCHF(tax)}</span>
+                <span>{formatCurrency(tax)}</span>
               </div>
               <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
                 <span>Gesamt</span>
-                <span>{formatCHF(total)}</span>
+                <span>{formatCurrency(total)}</span>
               </div>
             </div>
           </div>

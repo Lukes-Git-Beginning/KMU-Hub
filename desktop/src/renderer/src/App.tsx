@@ -64,6 +64,7 @@ const FormularePage = lazy(() => import('@/modules/formulare/FormularePage'))
 const VermietungPage = lazy(() => import('@/modules/vermietung/VermietungPage'))
 const RapportePage = lazy(() => import('@/modules/rapporte/RapportePage'))
 const ZeiterfassungPage = lazy(() => import('@/modules/zeiterfassung/ZeiterfassungPage'))
+const WikiPage = lazy(() => import('@/modules/wiki/WikiPage'))
 
 // React Query client with offline-friendly defaults
 const queryClient = new QueryClient({
@@ -221,6 +222,7 @@ const router = createHashRouter([
       { path: 'vermietung', element: lazyRoute(VermietungPage) },
       { path: 'rapporte', element: lazyRoute(RapportePage) },
       { path: 'zeiterfassung', element: lazyRoute(ZeiterfassungPage) },
+      { path: 'wiki', element: lazyRoute(WikiPage) },
     ],
   },
   {

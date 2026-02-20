@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useVertraegeStore, type Contract, type ContractType, type ContractStatus } from '@/stores/vertraege'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { formatCurrency } from '@/lib/format'
 
 // ─── Type Config ─────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ const renewalLabels: Record<string, string> = {
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
-const chf = new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' })
+
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return 'Unbefristet'
@@ -755,7 +756,7 @@ export default function VertraegePage() {
         <StatCard
           icon={Coins}
           label="Monatliche Gesamtkosten"
-          value={chf.format(totalMonthlyCost)}
+          value={formatCurrency(totalMonthlyCost)}
           iconColor="text-success"
           iconBg="bg-success-light"
         />
@@ -769,7 +770,7 @@ export default function VertraegePage() {
         <StatCard
           icon={Wallet}
           label="Gesamtvertragswert"
-          value={chf.format(totalContractValue)}
+          value={formatCurrency(totalContractValue)}
           iconColor="text-info"
           iconBg="bg-info-light"
         />
@@ -896,7 +897,7 @@ export default function VertraegePage() {
                         <DurationBar contract={contract} />
                       </td>
                       <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                        {chf.format(contract.monthlyCost)}
+                        {formatCurrency(contract.monthlyCost)}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusConf.colorClass}`}>
@@ -1102,12 +1103,12 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Monatlich</p>
-            <p className="text-lg font-semibold text-foreground tabular-nums">{chf.format(contract.monthlyCost)}</p>
+            <p className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(contract.monthlyCost)}</p>
           </div>
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Gesamtwert</p>
             <p className="text-lg font-semibold text-foreground tabular-nums">
-              {contract.totalValue > 0 ? chf.format(contract.totalValue) : '—'}
+              {contract.totalValue > 0 ? formatCurrency(contract.totalValue) : '—'}
             </p>
           </div>
         </div>

@@ -44,6 +44,7 @@ export interface Contact {
   createdAt: string
   isFavorite: boolean
   activities: ContactActivity[]
+  customFields?: Record<string, CustomFieldValue>
 }
 
 export interface ContactGroup {
@@ -53,9 +54,28 @@ export interface ContactGroup {
   contactIds: string[]
 }
 
+// ---------------------------------------------------------------------------
+// Custom fields
+// ---------------------------------------------------------------------------
+
+export type CustomFieldType = 'text' | 'number' | 'date' | 'dropdown' | 'checkbox' | 'url'
+
+export interface CustomFieldDefinition {
+  id: string
+  name: string
+  type: CustomFieldType
+  options?: string[] // for dropdown type
+  required: boolean
+  sortOrder: number
+}
+
+export type CustomFieldValue = string | number | boolean | null
+
 interface ContactsState {
   contacts: Contact[]
   groups: ContactGroup[]
+  customFieldDefinitions: CustomFieldDefinition[]
+
   addContact: (contact: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>) => void
   bulkAddContacts: (contacts: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>[]) => number
   updateContact: (id: string, updates: Partial<Contact>) => void
@@ -67,6 +87,12 @@ interface ContactsState {
   deleteGroup: (id: string) => void
   addContactToGroup: (groupId: string, contactId: string) => void
   removeContactFromGroup: (groupId: string, contactId: string) => void
+
+  // Custom field actions
+  addCustomFieldDefinition: (field: Omit<CustomFieldDefinition, 'id' | 'sortOrder'>) => void
+  updateCustomFieldDefinition: (id: string, updates: Partial<CustomFieldDefinition>) => void
+  deleteCustomFieldDefinition: (id: string) => void
+  setCustomFieldValue: (contactId: string, fieldId: string, value: CustomFieldValue) => void
 }
 
 const mockContacts: Contact[] = [
@@ -465,12 +491,33 @@ const mockContacts: Contact[] = [
   },
 ]
 
+// ---------------------------------------------------------------------------
+// Mock custom field definitions
+// ---------------------------------------------------------------------------
+
+const mockCustomFieldDefinitions: CustomFieldDefinition[] = [
+  { id: 'cf1', name: 'Kundennummer', type: 'text', required: false, sortOrder: 1 },
+  { id: 'cf2', name: 'Jahresumsatz', type: 'number', required: false, sortOrder: 2 },
+  { id: 'cf3', name: 'Branche', type: 'dropdown', options: ['IT', 'Bau', 'Handel', 'Dienstleistung', 'Produktion', 'Gesundheit', 'Bildung', 'Sonstige'], required: false, sortOrder: 3 },
+  { id: 'cf4', name: 'Newsletter', type: 'checkbox', required: false, sortOrder: 4 },
+  { id: 'cf5', name: 'Vertragsbeginn', type: 'date', required: false, sortOrder: 5 },
+]
+
 let nextId = 15
+let nextCfId = 6
 
 export const useContactsStore = create<ContactsState>()(
   persist(
     (set, get) => ({
-      contacts: mockContacts,
+      contacts: mockContacts.map((c) => {
+        // Add sample custom field values to a few contacts
+        if (c.id === 'c4') return { ...c, customFields: { cf1: 'K-2025-001', cf2: 450000, cf3: 'IT', cf4: true, cf5: '2025-03-10' } }
+        if (c.id === 'c7') return { ...c, customFields: { cf1: 'K-2026-008', cf2: 1200000, cf3: 'Dienstleistung', cf4: false } }
+        if (c.id === 'c12') return { ...c, customFields: { cf1: 'K-2026-012', cf2: 8500000, cf3: 'Bau', cf4: true, cf5: '2026-01-05' } }
+        if (c.id === 'c13') return { ...c, customFields: { cf1: 'K-2026-013', cf3: 'IT', cf4: true } }
+        return c
+      }),
+      customFieldDefinitions: mockCustomFieldDefinitions,
       groups: [
         { id: 'g1', name: 'VIP-Kunden', color: '#F59E0B', contactIds: ['c4', 'c12'] },
         { id: 'g2', name: 'Entwicklerteam', color: '#3B82F6', contactIds: ['c2', 'c6', 'c10'] },
@@ -586,6 +633,50 @@ export const useContactsStore = create<ContactsState>()(
             g.id === groupId
               ? { ...g, contactIds: g.contactIds.filter((id) => id !== contactId) }
               : g
+          ),
+        })),
+
+      // -- Custom field actions --
+
+      addCustomFieldDefinition: (field) => {
+        const id = `cf${nextCfId++}`
+        set((state) => ({
+          customFieldDefinitions: [
+            ...state.customFieldDefinitions,
+            { ...field, id, sortOrder: state.customFieldDefinitions.length + 1 },
+          ],
+        }))
+      },
+
+      updateCustomFieldDefinition: (id, updates) =>
+        set((state) => ({
+          customFieldDefinitions: state.customFieldDefinitions.map((f) =>
+            f.id === id ? { ...f, ...updates } : f,
+          ),
+        })),
+
+      deleteCustomFieldDefinition: (id) =>
+        set((state) => ({
+          customFieldDefinitions: state.customFieldDefinitions.filter((f) => f.id !== id),
+          contacts: state.contacts.map((c) => {
+            if (!c.customFields || !(id in c.customFields)) return c
+            const { [id]: _, ...rest } = c.customFields
+            return { ...c, customFields: Object.keys(rest).length > 0 ? rest : undefined }
+          }),
+        })),
+
+      setCustomFieldValue: (contactId, fieldId, value) =>
+        set((state) => ({
+          contacts: state.contacts.map((c) =>
+            c.id === contactId
+              ? {
+                  ...c,
+                  customFields: {
+                    ...c.customFields,
+                    [fieldId]: value,
+                  },
+                }
+              : c,
           ),
         })),
     }),

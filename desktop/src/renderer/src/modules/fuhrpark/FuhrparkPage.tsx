@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailPanel, EmptyState } from '@/components/shared'
+import { formatAmount } from '@/lib/format'
 import { useFuhrparkStore, type Vehicle, type MaintenanceRecord, type FuelRecord } from '@/stores/fuhrpark'
 
 // ---------------------------------------------------------------------------
@@ -84,9 +85,6 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('de-CH')
 }
 
-function formatCHF(val: number): string {
-  return val.toLocaleString('de-CH', { minimumFractionDigits: 2 })
-}
 
 function formatKm(val: number): string {
   return val.toLocaleString('de-CH')
@@ -692,7 +690,7 @@ function VehicleDetailContent({
           <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="h-3.5 w-3.5 shrink-0" />
             <span className="text-foreground">
-              Gesamtkosten: CHF {formatCHF(totalMaintenanceCost + totalFuelCost)}
+              Gesamtkosten: CHF {formatAmount(totalMaintenanceCost + totalFuelCost)}
             </span>
           </div>
         </div>
@@ -743,7 +741,7 @@ function VehicleDetailContent({
                   <span className="text-xs text-muted-foreground truncate">{r.notes || '—'}</span>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <p className="text-xs font-medium text-foreground">CHF {formatCHF(r.cost)}</p>
+                  <p className="text-xs font-medium text-foreground">CHF {formatAmount(r.cost)}</p>
                   <p className="text-[10px] text-muted-foreground">{formatDate(r.date)}</p>
                 </div>
               </div>
@@ -768,7 +766,7 @@ function VehicleDetailContent({
                   <span className="text-xs text-muted-foreground">{r.liters.toLocaleString('de-CH', { minimumFractionDigits: 1 })} L</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-foreground">CHF {formatCHF(r.cost)}</p>
+                  <p className="text-xs font-medium text-foreground">CHF {formatAmount(r.cost)}</p>
                   <p className="text-[10px] text-muted-foreground">{formatDate(r.date)}</p>
                 </div>
               </div>
@@ -1192,7 +1190,7 @@ export default function FuhrparkPage() {
                     </span>
                   </div>
                   <p className="text-lg font-semibold text-foreground">{count}</p>
-                  <p className="text-[11px] text-muted-foreground">CHF {formatCHF(totalCost)}</p>
+                  <p className="text-[11px] text-muted-foreground">CHF {formatAmount(totalCost)}</p>
                 </div>
               )
             })}
@@ -1239,7 +1237,7 @@ export default function FuhrparkPage() {
                           {formatKm(record.mileage)}
                         </td>
                         <td className="px-4 py-3 text-xs text-foreground font-medium text-right tabular-nums">
-                          {formatCHF(record.cost)}
+                          {formatAmount(record.cost)}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground max-w-[240px] truncate">
                           {record.notes || '\u2014'}
@@ -1268,7 +1266,7 @@ export default function FuhrparkPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Kosten diesen Monat</p>
-                  <p className="text-xl font-semibold text-foreground">CHF {formatCHF(monthlyFuelCost)}</p>
+                  <p className="text-xl font-semibold text-foreground">CHF {formatAmount(monthlyFuelCost)}</p>
                 </div>
               </div>
             </div>
@@ -1340,7 +1338,7 @@ export default function FuhrparkPage() {
                           {record.liters.toLocaleString('de-CH', { minimumFractionDigits: 1 })}
                         </td>
                         <td className="px-4 py-3 text-xs text-foreground font-medium text-right tabular-nums">
-                          {formatCHF(record.cost)}
+                          {formatAmount(record.cost)}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground text-right tabular-nums">
                           {record.liters > 0 ? (record.cost / record.liters).toFixed(2) : '\u2014'}

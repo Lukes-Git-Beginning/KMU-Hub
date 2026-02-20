@@ -31,6 +31,7 @@ import {
   type Reservation,
 } from '@/stores/vermietung'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { formatCurrency } from '@/lib/format'
 
 // ============================================================
 // Types
@@ -74,7 +75,7 @@ const RESERVATION_STATUS_CONFIG: Record<
   cancelled: { label: 'Storniert', bg: 'bg-error-light text-error' },
 }
 
-const CHF = new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' })
+
 
 // ============================================================
 // Helpers
@@ -862,9 +863,9 @@ export default function VermietungPage() {
 
                     {/* Pricing */}
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-sm font-medium text-foreground tabular-nums">{CHF.format(obj.dailyRate)}/Tag</span>
+                      <span className="text-sm font-medium text-foreground tabular-nums">{formatCurrency(obj.dailyRate)}/Tag</span>
                       {obj.weeklyRate && (
-                        <span className="text-xs text-muted-foreground tabular-nums">{CHF.format(obj.weeklyRate)}/Woche</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{formatCurrency(obj.weeklyRate)}/Woche</span>
                       )}
                     </div>
 
@@ -1287,12 +1288,12 @@ export default function VermietungPage() {
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-baseline justify-between">
                   <div>
-                    <span className="text-lg font-semibold text-foreground tabular-nums">{CHF.format(selectedObject.dailyRate)}</span>
+                    <span className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(selectedObject.dailyRate)}</span>
                     <span className="text-xs text-muted-foreground ml-1">/ Tag</span>
                   </div>
                   {selectedObject.weeklyRate && (
                     <div>
-                      <span className="text-sm font-medium text-muted-foreground tabular-nums">{CHF.format(selectedObject.weeklyRate)}</span>
+                      <span className="text-sm font-medium text-muted-foreground tabular-nums">{formatCurrency(selectedObject.weeklyRate)}</span>
                       <span className="text-xs text-muted-foreground ml-1">/ Woche</span>
                     </div>
                   )}

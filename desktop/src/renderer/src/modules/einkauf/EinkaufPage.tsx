@@ -27,6 +27,7 @@ import {
   type Supplier,
 } from '@/stores/einkauf'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { formatAmount } from '@/lib/format'
 
 type TabKey = 'bestellungen' | 'lieferanten' | 'katalog'
 type StatusFilter = PurchaseOrder['status'] | 'all'
@@ -289,8 +290,6 @@ export default function EinkaufPage() {
   // Render helpers
   // ---------------------------------------------------------------------------
 
-  const formatCHF = (n: number) =>
-    n.toLocaleString('de-CH', { minimumFractionDigits: 2 })
 
   const formatDate = (d: string) =>
     new Date(d.includes('T') ? d : d + 'T00:00:00').toLocaleDateString('de-CH')
@@ -353,7 +352,7 @@ export default function EinkaufPage() {
         <div>
           <h1 className="text-foreground">Einkauf</h1>
           <p className="text-sm text-muted-foreground">
-            {activeOrderCount} offene Bestellungen · CHF {formatCHF(totalOpen)}
+            {activeOrderCount} offene Bestellungen · CHF {formatAmount(totalOpen)}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -493,7 +492,7 @@ export default function EinkaufPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                        {formatCHF(order.total)}
+                        {formatAmount(order.total)}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {order.expectedDelivery ? formatDate(order.expectedDelivery) : '--'}
@@ -649,7 +648,7 @@ export default function EinkaufPage() {
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Betrag</p>
                 <p className="text-lg font-semibold text-foreground tabular-nums">
-                  CHF {formatCHF(selectedOrder.total)}
+                  CHF {formatAmount(selectedOrder.total)}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
@@ -703,7 +702,7 @@ export default function EinkaufPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-foreground tabular-nums">
-                          CHF {formatCHF(item.quantity * item.unitPrice)}
+                          CHF {formatAmount(item.quantity * item.unitPrice)}
                         </p>
                         {item.receivedQuantity > 0 && (
                           <p className="text-[10px] text-success">
@@ -829,7 +828,7 @@ export default function EinkaufPage() {
                       <div className="text-left">
                         <p className="text-sm font-mono text-foreground">{order.orderNumber}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDate(order.createdAt)} · CHF {formatCHF(order.total)}
+                          {formatDate(order.createdAt)} · CHF {formatAmount(order.total)}
                         </p>
                       </div>
                       <span
@@ -960,7 +959,7 @@ export default function EinkaufPage() {
               <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2">
                 <span className="text-sm font-medium text-muted-foreground">Total</span>
                 <span className="text-base font-semibold text-foreground tabular-nums">
-                  CHF {formatCHF(newOrderTotal)}
+                  CHF {formatAmount(newOrderTotal)}
                 </span>
               </div>
 

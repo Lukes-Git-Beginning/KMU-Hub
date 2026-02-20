@@ -42,11 +42,35 @@ export interface Meeting {
   projectLink: string
 }
 
+// ---------------------------------------------------------------------------
+// Video meeting state (for in-meeting UI)
+// ---------------------------------------------------------------------------
+
+export type MeetingLayout = 'grid' | 'speaker' | 'sidebar'
+
+export interface VideoMeetingState {
+  isInMeeting: boolean
+  audioEnabled: boolean
+  videoEnabled: boolean
+  screenSharing: boolean
+  activeSpeakerId: string | null
+  layout: MeetingLayout
+  handRaised: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Store interface
+// ---------------------------------------------------------------------------
+
 interface MeetingsState {
   meetings: Meeting[]
   activeMeetingId: string | null
   activeCallContactId: string | null
   activeCallContactName: string | null
+
+  // Video meeting state
+  videoMeeting: VideoMeetingState
+
   addMeeting: (meeting: Omit<Meeting, 'id'>) => void
   updateMeeting: (id: string, updates: Partial<Meeting>) => void
   deleteMeeting: (id: string) => void
@@ -60,6 +84,16 @@ interface MeetingsState {
   setActiveMeeting: (id: string | null) => void
   startCall: (contactId: string, contactName: string) => void
   endCall: () => void
+
+  // Video meeting actions
+  joinMeeting: (meetingId: string) => void
+  leaveMeeting: () => void
+  toggleAudio: () => void
+  toggleVideo: () => void
+  toggleScreenShare: () => void
+  toggleHandRaise: () => void
+  setLayout: (layout: MeetingLayout) => void
+  setActiveSpeaker: (userId: string | null) => void
 }
 
 const mockMeetings: Meeting[] = [
@@ -322,6 +356,16 @@ export const useMeetingsStore = create<MeetingsState>()(
       activeCallContactId: null,
       activeCallContactName: null,
 
+      videoMeeting: {
+        isInMeeting: false,
+        audioEnabled: true,
+        videoEnabled: true,
+        screenSharing: false,
+        activeSpeakerId: null,
+        layout: 'grid' as MeetingLayout,
+        handRaised: false,
+      },
+
       addMeeting: (meeting) =>
         set((state) => ({
           meetings: [{ ...meeting, id: `m${nextId++}` }, ...state.meetings],
@@ -414,6 +458,63 @@ export const useMeetingsStore = create<MeetingsState>()(
 
       endCall: () =>
         set({ activeCallContactId: null, activeCallContactName: null }),
+
+      // -- Video meeting actions --
+
+      joinMeeting: (meetingId) =>
+        set({
+          activeMeetingId: meetingId,
+          videoMeeting: {
+            isInMeeting: true,
+            audioEnabled: true,
+            videoEnabled: true,
+            screenSharing: false,
+            activeSpeakerId: null,
+            layout: 'grid',
+            handRaised: false,
+          },
+        }),
+
+      leaveMeeting: () =>
+        set((state) => ({
+          activeMeetingId: null,
+          videoMeeting: {
+            ...state.videoMeeting,
+            isInMeeting: false,
+            screenSharing: false,
+            handRaised: false,
+          },
+        })),
+
+      toggleAudio: () =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, audioEnabled: !state.videoMeeting.audioEnabled },
+        })),
+
+      toggleVideo: () =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, videoEnabled: !state.videoMeeting.videoEnabled },
+        })),
+
+      toggleScreenShare: () =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, screenSharing: !state.videoMeeting.screenSharing },
+        })),
+
+      toggleHandRaise: () =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, handRaised: !state.videoMeeting.handRaised },
+        })),
+
+      setLayout: (layout) =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, layout },
+        })),
+
+      setActiveSpeaker: (userId) =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, activeSpeakerId: userId },
+        })),
     }),
     { name: 'kmuhub-meetings' }
   )

@@ -18,10 +18,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useFinanceStore, type Invoice, calcRemainingAmount } from '@/stores/finance'
-
-function formatCHF(n: number): string {
-  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(n)
-}
+import { formatCurrency } from '@/lib/format'
 
 const PAYMENT_METHODS = [
   'Banküberweisung',
@@ -64,7 +61,7 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
       method,
       reference: reference.trim() || undefined,
     })
-    toast.success(`Zahlung von ${formatCHF(amount)} erfasst`)
+    toast.success(`Zahlung von ${formatCurrency(amount)} erfasst`)
     onOpenChange(false)
   }
 
@@ -87,7 +84,7 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Offener Betrag</span>
-              <span className="font-medium text-primary">{formatCHF(remaining)}</span>
+              <span className="font-medium text-primary">{formatCurrency(remaining)}</span>
             </div>
           </div>
 

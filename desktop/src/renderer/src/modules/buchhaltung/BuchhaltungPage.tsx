@@ -31,6 +31,7 @@ import {
   calcRemainingAmount,
 } from '@/stores/finance'
 import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
+import { formatCurrency } from '@/lib/format'
 import { InvoiceFormDialog } from './InvoiceFormDialog'
 import { ExpenseFormDialog } from './ExpenseFormDialog'
 import { PaymentRecordDialog } from './PaymentRecordDialog'
@@ -38,10 +39,6 @@ import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { ExportDialog } from './ExportDialog'
 
 type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'mahnungen' | 'reports'
-
-function formatCHF(amount: number) {
-  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(amount)
-}
 
 const invoiceStatusConfig: Record<string, { label: string; colors: string; icon: typeof CheckCircle2 }> = {
   draft: { label: 'Entwurf', colors: 'bg-secondary text-muted-foreground', icon: FileText },
@@ -85,10 +82,10 @@ export default function BuchhaltungPage() {
   const openDunningCount = dunnings.filter((d) => d.status !== 'paid').length
 
   const stats = [
-    { label: 'Einnahmen', value: formatCHF(totalIncome), icon: TrendingUp, color: 'text-success', bg: 'bg-success-light' },
-    { label: 'Ausgaben', value: formatCHF(totalExpense), icon: TrendingDown, color: 'text-error', bg: 'bg-error-light' },
-    { label: 'Saldo', value: formatCHF(balance), icon: DollarSign, color: 'text-primary', bg: 'bg-primary-light' },
-    { label: 'Offene Rechnungen', value: formatCHF(openInvoiceAmount), icon: CreditCard, color: 'text-warning', bg: 'bg-warning-light' },
+    { label: 'Einnahmen', value: formatCurrency(totalIncome), icon: TrendingUp, color: 'text-success', bg: 'bg-success-light' },
+    { label: 'Ausgaben', value: formatCurrency(totalExpense), icon: TrendingDown, color: 'text-error', bg: 'bg-error-light' },
+    { label: 'Saldo', value: formatCurrency(balance), icon: DollarSign, color: 'text-primary', bg: 'bg-primary-light' },
+    { label: 'Offene Rechnungen', value: formatCurrency(openInvoiceAmount), icon: CreditCard, color: 'text-warning', bg: 'bg-warning-light' },
     { label: 'Offene Mahnungen', value: String(openDunningCount), icon: AlertTriangle, color: 'text-error', bg: 'bg-error-light' },
   ]
 
@@ -284,10 +281,10 @@ export default function BuchhaltungPage() {
                 <div key={inv.id} className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
                   <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
                   <span className="text-sm text-foreground truncate">{inv.client}</span>
-                  <span className="text-sm font-medium text-foreground">{formatCHF(total)}</span>
+                  <span className="text-sm font-medium text-foreground">{formatCurrency(total)}</span>
                   <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-CH')}</span>
                   <span className={`text-xs font-medium ${remaining > 0 ? 'text-warning' : 'text-success'}`}>
-                    {remaining > 0 ? formatCHF(remaining) : '—'}
+                    {remaining > 0 ? formatCurrency(remaining) : '—'}
                   </span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
                     <StatusIcon className="h-3 w-3" />
@@ -318,7 +315,7 @@ export default function BuchhaltungPage() {
                 <div key={inv.id} className="grid grid-cols-[80px_1fr_100px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
                   <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
                   <span className="text-sm text-foreground truncate">{inv.client}</span>
-                  <span className="text-sm font-medium text-foreground">{formatCHF(total)}</span>
+                  <span className="text-sm font-medium text-foreground">{formatCurrency(total)}</span>
                   <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-CH')}</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
                     <StatusIcon className="h-3 w-3" />
@@ -351,7 +348,7 @@ export default function BuchhaltungPage() {
                     <p className="text-[10px] text-muted-foreground">{new Date(exp.date).toLocaleDateString('de-CH')}{exp.project && ` · ${exp.project}`}</p>
                   </div>
                   <span className="text-xs text-muted-foreground">{exp.category}</span>
-                  <span className="text-sm font-medium text-error">{formatCHF(exp.amount)}</span>
+                  <span className="text-sm font-medium text-error">{formatCurrency(exp.amount)}</span>
                   <span className="text-xs text-muted-foreground truncate">{exp.supplier}</span>
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[exp.status]}`}>
                     {statusLabels[exp.status]}
@@ -389,7 +386,7 @@ export default function BuchhaltungPage() {
               </div>
               <span className="text-xs text-muted-foreground">{tx.category}</span>
               <span className={`text-sm font-medium text-right ${tx.type === 'income' ? 'text-success' : 'text-error'}`}>
-                {tx.type === 'income' ? '+' : ''}{formatCHF(tx.amount)}
+                {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
               </span>
               <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-CH')}</span>
               <ItemActions items={[
@@ -423,7 +420,7 @@ export default function BuchhaltungPage() {
 
         const dunningStats = [
           { label: 'Offene Mahnungen', value: String(openDunningCount) },
-          { label: 'Mahnbetrag gesamt', value: formatCHF(totalDueAmount) },
+          { label: 'Mahnbetrag gesamt', value: formatCurrency(totalDueAmount) },
           { label: 'Inkasso-Fälle', value: String(inkassoCount) },
           { label: 'Ø Verzugstage', value: `${avgOverdueDays} Tage` },
         ]
@@ -508,7 +505,7 @@ export default function BuchhaltungPage() {
                     <div key={d.id} className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_160px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
                       <span className="text-sm font-mono text-primary">{d.invoiceNumber}</span>
                       <span className="text-sm text-foreground truncate">{d.client}</span>
-                      <span className="text-sm font-medium text-foreground">{formatCHF(d.dueAmount)}</span>
+                      <span className="text-sm font-medium text-foreground">{formatCurrency(d.dueAmount)}</span>
                       {/* Mahnstufe visualization */}
                       <div className="flex flex-col gap-1">
                         <span className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${levelColors[d.level]}`}>
@@ -616,7 +613,7 @@ export default function BuchhaltungPage() {
                     <div key={name}>
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="text-foreground">{name}</span>
-                        <span className="text-muted-foreground">{formatCHF(amount)}</span>
+                        <span className="text-muted-foreground">{formatCurrency(amount)}</span>
                       </div>
                       <div className="h-2 rounded-full bg-secondary">
                         <div className={`h-full rounded-full ${colors[idx % colors.length]}`} style={{ width: `${(amount / total) * 100}%` }} />

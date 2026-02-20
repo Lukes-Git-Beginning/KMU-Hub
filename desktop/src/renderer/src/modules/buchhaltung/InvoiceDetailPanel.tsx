@@ -1,10 +1,7 @@
 import { FileText, Calendar, CreditCard, Clock, CheckCircle2, AlertCircle, XCircle, User } from 'lucide-react'
 import { DetailPanel } from '@/components/shared'
 import { type Invoice, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal, calcPaidAmount, calcRemainingAmount } from '@/stores/finance'
-
-function formatCHF(n: number): string {
-  return new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(n)
-}
+import { formatCurrency } from '@/lib/format'
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
   draft: { label: 'Entwurf', color: 'text-muted-foreground', bg: 'bg-secondary', icon: FileText },
@@ -87,12 +84,12 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
                 <div className="min-w-0 flex-1">
                   <p className="text-foreground truncate">{item.description}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {item.quantity} × {formatCHF(item.unitPrice)}
+                    {item.quantity} × {formatCurrency(item.unitPrice)}
                     {item.discount > 0 && ` · ${item.discount}% Rabatt`}
                     {item.vatRate > 0 && ` · ${item.vatRate}% MwSt`}
                   </p>
                 </div>
-                <span className="text-foreground font-medium ml-3">{formatCHF(calcLineTotal(item))}</span>
+                <span className="text-foreground font-medium ml-3">{formatCurrency(calcLineTotal(item))}</span>
               </div>
             ))}
           </div>
@@ -102,26 +99,26 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
         <div className="space-y-1.5 text-xs">
           <div className="flex justify-between text-muted-foreground">
             <span>Zwischensumme</span>
-            <span>{formatCHF(subtotal)}</span>
+            <span>{formatCurrency(subtotal)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>MwSt</span>
-            <span>{formatCHF(tax)}</span>
+            <span>{formatCurrency(tax)}</span>
           </div>
           <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
             <span>Gesamt</span>
-            <span>{formatCHF(total)}</span>
+            <span>{formatCurrency(total)}</span>
           </div>
           {!isQuote && paid > 0 && (
             <>
               <div className="flex justify-between text-success">
                 <span>Bezahlt</span>
-                <span>{formatCHF(paid)}</span>
+                <span>{formatCurrency(paid)}</span>
               </div>
               {remaining > 0 && (
                 <div className="flex justify-between font-medium text-warning">
                   <span>Offen</span>
-                  <span>{formatCHF(remaining)}</span>
+                  <span>{formatCurrency(remaining)}</span>
                 </div>
               )}
             </>
@@ -142,7 +139,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
                       {p.reference && ` · ${p.reference}`}
                     </p>
                   </div>
-                  <span className="text-success font-medium">{formatCHF(p.amount)}</span>
+                  <span className="text-success font-medium">{formatCurrency(p.amount)}</span>
                 </div>
               ))}
             </div>
