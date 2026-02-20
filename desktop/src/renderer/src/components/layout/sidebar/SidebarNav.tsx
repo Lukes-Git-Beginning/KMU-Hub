@@ -57,7 +57,7 @@ function NavItem({
   const Icon = item.icon
 
   const sharedClasses = cn(
-    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
     collapsed && 'justify-center px-2'
   )
 
@@ -97,9 +97,8 @@ function NavItem({
             cn(
               sharedClasses,
               isActive
-                ? 'border-l-2 border-sidebar-active-border bg-sidebar-active text-sidebar-primary'
-                : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-              collapsed && isActive && 'border-l-0'
+                ? 'bg-sidebar-active text-sidebar-primary font-semibold shadow-sm border border-sidebar-border/60'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground border border-transparent',
             )
           }
         >

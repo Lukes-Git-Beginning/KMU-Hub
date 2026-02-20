@@ -153,6 +153,21 @@ function lazyRoute(Component: React.LazyExoticComponent<() => JSX.Element>) {
 
 // Hash router -- Electron loads from file:// in production, which
 // breaks HTML5 history API. Hash routing (#/crm, #/chat) works everywhere.
+/** Catch-all error boundary so a failed lazy-load or bad route doesn't blank the screen */
+function RouteErrorFallback() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="text-center space-y-4 max-w-md">
+        <p className="text-lg font-medium text-foreground">Seite nicht gefunden</p>
+        <p className="text-sm text-muted-foreground">Die angeforderte Seite existiert nicht oder konnte nicht geladen werden.</p>
+        <a href="#/" className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+          Zum Dashboard
+        </a>
+      </div>
+    </div>
+  )
+}
+
 const router = createHashRouter([
   {
     path: '/',
@@ -161,6 +176,7 @@ const router = createHashRouter([
         <DeskEnvironment />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorFallback />,
     children: [
       // Core modules (backend-connected)
       { index: true, element: lazyRoute(DashboardPage) },

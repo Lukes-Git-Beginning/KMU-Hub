@@ -14,14 +14,14 @@
   --foreground: #2c2420;
 
   /* CARDS */
-  --card: #f5efe8;
+  --card: #faf8f5;
   --card-foreground: #2c2420;
-  --card-border: #d5cac0;
-  --card-hover: #eee7e0;
-  --card-hover-border: #d0c4b8;
+  --card-border: #cec2b5;
+  --card-hover: #f3efe9;
+  --card-hover-border: #c5b8aa;
 
   /* POPOVER */
-  --popover: #f5efe8;
+  --popover: #faf8f5;
   --popover-foreground: #2c2420;
 
   /* PRIMARY — Teal */
@@ -33,12 +33,12 @@
   --primary-subtle: #f0faf8;
 
   /* SECONDARY — Warm Gray */
-  --secondary: #ede8e1;
+  --secondary: #e5dfd7;
   --secondary-foreground: #2c2420;
-  --secondary-hover: #e3dcd5;
+  --secondary-hover: #ddd5cc;
 
   /* MUTED */
-  --muted: #ede8e1;
+  --muted: #e5dfd7;
   --muted-foreground: #6b6159;
 
   /* ACCENT */
@@ -52,42 +52,42 @@
   --text-disabled: #a89a8f;
 
   /* STATUS COLORS */
-  --success: #4a7c6a;
+  --success: #2d8a5e;
   --success-light: #e8f4f0;
-  --warning: #c4873a;
+  --warning: #c47a20;
   --warning-light: #f9ede4;
-  --error: #a13f3f;
+  --error: #c43c3c;
   --error-light: #f5e8e8;
-  --info: #3d5c7d;
+  --info: #2d6baa;
   --info-light: #e8eef5;
 
   /* DESTRUCTIVE */
-  --destructive: #a13f3f;
+  --destructive: #c43c3c;
   --destructive-foreground: #ffffff;
 
   /* BORDERS */
-  --border: #d5cac0;
-  --border-muted: #e0d5cb;
+  --border: #cec2b5;
+  --border-muted: #d6c9bc;
 
   /* INPUTS */
-  --input: transparent;
-  --input-background: #ede8e1;
-  --input-border: #d5cac0;
+  --input: #bfb3a5;
+  --input-background: #f5f1ec;
+  --input-border: #bfb3a5;
   --input-placeholder: #9d8f85;
 
   /* BUTTONS */
   --button-primary: #1e7e74;
   --button-primary-hover: #1a6d65;
   --button-primary-active: #0d4d48;
-  --button-ghost-hover: #f0e8df;
+  --button-ghost-hover: #e5ddd3;
 
   /* MISC */
   --switch-background: #c4a89d;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #d5cac0;
+  --ring: #cec2b5;
   --focus-ring: #1e7e74;
-  --hover-overlay: rgba(30, 126, 116, 0.05);
+  --hover-overlay: rgba(30, 126, 116, 0.08);
 
   /* FILE TYPE COLORS */
   --file-pdf: #8b6f47;
@@ -124,14 +124,14 @@
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #ede8e1;
   --sidebar-accent-foreground: #2c2420;
-  --sidebar-active: #e0d5cb;
+  --sidebar-active: #d6c9bc;
   --sidebar-active-border: #1e7e74;
   --sidebar-border: #d5cac0;
   --sidebar-ring: #6b6159;
 
   /* HEADER */
-  --header-background: #f5efe8;
-  --header-border: #d5cac0;
+  --header-background: #faf8f5;
+  --header-border: #cec2b5;
 
   /* SELECTION */
   --selection-background: #e0f2fe;
