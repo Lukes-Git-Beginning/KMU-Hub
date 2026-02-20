@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 14 (Event Infrastructure + Unified Inbox) -- COMPLETE
+**Current focus:** Phase 15 (CalDAV/CardDAV Integration) -- IN PROGRESS
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 14 of 20 (Event Infrastructure + Unified Inbox)
-Plan: 4 of 4 complete
-Status: Phase 14 COMPLETE -- ready for Phase 15 (CalDAV Sync)
-Last activity: 2026-02-20 -- Phase 14 plan 04 (Unified Inbox frontend: KommunikationPage, hooks, components) complete
+Phase: 15 of 20 (CalDAV/CardDAV Integration)
+Plan: 1 of 3 complete
+Status: Phase 15 IN PROGRESS -- plan 01 (data foundation) complete, plan 02 next
+Last activity: 2026-02-20 -- Phase 15 plan 01 (CalDAV data foundation: migrations, models, services) complete
 
-Progress: [████████████████████████████████] 100% (81/81 plans across phases 4-14)
+Progress: [████████████████████████████████░] 98% (82/84 plans across phases 4-15)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 68
+- Total plans completed: 69
 - Average duration: ~7 minutes
-- Total execution time: ~7h 32min
+- Total execution time: ~7h 35min
 
 **By Phase:**
 
@@ -42,13 +42,15 @@ Progress: [███████████████████████
 | 13 | 4/4 | ~64min | ~16min |
 
 | 14 | 4/4 | ~33min | ~8min |
+| 15 | 1/3 | ~3min | ~3min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
 - Phase 12 (Rechnungen & Finanzen) COMPLETE -- all 7 plans done (incl. 2 gap closure)
 - Phase 13 (HR & Zeiterfassung) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
 - Phase 14 (Event Infrastructure + Unified Inbox) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
-- 81/81 plans done across Phases 4-14
+- Phase 15 (CalDAV/CardDAV Integration) IN PROGRESS -- plan 01 (data foundation) done
+- 82/84 plans done across Phases 4-15
 
 *Updated after each plan completion*
 
@@ -366,6 +368,12 @@ Recent decisions affecting current work:
 - [14-04]: Channel badge colors: blue=email, green=chat, orange=notification (consistent across components)
 - [14-04]: Optimistic triage mutations: mark read/star/archive update cache immediately, rollback on error
 
+- [15-01]: User UUID as CalDAV username for v1 simplicity (avoids email resolution via auth gRPC)
+- [15-01]: Bcrypt cost 12 for app-specific passwords (balance of security and validation speed)
+- [15-01]: Sync token format "sync-token-{N}" for human-readable debugging
+- [15-01]: caldav_settings key-value table for org-level feature toggles with upsert semantics
+- [15-01]: go-webdav v0.7.0 and go-ical added via tools/caldav_deps.go build tag pattern
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -379,6 +387,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 14-04-PLAN.md (Phase 14 COMPLETE)
-Resume file: .planning/phases/14-event-infrastructure-unified-inbox/14-04-SUMMARY.md
-Next: Phase 15 (CalDAV Sync) -- plan phase needed
+Stopped at: Completed 15-01-PLAN.md
+Resume file: .planning/phases/15-caldav-carddav-integration/15-01-SUMMARY.md
+Next: 15-02-PLAN.md (CalDAV/CardDAV backend adapters)

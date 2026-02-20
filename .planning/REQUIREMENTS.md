@@ -139,7 +139,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **INT-01**: System exposes a CalDAV endpoint for bidirectional calendar sync with Outlook, Thunderbird, and macOS Calendar
 - [ ] **INT-02**: System exposes a CardDAV endpoint for bidirectional contact sync with external clients
-- [ ] **INT-03**: CalDAV/CardDAV supports per-user authenticated access with proper ACL
+- [x] **INT-03**: CalDAV/CardDAV supports per-user authenticated access with proper ACL
 - [ ] **INT-04**: Admin can configure Microsoft Teams webhook for notification forwarding to a Teams channel
 - [ ] **INT-05**: Admin can configure Slack webhook for notification forwarding to a Slack channel
 - [ ] **INT-06**: Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
@@ -400,7 +400,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HR-07 | Phase 13 | Complete |
 | INT-01 | Phase 14 | Pending |
 | INT-02 | Phase 14 | Pending |
-| INT-03 | Phase 14 | Pending |
+| INT-03 | Phase 14 | Complete |
 | INT-04 | Phase 15 | Pending |
 | INT-05 | Phase 15 | Pending |
 | INT-06 | Phase 15 | Pending |
