@@ -436,7 +436,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 13. HR & Zeiterfassung | 4/4 | Complete    | 2026-02-19 |
 | 14. Event Infra + Unified Inbox | 4/4 | Complete    | 2026-02-20 |
 | 15. CalDAV/CardDAV | 1/3 | Complete    | 2026-02-20 |
-| 16. Automation Engine | 0/3 | Not started | - |
+| 16. Automation Engine | 1/3 | In Progress|  |
 | 17. Integration: Teams & Slack | 0/2 | Not started | - |
 | 18. Integration: Bexio | 0/2 | Not started | - |
 | 19. Integration: Abacus + RmA | 0/2 | Not started | - |

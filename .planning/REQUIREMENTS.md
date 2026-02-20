@@ -155,10 +155,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Automation Engine
 
-- [ ] **AUTO-01**: User can create automations using trigger-action model ("When X happens, do Y")
+- [x] **AUTO-01**: User can create automations using trigger-action model ("When X happens, do Y")
 - [ ] **AUTO-02**: System provides 10-15 pre-built triggers across all modules (deal stage change, task complete, invoice overdue, etc.)
 - [ ] **AUTO-03**: System provides 8-10 pre-built actions across all modules (send notification, create task, send email, update field, etc.)
-- [ ] **AUTO-04**: User can add conditional logic (if/else with field-value conditions, AND/OR operators) to automations
+- [x] **AUTO-04**: User can add conditional logic (if/else with field-value conditions, AND/OR operators) to automations
 - [ ] **AUTO-05**: User can view automation execution logs with timestamps, inputs/outputs, and success/failure status
 - [ ] **AUTO-06**: User can enable/disable automations without deleting them
 
@@ -413,10 +413,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-13 | Phase 18 | Pending |
 | INT-14 | Phase 18 | Pending |
 | INT-15 | Phase 18 | Pending |
-| AUTO-01 | Phase 19 | Pending |
+| AUTO-01 | Phase 19 | Complete |
 | AUTO-02 | Phase 19 | Pending |
 | AUTO-03 | Phase 19 | Pending |
-| AUTO-04 | Phase 19 | Pending |
+| AUTO-04 | Phase 19 | Complete |
 | AUTO-05 | Phase 19 | Pending |
 | AUTO-06 | Phase 19 | Pending |
 | PLUG-01 | Phase 20 | Pending |
