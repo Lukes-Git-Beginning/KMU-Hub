@@ -64,6 +64,12 @@ const (
 	EventInboxItemAssigned = "inbox.item.assigned"
 )
 
+// Automation events
+const (
+	EventAutomationExecuted = "automation.workflow.executed"
+	EventAutomationFailed   = "automation.workflow.failed"
+)
+
 // Well-known module IDs
 const (
 	ModuleChat     = "chat"
@@ -74,7 +80,8 @@ const (
 	ModuleDocument = "document"
 	ModuleBiz      = "biz"
 	ModuleHR       = "hr"
-	ModuleInbox    = "inbox"
+	ModuleInbox       = "inbox"
+	ModuleAutomation  = "automation"
 )
 
 // PostgreSQL LISTEN channel name for the event bus
