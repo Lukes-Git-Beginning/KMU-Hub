@@ -65,7 +65,7 @@ export const navItems: NavItemConfig[] = [
   { id: 'kommunikation', to: '/kommunikation', icon: MessageSquareText, label: 'Kommunikation', enabled: true, section: 'main', badge: { type: 'text', value: '' } },
 
   // -- Role-restricted --
-  { id: 'finance', to: '/finanzen', icon: Calculator, label: 'Finanzen', enabled: true, section: 'main', badge: { type: 'text', value: 'Neu' } },
+  { id: 'finance', to: '/finanzen', icon: Calculator, label: 'Rechnungen & Finanzen', enabled: true, section: 'main', badge: { type: 'text', value: 'Neu' } },
   { id: 'infrastructure', to: '/infrastruktur', icon: Server, label: 'Infrastruktur', enabled: true, section: 'main' },
 
   // -- Industry-specific modules (filtered by business profile) --

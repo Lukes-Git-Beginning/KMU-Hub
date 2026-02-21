@@ -21,6 +21,8 @@ import {
   Gavel,
   Send,
   ChevronRight,
+  Link2,
+  Landmark,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -37,8 +39,10 @@ import { ExpenseFormDialog } from './ExpenseFormDialog'
 import { PaymentRecordDialog } from './PaymentRecordDialog'
 import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { ExportDialog } from './ExportDialog'
+import { BelegketteTab } from '@/modules/finanzen/BelegketteTab'
+import { BankingWidget } from '@/modules/finanzen/BankingWidget'
 
-type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'mahnungen' | 'reports'
+type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'mahnungen' | 'reports' | 'belegkette' | 'banking'
 
 const invoiceStatusConfig: Record<string, { label: string; colors: string; icon: typeof CheckCircle2 }> = {
   draft: { label: 'Entwurf', colors: 'bg-secondary text-muted-foreground', icon: FileText },
@@ -218,6 +222,8 @@ export default function BuchhaltungPage() {
           { key: 'mahnungen' as const, label: `Mahnungen (${dunnings.length})`, icon: Gavel },
           { key: 'transactions' as const, label: `Transaktionen (${transactions.length})`, icon: Receipt },
           { key: 'reports' as const, label: 'Berichte', icon: BarChart3 },
+          { key: 'belegkette' as const, label: 'Belegkette', icon: Link2 },
+          { key: 'banking' as const, label: 'Banking', icon: Landmark },
         ]).map((t) => {
           const Icon = t.icon
           return (
@@ -625,6 +631,12 @@ export default function BuchhaltungPage() {
           </div>
         </div>
       )}
+
+      {/* Belegkette Tab */}
+      {tab === 'belegkette' && <BelegketteTab />}
+
+      {/* Banking Tab */}
+      {tab === 'banking' && <BankingWidget />}
 
       {/* Invoice Detail Panel */}
       {selectedInvoice && (

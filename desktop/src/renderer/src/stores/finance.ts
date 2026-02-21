@@ -17,6 +17,8 @@ export type FinanceTabKey =
   | 'quotes'
   | 'credit-notes'
   | 'dunning'
+  | 'belegkette'
+  | 'banking'
   | 'export'
 
 // ---------------------------------------------------------------------------

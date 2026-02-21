@@ -23,6 +23,7 @@ export interface ContactActivity {
 export interface Contact {
   id: string
   salutation: 'Herr' | 'Frau' | ''
+  title: string // Academic title: Dr., Prof., Prof. Dr., Dipl.-Ing., etc.
   firstName: string
   lastName: string
   initials: string
@@ -76,8 +77,8 @@ interface ContactsState {
   groups: ContactGroup[]
   customFieldDefinitions: CustomFieldDefinition[]
 
-  addContact: (contact: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>) => void
-  bulkAddContacts: (contacts: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>[]) => number
+  addContact: (contact: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'> & { title?: string }) => void
+  bulkAddContacts: (contacts: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>[] ) => number
   updateContact: (id: string, updates: Partial<Contact>) => void
   deleteContact: (id: string) => void
   toggleFavorite: (id: string) => void
@@ -99,6 +100,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c1',
     salutation: 'Frau',
+    title: '',
     firstName: 'Anna',
     lastName: 'Mueller',
     initials: 'AM',
@@ -128,6 +130,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c2',
     salutation: 'Herr',
+    title: '',
     firstName: 'Michael',
     lastName: 'Berg',
     initials: 'MB',
@@ -156,6 +159,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c3',
     salutation: 'Frau',
+    title: '',
     firstName: 'Sarah',
     lastName: 'Klein',
     initials: 'SK',
@@ -184,6 +188,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c4',
     salutation: 'Herr',
+    title: 'Dr.',
     firstName: 'Thomas',
     lastName: 'Weber',
     initials: 'TW',
@@ -213,6 +218,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c5',
     salutation: 'Frau',
+    title: '',
     firstName: 'Lisa',
     lastName: 'Schmidt',
     initials: 'LS',
@@ -241,6 +247,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c6',
     salutation: 'Herr',
+    title: 'Dipl.-Ing.',
     firstName: 'Peter',
     lastName: 'Koch',
     initials: 'PK',
@@ -269,6 +276,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c7',
     salutation: 'Frau',
+    title: 'Prof. Dr.',
     firstName: 'Maria',
     lastName: 'Huber',
     initials: 'MH',
@@ -297,6 +305,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c8',
     salutation: 'Herr',
+    title: '',
     firstName: 'David',
     lastName: 'Meier',
     initials: 'DM',
@@ -324,6 +333,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c9',
     salutation: 'Frau',
+    title: '',
     firstName: 'Sandra',
     lastName: 'Braun',
     initials: 'SB',
@@ -351,6 +361,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c10',
     salutation: 'Herr',
+    title: '',
     firstName: 'Jonas',
     lastName: 'Diaz',
     initials: 'JD',
@@ -379,6 +390,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c11',
     salutation: 'Frau',
+    title: 'Dr.',
     firstName: 'Eva',
     lastName: 'Brunner',
     initials: 'EB',
@@ -407,6 +419,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c12',
     salutation: 'Herr',
+    title: '',
     firstName: 'Markus',
     lastName: 'Steiner',
     initials: 'MS',
@@ -436,6 +449,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c13',
     salutation: 'Frau',
+    title: '',
     firstName: 'Claudia',
     lastName: 'Frei',
     initials: 'CF',
@@ -464,6 +478,7 @@ const mockContacts: Contact[] = [
   {
     id: 'c14',
     salutation: 'Herr',
+    title: 'Prof.',
     firstName: 'Andreas',
     lastName: 'Hofer',
     initials: 'AH',
@@ -533,6 +548,7 @@ export const useContactsStore = create<ContactsState>()(
               ...contact,
               id,
               initials,
+              title: contact.title ?? '',
               createdAt: new Date().toISOString().split('T')[0],
               activities: [],
             },

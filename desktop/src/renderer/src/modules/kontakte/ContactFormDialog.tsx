@@ -45,6 +45,16 @@ const salutations = [
   { value: 'Frau', label: 'Frau' },
 ]
 
+const academicTitles = [
+  { value: '', label: 'Kein Titel' },
+  { value: 'Dr.', label: 'Dr.' },
+  { value: 'Prof.', label: 'Prof.' },
+  { value: 'Prof. Dr.', label: 'Prof. Dr.' },
+  { value: 'Dipl.-Ing.', label: 'Dipl.-Ing.' },
+  { value: 'Mag.', label: 'Mag.' },
+  { value: 'lic.', label: 'lic.' },
+]
+
 const availableTags = [
   'VIP', 'Entscheider', 'Technik', 'Design', 'Marketing', 'Sales',
   'Finanzen', 'Recht', 'HR', 'Frontend', 'Backend', 'Security',
@@ -56,6 +66,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
   const isEdit = !!contact
 
   const [salutation, setSalutation] = useState<'Herr' | 'Frau' | ''>('')
+  const [title, setTitle] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -81,6 +92,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
   useEffect(() => {
     if (contact) {
       setSalutation(contact.salutation)
+      setTitle(contact.title ?? '')
       setFirstName(contact.firstName)
       setLastName(contact.lastName)
       setEmail(contact.email)
@@ -102,6 +114,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
       setXing(contact.socialMedia.xing)
     } else {
       setSalutation('')
+      setTitle('')
       setFirstName('')
       setLastName('')
       setEmail('')
@@ -135,6 +148,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
     if (!firstName.trim() || !lastName.trim()) return
     onSubmit({
       salutation,
+      title,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email,
@@ -165,8 +179,8 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Salutation + Name */}
-          <div className="grid grid-cols-[100px_1fr_1fr] gap-3">
+          {/* Salutation + Title + Name */}
+          <div className="grid grid-cols-[100px_110px_1fr_1fr] gap-3">
             <div className="space-y-1.5">
               <Label>Anrede</Label>
               <Select value={salutation} onValueChange={(v) => setSalutation(v as typeof salutation)}>
@@ -174,6 +188,17 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
                 <SelectContent>
                   {salutations.map((s) => (
                     <SelectItem key={s.value} value={s.value || '_none'}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Titel</Label>
+              <Select value={title} onValueChange={setTitle}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {academicTitles.map((t) => (
+                    <SelectItem key={t.value} value={t.value || '_none'}>{t.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

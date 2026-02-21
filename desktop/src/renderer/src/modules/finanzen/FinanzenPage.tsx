@@ -15,6 +15,10 @@ import {
   BarChart3,
   Gavel,
   Receipt,
+  Link2,
+  QrCode,
+  Landmark,
+  Timer,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
@@ -50,6 +54,11 @@ import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { ExportDialog } from './ExportDialog'
 import { DunningPanel } from './DunningPanel'
 import { FinanceDashboard } from './FinanceDashboard'
+import { BelegketteTab } from './BelegketteTab'
+import { QRRechnungPreview, QRBillIndicator } from './QRRechnungPreview'
+import { EInvoiceBadge, EInvoiceDetailDialog } from './EInvoiceIndicator'
+import { HoursToInvoiceDialog } from './HoursToInvoiceDialog'
+import { BankingWidget } from './BankingWidget'
 
 // ---------------------------------------------------------------------------
 // Status badge config
@@ -172,6 +181,9 @@ export default function FinanzenPage() {
     id: string
     label: string
   } | null>(null)
+  const [qrPreviewInvoice, setQrPreviewInvoice] = useState<string | null>(null)
+  const [eInvoiceDetailNumber, setEInvoiceDetailNumber] = useState<string | null>(null)
+  const [showHoursToInvoice, setShowHoursToInvoice] = useState(false)
 
   // Filtered data
   const invoices = invoicesData?.invoices ?? []
@@ -393,6 +405,8 @@ export default function FinanzenPage() {
       icon: Receipt,
     },
     { key: 'dunning', label: 'Mahnungen', icon: Gavel },
+    { key: 'belegkette', label: 'Belegkette', icon: Link2 },
+    { key: 'banking', label: 'Banking', icon: Landmark },
     { key: 'export', label: 'Export', icon: Download },
   ]
 
@@ -401,12 +415,19 @@ export default function FinanzenPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-foreground">Finanzen</h1>
+          <h1 className="text-foreground">Rechnungen & Finanzen</h1>
           <p className="text-sm text-muted-foreground">
-            Rechnungen, Angebote, Gutschriften und Mahnwesen
+            Rechnungen, Angebote, Gutschriften, Belegketten und Mahnwesen
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowHoursToInvoice(true)}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+          >
+            <Timer className="h-4 w-4" />
+            Stunden abrechnen
+          </button>
           <button
             onClick={() => setShowExport(true)}
             className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
@@ -530,7 +551,7 @@ export default function FinanzenPage() {
           />
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="grid grid-cols-[100px_1fr_100px_100px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+            <div className="grid grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
               <span>Nr.</span>
               <span>Kunde</span>
               <span>Betrag</span>
@@ -546,7 +567,7 @@ export default function FinanzenPage() {
               return (
                 <div
                   key={inv.id}
-                  className="grid grid-cols-[100px_1fr_100px_100px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                  className="grid grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
                 >
                   <button
                     onClick={() => setSelectedInvoiceId(inv.id)}
@@ -572,12 +593,23 @@ export default function FinanzenPage() {
                       ? formatEUR(inv.tax_breakdown.gross_total)
                       : '--'}
                   </span>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
-                  >
-                    <StatusIcon className="h-3 w-3" />
-                    {sc.label}
-                  </span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
+                    >
+                      <StatusIcon className="h-3 w-3" />
+                      {sc.label}
+                    </span>
+                    <QRBillIndicator
+                      hasQRBill={inv.invoice_number === 'RE-2026-003' || inv.invoice_number === 'RE-2026-008'}
+                      invoiceNumber={inv.invoice_number}
+                      onPreview={() => setQrPreviewInvoice(inv.invoice_number)}
+                    />
+                    <EInvoiceBadge
+                      invoiceNumber={inv.invoice_number}
+                      onClick={() => setEInvoiceDetailNumber(inv.invoice_number)}
+                    />
+                  </div>
                   <ItemActions items={getInvoiceActions(inv)} />
                 </div>
               )
@@ -724,25 +756,86 @@ export default function FinanzenPage() {
       {/* Dunning Tab */}
       {activeTab === 'dunning' && <DunningPanel />}
 
+      {/* Belegkette Tab */}
+      {activeTab === 'belegkette' && <BelegketteTab />}
+
+      {/* Banking Tab */}
+      {activeTab === 'banking' && <BankingWidget />}
+
       {/* Export Tab */}
       {activeTab === 'export' && (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <Download className="h-12 w-12 text-muted-foreground/50" />
-          <div className="text-center">
-            <p className="text-sm font-medium text-foreground">
-              DATEV Buchungsstapel Export
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Exportiere Rechnungen und Gutschriften im DATEV EXTF-Format
-            </p>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Exportiere Finanzdaten in verschiedene Buchhaltungsformate.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* DATEV */}
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Download className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">DATEV</p>
+                  <p className="text-[10px] text-muted-foreground">EXTF-Format (CSV)</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Buchungsstapel fuer DATEV Unternehmen online, Kanzlei-Rechnungswesen und Steuerberater-Software.
+              </p>
+              <button
+                onClick={() => setShowExport(true)}
+                className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                DATEV Export
+              </button>
+            </div>
+            {/* Bexio */}
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-info-light">
+                  <Download className="h-5 w-5 text-info" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Bexio</p>
+                  <p className="text-[10px] text-muted-foreground">CSV-Import</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Export im Bexio-kompatiblen CSV-Format. Rechnungen, Kontakte und Artikel separat exportierbar.
+              </p>
+              <button
+                onClick={() => toast.success('Bexio-Export heruntergeladen')}
+                className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Bexio Export
+              </button>
+            </div>
+            {/* BMD */}
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success-light">
+                  <Download className="h-5 w-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">BMD</p>
+                  <p className="text-[10px] text-muted-foreground">NTCS-Format</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Export fuer BMD NTCS Buchhaltung. Standard in Oesterreich fuer Steuerberater und KMUs.
+              </p>
+              <button
+                onClick={() => toast.success('BMD-Export heruntergeladen')}
+                className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                BMD Export
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setShowExport(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            Export starten
-          </button>
         </div>
       )}
 
@@ -792,6 +885,26 @@ export default function FinanzenPage() {
 
       {/* Export */}
       <ExportDialog open={showExport} onOpenChange={setShowExport} />
+
+      {/* QR-Rechnung Preview */}
+      <QRRechnungPreview
+        open={!!qrPreviewInvoice}
+        onOpenChange={() => setQrPreviewInvoice(null)}
+        invoiceNumber={qrPreviewInvoice ?? undefined}
+      />
+
+      {/* E-Invoice Detail */}
+      <EInvoiceDetailDialog
+        open={!!eInvoiceDetailNumber}
+        onOpenChange={() => setEInvoiceDetailNumber(null)}
+        invoiceNumber={eInvoiceDetailNumber ?? ''}
+      />
+
+      {/* Hours to Invoice */}
+      <HoursToInvoiceDialog
+        open={showHoursToInvoice}
+        onOpenChange={setShowHoursToInvoice}
+      />
 
       {/* Confirm Delete */}
       <ConfirmDialog
