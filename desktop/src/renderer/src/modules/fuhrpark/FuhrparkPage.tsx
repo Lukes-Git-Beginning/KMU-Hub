@@ -17,18 +17,22 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  BookOpen,
+  CircleDollarSign,
+  Camera,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailPanel, EmptyState } from '@/components/shared'
 import { formatAmount } from '@/lib/format'
-import { useFuhrparkStore, type Vehicle, type MaintenanceRecord, type FuelRecord } from '@/stores/fuhrpark'
+import { useFuhrparkStore, type Vehicle, type MaintenanceRecord, type FuelRecord, type LogbookEntry, type VehicleDocument, type DamageReport } from '@/stores/fuhrpark'
+import SchadensmeldungDialog from './SchadensmeldungDialog'
 
 // ---------------------------------------------------------------------------
 // Types & Constants
 // ---------------------------------------------------------------------------
 
-type TabKey = 'fahrzeuge' | 'wartung' | 'tankprotokoll' | 'tracking'
-type DialogKey = 'addVehicle' | 'addMaintenance' | 'addFuel' | null
+type TabKey = 'fahrzeuge' | 'wartung' | 'tankprotokoll' | 'tracking' | 'fahrtenbuch'
+type DialogKey = 'addVehicle' | 'addMaintenance' | 'addFuel' | 'addDamage' | null
 
 const vehicleTypeLabels: Record<string, string> = {
   car: 'PKW',
@@ -54,6 +58,44 @@ const maintenanceTypeColors: Record<string, string> = {
   repair: 'bg-warning-light text-warning',
   inspection: 'bg-success-light text-success',
   tires: 'bg-primary-light text-primary',
+}
+
+const documentTypeLabels: Record<string, string> = {
+  registration: 'Fahrzeugausweis',
+  insurance: 'Versicherung',
+  tuev: 'TUeV/MFK',
+  other: 'Sonstige',
+}
+
+const documentTypeColors: Record<string, string> = {
+  registration: 'bg-primary-light text-primary',
+  insurance: 'bg-info-light text-info',
+  tuev: 'bg-warning-light text-warning',
+  other: 'bg-secondary text-muted-foreground',
+}
+
+const severityLabels: Record<string, string> = {
+  minor: 'Gering',
+  moderate: 'Mittel',
+  major: 'Schwer',
+}
+
+const severityColors: Record<string, string> = {
+  minor: 'bg-info-light text-info',
+  moderate: 'bg-warning-light text-warning',
+  major: 'bg-error-light text-error',
+}
+
+const damageStatusLabels: Record<string, string> = {
+  open: 'Offen',
+  in_progress: 'In Bearbeitung',
+  resolved: 'Behoben',
+}
+
+const damageStatusColors: Record<string, string> = {
+  open: 'bg-warning-light text-warning',
+  in_progress: 'bg-info-light text-info',
+  resolved: 'bg-success-light text-success',
 }
 
 // ---------------------------------------------------------------------------
@@ -619,16 +661,24 @@ interface VehicleDetailContentProps {
   vehicle: Vehicle
   maintenanceRecords: MaintenanceRecord[]
   fuelRecords: FuelRecord[]
+  logbookEntries: LogbookEntry[]
+  vehicleDocuments: VehicleDocument[]
+  damageReports: DamageReport[]
   onAddMaintenance: () => void
   onAddFuel: () => void
+  onAddDamage: () => void
 }
 
 function VehicleDetailContent({
   vehicle,
   maintenanceRecords,
   fuelRecords,
+  logbookEntries,
+  vehicleDocuments,
+  damageReports,
   onAddMaintenance,
   onAddFuel,
+  onAddDamage,
 }: VehicleDetailContentProps) {
   const inspectionStatus = getDateStatus(vehicle.nextInspection)
   const insuranceStatus = getDateStatus(vehicle.insuranceExpiry)
@@ -650,6 +700,36 @@ function VehicleDetailContent({
   const totalMaintenanceCost = maintenanceRecords
     .filter((r) => r.vehicleId === vehicle.id)
     .reduce((sum, r) => sum + r.cost, 0)
+
+  // Wave 9: Logbook entries for this vehicle (last 3)
+  const vehicleLogbook = logbookEntries
+    .filter((e) => e.vehicleId === vehicle.id)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3)
+
+  // Wave 9: Documents for this vehicle
+  const vehicleDocs = vehicleDocuments
+    .filter((d) => d.vehicleId === vehicle.id)
+    .sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime())
+
+  // Wave 9: Damage reports for this vehicle
+  const vehicleDamage = damageReports
+    .filter((d) => d.vehicleId === vehicle.id)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+  // Wave 9: TCO calculation
+  const mockInsuranceCost = 2400 // EUR/year mock
+  const vehicleAge = new Date().getFullYear() - vehicle.year
+  const mockDepreciation = vehicleAge > 0 ? Math.round(30000 / Math.max(vehicleAge * 2, 1)) : 5000 // rough mock
+  const tcoMaintenance = maintenanceRecords.filter((r) => r.vehicleId === vehicle.id).reduce((s, r) => s + r.cost, 0)
+  const tcoFuel = fuelRecords.filter((r) => r.vehicleId === vehicle.id).reduce((s, r) => s + r.cost, 0)
+  const tcoTotal = tcoMaintenance + tcoFuel + mockInsuranceCost + mockDepreciation
+  const tcoCats = [
+    { label: 'Wartung', value: tcoMaintenance, color: 'bg-warning' },
+    { label: 'Treibstoff', value: tcoFuel, color: 'bg-info' },
+    { label: 'Versicherung', value: mockInsuranceCost, color: 'bg-primary' },
+    { label: 'Abschreibung', value: mockDepreciation, color: 'bg-muted-foreground' },
+  ]
 
   return (
     <div className="space-y-5">
@@ -690,8 +770,51 @@ function VehicleDetailContent({
           <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="h-3.5 w-3.5 shrink-0" />
             <span className="text-foreground">
-              Gesamtkosten: CHF {formatAmount(totalMaintenanceCost + totalFuelCost)}
+              Gesamtkosten: EUR {formatAmount(totalMaintenanceCost + totalFuelCost)}
             </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Wave 9: TCO Dashboard */}
+      <section className="space-y-2">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <CircleDollarSign className="h-3 w-3" />
+          TCO (Total Cost of Ownership)
+        </h4>
+        <div className="grid grid-cols-2 gap-2">
+          {tcoCats.map((cat) => (
+            <div key={cat.label} className="rounded-md border border-border-muted bg-secondary/30 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">{cat.label}</p>
+              <p className="text-xs font-semibold text-foreground">EUR {formatAmount(cat.value)}</p>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-md bg-secondary/50 px-3 py-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] text-muted-foreground">Kostenverteilung</span>
+            <span className="text-xs font-semibold text-foreground">EUR {formatAmount(tcoTotal)}</span>
+          </div>
+          <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5">
+            {tcoCats.map((cat) => {
+              const pct = tcoTotal > 0 ? (cat.value / tcoTotal) * 100 : 0
+              return pct > 0 ? (
+                <div
+                  key={cat.label}
+                  className={`${cat.color} rounded-sm`}
+                  style={{ width: `${pct}%` }}
+                  title={`${cat.label}: ${Math.round(pct)}%`}
+                />
+              ) : null
+            })}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+            {tcoCats.map((cat) => (
+              <div key={cat.label} className="flex items-center gap-1">
+                <span className={`h-1.5 w-1.5 rounded-full ${cat.color}`} />
+                <span className="text-[9px] text-muted-foreground">{cat.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -775,8 +898,117 @@ function VehicleDetailContent({
         )}
       </section>
 
+      {/* Wave 9: Letzte Fahrten (Logbook) */}
+      <section className="space-y-2">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <BookOpen className="h-3 w-3" />
+          Letzte Fahrten
+        </h4>
+        {vehicleLogbook.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">Keine Fahrten eingetragen</p>
+        ) : (
+          <div className="space-y-1.5">
+            {vehicleLogbook.map((entry) => (
+              <div key={entry.id} className="rounded-md border border-border-muted px-3 py-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-muted-foreground">{formatDate(entry.date)}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
+                    entry.isPrivate ? 'bg-warning-light text-warning' : 'bg-info-light text-info'
+                  }`}>
+                    {entry.isPrivate ? 'Privat' : 'Geschaeftlich'}
+                  </span>
+                </div>
+                <p className="text-xs text-foreground truncate">
+                  {entry.startLocation} → {entry.endLocation}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{entry.km} km — {entry.purpose}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Wave 9: Dokumente */}
+      <section className="space-y-2">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <FileText className="h-3 w-3" />
+          Dokumente
+        </h4>
+        {vehicleDocs.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">Keine Dokumente vorhanden</p>
+        ) : (
+          <div className="space-y-1.5">
+            {vehicleDocs.map((doc) => {
+              const expiryStatus = doc.expiryDate ? getDateStatus(doc.expiryDate) : null
+              return (
+                <div key={doc.id} className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium ${documentTypeColors[doc.type] ?? 'bg-secondary text-muted-foreground'}`}>
+                          {documentTypeLabels[doc.type] ?? doc.type}
+                        </span>
+                      </div>
+                      <p className="text-xs text-foreground truncate mt-0.5">{doc.name}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <p className="text-[10px] text-muted-foreground">{formatDate(doc.uploadDate)}</p>
+                    {doc.expiryDate && expiryStatus && (
+                      <p className={`text-[10px] ${statusTextColor(expiryStatus)}`}>
+                        {expiryStatus === 'overdue' && <AlertTriangle className="inline h-2.5 w-2.5 mr-0.5" />}
+                        Ablauf: {formatDate(doc.expiryDate)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Wave 9: Schadensmeldungen */}
+      <section className="space-y-2">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <Camera className="h-3 w-3" />
+          Schadensmeldungen
+        </h4>
+        {vehicleDamage.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">Keine Schaeden gemeldet</p>
+        ) : (
+          <div className="space-y-1.5">
+            {vehicleDamage.map((dmg) => (
+              <div key={dmg.id} className="rounded-md border border-border-muted px-3 py-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${severityColors[dmg.severity] ?? 'bg-secondary text-muted-foreground'}`}>
+                      {severityLabels[dmg.severity] ?? dmg.severity}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${damageStatusColors[dmg.status] ?? 'bg-secondary text-muted-foreground'}`}>
+                      {damageStatusLabels[dmg.status] ?? dmg.status}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{formatDate(dmg.date)}</span>
+                </div>
+                <p className="text-xs text-foreground">{dmg.description}</p>
+                <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                  <span>{dmg.location}</span>
+                  {dmg.photoCount > 0 && (
+                    <span className="flex items-center gap-0.5">
+                      <Camera className="h-2.5 w-2.5" /> {dmg.photoCount}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Action Buttons */}
-      <div className="flex gap-2 pt-1">
+      <div className="flex gap-2 pt-1 flex-wrap">
         <button
           onClick={onAddMaintenance}
           className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
@@ -791,6 +1023,13 @@ function VehicleDetailContent({
           <Fuel className="h-3.5 w-3.5" />
           Tanken eintragen
         </button>
+        <button
+          onClick={onAddDamage}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+        >
+          <Camera className="h-3.5 w-3.5" />
+          Schaden melden
+        </button>
       </div>
     </div>
   )
@@ -801,7 +1040,7 @@ function VehicleDetailContent({
 // ---------------------------------------------------------------------------
 
 export default function FuhrparkPage() {
-  const { vehicles, maintenanceRecords, fuelRecords, vehicleRoutes, refreshTracking } = useFuhrparkStore()
+  const { vehicles, maintenanceRecords, fuelRecords, vehicleRoutes, logbookEntries, vehicleDocuments, damageReports, refreshTracking } = useFuhrparkStore()
 
   const [tab, setTab] = useState<TabKey>('fahrzeuge')
   const [search, setSearch] = useState('')
@@ -858,6 +1097,35 @@ export default function FuhrparkPage() {
     return sorted.filter((r) => r.vehiclePlate.toLowerCase().includes(q))
   }, [fuelRecords, search])
 
+  // Filtered logbook with search
+  const filteredLogbook = useMemo(() => {
+    const sorted = [...logbookEntries].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    )
+    if (!search) return sorted
+    const q = search.toLowerCase()
+    return sorted.filter(
+      (e) =>
+        e.vehiclePlate.toLowerCase().includes(q) ||
+        e.startLocation.toLowerCase().includes(q) ||
+        e.endLocation.toLowerCase().includes(q) ||
+        e.purpose.toLowerCase().includes(q) ||
+        e.driver.toLowerCase().includes(q)
+    )
+  }, [logbookEntries, search])
+
+  // Logbook stats
+  const logbookBusinessKm = useMemo(
+    () => logbookEntries.filter((e) => !e.isPrivate).reduce((s, e) => s + e.km, 0),
+    [logbookEntries]
+  )
+  const logbookPrivateKm = useMemo(
+    () => logbookEntries.filter((e) => e.isPrivate).reduce((s, e) => s + e.km, 0),
+    [logbookEntries]
+  )
+  const logbookTotalKm = logbookBusinessKm + logbookPrivateKm
+  const logbookPrivatePct = logbookTotalKm > 0 ? ((logbookPrivateKm / logbookTotalKm) * 100).toFixed(1) : '0.0'
+
   // Monthly fuel cost
   const now = new Date()
   const currentMonth = now.getMonth()
@@ -904,6 +1172,11 @@ export default function FuhrparkPage() {
   const openAddFuelGlobal = useCallback(() => {
     setDialogPreselectedVehicleId(undefined)
     setDialog('addFuel')
+  }, [])
+
+  const openAddDamageFromPanel = useCallback((vehicleId: string) => {
+    setDialogPreselectedVehicleId(vehicleId)
+    setDialog('addDamage')
   }, [])
 
   const handleSaveVehicle = useCallback(
@@ -974,7 +1247,9 @@ export default function FuhrparkPage() {
         ? 'Wartung suchen...'
         : tab === 'tracking'
           ? 'Fahrzeug, Fahrer, Ort suchen...'
-          : 'Tankprotokoll suchen...'
+          : tab === 'fahrtenbuch'
+            ? 'Fahrt, Fahrer, Ort suchen...'
+            : 'Tankprotokoll suchen...'
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -1008,6 +1283,15 @@ export default function FuhrparkPage() {
               Tanken eintragen
             </button>
           )}
+          {tab === 'fahrtenbuch' && (
+            <button
+              onClick={() => toast.info('Fahrt-Erfassung kommt in einer kuenftigen Version')}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              <BookOpen className="h-4 w-4" />
+              Fahrt eintragen
+            </button>
+          )}
           {tab === 'tracking' && (
             <button
               onClick={handleRefreshTracking}
@@ -1034,6 +1318,7 @@ export default function FuhrparkPage() {
           { key: 'fahrzeuge' as const, label: `Fahrzeuge (${vehicles.length})`, icon: null },
           { key: 'wartung' as const, label: `Wartung (${maintenanceRecords.length})`, icon: null },
           { key: 'tankprotokoll' as const, label: `Tankprotokoll (${fuelRecords.length})`, icon: null },
+          { key: 'fahrtenbuch' as const, label: `Fahrtenbuch (${logbookEntries.length})`, icon: BookOpen },
           { key: 'tracking' as const, label: 'Tracking', icon: MapPin },
         ]).map((t) => (
           <button
@@ -1097,6 +1382,17 @@ export default function FuhrparkPage() {
       {/* ================================================================= */}
       {tab === 'fahrzeuge' && (
         <>
+          {/* Wave 9: Reifenwechsel-Erinnerung Banner */}
+          <div className="mb-4 flex items-center gap-3 rounded-lg border border-warning/30 bg-warning-light px-4 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-warning/20">
+              <RefreshCw className="h-4 w-4 text-warning" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Naechster Reifenwechsel: April 2026 — Sommerreifen</p>
+              <p className="text-xs text-muted-foreground">Rechtzeitig Termine fuer {vehicles.filter((v) => v.isActive).length} aktive Fahrzeuge planen</p>
+            </div>
+          </div>
+
           {filteredVehicles.length === 0 ? (
             <EmptyState
               icon={Car}
@@ -1357,6 +1653,106 @@ export default function FuhrparkPage() {
       )}
 
       {/* ================================================================= */}
+      {/* Fahrtenbuch Tab                                                    */}
+      {/* ================================================================= */}
+      {tab === 'fahrtenbuch' && (
+        <>
+          {/* Summary stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-info-light">
+                  <BookOpen className="h-5 w-5 text-info" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Geschaeftliche km</p>
+                  <p className="text-xl font-semibold text-foreground">{formatKm(logbookBusinessKm)} km</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning-light">
+                  <Car className="h-5 w-5 text-warning" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Private km</p>
+                  <p className="text-xl font-semibold text-foreground">{formatKm(logbookPrivateKm)} km</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Privatanteil</p>
+                  <p className="text-xl font-semibold text-foreground">{logbookPrivatePct}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {filteredLogbook.length === 0 ? (
+            <EmptyState
+              icon={BookOpen}
+              title="Keine Fahrten erfasst"
+              description={search ? 'Passe deine Suche an' : 'Fahrtenbucheintraege werden hier angezeigt'}
+            />
+          ) : (
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Datum</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fahrzeug</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Strecke</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Zweck</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">km</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Art</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLogbook.map((entry) => (
+                      <tr
+                        key={entry.id}
+                        className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
+                      >
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDate(entry.date)}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs font-medium text-foreground whitespace-nowrap">
+                          {entry.vehiclePlate}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-foreground max-w-[240px]">
+                          <span className="truncate block">{entry.startLocation} → {entry.endLocation}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground max-w-[200px] truncate">
+                          {entry.purpose}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-foreground font-medium text-right tabular-nums">
+                          {formatKm(entry.km)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            entry.isPrivate ? 'bg-warning-light text-warning' : 'bg-info-light text-info'
+                          }`}>
+                            {entry.isPrivate ? 'Privat' : 'Geschaeftlich'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ================================================================= */}
       {/* Tracking Tab                                                       */}
       {/* ================================================================= */}
       {tab === 'tracking' && (
@@ -1586,8 +1982,12 @@ export default function FuhrparkPage() {
             vehicle={selectedVehicle}
             maintenanceRecords={maintenanceRecords}
             fuelRecords={fuelRecords}
+            logbookEntries={logbookEntries}
+            vehicleDocuments={vehicleDocuments}
+            damageReports={damageReports}
             onAddMaintenance={() => openAddMaintenanceFromPanel(selectedVehicle.id)}
             onAddFuel={() => openAddFuelFromPanel(selectedVehicle.id)}
+            onAddDamage={() => openAddDamageFromPanel(selectedVehicle.id)}
           />
         )}
       </DetailPanel>
@@ -1615,6 +2015,20 @@ export default function FuhrparkPage() {
           preselectedVehicleId={dialogPreselectedVehicleId}
           onClose={() => setDialog(null)}
           onSave={handleSaveFuel}
+        />
+      )}
+      {dialog === 'addDamage' && (
+        <SchadensmeldungDialog
+          vehicles={vehicles}
+          preselectedVehicleId={dialogPreselectedVehicleId}
+          onClose={() => setDialog(null)}
+          onSave={(report: DamageReport) => {
+            useFuhrparkStore.setState((state) => ({
+              damageReports: [...state.damageReports, report],
+            }))
+            setDialog(null)
+            toast.success(`Schaden fuer ${report.vehiclePlate} gemeldet`)
+          }}
         />
       )}
     </div>

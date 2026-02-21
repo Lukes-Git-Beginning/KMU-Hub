@@ -22,6 +22,13 @@ import {
   Thermometer,
   HardHat,
   Package,
+  FileDown,
+  CheckCircle2,
+  XCircle,
+  Send,
+  ShieldCheck,
+  Wind,
+  Droplets,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -34,6 +41,8 @@ import {
   type ReportActivity,
   type ReportMaterial,
 } from '@/stores/rapporte'
+import SignatureCanvas from './SignatureCanvas'
+import SketchCanvas from './SketchCanvas'
 import { DetailPanel, EmptyState } from '@/components/shared'
 import {
   Dialog,
@@ -129,12 +138,35 @@ function isThisMonth(dateStr: string): boolean {
   return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
 }
 
+// Mock weather details by weather type (9.11)
+const weatherMockData: Record<WeatherType, { temp: number; wind: number; humidity: number }> = {
+  sunny: { temp: 18, wind: 5, humidity: 45 },
+  cloudy: { temp: 12, wind: 15, humidity: 65 },
+  rainy: { temp: 8, wind: 25, humidity: 85 },
+  snowy: { temp: -2, wind: 10, humidity: 75 },
+}
+
+// Approval status styling (9.10)
+const approvalBadgeStyles: Record<FieldReport['approvalStatus'], string> = {
+  draft: 'bg-secondary text-muted-foreground',
+  submitted: 'bg-info-light text-info',
+  approved: 'bg-success-light text-success',
+  rejected: 'bg-error-light text-error',
+}
+
+const approvalLabels: Record<FieldReport['approvalStatus'], string> = {
+  draft: 'Entwurf',
+  submitted: 'Eingereicht',
+  approved: 'Genehmigt',
+  rejected: 'Abgelehnt',
+}
+
 // ============================================================
 // Main Component
 // ============================================================
 
 export default function RapportePage() {
-  const { reports, measurements, templates, deleteReport, deleteMeasurement } = useRapporteStore()
+  const { reports, measurements, templates, deleteReport, deleteMeasurement, updateReport } = useRapporteStore()
 
   const [tab, setTab] = useState<TabKey>('tagesberichte')
   const [search, setSearch] = useState('')
@@ -380,6 +412,13 @@ export default function RapportePage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
+                        {/* Approval badge (9.10) */}
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${approvalBadgeStyles[report.approvalStatus]}`}>
+                          {report.approvalStatus === 'approved' && <CheckCircle2 className="h-3 w-3" />}
+                          {report.approvalStatus === 'rejected' && <XCircle className="h-3 w-3" />}
+                          {report.approvalStatus === 'submitted' && <Send className="h-3 w-3" />}
+                          {approvalLabels[report.approvalStatus]}
+                        </span>
                         {/* Weather */}
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <WeatherIcon className="h-4 w-4" />
@@ -517,10 +556,9 @@ export default function RapportePage() {
                           </tbody>
                         </table>
 
-                        {/* Sketch placeholder */}
-                        <div className="mt-4 rounded-lg border-2 border-dashed border-border p-6 flex flex-col items-center justify-center text-muted-foreground">
-                          <Pencil className="h-6 w-6 mb-2 opacity-40" />
-                          <p className="text-xs font-medium">Zeichnung/Skizze (kommt bald)</p>
+                        {/* Sketch canvas (9.8) */}
+                        <div className="mt-4 rounded-lg border border-border overflow-hidden" style={{ height: 400 }}>
+                          <SketchCanvas />
                         </div>
 
                         {/* Delete button */}
@@ -612,6 +650,10 @@ export default function RapportePage() {
           report={selectedReport}
           onClose={() => setSelectedReport(null)}
           onDelete={handleDeleteReport}
+          onUpdate={(id, updates) => {
+            updateReport(id, updates)
+            setSelectedReport({ ...selectedReport, ...updates })
+          }}
         />
       )}
 
@@ -645,13 +687,16 @@ function ReportDetailPanel({
   report,
   onClose,
   onDelete,
+  onUpdate,
 }: {
   report: FieldReport
   onClose: () => void
   onDelete: (id: string) => void
+  onUpdate: (id: string, updates: Partial<FieldReport>) => void
 }) {
   const WeatherIcon = weatherIcons[report.weather]
   const netHours = calcNetHours(report.workStart, report.workEnd, report.breakMinutes)
+  const [showSignaturePad, setShowSignaturePad] = useState(false)
 
   return (
     <DetailPanel
@@ -668,6 +713,13 @@ function ReportDetailPanel({
           >
             <Trash2 className="h-3.5 w-3.5" />
             Löschen
+          </button>
+          <button
+            onClick={() => toast.success('PDF-Export wird generiert...', { description: 'Der Tagesbericht wird als PDF heruntergeladen' })}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            PDF exportieren
           </button>
         </div>
       }
@@ -805,7 +857,7 @@ function ReportDetailPanel({
           </section>
         )}
 
-        {/* Photos */}
+        {/* Photos (improved 9.7) */}
         {report.photos.length > 0 && (
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
@@ -813,25 +865,129 @@ function ReportDetailPanel({
               Fotos ({report.photos.length})
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              {report.photos.map((photo) => (
-                <div key={photo.id} className="rounded-lg border border-border bg-secondary/30 aspect-[4/3] flex flex-col items-center justify-center">
-                  <Camera className="h-6 w-6 text-muted-foreground opacity-40 mb-1" />
-                  <p className="text-[10px] text-muted-foreground text-center px-2 line-clamp-2">{photo.caption}</p>
+              {report.photos.map((photo, idx) => (
+                <div key={photo.id} className="rounded-lg border border-border bg-secondary/30 overflow-hidden">
+                  <div className="relative aspect-[4/3] bg-secondary flex items-center justify-center">
+                    <Camera className="h-8 w-8 text-muted-foreground opacity-20" />
+                    <div className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full bg-foreground/70 text-[10px] font-bold text-background">
+                      {idx + 1}
+                    </div>
+                  </div>
+                  <div className="px-2 py-1.5">
+                    <p className="text-[10px] text-muted-foreground line-clamp-2">{photo.caption || 'Kein Titel'}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </section>
         )}
 
-        {/* Signature section */}
+        {/* Signature section (9.6) */}
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
             Unterschrift
           </h4>
-          <div className="rounded-lg border-2 border-dashed border-border p-4 flex items-center justify-center gap-2 text-muted-foreground">
-            <Lock className="h-4 w-4 opacity-50" />
-            <span className="text-xs">Digitale Unterschrift kommt bald</span>
-          </div>
+          {report.signatureDataUrl ? (
+            <div className="rounded-lg border border-border bg-white p-3">
+              <img
+                src={report.signatureDataUrl}
+                alt="Unterschrift"
+                className="max-h-24 mx-auto"
+              />
+              <p className="text-[10px] text-success text-center mt-1 flex items-center justify-center gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                Unterschrieben
+              </p>
+            </div>
+          ) : showSignaturePad ? (
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <SignatureCanvas
+                onSave={(dataUrl) => {
+                  onUpdate(report.id, {
+                    signatureDataUrl: dataUrl,
+                    signatureStatus: 'signed',
+                  })
+                  setShowSignaturePad(false)
+                  toast.success('Unterschrift gespeichert')
+                }}
+                onCancel={() => setShowSignaturePad(false)}
+              />
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowSignaturePad(true)}
+              className="w-full rounded-lg border-2 border-dashed border-border p-4 flex items-center justify-center gap-2 text-muted-foreground hover:bg-secondary/50 hover:border-primary/30 transition-colors"
+            >
+              <Pencil className="h-4 w-4" />
+              <span className="text-xs font-medium">Unterschrift aufnehmen</span>
+            </button>
+          )}
+        </section>
+
+        {/* Approval workflow (9.10) */}
+        <section>
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+            <ShieldCheck className="h-3 w-3" />
+            Genehmigung
+          </h4>
+          {report.approvalStatus === 'draft' && (
+            <button
+              onClick={() => {
+                onUpdate(report.id, { approvalStatus: 'submitted' })
+                toast.success('Tagesbericht zur Genehmigung eingereicht')
+              }}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary-light px-3 py-2.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Zur Genehmigung einreichen
+            </button>
+          )}
+          {report.approvalStatus === 'submitted' && (
+            <div className="rounded-lg border border-info bg-info-light p-3 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-info shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-info">Warte auf Genehmigung</p>
+                <p className="text-[10px] text-info/70 mt-0.5">Der Bericht wurde eingereicht und wartet auf Freigabe.</p>
+              </div>
+            </div>
+          )}
+          {report.approvalStatus === 'approved' && (
+            <div className="rounded-lg border border-success bg-success-light p-3 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-success">Genehmigt</p>
+                {report.approvedBy && (
+                  <p className="text-[10px] text-success/70 mt-0.5">Freigegeben von {report.approvedBy}</p>
+                )}
+              </div>
+            </div>
+          )}
+          {report.approvalStatus === 'rejected' && (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-error bg-error-light p-3 flex items-start gap-2">
+                <XCircle className="h-4 w-4 text-error shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-error">Abgelehnt</p>
+                  {report.approvalComment && (
+                    <p className="text-[10px] text-error/80 mt-0.5">Grund: {report.approvalComment}</p>
+                  )}
+                  {report.approvedBy && (
+                    <p className="text-[10px] text-error/60 mt-0.5">Von {report.approvedBy}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  onUpdate(report.id, { approvalStatus: 'submitted', approvalComment: undefined })
+                  toast.success('Tagesbericht erneut eingereicht')
+                }}
+                className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Erneut einreichen
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Notes */}
@@ -886,8 +1042,17 @@ function NewReportDialog({
       : [{ article: '', quantity: 0, unit: 'Stk' }],
   )
   const [notes, setNotes] = useState('')
+  const [photos, setPhotos] = useState<{ id: string; caption: string }[]>([])
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
 
   const weatherTypes: WeatherType[] = ['sunny', 'cloudy', 'rainy', 'snowy']
+  const currentWeatherMock = weatherMockData[weather]
+
+  // Photos (9.7)
+  const addPhoto = () => setPhotos([...photos, { id: `ph-${Date.now()}`, caption: '' }])
+  const removePhoto = (id: string) => setPhotos(photos.filter((p) => p.id !== id))
+  const updatePhotoCaption = (id: string, caption: string) =>
+    setPhotos(photos.map((p) => (p.id === id ? { ...p, caption } : p)))
 
   // Workers
   const addWorker = () => setWorkers([...workers, { name: '', role: '', hours: 8 }])
@@ -950,6 +1115,8 @@ function NewReportDialog({
     setActivities([{ description: '', category: '' }])
     setMaterials([{ article: '', quantity: 0, unit: 'Stk' }])
     setNotes('')
+    setPhotos([])
+    setSignatureDataUrl(null)
     onOpenChange(false)
   }
 
@@ -1020,6 +1187,27 @@ function NewReportDialog({
               value={temperature}
               onChange={(e) => setTemperature(e.target.value)}
             />
+          </div>
+
+          {/* Weather mock data (9.11) */}
+          <div className="rounded-lg border border-border bg-secondary/30 p-3">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Thermometer className="h-3.5 w-3.5" />
+                <span>{currentWeatherMock.temp}°C</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Wind className="h-3.5 w-3.5" />
+                <span>{currentWeatherMock.wind} km/h</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Droplets className="h-3.5 w-3.5" />
+                <span>{currentWeatherMock.humidity}%</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 mt-1">
+              Wetterdaten für {date || 'heute'} (Mock)
+            </p>
           </div>
 
           {/* Work time */}
@@ -1212,6 +1400,84 @@ function NewReportDialog({
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
             />
+          </div>
+
+          {/* Photos (9.7) */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-sm font-medium">Fotos</Label>
+              <button
+                type="button"
+                onClick={addPhoto}
+                className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <Camera className="h-3 w-3" />
+                Fotos hinzufügen
+              </button>
+            </div>
+            {photos.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {photos.map((photo) => (
+                  <div key={photo.id} className="rounded-lg border border-border bg-card overflow-hidden">
+                    <div className="aspect-[4/3] bg-secondary flex items-center justify-center">
+                      <Camera className="h-8 w-8 text-muted-foreground opacity-20" />
+                    </div>
+                    <div className="p-2 space-y-1">
+                      <Input
+                        placeholder="Bildunterschrift..."
+                        value={photo.caption}
+                        onChange={(e) => updatePhotoCaption(photo.id, e.target.value)}
+                        className="text-xs h-7"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(photo.id)}
+                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-error transition-colors"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Entfernen
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {photos.length === 0 && (
+              <p className="text-xs text-muted-foreground">Keine Fotos hinzugefügt</p>
+            )}
+          </div>
+
+          {/* Signature (9.6) */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Digitale Unterschrift</Label>
+            {signatureDataUrl ? (
+              <div className="rounded-lg border border-border bg-white p-3">
+                <img src={signatureDataUrl} alt="Unterschrift" className="max-h-20 mx-auto" />
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <p className="text-[10px] text-success flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Unterschrift erfasst
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSignatureDataUrl(null)}
+                    className="text-[10px] text-muted-foreground hover:text-error transition-colors"
+                  >
+                    Entfernen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border p-3">
+                <SignatureCanvas
+                  onSave={(dataUrl) => {
+                    setSignatureDataUrl(dataUrl)
+                    toast.success('Unterschrift erfasst')
+                  }}
+                  onCancel={() => {}}
+                />
+              </div>
+            )}
           </div>
 
           {/* Save/Cancel */}
@@ -1443,10 +1709,12 @@ function NewMeasurementDialog({
             </div>
           </div>
 
-          {/* Sketch placeholder */}
-          <div className="rounded-lg border-2 border-dashed border-border p-6 flex flex-col items-center justify-center text-muted-foreground">
-            <Pencil className="h-6 w-6 mb-2 opacity-40" />
-            <p className="text-xs font-medium">Zeichnung/Skizze (kommt bald)</p>
+          {/* Sketch canvas (9.8) */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Zeichnung/Skizze</Label>
+            <div className="rounded-lg border border-border overflow-hidden" style={{ height: 400 }}>
+              <SketchCanvas />
+            </div>
           </div>
 
           {/* Save/Cancel */}

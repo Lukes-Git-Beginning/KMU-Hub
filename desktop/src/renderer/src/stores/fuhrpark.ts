@@ -55,11 +55,54 @@ export interface VehicleRoute {
   driver: string
 }
 
+// Wave 9 — Fahrtenbuch
+export interface LogbookEntry {
+  id: string
+  vehicleId: string
+  vehiclePlate: string
+  date: string
+  startLocation: string
+  endLocation: string
+  purpose: string
+  startKm: number
+  endKm: number
+  km: number
+  isPrivate: boolean
+  driver: string
+}
+
+// Wave 9 — Dokumente pro Fahrzeug
+export interface VehicleDocument {
+  id: string
+  vehicleId: string
+  type: 'registration' | 'insurance' | 'tuev' | 'other'
+  name: string
+  uploadDate: string
+  expiryDate?: string
+}
+
+// Wave 9 — Schadensmeldung
+export interface DamageReport {
+  id: string
+  vehicleId: string
+  vehiclePlate: string
+  date: string
+  description: string
+  severity: 'minor' | 'moderate' | 'major'
+  location: string
+  photoCount: number
+  reportedBy: string
+  status: 'open' | 'in_progress' | 'resolved'
+}
+
 interface FuhrparkStore {
   vehicles: Vehicle[]
   maintenanceRecords: MaintenanceRecord[]
   fuelRecords: FuelRecord[]
   vehicleRoutes: VehicleRoute[]
+  logbookEntries: LogbookEntry[]
+  vehicleDocuments: VehicleDocument[]
+  damageReports: DamageReport[]
   refreshTracking: () => void
 }
 
@@ -187,6 +230,38 @@ const MOCK_VEHICLE_ROUTES: VehicleRoute[] = [
   },
 ]
 
+// Wave 9 — Fahrtenbuch mock data
+const MOCK_LOGBOOK: LogbookEntry[] = [
+  { id: 'lb-1', vehicleId: 'veh-1', vehiclePlate: 'ZH 345 678', date: '2026-02-14', startLocation: 'Buero Zuerich', endLocation: 'Kunde Meier AG, Winterthur', purpose: 'Kundenbesuch Angebot #2045', startKm: 18320, endKm: 18370, km: 50, isPrivate: false, driver: 'Thomas Keller' },
+  { id: 'lb-2', vehicleId: 'veh-1', vehiclePlate: 'ZH 345 678', date: '2026-02-14', startLocation: 'Kunde Meier AG, Winterthur', endLocation: 'Buero Zuerich', purpose: 'Rueckfahrt', startKm: 18370, endKm: 18420, km: 50, isPrivate: false, driver: 'Thomas Keller' },
+  { id: 'lb-3', vehicleId: 'veh-2', vehiclePlate: 'ZH 112 233', date: '2026-02-13', startLocation: 'Wohnort', endLocation: 'Buero Zuerich', purpose: 'Arbeitsweg', startKm: 34480, endKm: 34520, km: 40, isPrivate: true, driver: 'Lukas Brunner' },
+  { id: 'lb-4', vehicleId: 'veh-2', vehiclePlate: 'ZH 112 233', date: '2026-02-13', startLocation: 'Buero Zuerich', endLocation: 'Baustelle Altstetten', purpose: 'Baustellenbesichtigung', startKm: 34520, endKm: 34540, km: 20, isPrivate: false, driver: 'Lukas Brunner' },
+  { id: 'lb-5', vehicleId: 'veh-3', vehiclePlate: 'BE 456 789', date: '2026-02-14', startLocation: 'Depot Bern', endLocation: 'Baustelle Thun', purpose: 'Materialtransport Baustahl', startKm: 67750, endKm: 67820, km: 70, isPrivate: false, driver: 'Reto Aeschlimann' },
+  { id: 'lb-6', vehicleId: 'veh-3', vehiclePlate: 'BE 456 789', date: '2026-02-14', startLocation: 'Baustelle Thun', endLocation: 'Depot Bern', purpose: 'Rueckfahrt leer', startKm: 67820, endKm: 67890, km: 70, isPrivate: false, driver: 'Reto Aeschlimann' },
+  { id: 'lb-7', vehicleId: 'veh-4', vehiclePlate: 'ZH 998 877', date: '2026-02-12', startLocation: 'Buero Luzern', endLocation: 'Messe Zuerich', purpose: 'Messeaufbau', startKm: 5180, endKm: 5230, km: 50, isPrivate: false, driver: 'Sandra Mueller' },
+  { id: 'lb-8', vehicleId: 'veh-5', vehiclePlate: 'AG 223 344', date: '2026-02-13', startLocation: 'Buero Aarau', endLocation: 'Kunde Weber, Basel', purpose: 'Servicebesuch', startKm: 41100, endKm: 41200, km: 100, isPrivate: false, driver: 'Daniel Frei' },
+]
+
+// Wave 9 — Dokumente mock data
+const MOCK_DOCUMENTS: VehicleDocument[] = [
+  { id: 'doc-1', vehicleId: 'veh-1', type: 'registration', name: 'Fahrzeugausweis ZH 345 678', uploadDate: '2024-03-15' },
+  { id: 'doc-2', vehicleId: 'veh-1', type: 'insurance', name: 'Vollkasko Zurich Vers.', uploadDate: '2025-01-01', expiryDate: '2027-01-01' },
+  { id: 'doc-3', vehicleId: 'veh-2', type: 'registration', name: 'Fahrzeugausweis ZH 112 233', uploadDate: '2023-06-01' },
+  { id: 'doc-4', vehicleId: 'veh-2', type: 'tuev', name: 'MFK-Bericht 2025', uploadDate: '2025-05-20', expiryDate: '2026-05-20' },
+  { id: 'doc-5', vehicleId: 'veh-3', type: 'registration', name: 'Fahrzeugausweis BE 456 789', uploadDate: '2022-09-01' },
+  { id: 'doc-6', vehicleId: 'veh-3', type: 'insurance', name: 'Haftpflicht AXA', uploadDate: '2025-01-01', expiryDate: '2027-01-01' },
+  { id: 'doc-7', vehicleId: 'veh-3', type: 'tuev', name: 'MFK-Bericht 2025', uploadDate: '2025-03-10', expiryDate: '2026-03-10' },
+  { id: 'doc-8', vehicleId: 'veh-4', type: 'registration', name: 'Fahrzeugausweis ZH 998 877', uploadDate: '2025-01-15' },
+  { id: 'doc-9', vehicleId: 'veh-5', type: 'insurance', name: 'Vollkasko Mobiliar', uploadDate: '2023-07-01', expiryDate: '2027-01-01' },
+]
+
+// Wave 9 — Schadensmeldungen mock data
+const MOCK_DAMAGE_REPORTS: DamageReport[] = [
+  { id: 'dmg-1', vehicleId: 'veh-3', vehiclePlate: 'BE 456 789', date: '2026-01-22', description: 'Streifschaden rechte Seite beim Rangieren auf Baustelle', severity: 'moderate', location: 'Rechte Fahrzeugseite, hinteres Drittel', photoCount: 3, reportedBy: 'Reto Aeschlimann', status: 'in_progress' },
+  { id: 'dmg-2', vehicleId: 'veh-2', vehiclePlate: 'ZH 112 233', date: '2026-02-05', description: 'Steinschlag Windschutzscheibe A1 Hoehe Baden', severity: 'minor', location: 'Windschutzscheibe links oben', photoCount: 1, reportedBy: 'Lukas Brunner', status: 'resolved' },
+  { id: 'dmg-3', vehicleId: 'veh-5', vehiclePlate: 'AG 223 344', date: '2026-02-10', description: 'Delle Heckklappe — Parkplatz Einkaufszentrum', severity: 'minor', location: 'Heckklappe mittig', photoCount: 2, reportedBy: 'Daniel Frei', status: 'open' },
+]
+
 export const useFuhrparkStore = create<FuhrparkStore>()(
   persist(
     (_set) => ({
@@ -194,6 +269,9 @@ export const useFuhrparkStore = create<FuhrparkStore>()(
       maintenanceRecords: MOCK_MAINTENANCE,
       fuelRecords: MOCK_FUEL_RECORDS,
       vehicleRoutes: MOCK_VEHICLE_ROUTES,
+      logbookEntries: MOCK_LOGBOOK,
+      vehicleDocuments: MOCK_DOCUMENTS,
+      damageReports: MOCK_DAMAGE_REPORTS,
       refreshTracking: () => {
         toast.success('Tracking-Daten aktualisiert')
       },

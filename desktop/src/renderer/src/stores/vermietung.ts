@@ -12,6 +12,8 @@ export interface RentalObject {
   serialNumber?: string
   dailyRate: number
   weeklyRate?: number
+  currency: string
+  deposit?: number
   status: 'available' | 'reserved' | 'maintenance'
   imageUrl?: string
 }
@@ -28,17 +30,42 @@ export interface Reservation {
   status: 'active' | 'upcoming' | 'completed' | 'cancelled'
   pickupLocation: string
   returnLocation: string
+  currency: string
+  depositAmount?: number
+  depositStatus?: 'none' | 'collected' | 'returned'
+  totalPrice?: number
+}
+
+// Wave 9 — Zustandsprotokoll
+export interface ZustandsprotokollItem {
+  label: string
+  condition: 'ok' | 'damaged' | 'missing'
+  note?: string
+}
+
+export interface Zustandsprotokoll {
+  id: string
+  reservationId: string
+  type: 'pickup' | 'return'
+  date: string
+  checklist: ZustandsprotokollItem[]
+  photoCount: number
+  signatureDataUrl?: string
+  notes: string
+  createdBy: string
 }
 
 interface VermietungStore {
   objects: RentalObject[]
   reservations: Reservation[]
+  zustandsprotokolle: Zustandsprotokoll[]
   addObject: (obj: RentalObject) => void
   updateObject: (id: string, data: Partial<RentalObject>) => void
   deleteObject: (id: string) => void
   addReservation: (res: Reservation) => void
   updateReservation: (id: string, data: Partial<Reservation>) => void
   cancelReservation: (id: string) => void
+  addZustandsprotokoll: (z: Zustandsprotokoll) => void
 }
 
 const MOCK_OBJECTS: RentalObject[] = [
@@ -50,6 +77,7 @@ const MOCK_OBJECTS: RentalObject[] = [
     location: 'Buero Zuerich',
     serialNumber: 'EP-W49-2024-0871',
     dailyRate: 45,
+    currency: 'EUR',
     status: 'available',
   },
   {
@@ -59,6 +87,7 @@ const MOCK_OBJECTS: RentalObject[] = [
     description: 'Grosser Konferenzraum fuer bis zu 20 Personen, Beamer & Whiteboard vorhanden',
     location: '2. OG',
     dailyRate: 150,
+    currency: 'EUR',
     status: 'reserved',
   },
   {
@@ -70,6 +99,8 @@ const MOCK_OBJECTS: RentalObject[] = [
     serialNumber: 'ZH-482731',
     dailyRate: 120,
     weeklyRate: 650,
+    currency: 'EUR',
+    deposit: 500,
     status: 'available',
   },
   {
@@ -80,6 +111,8 @@ const MOCK_OBJECTS: RentalObject[] = [
     location: 'Lager Winterthur',
     serialNumber: 'HI-TE30-5523',
     dailyRate: 35,
+    currency: 'EUR',
+    deposit: 200,
     status: 'available',
   },
   {
@@ -91,6 +124,8 @@ const MOCK_OBJECTS: RentalObject[] = [
     serialNumber: 'HB-12M-0042',
     dailyRate: 280,
     weeklyRate: 1500,
+    currency: 'EUR',
+    deposit: 1000,
     status: 'maintenance',
   },
   {
@@ -100,6 +135,7 @@ const MOCK_OBJECTS: RentalObject[] = [
     description: 'Schulungsraum fuer bis zu 12 Personen, Flipchart & Beamer',
     location: '1. OG',
     dailyRate: 100,
+    currency: 'EUR',
     status: 'available',
   },
   {
@@ -109,6 +145,7 @@ const MOCK_OBJECTS: RentalObject[] = [
     description: '5x Lenovo ThinkPad T14s, 16GB RAM, 512GB SSD, Windows 11 Pro',
     location: 'IT-Buero',
     dailyRate: 25,
+    currency: 'EUR',
     status: 'reserved',
   },
   {
@@ -120,6 +157,8 @@ const MOCK_OBJECTS: RentalObject[] = [
     serialNumber: 'ZH-ANH-1105',
     dailyRate: 55,
     weeklyRate: 280,
+    currency: 'EUR',
+    deposit: 300,
     status: 'available',
   },
 ]
@@ -137,6 +176,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'active',
     pickupLocation: '2. OG',
     returnLocation: '2. OG',
+    currency: 'EUR',
   },
   {
     id: 'res-2',
@@ -150,6 +190,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'active',
     pickupLocation: 'IT-Buero',
     returnLocation: 'IT-Buero',
+    currency: 'EUR',
   },
   {
     id: 'res-3',
@@ -163,6 +204,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'upcoming',
     pickupLocation: 'Tiefgarage',
     returnLocation: 'Tiefgarage',
+    currency: 'EUR',
   },
   {
     id: 'res-4',
@@ -189,6 +231,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'upcoming',
     pickupLocation: 'Lager Winterthur',
     returnLocation: 'Lager Winterthur',
+    currency: 'EUR',
   },
   {
     id: 'res-6',
@@ -202,6 +245,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'completed',
     pickupLocation: '1. OG',
     returnLocation: '1. OG',
+    currency: 'EUR',
   },
   {
     id: 'res-7',
@@ -215,6 +259,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'completed',
     pickupLocation: 'Tiefgarage',
     returnLocation: 'Tiefgarage',
+    currency: 'EUR',
   },
   {
     id: 'res-8',
@@ -241,6 +286,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'completed',
     pickupLocation: 'Tiefgarage',
     returnLocation: 'Tiefgarage',
+    currency: 'EUR',
   },
   {
     id: 'res-10',
@@ -254,6 +300,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'upcoming',
     pickupLocation: '2. OG',
     returnLocation: '2. OG',
+    currency: 'EUR',
   },
   {
     id: 'res-11',
@@ -267,6 +314,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'cancelled',
     pickupLocation: 'Lager Winterthur',
     returnLocation: 'Lager Winterthur',
+    currency: 'EUR',
   },
   {
     id: 'res-12',
@@ -280,6 +328,42 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'upcoming',
     pickupLocation: '1. OG',
     returnLocation: '1. OG',
+    currency: 'EUR',
+  },
+]
+
+const MOCK_ZUSTANDSPROTOKOLLE: Zustandsprotokoll[] = [
+  {
+    id: 'zp-1',
+    reservationId: 'res-7',
+    type: 'pickup',
+    date: '2026-02-05',
+    checklist: [
+      { label: 'Allgemeinzustand', condition: 'ok' },
+      { label: 'Reifen/Raeder', condition: 'ok' },
+      { label: 'Beleuchtung', condition: 'ok' },
+      { label: 'Plane/Spriegel', condition: 'damaged', note: 'Kleine Rissbildung an der Seite' },
+      { label: 'Ladungssicherung', condition: 'ok' },
+    ],
+    photoCount: 2,
+    notes: 'Plane hat leichten Riss, Mieter informiert',
+    createdBy: 'Thomas Keller',
+  },
+  {
+    id: 'zp-2',
+    reservationId: 'res-7',
+    type: 'return',
+    date: '2026-02-07',
+    checklist: [
+      { label: 'Allgemeinzustand', condition: 'ok' },
+      { label: 'Reifen/Raeder', condition: 'ok' },
+      { label: 'Beleuchtung', condition: 'ok' },
+      { label: 'Plane/Spriegel', condition: 'damaged', note: 'Riss unveraendert' },
+      { label: 'Ladungssicherung', condition: 'ok' },
+    ],
+    photoCount: 1,
+    notes: 'Rueckgabe ohne neue Schaeden',
+    createdBy: 'Thomas Keller',
   },
 ]
 
@@ -288,6 +372,7 @@ export const useVermietungStore = create<VermietungStore>()(
     (set) => ({
       objects: MOCK_OBJECTS,
       reservations: MOCK_RESERVATIONS,
+      zustandsprotokolle: MOCK_ZUSTANDSPROTOKOLLE,
 
       addObject: (obj) =>
         set((state) => ({ objects: [...state.objects, obj] })),
@@ -318,6 +403,9 @@ export const useVermietungStore = create<VermietungStore>()(
             r.id === id ? { ...r, status: 'cancelled' as const } : r
           ),
         })),
+
+      addZustandsprotokoll: (z) =>
+        set((state) => ({ zustandsprotokolle: [...state.zustandsprotokolle, z] })),
     }),
     { name: 'kmuhub-vermietung' },
   ),
