@@ -1972,5 +1972,30 @@ Alle Items die Lukes Backend-Arbeit benoetigen, gruppiert nach seinen Phasen.
 
 ---
 
+---
+
+## Nach dem Masterplan: UI-Design-Ueberarbeitung (geplant)
+
+> **Status:** Noch nicht gestartet — Besprechung mit Darien nach Abschluss der 14 Waves
+> **Scope:** Gesamte UI-Oberflaeche (Komponenten, Layout, Typografie, Spacing, Farben) — NICHT die Desk-Hintergruende/Szenen
+
+### Vorgehen
+
+1. **Inspirations-Ordner:** Darien liefert Referenzbilder/Screenshots als Designrichtung
+2. **Gemeinsame Besprechung:** Was genau angepasst wird (Komponenten-Redesign, Spacing, Typografie, Farbpalette, etc.)
+3. **Masterplan-Erweiterung:** Basierend auf der Besprechung werden konkrete Punkte als neue Wave(s) definiert
+
+### Moeglicher Scope (TBD nach Besprechung)
+
+- Komponentendesign (Buttons, Cards, Inputs, Badges, Dialogs)
+- Typografie-System (Font-Groessen, Line-Heights, Gewichtungen)
+- Spacing/Layout-Konsistenz ueber alle Module
+- Farbpalette-Feinjustierung (Light + Dark Mode)
+- Visuelles Gesamtbild / Design-Sprache
+
+*Details werden nach der Besprechung ergaenzt.*
+
+---
+
 *Ende des Master-Plans. Dieses Dokument ist die definitive Referenz fuer alle Frontend-Arbeit im KMU Hub Projekt.*
-*Letzte Aktualisierung: 2026-02-17 (Office-Strategie: 3-Tier mit Collabora/TipTap/Lokal)*
+*Letzte Aktualisierung: 2026-02-21 (Wave 4 done, UI-Redesign-Phase vorgemerkt)*

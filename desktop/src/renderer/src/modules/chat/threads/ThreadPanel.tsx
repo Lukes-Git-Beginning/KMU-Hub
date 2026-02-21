@@ -32,7 +32,14 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
     <div className="flex h-full flex-col border-l border-border bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold text-foreground">Thread</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Thread</h3>
+          {replies.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {replies.length} {replies.length === 1 ? 'Antwort' : 'Antworten'}
+            </p>
+          )}
+        </div>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -51,6 +58,17 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
                 message={parentMessage}
                 isOwn={parentMessage.created_by === currentUserId}
               />
+            </div>
+          )}
+
+          {/* Replies separator */}
+          {replies.length > 0 && (
+            <div className="flex items-center gap-3 px-4 py-2">
+              <div className="flex-1 border-t border-border" />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                {replies.length} {replies.length === 1 ? 'Antwort' : 'Antworten'}
+              </span>
+              <div className="flex-1 border-t border-border" />
             </div>
           )}
 
