@@ -24,6 +24,7 @@ import {
   Users,
   Loader2,
   Settings,
+  ShieldCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -54,6 +55,48 @@ const folderIcons: Record<string, typeof Inbox> = {
   archive: Archive,
   spam: AlertCircle,
   trash: Trash2,
+}
+
+// ---------------------------------------------------------------------------
+// DSGVO Aufbewahrungsfristen
+// ---------------------------------------------------------------------------
+
+const DSGVO_BUSINESS_DOMAINS = [
+  'gmbh', 'ag', 'sarl', 'srl', 'ltd', 'inc', 'corp',
+]
+
+interface RetentionInfo {
+  label: string
+  years: number
+  basis: string
+}
+
+/** Determine if an email likely has DSGVO retention requirements */
+function getRetentionInfo(msg: EmailMessageInfo): RetentionInfo | null {
+  const allEmails = [msg.from.email, ...msg.to.map((a) => a.email)]
+  const hasBusiness = allEmails.some((e) => {
+    const domain = e.split('@')[1]?.toLowerCase() ?? ''
+    return DSGVO_BUSINESS_DOMAINS.some((d) => domain.includes(d)) || !domain.includes('gmail') && !domain.includes('outlook') && !domain.includes('yahoo') && !domain.includes('hotmail') && !domain.includes('gmx') && !domain.includes('web.de')
+  })
+  if (!hasBusiness) return null
+
+  // Check subject for invoice/contract keywords (stronger retention)
+  const subjectLower = msg.subject.toLowerCase()
+  const isFinancial = ['rechnung', 'invoice', 'zahlung', 'payment', 'vertrag', 'contract', 'angebot', 'quote', 'bestellung', 'order', 'mahnung'].some((kw) => subjectLower.includes(kw))
+
+  if (isFinancial) {
+    return {
+      label: 'CH: 10 J. / DE: 10 J.',
+      years: 10,
+      basis: 'Geschaeftliche Buchungsbelege — OR Art. 958f (CH) / AO §147 (DE)',
+    }
+  }
+
+  return {
+    label: 'CH: 10 J. / DE: 6 J.',
+    years: 6,
+    basis: 'Geschaeftskorrespondenz — OR Art. 958f (CH) / HGB §257 (DE)',
+  }
 }
 
 export default function MailsPage() {
@@ -375,6 +418,18 @@ export default function MailsPage() {
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{msg.preview}</p>
                   <div className="flex items-center gap-2 mt-1">
                     {msg.has_attachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                    {(() => {
+                      const retention = getRetentionInfo(msg)
+                      return retention ? (
+                        <span
+                          title={`DSGVO Aufbewahrungspflicht: ${retention.basis}`}
+                          className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0 text-[9px] font-medium text-blue-600 dark:text-blue-400"
+                        >
+                          <ShieldCheck className="h-2.5 w-2.5" />
+                          {retention.label}
+                        </span>
+                      ) : null
+                    })()}
                     {msg.is_starred && (
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleStar.mutate(msg.id) }}
@@ -492,6 +547,24 @@ export default function MailsPage() {
                   </span>
                 </div>
               )}
+
+              {/* DSGVO Aufbewahrungsfrist badge */}
+              {(() => {
+                const retention = getRetentionInfo(selectedMessage)
+                return retention ? (
+                  <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40">
+                    <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <div>
+                      <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                        Aufbewahrungspflicht: {retention.label}
+                      </span>
+                      <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-0.5">
+                        {retention.basis}
+                      </p>
+                    </div>
+                  </div>
+                ) : null
+              })()}
 
               {/* HTML body or text fallback */}
               {selectedMessage.body_html ? (

@@ -1,20 +1,25 @@
 import { useState } from 'react'
-import { Camera, Save, X } from 'lucide-react'
+import { Camera, Save, X, Mail } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
+import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
 import { toast } from 'sonner'
 
 export default function ProfilTab() {
   const profile = useSettingsStore((s) => s.profile)
   const updateProfile = useSettingsStore((s) => s.updateProfile)
+  const mailSignature = useSettingsStore((s) => s.mail.signature)
+  const updateMail = useSettingsStore((s) => s.updateMail)
   const user = useAuthStore((s) => s.user)
 
   const [form, setForm] = useState({ ...profile })
   const [hasChanges, setHasChanges] = useState(false)
+  const [signatureDraft, setSignatureDraft] = useState(mailSignature)
+  const [signatureChanged, setSignatureChanged] = useState(false)
 
   const initials = `${form.firstName.charAt(0)}${form.lastName.charAt(0)}`.toUpperCase()
   const role = user?.roles?.includes('admin')
@@ -146,6 +151,54 @@ export default function ProfilTab() {
             <p className="text-sm font-medium text-foreground">Januar 2024</p>
           </div>
         </div>
+      </div>
+
+      {/* E-Mail-Signatur */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Mail className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold text-foreground">E-Mail-Signatur</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Ihre Signatur wird automatisch an ausgehende E-Mails angehaengt.
+        </p>
+        <RichTextEditor
+          content={signatureDraft}
+          onChange={(html) => {
+            setSignatureDraft(html)
+            setSignatureChanged(html !== mailSignature)
+          }}
+          placeholder="Signatur eingeben..."
+          compact
+          showFooter={false}
+          minHeight="80px"
+          maxHeight="200px"
+        />
+        {signatureChanged && (
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSignatureDraft(mailSignature)
+                setSignatureChanged(false)
+              }}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                updateMail({ signature: signatureDraft })
+                setSignatureChanged(false)
+                toast.success('Signatur gespeichert')
+              }}
+            >
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              Signatur speichern
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Save/Cancel */}
