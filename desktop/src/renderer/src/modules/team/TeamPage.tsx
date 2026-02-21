@@ -12,24 +12,24 @@ import {
   Calendar,
   Users,
   Briefcase,
-  Banknote,
   GraduationCap,
-  ChevronLeft,
-  ChevronRight,
   AlertTriangle,
   Shield,
   Wrench,
   Heart,
   Scale,
   Award,
-  X,
   Loader2,
+  Link2,
+  FolderOpen,
+  ListChecks,
+  Network,
+  UserCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useTeamStore,
   type TeamMember,
-  type PayrollEntry,
   type Training,
   type TrainingParticipation,
 } from '@/stores/team'
@@ -45,6 +45,11 @@ import { EditMemberDialog } from './EditMemberDialog'
 import { HRApprovalDialog } from './HRApprovalDialog'
 import { AbsenceCalendar } from './AbsenceCalendar'
 import { TimeCorrectionPanel } from './TimeCorrectionPanel'
+import { HRIntegrationPanel } from './HRIntegrationPanel'
+import { PersonnelDocuments } from './PersonnelDocuments'
+import { OnboardingChecklist } from './OnboardingChecklist'
+import { OrgChart } from './OrgChart'
+import { SelfServiceView } from './SelfServiceView'
 import {
   Dialog,
   DialogContent,
@@ -64,10 +69,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 
-type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'lohn' | 'schulungen'
-
-const formatEUR = (amount: number) =>
-  new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount)
+type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'integrationen' | 'schulungen' | 'selfservice'
 
 const contractTypeLabels: Record<string, string> = {
   full_time: 'Vollzeit',
@@ -88,31 +90,6 @@ const leaveStatusLabels: Record<string, string> = {
   approved: 'Genehmigt',
   rejected: 'Abgelehnt',
   cancelled: 'Storniert',
-}
-
-// Payroll helpers (still Zustand mock -- payroll is anti-feature)
-const payrollStatusColors: Record<string, string> = {
-  draft: 'bg-secondary text-muted-foreground',
-  approved: 'bg-warning-light text-warning',
-  paid: 'bg-success-light text-success',
-}
-
-const payrollStatusLabels: Record<string, string> = {
-  draft: 'Entwurf',
-  approved: 'Freigegeben',
-  paid: 'Bezahlt',
-}
-
-const employmentTypeLabels: Record<string, string> = {
-  fulltime: 'Festangestellt',
-  parttime: 'Teilzeit',
-  hourly: 'Stundenlohn',
-}
-
-const employmentTypeColors: Record<string, string> = {
-  fulltime: 'bg-primary-light text-primary',
-  parttime: 'bg-info-light text-info',
-  hourly: 'bg-warning-light text-warning',
 }
 
 // Training helpers (still Zustand mock)
@@ -156,10 +133,10 @@ const participationStatusLabels: Record<string, string> = {
 
 export default function TeamPage() {
   const navigate = useNavigate()
-  // Keep Zustand for non-HR features (payroll/training mocks, meetings, navigation)
+  // Keep Zustand for non-HR features (training mocks, meetings, navigation)
   const {
-    members: zustandMembers, departments, deactivateMember,
-    payroll, trainings, trainingParticipations, startPayrollRun, addTraining, recordParticipation,
+    members: zustandMembers, deactivateMember,
+    trainings, trainingParticipations, addTraining, recordParticipation,
   } = useTeamStore()
   const { startCall } = useMeetingsStore()
   const { setIntent } = useNavigationStore()
@@ -180,10 +157,6 @@ export default function TeamPage() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [approvalRequest, setApprovalRequest] = useState<LeaveRequest | null>(null)
   const [confirmDeactivate, setConfirmDeactivate] = useState<TeamMember | null>(null)
-
-  // Lohn tab state
-  const [payrollMonth, setPayrollMonth] = useState('2026-01')
-  const [selectedPayroll, setSelectedPayroll] = useState<PayrollEntry | null>(null)
 
   // Schulungen tab state
   const [showAddTraining, setShowAddTraining] = useState(false)
@@ -215,28 +188,9 @@ export default function TeamPage() {
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [apiEmployees])
 
-  // Payroll computed values (still from Zustand mock)
-  const monthPayroll = useMemo(() => payroll.filter((p) => p.month === payrollMonth), [payroll, payrollMonth])
-  const totalGross = useMemo(() => monthPayroll.reduce((s, p) => s + p.grossSalary, 0), [monthPayroll])
-  const avgNet = useMemo(() => monthPayroll.length ? Math.round(monthPayroll.reduce((s, p) => s + p.netSalary, 0) / monthPayroll.length) : 0, [monthPayroll])
-  const draftCount = useMemo(() => monthPayroll.filter((p) => p.status === 'draft').length, [monthPayroll])
-
   // Training computed values (still from Zustand mock)
   const mandatoryCount = useMemo(() => trainings.filter((t) => t.mandatory).length, [trainings])
   const expiredCount = useMemo(() => trainingParticipations.filter((p) => p.status === 'expired').length, [trainingParticipations])
-
-  // Month navigation helpers
-  const navigateMonth = (dir: -1 | 1) => {
-    const [y, m] = payrollMonth.split('-').map(Number)
-    const d = new Date(y, m - 1 + dir, 1)
-    setPayrollMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-    setSelectedPayroll(null)
-  }
-
-  const monthLabel = useMemo(() => {
-    const [y, m] = payrollMonth.split('-').map(Number)
-    return new Date(y, m - 1).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
-  }, [payrollMonth])
 
   // Cross-module actions
   const handleEmail = (name: string, email?: string) => {
@@ -314,19 +268,23 @@ export default function TeamPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-4 border-b border-border mb-6">
+      <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto">
         {([
           { key: 'members' as const, label: `Mitglieder (${apiEmployees.length})`, icon: undefined },
           { key: 'requests' as const, label: `Anfragen (${pendingCount} offen)`, icon: undefined },
           { key: 'absences' as const, label: 'Abwesenheiten', icon: undefined },
           { key: 'korrekturen' as const, label: 'Korrekturen', icon: Clock },
-          { key: 'lohn' as const, label: 'Lohn', icon: Banknote },
+          { key: 'personalakte' as const, label: 'Personalakte', icon: FolderOpen },
+          { key: 'onboarding' as const, label: 'Onboarding', icon: ListChecks },
+          { key: 'orgchart' as const, label: 'Organigramm', icon: Network },
+          { key: 'integrationen' as const, label: 'Integrationen', icon: Link2 },
           { key: 'schulungen' as const, label: 'Schulungen', icon: GraduationCap },
+          { key: 'selfservice' as const, label: 'Self-Service', icon: UserCircle },
         ]).map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
+            className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors whitespace-nowrap ${
               tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -451,150 +409,17 @@ export default function TeamPage() {
         <TimeCorrectionPanel />
       )}
 
-      {/* Lohn Tab (still Zustand mock -- payroll is anti-feature) */}
-      {tab === 'lohn' && (
-        <div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Gesamte Lohnkosten</p>
-              <p className="text-lg font-semibold text-foreground">{formatEUR(totalGross)}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Durchschnitt Nettolohn</p>
-              <p className="text-lg font-semibold text-foreground">{formatEUR(avgNet)}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Mitarbeiter</p>
-              <p className="text-lg font-semibold text-foreground">{monthPayroll.length}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Naechster Lohnlauf</p>
-              <p className="text-lg font-semibold text-foreground">
-                {draftCount > 0 ? `${draftCount} Entwuerfe` : 'Keine'}
-              </p>
-            </div>
-          </div>
+      {/* Personalakte Tab (7.3) */}
+      {tab === 'personalakte' && <PersonnelDocuments />}
 
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <button onClick={() => navigateMonth(-1)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-sm font-medium text-foreground min-w-[140px] text-center capitalize">
-                {monthLabel}
-              </span>
-              <button onClick={() => navigateMonth(1)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors">
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-            {draftCount > 0 && (
-              <button
-                onClick={startPayrollRun}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-              >
-                <Banknote className="h-4 w-4" />
-                Lohnlauf starten
-              </button>
-            )}
-          </div>
+      {/* Onboarding Tab (7.4) */}
+      {tab === 'onboarding' && <OnboardingChecklist />}
 
-          {monthPayroll.length === 0 ? (
-            <EmptyState
-              icon={Banknote}
-              title="Keine Lohndaten"
-              description={`Fuer ${monthLabel} sind keine Lohnabrechnungen vorhanden`}
-            />
-          ) : (
-            <div className="rounded-lg border border-border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-secondary/50">
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Mitarbeiter</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Abteilung</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Anstellung</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Brutto</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Abzuege</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Netto</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {monthPayroll.map((entry) => {
-                      const totalDeductions = entry.deductions.ahv + entry.deductions.pension + entry.deductions.tax + entry.deductions.other
-                      const isSelected = selectedPayroll?.id === entry.id
-                      return (
-                        <tr
-                          key={entry.id}
-                          onClick={() => setSelectedPayroll(isSelected ? null : entry)}
-                          className={`border-b border-border-muted cursor-pointer transition-colors ${
-                            isSelected ? 'bg-primary-light/50' : 'hover:bg-secondary/30'
-                          }`}
-                        >
-                          <td className="px-4 py-3 font-medium text-foreground">{entry.memberName}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{entry.department}</td>
-                          <td className="px-4 py-3">
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${employmentTypeColors[entry.employmentType]}`}>
-                              {employmentTypeLabels[entry.employmentType]}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right text-foreground tabular-nums">{formatEUR(entry.grossSalary)}</td>
-                          <td className="px-4 py-3 text-right text-error tabular-nums">-{formatEUR(totalDeductions)}</td>
-                          <td className="px-4 py-3 text-right font-medium text-foreground tabular-nums">{formatEUR(entry.netSalary)}</td>
-                          <td className="px-4 py-3">
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${payrollStatusColors[entry.status]}`}>
-                              {payrollStatusLabels[entry.status]}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+      {/* Organigramm Tab (7.5) */}
+      {tab === 'orgchart' && <OrgChart />}
 
-          {selectedPayroll && (
-            <div className="mt-4 rounded-lg border border-border bg-card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-foreground">
-                  Lohnabrechnung: {selectedPayroll.memberName}
-                </h3>
-                <button onClick={() => setSelectedPayroll(null)} className="rounded-md p-1 text-muted-foreground hover:bg-secondary transition-colors">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">AHV / IV / EO</p>
-                  <p className="text-sm font-medium text-foreground">{formatEUR(selectedPayroll.deductions.ahv)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Pensionskasse (BVG)</p>
-                  <p className="text-sm font-medium text-foreground">{formatEUR(selectedPayroll.deductions.pension)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Quellensteuer</p>
-                  <p className="text-sm font-medium text-foreground">{formatEUR(selectedPayroll.deductions.tax)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Sonstige Abzuege</p>
-                  <p className="text-sm font-medium text-foreground">{formatEUR(selectedPayroll.deductions.other)}</p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center justify-between border-t border-border-muted pt-3">
-                <span className="text-sm text-muted-foreground">Bruttolohn</span>
-                <span className="text-sm font-medium text-foreground">{formatEUR(selectedPayroll.grossSalary)}</span>
-              </div>
-              <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
-                <span className="text-sm font-medium text-foreground">Nettolohn</span>
-                <span className="text-base font-semibold text-foreground">{formatEUR(selectedPayroll.netSalary)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Integrationen Tab (7.1 + 7.2 — replaces old Lohn tab) */}
+      {tab === 'integrationen' && <HRIntegrationPanel />}
 
       {/* Schulungen Tab (still Zustand mock) */}
       {tab === 'schulungen' && (
@@ -737,6 +562,9 @@ export default function TeamPage() {
           </div>
         </div>
       )}
+
+      {/* Self-Service Tab (7.6) */}
+      {tab === 'selfservice' && <SelfServiceView />}
 
       {/* Member Detail Panel */}
       {selectedMemberId && (
