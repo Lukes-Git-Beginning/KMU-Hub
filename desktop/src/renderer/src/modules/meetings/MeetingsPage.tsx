@@ -15,6 +15,8 @@ import {
   List,
   MapPin,
   Users,
+  Repeat,
+  Mail,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMeetingsStore, type Meeting } from '@/stores/meetings'
@@ -444,7 +446,7 @@ function MeetingCard({
 
       <p className="text-xs text-text-body mb-3 line-clamp-2">{meeting.description}</p>
 
-      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 flex-wrap">
         <span className="flex items-center gap-1">
           <Calendar className="h-3 w-3" />
           {new Date(meeting.date).toLocaleDateString('de-CH')}
@@ -457,6 +459,12 @@ function MeetingCard({
           <Clock className="h-3 w-3" />
           {meeting.duration >= 60 ? `${meeting.duration / 60} Std` : `${meeting.duration} Min`}
         </span>
+        {meeting.recurrence !== 'none' && (
+          <span className="flex items-center gap-1 text-primary">
+            <Repeat className="h-3 w-3" />
+            {meeting.recurrence === 'daily' ? 'Tgl.' : meeting.recurrence === 'weekly' ? 'Wchtl.' : 'Mtl.'}
+          </span>
+        )}
       </div>
 
       {meeting.agenda.length > 0 && (
@@ -472,20 +480,27 @@ function MeetingCard({
       )}
 
       <div className="flex items-center justify-between">
-        <div className="flex -space-x-2">
-          {meeting.participants.slice(0, 4).map((p, i) => (
-            <div
-              key={i}
-              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary-light text-[10px] font-medium text-primary"
-              title={p.name}
-            >
-              {p.initials}
-            </div>
-          ))}
-          {meeting.participants.length > 4 && (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-secondary text-[10px] font-medium text-muted-foreground">
-              +{meeting.participants.length - 4}
-            </div>
+        <div className="flex items-center gap-2">
+          <div className="flex -space-x-2">
+            {meeting.participants.slice(0, 4).map((p, i) => (
+              <div
+                key={i}
+                className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary-light text-[10px] font-medium text-primary"
+                title={p.name}
+              >
+                {p.initials}
+              </div>
+            ))}
+            {meeting.participants.length > 4 && (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-secondary text-[10px] font-medium text-muted-foreground">
+                +{meeting.participants.length - 4}
+              </div>
+            )}
+          </div>
+          {meeting.invitationsSent && (
+            <span title="Einladungen versendet" className="text-emerald-500">
+              <Mail className="h-3.5 w-3.5" />
+            </span>
           )}
         </div>
 
@@ -577,6 +592,16 @@ function TimelineRow({
             {meeting.participants.length}
           </span>
           <span className="text-muted-foreground">{meeting.project}</span>
+          {meeting.recurrence !== 'none' && (
+            <span className="flex items-center gap-1 text-primary">
+              <Repeat className="h-3 w-3" />
+            </span>
+          )}
+          {meeting.invitationsSent && (
+            <span className="text-emerald-500" title="Einladungen versendet">
+              <Mail className="h-3 w-3" />
+            </span>
+          )}
         </div>
       </div>
 

@@ -40,6 +40,8 @@ export interface Meeting {
   files: MeetingFile[]
   whiteboardLink: string
   projectLink: string
+  calendarEventId?: string
+  invitationsSent?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +129,8 @@ const mockMeetings: Meeting[] = [
     files: [{ id: 'f1', name: 'Sprint-Backlog.xlsx', size: '245 KB' }],
     whiteboardLink: '',
     projectLink: 'website-relaunch',
+    calendarEventId: 'cal-m1',
+    invitationsSent: true,
   },
   {
     id: 'm2',
@@ -156,6 +160,7 @@ const mockMeetings: Meeting[] = [
     files: [{ id: 'f2', name: 'Mockups-v3.fig', size: '12 MB' }],
     whiteboardLink: '',
     projectLink: 'mobile-app',
+    invitationsSent: false,
   },
   {
     id: 'm3',
@@ -190,6 +195,8 @@ const mockMeetings: Meeting[] = [
     ],
     whiteboardLink: '',
     projectLink: 'crm-integration',
+    calendarEventId: 'cal-m3',
+    invitationsSent: true,
   },
   {
     id: 'm4',

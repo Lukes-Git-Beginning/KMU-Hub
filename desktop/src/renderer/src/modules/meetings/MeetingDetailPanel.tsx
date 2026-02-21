@@ -20,9 +20,16 @@ import {
   Square,
   ListChecks,
   StickyNote,
+  Repeat,
+  Check,
+  ExternalLink,
+  Mail,
+  Send,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useMeetingsStore } from '@/stores/meetings'
 import type { Meeting } from '@/stores/meetings'
 
@@ -86,6 +93,7 @@ export function MeetingDetailPanel({
   const removeAgendaItem = useMeetingsStore((s) => s.removeAgendaItem)
   const reorderAgendaItem = useMeetingsStore((s) => s.reorderAgendaItem)
   const updateNotes = useMeetingsStore((s) => s.updateNotes)
+  const updateMeeting = useMeetingsStore((s) => s.updateMeeting)
 
   // Sync notes from meeting to local state
   useEffect(() => {
@@ -293,7 +301,7 @@ export function MeetingDetailPanel({
 
         {/* ── Tab Content ── */}
         <div className="flex-1 overflow-y-auto p-4">
-          {activeTab === 'details' && <DetailsTab meeting={meeting} />}
+          {activeTab === 'details' && <DetailsTab meeting={meeting} onUpdateMeeting={updateMeeting} />}
           {activeTab === 'agenda' && (
             <AgendaTab
               meeting={meeting}
@@ -309,6 +317,7 @@ export function MeetingDetailPanel({
             <NotesTab
               value={notesValue}
               onChange={handleNotesChange}
+              isPast={meeting.status === 'past'}
             />
           )}
         </div>
@@ -321,7 +330,17 @@ export function MeetingDetailPanel({
    Details Tab
    ═══════════════════════════════════════════════════════════════ */
 
-function DetailsTab({ meeting }: { meeting: Meeting }) {
+function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMeeting: (id: string, updates: Partial<Meeting>) => void }) {
+  const handleAddToCalendar = () => {
+    onUpdateMeeting(meeting.id, { calendarEventId: `cal-${meeting.id}` })
+    toast.success('Meeting wurde dem Kalender hinzugefuegt')
+  }
+
+  const handleSendInvitations = () => {
+    onUpdateMeeting(meeting.id, { invitationsSent: true })
+    toast.success(`Einladungen an ${meeting.participants.length} Teilnehmer versendet (inkl. .ics Kalendereinladung)`)
+  }
+
   return (
     <div className="space-y-4">
       {/* Date / Time / Location */}
@@ -352,9 +371,9 @@ function DetailsTab({ meeting }: { meeting: Meeting }) {
         </div>
         {meeting.recurrence !== 'none' && (
           <div className="flex items-center gap-2.5 text-sm">
-            <Clock className="h-4 w-4 text-[var(--muted)] shrink-0" />
+            <Repeat className="h-4 w-4 text-primary shrink-0" />
             <span className="text-[var(--body)]">
-              {recurrenceLabels[meeting.recurrence]}
+              Wiederholt sich {recurrenceLabels[meeting.recurrence].toLowerCase()}
             </span>
           </div>
         )}
@@ -381,6 +400,97 @@ function DetailsTab({ meeting }: { meeting: Meeting }) {
           <Separator />
         </>
       )}
+
+      {/* ── Kalender-Synchronisation (10.18) ── */}
+      <div>
+        <h4 className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
+          <Calendar className="mr-1 inline h-3.5 w-3.5" />
+          Kalender
+        </h4>
+        {meeting.calendarEventId ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">Im Kalender eingetragen</span>
+            </div>
+            <button className="flex items-center gap-1.5 text-xs text-primary hover:underline transition-colors">
+              <ExternalLink className="h-3 w-3" />
+              Im Kalender oeffnen
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4 shrink-0" />
+              <span>Nicht im Kalender</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleAddToCalendar} className="w-full">
+              <Calendar className="mr-1.5 h-4 w-4" />
+              Zum Kalender hinzufuegen
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* ── Einladungs-E-Mails (10.19) ── */}
+      <div>
+        <h4 className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
+          <Mail className="mr-1 inline h-3.5 w-3.5" />
+          Einladungen
+        </h4>
+        {meeting.invitationsSent ? (
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              <Check className="h-3 w-3" />
+              Einladungen versendet
+            </span>
+            <div className="space-y-1.5 mt-2">
+              {meeting.participants.map((p) => (
+                <div key={p.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[9px] font-medium text-primary">
+                      {p.initials}
+                    </span>
+                    <span className="text-xs text-[var(--body)]">{p.name}</span>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                    <Check className="h-2.5 w-2.5" />
+                    Gesendet
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+              <Mail className="h-3 w-3" />
+              Einladungen ausstehend
+            </span>
+            <div className="space-y-1.5 mt-2">
+              {meeting.participants.map((p) => (
+                <div key={p.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[9px] font-medium text-primary">
+                      {p.initials}
+                    </span>
+                    <span className="text-xs text-[var(--body)]">{p.name}</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">Ausstehend</span>
+                </div>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" onClick={handleSendInvitations} className="w-full mt-1">
+              <Send className="mr-1.5 h-4 w-4" />
+              Einladungen senden
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <Separator />
 
       {/* Participants list */}
       <div>
@@ -609,21 +719,32 @@ function AgendaTab({
 function NotesTab({
   value,
   onChange,
+  isPast,
 }: {
   value: string
   onChange: (value: string) => void
+  isPast: boolean
 }) {
   return (
-    <div className="h-full">
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+    <div className="h-full space-y-3">
+      <div className="flex items-center gap-2">
+        <FileText className="h-4 w-4 text-[var(--muted)]" />
+        <h4 className="text-sm font-medium text-[var(--body)]">Protokoll / Notizen</h4>
+      </div>
+      <RichTextEditor
+        content={value}
+        onChange={onChange}
         placeholder="Meeting-Notizen hier erfassen..."
-        className="w-full min-h-[300px] resize-none rounded-md border border-border bg-transparent p-3 text-sm text-[var(--body)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
+        editable={!isPast}
       />
-      <p className="mt-2 text-[10px] text-[var(--muted)]">
-        Änderungen werden automatisch gespeichert
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-[var(--muted)]">
+          {isPast ? 'Nur-Lese-Ansicht (vergangenes Meeting)' : 'Aenderungen werden automatisch gespeichert'}
+        </p>
+        <p className="text-[10px] text-[var(--muted)]">
+          Zuletzt bearbeitet: {new Date().toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </p>
+      </div>
     </div>
   )
 }

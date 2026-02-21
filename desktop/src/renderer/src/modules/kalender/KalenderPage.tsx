@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -23,6 +23,11 @@ import {
   Euro,
   User,
   FileText,
+  Copy,
+  ExternalLink,
+  GripVertical,
+  Mail,
+  Phone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { RoomBookingView } from './RoomBookingView'
@@ -89,6 +94,18 @@ interface QuickCreateState {
   minute: number
   x: number
   y: number
+}
+
+interface DragState {
+  eventId: string
+  startY: number
+  startHour: number
+  startMinute: number
+  currentY: number
+  mode: 'move' | 'resize'
+  dayDate: string
+  originalStartTime: string
+  originalEndTime: string
 }
 
 // ============================================================
@@ -218,6 +235,18 @@ const BOOKING_SERVICES: BookingService[] = [
 
 const BOOKING_STAFF = ['Lena Huber', 'Marco Roth', 'Nina Frei', 'Sandra Wyss']
 
+const MOCK_EXTERNAL_SERVICES = [
+  { id: 'ext1', name: 'Beratungsgespraech 30 Min', duration: 30, price: 0 },
+  { id: 'ext2', name: 'Erstgespraech 60 Min', duration: 60, price: 0 },
+  { id: 'ext3', name: 'Technischer Support 45 Min', duration: 45, price: 0 },
+]
+
+const EXTERNAL_TIME_SLOTS = [
+  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+  '16:00', '16:30', '17:00',
+]
+
 const MOCK_BOOKINGS: BookingAppointment[] = [
   // Today (2026-02-09 as mock "today")
   { id: 'bk1', serviceId: 'bs1', kunde: 'Anna Weber', datum: '2026-02-09', startTime: '09:00', endTime: '09:30', personal: 'Marco Roth', status: 'bestaetigt' },
@@ -344,6 +373,12 @@ function layoutOverlappingEvents(events: CalendarEvent[]): EventLayout[] {
   return result
 }
 
+function minutesToTime(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 // ============================================================
 // Main Component
 // ============================================================
@@ -362,10 +397,52 @@ export default function KalenderPage() {
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [showCalendarBrowse, setShowCalendarBrowse] = useState(false)
   const [categories, setCategories] = useState(CATEGORIES)
+  const [events, setEvents] = useState<CalendarEvent[]>(MOCK_EVENTS)
+
+  // 10.13: Push-Erinnerungen — track which events already notified
+  const notifiedEventsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const checkReminders = () => {
+      const now = new Date()
+      const todayKey = formatDateKey(now)
+      const nowMinutes = now.getHours() * 60 + now.getMinutes()
+
+      events
+        .filter((e) => e.date === todayKey && !e.isAllDay && e.reminder && e.reminder !== 'Keine')
+        .forEach((e) => {
+          if (notifiedEventsRef.current.has(e.id)) return
+          const eventMinutes = timeToMinutes(e.startTime)
+          const diff = eventMinutes - nowMinutes
+          if (diff > 0 && diff <= 15) {
+            notifiedEventsRef.current.add(e.id)
+            toast(`Termin in ${diff} Minuten: ${e.title}`, {
+              description: `${e.startTime} – ${e.endTime}`,
+              action: {
+                label: 'Oeffnen',
+                onClick: () => setSelectedEvent(e),
+              },
+              duration: 10000,
+            })
+          }
+        })
+    }
+
+    checkReminders()
+    const interval = setInterval(checkReminders, 60000)
+    return () => clearInterval(interval)
+  }, [events])
+
+  // Event update handler for drag-and-drop
+  const handleUpdateEvent = useCallback((eventId: string, updates: Partial<CalendarEvent>) => {
+    setEvents((prev) =>
+      prev.map((e) => (e.id === eventId ? { ...e, ...updates } : e)),
+    )
+  }, [])
 
   const visibleEvents = useMemo(
-    () => MOCK_EVENTS.filter((e) => calendars.find((c) => c.id === e.calendarId)?.visible),
-    [calendars],
+    () => events.filter((e) => calendars.find((c) => c.id === e.calendarId)?.visible),
+    [calendars, events],
   )
 
   const getEventsForDate = (d: Date) =>
@@ -464,6 +541,7 @@ export default function KalenderPage() {
                   onSelectEvent={setSelectedEvent}
                   onSlotClick={handleSlotClick}
                   onDateClick={handleDateClick}
+                  onUpdateEvent={handleUpdateEvent}
                 />
               )}
               {view === 'day' && (
@@ -473,6 +551,7 @@ export default function KalenderPage() {
                   calendars={calendars}
                   onSelectEvent={setSelectedEvent}
                   onSlotClick={handleSlotClick}
+                  onUpdateEvent={handleUpdateEvent}
                 />
               )}
               {view === 'month' && (
@@ -560,6 +639,7 @@ function TerminbuchungTab() {
   const [showNewBooking, setShowNewBooking] = useState(false)
   const [bookingDate, setBookingDate] = useState('2026-02-09')
   const [bookings, setBookings] = useState(MOCK_BOOKINGS)
+  const [buchungSubTab, setBuchungSubTab] = useState<'uebersicht' | 'vorschau'>('uebersicht')
 
   const bookingsForDate = useMemo(
     () => bookings
@@ -593,6 +673,27 @@ function TerminbuchungTab() {
   return (
     <div className="flex-1 overflow-auto bg-card">
       <div className="mx-auto max-w-6xl p-6 space-y-6">
+        {/* Sub-tabs: Uebersicht / Vorschau */}
+        <div className="flex items-center gap-4 border-b border-border pb-0">
+          <button
+            onClick={() => setBuchungSubTab('uebersicht')}
+            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'uebersicht' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            Uebersicht
+          </button>
+          <button
+            onClick={() => setBuchungSubTab('vorschau')}
+            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'vorschau' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          >
+            <ExternalLink className="mr-1 inline h-3 w-3" />
+            Buchungslink-Vorschau
+          </button>
+        </div>
+
+        {buchungSubTab === 'vorschau' ? (
+          <ExternalBookingPreview />
+        ) : (
+        <>
         {/* Header row with stats and action */}
         <div className="flex items-center justify-between">
           <div>
@@ -800,6 +901,343 @@ function TerminbuchungTab() {
           onSave={handleCreateBooking}
         />
       )}
+        </>
+        )}
+    </div>
+  )
+}
+
+// ============================================================
+// External Booking Preview (10.14)
+// ============================================================
+
+function ExternalBookingPreview() {
+  const [selectedService, setSelectedService] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [bookingForm, setBookingForm] = useState({ name: '', email: '', phone: '', notes: '' })
+  const [step, setStep] = useState(1)
+
+  // Generate dates for current + next week (14 days starting from mock today)
+  const availableDates = useMemo(() => {
+    const dates: { key: string; label: string; dayShort: string; dayNum: number; available: boolean }[] = []
+    const baseDate = new Date(2026, 1, 9) // mock today
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(baseDate)
+      d.setDate(baseDate.getDate() + i)
+      const dayOfWeek = d.getDay()
+      // Mon-Fri available, weekends not
+      dates.push({
+        key: formatDateKey(d),
+        label: `${d.getDate()}. ${MONTHS_DE[d.getMonth()].slice(0, 3)}`,
+        dayShort: DAYS_SHORT[(dayOfWeek + 6) % 7],
+        dayNum: d.getDate(),
+        available: dayOfWeek >= 1 && dayOfWeek <= 5,
+      })
+    }
+    return dates
+  }, [])
+
+  // Simulate some slots being taken
+  const availableSlots = useMemo(() => {
+    if (!selectedDate) return []
+    const takenSlots = new Set<string>()
+    // Mock: some slots are taken on certain days
+    if (selectedDate === '2026-02-10') { takenSlots.add('09:00'); takenSlots.add('10:30'); takenSlots.add('14:00') }
+    if (selectedDate === '2026-02-11') { takenSlots.add('11:00'); takenSlots.add('13:30') }
+    if (selectedDate === '2026-02-12') { takenSlots.add('09:30'); takenSlots.add('15:00') }
+    return EXTERNAL_TIME_SLOTS.filter((s) => !takenSlots.has(s))
+  }, [selectedDate])
+
+  const handleBook = () => {
+    if (!bookingForm.name.trim() || !bookingForm.email.trim()) {
+      toast.error('Bitte Name und E-Mail ausfuellen')
+      return
+    }
+    toast.success('Termin gebucht!')
+    setStep(1)
+    setSelectedService(null)
+    setSelectedDate(null)
+    setSelectedTime(null)
+    setBookingForm({ name: '', email: '', phone: '', notes: '' })
+  }
+
+  const selectedServiceObj = MOCK_EXTERNAL_SERVICES.find((s) => s.id === selectedService)
+
+  return (
+    <div className="space-y-4">
+      {/* Info banner */}
+      <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary-subtle px-4 py-3">
+        <div className="flex items-center gap-2">
+          <ExternalLink className="h-4 w-4 text-primary" />
+          <p className="text-xs text-primary font-medium">So sieht die Buchungsseite fuer Ihre Kunden aus</p>
+        </div>
+        <button
+          onClick={() => {
+            navigator.clipboard?.writeText('https://booking.kmuhub.de/firma/kmu-hub-gmbh')
+            toast.success('Buchungslink kopiert')
+          }}
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+        >
+          <Copy className="h-3 w-3" />
+          Link kopieren
+        </button>
+      </div>
+
+      {/* Preview panel — simulated customer view */}
+      <div className="mx-auto max-w-xl rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
+        {/* Company header */}
+        <div className="border-b border-border bg-primary px-6 py-5 text-center">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/20 mb-2">
+            <Calendar className="h-6 w-6 text-white" />
+          </div>
+          <h3 className="text-base font-semibold text-white">KMU Hub GmbH</h3>
+          <p className="text-xs text-white/70 mt-0.5">Online Terminbuchung</p>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 justify-center">
+            {[1, 2, 3, 4].map((s) => (
+              <div key={s} className="flex items-center gap-2">
+                <div
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium transition-colors ${
+                    step >= s ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
+                  }`}
+                >
+                  {s}
+                </div>
+                {s < 4 && <div className={`h-0.5 w-6 rounded-full ${step > s ? 'bg-primary' : 'bg-secondary'}`} />}
+              </div>
+            ))}
+          </div>
+
+          {/* Step 1: Service selection */}
+          {step === 1 && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-foreground text-center">Service waehlen</h4>
+              <div className="space-y-2">
+                {MOCK_EXTERNAL_SERVICES.map((svc) => (
+                  <button
+                    key={svc.id}
+                    onClick={() => {
+                      setSelectedService(svc.id)
+                      setStep(2)
+                    }}
+                    className={`w-full flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
+                      selectedService === svc.id
+                        ? 'border-primary bg-primary-subtle'
+                        : 'border-border hover:border-primary/50 hover:bg-secondary/30'
+                    }`}
+                  >
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-foreground">{svc.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Clock className="h-3 w-3" /> {svc.duration} Min.
+                        </span>
+                        {svc.price > 0 && (
+                          <span className="text-[10px] text-muted-foreground">EUR {svc.price}</span>
+                        )}
+                        {svc.price === 0 && (
+                          <span className="text-[10px] text-success font-medium">Kostenlos</span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Date selection */}
+          {step === 2 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <button onClick={() => setStep(1)} className="text-xs text-primary hover:underline">Zurueck</button>
+                <h4 className="text-sm font-medium text-foreground">Datum waehlen</h4>
+                <div className="w-10" />
+              </div>
+              {selectedServiceObj && (
+                <p className="text-center text-xs text-muted-foreground">
+                  {selectedServiceObj.name} ({selectedServiceObj.duration} Min.)
+                </p>
+              )}
+              <div className="grid grid-cols-7 gap-1.5">
+                {availableDates.map((d) => (
+                  <button
+                    key={d.key}
+                    disabled={!d.available}
+                    onClick={() => {
+                      if (d.available) {
+                        setSelectedDate(d.key)
+                        setStep(3)
+                      }
+                    }}
+                    className={`flex flex-col items-center rounded-lg py-2 text-xs transition-colors ${
+                      !d.available
+                        ? 'text-text-disabled cursor-not-allowed opacity-40'
+                        : selectedDate === d.key
+                          ? 'bg-primary text-primary-foreground'
+                          : 'hover:bg-secondary text-foreground border border-border'
+                    }`}
+                  >
+                    <span className="text-[9px] uppercase">{d.dayShort}</span>
+                    <span className="text-sm font-medium mt-0.5">{d.dayNum}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Time slot selection */}
+          {step === 3 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <button onClick={() => setStep(2)} className="text-xs text-primary hover:underline">Zurueck</button>
+                <h4 className="text-sm font-medium text-foreground">Uhrzeit waehlen</h4>
+                <div className="w-10" />
+              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                {selectedDate && (() => {
+                  const d = new Date(selectedDate)
+                  return `${DAYS_SHORT[(d.getDay() + 6) % 7]}, ${d.getDate()}. ${MONTHS_DE[d.getMonth()]}`
+                })()}
+              </p>
+              {availableSlots.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-4">Keine freien Termine an diesem Tag</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {availableSlots.map((slot) => (
+                    <button
+                      key={slot}
+                      onClick={() => {
+                        setSelectedTime(slot)
+                        setStep(4)
+                      }}
+                      className={`rounded-lg border py-2.5 text-sm font-medium transition-colors ${
+                        selectedTime === slot
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border hover:border-primary text-foreground hover:bg-primary-subtle'
+                      }`}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Contact form */}
+          {step === 4 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <button onClick={() => setStep(3)} className="text-xs text-primary hover:underline">Zurueck</button>
+                <h4 className="text-sm font-medium text-foreground">Ihre Daten</h4>
+                <div className="w-10" />
+              </div>
+
+              {/* Summary */}
+              <div className="rounded-lg bg-secondary/50 p-3 space-y-1 text-xs">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span>{selectedServiceObj?.name}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>
+                    {selectedDate && (() => {
+                      const d = new Date(selectedDate)
+                      return `${d.getDate()}. ${MONTHS_DE[d.getMonth()]} ${d.getFullYear()}`
+                    })()} um {selectedTime} Uhr
+                  </span>
+                </div>
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+                  <User className="h-3 w-3 inline mr-1" />
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Vor- und Nachname"
+                  value={bookingForm.name}
+                  onChange={(e) => setBookingForm({ ...bookingForm, name: e.target.value })}
+                  className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+                  <Mail className="h-3 w-3 inline mr-1" />
+                  E-Mail *
+                </label>
+                <input
+                  type="email"
+                  placeholder="ihre@email.de"
+                  value={bookingForm.email}
+                  onChange={(e) => setBookingForm({ ...bookingForm, email: e.target.value })}
+                  className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+                  <Phone className="h-3 w-3 inline mr-1" />
+                  Telefon
+                </label>
+                <input
+                  type="tel"
+                  placeholder="+49 123 456789"
+                  value={bookingForm.phone}
+                  onChange={(e) => setBookingForm({ ...bookingForm, phone: e.target.value })}
+                  className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
+                  <FileText className="h-3 w-3 inline mr-1" />
+                  Notizen
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Optionale Anmerkungen..."
+                  value={bookingForm.notes}
+                  onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
+                  className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none resize-none focus:border-primary"
+                />
+              </div>
+
+              {/* Book button */}
+              <button
+                onClick={handleBook}
+                className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                Termin buchen
+              </button>
+
+              <p className="text-center text-[10px] text-muted-foreground">
+                Mit der Buchung stimmen Sie unseren Nutzungsbedingungen zu.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-border px-6 py-3 text-center">
+          <p className="text-[10px] text-muted-foreground">
+            Powered by <span className="font-medium text-foreground">KMU Hub</span>
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1223,6 +1661,7 @@ function WeekView({
   onSelectEvent,
   onSlotClick,
   onDateClick,
+  onUpdateEvent,
 }: {
   currentDate: Date
   getEventsForDate: (d: Date) => CalendarEvent[]
@@ -1230,11 +1669,111 @@ function WeekView({
   onSelectEvent: (e: CalendarEvent) => void
   onSlotClick: (date: string, hour: number, minute: number, e: React.MouseEvent) => void
   onDateClick: (d: Date) => void
+  onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }) {
   const weekDays = getWeekDays(currentDate, true) // Mo-Fr
+  const [dragState, setDragState] = useState<DragState | null>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  // 10.11: Drag-and-drop mouse handlers
+  const handleEventMouseDown = useCallback((
+    e: React.MouseEvent,
+    event: CalendarEvent,
+    dayDate: string,
+    mode: 'move' | 'resize',
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startMin = timeToMinutes(event.startTime)
+    setDragState({
+      eventId: event.id,
+      startY: e.clientY,
+      startHour: Math.floor(startMin / 60),
+      startMinute: startMin % 60,
+      currentY: e.clientY,
+      mode,
+      dayDate,
+      originalStartTime: event.startTime,
+      originalEndTime: event.endTime,
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!dragState) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setDragState((prev) => prev ? { ...prev, currentY: e.clientY } : null)
+    }
+
+    const handleMouseUp = () => {
+      if (!dragState) return
+      const deltaY = dragState.currentY - dragState.startY
+      const origStartMin = timeToMinutes(dragState.originalStartTime)
+      const origEndMin = timeToMinutes(dragState.originalEndTime)
+      const duration = origEndMin - origStartMin
+
+      if (dragState.mode === 'move') {
+        const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
+        const snappedDelta = Math.round(deltaMinutes / 15) * 15
+        let newStartMin = origStartMin + snappedDelta
+        // Clamp to grid bounds
+        newStartMin = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - duration, newStartMin))
+        const newEndMin = newStartMin + duration
+        const newStartTime = minutesToTime(newStartMin)
+        const newEndTime = minutesToTime(newEndMin)
+        onUpdateEvent(dragState.eventId, { startTime: newStartTime, endTime: newEndTime })
+        toast.success(`Event verschoben auf ${newStartTime}`)
+      } else {
+        // resize — change end time
+        const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
+        const snappedDelta = Math.round(deltaMinutes / 15) * 15
+        let newEndMin = origEndMin + snappedDelta
+        newEndMin = Math.max(origStartMin + 15, Math.min(END_HOUR * 60, newEndMin))
+        const newEndTime = minutesToTime(newEndMin)
+        onUpdateEvent(dragState.eventId, { endTime: newEndTime })
+        toast.success(`Dauer geaendert bis ${newEndTime}`)
+      }
+      setDragState(null)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [dragState, onUpdateEvent])
+
+  // Compute ghost position during drag
+  const getGhostPosition = useCallback((event: CalendarEvent) => {
+    if (!dragState || dragState.eventId !== event.id) return null
+    const deltaY = dragState.currentY - dragState.startY
+    const origStartMin = timeToMinutes(dragState.originalStartTime)
+    const origEndMin = timeToMinutes(dragState.originalEndTime)
+    const duration = origEndMin - origStartMin
+
+    if (dragState.mode === 'move') {
+      const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
+      const snappedDelta = Math.round(deltaMinutes / 15) * 15
+      let newStartMin = origStartMin + snappedDelta
+      newStartMin = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - duration, newStartMin))
+      const newEndMin = newStartMin + duration
+      const top = ((newStartMin - START_HOUR * 60) / 60) * HOUR_HEIGHT
+      const height = Math.max(((newEndMin - newStartMin) / 60) * HOUR_HEIGHT, 22)
+      return { top, height, startTime: minutesToTime(newStartMin), endTime: minutesToTime(newEndMin) }
+    } else {
+      const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
+      const snappedDelta = Math.round(deltaMinutes / 15) * 15
+      let newEndMin = origEndMin + snappedDelta
+      newEndMin = Math.max(origStartMin + 15, Math.min(END_HOUR * 60, newEndMin))
+      const top = ((origStartMin - START_HOUR * 60) / 60) * HOUR_HEIGHT
+      const height = Math.max(((newEndMin - origStartMin) / 60) * HOUR_HEIGHT, 22)
+      return { top, height, startTime: dragState.originalStartTime, endTime: minutesToTime(newEndMin) }
+    }
+  }, [dragState])
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className={`flex flex-col min-h-full ${dragState ? 'select-none' : ''}`}>
       {/* Day headers */}
       <div className="grid grid-cols-[56px_repeat(5,1fr)] border-b border-border sticky top-0 bg-card z-10">
         <div />
@@ -1289,7 +1828,7 @@ function WeekView({
       )}
 
       {/* Time grid */}
-      <div className="grid grid-cols-[56px_repeat(5,1fr)] flex-1">
+      <div ref={gridRef} className="grid grid-cols-[56px_repeat(5,1fr)] flex-1">
         {/* Time labels */}
         <div>
           {HOURS.map((hour) => (
@@ -1303,6 +1842,7 @@ function WeekView({
         {weekDays.map((d, dayIdx) => {
           const dayEvents = getEventsForDate(d).filter((e) => !e.isAllDay)
           const layouts = layoutOverlappingEvents(dayEvents)
+          const dateKey = formatDateKey(d)
 
           return (
             <div
@@ -1348,37 +1888,90 @@ function WeekView({
                 const color = getCategoryColor(event, calendars)
                 const leftPct = (column / totalColumns) * 100
                 const widthPct = (1 / totalColumns) * 100 - 1
+                const isDragging = dragState?.eventId === event.id
+                const ghost = getGhostPosition(event)
 
                 return (
-                  <button
-                    key={event.id}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSelectEvent(event)
-                    }}
-                    className="absolute rounded-[4px] px-1.5 py-0.5 text-left overflow-hidden transition-all hover:brightness-95 hover:shadow-sm z-[5]"
-                    style={{
-                      top,
-                      height,
-                      left: `calc(${leftPct}% + 2px)`,
-                      width: `calc(${widthPct}% - 2px)`,
-                      backgroundColor: event.isTaskDeadline ? 'transparent' : `${color}18`,
-                      borderLeft: event.isTaskDeadline ? 'none' : `3px solid ${color}`,
-                      border: event.isTaskDeadline ? `1.5px dashed ${color}` : undefined,
-                    }}
-                  >
-                    <p className="text-[10px] font-medium truncate" style={{ color }}>
-                      {event.title}
-                    </p>
-                    {height > 30 && (
-                      <p className="text-[9px] truncate" style={{ color, opacity: 0.7 }}>
-                        {event.startTime} – {event.endTime}
+                  <div key={event.id}>
+                    {/* Original position (faded during drag) */}
+                    <div
+                      onMouseDown={(e) => handleEventMouseDown(e, event, dateKey, 'move')}
+                      onClick={(e) => {
+                        if (isDragging) return
+                        e.stopPropagation()
+                        onSelectEvent(event)
+                      }}
+                      className={`absolute rounded-[4px] px-1.5 py-0.5 text-left overflow-hidden transition-all z-[5] ${
+                        isDragging ? 'opacity-30 pointer-events-none' : 'hover:brightness-95 hover:shadow-sm cursor-grab'
+                      }`}
+                      style={{
+                        top,
+                        height,
+                        left: `calc(${leftPct}% + 2px)`,
+                        width: `calc(${widthPct}% - 2px)`,
+                        backgroundColor: event.isTaskDeadline ? 'transparent' : `${color}18`,
+                        borderLeft: event.isTaskDeadline ? 'none' : `3px solid ${color}`,
+                        border: event.isTaskDeadline ? `1.5px dashed ${color}` : undefined,
+                      }}
+                    >
+                      {/* 10.12: Video call badge */}
+                      {event.videoCall && (
+                        <span className="absolute top-0.5 right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full" style={{ backgroundColor: color }}>
+                          <Video className="h-2 w-2 text-white" />
+                        </span>
+                      )}
+                      {/* 10.13: Reminder bell badge */}
+                      {event.reminder && event.reminder !== 'Keine' && (
+                        <span className="absolute top-0.5 right-[18px] flex h-3.5 w-3.5 items-center justify-center rounded-full" style={{ backgroundColor: `${color}40` }}>
+                          <Bell className="h-2 w-2" style={{ color }} />
+                        </span>
+                      )}
+                      <p className="text-[10px] font-medium truncate pr-5" style={{ color }}>
+                        {event.title}
                       </p>
+                      {height > 30 && (
+                        <p className="text-[9px] truncate" style={{ color, opacity: 0.7 }}>
+                          {event.startTime} – {event.endTime}
+                        </p>
+                      )}
+                      {/* Resize handle */}
+                      {!event.isTaskDeadline && height > 24 && (
+                        <div
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            handleEventMouseDown(e, event, dateKey, 'resize')
+                          }}
+                          className="absolute bottom-0 left-0 right-0 h-2 cursor-s-resize flex justify-center items-center group"
+                        >
+                          <GripVertical className="h-2 w-2 text-transparent group-hover:text-current opacity-50" style={{ color }} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ghost event at new position during drag */}
+                    {isDragging && ghost && (
+                      <div
+                        className="absolute rounded-[4px] px-1.5 py-0.5 text-left overflow-hidden z-[15] pointer-events-none shadow-md cursor-grabbing"
+                        style={{
+                          top: ghost.top,
+                          height: ghost.height,
+                          left: `calc(${leftPct}% + 2px)`,
+                          width: `calc(${widthPct}% - 2px)`,
+                          backgroundColor: `${color}30`,
+                          borderLeft: `3px solid ${color}`,
+                        }}
+                      >
+                        <p className="text-[10px] font-medium truncate" style={{ color }}>
+                          {event.title}
+                        </p>
+                        {ghost.height > 30 && (
+                          <p className="text-[9px] truncate" style={{ color, opacity: 0.7 }}>
+                            {ghost.startTime} – {ghost.endTime}
+                          </p>
+                        )}
+                      </div>
                     )}
-                    {height > 44 && event.videoCall && (
-                      <Video className="h-2.5 w-2.5 mt-0.5" style={{ color, opacity: 0.6 }} />
-                    )}
-                  </button>
+                  </div>
                 )
               })}
             </div>
@@ -1399,20 +1992,113 @@ function DayView({
   calendars,
   onSelectEvent,
   onSlotClick,
+  onUpdateEvent,
 }: {
   currentDate: Date
   events: CalendarEvent[]
   calendars: CalendarSource[]
   onSelectEvent: (e: CalendarEvent) => void
   onSlotClick: (date: string, hour: number, minute: number, e: React.MouseEvent) => void
+  onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }) {
   const allDay = events.filter((e) => e.isAllDay)
   const timed = events.filter((e) => !e.isAllDay)
   const layouts = layoutOverlappingEvents(timed)
   const dateKey = formatDateKey(currentDate)
+  const [dragState, setDragState] = useState<DragState | null>(null)
+
+  // 10.11: Drag-and-drop handlers (Day view)
+  const handleEventMouseDown = useCallback((
+    e: React.MouseEvent,
+    event: CalendarEvent,
+    mode: 'move' | 'resize',
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startMin = timeToMinutes(event.startTime)
+    setDragState({
+      eventId: event.id,
+      startY: e.clientY,
+      startHour: Math.floor(startMin / 60),
+      startMinute: startMin % 60,
+      currentY: e.clientY,
+      mode,
+      dayDate: dateKey,
+      originalStartTime: event.startTime,
+      originalEndTime: event.endTime,
+    })
+  }, [dateKey])
+
+  useEffect(() => {
+    if (!dragState) return
+    const handleMouseMove = (e: MouseEvent) => {
+      setDragState((prev) => prev ? { ...prev, currentY: e.clientY } : null)
+    }
+    const handleMouseUp = () => {
+      if (!dragState) return
+      const deltaY = dragState.currentY - dragState.startY
+      const origStartMin = timeToMinutes(dragState.originalStartTime)
+      const origEndMin = timeToMinutes(dragState.originalEndTime)
+      const duration = origEndMin - origStartMin
+
+      if (dragState.mode === 'move') {
+        const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
+        const snappedDelta = Math.round(deltaMinutes / 15) * 15
+        let newStartMin = origStartMin + snappedDelta
+        newStartMin = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - duration, newStartMin))
+        const newEndMin = newStartMin + duration
+        const newStartTime = minutesToTime(newStartMin)
+        const newEndTime = minutesToTime(newEndMin)
+        onUpdateEvent(dragState.eventId, { startTime: newStartTime, endTime: newEndTime })
+        toast.success(`Event verschoben auf ${newStartTime}`)
+      } else {
+        const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
+        const snappedDelta = Math.round(deltaMinutes / 15) * 15
+        let newEndMin = origEndMin + snappedDelta
+        newEndMin = Math.max(origStartMin + 15, Math.min(END_HOUR * 60, newEndMin))
+        const newEndTime = minutesToTime(newEndMin)
+        onUpdateEvent(dragState.eventId, { endTime: newEndTime })
+        toast.success(`Dauer geaendert bis ${newEndTime}`)
+      }
+      setDragState(null)
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [dragState, onUpdateEvent])
+
+  const getGhostPosition = useCallback((event: CalendarEvent) => {
+    if (!dragState || dragState.eventId !== event.id) return null
+    const deltaY = dragState.currentY - dragState.startY
+    const origStartMin = timeToMinutes(dragState.originalStartTime)
+    const origEndMin = timeToMinutes(dragState.originalEndTime)
+    const duration = origEndMin - origStartMin
+
+    if (dragState.mode === 'move') {
+      const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
+      const snappedDelta = Math.round(deltaMinutes / 15) * 15
+      let newStartMin = origStartMin + snappedDelta
+      newStartMin = Math.max(START_HOUR * 60, Math.min(END_HOUR * 60 - duration, newStartMin))
+      const newEndMin = newStartMin + duration
+      const top = ((newStartMin - START_HOUR * 60) / 60) * HOUR_HEIGHT
+      const height = Math.max(((newEndMin - newStartMin) / 60) * HOUR_HEIGHT, 24)
+      return { top, height, startTime: minutesToTime(newStartMin), endTime: minutesToTime(newEndMin) }
+    } else {
+      const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
+      const snappedDelta = Math.round(deltaMinutes / 15) * 15
+      let newEndMin = origEndMin + snappedDelta
+      newEndMin = Math.max(origStartMin + 15, Math.min(END_HOUR * 60, newEndMin))
+      const top = ((origStartMin - START_HOUR * 60) / 60) * HOUR_HEIGHT
+      const height = Math.max(((newEndMin - origStartMin) / 60) * HOUR_HEIGHT, 24)
+      return { top, height, startTime: dragState.originalStartTime, endTime: minutesToTime(newEndMin) }
+    }
+  }, [dragState])
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className={`flex flex-col min-h-full ${dragState ? 'select-none' : ''}`}>
       {/* All-day events */}
       {allDay.length > 0 && (
         <div className="border-b border-border px-4 py-2">
@@ -1472,49 +2158,101 @@ function DayView({
             const color = getCategoryColor(event, calendars)
             const leftPct = (column / totalColumns) * 100
             const widthPct = (1 / totalColumns) * 100 - 2
+            const isDragging = dragState?.eventId === event.id
+            const ghost = getGhostPosition(event)
 
             return (
-              <button
-                key={event.id}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSelectEvent(event)
-                }}
-                className="absolute rounded-md px-3 py-1.5 text-left overflow-hidden transition-all hover:brightness-95 hover:shadow-sm z-[5]"
-                style={{
-                  top,
-                  height,
-                  left: `calc(${leftPct}% + 4px)`,
-                  width: `calc(${widthPct}% - 4px)`,
-                  backgroundColor: event.isTaskDeadline ? 'transparent' : `${color}18`,
-                  borderLeft: event.isTaskDeadline ? 'none' : `4px solid ${color}`,
-                  border: event.isTaskDeadline ? `2px dashed ${color}` : undefined,
-                }}
-              >
-                <p className="text-xs font-medium truncate" style={{ color }}>{event.title}</p>
-                <p className="text-[10px] mt-0.5" style={{ color, opacity: 0.7 }}>
-                  {event.startTime} – {event.endTime}
-                  {event.location && ` · ${event.location}`}
-                </p>
-                {height > 50 && event.participants && (
-                  <div className="flex gap-0.5 mt-1">
-                    {event.participants.slice(0, 3).map((p) => (
-                      <span
-                        key={p.initials}
-                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[7px] font-medium text-white"
-                        style={{ backgroundColor: color }}
-                      >
-                        {p.initials}
-                      </span>
-                    ))}
-                    {event.participants.length > 3 && (
-                      <span className="text-[9px]" style={{ color, opacity: 0.6 }}>
-                        +{event.participants.length - 3}
-                      </span>
-                    )}
+              <div key={event.id}>
+                {/* Original (faded during drag) */}
+                <div
+                  onMouseDown={(e) => handleEventMouseDown(e, event, 'move')}
+                  onClick={(e) => {
+                    if (isDragging) return
+                    e.stopPropagation()
+                    onSelectEvent(event)
+                  }}
+                  className={`absolute rounded-md px-3 py-1.5 text-left overflow-hidden transition-all z-[5] ${
+                    isDragging ? 'opacity-30 pointer-events-none' : 'hover:brightness-95 hover:shadow-sm cursor-grab'
+                  }`}
+                  style={{
+                    top,
+                    height,
+                    left: `calc(${leftPct}% + 4px)`,
+                    width: `calc(${widthPct}% - 4px)`,
+                    backgroundColor: event.isTaskDeadline ? 'transparent' : `${color}18`,
+                    borderLeft: event.isTaskDeadline ? 'none' : `4px solid ${color}`,
+                    border: event.isTaskDeadline ? `2px dashed ${color}` : undefined,
+                  }}
+                >
+                  {/* 10.12: Video call badge */}
+                  {event.videoCall && (
+                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full" style={{ backgroundColor: color }}>
+                      <Video className="h-2.5 w-2.5 text-white" />
+                    </span>
+                  )}
+                  {/* 10.13: Reminder bell badge */}
+                  {event.reminder && event.reminder !== 'Keine' && (
+                    <span className="absolute top-1 right-6 flex h-4 w-4 items-center justify-center rounded-full" style={{ backgroundColor: `${color}40` }}>
+                      <Bell className="h-2.5 w-2.5" style={{ color }} />
+                    </span>
+                  )}
+                  <p className="text-xs font-medium truncate pr-7" style={{ color }}>{event.title}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color, opacity: 0.7 }}>
+                    {event.startTime} – {event.endTime}
+                    {event.location && ` · ${event.location}`}
+                  </p>
+                  {height > 50 && event.participants && (
+                    <div className="flex gap-0.5 mt-1">
+                      {event.participants.slice(0, 3).map((p) => (
+                        <span
+                          key={p.initials}
+                          className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[7px] font-medium text-white"
+                          style={{ backgroundColor: color }}
+                        >
+                          {p.initials}
+                        </span>
+                      ))}
+                      {event.participants.length > 3 && (
+                        <span className="text-[9px]" style={{ color, opacity: 0.6 }}>
+                          +{event.participants.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {/* Resize handle */}
+                  {!event.isTaskDeadline && height > 28 && (
+                    <div
+                      onMouseDown={(e) => {
+                        e.stopPropagation()
+                        handleEventMouseDown(e, event, 'resize')
+                      }}
+                      className="absolute bottom-0 left-0 right-0 h-2.5 cursor-s-resize flex justify-center items-center group"
+                    >
+                      <GripVertical className="h-2.5 w-2.5 text-transparent group-hover:text-current opacity-50" style={{ color }} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Ghost event during drag */}
+                {isDragging && ghost && (
+                  <div
+                    className="absolute rounded-md px-3 py-1.5 text-left overflow-hidden z-[15] pointer-events-none shadow-md"
+                    style={{
+                      top: ghost.top,
+                      height: ghost.height,
+                      left: `calc(${leftPct}% + 4px)`,
+                      width: `calc(${widthPct}% - 4px)`,
+                      backgroundColor: `${color}30`,
+                      borderLeft: `4px solid ${color}`,
+                    }}
+                  >
+                    <p className="text-xs font-medium truncate" style={{ color }}>{event.title}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color, opacity: 0.7 }}>
+                      {ghost.startTime} – {ghost.endTime}
+                    </p>
                   </div>
                 )}
-              </button>
+              </div>
             )
           })}
         </div>
@@ -2093,9 +2831,18 @@ function EventDetailPanel({
 
             {/* Video call */}
             {event.videoCall && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Video className="h-3.5 w-3.5 shrink-0" />
-                <button className="text-primary hover:underline">Video-Call beitreten</button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Video className="h-3.5 w-3.5 shrink-0" />
+                  <button className="text-primary hover:underline">Video-Call beitreten</button>
+                </div>
+                <button
+                  onClick={() => toast.success('Video-Meeting wird gestartet...')}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors w-full justify-center"
+                >
+                  <Video className="h-3.5 w-3.5" />
+                  Meeting starten
+                </button>
               </div>
             )}
 

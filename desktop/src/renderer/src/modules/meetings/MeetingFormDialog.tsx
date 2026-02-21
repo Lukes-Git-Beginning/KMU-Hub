@@ -51,6 +51,13 @@ const recurrenceOptions = [
   { value: 'daily', label: 'Täglich' },
   { value: 'weekly', label: 'Wöchentlich' },
   { value: 'monthly', label: 'Monatlich' },
+  { value: 'custom', label: 'Benutzerdefiniert' },
+]
+
+const customIntervalUnits = [
+  { value: 'days', label: 'Tage' },
+  { value: 'weeks', label: 'Wochen' },
+  { value: 'months', label: 'Monate' },
 ]
 const reminderOptions = [
   { value: 'none', label: 'Keine Erinnerung' },
@@ -92,6 +99,9 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
   const [room, setRoom] = useState('Remote')
   const [isVideoCall, setIsVideoCall] = useState(true)
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none')
+  const [recurrenceDisplay, setRecurrenceDisplay] = useState<string>('none')
+  const [customInterval, setCustomInterval] = useState(2)
+  const [customUnit, setCustomUnit] = useState<'days' | 'weeks' | 'months'>('weeks')
   const [reminder, setReminder] = useState<'15min' | '30min' | '1h' | 'none'>('15min')
   const [description, setDescription] = useState('')
   const [project, setProject] = useState('')
@@ -101,6 +111,8 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
   const [participantSearch, setParticipantSearch] = useState('')
   const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
   const [newAgendaText, setNewAgendaText] = useState('')
+  const [addToCalendar, setAddToCalendar] = useState(true)
+  const [sendInvitations, setSendInvitations] = useState(true)
 
   useEffect(() => {
     if (meeting) {
@@ -111,6 +123,9 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setRoom(meeting.room)
       setIsVideoCall(meeting.isVideoCall)
       setRecurrence(meeting.recurrence)
+      setRecurrenceDisplay(meeting.recurrence)
+      setCustomInterval(2)
+      setCustomUnit('weeks')
       setReminder(meeting.reminder)
       setDescription(meeting.description)
       setProject(meeting.project)
@@ -118,6 +133,8 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setSelectedParticipants(meeting.participants.map((p) => p.id))
       setAgendaItems(meeting.agenda.map((a) => ({ ...a })))
       setShowExtras(meeting.recurrence !== 'none' || !!meeting.description || meeting.agenda.length > 0)
+      setAddToCalendar(!!meeting.calendarEventId)
+      setSendInvitations(!!meeting.invitationsSent)
     } else {
       setTitle('')
       setDate(new Date().toISOString().split('T')[0])
@@ -126,6 +143,9 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setRoom('Remote')
       setIsVideoCall(true)
       setRecurrence('none')
+      setRecurrenceDisplay('none')
+      setCustomInterval(2)
+      setCustomUnit('weeks')
       setReminder('15min')
       setDescription('')
       setProject('')
@@ -134,6 +154,8 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       setShowExtras(false)
       setAgendaItems([])
       setNewAgendaText('')
+      setAddToCalendar(true)
+      setSendInvitations(true)
     }
   }, [meeting, open])
 
@@ -166,11 +188,38 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
     })
   }
 
+  const handleRecurrenceChange = (value: string) => {
+    setRecurrenceDisplay(value)
+    if (value === 'custom') {
+      // Map custom to the closest standard recurrence for storage
+      const unitMap: Record<string, 'daily' | 'weekly' | 'monthly'> = {
+        days: 'daily',
+        weeks: 'weekly',
+        months: 'monthly',
+      }
+      setRecurrence(unitMap[customUnit])
+    } else {
+      setRecurrence(value as 'none' | 'daily' | 'weekly' | 'monthly')
+    }
+  }
+
   const handleSubmit = () => {
     if (!title.trim()) return
     const participants = availableParticipants.filter((p) =>
       selectedParticipants.includes(p.id)
     )
+    // Resolve custom recurrence to closest standard value
+    let finalRecurrence = recurrence
+    if (recurrenceDisplay === 'custom') {
+      const unitMap: Record<string, 'daily' | 'weekly' | 'monthly'> = {
+        days: 'daily',
+        weeks: 'weekly',
+        months: 'monthly',
+      }
+      finalRecurrence = unitMap[customUnit]
+    }
+
+    const newMeetingId = meeting?.id || `m${Date.now()}`
     onSubmit({
       title: title.trim(),
       status: meeting?.status || 'scheduled',
@@ -181,7 +230,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       duration,
       room,
       isVideoCall,
-      recurrence,
+      recurrence: finalRecurrence,
       reminder,
       description,
       participants,
@@ -191,6 +240,8 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
       files: meeting?.files || [],
       whiteboardLink: meeting?.whiteboardLink || '',
       projectLink: project.toLowerCase().replace(/\s+/g, '-'),
+      calendarEventId: addToCalendar ? (meeting?.calendarEventId || `cal-${newMeetingId}`) : undefined,
+      invitationsSent: sendInvitations ? true : (meeting?.invitationsSent || false),
     })
     onOpenChange(false)
   }
@@ -381,7 +432,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                     <Repeat className="h-3.5 w-3.5 text-[var(--muted)]" />
                     Wiederholung
                   </Label>
-                  <Select value={recurrence} onValueChange={(v) => setRecurrence(v as typeof recurrence)}>
+                  <Select value={recurrenceDisplay} onValueChange={handleRecurrenceChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {recurrenceOptions.map((o) => (
@@ -389,6 +440,41 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                       ))}
                     </SelectContent>
                   </Select>
+                  {recurrenceDisplay === 'custom' && (
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Alle</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={customInterval}
+                          onChange={(e) => setCustomInterval(Math.max(1, Number(e.target.value)))}
+                          className="w-16 text-sm"
+                        />
+                        <Select value={customUnit} onValueChange={(v) => {
+                          setCustomUnit(v as typeof customUnit)
+                          const unitMap: Record<string, 'daily' | 'weekly' | 'monthly'> = { days: 'daily', weeks: 'weekly', months: 'monthly' }
+                          setRecurrence(unitMap[v])
+                        }}>
+                          <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {customIntervalUnits.map((u) => (
+                              <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Naechste {Math.min(customInterval * 3, 12)} Termine werden automatisch erstellt
+                      </p>
+                    </div>
+                  )}
+                  {recurrenceDisplay !== 'none' && recurrenceDisplay !== 'custom' && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Naechste Termine werden automatisch erstellt
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
@@ -498,6 +584,24 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                   <Paperclip className="h-4 w-4" />
                   Dateien anhängen...
                 </button>
+              </div>
+
+              {/* Calendar + Invitation checkboxes */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center gap-2">
+                  <Switch checked={addToCalendar} onCheckedChange={setAddToCalendar} id="cal-toggle" />
+                  <Label htmlFor="cal-toggle" className="cursor-pointer flex items-center gap-1.5 text-sm">
+                    <Calendar className="h-3.5 w-3.5 text-[var(--muted)]" />
+                    Automatisch im Kalender eintragen
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={sendInvitations} onCheckedChange={setSendInvitations} id="invite-toggle" />
+                  <Label htmlFor="invite-toggle" className="cursor-pointer flex items-center gap-1.5 text-sm">
+                    <Users className="h-3.5 w-3.5 text-[var(--muted)]" />
+                    Teilnehmer per E-Mail einladen
+                  </Label>
+                </div>
               </div>
             </div>
           )}

@@ -23,6 +23,10 @@ import {
   Archive,
   Wallet,
   Coins,
+  Pen,
+  FileText,
+  Bell,
+  LayoutTemplate,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -31,13 +35,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useVertraegeStore, type Contract, type ContractType, type ContractStatus } from '@/stores/vertraege'
+import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate } from '@/stores/vertraege'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
+import ESignaturDialog from './ESignaturDialog'
 
 // ─── Type Config ─────────────────────────────────────────────────
 
-type TabKey = 'aktiv' | 'auslaufend' | 'archiv'
+type TabKey = 'aktiv' | 'auslaufend' | 'archiv' | 'vorlagen'
 type TypeFilter = 'all' | ContractType
 
 const contractTypeConfig: Record<ContractType, { label: string; icon: typeof Building; colorClass: string }> = {
@@ -60,6 +65,19 @@ const renewalLabels: Record<string, string> = {
   auto: 'Automatisch',
   manual: 'Manuell',
 }
+
+// ─── Mock Documents ─────────────────────────────────────────────
+
+const MOCK_DOCUMENTS = [
+  'Mietvertrag_2024.pdf',
+  'SLA_Vorlage.pdf',
+  'Rahmenvertrag.pdf',
+  'AGB_2025.pdf',
+]
+
+// ─── Currency Options ───────────────────────────────────────────
+
+const CURRENCIES = ['EUR', 'CHF', 'USD'] as const
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -103,6 +121,9 @@ interface ContractFormData {
   renewal: 'auto' | 'manual'
   monthlyCost: number
   notes: string
+  currency: string
+  documentRef: string
+  reminderDays: number[]
 }
 
 function ContractDialog({
@@ -128,9 +149,21 @@ function ContractDialog({
     renewal: initial?.renewal ?? 'auto',
     monthlyCost: initial?.monthlyCost ?? 0,
     notes: initial?.notes ?? '',
+    currency: initial?.currency ?? 'EUR',
+    documentRef: initial?.documentRef ?? '',
+    reminderDays: initial?.reminderDays ?? [],
   })
 
   const isEdit = !!initial
+
+  const toggleReminder = (days: number) => {
+    setForm((f) => ({
+      ...f,
+      reminderDays: f.reminderDays.includes(days)
+        ? f.reminderDays.filter((d) => d !== days)
+        : [...f.reminderDays, days].sort((a, b) => a - b),
+    }))
+  }
 
   const handleSave = () => {
     if (!form.title.trim()) {
@@ -335,18 +368,76 @@ function ContractDialog({
             </div>
           </div>
 
-          {/* Monatliche Kosten */}
+          {/* Waehrung + Monatliche Kosten (10.10) */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Monatliche Kosten (CHF)</label>
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              value={form.monthlyCost}
-              onChange={(e) => setForm((f) => ({ ...f, monthlyCost: Number(e.target.value) }))}
-              placeholder="0.00"
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring tabular-nums"
-            />
+            <label className="text-sm font-medium text-foreground">Monatliche Kosten</label>
+            <div className="flex gap-2">
+              <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+                {CURRENCIES.map((cur) => (
+                  <button
+                    key={cur}
+                    onClick={() => setForm((f) => ({ ...f, currency: cur }))}
+                    className={`px-2.5 py-2 text-xs font-medium transition-colors ${
+                      form.currency === cur
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-card text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    {cur}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={form.monthlyCost}
+                onChange={(e) => setForm((f) => ({ ...f, monthlyCost: Number(e.target.value) }))}
+                placeholder="0.00"
+                className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring tabular-nums"
+              />
+            </div>
+          </div>
+
+          {/* Dokument-Verknuepfung (10.7) */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Dokument <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <div className="relative">
+              <select
+                value={form.documentRef}
+                onChange={(e) => setForm((f) => ({ ...f, documentRef: e.target.value }))}
+                className="w-full appearance-none rounded-lg border border-border bg-card pl-9 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              >
+                <option value="">Kein Dokument verknuepft</option>
+                {MOCK_DOCUMENTS.map((doc) => (
+                  <option key={doc} value={doc}>{doc}</option>
+                ))}
+              </select>
+              <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Erinnerungen (10.8) */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Erinnerungen <span className="text-xs text-muted-foreground font-normal">(vor Ablauf)</span>
+            </label>
+            <div className="flex gap-3">
+              {[30, 60, 90].map((days) => (
+                <label key={days} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.reminderDays.includes(days)}
+                    onChange={() => toggleReminder(days)}
+                    className="rounded border-border"
+                  />
+                  <span className="text-sm text-foreground">{days} Tage</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* Notizen */}
@@ -592,10 +683,71 @@ function StatCard({
   )
 }
 
+// ─── Template Card (10.9) ────────────────────────────────────────
+
+function TemplateCard({
+  template,
+  onUse,
+}: {
+  template: ContractTemplate
+  onUse: () => void
+}) {
+  const typeConf = contractTypeConfig[template.type]
+  const TypeIcon = typeConf.icon
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${typeConf.colorClass}`}>
+          <TypeIcon className="h-3 w-3" />
+          {typeConf.label}
+        </span>
+      </div>
+      <h3 className="text-sm font-semibold text-foreground mb-1">{template.name}</h3>
+      <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{template.description}</p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {template.defaultDuration && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            {template.defaultDuration} Monate
+          </span>
+        )}
+        {!template.defaultDuration && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            Unbefristet
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+          <CalendarClock className="h-3 w-3" />
+          {template.defaultNoticePeriodDays}d Frist
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+          <RefreshCw className="h-3 w-3" />
+          {template.defaultRenewal === 'auto' ? 'Auto' : 'Manuell'}
+        </span>
+        {template.defaultMonthlyCost != null && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+            <Coins className="h-3 w-3" />
+            {formatCurrency(template.defaultMonthlyCost, 'EUR')}/Mt.
+          </span>
+        )}
+      </div>
+      <button
+        onClick={onUse}
+        className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary-light px-3 py-2 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Vertrag aus Vorlage
+      </button>
+    </div>
+  )
+}
+
 // ─── Main Page ───────────────────────────────────────────────────
 
 export default function VertraegePage() {
-  const { contracts, deleteContract } = useVertraegeStore()
+  const { contracts, contractTemplates, deleteContract, updateContract } = useVertraegeStore()
 
   const [tab, setTab] = useState<TabKey>('aktiv')
   const [search, setSearch] = useState('')
@@ -610,6 +762,7 @@ export default function VertraegePage() {
   const [terminationDialogOpen, setTerminationDialogOpen] = useState(false)
   const [terminationContract, setTerminationContract] = useState<Contract | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Contract | null>(null)
+  const [eSignaturContract, setESignaturContract] = useState<Contract | null>(null)
 
   // ── Computed ──
 
@@ -657,7 +810,8 @@ export default function VertraegePage() {
   const baseContracts = useMemo(() => {
     if (tab === 'aktiv') return activeContracts
     if (tab === 'auslaufend') return expiringContracts
-    return archivedContracts
+    if (tab === 'archiv') return archivedContracts
+    return [] // vorlagen tab doesn't use baseContracts
   }, [tab, activeContracts, expiringContracts, archivedContracts])
 
   // Filter + search
@@ -699,9 +853,41 @@ export default function VertraegePage() {
     setTerminationDialogOpen(true)
   }
 
+  const openFromTemplate = (template: ContractTemplate) => {
+    // Create a "pseudo" initial contract pre-filled from template defaults
+    const today = new Date().toISOString().split('T')[0]
+    let endDate = ''
+    if (template.defaultDuration) {
+      const end = new Date()
+      end.setMonth(end.getMonth() + Number(template.defaultDuration))
+      endDate = end.toISOString().split('T')[0]
+    }
+    const prefilled: Contract = {
+      id: '',
+      contractNumber: '',
+      title: '',
+      partner: '',
+      type: template.type,
+      status: 'active',
+      startDate: today,
+      endDate,
+      noticePeriodDays: template.defaultNoticePeriodDays,
+      renewal: template.defaultRenewal,
+      monthlyCost: template.defaultMonthlyCost ?? 0,
+      totalValue: 0,
+      notes: '',
+      templateId: template.id,
+      currency: 'EUR',
+      history: [],
+    }
+    setEditContract(prefilled)
+    setContractDialogOpen(true)
+  }
+
   const getContractActions = (contract: Contract) => [
     { label: 'Details anzeigen', icon: Eye, onClick: () => setSelectedContract(contract) },
     { label: 'Bearbeiten', icon: Edit, onClick: () => openContractDialog(contract) },
+    { label: 'Unterschrift', icon: Pen, onClick: () => setESignaturContract(contract) },
     ...(contract.status === 'active' || contract.status === 'expiring'
       ? [{ label: 'Kuendigung einleiten', icon: Ban, onClick: () => openTerminationDialog(contract), separator: true }]
       : []),
@@ -716,10 +902,11 @@ export default function VertraegePage() {
   }
 
   // Tab labels for empty states
-  const tabEmptyConfig = {
+  const tabEmptyConfig: Record<string, { icon: typeof FileSignature; title: string; desc: string }> = {
     aktiv: { icon: FileSignature, title: 'Keine aktiven Vertraege', desc: 'Legen Sie Ihren ersten Vertrag an' },
     auslaufend: { icon: Clock, title: 'Keine auslaufenden Vertraege', desc: 'Kein Vertrag laeuft in den naechsten 90 Tagen aus' },
     archiv: { icon: Archive, title: 'Kein Archiv vorhanden', desc: 'Gekuendigte und abgelaufene Vertraege erscheinen hier' },
+    vorlagen: { icon: LayoutTemplate, title: 'Keine Vorlagen vorhanden', desc: 'Vertragsvorlagen werden hier angezeigt' },
   }
 
   return (
@@ -756,7 +943,7 @@ export default function VertraegePage() {
         <StatCard
           icon={Coins}
           label="Monatliche Gesamtkosten"
-          value={formatCurrency(totalMonthlyCost)}
+          value={formatCurrency(totalMonthlyCost, 'EUR')}
           iconColor="text-success"
           iconBg="bg-success-light"
         />
@@ -770,7 +957,7 @@ export default function VertraegePage() {
         <StatCard
           icon={Wallet}
           label="Gesamtvertragswert"
-          value={formatCurrency(totalContractValue)}
+          value={formatCurrency(totalContractValue, 'EUR')}
           iconColor="text-info"
           iconBg="bg-info-light"
         />
@@ -779,9 +966,10 @@ export default function VertraegePage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'aktiv' as const, label: 'Aktiv', count: activeContracts.length },
-          { key: 'auslaufend' as const, label: 'Auslaufend', count: expiringContracts.length },
-          { key: 'archiv' as const, label: 'Archiv', count: archivedContracts.length },
+          { key: 'aktiv' as TabKey, label: 'Aktiv', count: activeContracts.length },
+          { key: 'auslaufend' as TabKey, label: 'Auslaufend', count: expiringContracts.length },
+          { key: 'archiv' as TabKey, label: 'Archiv', count: archivedContracts.length },
+          { key: 'vorlagen' as TabKey, label: 'Vorlagen', count: contractTemplates.length },
         ]).map((t) => (
           <button
             key={t.key}
@@ -795,125 +983,161 @@ export default function VertraegePage() {
         ))}
       </div>
 
-      {/* Search + Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Vertrag suchen (Partner, Titel, Nr.)..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+      {/* ─── VORLAGEN TAB (10.9) ─────────────────────────────── */}
+      {tab === 'vorlagen' ? (
+        contractTemplates.length === 0 ? (
+          <EmptyState
+            icon={LayoutTemplate}
+            title="Keine Vorlagen vorhanden"
+            description="Vertragsvorlagen werden hier angezeigt"
           />
-        </div>
-
-        <div className="relative">
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
-            className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
-          >
-            <option value="all">Alle Typen</option>
-            <option value="mietvertrag">Mietvertrag</option>
-            <option value="liefervertrag">Liefervertrag</option>
-            <option value="servicevertrag">Servicevertrag</option>
-            <option value="arbeitsvertrag">Arbeitsvertrag</option>
-            <option value="lizenz">Lizenz</option>
-            <option value="versicherung">Versicherung</option>
-          </select>
-          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        </div>
-
-        {(typeFilter !== 'all' || search) && (
-          <button
-            onClick={() => { setTypeFilter('all'); setSearch('') }}
-            className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            <Filter className="h-3.5 w-3.5" />
-            Filter zuruecksetzen
-          </button>
-        )}
-      </div>
-
-      {/* ─── CONTRACT TABLE ──────────────────────────────────── */}
-      {filteredContracts.length === 0 ? (
-        <EmptyState
-          icon={tabEmptyConfig[tab].icon}
-          title={tabEmptyConfig[tab].title}
-          description={
-            search || typeFilter !== 'all'
-              ? 'Passe deine Suche oder Filter an'
-              : tabEmptyConfig[tab].desc
-          }
-        />
-      ) : (
-        <TooltipProvider delayDuration={300}>
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-card">
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Vertragsnr.</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Titel</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Partner</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Typ</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Laufzeit</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Monatl. Kosten</th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground w-12"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredContracts.map((contract) => {
-                  const typeConf = contractTypeConfig[contract.type]
-                  const statusConf = statusConfig[contract.status]
-                  const TypeIcon = typeConf.icon
-                  const isSelected = selectedContract?.id === contract.id
-
-                  return (
-                    <tr
-                      key={contract.id}
-                      onClick={() => setSelectedContract(contract)}
-                      className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
-                        isSelected ? 'bg-primary-light/30' : ''
-                      }`}
-                    >
-                      <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                        {contract.contractNumber}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">
-                        {contract.title}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {contract.partner}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${typeConf.colorClass}`}>
-                          <TypeIcon className="h-3 w-3" />
-                          {typeConf.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <DurationBar contract={contract} />
-                      </td>
-                      <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                        {formatCurrency(contract.monthlyCost)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusConf.colorClass}`}>
-                          {statusConf.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <ItemActions items={getContractActions(contract)} />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {contractTemplates.map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                onUse={() => openFromTemplate(template)}
+              />
+            ))}
           </div>
-        </TooltipProvider>
+        )
+      ) : (
+        <>
+          {/* Search + Filters */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Vertrag suchen (Partner, Titel, Nr.)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+
+            <div className="relative">
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+                className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              >
+                <option value="all">Alle Typen</option>
+                <option value="mietvertrag">Mietvertrag</option>
+                <option value="liefervertrag">Liefervertrag</option>
+                <option value="servicevertrag">Servicevertrag</option>
+                <option value="arbeitsvertrag">Arbeitsvertrag</option>
+                <option value="lizenz">Lizenz</option>
+                <option value="versicherung">Versicherung</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            </div>
+
+            {(typeFilter !== 'all' || search) && (
+              <button
+                onClick={() => { setTypeFilter('all'); setSearch('') }}
+                className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                Filter zuruecksetzen
+              </button>
+            )}
+          </div>
+
+          {/* ─── CONTRACT TABLE ──────────────────────────────────── */}
+          {filteredContracts.length === 0 ? (
+            <EmptyState
+              icon={tabEmptyConfig[tab].icon}
+              title={tabEmptyConfig[tab].title}
+              description={
+                search || typeFilter !== 'all'
+                  ? 'Passe deine Suche oder Filter an'
+                  : tabEmptyConfig[tab].desc
+              }
+            />
+          ) : (
+            <TooltipProvider delayDuration={300}>
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-card">
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Vertragsnr.</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Titel</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Partner</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Typ</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Laufzeit</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Monatl. Kosten</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredContracts.map((contract) => {
+                      const typeConf = contractTypeConfig[contract.type]
+                      const statusConf = statusConfig[contract.status]
+                      const TypeIcon = typeConf.icon
+                      const isSelected = selectedContract?.id === contract.id
+                      const hasReminders = contract.reminderDays && contract.reminderDays.length > 0
+
+                      return (
+                        <tr
+                          key={contract.id}
+                          onClick={() => setSelectedContract(contract)}
+                          className={`border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors cursor-pointer ${
+                            isSelected ? 'bg-primary-light/30' : ''
+                          }`}
+                        >
+                          <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
+                            {contract.contractNumber}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">
+                            <span className="flex items-center gap-1.5">
+                              {contract.title}
+                              {hasReminders && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Bell className="h-3 w-3 text-warning shrink-0" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">Erinnerungen: {contract.reminderDays!.join('/')}&nbsp;Tage</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {contract.partner}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${typeConf.colorClass}`}>
+                              <TypeIcon className="h-3 w-3" />
+                              {typeConf.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <DurationBar contract={contract} />
+                          </td>
+                          <td className="px-4 py-3 text-right text-foreground tabular-nums">
+                            {formatCurrency(contract.monthlyCost, contract.currency ?? 'EUR')}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusConf.colorClass}`}>
+                              {statusConf.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                            <ItemActions items={getContractActions(contract)} />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </TooltipProvider>
+          )}
+        </>
       )}
 
       {/* ─── DETAIL PANEL ────────────────────────────────────── */}
@@ -940,6 +1164,13 @@ export default function VertraegePage() {
                 className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 Bearbeiten
+              </button>
+              <button
+                onClick={() => setESignaturContract(selectedContract)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <Pen className="h-3.5 w-3.5" />
+                Unterschrift
               </button>
               {(selectedContract.status === 'active' || selectedContract.status === 'expiring') && (
                 <button
@@ -977,6 +1208,17 @@ export default function VertraegePage() {
         contract={terminationContract}
       />
 
+      {eSignaturContract && (
+        <ESignaturDialog
+          open={!!eSignaturContract}
+          onClose={() => setESignaturContract(null)}
+          contract={eSignaturContract}
+          onUpdateSigners={(signers) => {
+            updateContract(eSignaturContract.id, { signers })
+          }}
+        />
+      )}
+
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
@@ -1010,6 +1252,8 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
     : null
 
   const daysUntilNoticeDeadline = noticeDateStr ? daysUntil(noticeDateStr) : Infinity
+
+  const currency = contract.currency ?? 'EUR'
 
   return (
     <div className="space-y-5">
@@ -1097,18 +1341,18 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         </div>
       </div>
 
-      {/* Financial info */}
+      {/* Financial info (10.10 — currency-aware) */}
       <div className="space-y-2">
         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Wert</h4>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Monatlich</p>
-            <p className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(contract.monthlyCost)}</p>
+            <p className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(contract.monthlyCost, currency)}</p>
           </div>
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Gesamtwert</p>
             <p className="text-lg font-semibold text-foreground tabular-nums">
-              {contract.totalValue > 0 ? formatCurrency(contract.totalValue) : '—'}
+              {contract.totalValue > 0 ? formatCurrency(contract.totalValue, currency) : '\u2014'}
             </p>
           </div>
         </div>
@@ -1135,6 +1379,24 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
           </div>
         </div>
       </div>
+
+      {/* Reminders (10.8) */}
+      {contract.reminderDays && contract.reminderDays.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Erinnerungen</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {contract.reminderDays.map((days) => (
+              <span
+                key={days}
+                className="inline-flex items-center gap-1 rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning"
+              >
+                <Bell className="h-3 w-3" />
+                {days} Tage
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Next action hint */}
       {contract.endDate && (contract.status === 'active' || contract.status === 'expiring') && (
@@ -1190,11 +1452,17 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         </div>
       )}
 
-      {/* Document reference */}
+      {/* Document reference (10.7 — clickable) */}
       {contract.documentRef && (
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dokument</h4>
-          <p className="text-sm text-foreground font-mono">{contract.documentRef}</p>
+          <button
+            onClick={() => toast.info(`Dokument "${contract.documentRef}" wird geoeffnet...`)}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors w-full text-left"
+          >
+            <FileText className="h-4 w-4 text-primary shrink-0" />
+            <span className="font-mono truncate">{contract.documentRef}</span>
+          </button>
         </div>
       )}
 
