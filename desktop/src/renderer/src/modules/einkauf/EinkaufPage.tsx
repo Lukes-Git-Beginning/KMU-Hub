@@ -19,17 +19,30 @@ import {
   Circle,
   UserCircle,
   CreditCard,
+  Star,
+  FileText,
+  Link2,
+  ShieldCheck,
+  Coins,
+  ScrollText,
+  BarChart3,
+  ScanBarcode,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useEinkaufStore,
   type PurchaseOrder,
   type Supplier,
+  type CatalogItem,
+  type SupplierRating,
+  type FrameworkContract,
 } from '@/stores/einkauf'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
-import { formatAmount } from '@/lib/format'
+import { formatAmount, formatCurrency } from '@/lib/format'
 
-type TabKey = 'bestellungen' | 'lieferanten' | 'katalog'
+type TabKey = 'bestellungen' | 'lieferanten' | 'katalog' | 'rahmenvertraege'
 type StatusFilter = PurchaseOrder['status'] | 'all'
 
 const orderStatusLabels: Record<string, string> = {
@@ -77,6 +90,26 @@ const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'cancelled', label: 'Storniert' },
 ]
 
+const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD']
+
+const ratingCategoryLabels: Record<SupplierRating['category'], string> = {
+  quality: 'Qualitaet',
+  delivery: 'Liefertreue',
+  price: 'Preis',
+}
+
+const contractStatusColors: Record<FrameworkContract['status'], string> = {
+  active: 'bg-success-light text-success',
+  expired: 'bg-secondary text-muted-foreground',
+  draft: 'bg-info-light text-info',
+}
+
+const contractStatusLabels: Record<FrameworkContract['status'], string> = {
+  active: 'Aktiv',
+  expired: 'Abgelaufen',
+  draft: 'Entwurf',
+}
+
 interface NewOrderItem {
   name: string
   quantity: number
@@ -84,11 +117,37 @@ interface NewOrderItem {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: Star rating display
+// ---------------------------------------------------------------------------
+function StarRating({ rating, max = 5 }: { rating: number; max?: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: max }, (_, i) => (
+        <Star
+          key={i}
+          className={`h-3.5 w-3.5 ${
+            i < rating ? 'fill-warning text-warning' : 'text-border'
+          }`}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function EinkaufPage() {
-  const { purchaseOrders, suppliers, purchaseOrderItems } = useEinkaufStore()
+  const {
+    purchaseOrders,
+    suppliers,
+    purchaseOrderItems,
+    catalogItems,
+    supplierRatings,
+    frameworkContracts,
+    approvalThreshold,
+  } = useEinkaufStore()
 
   // Tab & search
   const [tab, setTab] = useState<TabKey>('bestellungen')
@@ -112,6 +171,7 @@ export default function EinkaufPage() {
   ])
   const [newOrderDate, setNewOrderDate] = useState('')
   const [newOrderNotes, setNewOrderNotes] = useState('')
+  const [newOrderCurrency, setNewOrderCurrency] = useState('EUR')
 
   // New supplier form state
   const [newSupName, setNewSupName] = useState('')
@@ -123,6 +183,14 @@ export default function EinkaufPage() {
   // Wareneingang state
   const [receivedQtys, setReceivedQtys] = useState<Record<string, number>>({})
   const [partialDelivery, setPartialDelivery] = useState(false)
+  const [bookToInventory, setBookToInventory] = useState(false)
+
+  // Katalog state
+  const [catalogSearch, setCatalogSearch] = useState('')
+  const [catalogCategory, setCatalogCategory] = useState<string>('all')
+
+  // Rahmenvertraege state
+  const [expandedContract, setExpandedContract] = useState<string | null>(null)
 
   // ---------------------------------------------------------------------------
   // Derived data
@@ -156,6 +224,28 @@ export default function EinkaufPage() {
     )
   }, [suppliers, search])
 
+  const catalogCategories = useMemo(() => {
+    const cats = new Set(catalogItems.map((c) => c.category))
+    return Array.from(cats).sort()
+  }, [catalogItems])
+
+  const filteredCatalog = useMemo(() => {
+    let list = catalogItems
+    if (catalogCategory !== 'all') {
+      list = list.filter((c) => c.category === catalogCategory)
+    }
+    if (catalogSearch) {
+      const q = catalogSearch.toLowerCase()
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.sku.toLowerCase().includes(q) ||
+          c.supplierName.toLowerCase().includes(q),
+      )
+    }
+    return list
+  }, [catalogItems, catalogSearch, catalogCategory])
+
   const activeOrderCount = purchaseOrders.filter(
     (o) => o.status !== 'received' && o.status !== 'cancelled',
   ).length
@@ -181,6 +271,21 @@ export default function EinkaufPage() {
   const getSupplierOrders = useCallback(
     (supplierId: string) => purchaseOrders.filter((o) => o.supplierId === supplierId),
     [purchaseOrders],
+  )
+
+  // Ratings for a given supplier
+  const getSupplierRatings = useCallback(
+    (supplierId: string) => supplierRatings.filter((r) => r.supplierId === supplierId),
+    [supplierRatings],
+  )
+
+  const getSupplierAvgRating = useCallback(
+    (supplierId: string) => {
+      const ratings = supplierRatings.filter((r) => r.supplierId === supplierId)
+      if (ratings.length === 0) return 0
+      return ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+    },
+    [supplierRatings],
   )
 
   // ---------------------------------------------------------------------------
@@ -217,6 +322,7 @@ export default function EinkaufPage() {
     setNewOrderItems([{ name: '', quantity: 1, unitPrice: 0 }])
     setNewOrderDate('')
     setNewOrderNotes('')
+    setNewOrderCurrency('EUR')
   }
 
   const addOrderItemRow = () => {
@@ -244,7 +350,7 @@ export default function EinkaufPage() {
     }
     const sup = suppliers.find((s) => s.id === newOrderSupplierId)
     const nr = `PO-2026-${String(purchaseOrders.length + 1).padStart(3, '0')}`
-    toast.success(`Bestellung ${nr} bei ${sup?.name ?? 'Lieferant'} erstellt (CHF ${newOrderTotal.toLocaleString('de-CH', { minimumFractionDigits: 2 })})`)
+    toast.success(`Bestellung ${nr} bei ${sup?.name ?? 'Lieferant'} erstellt (${newOrderCurrency} ${newOrderTotal.toLocaleString('de-CH', { minimumFractionDigits: 2 })})`)
     resetNewOrderForm()
     setShowNewOrderDialog(false)
   }
@@ -277,13 +383,23 @@ export default function EinkaufPage() {
     })
     setReceivedQtys(initial)
     setPartialDelivery(false)
+    setBookToInventory(false)
     setShowWareneingangDialog(order)
   }
 
   const handleSaveWareneingang = () => {
     if (!showWareneingangDialog) return
-    toast.success(`Wareneingang fuer Bestellung ${showWareneingangDialog.orderNumber} gebucht`)
+    if (bookToInventory) {
+      toast.success(`Wareneingang fuer Bestellung ${showWareneingangDialog.orderNumber} gebucht und im Inventar verbucht`)
+    } else {
+      toast.success(`Wareneingang fuer Bestellung ${showWareneingangDialog.orderNumber} gebucht`)
+    }
     setShowWareneingangDialog(null)
+  }
+
+  // -- Approval --
+  const handleApproveOrder = (order: PurchaseOrder) => {
+    toast.success(`Bestellung ${order.orderNumber} wurde genehmigt`)
   }
 
   // ---------------------------------------------------------------------------
@@ -352,7 +468,7 @@ export default function EinkaufPage() {
         <div>
           <h1 className="text-foreground">Einkauf</h1>
           <p className="text-sm text-muted-foreground">
-            {activeOrderCount} offene Bestellungen · CHF {formatAmount(totalOpen)}
+            {activeOrderCount} offene Bestellungen · EUR {formatAmount(totalOpen)}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -386,7 +502,8 @@ export default function EinkaufPage() {
         {([
           { key: 'bestellungen' as const, label: `Bestellungen (${purchaseOrders.length})` },
           { key: 'lieferanten' as const, label: `Lieferanten (${activeSupplierCount})` },
-          { key: 'katalog' as const, label: 'Katalog' },
+          { key: 'katalog' as const, label: `Katalog (${catalogItems.length})` },
+          { key: 'rahmenvertraege' as const, label: `Rahmenvertraege (${frameworkContracts.length})` },
         ]).map((t) => (
           <button
             key={t.key}
@@ -394,6 +511,8 @@ export default function EinkaufPage() {
               setTab(t.key)
               setSearch('')
               setStatusFilter('all')
+              setCatalogSearch('')
+              setCatalogCategory('all')
             }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
               tab === t.key
@@ -406,8 +525,8 @@ export default function EinkaufPage() {
         ))}
       </div>
 
-      {/* Search + status filter */}
-      {tab !== 'katalog' && (
+      {/* Search + status filter (bestellungen / lieferanten) */}
+      {(tab === 'bestellungen' || tab === 'lieferanten') && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -462,7 +581,7 @@ export default function EinkaufPage() {
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Bestellnr.</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Lieferant</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Betrag (CHF)</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Betrag</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Lieferdatum</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Erstellt am</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground"></th>
@@ -492,7 +611,7 @@ export default function EinkaufPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                        {formatAmount(order.total)}
+                        {formatCurrency(order.total, order.currency || 'EUR')}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {order.expectedDelivery ? formatDate(order.expectedDelivery) : '--'}
@@ -594,11 +713,245 @@ export default function EinkaufPage() {
 
       {/* ====================== KATALOG TAB ====================== */}
       {tab === 'katalog' && (
-        <EmptyState
-          icon={BookOpen}
-          title="Lieferantenkataloge"
-          description="Lieferantenkataloge werden hier angezeigt. Diese Funktion wird in einer zukuenftigen Version verfuegbar sein."
-        />
+        <>
+          {/* Katalog search + category filter */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Artikel suchen (Name, SKU, Lieferant)..."
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+                className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+            <select
+              value={catalogCategory}
+              onChange={(e) => setCatalogCategory(e.target.value)}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            >
+              <option value="all">Alle Kategorien</option>
+              {catalogCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {filteredCatalog.length === 0 ? (
+            <EmptyState
+              icon={BookOpen}
+              title="Keine Artikel gefunden"
+              description="Passe deine Suche oder den Kategoriefilter an"
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredCatalog.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-lg border border-border bg-card p-4 flex flex-col"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-foreground truncate">{item.name}</h4>
+                      <p className="text-xs text-muted-foreground font-mono">{item.sku}</p>
+                    </div>
+                    <span
+                      className={`ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        item.available
+                          ? 'bg-success-light text-success'
+                          : 'bg-error-light text-error'
+                      }`}
+                    >
+                      {item.available ? 'Verfuegbar' : 'Nicht verfuegbar'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-muted-foreground mb-3 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-3 w-3" />
+                      <span>{item.supplierName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ScanBarcode className="h-3 w-3" />
+                      <span>Kategorie: {item.category}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <PackageCheck className="h-3 w-3" />
+                      <span>Mindestbestellung: {item.minOrder} {item.unit}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-border-muted pt-3">
+                    <div>
+                      <p className="text-base font-semibold text-foreground tabular-nums">
+                        {formatCurrency(item.price, item.currency)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">pro {item.unit}</p>
+                    </div>
+                    <button
+                      onClick={() =>
+                        toast.success(`"${item.name}" zum Warenkorb hinzugefuegt`)
+                      }
+                      className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                    >
+                      <ShoppingCart className="h-3.5 w-3.5" />
+                      In den Warenkorb
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ====================== RAHMENVERTRAEGE TAB ====================== */}
+      {tab === 'rahmenvertraege' && (
+        <>
+          {frameworkContracts.length === 0 ? (
+            <EmptyState
+              icon={ScrollText}
+              title="Keine Rahmenvertraege"
+              description="Erstelle deinen ersten Rahmenvertrag mit einem Lieferanten"
+            />
+          ) : (
+            <div className="space-y-4">
+              {frameworkContracts.map((contract) => {
+                const isExpanded = expandedContract === contract.id
+                const usagePct = contract.totalValue > 0
+                  ? Math.round((contract.usedValue / contract.totalValue) * 100)
+                  : 0
+
+                return (
+                  <div
+                    key={contract.id}
+                    className="rounded-lg border border-border bg-card overflow-hidden"
+                  >
+                    {/* Contract header */}
+                    <button
+                      onClick={() => setExpandedContract(isExpanded ? null : contract.id)}
+                      className="flex w-full items-center justify-between p-4 hover:bg-secondary/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 text-left min-w-0">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-light">
+                          <ScrollText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-medium text-foreground truncate">{contract.title}</h4>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                contractStatusColors[contract.status]
+                              }`}
+                            >
+                              {contractStatusLabels[contract.status]}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                            <span className="font-mono">{contract.contractNr}</span>
+                            <span>{contract.supplierName}</span>
+                            <span>{formatDate(contract.startDate)} – {formatDate(contract.endDate)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0 ml-4">
+                        {/* Usage bar */}
+                        <div className="w-32 hidden sm:block">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>Ausschoepfung</span>
+                            <span>{usagePct}%</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                usagePct >= 90 ? 'bg-warning' : usagePct >= 70 ? 'bg-info' : 'bg-primary'
+                              }`}
+                              style={{ width: `${Math.min(usagePct, 100)}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-0.5">
+                            <span>{formatCurrency(contract.usedValue, contract.currency)}</span>
+                            <span>{formatCurrency(contract.totalValue, contract.currency)}</span>
+                          </div>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </button>
+
+                    {/* Expanded items table */}
+                    {isExpanded && (
+                      <div className="border-t border-border">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border bg-secondary/30">
+                                <th className="px-4 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Artikel</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Stueckpreis</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Vereinbart</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Abgerufen</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Offen</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {contract.items.map((item, idx) => {
+                                const remaining = item.agreedQty - item.calledQty
+                                const callPct = item.agreedQty > 0
+                                  ? Math.round((item.calledQty / item.agreedQty) * 100)
+                                  : 0
+                                return (
+                                  <tr key={idx} className="border-b border-border-muted last:border-0">
+                                    <td className="px-4 py-2.5 text-foreground">
+                                      <div>
+                                        <p className="text-sm">{item.name}</p>
+                                        <p className="text-[10px] text-muted-foreground">{item.unit} · {callPct}% abgerufen</p>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-foreground tabular-nums">
+                                      {formatCurrency(item.unitPrice, contract.currency)}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-muted-foreground tabular-nums">
+                                      {item.agreedQty.toLocaleString('de-CH')}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-foreground tabular-nums">
+                                      {item.calledQty.toLocaleString('de-CH')}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right tabular-nums">
+                                      <span className={remaining <= 0 ? 'text-error' : 'text-success'}>
+                                        {remaining.toLocaleString('de-CH')}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="flex items-center justify-end px-4 py-3 border-t border-border-muted">
+                          <button
+                            onClick={() => toast.success(`Neuer Abruf fuer "${contract.title}" erstellt`)}
+                            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Neuen Abruf erstellen
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* ====================== ORDER DETAIL PANEL ====================== */}
@@ -643,12 +996,46 @@ export default function EinkaufPage() {
       >
         {selectedOrder && (
           <div className="space-y-5">
+            {/* 8.4 Approval banner */}
+            {selectedOrder.requiresApproval && (
+              <div
+                className={`rounded-lg p-3 flex items-center gap-3 ${
+                  selectedOrder.approvedBy
+                    ? 'bg-success-light border border-success/20'
+                    : 'bg-warning-light border border-warning/20'
+                }`}
+              >
+                <ShieldCheck className={`h-5 w-5 shrink-0 ${
+                  selectedOrder.approvedBy ? 'text-success' : 'text-warning'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  {selectedOrder.approvedBy ? (
+                    <p className="text-sm text-success font-medium">
+                      Genehmigt von: {selectedOrder.approvedBy}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-warning font-medium">
+                      Genehmigung erforderlich (ab {formatCurrency(approvalThreshold, selectedOrder.currency || 'EUR')})
+                    </p>
+                  )}
+                </div>
+                {!selectedOrder.approvedBy && (
+                  <button
+                    onClick={() => handleApproveOrder(selectedOrder)}
+                    className="shrink-0 rounded-lg bg-warning px-3 py-1.5 text-xs font-medium text-warning-foreground hover:opacity-90 transition-opacity"
+                  >
+                    Genehmigen
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Summary */}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Betrag</p>
                 <p className="text-lg font-semibold text-foreground tabular-nums">
-                  CHF {formatAmount(selectedOrder.total)}
+                  {formatCurrency(selectedOrder.total, selectedOrder.currency || 'EUR')}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
@@ -697,12 +1084,12 @@ export default function EinkaufPage() {
                       <div>
                         <p className="text-sm text-foreground">{item.itemName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {item.quantity} Stk. x CHF {item.unitPrice.toFixed(2)}
+                          {item.quantity} Stk. x {formatCurrency(item.unitPrice, selectedOrder.currency || 'EUR')}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-foreground tabular-nums">
-                          CHF {formatAmount(item.quantity * item.unitPrice)}
+                          {formatCurrency(item.quantity * item.unitPrice, selectedOrder.currency || 'EUR')}
                         </p>
                         {item.receivedQuantity > 0 && (
                           <p className="text-[10px] text-success">
@@ -738,6 +1125,55 @@ export default function EinkaufPage() {
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
+
+            {/* 8.2 Belegkette (document chain) — only for non-draft, non-cancelled */}
+            {selectedOrder.status !== 'draft' && selectedOrder.status !== 'cancelled' && (
+              <div>
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                  Belegkette
+                </h4>
+                <div className="rounded-lg border border-border p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    {/* Bestellung */}
+                    <div className="flex items-center gap-1.5 rounded-lg bg-primary-light px-2.5 py-1.5">
+                      <FileText className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-medium text-primary">Bestellung</span>
+                    </div>
+                    <div className="h-px w-4 bg-border" />
+                    {/* Lieferschein */}
+                    <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 ${
+                      selectedOrder.status === 'partial' || selectedOrder.status === 'received'
+                        ? 'bg-success-light'
+                        : 'bg-secondary'
+                    }`}>
+                      <Link2 className={`h-3.5 w-3.5 ${
+                        selectedOrder.status === 'partial' || selectedOrder.status === 'received'
+                          ? 'text-success'
+                          : 'text-muted-foreground'
+                      }`} />
+                      <span className={`text-xs font-medium ${
+                        selectedOrder.status === 'partial' || selectedOrder.status === 'received'
+                          ? 'text-success'
+                          : 'text-muted-foreground'
+                      }`}>Lieferschein</span>
+                    </div>
+                    <div className="h-px w-4 bg-border" />
+                    {/* Eingangsrechnung */}
+                    <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5">
+                      <Coins className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">Eingangsrechnung</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => toast.info(`Rechnung zu ${selectedOrder.orderNumber} zuordnen`)}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                  >
+                    <Link2 className="h-3 w-3" />
+                    Rechnung zuordnen
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </DetailPanel>
@@ -792,6 +1228,58 @@ export default function EinkaufPage() {
               </div>
             </div>
 
+            {/* 8.3 Supplier rating */}
+            {(() => {
+              const ratings = getSupplierRatings(selectedSupplier.id)
+              const avg = getSupplierAvgRating(selectedSupplier.id)
+              if (ratings.length === 0) return null
+              return (
+                <div>
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                    Bewertung
+                  </h4>
+                  <div className="rounded-lg border border-border p-3 space-y-3">
+                    {/* Average */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning-light">
+                        <BarChart3 className="h-5 w-5 text-warning" />
+                      </div>
+                      <div>
+                        <p className="text-lg font-semibold text-foreground tabular-nums">
+                          {avg.toFixed(1)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Durchschnitt</p>
+                      </div>
+                      <div className="ml-auto">
+                        <StarRating rating={Math.round(avg)} />
+                      </div>
+                    </div>
+
+                    {/* Category breakdown */}
+                    <div className="space-y-2 border-t border-border-muted pt-3">
+                      {(['quality', 'delivery', 'price'] as const).map((cat) => {
+                        const catRating = ratings.find((r) => r.category === cat)
+                        if (!catRating) return null
+                        return (
+                          <div key={cat} className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">
+                              {ratingCategoryLabels[cat]}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <StarRating rating={catRating.rating} />
+                              <span className="text-xs text-foreground font-medium tabular-nums w-4 text-right">
+                                {catRating.rating}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* Status */}
             <div className="flex items-center gap-2">
               <span
@@ -828,7 +1316,7 @@ export default function EinkaufPage() {
                       <div className="text-left">
                         <p className="text-sm font-mono text-foreground">{order.orderNumber}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDate(order.createdAt)} · CHF {formatAmount(order.total)}
+                          {formatDate(order.createdAt)} · {formatCurrency(order.total, order.currency || 'EUR')}
                         </p>
                       </div>
                       <span
@@ -928,7 +1416,7 @@ export default function EinkaufPage() {
                             />
                           </div>
                           <div className="flex-1">
-                            <label className="text-[10px] text-muted-foreground">Einzelpreis (CHF)</label>
+                            <label className="text-[10px] text-muted-foreground">Einzelpreis ({newOrderCurrency})</label>
                             <input
                               type="number"
                               min={0}
@@ -955,13 +1443,34 @@ export default function EinkaufPage() {
                 </div>
               </div>
 
-              {/* Total */}
+              {/* Total + Currency selector */}
               <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2">
-                <span className="text-sm font-medium text-muted-foreground">Total</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">Total</span>
+                  <select
+                    value={newOrderCurrency}
+                    onChange={(e) => setNewOrderCurrency(e.target.value)}
+                    className="rounded border border-border bg-card px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                  >
+                    {CURRENCY_OPTIONS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
                 <span className="text-base font-semibold text-foreground tabular-nums">
-                  CHF {formatAmount(newOrderTotal)}
+                  {formatCurrency(newOrderTotal, newOrderCurrency)}
                 </span>
               </div>
+
+              {/* 8.4 Approval notice in new order dialog */}
+              {newOrderTotal > approvalThreshold && (
+                <div className="flex items-center gap-2 rounded-lg bg-warning-light border border-warning/20 px-3 py-2">
+                  <ShieldCheck className="h-4 w-4 text-warning shrink-0" />
+                  <p className="text-xs text-warning font-medium">
+                    Bestellung erfordert Genehmigung (ab {formatCurrency(approvalThreshold, newOrderCurrency)})
+                  </p>
+                </div>
+              )}
 
               {/* Expected delivery */}
               <div className="space-y-1.5">
@@ -1171,6 +1680,24 @@ export default function EinkaufPage() {
                   className="h-4 w-4 rounded border-border text-primary focus:ring-focus-ring"
                 />
                 <span className="text-sm text-foreground">Teillieferung (Bestellung bleibt offen)</span>
+              </label>
+
+              {/* 8.6 Inventar-Integration */}
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bookToInventory}
+                  onChange={(e) => setBookToInventory(e.target.checked)}
+                  className="h-4 w-4 mt-0.5 rounded border-border text-primary focus:ring-focus-ring"
+                />
+                <div>
+                  <span className="text-sm text-foreground">Zum Inventar buchen</span>
+                  {bookToInventory && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Wareneingang wird automatisch im Inventar verbucht
+                    </p>
+                  )}
+                </div>
               </label>
             </div>
 

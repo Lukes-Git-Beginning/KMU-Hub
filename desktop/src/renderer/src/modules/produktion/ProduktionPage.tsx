@@ -16,6 +16,12 @@ import {
   PlayCircle,
   PauseCircle,
   Trash2,
+  Cpu,
+  Wrench,
+  CircleDot,
+  ListChecks,
+  AlertTriangle,
+  Gauge,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -24,6 +30,9 @@ import {
   type BOM,
   type QualityCheck,
   type BomItem,
+  type WorkStep,
+  type Machine,
+  type MachineBooking,
 } from '@/stores/produktion'
 import { DetailPanel } from '@/components/shared'
 import {
@@ -43,8 +52,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import MaschinenbelegungChart from './MaschinenbelegungChart'
 
-type TabKey = 'aufträge' | 'stücklisten' | 'qualität'
+type TabKey = 'aufträge' | 'stücklisten' | 'qualität' | 'maschinen'
 type StatusFilter = 'all' | 'planned' | 'in_progress' | 'paused' | 'completed' | 'cancelled'
 
 const orderStatusLabels: Record<string, string> = {
@@ -80,6 +90,20 @@ const statusFilterOptions: { value: StatusFilter; label: string }[] = [
   { value: 'cancelled', label: 'Storniert' },
 ]
 
+const workStepStatusLabels: Record<string, string> = {
+  pending: 'Ausstehend',
+  in_progress: 'In Arbeit',
+  completed: 'Erledigt',
+  skipped: 'Uebersprungen',
+}
+
+const workStepStatusColors: Record<string, string> = {
+  pending: 'bg-secondary text-muted-foreground',
+  in_progress: 'bg-info-light text-info',
+  completed: 'bg-success-light text-success',
+  skipped: 'bg-secondary text-muted-foreground/60',
+}
+
 function getDaysRemaining(dueDate: string): number {
   const due = new Date(dueDate)
   const now = new Date()
@@ -90,12 +114,27 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('de-CH')
 }
 
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}min`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}min`
+}
+
+function getMaterialAvailability(materialName: string, idx: number): 'green' | 'yellow' | 'red' {
+  const val = (materialName.length * 7 + idx * 13) % 10
+  if (val < 1) return 'red'
+  if (val < 3) return 'yellow'
+  return 'green'
+}
+
 // ============================================================
 // Main Component
 // ============================================================
 
 export default function ProduktionPage() {
-  const { orders, boms, qualityChecks } = useProduktionStore()
+  const { orders, boms, qualityChecks, workSteps, machines, machineBookings } = useProduktionStore()
 
   const [tab, setTab] = useState<TabKey>('aufträge')
   const [search, setSearch] = useState('')
@@ -186,6 +225,7 @@ export default function ProduktionPage() {
           { key: 'aufträge' as const, label: `Aufträge (${activeOrders.length} aktiv)` },
           { key: 'stücklisten' as const, label: `Stücklisten (${boms.length})` },
           { key: 'qualität' as const, label: `Qualität (${qualityChecks.length})` },
+          { key: 'maschinen' as const, label: `Maschinen (${machines.length})` },
         ]).map((t) => (
           <button
             key={t.key}
@@ -454,6 +494,13 @@ export default function ProduktionPage() {
       )}
 
       {/* ============================== */}
+      {/* Maschinen Tab                  */}
+      {/* ============================== */}
+      {tab === 'maschinen' && (
+        <MaschinenbelegungChart machines={machines} bookings={machineBookings} />
+      )}
+
+      {/* ============================== */}
       {/* Order Detail Panel             */}
       {/* ============================== */}
       {selectedOrder && (
@@ -461,6 +508,7 @@ export default function ProduktionPage() {
           order={selectedOrder}
           bom={bomMap.get(selectedOrder.bomId)}
           qualityChecks={qualityChecks.filter((qc) => qc.orderId === selectedOrder.id)}
+          workSteps={workSteps.filter((ws) => ws.orderId === selectedOrder.id)}
           onClose={() => setSelectedOrder(null)}
           onAddQualityCheck={() => handleOpenQualityCheckFromDetail(selectedOrder.id)}
         />
@@ -504,12 +552,14 @@ function OrderDetailPanel({
   order,
   bom,
   qualityChecks,
+  workSteps,
   onClose,
   onAddQualityCheck,
 }: {
   order: ProductionOrder
   bom: BOM | undefined
   qualityChecks: QualityCheck[]
+  workSteps: WorkStep[]
   onClose: () => void
   onAddQualityCheck: () => void
 }) {
@@ -521,6 +571,30 @@ function OrderDetailPanel({
   const handleStatusChange = (newStatus: string) => {
     toast.success(`Status von ${order.orderNr} auf "${orderStatusLabels[newStatus]}" geändert`)
   }
+
+  // --- 8.14 Material Availability ---
+  const materialAvailability = useMemo(() => {
+    if (!bom) return null
+    if (order.status !== 'planned' && order.status !== 'in_progress') return null
+
+    const results = bom.items.map((item, idx) => ({
+      ...item,
+      availability: getMaterialAvailability(item.materialName, idx),
+    }))
+    const available = results.filter((r) => r.availability === 'green').length
+    return { results, available, total: results.length }
+  }, [bom, order.status])
+
+  // --- 8.15 Work Steps ---
+  const sortedWorkSteps = useMemo(() => {
+    return [...workSteps].sort((a, b) => a.stepNr - b.stepNr)
+  }, [workSteps])
+
+  const completedSteps = sortedWorkSteps.filter((s) => s.status === 'completed').length
+  const totalDuration = sortedWorkSteps.reduce((sum, s) => sum + s.durationMinutes, 0)
+
+  // --- 8.17 Scrap tracking ---
+  const showScrap = order.status !== 'planned'
 
   return (
     <DetailPanel open={true} title="Auftragsdetails" subtitle={order.orderNr} onClose={onClose}>
@@ -625,6 +699,49 @@ function OrderDetailPanel({
           </div>
         </div>
 
+        {/* ============================== */}
+        {/* 8.14 Material Availability     */}
+        {/* ============================== */}
+        {materialAvailability && bom && (
+          <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Materialverfuegbarkeit
+            </h4>
+            <div className="rounded-md border border-border p-3 space-y-3">
+              {/* Summary */}
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-primary" />
+                <span className="text-xs font-medium text-foreground">
+                  {materialAvailability.available} von {materialAvailability.total} Materialien verfuegbar
+                </span>
+              </div>
+
+              {/* Per-item list */}
+              <div className="space-y-1">
+                {materialAvailability.results.map((item, idx) => {
+                  const colorMap = {
+                    green: { dot: 'bg-success', text: 'text-success', bg: 'bg-success-light', label: 'Verfuegbar' },
+                    yellow: { dot: 'bg-warning', text: 'text-warning', bg: 'bg-warning-light', label: 'Knapp' },
+                    red: { dot: 'bg-error', text: 'text-error', bg: 'bg-error-light', label: 'Fehlt' },
+                  }
+                  const c = colorMap[item.availability]
+                  return (
+                    <div key={idx} className="flex items-center justify-between py-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${c.dot} shrink-0`} />
+                        <span className="text-xs text-foreground">{item.materialName}</span>
+                      </div>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${c.bg} ${c.text}`}>
+                        {c.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Associated BOM */}
         {bom && (
           <section>
@@ -641,6 +758,134 @@ function OrderDetailPanel({
                   </p>
                 </div>
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* ============================== */}
+        {/* 8.15 Work Steps / Arbeitsgaenge*/}
+        {/* ============================== */}
+        {sortedWorkSteps.length > 0 && (
+          <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Arbeitsgaenge
+            </h4>
+            <div className="rounded-md border border-border p-3 space-y-3">
+              {/* Summary bar */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-medium text-foreground">
+                    {completedSteps} von {sortedWorkSteps.length} Schritten erledigt
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Gesamt: {formatDuration(totalDuration)}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-success transition-all"
+                  style={{ width: sortedWorkSteps.length > 0 ? `${(completedSteps / sortedWorkSteps.length) * 100}%` : '0%' }}
+                />
+              </div>
+
+              {/* Steps list */}
+              <div className="space-y-1">
+                {sortedWorkSteps.map((step) => (
+                  <div
+                    key={step.id}
+                    className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-[10px] text-muted-foreground font-mono w-4 shrink-0 text-right">
+                        {step.stepNr}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs text-foreground font-medium truncate">{step.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">{formatDuration(step.durationMinutes)}</span>
+                          {step.assignee && (
+                            <span className="text-[10px] text-muted-foreground">&middot; {step.assignee}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2 ${workStepStatusColors[step.status]}`}>
+                      {workStepStatusLabels[step.status]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ============================== */}
+        {/* 8.17 Ausschuss-Tracking        */}
+        {/* ============================== */}
+        {showScrap && (
+          <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Ausschuss
+            </h4>
+            <div className="rounded-md border border-border p-3 space-y-3">
+              {order.scrapRate === 0 ? (
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  <span className="text-xs text-muted-foreground">Kein Ausschuss erfasst</span>
+                </div>
+              ) : (
+                <>
+                  {/* Stats row */}
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Gauge className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Ausschussrate</p>
+                        <p className={`text-sm font-semibold tabular-nums ${order.scrapRate > 5 ? 'text-error' : 'text-foreground'}`}>
+                          {order.scrapRate}%
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-[10px] text-muted-foreground">Ausschuss / Produziert</p>
+                        <p className="text-sm font-medium text-foreground tabular-nums">
+                          {order.scrapQuantity} / {order.quantity} Stk
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scrap rate bar */}
+                  <div>
+                    <div className="h-2.5 rounded-full bg-success/30 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-error transition-all"
+                        style={{ width: `${Math.min(100, order.scrapRate)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[10px] text-muted-foreground">0%</span>
+                      <span className="text-[10px] text-muted-foreground">100%</span>
+                    </div>
+                  </div>
+
+                  {/* Warning if above target */}
+                  {order.scrapRate > 5 && (
+                    <div className="flex items-center gap-2 rounded-md bg-error-light px-3 py-2">
+                      <AlertTriangle className="h-3.5 w-3.5 text-error shrink-0" />
+                      <span className="text-xs text-error font-medium">
+                        Ausschussrate ueber Zielwert (5%)
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </section>
         )}

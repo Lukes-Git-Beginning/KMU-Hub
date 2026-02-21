@@ -18,6 +18,12 @@ import {
   ClipboardEdit,
   ChevronDown,
   Filter,
+  ScanBarcode,
+  ShoppingCart,
+  Hash,
+  Link2,
+  ClipboardCheck,
+  AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -26,10 +32,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useInventarStore, type InventoryItem } from '@/stores/inventar'
+import { useInventarStore, type InventoryItem, type InventurSession } from '@/stores/inventar'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { formatCurrency } from '@/lib/format'
 
-type TabKey = 'artikel' | 'lagerorte' | 'bewegungen'
+type TabKey = 'artikel' | 'lagerorte' | 'bewegungen' | 'inventur'
 type StatusFilter = 'all' | 'ok' | 'warning' | 'critical'
 type MovementType = 'in' | 'out' | 'transfer' | 'adjustment'
 
@@ -66,6 +73,22 @@ const movementTypeIcons: Record<string, typeof ArrowDownToLine> = {
   adjustment: ClipboardEdit,
 }
 
+const inventurStatusLabels: Record<string, string> = {
+  open: 'Offen',
+  counting: 'Zaehlung',
+  review: 'Pruefung',
+  completed: 'Abgeschlossen',
+}
+
+const inventurStatusColors: Record<string, string> = {
+  open: 'bg-info-light text-info',
+  counting: 'bg-warning-light text-warning',
+  review: 'bg-[#fff3e0] text-[#e65100] dark:bg-[#e65100]/20 dark:text-[#ffab40]',
+  completed: 'bg-success-light text-success',
+}
+
+const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD']
+
 const UNIT_OPTIONS = ['Stück', 'kg', 'Meter', 'Liter', 'Packung', 'Rolle']
 
 function getStockStatus(item: InventoryItem): 'ok' | 'warning' | 'critical' {
@@ -90,6 +113,82 @@ function formatDateTime(dateStr: string): string {
   return `${d.toLocaleDateString('de-CH')} ${d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}`
 }
 
+// ─── Barcode Scanner Dialog ─────────────────────────────────────
+function BarcodeScannerDialog({
+  open,
+  onClose,
+  onScan,
+}: {
+  open: boolean
+  onClose: () => void
+  onScan: (barcode: string) => void
+}) {
+  const [barcode, setBarcode] = useState('')
+
+  const handleSubmit = () => {
+    const trimmed = barcode.trim()
+    if (!trimmed) {
+      toast.error('Bitte einen Barcode eingeben')
+      return
+    }
+    onScan(trimmed)
+    setBarcode('')
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSubmit()
+  }
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <ScanBarcode className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Barcode-Scanner</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Barcode eingeben oder scannen..."
+            autoFocus
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
+          />
+          <p className="text-xs text-muted-foreground">
+            Barcode manuell eingeben oder mit einem externen Scanner erfassen.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            Suchen
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Artikel Dialog ───────────────────────────────────────────────
 interface ArtikelFormData {
   name: string
@@ -97,6 +196,9 @@ interface ArtikelFormData {
   category: string
   minStock: number
   unit: string
+  currency: string
+  batchNumber: string
+  serialNumbers: string
 }
 
 function ArtikelDialog({
@@ -114,6 +216,9 @@ function ArtikelDialog({
     category: initial?.category ?? '',
     minStock: initial?.minStock ?? 0,
     unit: initial?.unit ?? 'Stück',
+    currency: initial?.currency ?? 'EUR',
+    batchNumber: initial?.batchNumber ?? '',
+    serialNumbers: initial?.serialNumbers?.join(', ') ?? '',
   })
 
   const isEdit = !!initial
@@ -136,7 +241,7 @@ function ArtikelDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">
             {isEdit ? 'Artikel bearbeiten' : 'Neuen Artikel anlegen'}
@@ -211,6 +316,48 @@ function ArtikelDialog({
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Waehrung */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Waehrung</label>
+            <select
+              value={form.currency}
+              onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            >
+              {CURRENCY_OPTIONS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Chargennummer */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Chargennummer <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={form.batchNumber}
+              onChange={(e) => setForm((f) => ({ ...f, batchNumber: e.target.value }))}
+              placeholder="z.B. CH-2026-0142"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
+            />
+          </div>
+
+          {/* Seriennummern */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Seriennummern <span className="text-xs text-muted-foreground font-normal">(kommagetrennt, optional)</span>
+            </label>
+            <input
+              type="text"
+              value={form.serialNumbers}
+              onChange={(e) => setForm((f) => ({ ...f, serialNumbers: e.target.value }))}
+              placeholder="z.B. SN-001, SN-002, SN-003"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
+            />
           </div>
         </div>
 
@@ -412,9 +559,121 @@ function StockBar({ current, min }: { current: number; min: number }) {
   )
 }
 
+// ─── Inventur Session Card ────────────────────────────────────────
+function InventurSessionCard({ session }: { session: InventurSession }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const totalItems = session.counts.length
+  const itemsWithDiff = session.counts.filter((c) => c.counted !== null && c.counted !== c.expected).length
+  const totalDiff = session.counts.reduce((sum, c) => {
+    if (c.counted === null) return sum
+    return sum + (c.counted - c.expected)
+  }, 0)
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-4 hover:bg-secondary/50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <ClipboardCheck className="h-5 w-5 text-primary shrink-0" />
+          <div className="min-w-0">
+            <h4 className="text-sm font-medium text-foreground truncate">{session.name}</h4>
+            <p className="text-xs text-muted-foreground">
+              {formatDate(session.date)} · {session.locationName} · {session.createdBy}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-3">
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${inventurStatusColors[session.status]}`}>
+            {inventurStatusLabels[session.status]}
+          </span>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+
+      {/* Expanded content */}
+      {expanded && (
+        <div className="border-t border-border">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/30">
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Artikel</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">SKU</th>
+                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">Soll</th>
+                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">Ist</th>
+                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">Differenz</th>
+                </tr>
+              </thead>
+              <tbody>
+                {session.counts.map((count) => {
+                  const diff = count.counted !== null ? count.counted - count.expected : null
+                  const diffColor = diff === null
+                    ? 'text-muted-foreground'
+                    : diff === 0
+                      ? 'text-success'
+                      : diff < 0
+                        ? 'text-error'
+                        : 'text-info'
+                  return (
+                    <tr key={count.itemId} className="border-b border-border-muted last:border-0">
+                      <td className="px-4 py-2 text-foreground">{count.itemName}</td>
+                      <td className="px-4 py-2 text-muted-foreground font-mono text-xs">{count.sku}</td>
+                      <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{count.expected}</td>
+                      <td className="px-4 py-2 text-right text-foreground tabular-nums">
+                        {count.counted !== null ? count.counted : '—'}
+                      </td>
+                      <td className={`px-4 py-2 text-right font-medium tabular-nums ${diffColor}`}>
+                        {diff !== null ? (diff > 0 ? `+${diff}` : diff === 0 ? '0' : diff) : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              {/* Summary row */}
+              <tfoot>
+                <tr className="border-t border-border bg-secondary/30">
+                  <td colSpan={2} className="px-4 py-2 text-sm font-medium text-foreground">
+                    Gesamt: {totalItems} Artikel
+                  </td>
+                  <td className="px-4 py-2 text-right text-xs text-muted-foreground">
+                    {itemsWithDiff > 0 ? `${itemsWithDiff} mit Differenz` : 'Keine Differenzen'}
+                  </td>
+                  <td className="px-4 py-2" />
+                  <td className={`px-4 py-2 text-right font-medium tabular-nums ${
+                    totalDiff === 0 ? 'text-success' : totalDiff < 0 ? 'text-error' : 'text-info'
+                  }`}>
+                    {totalDiff > 0 ? `+${totalDiff}` : totalDiff}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Actions for review status */}
+          {session.status === 'review' && (
+            <div className="flex justify-end p-3 border-t border-border">
+              <button
+                onClick={() => toast.success(`Differenzen fuer "${session.name}" wurden gebucht`)}
+                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                Differenzen buchen
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────
 export default function InventarPage() {
-  const { items, locations, movements } = useInventarStore()
+  const { items, locations, movements, inventurSessions } = useInventarStore()
 
   const [tab, setTab] = useState<TabKey>('artikel')
   const [search, setSearch] = useState('')
@@ -430,6 +689,7 @@ export default function InventarPage() {
   const [editItem, setEditItem] = useState<InventoryItem | null>(null)
   const [bewegungDialogOpen, setBewegungDialogOpen] = useState(false)
   const [bewegungItem, setBewegungItem] = useState<InventoryItem | null>(null)
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
 
   // Get unique categories from items
   const allCategories = useMemo(() => {
@@ -507,6 +767,18 @@ export default function InventarPage() {
     setBewegungDialogOpen(true)
   }
 
+  const handleBarcodeScan = (barcode: string) => {
+    const found = items.find((i) => i.barcode === barcode || i.sku === barcode)
+    if (found) {
+      setSelectedItem(found)
+      setTab('artikel')
+      setShowBarcodeScanner(false)
+      toast.success(`Artikel "${found.name}" gefunden`)
+    } else {
+      toast.error('Kein Artikel mit diesem Barcode gefunden')
+    }
+  }
+
   const getItemActions = (item: InventoryItem) => [
     { label: 'Details anzeigen', icon: Eye, onClick: () => setSelectedItem(item) },
     { label: 'Bearbeiten', icon: Edit, onClick: () => openArtikelDialog(item) },
@@ -553,6 +825,7 @@ export default function InventarPage() {
           { key: 'artikel' as const, label: 'Artikel', count: items.length },
           { key: 'lagerorte' as const, label: 'Lagerorte', count: locations.length },
           { key: 'bewegungen' as const, label: 'Bewegungen', count: movements.length },
+          { key: 'inventur' as const, label: 'Inventur', count: inventurSessions.length },
         ]).map((t) => (
           <button
             key={t.key}
@@ -572,12 +845,27 @@ export default function InventarPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder={tab === 'artikel' ? 'Artikel suchen...' : tab === 'lagerorte' ? 'Lagerort suchen...' : 'Bewegung suchen...'}
+            placeholder={
+              tab === 'artikel' ? 'Artikel suchen...'
+                : tab === 'lagerorte' ? 'Lagerort suchen...'
+                  : tab === 'bewegungen' ? 'Bewegung suchen...'
+                    : 'Inventur suchen...'
+            }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
           />
         </div>
+
+        {/* Barcode Scanner button */}
+        <button
+          onClick={() => setShowBarcodeScanner(true)}
+          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          title="Barcode scannen"
+        >
+          <ScanBarcode className="h-4 w-4" />
+          <span className="hidden sm:inline">Barcode scannen</span>
+        </button>
 
         {/* Category + Status filters (Artikel tab only) */}
         {tab === 'artikel' && (
@@ -658,6 +946,7 @@ export default function InventarPage() {
                     {filteredItems.map((item) => {
                       const status = getStockStatusDisplay(item)
                       const isSelected = selectedItem?.id === item.id
+                      const isCritical = getStockStatus(item) === 'critical'
                       return (
                         <tr
                           key={item.id}
@@ -683,14 +972,26 @@ export default function InventarPage() {
                             <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">{item.category}</span>
                           </td>
                           <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                            {item.currentStock} {item.unit}
+                            <span className="inline-flex items-center gap-1.5">
+                              {isCritical && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <ShoppingCart className="h-3.5 w-3.5 text-error" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">Nachbestellung empfohlen</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {item.currentStock} {item.unit}
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">
                             {item.minStock}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{item.locationName}</td>
                           <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                            CHF {item.price.toFixed(2)}
+                            {formatCurrency(item.price, item.currency || 'EUR')}
                           </td>
                           <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <ItemActions items={getItemActions(item)} />
@@ -838,6 +1139,38 @@ export default function InventarPage() {
         </>
       )}
 
+      {/* ─── INVENTUR TAB ──────────────────────────────────── */}
+      {tab === 'inventur' && (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-muted-foreground">
+              {inventurSessions.length} Inventur-Sitzung{inventurSessions.length !== 1 ? 'en' : ''}
+            </p>
+            <button
+              onClick={() => toast.success('Neue Inventur-Sitzung wurde erstellt')}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Neue Inventur starten
+            </button>
+          </div>
+
+          {inventurSessions.length === 0 ? (
+            <EmptyState
+              icon={ClipboardCheck}
+              title="Keine Inventur-Sitzungen"
+              description="Starte deine erste Inventur, um Bestaende abzugleichen"
+            />
+          ) : (
+            <div className="space-y-3">
+              {inventurSessions.map((session) => (
+                <InventurSessionCard key={session.id} session={session} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {/* ─── DETAIL PANEL (slide-over) ──────────────────────── */}
       <DetailPanel
         open={!!selectedItem}
@@ -883,6 +1216,30 @@ export default function InventarPage() {
       >
         {selectedItem && (
           <div className="space-y-5">
+            {/* Nachbestell-Banner (critical stock) */}
+            {selectedItem.currentStock <= selectedItem.minStock && (
+              <div className="rounded-lg border border-error/30 bg-error-light p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-error mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-error">
+                      Bestand kritisch — Nachbestellung empfohlen
+                    </p>
+                    <p className="text-xs text-error/80 mt-0.5">
+                      Aktueller Bestand ({selectedItem.currentStock}) liegt bei oder unter dem Mindestbestand ({selectedItem.minStock}).
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => toast.success(`Bestellvorschlag fuer "${selectedItem.name}" an Einkauf gesendet`)}
+                  className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-error px-3 py-2 text-sm text-white hover:bg-error/90 transition-colors"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Nachbestellung erstellen
+                </button>
+              </div>
+            )}
+
             {/* Basic info */}
             <div className="space-y-3">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Details</h4>
@@ -905,7 +1262,7 @@ export default function InventarPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Preis</p>
-                  <p className="text-sm text-foreground">CHF {selectedItem.price.toFixed(2)}</p>
+                  <p className="text-sm text-foreground">{formatCurrency(selectedItem.price, selectedItem.currency || 'EUR')}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Letzte Bewegung</p>
@@ -935,6 +1292,62 @@ export default function InventarPage() {
                 <StockBar current={selectedItem.currentStock} min={selectedItem.minStock} />
               </div>
             </div>
+
+            {/* Chargen & Seriennummern */}
+            {(selectedItem.batchNumber || (selectedItem.serialNumbers && selectedItem.serialNumbers.length > 0)) && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Chargen & Seriennummern</h4>
+                <div className="rounded-lg border border-border p-3 space-y-2">
+                  {selectedItem.batchNumber && (
+                    <div className="flex items-center gap-2">
+                      <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Charge:</span>
+                      <span className="text-sm text-foreground font-mono">{selectedItem.batchNumber}</span>
+                    </div>
+                  )}
+                  {selectedItem.serialNumbers && selectedItem.serialNumbers.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Seriennummern:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedItem.serialNumbers.map((sn) => (
+                          <span
+                            key={sn}
+                            className="inline-flex items-center rounded-md bg-secondary px-2 py-0.5 text-xs font-mono text-foreground"
+                          >
+                            {sn}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Belegkette / Einkauf-Anbindung */}
+            {selectedItem.linkedPurchaseOrder && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Einkauf</h4>
+                <div className="rounded-lg border border-border p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Link2 className="h-4 w-4 text-primary" />
+                    <span className="text-sm text-foreground">
+                      Verknuepft mit Bestellung: <span className="font-mono font-medium">{selectedItem.linkedPurchaseOrder}</span>
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => toast.info(`Wechsle zu Bestellung ${selectedItem.linkedPurchaseOrder}`)}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Zur Bestellung
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Lagerorte */}
             <div className="space-y-2">
@@ -1021,6 +1434,12 @@ export default function InventarPage() {
         }}
         item={bewegungItem}
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+      />
+
+      <BarcodeScannerDialog
+        open={showBarcodeScanner}
+        onClose={() => setShowBarcodeScanner(false)}
+        onScan={handleBarcodeScan}
       />
 
       {/* Confirm Delete */}
