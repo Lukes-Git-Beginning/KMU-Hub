@@ -1,12 +1,14 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore } from '@/stores/timetracking'
+import { useTimeTrackingStore, getOvertimeSaldo } from '@/stores/timetracking'
 import { formatMinutes, formatHoursDecimal, getWeekDates, dateToStr } from './time-utils'
 import { toast } from 'sonner'
+import ExportDialog from './ExportDialog'
 
 export default function ReportsView() {
+  const [showExportDialog, setShowExportDialog] = useState(false)
   const entries = useTimeTrackingStore((s) => s.entries)
   const categories = useTimeTrackingStore((s) => s.categories)
   const targets = useTimeTrackingStore((s) => s.targets)
@@ -167,27 +169,20 @@ export default function ReportsView() {
         </div>
       </div>
 
-      {/* Export */}
+      {/* Export (6.7) */}
       <div className="flex gap-3">
         <Button
           variant="outline"
           size="sm"
           className="gap-2"
-          onClick={() => toast.success('CSV Export wird vorbereitet...')}
+          onClick={() => setShowExportDialog(true)}
         >
           <Download className="h-4 w-4" />
-          CSV Export
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={() => toast.success('PDF Export wird vorbereitet...')}
-        >
-          <Download className="h-4 w-4" />
-          PDF Export
+          Exportieren
         </Button>
       </div>
+
+      <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
     </div>
   )
 }

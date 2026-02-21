@@ -9,16 +9,16 @@
 
 | Kennzahl | Wert |
 |----------|------|
-| **Geschaetzter Gesamt-LOC** | ~55.000-62.000 |
-| **Waves (Arbeitspakete)** | 14 |
+| **Geschaetzter Gesamt-LOC** | ~80.000 |
+| **Waves (Arbeitspakete)** | 20 (13 Feature + 7 Design) |
 | **Neue Module** | 2 (Kommunikation, Wiki) |
 | **Erweiterte Module** | 22 |
-| **Neue Shared Components** | 6 |
+| **Neue Shared Components** | 12 (6 Feature + 6 Design) |
 | **Neue Zustand Stores** | 7 |
-| **Neue Dateien** | ~160+ |
-| **Frontend-only Items** | ~75% |
-| **Backend-abhaengige Items** | ~25% |
-| **Timeline (geschaetzt)** | 20-26 Wochen |
+| **Neue Dateien** | ~190+ |
+| **Frontend-only Items** | ~80% |
+| **Backend-abhaengige Items** | ~20% |
+| **Timeline (geschaetzt)** | 38-50 Wochen |
 
 ### LOC-Aufschluesselung nach Quelle
 
@@ -27,7 +27,8 @@
 | Frontend Implementation Plan (14-frontend-plan.md) | ~18.000-22.000 |
 | Gap-Analyse Erweiterungen (06-modul-gap-analyse.md) | ~25.000-35.000 |
 | Querschnitts-Aenderungen (Q1-Q5) | ~3.000-5.000 |
-| **Gesamt (mit Iteration/Polish)** | **~55.000-62.000** |
+| UI-Design-Ueberarbeitung (Waves 14-20) | ~24.600 |
+| **Gesamt (mit Iteration/Polish)** | **~80.000** |
 
 ---
 
@@ -1671,43 +1672,316 @@ Diese Aenderungen ziehen sich quer durch die gesamte Codebase und muessen frueh 
 
 ---
 
-## Wave 14: Visual Polish + Review (D10 + D11)
+## Wave 14: Design Foundation (D1)
 
-> Ziel: Feinschliff und Review-Fixes.
-> Geschaetzter Aufwand: ~2.000-3.000 LOC | ~2-3 Wochen
-> Abhaengigkeit: Alle vorherigen Waves
+> Ziel: Neue Design-Tokens, Farbpaletten-System, Font, Icon-Migration vorbereiten, Animations-System.
+> Geschaetzter Aufwand: ~2.500 LOC | ~2-3 Wochen
+> Abhaengigkeit: Keine (unabhaengig von Waves 6-13)
+> Stil: Verspielt/Kreativ (wie Figma, Framer) — bunten Akzenten, kreative Layouts, Micro-Animationen
 
-### 14.1 Animationen (D10)
+### Entscheidungen
 
-- [ ] **Page Transitions, Micro-Interactions, Loading States** -- Smooth Uebergaenge zwischen Modulen, Skeleton-Loading, Button-Feedback.
-  - Dateien: `styles/animations.css` (neu), Aenderungen in Layout-Komponenten
-  - Aufwand: ~600 LOC
-  - Tag: `[FE-ONLY]`
-  - Abhaengigkeit: Keine
+| Thema | Entscheidung |
+|-------|-------------|
+| Stil | Verspielt/Kreativ (Figma, Framer) |
+| Farbpalette | 3 waehlbare Paletten (Aurora/Indigo, Prism/Cyan, Neon/Purple) — umschaltbar in Settings |
+| Navigation | 4 waehlbare Layouts (Sidebar v2, Dock, Top-Nav, Classic) — umschaltbar in Settings |
+| Animationen | Subtil ueberall + gezielt beeindruckende Highlights |
+| Schrift | Plus Jakarta Sans (Headings + Body) + JetBrains Mono (Code) |
+| Glass/Crystal | Behalten + verbessern |
+| Icons | Wechsel von Lucide zu Tabler Icons |
+| Desk-Themes | NICHT anfassen |
+| Dark Mode | Light-First |
 
-### 14.2 Accessibility (D10)
+### 14.1 Farbpaletten-System (3 umschaltbar)
 
-- [ ] **ARIA Labels, Keyboard Navigation, Screen Reader Support** -- Alle interaktiven Elemente muessen per Tastatur bedienbar sein, ARIA-Roles korrekt gesetzt.
-  - Dateien: Aenderungen ueber alle Module
+- [ ] **3 Farbpaletten via CSS-Klasse auf `<html>` umschaltbar** -- `.palette-aurora` (Default), `.palette-prism`, `.palette-neon`. Store-Feld: `colorPalette: 'aurora' | 'prism' | 'neon'`. Jede Palette definiert ~100 CSS-Variablen fuer `:root`, `.dark`, `.ui-glass`, `.ui-crystal`.
+
+**Palette 1: Aurora (Indigo/Warm)** — Default, Modern SaaS
+
+| Token | Light | Dark |
+|-------|-------|------|
+| Primary | `#6366f1` (Indigo) | `#818cf8` |
+| Accent 1 | `#f97316` (Warm Orange) | `#fb923c` |
+| Accent 2 | `#ec4899` (Pink) | `#f472b6` |
+| Background | `#f7f5f3` (Warm White) | OKLCH hue 260 |
+| Card | `#ffffff` | OKLCH L 0.22 |
+| Foreground | `#1a1a2e` (Deep Navy) | `#f0f0f5` |
+
+**Palette 2: Prism (Cyan/Cool)** — Frisch, Technisch
+
+| Token | Light | Dark |
+|-------|-------|------|
+| Primary | `#0ea5e9` (Sky Blue) | `#38bdf8` |
+| Accent 1 | `#10b981` (Emerald) | `#34d399` |
+| Accent 2 | `#8b5cf6` (Violet) | `#a78bfa` |
+| Background | `#f0f4f8` (Cool Gray) | OKLCH hue 220 |
+| Card | `#ffffff` | OKLCH L 0.20 |
+| Foreground | `#0f172a` (Slate) | `#e2e8f0` |
+
+**Palette 3: Neon (Violet/Bold)** — Kreativ, Auffaellig
+
+| Token | Light | Dark |
+|-------|-------|------|
+| Primary | `#7c3aed` (Violet) | `#a78bfa` |
+| Accent 1 | `#f43f5e` (Rose) | `#fb7185` |
+| Accent 2 | `#eab308` (Amber) | `#facc15` |
+| Background | `#faf5ff` (Lavender Tint) | OKLCH hue 280 |
+| Card | `#ffffff` | OKLCH L 0.18 |
+| Foreground | `#1e1033` (Deep Purple) | `#ede9fe` |
+
+Success/Warning/Error bleiben in allen Paletten semantisch identisch.
+
+  - Dateien: `styles/globals.css` (alle ~100 CSS-Variablen neu, 3 Paletten x 4 Modi = 12 Varianten-Bloecke), `stores/ui.ts` (`colorPalette` Feld), `components/layout/DeskEnvironment.tsx` (`.palette-xxx` auf `<html>`)
   - Aufwand: ~800 LOC
   - Tag: `[FE-ONLY]`
-  - Abhaengigkeit: Keine
 
-### 14.3 Responsive Fine-Tuning (D10)
+### 14.2 Plus Jakarta Sans + JetBrains Mono
 
-- [ ] **Container-Widths von ~800px bis ~1600px testen und anpassen** -- DeskFrame-Window kann verschiedene Groessen haben.
-  - Dateien: Aenderungen ueber alle Module
+- [ ] **Google Fonts Link einbinden, font-family in CSS-Variablen** -- Plus Jakarta Sans fuer Body + Headings, JetBrains Mono fuer Code-Bloecke.
+  - Dateien: `index.html` (Font-Link), `styles/globals.css` (font-family Variablen)
+  - Aufwand: ~50 LOC
+  - Tag: `[FE-ONLY]`
+
+### 14.3 Tabler Icons Adapter
+
+- [ ] **Icon-Adapter-Layer fuer schrittweise Migration von Lucide zu Tabler** -- ~150 Icon-Mappings (Lucide-Name → Tabler-Component). `AppIcon` Type als Ersatz fuer `LucideIcon`. Nav-Items auf Adapter umstellen.
+  - Dateien: NEU `lib/icons.ts`, NEU `lib/icon-types.ts`, `config/nav-items.ts`
+  - Aufwand: ~600 LOC
+  - Tag: `[FE-ONLY]`
+  - npm: `@tabler/icons-react`
+
+### 14.4 Animations-System
+
+- [ ] **CSS-Animations-Utilities und Page-Transition-Hook** -- Keyframes fuer fade, slide, scale, bounce, shimmer, page-transitions. `usePageTransition` Hook fuer CSS-basierte Seitenwechsel.
+  - Dateien: NEU `styles/animations.css`, NEU `hooks/usePageTransition.ts`
   - Aufwand: ~400 LOC
   - Tag: `[FE-ONLY]`
-  - Abhaengigkeit: Keine
 
-### 14.4 Nico-Review Fixes (D11)
+---
+
+## Wave 15: Component Library Redesign (D2)
+
+> Ziel: Alle 21 UI-Primitives + 12 Shared Components visuell ueberarbeiten. Neue Komponenten.
+> Geschaetzter Aufwand: ~4.100 LOC | ~3-4 Wochen
+> Abhaengigkeit: Wave 14 (Design Foundation)
+
+### 15.1 UI Primitives Redesign (21 Dateien)
+
+- [ ] **Alle `components/ui/` Komponenten visuell ueberarbeiten** -- Neue Border-Radius (runder), neue Schatten, Transitions, Akzentfarben. Im Detail:
+  - `button.tsx` — Neue Varianten: `gradient`, `soft`. Hover: Scale + Shadow-Lift. Loading-Spinner.
+  - `input.tsx` — Focus-Glow, optionales Floating-Label
+  - `card.tsx` — Hover-Lift, optionaler Gradient-Border
+  - `badge.tsx` — Neue Varianten: `accent`, `gradient`, `dot`
+  - `tabs.tsx` — Animierter Underline-Indikator der zwischen Tabs gleitet
+  - `dialog.tsx` — Smoothere Animationen (scale 0.95 + fade + backdrop blur)
+  - `select.tsx` — Chevron-Rotation bei Open
+  - `dropdown-menu.tsx` — Staggered Item-Entrance
+  - `checkbox.tsx` — Animierter Checkmark (SVG stroke-dashoffset)
+  - `switch.tsx` — Bounce-Overshoot beim Toggle
+  - `skeleton.tsx` — Shimmer statt Pulse
+  - Alle anderen: Passende Verfeinerungen
+  - Dateien: Alle 21 Dateien in `components/ui/`
+  - Aufwand: ~2.000 LOC
+  - Tag: `[FE-ONLY]`
+
+### 15.2 Shared Components Redesign (12 Dateien)
+
+- [ ] **Alle `components/shared/` Komponenten: Icon-Migration + Animationen** --
+  - `EmptyState.tsx` — Fade-Up Entrance, groesseres Icon mit Akzent-Tint
+  - `DetailPanel.tsx` — Spring-Easing Slide-In, Gradient Header-Stripe
+  - `ConfirmDialog.tsx` — Destructive-Variante mit rot-getoentem Backdrop
+  - `GlobalSearch/*` — Stagger-Animation, Akzent-Highlights
+  - `RichTextEditor/*` — Toolbar Hover-Effekte
+  - Dateien: Alle 12 Dateien in `components/shared/`
+  - Aufwand: ~1.000 LOC
+  - Tag: `[FE-ONLY]`
+
+### 15.3 Neue Shared Components (6 Stueck)
+
+- [ ] **6 neue wiederverwendbare Komponenten** --
+  - `shared/PageHeader.tsx` — Standardisierter Seiten-Header mit Gradient-Text
+  - `shared/StatCard.tsx` — Dashboard Stat-Card mit Count-Up Animation
+  - `shared/AnimatedList.tsx` — Stagger-Animation fuer Listen
+  - `shared/LoadingSpinner.tsx` — Branded Loading-Spinner
+  - `shared/LayoutSwitcher.tsx` — UI zum Navigation-Layout-Wechsel (Vorschau-Thumbnails)
+  - `shared/PaletteSwitcher.tsx` — UI zum Farbpaletten-Wechsel (3 Kreise mit Live-Vorschau)
+  - Aufwand: ~1.100 LOC
+  - Tag: `[FE-ONLY]`
+
+---
+
+## Wave 16: Navigation System (D3)
+
+> Ziel: 4 waehlbare Layout-Modi mit sanftem Wechsel.
+> Geschaetzter Aufwand: ~5.000 LOC | ~3-4 Wochen
+> Abhaengigkeit: Wave 15 (LayoutSwitcher Component)
+
+### 16.1 Store-Erweiterung
+
+- [ ] **`stores/ui.ts` um Navigation-State erweitern** --
+  - `navLayout: 'sidebar' | 'dock' | 'topnav' | 'classic'`
+  - `dockPosition: 'bottom' | 'left'`
+  - Aufwand: ~50 LOC
+  - Tag: `[FE-ONLY]`
+
+### 16.2 Layout 1: Enhanced Sidebar
+
+- [ ] **Bestehende Sidebar visuell aufwerten** -- Gradient-Akzent auf aktivem Item, animierter Pill-Indikator, Gruppierung mit Sections, Hover-Micro-Animationen, animierter Collapse-Modus.
+  - Dateien: 6 Dateien in `components/layout/sidebar/` modifiziert
+  - Aufwand: ~600 LOC
+  - Tag: `[FE-ONLY]`
+
+### 16.3 Layout 2: Dock (macOS-Style)
+
+- [ ] **Schwebende Glasleiste am unteren Rand** -- Magnification-Hover-Effekt (CSS), Active-Dot, Badge-Counter, "Mehr"-Grid-Popover fuer Overflow.
+  - Dateien: NEU `layout/dock/DockLayout.tsx`, `DockBar.tsx`, `DockItem.tsx`, `DockHeader.tsx`, `DockOverflow.tsx`, `dock-config.ts`
+  - Aufwand: ~1.500 LOC
+  - Tag: `[FE-ONLY]`
+
+### 16.4 Layout 3: Top-Nav
+
+- [ ] **Horizontale Tab-Leiste oben mit schmalem Sub-Nav-Panel** -- Scrollbare Module-Tabs, animierter Underline, Side-Tab-Panel (~200px) fuer Unter-Navigation.
+  - Dateien: NEU `layout/topnav/TopNavLayout.tsx`, `TopNavBar.tsx`, `TopNavTab.tsx`, `SideTabPanel.tsx`, `TopNavHeader.tsx`, `topnav-config.ts`
+  - Aufwand: ~1.500 LOC
+  - Tag: `[FE-ONLY]`
+
+### 16.5 Layout 4: Classic (Fallback)
+
+- [ ] **Aktuelles Layout 1:1 als Fallback erhalten** -- Fuer User die das bestehende Layout bevorzugen.
+  - Dateien: NEU `layout/classic/ClassicLayout.tsx`
+  - Aufwand: ~200 LOC
+  - Tag: `[FE-ONLY]`
+
+### 16.6 AppShell Refactor + Settings
+
+- [ ] **AppShell wird Layout-Multiplexer, Settings bekommt "Darstellung"-Bereich** -- AppShell liest `navLayout` aus Store, rendert entsprechendes Layout. Shared Elements (Presence, FloatingCall, HelpWidget) bleiben ausserhalb. Settings zeigt PaletteSwitcher + LayoutSwitcher + bestehende UI-Look/Theme-Einstellungen.
+  - Dateien: `components/layout/AppShell.tsx`, `modules/settings/SettingsPage.tsx`
+  - Aufwand: ~600 LOC
+  - Tag: `[FE-ONLY]`
+
+---
+
+## Wave 17: Module Updates Batch 1 (D4)
+
+> Ziel: 10 Kern-Module (haeufigst genutzt) + ~100 Dateien Icon-Migration + Animationen.
+> Geschaetzter Aufwand: ~4.500 LOC | ~3-4 Wochen
+> Abhaengigkeit: Wave 14-15 (Icons, Animationen, neue Components)
+
+### 17.1 Kern-Module visuell ueberarbeiten
+
+- [ ] **10 meistgenutzte Module mit neuen Icons, Animationen, Akzentfarben** --
+
+| Modul | Dateien | Kern-Aenderungen |
+|-------|---------|-----------------|
+| dashboard | 12 | Gradient-Greeting, StatCard Count-Up, Widget Hover-Lift, Stagger-Entrance |
+| chat | 12 | Bubble-Entrance, Channel Active-Indikator, Reaction-Scale |
+| crm | 16 | Contact-Card Hover, Timeline-Animatoren, Deal-Pipeline Drag-Shadow |
+| work | 30 | Kanban-Card Akzent-Border, Gantt Gradient-Bars, Task-Badge Animation |
+| finanzen | 16 | Dashboard-Stats Animation, Status-Badges, QR-Bill Card-Shadow |
+| mails | 7 | Unread-Akzent, Gradient Send-Button, Template-Card Hover |
+| kontakte | 14 | Detail-Tabs Animation, Custom-Field Cards, Tag-Animationen |
+| kalender | 4 | Event-Akzentfarben pro Kategorie, View-Transitions |
+| dokumente | 9 | File-Type Icons, Grid/List Toggle-Animation, Preview Zoom |
+| team | 9 | Team-Grid Hover-Cards, Absence-Calendar Farbbalken |
+
+  - Aufwand: ~4.500 LOC
+  - Tag: `[FE-ONLY]`
+
+---
+
+## Wave 18: Module Updates Batch 2 (D5)
+
+> Ziel: Restliche ~20 Module + ~160 Dateien Icon-Migration. Danach lucide-react entfernen.
+> Geschaetzter Aufwand: ~3.500 LOC | ~2-3 Wochen
+> Abhaengigkeit: Wave 17
+
+### 18.1 Restliche Module ueberarbeiten
+
+- [ ] **Alle verbleibenden Module mit neuen Icons + Animationen** -- kommunikation (22), meetings (9), wiki (11), profil (12), settings (12), automatisierung (10), security (9), helpdesk (7), buchhaltung (6), + alle 11 Industry-Module (inventar, schichten, einkauf, fuhrpark, produktion, berichte, vertraege, formulare, vermietung, rapporte, zeiterfassung) + auth/LoginPage + notifications + admin.
+  - Aufwand: ~3.500 LOC
+  - Tag: `[FE-ONLY]`
+
+### 18.2 lucide-react entfernen
+
+- [ ] **`lucide-react` aus `package.json` entfernen** -- Alle Imports muessen auf `@/lib/icons` oder `@tabler/icons-react` umgestellt sein.
+  - Dateien: `package.json`
+  - Aufwand: ~10 LOC
+  - Tag: `[FE-ONLY]`
+
+---
+
+## Wave 19: Glass/Crystal + Dark Mode Audit (D6)
+
+> Ziel: Alle 3 Paletten mit Glass/Crystal/Dark-Varianten, verbesserte Glass-Effekte.
+> Geschaetzter Aufwand: ~2.500 LOC | ~2-3 Wochen
+> Abhaengigkeit: Wave 14 (Paletten-System)
+
+### 19.1 Glass/Crystal fuer alle Paletten
+
+- [ ] **`.ui-glass` / `.ui-crystal` CSS-Variablen fuer alle 3 Paletten** -- Tinted Blur (Primary-Farbe bei 2-5% Opacity im Backdrop), Noise-Texture Overlay, Edge-Highlight, farbige Schatten. Jeweils Light + Dark.
+  - Dateien: `styles/globals.css` (erweitert), NEU `styles/glass-effects.css`
+  - Aufwand: ~1.500 LOC
+  - Tag: `[FE-ONLY]`
+
+### 19.2 Dark Mode Audit
+
+- [ ] **Alle CSS-Variablen auf neue OKLCH-Werte, Kontrast-Check (WCAG AA)** -- Pro Palette eigener Dark-Mode-Hue (Aurora: 260, Prism: 220, Neon: 280).
+  - Dateien: `styles/globals.css`
+  - Aufwand: ~500 LOC
+  - Tag: `[FE-ONLY]`
+
+### 19.3 Theme-Vorschau in Settings
+
+- [ ] **Live-Vorschau der aktuellen Palette + Glass/Crystal + Dark Mode** -- Vorschau-Card in Settings die Aenderungen sofort zeigt.
+  - Dateien: NEU `modules/settings/ThemePreview.tsx`
+  - Aufwand: ~500 LOC
+  - Tag: `[FE-ONLY]`
+
+---
+
+## Wave 20: Animation + Polish + QA (D7)
+
+> Ziel: Finale Animationen, Hero-Effekte, Cross-Layout/Cross-Palette QA.
+> Geschaetzter Aufwand: ~2.500 LOC | ~3-4 Wochen
+> Abhaengigkeit: Alle vorherigen Waves
+
+### 20.1 Page Transitions
+
+- [ ] **Fade/Slide bei Route-Wechsel via TransitionGroup** -- Sanfte Seitenwechsel-Animationen.
+  - Aufwand: ~400 LOC
+  - Tag: `[FE-ONLY]`
+
+### 20.2 Hero-Animationen
+
+- [ ] **Beeindruckende Einzel-Animationen an Schluesselstellen** -- Dashboard-Greeting Text-Reveal, Kanban-Drop Pulse, Deal-Won Confetti, Invoice-Sent Check-Animation, Login Logo-Animation.
+  - Aufwand: ~600 LOC
+  - Tag: `[FE-ONLY]`
+
+### 20.3 Micro-Interactions
+
+- [ ] **Subtile Feedback-Animationen ueberall** -- Button Scale-Feedback, Link Underline-Slide, Card Parallax, Focus-Ring Animation.
+  - Aufwand: ~500 LOC
+  - Tag: `[FE-ONLY]`
+
+### 20.4 Accessibility
+
+- [ ] **ARIA Labels, Keyboard Navigation, Screen Reader Support, prefers-reduced-motion** -- Alle dekorativen Animationen deaktiviert bei `prefers-reduced-motion`. ARIA-Roles korrekt.
+  - Aufwand: ~500 LOC
+  - Tag: `[FE-ONLY]`
+
+### 20.5 QA: Cross-Layout x Cross-Palette
+
+- [ ] **Systematischer Test aller Kombinationen** -- 4 Layouts x 3 Paletten x 3 Looks x 2 Themes = 72 Kombinationen. Jede Seite in jeder Kombination pruefen. Z-Index Audit, Responsive Fine-Tuning (800px-1600px).
+  - Aufwand: ~500 LOC (Fixes)
+  - Tag: `[FE-ONLY]`
+
+### 20.6 Nico-Review Fixes
 
 - [ ] **Fixes nach Gesamtdurchgang durch Nico** -- Noch unbekannter Scope, Platzhalter fuer Review-Feedback.
   - Dateien: TBD
-  - Aufwand: ~500-1000 LOC (geschaetzt)
+  - Aufwand: geschaetzt ~500 LOC
   - Tag: `[FE-ONLY]`
-  - Abhaengigkeit: Alle Waves abgeschlossen
 
 ---
 
@@ -1728,11 +2002,19 @@ Diese Aenderungen ziehen sich quer durch die gesamte Codebase und muessen frueh 
 | 10 | Formulare + Vertraege + Kalender + Meetings | 5.190 | 3.590 | 1.600 |
 | 11 | Video + Notifications + Dashboard + Berichte + Dokumente | 5.480 | 3.530 | 1.950 |
 | 12 | Integration Panels + Settings | 1.850 | 1.730 | 120 |
-| 13 | DSGVO + KI + Polish | 4.500 | 2.200 | 2.300 |
-| 14 | Visual Polish + Review | 2.500 | 2.500 | 0 |
-| **GESAMT** | | **~55.820** | **~41.500** | **~15.320** |
+| 13 | DSGVO + KI | 4.500 | 2.200 | 2.300 |
+| **Subtotal Features (1-13)** | | **~55.320** | **~41.000** | **~15.320** |
+| 14 | Design Foundation (Paletten, Font, Icons, Animations) | 2.500 | 2.500 | 0 |
+| 15 | Component Library Redesign | 4.100 | 4.100 | 0 |
+| 16 | Navigation System (4 Layouts) | 5.000 | 5.000 | 0 |
+| 17 | Module Updates Batch 1 (10 Kern-Module) | 4.500 | 4.500 | 0 |
+| 18 | Module Updates Batch 2 (Rest + lucide entfernen) | 3.500 | 3.500 | 0 |
+| 19 | Glass/Crystal + Dark Mode Audit | 2.500 | 2.500 | 0 |
+| 20 | Animation + Polish + QA | 2.500 | 2.500 | 0 |
+| **Subtotal Design (14-20)** | | **~24.600** | **~24.600** | **0** |
+| **GESAMT** | | **~79.920** | **~65.600** | **~15.320** |
 
-> Hinweis: LOC-Angaben sind Schaetzungen. Mit Iteration, Bug-Fixes und Anpassungen realistisch **~55.000-62.000 LOC** gesamt.
+> Hinweis: LOC-Angaben sind Schaetzungen. Design-Waves (14-20) sind komplett `[FE-ONLY]` — kein Backend noetig.
 
 ---
 
@@ -1775,23 +2057,44 @@ Wave 3: CRM + Finance (abhaengig von Wave 1.6)
   ├─ 3.11 Belegkette ──→ Wave 8.2 (Einkauf Belegkette)
   └─ 3.19 Stunden-zu-Rechnung ──→ Wave 6.2 (Projekt-Button)
 
-Wave 4-14: Weitgehend parallel moeglich (Ausnahmen oben markiert)
+Wave 4-13: Weitgehend parallel moeglich (Ausnahmen oben markiert)
+
+Wave 14: Design Foundation ────────────────────────────────────────────────
+  │                                                                        │
+  ├─ 14.1 Farbpaletten ──→ Wave 19 (Glass/Crystal fuer alle Paletten)     │
+  ├─ 14.3 Tabler Icons ──→ Wave 17 + 18 (Icon-Migration in Modulen)      │
+  ├─ 14.4 Animations ────→ Wave 20 (Hero-Animationen, Micro-Interactions) │
+  │                                                                        │
+  └─→ Wave 15: Component Library Redesign                                  │
+       └─→ Wave 16: Navigation System                                     │
+            └─→ Wave 17: Module Batch 1 → Wave 18: Module Batch 2         │
+                                            └─→ Wave 19: Glass + Dark     │
+                                                 └─→ Wave 20: Polish + QA │
 ```
 
 ### Empfohlene Reihenfolge (parallelisierbar ab Wave 3)
 
 ```
-Woche 01-02:  Wave 1 (Foundation)
-Woche 03-04:  Wave 2 (Kommunikation + Wiki)
-Woche 05-07:  Wave 3 (CRM + Finance) — groesster Block
-Woche 07-08:  Wave 4 (E-Mail) + Wave 5 (Chat + Helpdesk) — parallel
+                    ┌─── FEATURE WAVES ───┐
+Woche 01-02:  Wave 1 (Foundation)                          ✅ DONE
+Woche 03-04:  Wave 2 (Kommunikation + Wiki)                ✅ DONE
+Woche 05-07:  Wave 3 (CRM + Finance) — groesster Block     ✅ DONE
+Woche 07-08:  Wave 4 (E-Mail) + Wave 5 (Chat + Helpdesk)  ✅ DONE
 Woche 08-10:  Wave 6 (Work + Zeit) + Wave 7 (Team + Schichten) — parallel
 Woche 10-12:  Wave 8 (Einkauf + Inventar + Produktion)
 Woche 12-14:  Wave 9 (Fuhrpark + Rapporte + Vermietung)
 Woche 14-17:  Wave 10 (Formulare + Vertraege + Kalender + Meetings)
 Woche 17-20:  Wave 11 (Video + Notifications + Dashboard + Berichte + Dokumente)
 Woche 20-22:  Wave 12 (Integration Panels) + Wave 13 (DSGVO + KI)
-Woche 22-24:  Wave 14 (Visual Polish + Review)
+
+                    ┌─── DESIGN WAVES ───┐
+Woche 22-24:  Wave 14 (Design Foundation: Paletten, Font, Icons)
+Woche 24-27:  Wave 15 (Component Library Redesign)
+Woche 27-30:  Wave 16 (Navigation System: 4 Layouts)
+Woche 30-33:  Wave 17 (Module Updates Batch 1: 10 Kern)
+Woche 33-35:  Wave 18 (Module Updates Batch 2: Rest + lucide weg)
+Woche 35-37:  Wave 19 (Glass/Crystal + Dark Mode Audit)
+Woche 37-40:  Wave 20 (Animation + Polish + QA + Nico-Review)
 ```
 
 ---
@@ -1959,6 +2262,16 @@ Alle Items die Lukes Backend-Arbeit benoetigen, gruppiert nach seinen Phasen.
 
 **Zusaetzliche Bundle-Groesse:** ~200 KB (vor Tree-Shaking). TipTap ist modular.
 
+### Design-Wave Dependencies (Wave 14)
+
+| Package | Version | Zweck | Groesse |
+|---------|---------|-------|---------|
+| `@tabler/icons-react` | ^3.x | Icon-Library (Ersatz fuer Lucide) | ~150 KB |
+
+**Google Fonts (CDN, kein npm):** Plus Jakarta Sans + JetBrains Mono
+
+**Entfernt nach Wave 18:** `lucide-react` (~180 KB gespart)
+
 ---
 
 ## CSS/Styling Regeln (fuer alle neuen Components)
@@ -1969,31 +2282,22 @@ Alle Items die Lukes Backend-Arbeit benoetigen, gruppiert nach seinen Phasen.
 4. **Responsive in-Frame** -- Container-Widths 800px-1600px. Flex-Layouts, keine festen Breiten (ausser Sidebar-Panels).
 5. **ScrollArea** -- Radix `<ScrollArea>` fuer alle scrollbaren Bereiche (bereits in `globals.css` gestylt).
 6. **TipTap Styling** -- `styles/tiptap.css` mit ProseMirror-Overrides die CSS-Variablen respektieren.
+7. **Farbpaletten** (ab Wave 14) -- `.palette-aurora` (Default), `.palette-prism`, `.palette-neon` auf `<html>`. Niemals Palette-spezifische Farben hardcoden — immer CSS-Variablen.
+8. **Icons** (ab Wave 14) -- Alle neuen Icons aus `@/lib/icons` importieren (Tabler Adapter), nicht direkt aus `lucide-react`.
+9. **Animationen** (ab Wave 14) -- `prefers-reduced-motion` respektieren. Dekorative Animationen deaktivieren.
+10. **Navigation** (ab Wave 16) -- Komponenten muessen in allen 4 Layouts funktionieren. Keine Sidebar-Annahmen.
 
 ---
 
 ---
 
-## Nach dem Masterplan: UI-Design-Ueberarbeitung (geplant)
+## UI-Design-Ueberarbeitung — Integriert als Waves 14-20
 
-> **Status:** Noch nicht gestartet — Besprechung mit Darien nach Abschluss der 14 Waves
-> **Scope:** Gesamte UI-Oberflaeche (Komponenten, Layout, Typografie, Spacing, Farben) — NICHT die Desk-Hintergruende/Szenen
-
-### Vorgehen
-
-1. **Inspirations-Ordner:** Darien liefert Referenzbilder/Screenshots als Designrichtung
-2. **Gemeinsame Besprechung:** Was genau angepasst wird (Komponenten-Redesign, Spacing, Typografie, Farbpalette, etc.)
-3. **Masterplan-Erweiterung:** Basierend auf der Besprechung werden konkrete Punkte als neue Wave(s) definiert
-
-### Moeglicher Scope (TBD nach Besprechung)
-
-- Komponentendesign (Buttons, Cards, Inputs, Badges, Dialogs)
-- Typografie-System (Font-Groessen, Line-Heights, Gewichtungen)
-- Spacing/Layout-Konsistenz ueber alle Module
-- Farbpalette-Feinjustierung (Light + Dark Mode)
-- Visuelles Gesamtbild / Design-Sprache
-
-*Details werden nach der Besprechung ergaenzt.*
+> **Status:** Geplant — startet nach Abschluss von Wave 13
+> **Scope:** Gesamte UI-Oberflaeche (Farbpaletten, Komponenten, Navigation, Typografie, Icons, Animationen) — NICHT die Desk-Hintergruende/Szenen
+> **Stil:** Verspielt/Kreativ (wie Figma, Framer) mit bunten Akzenten und Charakter
+> **Umschaltbare Varianten:** 3 Farbpaletten + 4 Navigations-Layouts (alle in Settings waehlbar)
+> **Details:** Siehe Waves 14-20 oben
 
 ---
 

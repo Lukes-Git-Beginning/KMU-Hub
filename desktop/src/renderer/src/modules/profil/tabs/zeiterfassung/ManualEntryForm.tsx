@@ -46,6 +46,9 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
       startTime,
       endTime,
       durationMinutes: duration,
+      projectId: null,
+      taskId: null,
+      location: null,
     })
 
     toast.success('Eintrag hinzugefügt')

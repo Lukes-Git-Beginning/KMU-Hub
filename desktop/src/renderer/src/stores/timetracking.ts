@@ -33,6 +33,9 @@ export interface TimeEntry {
   userId: string
   userName: string
   userInitials: string
+  projectId: string | null
+  taskId: string | null
+  location: { lat: number; lng: number; address: string } | null
 }
 
 export interface WorkTarget {
@@ -71,7 +74,58 @@ interface ActiveTimer {
   startedAt: number | null
   pausedAt: number | null
   accumulatedMs: number
+  projectId: string | null
+  taskId: string | null
 }
+
+// ── Week Approval ────────────────────────────────────────────
+
+export interface WeekApproval {
+  id: string
+  weekStart: string // YYYY-MM-DD (Monday)
+  status: 'draft' | 'pending' | 'approved' | 'rejected'
+  submittedAt?: string
+  reviewedBy?: string
+  reviewedAt?: string
+  comment?: string
+}
+
+// ── Mock Projects & Tasks ────────────────────────────────────
+
+export interface MockProject {
+  id: string
+  name: string
+  key: string
+}
+
+export interface MockTask {
+  id: string
+  projectId: string
+  title: string
+  key: string
+}
+
+export const MOCK_PROJECTS: MockProject[] = [
+  { id: 'proj-1', name: 'KMU Hub CRM', key: 'KMU' },
+  { id: 'proj-2', name: 'Website Redesign', key: 'WEB' },
+  { id: 'proj-3', name: 'Mobile App', key: 'MOB' },
+]
+
+export const MOCK_TASKS: MockTask[] = [
+  { id: 'task-1', projectId: 'proj-1', title: 'API Endpunkte', key: 'KMU-42' },
+  { id: 'task-2', projectId: 'proj-1', title: 'Dashboard UI', key: 'KMU-58' },
+  { id: 'task-3', projectId: 'proj-2', title: 'Header Component', key: 'WEB-12' },
+  { id: 'task-4', projectId: 'proj-2', title: 'Responsive Layout', key: 'WEB-15' },
+  { id: 'task-5', projectId: 'proj-3', title: 'Push Notifications', key: 'MOB-8' },
+]
+
+// ── Mock GPS Locations ───────────────────────────────────────
+
+const MOCK_LOCATIONS = [
+  { lat: 47.3769, lng: 8.5417, address: 'Bahnhofstrasse 1, 8001 Zürich' },
+  { lat: 52.5200, lng: 13.4050, address: 'Friedrichstrasse 43, 10117 Berlin' },
+  { lat: 48.1351, lng: 11.5820, address: 'Marienplatz 1, 80331 München' },
+]
 
 // ── Store Interface ────────────────────────────────────────────
 
@@ -83,9 +137,11 @@ interface TimeTrackingState {
   targets: WorkTarget
   absences: AbsenceRequest[]
   teamActivity: TeamActivityEntry[]
+  weekApprovals: WeekApproval[]
+  gpsEnabled: boolean
 
   // Timer actions
-  startTimer: (categoryId: string, description: string) => void
+  startTimer: (categoryId: string, description: string, projectId?: string | null, taskId?: string | null) => void
   pauseTimer: () => void
   resumeTimer: () => void
   stopTimer: () => void
@@ -112,6 +168,14 @@ interface TimeTrackingState {
   addAbsence: (absence: Omit<AbsenceRequest, 'id' | 'createdAt'>) => void
   updateAbsenceStatus: (id: string, status: 'approved' | 'rejected', comment?: string) => void
   deleteAbsence: (id: string) => void
+
+  // Week Approval actions
+  submitWeekReport: (weekStart: string) => void
+  approveWeekReport: (weekStart: string, reviewer: string) => void
+  rejectWeekReport: (weekStart: string, reviewer: string, comment: string) => void
+
+  // GPS
+  setGpsEnabled: (enabled: boolean) => void
 }
 
 // ── Mock Data ──────────────────────────────────────────────────
@@ -144,24 +208,24 @@ function daysAgo(n: number): string {
 
 const INITIAL_ENTRIES: TimeEntry[] = [
   // Today
-  { id: 'te-1', categoryId: 'cat-dev', description: 'API Endpunkte implementieren', date: todayStr(), startTime: '08:30', endTime: '10:00', durationMinutes: 90, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-2', categoryId: 'cat-meeting', description: 'Daily Standup', date: todayStr(), startTime: '10:00', endTime: '10:15', durationMinutes: 15, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-3', categoryId: 'cat-dev', description: 'Bug Fix: Datenbankverbindung', date: todayStr(), startTime: '10:30', endTime: '12:00', durationMinutes: 90, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-4', categoryId: 'cat-client', description: 'Kundenmeeting Meier AG', date: todayStr(), startTime: '13:00', endTime: '14:00', durationMinutes: 60, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
+  { id: 'te-1', categoryId: 'cat-dev', description: 'API Endpunkte implementieren', date: todayStr(), startTime: '08:30', endTime: '10:00', durationMinutes: 90, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: 'proj-1', taskId: 'task-1', location: { lat: 47.3769, lng: 8.5417, address: 'Bahnhofstrasse 1, 8001 Zürich' } },
+  { id: 'te-2', categoryId: 'cat-meeting', description: 'Daily Standup', date: todayStr(), startTime: '10:00', endTime: '10:15', durationMinutes: 15, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: null, taskId: null, location: null },
+  { id: 'te-3', categoryId: 'cat-dev', description: 'Bug Fix: Datenbankverbindung', date: todayStr(), startTime: '10:30', endTime: '12:00', durationMinutes: 90, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: 'proj-1', taskId: 'task-2', location: { lat: 47.3769, lng: 8.5417, address: 'Bahnhofstrasse 1, 8001 Zürich' } },
+  { id: 'te-4', categoryId: 'cat-client', description: 'Kundenmeeting Meier AG', date: todayStr(), startTime: '13:00', endTime: '14:00', durationMinutes: 60, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: null, taskId: null, location: null },
   // Yesterday
-  { id: 'te-5', categoryId: 'cat-dev', description: 'Frontend Refactoring', date: daysAgo(1), startTime: '08:00', endTime: '11:30', durationMinutes: 210, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-6', categoryId: 'cat-meeting', description: 'Sprint Review', date: daysAgo(1), startTime: '13:00', endTime: '14:30', durationMinutes: 90, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-7', categoryId: 'cat-admin', description: 'E-Mails bearbeiten', date: daysAgo(1), startTime: '14:30', endTime: '15:30', durationMinutes: 60, isManual: true, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-8', categoryId: 'cat-dev', description: 'Tests schreiben', date: daysAgo(1), startTime: '15:30', endTime: '17:00', durationMinutes: 90, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
+  { id: 'te-5', categoryId: 'cat-dev', description: 'Frontend Refactoring', date: daysAgo(1), startTime: '08:00', endTime: '11:30', durationMinutes: 210, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: 'proj-2', taskId: 'task-3', location: null },
+  { id: 'te-6', categoryId: 'cat-meeting', description: 'Sprint Review', date: daysAgo(1), startTime: '13:00', endTime: '14:30', durationMinutes: 90, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: null, taskId: null, location: null },
+  { id: 'te-7', categoryId: 'cat-admin', description: 'E-Mails bearbeiten', date: daysAgo(1), startTime: '14:30', endTime: '15:30', durationMinutes: 60, isManual: true, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: null, taskId: null, location: null },
+  { id: 'te-8', categoryId: 'cat-dev', description: 'Tests schreiben', date: daysAgo(1), startTime: '15:30', endTime: '17:00', durationMinutes: 90, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: 'proj-1', taskId: null, location: { lat: 52.5200, lng: 13.4050, address: 'Friedrichstrasse 43, 10117 Berlin' } },
   // 2 days ago
-  { id: 'te-9', categoryId: 'cat-design', description: 'UI Mockups erstellen', date: daysAgo(2), startTime: '08:30', endTime: '12:00', durationMinutes: 210, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-10', categoryId: 'cat-client', description: 'Support-Call Fischer GmbH', date: daysAgo(2), startTime: '13:00', endTime: '13:45', durationMinutes: 45, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-11', categoryId: 'cat-dev', description: 'Deployment Pipeline', date: daysAgo(2), startTime: '14:00', endTime: '17:00', durationMinutes: 180, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
+  { id: 'te-9', categoryId: 'cat-design', description: 'UI Mockups erstellen', date: daysAgo(2), startTime: '08:30', endTime: '12:00', durationMinutes: 210, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: 'proj-2', taskId: 'task-4', location: null },
+  { id: 'te-10', categoryId: 'cat-client', description: 'Support-Call Fischer GmbH', date: daysAgo(2), startTime: '13:00', endTime: '13:45', durationMinutes: 45, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: null, taskId: null, location: null },
+  { id: 'te-11', categoryId: 'cat-dev', description: 'Deployment Pipeline', date: daysAgo(2), startTime: '14:00', endTime: '17:00', durationMinutes: 180, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: 'proj-3', taskId: 'task-5', location: { lat: 48.1351, lng: 11.5820, address: 'Marienplatz 1, 80331 München' } },
   // Last week
-  { id: 'te-12', categoryId: 'cat-dev', description: 'Authentifizierung', date: daysAgo(5), startTime: '08:00', endTime: '12:00', durationMinutes: 240, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-13', categoryId: 'cat-meeting', description: 'Quartals-Review', date: daysAgo(5), startTime: '13:00', endTime: '15:00', durationMinutes: 120, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-14', categoryId: 'cat-admin', description: 'Dokumentation aktualisieren', date: daysAgo(6), startTime: '09:00', endTime: '11:00', durationMinutes: 120, isManual: true, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
-  { id: 'te-15', categoryId: 'cat-dev', description: 'Performance Optimierung', date: daysAgo(7), startTime: '08:00', endTime: '16:30', durationMinutes: 510, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW' },
+  { id: 'te-12', categoryId: 'cat-dev', description: 'Authentifizierung', date: daysAgo(5), startTime: '08:00', endTime: '12:00', durationMinutes: 240, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: 'proj-1', taskId: null, location: null },
+  { id: 'te-13', categoryId: 'cat-meeting', description: 'Quartals-Review', date: daysAgo(5), startTime: '13:00', endTime: '15:00', durationMinutes: 120, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: null, taskId: null, location: null },
+  { id: 'te-14', categoryId: 'cat-admin', description: 'Dokumentation aktualisieren', date: daysAgo(6), startTime: '09:00', endTime: '11:00', durationMinutes: 120, isManual: true, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: null, taskId: null, location: null },
+  { id: 'te-15', categoryId: 'cat-dev', description: 'Performance Optimierung', date: daysAgo(7), startTime: '08:00', endTime: '16:30', durationMinutes: 510, isManual: false, userId: 'self', userName: 'Markus Weber', userInitials: 'MW', projectId: 'proj-1', taskId: 'task-1', location: null },
 ]
 
 const INITIAL_TEAM_ACTIVITY: TeamActivityEntry[] = [
@@ -180,6 +244,21 @@ const INITIAL_ABSENCES: AbsenceRequest[] = [
   { id: 'abs-4', type: 'education', startDate: '2026-03-10', endDate: '2026-03-11', days: 2, status: 'pending', reason: 'React Advanced Workshop', createdAt: '2026-02-08' },
 ]
 
+// Helper to get the Monday of the current week
+function getWeekStartStr(offset = 0): string {
+  const d = new Date()
+  const day = d.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + mondayOffset + offset * 7)
+  return d.toISOString().split('T')[0]
+}
+
+const INITIAL_WEEK_APPROVALS: WeekApproval[] = [
+  { id: 'wa-1', weekStart: getWeekStartStr(0), status: 'draft' },
+  { id: 'wa-2', weekStart: getWeekStartStr(-1), status: 'approved', submittedAt: '2026-02-14T10:00:00Z', reviewedBy: 'Anna Mueller', reviewedAt: '2026-02-14T14:30:00Z' },
+  { id: 'wa-3', weekStart: getWeekStartStr(-2), status: 'rejected', submittedAt: '2026-02-07T09:00:00Z', reviewedBy: 'Anna Mueller', reviewedAt: '2026-02-07T16:00:00Z', comment: 'Bitte Freitag nachtragen' },
+]
+
 // ── Store ──────────────────────────────────────────────────────
 
 export const useTimeTrackingStore = create<TimeTrackingState>()(
@@ -192,6 +271,8 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
         startedAt: null,
         pausedAt: null,
         accumulatedMs: 0,
+        projectId: null,
+        taskId: null,
       },
       entries: INITIAL_ENTRIES,
       categories: INITIAL_CATEGORIES,
@@ -199,10 +280,12 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
       targets: { dailyHours: 8.4, weeklyHours: 42, monthlyHours: 176 },
       absences: INITIAL_ABSENCES,
       teamActivity: INITIAL_TEAM_ACTIVITY,
+      weekApprovals: INITIAL_WEEK_APPROVALS,
+      gpsEnabled: false,
 
       // ── Timer ──────────────────────────────────────────────
 
-      startTimer: (categoryId, description) =>
+      startTimer: (categoryId, description, projectId, taskId) =>
         set({
           activeTimer: {
             status: 'running',
@@ -211,6 +294,8 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
             startedAt: Date.now(),
             pausedAt: null,
             accumulatedMs: 0,
+            projectId: projectId ?? null,
+            taskId: taskId ?? null,
           },
         }),
 
@@ -239,7 +324,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
         }),
 
       stopTimer: () => {
-        const { activeTimer, entries } = get()
+        const { activeTimer, entries, gpsEnabled } = get()
         if (!activeTimer.startedAt || !activeTimer.categoryId) return
 
         const startDate = new Date(activeTimer.startedAt)
@@ -254,6 +339,11 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
         const durationMinutes = Math.round(totalMs / 60000)
         const pad = (n: number) => String(n).padStart(2, '0')
 
+        // Pick a random mock location when GPS is enabled
+        const location = gpsEnabled
+          ? MOCK_LOCATIONS[Math.floor(Math.random() * MOCK_LOCATIONS.length)]
+          : null
+
         const entry: TimeEntry = {
           id: `te-${Date.now()}`,
           categoryId: activeTimer.categoryId,
@@ -266,6 +356,9 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
           userId: 'self',
           userName: 'Markus Weber',
           userInitials: 'MW',
+          projectId: activeTimer.projectId,
+          taskId: activeTimer.taskId,
+          location,
         }
 
         set({
@@ -277,6 +370,8 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
             startedAt: null,
             pausedAt: null,
             accumulatedMs: 0,
+            projectId: null,
+            taskId: null,
           },
         })
       },
@@ -290,6 +385,8 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
             startedAt: null,
             pausedAt: null,
             accumulatedMs: 0,
+            projectId: null,
+            taskId: null,
           },
         }),
 
@@ -391,7 +488,102 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
         set((state) => ({
           absences: state.absences.filter((a) => a.id !== id),
         })),
+
+      // ── Week Approvals ────────────────────────────────────
+
+      submitWeekReport: (weekStart) =>
+        set((state) => {
+          const existing = state.weekApprovals.find((a) => a.weekStart === weekStart)
+          if (existing) {
+            return {
+              weekApprovals: state.weekApprovals.map((a) =>
+                a.weekStart === weekStart
+                  ? { ...a, status: 'pending' as const, submittedAt: new Date().toISOString(), comment: undefined }
+                  : a,
+              ),
+            }
+          }
+          return {
+            weekApprovals: [
+              ...state.weekApprovals,
+              {
+                id: `wa-${Date.now()}`,
+                weekStart,
+                status: 'pending' as const,
+                submittedAt: new Date().toISOString(),
+              },
+            ],
+          }
+        }),
+
+      approveWeekReport: (weekStart, reviewer) =>
+        set((state) => ({
+          weekApprovals: state.weekApprovals.map((a) =>
+            a.weekStart === weekStart
+              ? { ...a, status: 'approved' as const, reviewedBy: reviewer, reviewedAt: new Date().toISOString() }
+              : a,
+          ),
+        })),
+
+      rejectWeekReport: (weekStart, reviewer, comment) =>
+        set((state) => ({
+          weekApprovals: state.weekApprovals.map((a) =>
+            a.weekStart === weekStart
+              ? { ...a, status: 'rejected' as const, reviewedBy: reviewer, reviewedAt: new Date().toISOString(), comment }
+              : a,
+          ),
+        })),
+
+      // ── GPS ───────────────────────────────────────────────
+
+      setGpsEnabled: (enabled) => set({ gpsEnabled: enabled }),
     }),
     { name: 'kmuhub-timetracking' },
   ),
 )
+
+// ── Overtime Helper Functions (6.8) ──────────────────────────
+
+/** Get overtime minutes for a specific day (positive = over, negative = under) */
+export function getOvertimeForDay(entries: TimeEntry[], date: string, dailyTargetMinutes: number): number {
+  const dayMinutes = entries
+    .filter((e) => e.date === date)
+    .reduce((sum, e) => sum + e.durationMinutes, 0)
+  return dayMinutes - dailyTargetMinutes
+}
+
+/** Get overtime minutes for a week (positive = over, negative = under) */
+export function getOvertimeForWeek(entries: TimeEntry[], weekStartDate: string, weeklyTargetMinutes: number): number {
+  const start = new Date(weekStartDate)
+  const dateStrings: string[] = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    dateStrings.push(d.toISOString().split('T')[0])
+  }
+  const weekMinutes = entries
+    .filter((e) => dateStrings.includes(e.date))
+    .reduce((sum, e) => sum + e.durationMinutes, 0)
+  return weekMinutes - weeklyTargetMinutes
+}
+
+/** Get overtime minutes for a month (positive = over, negative = under) */
+export function getOvertimeForMonth(entries: TimeEntry[], year: number, month: number, monthlyTargetMinutes: number): number {
+  const prefix = `${year}-${String(month).padStart(2, '0')}`
+  const monthMinutes = entries
+    .filter((e) => e.date.startsWith(prefix))
+    .reduce((sum, e) => sum + e.durationMinutes, 0)
+  return monthMinutes - monthlyTargetMinutes
+}
+
+/** Get cumulative overtime saldo (all entries vs target * workdays) */
+export function getOvertimeSaldo(entries: TimeEntry[], targets: WorkTarget): number {
+  const uniqueDates = [...new Set(entries.map((e) => e.date))]
+  const workingDays = uniqueDates.filter((ds) => {
+    const d = new Date(ds)
+    return d.getDay() >= 1 && d.getDay() <= 5
+  }).length
+  const totalMinutes = entries.reduce((sum, e) => sum + e.durationMinutes, 0)
+  const totalTarget = workingDays * targets.dailyHours * 60
+  return totalMinutes - totalTarget
+}

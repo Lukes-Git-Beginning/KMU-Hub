@@ -1,20 +1,29 @@
-import { useState, useRef, useEffect } from 'react'
-import { Play, Pause, Square, Timer, X, ArrowRight } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { Play, Pause, Square, Timer, X, ArrowRight, MapPin, FolderKanban, Download } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore } from '@/stores/timetracking'
+import {
+  useTimeTrackingStore, MOCK_PROJECTS, MOCK_TASKS,
+  getOvertimeSaldo,
+} from '@/stores/timetracking'
 import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
-import { formatMinutes, isToday } from '@/modules/profil/tabs/zeiterfassung/time-utils'
+import { formatMinutes, isToday, todayStr } from '@/modules/profil/tabs/zeiterfassung/time-utils'
+import ExportDialog from '@/modules/profil/tabs/zeiterfassung/ExportDialog'
 
 export function TimeTrackerWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedProject, setSelectedProject] = useState('')
+  const [selectedTask, setSelectedTask] = useState('')
   const [description, setDescription] = useState('')
+  const [showExportDialog, setShowExportDialog] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
@@ -23,10 +32,32 @@ export function TimeTrackerWidget() {
   const entries = useTimeTrackingStore((s) => s.entries)
   const targets = useTimeTrackingStore((s) => s.targets)
   const templates = useTimeTrackingStore((s) => s.templates)
+  const absences = useTimeTrackingStore((s) => s.absences)
+  const gpsEnabled = useTimeTrackingStore((s) => s.gpsEnabled)
   const startTimer = useTimeTrackingStore((s) => s.startTimer)
   const pauseTimer = useTimeTrackingStore((s) => s.pauseTimer)
   const resumeTimer = useTimeTrackingStore((s) => s.resumeTimer)
   const stopTimer = useTimeTrackingStore((s) => s.stopTimer)
+  const setGpsEnabled = useTimeTrackingStore((s) => s.setGpsEnabled)
+
+  // Filtered tasks based on selected project (6.6)
+  const availableTasks = useMemo(
+    () => selectedProject ? MOCK_TASKS.filter((t) => t.projectId === selectedProject) : [],
+    [selectedProject],
+  )
+
+  // Overtime saldo (6.8)
+  const overtimeSaldo = useMemo(() => getOvertimeSaldo(entries, targets), [entries, targets])
+
+  // Absence lock (6.10)
+  const todayAbsence = useMemo(() => {
+    const today = todayStr()
+    return absences.find((a) => {
+      if (a.status !== 'approved') return false
+      return today >= a.startDate && today <= a.endDate
+    })
+  }, [absences])
+  const isTimerLocked = todayAbsence?.type === 'vacation' || todayAbsence?.type === 'sick'
 
   const elapsed = useTimerTick()
 
@@ -54,13 +85,22 @@ export function TimeTrackerWidget() {
   }, [isOpen])
 
   const handleStart = () => {
+    if (isTimerLocked) return
     const catId = selectedCategory || categories[0]?.id
     if (!catId) return
-    startTimer(catId, description)
+    startTimer(
+      catId,
+      description,
+      selectedProject || null,
+      selectedTask || null,
+    )
     setDescription('')
+    setSelectedProject('')
+    setSelectedTask('')
   }
 
   const handleQuickStart = (categoryId: string, desc: string) => {
+    if (isTimerLocked) return
     startTimer(categoryId, desc)
   }
 
@@ -130,11 +170,31 @@ export function TimeTrackerWidget() {
             <div className="px-4 py-3 space-y-3 border-b border-border">
               {activeTimer.status === 'idle' ? (
                 <>
+                  {/* Absence Lock Banner (6.10) */}
+                  {isTimerLocked && (
+                    <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                      <span>Timer gesperrt — Abwesenheit</span>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={handleStart} className="gap-1.5 shrink-0">
-                      <Play className="h-3.5 w-3.5" />
-                      Start
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button size="sm" onClick={handleStart} disabled={isTimerLocked} className="gap-1.5 shrink-0">
+                              <Play className="h-3.5 w-3.5" />
+                              Start
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {isTimerLocked && (
+                          <TooltipContent>
+                            <p className="text-xs">Timer gesperrt — Abwesenheit</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                       <SelectTrigger className="h-8 text-xs flex-1">
                         <SelectValue placeholder="Kategorie..." />
@@ -151,6 +211,44 @@ export function TimeTrackerWidget() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Project / Task Dropdowns (6.6) */}
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedProject} onValueChange={(val) => { setSelectedProject(val); setSelectedTask('') }}>
+                      <SelectTrigger className="h-8 text-xs flex-1">
+                        <SelectValue placeholder="Projekt..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MOCK_PROJECTS.map((proj) => (
+                          <SelectItem key={proj.id} value={proj.id}>
+                            <span className="flex items-center gap-1.5">
+                              <FolderKanban className="h-3 w-3 text-muted-foreground" />
+                              <span className="font-mono text-[10px] text-muted-foreground">{proj.key}</span>
+                              {proj.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {availableTasks.length > 0 && (
+                      <Select value={selectedTask} onValueChange={setSelectedTask}>
+                        <SelectTrigger className="h-8 text-xs flex-1">
+                          <SelectValue placeholder="Aufgabe..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableTasks.map((task) => (
+                            <SelectItem key={task.id} value={task.id}>
+                              <span className="flex items-center gap-1.5">
+                                <span className="font-mono text-[10px] text-muted-foreground">{task.key}</span>
+                                {task.title}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+
                   <Input
                     placeholder="Beschreibung..."
                     value={description}
@@ -167,7 +265,11 @@ export function TimeTrackerWidget() {
                         <button
                           key={tpl.id}
                           onClick={() => handleQuickStart(tpl.categoryId, tpl.name)}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-secondary/50 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          disabled={isTimerLocked}
+                          className={cn(
+                            'flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-secondary/50 text-xs text-muted-foreground transition-colors',
+                            isTimerLocked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent hover:text-foreground',
+                          )}
                         >
                           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: cat?.color }} />
                           {tpl.name}
@@ -177,33 +279,42 @@ export function TimeTrackerWidget() {
                   </div>
                 </>
               ) : (
-                <div className="flex items-center gap-3">
-                  {activeTimer.status === 'running' ? (
-                    <Button size="sm" variant="outline" onClick={pauseTimer} className="gap-1.5">
-                      <Pause className="h-3.5 w-3.5" />
-                      Pause
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    {activeTimer.status === 'running' ? (
+                      <Button size="sm" variant="outline" onClick={pauseTimer} className="gap-1.5">
+                        <Pause className="h-3.5 w-3.5" />
+                        Pause
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={resumeTimer} className="gap-1.5">
+                        <Play className="h-3.5 w-3.5" />
+                        Weiter
+                      </Button>
+                    )}
+                    <Button size="sm" variant="destructive" onClick={stopTimer} className="gap-1.5">
+                      <Square className="h-3.5 w-3.5" />
+                      Stop
                     </Button>
-                  ) : (
-                    <Button size="sm" onClick={resumeTimer} className="gap-1.5">
-                      <Play className="h-3.5 w-3.5" />
-                      Weiter
-                    </Button>
-                  )}
-                  <Button size="sm" variant="destructive" onClick={stopTimer} className="gap-1.5">
-                    <Square className="h-3.5 w-3.5" />
-                    Stop
-                  </Button>
-                  <div className="flex-1 text-right">
-                    <span className="text-lg font-mono font-bold text-primary tabular-nums">
-                      {formatElapsed(elapsed)}
-                    </span>
+                    <div className="flex-1 text-right">
+                      <span className="text-lg font-mono font-bold text-primary tabular-nums">
+                        {formatElapsed(elapsed)}
+                      </span>
+                    </div>
                   </div>
+                  {/* GPS active indicator (6.11) */}
+                  {gpsEnabled && activeTimer.status === 'running' && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400">
+                      <MapPin className="h-3 w-3" />
+                      <span>GPS aktiv</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Today Progress */}
-            <div className="px-4 py-3 border-b border-border">
+            {/* Today Progress + Overtime Saldo (6.8) + GPS Toggle (6.11) */}
+            <div className="px-4 py-3 border-b border-border space-y-2">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs text-muted-foreground">Heute</span>
                 <span className="text-xs font-medium text-foreground tabular-nums">
@@ -219,13 +330,48 @@ export function TimeTrackerWidget() {
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
+
+              {/* Overtime Saldo (6.8) + GPS Toggle (6.11) + Export (6.7) */}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Saldo:</span>
+                  <span className={cn(
+                    'text-xs font-semibold tabular-nums',
+                    overtimeSaldo >= 0
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-red-600 dark:text-red-400',
+                  )}>
+                    {overtimeSaldo >= 0 ? '+' : ''}{formatMinutes(overtimeSaldo)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* GPS Toggle (6.11) */}
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <MapPin className={cn('h-3 w-3', gpsEnabled ? 'text-primary' : 'text-muted-foreground')} />
+                    <span className="text-[10px] text-muted-foreground">GPS</span>
+                    <Switch
+                      checked={gpsEnabled}
+                      onCheckedChange={setGpsEnabled}
+                      className="scale-75 origin-right"
+                    />
+                  </label>
+                  {/* Export Button (6.7) */}
+                  <button
+                    onClick={() => setShowExportDialog(true)}
+                    className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                    title="Exportieren"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Today's Entries */}
             <div className="px-4 py-2">
               {todayEntries.length === 0 && activeTimer.status === 'idle' && (
                 <p className="text-xs text-muted-foreground text-center py-4">
-                  Noch keine Einträge heute
+                  Noch keine Eintraege heute
                 </p>
               )}
               {todayEntries.slice(-5).map((entry) => {
@@ -237,6 +383,21 @@ export function TimeTrackerWidget() {
                     </span>
                     <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cat?.color }} />
                     <span className="text-foreground truncate flex-1">{cat?.name}</span>
+                    {/* GPS location icon (6.11) */}
+                    {entry.location && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-muted-foreground shrink-0">
+                              <MapPin className="h-3 w-3" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">{entry.location.address}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                     <span className="text-muted-foreground tabular-nums shrink-0">
                       {formatMinutes(entry.durationMinutes)}
                     </span>
@@ -258,6 +419,9 @@ export function TimeTrackerWidget() {
           </div>
         </div>
       )}
+
+      {/* Export Dialog (6.7) */}
+      <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
     </div>
   )
 }
