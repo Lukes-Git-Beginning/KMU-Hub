@@ -1,13 +1,13 @@
 /**
- * Main application shell layout.
+ * Main application shell — layout multiplexer.
  *
- * Renders the sidebar, header, and content area. The content area
- * uses React Router's Outlet for nested route rendering, wrapped
- * in Suspense for lazy-loaded modules.
+ * Reads `navLayout` from the UI store and renders the matching layout:
+ *   - sidebar (default): classic left sidebar + header + content
+ *   - dock: macOS-style floating bottom bar + mini top bar
+ *   - topnav: horizontal scrollable tab bar at the top
+ *   - classic: permanent icon-only sidebar (always collapsed)
  *
- * Global overlays: PresenceProvider (heartbeat + WS presence),
- * FloatingCallBar (in-call status), IncomingCallOverlay (call notifications),
- * HelpWidget, OnboardingWizard.
+ * Global overlays (video, help, onboarding) are shared across all layouts.
  */
 import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
@@ -23,58 +23,75 @@ import { OfflineBanner } from './OfflineBanner'
 import { ModuleLoadingFallback, ModuleErrorBoundary } from './ModuleShell'
 import { HelpWidget } from '@/components/widgets/HelpWidget'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
+import { DockLayout } from './dock'
+import { TopNavLayout } from './topnav'
+import { ClassicLayout } from './classic'
 
 export function AppShell() {
-  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar)
-  const sidebarMobileOpen = useUIStore((s) => s.sidebarMobileOpen)
-  const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
+  const navLayout = useUIStore((s) => s.navLayout)
   const onboardingCompleted = useUIStore((s) => s.onboardingCompleted)
 
-  // Manage WebSocket lifecycle based on auth state
+  // Global lifecycle hooks (shared across all layouts)
   useWebSocket()
-
-  // Global keyboard shortcuts (Ctrl+,, etc.)
   useKeyboardShortcuts()
 
   return (
     <PresenceProvider>
-      <div className="flex h-full bg-background overflow-hidden glass-surface">
-        {/* Mobile overlay */}
-        {sidebarMobileOpen && (
-          <div
-            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-            onClick={() => setSidebarMobileOpen(false)}
-          />
-        )}
+      {navLayout === 'sidebar' ? (
+        <SidebarShell />
+      ) : navLayout === 'dock' ? (
+        <DockLayout />
+      ) : navLayout === 'topnav' ? (
+        <TopNavLayout />
+      ) : (
+        <ClassicLayout />
+      )}
 
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={toggleSidebar}
-          isMobileOpen={sidebarMobileOpen}
-          onMobileClose={() => setSidebarMobileOpen(false)}
-        />
-
-        <main className="flex flex-1 flex-col overflow-hidden">
-          <OfflineBanner />
-          <Header />
-
-          <div className="flex-1 overflow-auto">
-            <ModuleErrorBoundary>
-              <Suspense fallback={<ModuleLoadingFallback />}>
-                <Outlet />
-              </Suspense>
-            </ModuleErrorBoundary>
-          </div>
-        </main>
-
-        {/* Global video call overlays */}
-        <FloatingCallBar />
-        <IncomingCallOverlay />
-
-        <HelpWidget />
-        {!onboardingCompleted && <OnboardingWizard />}
-      </div>
+      {/* Global overlays — shared across all layouts */}
+      <FloatingCallBar />
+      <IncomingCallOverlay />
+      <HelpWidget />
+      {!onboardingCompleted && <OnboardingWizard />}
     </PresenceProvider>
+  )
+}
+
+/* ── Sidebar Layout (default) ── */
+function SidebarShell() {
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar)
+  const sidebarMobileOpen = useUIStore((s) => s.sidebarMobileOpen)
+  const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
+
+  return (
+    <div className="flex h-full bg-background overflow-hidden glass-surface">
+      {/* Mobile overlay */}
+      {sidebarMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setSidebarMobileOpen(false)}
+        />
+      )}
+
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={toggleSidebar}
+        isMobileOpen={sidebarMobileOpen}
+        onMobileClose={() => setSidebarMobileOpen(false)}
+      />
+
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <OfflineBanner />
+        <Header />
+
+        <div className="flex-1 overflow-auto">
+          <ModuleErrorBoundary>
+            <Suspense fallback={<ModuleLoadingFallback />}>
+              <Outlet />
+            </Suspense>
+          </ModuleErrorBoundary>
+        </div>
+      </main>
+    </div>
   )
 }

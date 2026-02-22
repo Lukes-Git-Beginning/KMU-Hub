@@ -1271,6 +1271,35 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
+   TOPNAV SCROLL — thin horizontal scrollbar for module tabs
+   ═══════════════════════════════════════════════════════════ */
+.topnav-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(140, 140, 150, 0.25) transparent;
+}
+
+.topnav-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+
+.topnav-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.topnav-scroll::-webkit-scrollbar-thumb {
+  background: rgba(140, 140, 150, 0.25);
+  border-radius: 100px;
+}
+
+.topnav-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 130, 0.45);
+}
+
+.dark .topnav-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 125, 140, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════
    DESK DECORATION ANIMATIONS
    6 animation classes for AI-generated decoration items
    ═══════════════════════════════════════════════════════════ */

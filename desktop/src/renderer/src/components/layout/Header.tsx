@@ -8,6 +8,7 @@
 import { Maximize2, Minimize2, Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
+import type { NavLayout } from '@/stores/ui'
 import { DESK_THEMES } from '@/config/desk-themes'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
@@ -31,6 +32,7 @@ import {
 
 export function Header() {
   const { isOnline } = useOnlineStatus()
+  const navLayout = useUIStore((s) => s.navLayout)
   const deskMaximized = useUIStore((s) => s.deskMaximized)
   const deskThemeId = useUIStore((s) => s.deskThemeId)
   const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
@@ -44,12 +46,14 @@ export function Header() {
     <header className="flex h-16 items-center border-b border-header-border bg-header-background px-4 md:px-6 glass-surface">
       {/* Left: mobile menu + compact search + clock */}
       <div className="flex items-center gap-3 md:gap-4">
-        <button
-          onClick={() => setSidebarMobileOpen(true)}
-          className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
-        >
-          <Menu className="h-5 w-5 text-muted-foreground" />
-        </button>
+        {navLayout === 'sidebar' && (
+          <button
+            onClick={() => setSidebarMobileOpen(true)}
+            className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
+          >
+            <Menu className="h-5 w-5 text-muted-foreground" />
+          </button>
+        )}
 
         <SearchBar />
 
