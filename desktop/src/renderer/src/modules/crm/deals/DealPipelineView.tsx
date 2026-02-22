@@ -159,10 +159,11 @@ export default function DealPipelineView() {
                     </p>
                   </div>
                 ) : (
-                  stageDeals.map((deal) => (
+                  stageDeals.map((deal, dealIdx) => (
                     <div
                       key={deal.id}
-                      className="cursor-pointer rounded-lg border border-border bg-card p-3 shadow-sm transition-colors hover:bg-accent/50"
+                      className="cursor-pointer rounded-lg border border-border bg-card p-3 shadow-sm hover-lift animate-fade-up"
+                      style={{ animationDelay: `${dealIdx * 50}ms` }}
                       onClick={() => navigate(`/crm/deals/${deal.id}`)}
                     >
                       <p className="text-sm font-medium truncate">

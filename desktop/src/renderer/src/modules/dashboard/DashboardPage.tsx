@@ -6,6 +6,7 @@ import WidgetContainer from '@/components/widgets/WidgetContainer'
 import { useDashboardStore } from '@/stores/dashboard'
 import { QuickActionsBar } from '@/components/dashboard/QuickActionsBar'
 import { ProfileWidgetSuggestions } from '@/components/dashboard/ProfileWidgetSuggestions'
+import { TextReveal } from '@/components/shared/TextReveal'
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -31,9 +32,9 @@ export default function DashboardPage() {
         <div className="mb-8 flex items-start justify-between animate-fade-up">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
-              {getGreeting()}
+              <TextReveal text={getGreeting()} wordDelay={80} />
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: '200ms' }}>
               Willkommen im KMU Digital Hub &ndash; Ihre All-in-One Plattform
             </p>
           </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   FileText,
   Search,
@@ -59,6 +59,7 @@ import { QRRechnungPreview, QRBillIndicator } from './QRRechnungPreview'
 import { EInvoiceBadge, EInvoiceDetailDialog } from './EInvoiceIndicator'
 import { HoursToInvoiceDialog } from './HoursToInvoiceDialog'
 import { BankingWidget } from './BankingWidget'
+import { AnimatedCheckmark } from '@/components/shared/AnimatedCheckmark'
 
 // ---------------------------------------------------------------------------
 // Status badge config
@@ -184,6 +185,14 @@ export default function FinanzenPage() {
   const [qrPreviewInvoice, setQrPreviewInvoice] = useState<string | null>(null)
   const [eInvoiceDetailNumber, setEInvoiceDetailNumber] = useState<string | null>(null)
   const [showHoursToInvoice, setShowHoursToInvoice] = useState(false)
+  const [sentAnimation, setSentAnimation] = useState<string | null>(null)
+
+  // Auto-dismiss invoice sent animation
+  useEffect(() => {
+    if (!sentAnimation) return
+    const timer = setTimeout(() => setSentAnimation(null), 2000)
+    return () => clearTimeout(timer)
+  }, [sentAnimation])
 
   // Filtered data
   const invoices = invoicesData?.invoices ?? []
@@ -266,8 +275,10 @@ export default function FinanzenPage() {
         label: 'Senden',
         onClick: () => {
           sendInvoice.mutate(inv.id, {
-            onSuccess: () =>
-              toast.success(`${inv.invoice_number} gesendet`),
+            onSuccess: () => {
+              setSentAnimation(inv.invoice_number)
+              toast.success(`${inv.invoice_number} gesendet`)
+            },
             onError: (err) => toast.error(err.message),
           })
         },
@@ -916,6 +927,19 @@ export default function FinanzenPage() {
         variant="destructive"
         onConfirm={handleDeleteConfirm}
       />
+
+      {/* Invoice sent success overlay */}
+      {sentAnimation && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/10 animate-fade-in"
+          onClick={() => setSentAnimation(null)}
+        >
+          <div className="flex flex-col items-center gap-3 rounded-2xl bg-card p-8 shadow-large animate-scale-in-bounce">
+            <AnimatedCheckmark size={56} />
+            <p className="text-sm font-medium text-foreground">{sentAnimation} gesendet</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

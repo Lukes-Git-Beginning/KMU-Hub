@@ -134,6 +134,42 @@
   }
 }
 
+/* ── Confetti Fall (for celebratory bursts) ── */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(85vh) translateX(var(--confetti-drift, 0px)) rotate(var(--confetti-rot, 720deg)) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* ── Animated Checkmark (circle + tick draw) ── */
+@keyframes check-circle-draw {
+  0% {
+    stroke-dashoffset: 150;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes check-tick-draw {
+  0% {
+    stroke-dashoffset: 40;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* ════════════════════════
    UTILITY CLASSES
    ════════════════════════ */
@@ -198,6 +234,19 @@
   stroke-dasharray: 16;
   stroke-dashoffset: 0;
   animation: checkmark-draw 250ms ease-out;
+}
+
+/* Animated Checkmark — hero success */
+.anim-check-circle {
+  stroke-dasharray: 150;
+  stroke-dashoffset: 150;
+  animation: check-circle-draw 500ms ease-out both;
+}
+
+.anim-check-tick {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: check-tick-draw 300ms ease-out 350ms both;
 }
 
 /* ── Stagger Delays ── */
@@ -267,8 +316,19 @@
   .animate-checkmark path,
   .page-enter,
   .page-exit,
-  .page-enter-up {
+  .page-enter-up,
+  .anim-check-circle,
+  .anim-check-tick {
     animation: none !important;
+  }
+
+  .anim-check-circle {
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+
+  .anim-check-tick {
+    stroke-dashoffset: 0 !important;
   }
 
   [class*="stagger-"] {
