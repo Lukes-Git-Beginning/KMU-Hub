@@ -23,6 +23,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { useMeetingsStore, type CallHistoryEntry } from '../../stores/meetings'
+import { PageHeader } from '@/components/shared'
 
 type VideoTab = 'active' | 'history' | 'settings'
 
@@ -82,7 +83,7 @@ function ActiveCallCard({
   const { joinMeeting } = useMeetingsStore()
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card p-4 hover:shadow-md transition-shadow">
+    <div className="rounded-xl border border-border/60 bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: meeting.color + '20', color: meeting.color }}>
@@ -312,25 +313,26 @@ export default function VideoPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border/60 px-6 py-4">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Video & Anrufe</h1>
-          <p className="text-sm text-muted-foreground">
-            {liveMeetings.length > 0
-              ? `${liveMeetings.length} aktive${liveMeetings.length === 1 ? 'r' : ''} Anruf${liveMeetings.length === 1 ? '' : 'e'}`
-              : 'Keine aktiven Anrufe'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
-            <Phone className="h-4 w-4" />
-            Neuer Anruf
-          </button>
-          <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-            <Video className="h-4 w-4" />
-            Meeting starten
-          </button>
-        </div>
+      <div className="border-b border-border/60 px-6 py-4">
+        <PageHeader
+          title="Video & Anrufe"
+          description={liveMeetings.length > 0
+            ? `${liveMeetings.length} aktive${liveMeetings.length === 1 ? 'r' : ''} Anruf${liveMeetings.length === 1 ? '' : 'e'}`
+            : 'Keine aktiven Anrufe'}
+          gradient
+          actions={
+            <div className="flex gap-2">
+              <button className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors">
+                <Phone className="h-4 w-4" />
+                Neuer Anruf
+              </button>
+              <button className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+                <Video className="h-4 w-4" />
+                Meeting starten
+              </button>
+            </div>
+          }
+        />
       </div>
 
       {/* Tabs */}
@@ -341,7 +343,7 @@ export default function VideoPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab.key
-                ? 'border-primary text-primary'
+                ? 'border-primary text-primary tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -354,7 +356,7 @@ export default function VideoPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'active' && (
-          <div>
+          <div className="animate-fade-up">
             {liveMeetings.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {liveMeetings.map((m) => (
@@ -420,7 +422,7 @@ export default function VideoPage() {
         )}
 
         {activeTab === 'history' && (
-          <div>
+          <div className="animate-fade-up">
             <div className="mb-4 relative max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
@@ -456,7 +458,7 @@ export default function VideoPage() {
           </div>
         )}
 
-        {activeTab === 'settings' && <SettingsTab />}
+        {activeTab === 'settings' && <div className="animate-fade-up"><SettingsTab /></div>}
       </div>
     </div>
   )

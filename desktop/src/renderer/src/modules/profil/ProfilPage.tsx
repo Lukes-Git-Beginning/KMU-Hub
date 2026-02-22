@@ -20,7 +20,7 @@ export default function ProfilPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('profil')
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden animate-fade-up">
       {/* Tab Header */}
       <div className="border-b border-border bg-card/50 px-6">
         <nav className="flex gap-1" role="tablist">
@@ -36,7 +36,7 @@ export default function ProfilPage() {
                 className={cn(
                   'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
                   isActive
-                    ? 'border-primary text-primary'
+                    ? 'border-primary text-primary tab-accent-active'
                     : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
                 )}
               >

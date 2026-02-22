@@ -40,6 +40,7 @@ import { BusinessHoursDialog } from './BusinessHoursDialog'
 import { TicketRoutingConfig } from './TicketRoutingConfig'
 import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
 import { useAIStore } from '@/stores/ai'
+import { PageHeader } from '@/components/shared'
 
 type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
 type StatusFilter = 'all' | TicketType['status']
@@ -243,44 +244,44 @@ export default function HelpdeskPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Helpdesk</h1>
-          <p className="text-sm text-muted-foreground">
-            {openTickets.length} offene Tickets &middot; {kbArticles.length} Wissensartikel
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setBusinessHoursOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            <Clock className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Geschaeftszeiten</span>
-          </button>
-          <button
-            onClick={() => setRoutingConfigOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            <Route className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Routing</span>
-          </button>
-          <button
-            onClick={() => setCannedResponsesOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            <Zap className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Textbausteine</span>
-          </button>
-          <button
-            onClick={handleOpenNewTicket}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Neues Ticket
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Helpdesk"
+        description={`${openTickets.length} offene Tickets · ${kbArticles.length} Wissensartikel`}
+        gradient
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setBusinessHoursOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Geschaeftszeiten</span>
+            </button>
+            <button
+              onClick={() => setRoutingConfigOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              <Route className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Routing</span>
+            </button>
+            <button
+              onClick={() => setCannedResponsesOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Textbausteine</span>
+            </button>
+            <button
+              onClick={handleOpenNewTicket}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Neues Ticket
+            </button>
+          </div>
+        }
+        className="mb-6"
+      />
 
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
@@ -293,7 +294,7 @@ export default function HelpdeskPage() {
             key={t.key}
             onClick={() => { setTab(t.key); setSelectedTicketId(null); setSelectedArticleId(null) }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t.label}
@@ -305,7 +306,7 @@ export default function HelpdeskPage() {
       {/* TICKETS TAB                                                         */}
       {/* ================================================================== */}
       {tab === 'tickets' && (
-        <>
+        <div className="animate-fade-up">
           {/* Filters row */}
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -430,14 +431,14 @@ export default function HelpdeskPage() {
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {/* ================================================================== */}
       {/* WISSENSDATENBANK TAB                                                */}
       {/* ================================================================== */}
       {tab === 'wissensdatenbank' && (
-        <>
+        <div className="animate-fade-up">
           {selectedArticle ? (
             <KBArticleDetail article={selectedArticle} onBack={() => setSelectedArticleId(null)} />
           ) : (
@@ -469,14 +470,14 @@ export default function HelpdeskPage() {
               )}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* ================================================================== */}
       {/* STATISTIK TAB                                                       */}
       {/* ================================================================== */}
       {tab === 'statistik' && (
-        <>
+        <div className="animate-fade-up">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <StatCard icon={AlertCircle} label="Offene Tickets" value={stats.openTickets} iconColor="text-warning" iconBg="bg-warning-light" />
             <StatCard icon={Clock} label="Durchschnittl. Antwortzeit" value={stats.avgResponseTime} iconColor="text-info" iconBg="bg-info-light" />
@@ -544,7 +545,7 @@ export default function HelpdeskPage() {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* ================================================================== */}
@@ -642,13 +643,13 @@ function StatCard({ icon: Icon, label, value, iconColor, iconBg }: {
   icon: typeof AlertCircle; label: string; value: string | number; iconColor: string; iconBg: string
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
       <div className="flex items-center gap-3 mb-2">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl icon-accent ${iconBg}`}>
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
       </div>
-      <p className="text-2xl font-semibold text-foreground">{value}</p>
+      <p className="text-2xl font-semibold text-foreground stat-accent">{value}</p>
       <p className="text-xs text-muted-foreground mt-1">{label}</p>
     </div>
   )

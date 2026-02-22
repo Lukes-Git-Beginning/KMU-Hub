@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useBerichteStore } from '@/stores/berichte'
+import { PageHeader } from '@/components/shared'
 
 /* ---------- constants ---------- */
 
@@ -230,21 +231,21 @@ export default function BerichtePage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* ---- Header ---- */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-foreground">Berichte</h1>
-          <p className="text-sm text-muted-foreground">
-            {kpis.length} KPIs &middot; {activeScheduled} geplante Berichte aktiv
-          </p>
-        </div>
-        <button
-          onClick={handleNewReport}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
-        >
-          <Plus className="h-4 w-4" />
-          Neuer Bericht
-        </button>
-      </div>
+      <PageHeader
+        title="Berichte"
+        description={`${kpis.length} KPIs · ${activeScheduled} geplante Berichte aktiv`}
+        gradient
+        actions={
+          <button
+            onClick={handleNewReport}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+          >
+            <Plus className="h-4 w-4" />
+            Neuer Bericht
+          </button>
+        }
+        className="mb-6"
+      />
 
       {/* ---- Tabs ---- */}
       <div className="mb-6 flex items-center gap-4 border-b border-border">
@@ -261,7 +262,7 @@ export default function BerichtePage() {
             onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
               tab === t.key
-                ? 'border-primary font-medium text-primary'
+                ? 'border-primary font-medium text-primary tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -302,7 +303,7 @@ export default function BerichtePage() {
           </div>
 
           {/* KPI Cards */}
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-fade-up" style={{ animationDelay: '100ms' }}>
             {filteredKpis.length === 0 && (
               <div className="col-span-full rounded-lg border border-border bg-card p-8 text-center">
                 <TrendingUp className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
@@ -323,7 +324,7 @@ export default function BerichtePage() {
                 <button
                   key={kpi.id}
                   onClick={() => setDrilldownKpi(isActive ? null : kpi.id)}
-                  className={`group rounded-lg border bg-card p-4 text-left transition-colors hover:border-primary/30 ${
+                  className={`group rounded-xl border bg-card p-4 text-left transition-all duration-200 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-md ${
                     isActive ? 'border-primary ring-1 ring-primary/20' : 'border-border'
                   }`}
                 >
@@ -419,9 +420,9 @@ export default function BerichtePage() {
           </div>
 
           {/* Charts row */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 animate-fade-up" style={{ animationDelay: '200ms' }}>
             {/* Vertical bar chart: Umsatzverlauf (with optional comparison) */}
-            <div className="rounded-lg border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-foreground">Umsatzverlauf</h3>
@@ -531,7 +532,7 @@ export default function BerichtePage() {
             </div>
 
             {/* Horizontal bar chart: Tickets nach Prioritaet */}
-            <div className="rounded-lg border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-foreground">Tickets nach Prioritaet</h3>
@@ -572,7 +573,7 @@ export default function BerichtePage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Create form */}
           <div className="lg:col-span-2">
-            <div className="rounded-lg border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-6">
               {/* Header */}
               <div className="mb-6 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">

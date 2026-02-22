@@ -37,7 +37,7 @@ import { useMeetingsStore } from '@/stores/meetings'
 import { useNavigationStore } from '@/stores/navigation'
 import { useEmployees, useLeaveRequests } from '@/api/hooks/hr-hooks'
 import type { EmployeeProfile, LeaveRequest } from '@/api/hr-types'
-import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
 import { MemberDetailPanel } from './MemberDetailPanel'
 import { InviteMemberDialog } from './InviteMemberDialog'
 import { CreateEmployeeWizard } from './CreateEmployeeWizard'
@@ -236,26 +236,26 @@ export default function TeamPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Team</h1>
-          <p className="text-sm text-muted-foreground">
-            {apiEmployees.length} Mitglieder · {pendingCount} offene Anfragen
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCreateWizard(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Mitarbeiter erstellen
-        </button>
-      </div>
+      <PageHeader
+        title="Team"
+        description={`${apiEmployees.length} Mitglieder · ${pendingCount} offene Anfragen`}
+        gradient
+        actions={
+          <button
+            onClick={() => setShowCreateWizard(true)}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Mitarbeiter erstellen
+          </button>
+        }
+        className="mb-6"
+      />
 
       {/* Department cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 animate-fade-up" style={{ animationDelay: '50ms' }}>
         {deptCounts.map((dept) => (
-          <div key={dept.name} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+          <div key={dept.name} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">
               <Users className="h-5 w-5 text-primary" />
             </div>
@@ -285,7 +285,7 @@ export default function TeamPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors whitespace-nowrap ${
-              tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t.icon && <t.icon className="h-3.5 w-3.5" />}

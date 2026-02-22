@@ -487,19 +487,19 @@ export default function KalenderPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden animate-fade-up">
       {/* Top-level tabs */}
       <div className="flex items-center gap-6 border-b border-border bg-card px-6 pt-3">
         <button
           onClick={() => setTopTab('kalender')}
-          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'kalender' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'kalender' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <Calendar className="mr-1.5 inline h-4 w-4" />
           Kalender
         </button>
         <button
           onClick={() => setTopTab('terminbuchung')}
-          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'terminbuchung' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'terminbuchung' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <CalendarCheck className="mr-1.5 inline h-4 w-4" />
           Terminbuchung
@@ -677,13 +677,13 @@ function TerminbuchungTab() {
         <div className="flex items-center gap-4 border-b border-border pb-0">
           <button
             onClick={() => setBuchungSubTab('uebersicht')}
-            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'uebersicht' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'uebersicht' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           >
             Uebersicht
           </button>
           <button
             onClick={() => setBuchungSubTab('vorschau')}
-            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'vorschau' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'vorschau' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           >
             <ExternalLink className="mr-1 inline h-3 w-3" />
             Buchungslink-Vorschau

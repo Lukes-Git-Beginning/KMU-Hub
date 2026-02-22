@@ -623,7 +623,7 @@ export default function DokumentePage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden animate-fade-up">
       {/* Tab bar */}
       <div className="flex items-center gap-4 border-b border-border px-6 pt-3">
         {([
@@ -637,7 +637,7 @@ export default function DokumentePage() {
               onClick={() => setActiveTab(t.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
                 activeTab === t.key
-                  ? 'border-primary text-primary font-medium'
+                  ? 'border-primary text-primary font-medium tab-accent-active'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -1011,7 +1011,7 @@ export default function DokumentePage() {
                         }
                       >
                         <div
-                          className="group rounded-lg border border-border bg-card p-3 cursor-pointer hover:shadow-[var(--shadow-card-hover)] transition-shadow"
+                          className="group rounded-xl border border-border bg-card p-3 cursor-pointer hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 transition-all duration-200"
                           onDoubleClick={() =>
                             navigateToFolder(folder.id)
                           }
@@ -1564,7 +1564,7 @@ function FileGridCard({
 
   return (
     <div
-      className={`group rounded-lg border bg-card p-3 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer ${
+      className={`group rounded-xl border bg-card p-3 transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 cursor-pointer ${
         isSelected
           ? 'border-primary ring-2 ring-primary/20'
           : 'border-border'
@@ -2147,7 +2147,7 @@ function WikiArticleCard({
   return (
     <div
       onClick={onClick}
-      className="group rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer"
+      className="group rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">

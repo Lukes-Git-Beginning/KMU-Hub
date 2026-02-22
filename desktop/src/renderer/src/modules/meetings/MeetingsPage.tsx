@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useMeetingsStore, type Meeting } from '@/stores/meetings'
-import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
 import { MeetingFormDialog } from './MeetingFormDialog'
 import { MeetingDetailPanel } from './MeetingDetailPanel'
 import { MeetingRoomView } from './MeetingRoomView'
@@ -176,22 +176,24 @@ export default function MeetingsPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Meetings</h1>
-          <p className="text-sm text-muted-foreground">Plane und verwalte deine Meetings</p>
-        </div>
-        <button
-          onClick={() => { setEditMeeting(null); setFormOpen(true) }}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Neues Meeting
-        </button>
-      </div>
+      <PageHeader
+        title="Meetings"
+        description="Plane und verwalte deine Meetings"
+        gradient
+        actions={
+          <button
+            onClick={() => { setEditMeeting(null); setFormOpen(true) }}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Neues Meeting
+          </button>
+        }
+        className="mb-6"
+      />
 
       {/* Search + Filters + View Toggle */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 animate-fade-up" style={{ animationDelay: '50ms' }}>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -244,7 +246,7 @@ export default function MeetingsPage() {
       {viewMode === 'grid' && (
         <>
           {liveMeetings.length > 0 && (filter === 'all' || filter === 'live') && (
-            <section className="mb-8">
+            <section className="mb-8 animate-fade-up">
               <div className="flex items-center gap-2 mb-3">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-error opacity-75" />
@@ -268,7 +270,7 @@ export default function MeetingsPage() {
           )}
 
           {scheduledMeetings.length > 0 && (filter === 'all' || filter === 'scheduled') && (
-            <section className="mb-8">
+            <section className="mb-8 animate-fade-up" style={{ animationDelay: '100ms' }}>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Geplante Meetings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {scheduledMeetings.map((m) => (
@@ -285,7 +287,7 @@ export default function MeetingsPage() {
           )}
 
           {pastMeetings.length > 0 && (filter === 'all' || filter === 'past') && (
-            <section className="mb-8">
+            <section className="mb-8 animate-fade-up" style={{ animationDelay: '200ms' }}>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Vergangene Meetings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {pastMeetings.map((m) => (
@@ -305,7 +307,7 @@ export default function MeetingsPage() {
 
       {/* ── TIMELINE VIEW ─────────────────────────────────── */}
       {viewMode === 'timeline' && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-up">
           {groupByDate(filtered).map((group) => (
             <section key={group.date}>
               <h3 className="text-sm font-semibold text-foreground mb-3 sticky top-0 bg-[var(--background)] py-1 z-[1]">
@@ -411,7 +413,7 @@ function MeetingCard({
 
   return (
     <div
-      className={`rounded-lg border bg-card p-4 transition-all hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 cursor-pointer ${
+      className={`rounded-xl border bg-card p-4 transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 cursor-pointer ${
         isLive ? 'border-error/50 shadow-[var(--shadow-card)]' : 'border-border'
       } ${isPast || isCancelled ? 'opacity-70' : ''}`}
       style={{ borderTop: `3px solid ${meeting.color}` }}
@@ -550,7 +552,7 @@ function TimelineRow({
 
   return (
     <div
-      className={`relative flex items-center gap-4 rounded-lg border bg-card px-4 py-3 cursor-pointer transition-all hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 ${
+      className={`relative flex items-center gap-4 rounded-xl border bg-card px-4 py-3 cursor-pointer transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 ${
         isLive ? 'border-error/50' : 'border-border'
       } ${isPast || isCancelled ? 'opacity-70' : ''}`}
       style={{ borderLeft: `3px solid ${meeting.color}` }}

@@ -103,7 +103,7 @@ export default function WikiPage() {
 
   return (
     <>
-      <div className="flex h-full overflow-hidden">
+      <div className="flex h-full overflow-hidden animate-fade-up">
         {/* Left: Sidebar with tree navigation */}
         <WikiSidebar
           onNewArticle={() => setShowNewArticle(true)}
