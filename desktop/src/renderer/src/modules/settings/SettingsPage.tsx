@@ -51,6 +51,7 @@ import { CompanySettingsTab } from './tabs/CompanySettingsTab'
 import { NotificationSettingsTab } from './tabs/NotificationSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
 import { AIGovernanceTab } from './tabs/AIGovernanceTab'
+import { ThemePreview } from './ThemePreview'
 
 type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'caldav' | 'finance' | 'company' | 'integrations' | 'team' | 'privacy' | 'ai' | 'business' | 'about'
 
@@ -324,6 +325,8 @@ function AppearanceTab() {
     <div className="max-w-2xl">
       <h2 className="text-foreground mb-1">Darstellung</h2>
       <p className="text-sm text-muted-foreground mb-6">Passe das Erscheinungsbild der App an</p>
+
+      <ThemePreview className="mb-8" />
 
       <h3 className="text-sm font-medium text-foreground mb-3">Farbschema</h3>
       <div className="grid grid-cols-3 gap-3 mb-8">
