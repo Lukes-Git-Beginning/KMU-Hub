@@ -45,7 +45,7 @@ import {
   type FormFieldType,
   type FormSubmission,
 } from '@/stores/formulare'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1556,31 +1556,28 @@ export default function FormularePage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Formulare</h1>
-          <p className="text-sm text-muted-foreground">
-            {activeFormCount} aktive Formulare · {newSubmissionCount} neue Eingaenge
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Formulare"
+        description={`${activeFormCount} aktive Formulare · ${newSubmissionCount} neue Eingaenge`}
+        gradient
+        className="mb-6"
+        actions={
           <button
             onClick={() => {
               resetNewFormDialog()
               setShowNewFormDialog(true)
             }}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
             Neues Formular
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">
               <FileText className="h-5 w-5 text-primary" />
@@ -1591,7 +1588,7 @@ export default function FormularePage() {
             </div>
           </div>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-info-light">
               <Inbox className="h-5 w-5 text-info" />
@@ -1602,7 +1599,7 @@ export default function FormularePage() {
             </div>
           </div>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success-light">
               <ClipboardList className="h-5 w-5 text-success" />
@@ -1630,7 +1627,7 @@ export default function FormularePage() {
             }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
               tab === t.key
-                ? 'border-primary text-primary font-medium'
+                ? 'border-primary text-primary font-medium tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -1724,7 +1721,7 @@ export default function FormularePage() {
                 <div
                   key={form.id}
                   onClick={() => openEditor(form)}
-                  className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer"
+                  className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3 min-w-0">

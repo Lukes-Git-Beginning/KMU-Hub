@@ -32,7 +32,7 @@ import {
   calcInvoiceTotal,
   calcRemainingAmount,
 } from '@/stores/finance'
-import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import { InvoiceFormDialog } from './InvoiceFormDialog'
 import { ExpenseFormDialog } from './ExpenseFormDialog'
@@ -170,37 +170,38 @@ export default function BuchhaltungPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Buchhaltung</h1>
-          <p className="text-sm text-muted-foreground">Rechnungen, Transaktionen und Ausgaben</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowExport(true)}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </button>
-          <button
-            onClick={handleNewInvoice}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Neue Rechnung
-          </button>
-        </div>
-      </div>
+    <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
+      <PageHeader
+        title="Buchhaltung"
+        description="Rechnungen, Transaktionen und Ausgaben"
+        gradient
+        className="mb-6"
+        actions={
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <button
+              onClick={handleNewInvoice}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Neue Rechnung
+            </button>
+          </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
-            <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
+            <div key={stat.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
                 <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
@@ -231,7 +232,7 @@ export default function BuchhaltungPage() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
-                tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+                tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="h-4 w-4" />

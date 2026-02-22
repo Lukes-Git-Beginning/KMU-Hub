@@ -22,7 +22,7 @@ import {
   Camera,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { DetailPanel, EmptyState } from '@/components/shared'
+import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
 import { formatAmount } from '@/lib/format'
 import { useFuhrparkStore, type Vehicle, type MaintenanceRecord, type FuelRecord, type LogbookEntry, type VehicleDocument, type DamageReport } from '@/stores/fuhrpark'
 import SchadensmeldungDialog from './SchadensmeldungDialog'
@@ -1253,64 +1253,60 @@ export default function FuhrparkPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Fuhrpark</h1>
-          <p className="text-sm text-muted-foreground">
-            {activeVehicleCount} aktive Fahrzeuge
-            {urgentCount > 0 && (
-              <span className="text-warning"> &middot; {urgentCount} mit faelliger Pruefung/Versicherung</span>
+      <PageHeader
+        title="Fuhrpark"
+        description={`${activeVehicleCount} aktive Fahrzeuge${urgentCount > 0 ? ` · ${urgentCount} mit faelliger Pruefung/Versicherung` : ''}`}
+        gradient
+        className="mb-6"
+        actions={
+          <div className="flex items-center gap-2">
+            {tab === 'wartung' && (
+              <button
+                onClick={openAddMaintenanceGlobal}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <Wrench className="h-4 w-4" />
+                Wartung eintragen
+              </button>
             )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {tab === 'wartung' && (
+            {tab === 'tankprotokoll' && (
+              <button
+                onClick={openAddFuelGlobal}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <Fuel className="h-4 w-4" />
+                Tanken eintragen
+              </button>
+            )}
+            {tab === 'fahrtenbuch' && (
+              <button
+                onClick={() => toast.info('Fahrt-Erfassung kommt in einer kuenftigen Version')}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <BookOpen className="h-4 w-4" />
+                Fahrt eintragen
+              </button>
+            )}
+            {tab === 'tracking' && (
+              <button
+                onClick={handleRefreshTracking}
+                disabled={trackingRefreshing}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${trackingRefreshing ? 'animate-spin' : ''}`} />
+                Aktualisieren
+              </button>
+            )}
             <button
-              onClick={openAddMaintenanceGlobal}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              onClick={openAddVehicle}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              <Wrench className="h-4 w-4" />
-              Wartung eintragen
+              <Plus className="h-4 w-4" />
+              Fahrzeug hinzufuegen
             </button>
-          )}
-          {tab === 'tankprotokoll' && (
-            <button
-              onClick={openAddFuelGlobal}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <Fuel className="h-4 w-4" />
-              Tanken eintragen
-            </button>
-          )}
-          {tab === 'fahrtenbuch' && (
-            <button
-              onClick={() => toast.info('Fahrt-Erfassung kommt in einer kuenftigen Version')}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            >
-              <BookOpen className="h-4 w-4" />
-              Fahrt eintragen
-            </button>
-          )}
-          {tab === 'tracking' && (
-            <button
-              onClick={handleRefreshTracking}
-              disabled={trackingRefreshing}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${trackingRefreshing ? 'animate-spin' : ''}`} />
-              Aktualisieren
-            </button>
-          )}
-          <button
-            onClick={openAddVehicle}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Fahrzeug hinzufuegen
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
@@ -1326,7 +1322,7 @@ export default function FuhrparkPage() {
             onClick={() => { setTab(t.key); setSearch(''); setExpandedRouteId(null) }}
             className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
               tab === t.key
-                ? 'border-primary text-primary font-medium'
+                ? 'border-primary text-primary font-medium tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >

@@ -43,7 +43,7 @@ import {
 } from '@/stores/rapporte'
 import SignatureCanvas from './SignatureCanvas'
 import SketchCanvas from './SketchCanvas'
-import { DetailPanel, EmptyState } from '@/components/shared'
+import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -254,55 +254,54 @@ export default function RapportePage() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Rapporte</h1>
-          <p className="text-sm text-muted-foreground">
-            Tagesberichte, Aufmass und Vorlagen für Bauprojekte
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {tab === 'aufmass' && (
+    <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
+      <PageHeader
+        title="Rapporte"
+        description="Tagesberichte, Aufmass und Vorlagen für Bauprojekte"
+        gradient
+        className="mb-6"
+        actions={
+          <div className="flex gap-2">
+            {tab === 'aufmass' && (
+              <button
+                onClick={() => setShowNewMeasurement(true)}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Neues Aufmass
+              </button>
+            )}
             <button
-              onClick={() => setShowNewMeasurement(true)}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              onClick={() => {
+                setTemplatePrefill(null)
+                setShowNewReport(true)
+              }}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neues Aufmass
+              Neuer Tagesbericht
             </button>
-          )}
-          <button
-            onClick={() => {
-              setTemplatePrefill(null)
-              setShowNewReport(true)
-            }}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Neuer Tagesbericht
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Berichte diese Woche</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">{reportsThisWeek}</p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Arbeitsstunden gesamt</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">{totalHoursFormatted}</p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Material-Kosten</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">
             CHF {materialCostMock.toLocaleString('de-CH')}
           </p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Projekte aktiv</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">{activeProjects}</p>
         </div>
@@ -319,7 +318,7 @@ export default function RapportePage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t.label}

@@ -33,7 +33,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useInventarStore, type InventoryItem, type InventurSession } from '@/stores/inventar'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 
 type TabKey = 'artikel' | 'lagerorte' | 'bewegungen' | 'inventur'
@@ -795,29 +795,21 @@ export default function InventarPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Inventar</h1>
-          <p className="text-sm text-muted-foreground">
-            {items.length} Artikel
-            {lowStockCount > 0 && (
-              <span className="text-error"> · {lowStockCount} kritisch</span>
-            )}
-            {warningCount > 0 && (
-              <span className="text-warning"> · {warningCount} Warnung</span>
-            )}
-            {lowStockCount === 0 && warningCount === 0 && ' · Alle Bestaende OK'}
-          </p>
-        </div>
-        <button
-          onClick={() => openArtikelDialog()}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Artikel hinzufuegen
-        </button>
-      </div>
+      <PageHeader
+        title="Inventar"
+        description={`${items.length} Artikel${lowStockCount > 0 ? ` · ${lowStockCount} kritisch` : ''}${warningCount > 0 ? ` · ${warningCount} Warnung` : ''}${lowStockCount === 0 && warningCount === 0 ? ' · Alle Bestaende OK' : ''}`}
+        gradient
+        className="mb-6"
+        actions={
+          <button
+            onClick={() => openArtikelDialog()}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Artikel hinzufuegen
+          </button>
+        }
+      />
 
       {/* Tabs with badges */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
@@ -831,7 +823,7 @@ export default function InventarPage() {
             key={t.key}
             onClick={() => { setTab(t.key); setSearch('') }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t.label} ({t.count})

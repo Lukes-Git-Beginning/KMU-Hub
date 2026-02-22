@@ -32,7 +32,7 @@ import {
   type Reservation,
   type Zustandsprotokoll,
 } from '@/stores/vermietung'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import ZustandsprotokollDialog from './ZustandsprotokollDialog'
 
@@ -826,31 +826,30 @@ export default function VermietungPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      {/* ---- Header ---- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Vermietung</h1>
-          <p className="text-sm text-muted-foreground">
-            {objects.length} Objekte &middot; {activeReservations} aktive Reservierungen
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => openReservationDialog()}
-            className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <CalendarPlus className="h-4 w-4" />
-            Reservierung
-          </button>
-          <button
-            onClick={() => openObjectDialog()}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Objekt anlegen
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Vermietung"
+        description={`${objects.length} Objekte · ${activeReservations} aktive Reservierungen`}
+        gradient
+        className="mb-6"
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openReservationDialog()}
+              className="flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Reservierung
+            </button>
+            <button
+              onClick={() => openObjectDialog()}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Objekt anlegen
+            </button>
+          </div>
+        }
+      />
 
       {/* ---- KPI Row ---- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -886,7 +885,7 @@ export default function VermietungPage() {
         ].map((stat) => {
           const Icon = stat.icon
           return (
-            <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
+            <div key={stat.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
                 <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
@@ -913,7 +912,7 @@ export default function VermietungPage() {
               onClick={() => { setTab(t.key); setSearch('') }}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
                 tab === t.key
-                  ? 'border-primary text-primary font-medium'
+                  ? 'border-primary text-primary font-medium tab-accent-active'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >

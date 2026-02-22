@@ -39,7 +39,7 @@ import {
   type SupplierRating,
   type FrameworkContract,
 } from '@/stores/einkauf'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatAmount, formatCurrency } from '@/lib/format'
 
 type TabKey = 'bestellungen' | 'lieferanten' | 'katalog' | 'rahmenvertraege'
@@ -463,39 +463,38 @@ export default function EinkaufPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Einkauf</h1>
-          <p className="text-sm text-muted-foreground">
-            {activeOrderCount} offene Bestellungen · EUR {formatAmount(totalOpen)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {tab === 'lieferanten' && (
+      <PageHeader
+        title="Einkauf"
+        description={`${activeOrderCount} offene Bestellungen · EUR ${formatAmount(totalOpen)}`}
+        gradient
+        className="mb-6"
+        actions={
+          <div className="flex items-center gap-2">
+            {tab === 'lieferanten' && (
+              <button
+                onClick={() => {
+                  resetNewSupplierForm()
+                  setShowNewSupplierDialog(true)
+                }}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Lieferant anlegen
+              </button>
+            )}
             <button
               onClick={() => {
-                resetNewSupplierForm()
-                setShowNewSupplierDialog(true)
+                resetNewOrderForm()
+                setShowNewOrderDialog(true)
               }}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Lieferant anlegen
+              Neue Bestellung
             </button>
-          )}
-          <button
-            onClick={() => {
-              resetNewOrderForm()
-              setShowNewOrderDialog(true)
-            }}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Neue Bestellung
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
@@ -516,7 +515,7 @@ export default function EinkaufPage() {
             }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
               tab === t.key
-                ? 'border-primary text-primary font-medium'
+                ? 'border-primary text-primary font-medium tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >

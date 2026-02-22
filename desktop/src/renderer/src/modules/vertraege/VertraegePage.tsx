@@ -36,7 +36,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useVertraegeStore, type Contract, type ContractType, type ContractStatus, type ContractTemplate } from '@/stores/vertraege'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
 import ESignaturDialog from './ESignaturDialog'
 
@@ -911,25 +911,21 @@ export default function VertraegePage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Vertraege</h1>
-          <p className="text-sm text-muted-foreground">
-            {activeContracts.length} aktive Vertraege
-            {expiringContracts.length > 0 && (
-              <span className="text-warning"> &middot; {expiringContracts.length} auslaufend</span>
-            )}
-          </p>
-        </div>
-        <button
-          onClick={() => openContractDialog()}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Vertrag anlegen
-        </button>
-      </div>
+      <PageHeader
+        title="Vertraege"
+        description={`${activeContracts.length} aktive Vertraege${expiringContracts.length > 0 ? ` · ${expiringContracts.length} auslaufend` : ''}`}
+        gradient
+        className="mb-6"
+        actions={
+          <button
+            onClick={() => openContractDialog()}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Vertrag anlegen
+          </button>
+        }
+      />
 
       {/* Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -975,7 +971,7 @@ export default function VertraegePage() {
             key={t.key}
             onClick={() => { setTab(t.key); setSearch(''); setTypeFilter('all') }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t.label} ({t.count})

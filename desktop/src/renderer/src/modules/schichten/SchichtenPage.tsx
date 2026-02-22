@@ -34,7 +34,7 @@ import {
   type ShiftAssignment,
   type ShiftSwapRequest,
 } from '@/stores/schichten'
-import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
 
 // ============================================================
 // Types
@@ -587,35 +587,30 @@ export default function SchichtenPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Schichtplanung</h1>
-          <p className="text-sm text-muted-foreground">
-            {EMPLOYEES.length} Mitarbeiter &middot; KW {kw} &middot;{' '}
-            {pendingSwapCount > 0
-              ? `${pendingSwapCount} offene Tausch-Anfragen`
-              : 'Keine offenen Anfragen'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* 7.13: PDF Export */}
-          <button
-            onClick={handlePDFExport}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <FileDown className="h-4 w-4" />
-            PDF-Export
-          </button>
-          <button
-            onClick={handleOpenAssignDialog}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Schicht zuweisen
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Schichtplanung"
+        description={`${EMPLOYEES.length} Mitarbeiter · KW ${kw} · ${pendingSwapCount > 0 ? `${pendingSwapCount} offene Tausch-Anfragen` : 'Keine offenen Anfragen'}`}
+        gradient
+        className="mb-6"
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePDFExport}
+              className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <FileDown className="h-4 w-4" />
+              PDF-Export
+            </button>
+            <button
+              onClick={handleOpenAssignDialog}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Schicht zuweisen
+            </button>
+          </div>
+        }
+      />
 
       {/* ── KPI Row ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
@@ -647,7 +642,7 @@ export default function SchichtenPage() {
         ].map((stat) => {
           const Icon = stat.icon
           return (
-            <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
+            <div key={stat.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
                 <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
@@ -700,7 +695,7 @@ export default function SchichtenPage() {
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
                 tab === t.key
-                  ? 'border-primary text-primary font-medium'
+                  ? 'border-primary text-primary font-medium tab-accent-active'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >

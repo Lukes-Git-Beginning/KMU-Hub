@@ -38,7 +38,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import { ConfirmDialog } from '@/components/shared'
+import { ConfirmDialog, PageHeader } from '@/components/shared'
 
 // ---- Types ----
 
@@ -125,22 +125,23 @@ export default function InfrastrukturPage() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="shrink-0 border-b border-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Infrastruktur</h1>
-            <p className="text-sm text-muted-foreground">Server-Verwaltung und Systemübersicht</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5">
-              <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-              <span className="text-xs font-medium text-success">System Online</span>
+        <PageHeader
+          title="Infrastruktur"
+          description="Server-Verwaltung und Systemübersicht"
+          gradient
+          actions={
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5">
+                <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                <span className="text-xs font-medium text-success">System Online</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => toast.success('System-Status aktualisiert')}>
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                Aktualisieren
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.success('System-Status aktualisiert')}>
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-              Aktualisieren
-            </Button>
-          </div>
-        </div>
+          }
+        />
       </div>
 
       {/* Tab bar */}
@@ -154,7 +155,7 @@ export default function InfrastrukturPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                   activeTab === tab.id
-                    ? 'border-primary text-primary'
+                    ? 'border-primary text-primary tab-accent-active'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >

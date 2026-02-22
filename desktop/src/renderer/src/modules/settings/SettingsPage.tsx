@@ -94,7 +94,7 @@ export default function SettingsPage() {
   const effectiveTab = isActiveVisible ? activeTab : 'profile'
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden animate-fade-up">
       {/* Settings sidebar */}
       <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
         <h3 className="text-sm font-medium text-foreground mb-4 px-2">Einstellungen</h3>

@@ -34,7 +34,7 @@ import {
   type Machine,
   type MachineBooking,
 } from '@/stores/produktion'
-import { DetailPanel } from '@/components/shared'
+import { DetailPanel, PageHeader } from '@/components/shared'
 import {
   Dialog,
   DialogContent,
@@ -181,43 +181,42 @@ export default function ProduktionPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Produktion</h1>
-          <p className="text-sm text-muted-foreground">
-            {activeOrders.length} aktive Aufträge &middot; {boms.length} Stücklisten
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {tab === 'stücklisten' && (
+    <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
+      <PageHeader
+        title="Produktion"
+        description={`${activeOrders.length} aktive Aufträge · ${boms.length} Stücklisten`}
+        gradient
+        className="mb-6"
+        actions={
+          <div className="flex gap-2">
+            {tab === 'stücklisten' && (
+              <button
+                onClick={() => setShowNewBom(true)}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Neue Stückliste
+              </button>
+            )}
+            {tab === 'qualität' && (
+              <button
+                onClick={() => { setQualityCheckOrderId(''); setShowQualityCheck(true) }}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Qualitätsprüfung
+              </button>
+            )}
             <button
-              onClick={() => setShowNewBom(true)}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+              onClick={() => setShowNewOrder(true)}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neue Stückliste
+              Neuer Auftrag
             </button>
-          )}
-          {tab === 'qualität' && (
-            <button
-              onClick={() => { setQualityCheckOrderId(''); setShowQualityCheck(true) }}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Qualitätsprüfung
-            </button>
-          )}
-          <button
-            onClick={() => setShowNewOrder(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Neuer Auftrag
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
@@ -231,7 +230,7 @@ export default function ProduktionPage() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {t.label}
