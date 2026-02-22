@@ -13,6 +13,8 @@ import {
   XCircle,
   Download,
   X,
+  Clock,
+  Info,
 } from 'lucide-react'
 import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
 import { toast } from 'sonner'
@@ -48,6 +50,11 @@ export default function GDPRExportPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [denyId, setDenyId] = useState<string | null>(null)
   const [denyReason, setDenyReason] = useState('')
+  const [exportFormats, setExportFormats] = useState<Record<string, string>>({})
+
+  const getExportFormat = (id: string) => exportFormats[id] ?? 'json'
+  const setExportFormat = (id: string, fmt: string) =>
+    setExportFormats((prev) => ({ ...prev, [id]: fmt }))
 
   const allExports = exports ?? []
   const filteredExports = allExports.filter((exp) => {
@@ -115,6 +122,15 @@ export default function GDPRExportPage() {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Scope Info */}
+      <div className="flex items-start gap-2 rounded-lg bg-info-light/50 px-4 py-3 mb-6">
+        <Info className="h-4 w-4 text-info mt-0.5 shrink-0" />
+        <div className="text-xs text-info">
+          <p className="font-medium mb-1">Enthaltene Module im Export:</p>
+          <p>CRM, E-Mails, Chat, Kalender, Dokumente, Helpdesk, Rechnungen, Projekte, Formulare, Zeiterfassung</p>
         </div>
       </div>
 
@@ -201,7 +217,16 @@ export default function GDPRExportPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {exp.status === 'pending' && (
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end items-center gap-2">
+                            <select
+                              value={getExportFormat(exp.id)}
+                              onChange={(e) => setExportFormat(exp.id, e.target.value)}
+                              className="h-7 rounded-md border border-border bg-transparent px-1.5 text-[10px] outline-none focus:border-primary"
+                            >
+                              <option value="json">JSON</option>
+                              <option value="csv">CSV</option>
+                              <option value="pdf">PDF</option>
+                            </select>
                             <button
                               onClick={() => handleApprove(exp.id)}
                               disabled={approveExport.isPending}
@@ -220,14 +245,20 @@ export default function GDPRExportPage() {
                           </div>
                         )}
                         {exp.status === 'ready' && exp.download_token && (
-                          <a
-                            href={`/api/v1/gdpr/exports/${exp.id}/download?token=${exp.download_token}`}
-                            download
-                            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
-                          >
-                            <Download className="h-3 w-3" />
-                            <FormattedMessage id="gdpr.downloadExport" />
-                          </a>
+                          <div className="flex justify-end items-center gap-2">
+                            <span className="flex items-center gap-1 text-[10px] text-warning">
+                              <Clock className="h-3 w-3" />
+                              Ablauf in 30 Tagen
+                            </span>
+                            <a
+                              href={`/api/v1/gdpr/exports/${exp.id}/download?token=${exp.download_token}`}
+                              download
+                              className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+                            >
+                              <Download className="h-3 w-3" />
+                              <FormattedMessage id="gdpr.downloadExport" />
+                            </a>
+                          </div>
                         )}
                       </td>
                     </tr>

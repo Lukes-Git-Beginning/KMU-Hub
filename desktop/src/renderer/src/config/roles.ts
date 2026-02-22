@@ -37,6 +37,7 @@ export const SETTINGS_TAB_ROLES: Record<string, RoleId[]> = {
   business:      ['admin'],
   team:     ['admin', 'hr'],
   privacy:  ['admin', 'it_support'],
+  ai:       ['admin'],
 }
 
 // ---- Mock user profiles for design testing ----

@@ -16,7 +16,13 @@ Endpoints, DB-Schemas, Request/Response Bodies:
 | Wave 3 | `api-contracts/wave-03-crm-finanzen.md` | Fertig |
 | Wave 5 | `api-contracts/wave-05-chat-helpdesk.md` | Fertig |
 | Wave 6 | `api-contracts/wave-06-work-zeiterfassung.md` | Fertig |
-| Wave 7+ | Wird nach jeweiliger Frontend-Wave geschrieben | Offen |
+| Wave 7 | `api-contracts/wave-07-team-schichten.md` | Fertig |
+| Wave 8 | `api-contracts/wave-08-api-contract.md` | Fertig |
+| Wave 9 | `api-contracts/wave-09-api-contract.md` | Fertig |
+| Wave 10 | `api-contracts/wave-10-api-contract.md` | Fertig |
+| Wave 11 | `api-contracts/wave-11-api-contract.md` | Fertig |
+| Wave 12 | `api-contracts/wave-12-api-contract.md` | Fertig |
+| Wave 13 | `api-contracts/wave-13-api-contract.md` | Fertig |
 
 ---
 
@@ -34,15 +40,15 @@ Der Frontend-Masterplan hat **20 Waves** (13 Feature + 7 Design). Davon sind **~
 | 4 | E-Mail | 1.200 | 0 | — | — |
 | 5 | Chat + Helpdesk | 2.670 | 750 | Mittel | **Fertig** |
 | 6 | Projekte + Zeiterfassung | 2.800 | 1.000 | Mittel | **Fertig** |
-| 7 | Team/HR + Schichten | 3.840 | 400 | Niedrig | Offen |
-| 8 | Einkauf + Inventar + Produktion | 3.880 | 950 | Niedrig | Offen |
-| 9 | Fuhrpark + Rapporte + Vermietung | 3.580 | 950 | Niedrig | Offen |
-| 10 | Formulare + Vertraege + Kalender + Meetings | 3.590 | 1.600 | Mittel | Offen |
-| 11 | Video + Notifications + Dokumente | 3.530 | 1.950 | Mittel | Offen |
-| 12 | Integrations-Settings | 1.730 | 120 | Niedrig | Offen |
-| 13 | **DSGVO + KI** | 2.200 | **2.300** | **HOCH** | Offen |
+| 7 | Team/HR + Schichten | 3.840 | 400 | Niedrig | **Fertig** |
+| 8 | Einkauf + Inventar + Produktion | 3.880 | 2.500 | Niedrig | **Fertig** |
+| 9 | Fuhrpark + Rapporte + Vermietung | 3.580 | 2.200 | Niedrig | **Fertig** |
+| 10 | Formulare + Vertraege + Kalender + Meetings | 3.590 | 1.600 | Mittel | **Fertig** |
+| 11 | Video + Notifications + Dokumente | 3.530 | 1.950 | Mittel | **Fertig** |
+| 12 | Integrations-Settings | 1.730 | 120 | Niedrig | **Fertig** |
+| 13 | **DSGVO + KI** | 2.200 | **2.300** | **HOCH** | **Fertig** |
 | 14-20 | Design-Ueberarbeitung | 24.600 | 0 | — | — |
-| | **Gesamt** | **~66.000** | **~15.300** | | |
+| | **Gesamt** | **~66.000** | **~18.100** | | |
 
 ---
 
@@ -215,15 +221,28 @@ TipTap in ComposeModal, E-Mail-Vorlagen, Signatur-Editor, Kontakt-Chips. Alles F
 
 ---
 
-### Wave 9: Fuhrpark + Rapporte + Vermietung — ~950 LOC Backend
+### Wave 9: Fuhrpark + Rapporte + Vermietung — ~2.200 LOC Backend
+
+**Frontend-Status:** DONE
+**Detaillierter API-Vertrag:** `api-contracts/wave-09-api-contract.md`
 
 | # | Feature | Was Luke bauen muss | Prio |
 |---|---------|-------------------|------|
-| 9.3 | Fahrzeug-Dokumente | File Storage fuer Fahrzeugschein, Versicherungspolice, TUeV-Berichte. | NIEDRIG |
-| 9.4 | Schadensmeldung | Foto-Upload fuer Fahrzeug-Schaeden. | NIEDRIG |
-| 9.7 | Rapport Foto-Upload | File Upload fuer Baustellenfotos. | NIEDRIG |
+| 9.1 | Fahrtenbuch | LogbookEntry CRUD mit km-Berechnung, Geschaefts-/Privat-Filter. | MITTEL |
+| 9.2 | TCO-Dashboard | Kostenaggregate pro Fahrzeug (Maintenance + Fuel + Insurance + Depreciation). | NIEDRIG |
+| 9.3 | Fahrzeug-Dokumente | File Storage fuer Fahrzeugschein, Versicherungspolice, TUeV-Berichte. Ablaufdatum-Tracking. | NIEDRIG |
+| 9.4 | Schadensmeldung | DamageReport CRUD mit Foto-Upload und Status-Workflow (open/in_progress/resolved). | MITTEL |
+| 9.5 | Reifenwechsel-Erinnerung | Config-Endpoint pro Fahrzeug + optionaler Cron-Job. | NIEDRIG |
+| 9.6 | Unterschrift (Rapporte) | signatureDataUrl-Feld auf FieldReport (Base64 PNG oder File-Upload). | NIEDRIG |
+| 9.7 | Rapport Foto-Upload | Photo-Attachment CRUD auf FieldReport (multipart/form-data). | MITTEL |
+| 9.8 | Aufmass-Skizze | sketchDataUrl-Feld auf Measurement (Base64 PNG oder File-Upload). | NIEDRIG |
 | 9.9 | PDF Tagesbericht | Druckfaehigen Tagesbericht als PDF generieren (Wetter, Arbeitszeit, Material, Fotos, Unterschrift). | MITTEL |
-| 9.10 | Rapport-Genehmigung | Bauleiter-Approval Workflow. | NIEDRIG |
+| 9.10 | Rapport-Genehmigung | Submit/Approve/Reject Workflow mit Status-Uebergaengen. | MITTEL |
+| 9.11 | Wetter-Daten | Optionaler externer API-Call (OpenWeatherMap) mit Cache. | NIEDRIG |
+| 9.12 | Preisberechnung (Vermietung) | Tages-/Wochen-Logik fuer Mietpreis. | NIEDRIG |
+| 9.13 | Kautionsverwaltung | depositStatus-Feld auf Reservation (none/collected/returned). | NIEDRIG |
+| 9.14 | Zustandsprotokoll | CRUD mit JSONB-Checkliste, Foto-Upload, Unterschrift. | MITTEL |
+| 9.15 | Multi-Waehrung | currency-Feld auf RentalObject + Reservation (EUR/CHF/USD). | NIEDRIG |
 
 ---
 

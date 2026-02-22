@@ -10,7 +10,7 @@
  */
 import { useState, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
-import { AlertTriangle, Search, Eye, Trash2, CheckCircle, X } from 'lucide-react'
+import { AlertTriangle, Search, Eye, Trash2, CheckCircle, X, Download } from 'lucide-react'
 import { FormattedMessage, useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import {
@@ -54,6 +54,7 @@ export default function GDPRErasurePage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [isExecuting, setIsExecuting] = useState(false)
+  const [executionProgress, setExecutionProgress] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
 
   // Mock user search results
@@ -82,12 +83,16 @@ export default function GDPRErasurePage() {
 
     setTimeout(() => {
       setPreviewData([
-        { module: 'CRM Contacts', record_count: 47, action: 'anonymize' },
-        { module: 'Chat Messages', record_count: 1283, action: 'delete' },
-        { module: 'Calendar Events', record_count: 156, action: 'delete' },
-        { module: 'Work Tasks', record_count: 89, action: 'anonymize' },
+        { module: 'CRM Kontakte', record_count: 47, action: 'anonymize' },
+        { module: 'Chat-Nachrichten', record_count: 1283, action: 'delete' },
+        { module: 'Kalender-Termine', record_count: 156, action: 'delete' },
+        { module: 'Aufgaben/Projekte', record_count: 89, action: 'anonymize' },
+        { module: 'Helpdesk-Tickets', record_count: 34, action: 'anonymize' },
+        { module: 'Dokumente', record_count: 23, action: 'delete' },
+        { module: 'E-Mails', record_count: 412, action: 'delete' },
+        { module: 'Formulare', record_count: 8, action: 'anonymize' },
         { module: 'Audit Log', record_count: 342, action: 'retain' },
-        { module: 'Invoices', record_count: 12, action: 'retain' },
+        { module: 'Rechnungen', record_count: 12, action: 'retain' },
       ])
       setIsLoadingPreview(false)
     }, 500)
@@ -105,15 +110,30 @@ export default function GDPRErasurePage() {
   const handleExecute = useCallback(() => {
     if (!adminPassword || !previewData || !selectedUserId) return
     setIsExecuting(true)
+    setExecutionProgress(0)
 
-    setTimeout(() => {
-      setIsExecuting(false)
-      setShowConfirm(false)
-      setAdminPassword('')
-      setIsCompleted(true)
-      toast.success(intl.formatMessage({ id: 'gdpr.erasure.success' }))
-    }, 1500)
+    // Simulate progress bar
+    const steps = 10
+    let step = 0
+    const interval = setInterval(() => {
+      step++
+      setExecutionProgress(Math.round((step / steps) * 100))
+      if (step >= steps) {
+        clearInterval(interval)
+        setIsExecuting(false)
+        setShowConfirm(false)
+        setAdminPassword('')
+        setExecutionProgress(0)
+        setIsCompleted(true)
+        toast.success(intl.formatMessage({ id: 'gdpr.erasure.success' }))
+      }
+    }, 150)
   }, [adminPassword, previewData, selectedUserId, intl])
+
+  const handleDownloadReceipt = useCallback(() => {
+    toast.success('Loeschprotokoll wird heruntergeladen...')
+    setTimeout(() => toast.success('Loeschprotokoll_' + selectedUserName?.replace(/\s/g, '_') + '.pdf gespeichert'), 1000)
+  }, [selectedUserName])
 
   const totalRecords = previewData
     ? previewData.reduce((sum, m) => sum + m.record_count, 0)
@@ -294,6 +314,13 @@ export default function GDPRErasurePage() {
                 values={{ id: selectedUserId?.slice(-4) ?? '0000' }}
               />
             </p>
+            <button
+              onClick={handleDownloadReceipt}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Loeschprotokoll herunterladen
+            </button>
           </div>
         )}
       </div>
@@ -371,7 +398,7 @@ export default function GDPRErasurePage() {
                 {isExecuting ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <FormattedMessage id="common.loading" />
+                    {executionProgress}%
                   </span>
                 ) : (
                   <FormattedMessage id="gdpr.erasureConfirm" />

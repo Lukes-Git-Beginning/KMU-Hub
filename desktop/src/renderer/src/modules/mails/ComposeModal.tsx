@@ -13,6 +13,7 @@ import {
   Save,
   Trash2,
   FileText,
+  Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ComposeMode } from '@/stores/mails'
@@ -20,6 +21,7 @@ import { useSendEmail, useSaveDraft, useReplyEmail, useForwardEmail } from '@/ap
 import type { EmailMessageInfo, EmailAddress } from '@/api/email-types'
 import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
 import { EmailTemplateDialog } from './EmailTemplateDialog'
+import { useAIStore } from '@/stores/ai'
 import {
   RecipientField,
   useEmailSignature,
@@ -71,6 +73,28 @@ export function ComposeModal({
   const [body, setBody] = useState('')
   const [editorVersion, setEditorVersion] = useState(0)
   const [templateOpen, setTemplateOpen] = useState(false)
+  const [aiDraftLoading, setAIDraftLoading] = useState(false)
+  const aiEmailEnabled = useAIStore((s) => s.isModuleEnabled('email'))
+
+  const handleAIDraft = () => {
+    setAIDraftLoading(true)
+    setTimeout(() => {
+      const isReply = mode === 'reply' || mode === 'reply-all'
+      const mockDraft = isReply
+        ? '<p>Sehr geehrter Herr/Frau [Name],</p><p>vielen Dank fuer Ihre Nachricht. Ich habe Ihr Anliegen geprueft und moechte Ihnen folgendes mitteilen:</p><p>[Hier Ihre Antwort einfuegen]</p><p>Sollten Sie weitere Fragen haben, stehe ich Ihnen gerne zur Verfuegung.</p><p>Mit freundlichen Gruessen</p>'
+        : '<p>Sehr geehrte Damen und Herren,</p><p>ich schreibe Ihnen bezueglich [Thema]. Gerne moechte ich folgendes besprechen:</p><p>1. [Punkt 1]</p><p>2. [Punkt 2]</p><p>Ich freue mich auf Ihre Rueckmeldung.</p><p>Mit freundlichen Gruessen</p>'
+      setBody(mockDraft)
+      setEditorVersion((v) => v + 1)
+      setAIDraftLoading(false)
+      useAIStore.getState().addActivityLog({
+        module: 'E-Mail',
+        action: isReply ? 'Antwort-Entwurf generiert' : 'Entwurf generiert',
+        inputPreview: subject || '(Kein Betreff)',
+        outputPreview: 'Sehr geehrte...',
+      })
+      toast.success('KI-Entwurf eingefuegt')
+    }, 1500)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -320,6 +344,21 @@ export function ComposeModal({
                 <FileText className="h-3.5 w-3.5" />
                 Vorlage
               </button>
+              {aiEmailEnabled && (
+                <button
+                  onClick={handleAIDraft}
+                  disabled={aiDraftLoading}
+                  className="shrink-0 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
+                  title="KI-Entwurf generieren"
+                >
+                  {aiDraftLoading ? (
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  KI-Entwurf
+                </button>
+              )}
             </div>
 
             <RichTextEditor

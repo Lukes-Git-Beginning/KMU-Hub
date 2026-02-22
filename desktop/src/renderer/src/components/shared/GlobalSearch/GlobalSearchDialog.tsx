@@ -12,6 +12,7 @@ import {
   Receipt,
   LifeBuoy,
   Search,
+  Sparkles,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -27,6 +28,7 @@ import { SearchResultGroup } from './SearchResultGroup'
 import type { GroupedResult } from './SearchResultGroup'
 import { RecentSearches } from './RecentSearches'
 import { QuickActions } from './QuickActions'
+import { useAIStore } from '@/stores/ai'
 
 // ---------------------------------------------------------------------------
 // Icon mapping for search result types
@@ -153,13 +155,52 @@ export function GlobalSearchDialog() {
   const searchResults = useMockSearch(query)
   const hasQuery = query.trim().length > 0
 
+  // Semantic search (AI)
+  const aiSearchEnabled = useAIStore((s) => s.isModuleEnabled('search'))
+  const [semanticResults, setSemanticResults] = useState<GroupedResult[]>([])
+  const [semanticLoading, setSemanticLoading] = useState(false)
+
+  useEffect(() => {
+    if (!hasQuery || query.length < 3 || !aiSearchEnabled) {
+      setSemanticResults([])
+      setSemanticLoading(false)
+      return
+    }
+    setSemanticLoading(true)
+    const timer = setTimeout(() => {
+      const mockSemanticMap: Record<string, GroupedResult> = {
+        default: {
+          label: 'KI-Ergebnisse',
+          items: [
+            { id: 'ai-1', icon: Sparkles, title: 'Aehnliches Thema im Wiki', subtitle: 'Onboarding-Prozess — 87% Relevanz', route: '/wiki' },
+            { id: 'ai-2', icon: Sparkles, title: 'Verwandtes Ticket', subtitle: '#1038 PDF-Export — 72% Relevanz', route: '/helpdesk' },
+          ],
+        },
+      }
+      setSemanticResults([mockSemanticMap.default])
+      setSemanticLoading(false)
+      useAIStore.getState().addActivityLog({
+        module: 'Suche',
+        action: 'Semantische Suche',
+        inputPreview: query.slice(0, 50),
+        outputPreview: '2 relevante Ergebnisse',
+      })
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [query, hasQuery, aiSearchEnabled])
+
+  const allResults = useMemo(() => {
+    if (semanticResults.length > 0) return [...searchResults, ...semanticResults]
+    return searchResults
+  }, [searchResults, semanticResults])
+
   // Total navigable items for keyboard nav
   const totalItems = useMemo(() => {
     if (hasQuery) {
-      return searchResults.reduce((sum, g) => sum + g.items.length, 0)
+      return allResults.reduce((sum, g) => sum + g.items.length, 0)
     }
     return QUICK_ACTIONS.length
-  }, [hasQuery, searchResults])
+  }, [hasQuery, allResults])
 
   // Reset active index when results change
   useEffect(() => {
@@ -268,24 +309,32 @@ export function GlobalSearchDialog() {
 
         <div className="max-h-[360px] overflow-y-auto">
           {hasQuery ? (
-            searchResults.length > 0 ? (
-              (() => {
-                let offset = 0
-                return searchResults.map((group) => {
-                  const startIndex = offset
-                  offset += group.items.length
-                  return (
-                    <SearchResultGroup
-                      key={group.label}
-                      group={group}
-                      activeIndex={activeIndex}
-                      startIndex={startIndex}
-                      onSelect={handleSelect}
-                      onHover={setActiveIndex}
-                    />
-                  )
-                })
-              })()
+            allResults.length > 0 || semanticLoading ? (
+              <>
+                {(() => {
+                  let offset = 0
+                  return allResults.map((group) => {
+                    const startIndex = offset
+                    offset += group.items.length
+                    return (
+                      <SearchResultGroup
+                        key={group.label}
+                        group={group}
+                        activeIndex={activeIndex}
+                        startIndex={startIndex}
+                        onSelect={handleSelect}
+                        onHover={setActiveIndex}
+                      />
+                    )
+                  })
+                })()}
+                {semanticLoading && (
+                  <div className="flex items-center gap-2 px-4 py-3 border-t border-border">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <span className="text-xs text-primary">KI sucht semantisch...</span>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                 <Search className="h-8 w-8 opacity-40" />

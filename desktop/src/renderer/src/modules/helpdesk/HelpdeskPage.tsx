@@ -22,6 +22,7 @@ import {
   Settings2,
   Pencil,
   Tag,
+  Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -38,6 +39,7 @@ import { CannedResponsePicker } from './CannedResponsePicker'
 import { BusinessHoursDialog } from './BusinessHoursDialog'
 import { TicketRoutingConfig } from './TicketRoutingConfig'
 import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
+import { useAIStore } from '@/stores/ai'
 
 type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
 type StatusFilter = 'all' | TicketType['status']
@@ -657,6 +659,29 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
   onToggleInternal: (v: boolean) => void; onSendReply: () => void; onStatusChange: (s: TicketType['status']) => void; onClose: () => void
 }) {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+  const [aiSuggestionLoading, setAISuggestionLoading] = useState(false)
+  const aiHelpdeskEnabled = useAIStore((s) => s.isModuleEnabled('helpdesk'))
+
+  const handleAISuggestion = () => {
+    setAISuggestionLoading(true)
+    setTimeout(() => {
+      const suggestions: Record<string, string> = {
+        'tk-1': 'Guten Tag,\n\nder Drucker im 2. OG wurde erfolgreich neu konfiguriert. Bitte testen Sie den Druckvorgang erneut. Falls das Problem weiterhin besteht, pruefen Sie bitte die Netzwerkverbindung des Druckers (Kabel am Port 3 im Patchfeld).\n\nBei weiteren Fragen stehe ich Ihnen gerne zur Verfuegung.',
+        'tk-2': 'Hallo,\n\nbasierend auf den Logs liegt das Problem an einem veralteten VPN-Profil. Bitte fuehren Sie folgende Schritte aus:\n\n1. Oeffnen Sie AnyConnect → Einstellungen → Profile\n2. Loeschen Sie das bestehende Profil "Firma-VPN"\n3. Verbinden Sie sich erneut mit vpn.firma.ch\n\nDas neue Profil wird automatisch heruntergeladen.',
+        'tk-3': 'Hallo,\n\nalle Zugaenge fuer den neuen Mitarbeiter wurden eingerichtet:\n\n- Active Directory Konto\n- E-Mail-Konto\n- ERP-Zugang: Standardrolle\n- Zeiterfassung: Profil angelegt\n\nDie Zugangsdaten werden am ersten Arbeitstag persoenlich uebergeben.',
+      }
+      const suggestion = suggestions[ticket.id] ?? 'Vielen Dank fuer Ihre Anfrage. Wir haben Ihr Anliegen geprueft und arbeiten an einer Loesung. Wir melden uns kurzfristig mit weiteren Informationen.\n\nMit freundlichen Gruessen'
+      onReplyChange(suggestion)
+      setAISuggestionLoading(false)
+      useAIStore.getState().addActivityLog({
+        module: 'Helpdesk',
+        action: 'Antwort vorgeschlagen',
+        inputPreview: `${ticket.id}: ${ticket.subject.slice(0, 40)}`,
+        outputPreview: suggestion.slice(0, 50) + '...',
+      })
+      toast.success('KI-Vorschlag eingefuegt')
+    }, 1800)
+  }
   const [showCannedPicker, setShowCannedPicker] = useState(false)
   const thread = getThread(ticket.id)
   const internalNoteCount = thread.filter((m) => m.isInternal).length
@@ -832,6 +857,20 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
             <Lock className="h-3 w-3" />Interne Notiz{internalNoteCount > 0 && ` (${internalNoteCount})`}
           </button>
           <div className="flex-1" />
+          {aiHelpdeskEnabled && (
+            <button
+              onClick={handleAISuggestion}
+              disabled={aiSuggestionLoading}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
+            >
+              {aiSuggestionLoading ? (
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              KI-Vorschlag
+            </button>
+          )}
           <div className="relative">
             <button onClick={() => setShowCannedPicker(!showCannedPicker)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-secondary transition-colors">
               <Zap className="h-3 w-3" />Textbaustein

@@ -35,6 +35,8 @@ import {
   Eye,
   Hash,
   Tag,
+  Sparkles,
+  Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
@@ -48,6 +50,7 @@ import { VersionHistoryPanel } from './VersionHistoryPanel'
 import { OnlyOfficeEditor, isOnlyOfficeEditable } from './OnlyOfficeEditor'
 import { TemplateGalleryDialog } from './TemplateGalleryDialog'
 import { ShareLinkDialog } from './ShareLinkDialog'
+import { useAIStore, type ClassificationLevel } from '@/stores/ai'
 import {
   useDocumentFolders,
   useDocumentFiles,
@@ -1498,6 +1501,50 @@ function SidebarFolderItem({
 // File Grid Card
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// AI Classification Badge
+// ---------------------------------------------------------------------------
+
+const CLASSIFICATION_COLORS: Record<ClassificationLevel, string> = {
+  oeffentlich: 'bg-success-light text-success',
+  intern: 'bg-info-light text-info',
+  vertraulich: 'bg-error-light text-error',
+}
+
+const CLASSIFICATION_LABELS: Record<ClassificationLevel, string> = {
+  oeffentlich: 'Oeffentlich',
+  intern: 'Intern',
+  vertraulich: 'Vertraulich',
+}
+
+function classifyByFilename(filename: string): ClassificationLevel {
+  const lower = filename.toLowerCase()
+  if (/vertrag|gehalt|personal|lohn|kuendigung|zeugnis|steuer|sozialversicherung/.test(lower)) return 'vertraulich'
+  if (/angebot|bericht|budget|intern|entwurf|protokoll|strategie|planung/.test(lower)) return 'intern'
+  return 'oeffentlich'
+}
+
+function ClassificationBadge({ fileId, filename }: { fileId: string; filename: string }) {
+  const aiDocsEnabled = useAIStore((s) => s.isModuleEnabled('docs'))
+  const classifications = useAIStore((s) => s.fileClassifications)
+  const setClassification = useAIStore((s) => s.setFileClassification)
+
+  if (!aiDocsEnabled) return null
+
+  let level = classifications[fileId]
+  if (!level) {
+    level = classifyByFilename(filename)
+    // Defer to avoid set-during-render
+    setTimeout(() => setClassification(fileId, level!), 0)
+  }
+
+  return (
+    <span className={`rounded-full px-1.5 py-0 text-[9px] font-medium ${CLASSIFICATION_COLORS[level]}`}>
+      {CLASSIFICATION_LABELS[level]}
+    </span>
+  )
+}
+
 function FileGridCard({
   file,
   isSelected,
@@ -1531,6 +1578,9 @@ function FileGridCard({
         className={`flex h-20 items-center justify-center rounded-md ${colorClass} mb-3 relative`}
       >
         <Icon className="h-8 w-8" />
+        <div className="absolute top-1.5 right-1.5">
+          <ClassificationBadge fileId={file.id} filename={file.filename} />
+        </div>
       </div>
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0">
@@ -1624,6 +1674,7 @@ function FileListRow({
         <div className="min-w-0">
           <p className="text-sm text-foreground truncate">{file.filename}</p>
         </div>
+        <ClassificationBadge fileId={file.id} filename={file.filename} />
         {file.is_favorite && (
           <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />
         )}

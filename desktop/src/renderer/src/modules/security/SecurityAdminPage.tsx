@@ -16,6 +16,8 @@ import {
   Globe,
   FileText,
   AlertTriangle,
+  Search,
+  Clock,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 
@@ -27,8 +29,10 @@ const PasswordPolicyPage = lazy(() => import('./PasswordPolicyPage'))
 const IPAccessPage = lazy(() => import('./IPAccessPage'))
 const GDPRExportPage = lazy(() => import('./GDPRExportPage'))
 const GDPRErasurePage = lazy(() => import('./GDPRErasurePage'))
+const DSARSearchPage = lazy(() => import('./DSARSearchPage'))
+const RetentionPolicyPage = lazy(() => import('./RetentionPolicyPage'))
 
-type TabKey = 'audit' | 'sessions' | 'vault' | 'password-policy' | 'ip-access' | 'gdpr-exports' | 'gdpr-erasure'
+type TabKey = 'audit' | 'sessions' | 'vault' | 'password-policy' | 'ip-access' | 'gdpr-exports' | 'gdpr-erasure' | 'dsar' | 'retention'
 
 interface TabConfig {
   key: TabKey
@@ -45,6 +49,8 @@ const ALL_TABS: TabConfig[] = [
   { key: 'ip-access', label: 'IP-Zugriff', icon: Globe, group: 'Zugriff' },
   { key: 'gdpr-exports', label: 'Datenexport', icon: FileText, group: 'Datenschutz' },
   { key: 'gdpr-erasure', label: 'Datenlöschung', icon: AlertTriangle, group: 'Datenschutz' },
+  { key: 'dsar', label: 'Auskunft (Art. 15)', icon: Search, group: 'Datenschutz' },
+  { key: 'retention', label: 'Aufbewahrungsfristen', icon: Clock, group: 'Datenschutz' },
 ]
 
 const TAB_GROUPS = ['Überwachung', 'Zugriff', 'Datenschutz']
@@ -65,6 +71,8 @@ function TabContent({ tab }: { tab: TabKey }) {
       {tab === 'ip-access' && <IPAccessPage />}
       {tab === 'gdpr-exports' && <GDPRExportPage />}
       {tab === 'gdpr-erasure' && <GDPRErasurePage />}
+      {tab === 'dsar' && <DSARSearchPage />}
+      {tab === 'retention' && <RetentionPolicyPage />}
     </Suspense>
   )
 }

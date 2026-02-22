@@ -9,7 +9,9 @@
  * - Visual "Speichern..." / "Gespeichert" indicator
  */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { Save, Lock, Globe } from 'lucide-react'
+import { Save, Lock, Globe, Sparkles } from 'lucide-react'
+import { toast } from 'sonner'
+import { useAIStore } from '@/stores/ai'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useMeetingNotes, useSaveMeetingNotes } from '@/api/hooks/useMeetings'
@@ -48,6 +50,24 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
 
   const [content, setContent] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const aiMeetingsEnabled = useAIStore((s) => s.isModuleEnabled('meetings'))
+
+  const handleSummarize = () => {
+    setSummaryLoading(true)
+    setTimeout(() => {
+      const summary = `## Zusammenfassung\n\n**Teilnehmer:** 4 Personen\n**Dauer:** ca. 45 Minuten\n\n### Besprochene Themen:\n- Projektfortschritt Q1 wurde positiv bewertet\n- Budget fuer Q2 muss bis Freitag finalisiert werden\n- Neue Kundenanfrage von Mueller GmbH priorisieren\n\n### Action Items:\n- [ ] Budget-Entwurf erstellen (Marco, bis Fr 28.02.)\n- [ ] Angebot fuer Mueller GmbH vorbereiten (Sarah, bis Mi 26.02.)\n- [ ] Naechstes Meeting: Montag 10:00 Uhr\n\n---\n\n`
+      setContent(summary + content)
+      setSummaryLoading(false)
+      useAIStore.getState().addActivityLog({
+        module: 'Meetings',
+        action: 'Zusammenfassung erstellt',
+        inputPreview: content.slice(0, 60) || '(Leere Notizen)',
+        outputPreview: '3 Themen, 3 Action Items',
+      })
+      toast.success('Zusammenfassung eingefuegt')
+    }, 2000)
+  }
   const [lastSaved, setLastSaved] = useState('')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const contentRef = useRef(content)
@@ -131,7 +151,24 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 className="text-sm font-semibold text-foreground">Notizen</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground">Notizen</h3>
+          {aiMeetingsEnabled && (
+            <button
+              onClick={handleSummarize}
+              disabled={summaryLoading || !content.trim()}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
+              title="KI-Zusammenfassung generieren"
+            >
+              {summaryLoading ? (
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              Zusammenfassen
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           {/* Save Status */}
           <span className="flex items-center gap-1 text-xs text-muted-foreground">

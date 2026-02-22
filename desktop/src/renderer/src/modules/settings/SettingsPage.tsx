@@ -24,6 +24,7 @@ import {
   Landmark,
   RefreshCw,
   Plug,
+  Sparkles,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -47,8 +48,9 @@ import { CalDAVSettingsTab } from './tabs/CalDAVSettingsTab'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
 import { NotificationSettingsTab } from './tabs/NotificationSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
+import { AIGovernanceTab } from './tabs/AIGovernanceTab'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'caldav' | 'finance' | 'company' | 'integrations' | 'team' | 'privacy' | 'business' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'caldav' | 'finance' | 'company' | 'integrations' | 'team' | 'privacy' | 'ai' | 'business' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -72,6 +74,7 @@ const ALL_TABS: TabConfig[] = [
   { key: 'business', label: 'Branchenprofil', icon: Building2, group: 'Admin' },
   { key: 'team', label: 'Team & HR', icon: Users, group: 'Admin' },
   { key: 'privacy', label: 'Datenschutz', icon: Lock, group: 'Admin' },
+  { key: 'ai', label: 'KI-Assistent', icon: Sparkles, group: 'Admin' },
   { key: 'about', label: 'Über KMU Hub', icon: Info, group: 'Sonstiges' },
 ]
 
@@ -140,6 +143,7 @@ export default function SettingsPage() {
         {effectiveTab === 'integrations' && <IntegrationSettingsTab />}
         {effectiveTab === 'team' && <TeamSettingsTab />}
         {effectiveTab === 'privacy' && <PrivacySettingsTab />}
+        {effectiveTab === 'ai' && <AIGovernanceTab />}
         {effectiveTab === 'business' && <BusinessProfileTab />}
         {effectiveTab === 'about' && <AboutTab />}
       </div>
