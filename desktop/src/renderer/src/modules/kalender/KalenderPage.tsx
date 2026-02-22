@@ -892,7 +892,6 @@ function TerminbuchungTab() {
             </div>
           </div>
         )}
-      </div>
 
       {/* New Booking Dialog */}
       {showNewBooking && (
