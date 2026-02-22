@@ -33,6 +33,9 @@ function buildDefaultDecorations(themeId: string): Record<string, DecorationPlac
   return placements
 }
 
+export type ColorTheme = 'graphit' | 'sand' | 'ozean'
+export type NavLayout = 'sidebar' | 'dock' | 'topnav' | 'classic'
+
 interface UIState {
   sidebarCollapsed: boolean
   sidebarWidth: number
@@ -40,6 +43,10 @@ interface UIState {
   locale: string
   theme: 'light' | 'dark' | 'auto'
   uiLook: 'solid' | 'glass' | 'crystal'
+
+  // Design system (Wave 14+)
+  colorTheme: ColorTheme
+  navLayout: NavLayout
 
   // Desk environment
   deskMaximized: boolean
@@ -57,6 +64,8 @@ interface UIState {
   setLocale: (locale: string) => void
   setTheme: (theme: 'light' | 'dark' | 'auto') => void
   setUILook: (look: 'solid' | 'glass' | 'crystal') => void
+  setColorTheme: (theme: ColorTheme) => void
+  setNavLayout: (layout: NavLayout) => void
 
   // Onboarding
   setOnboardingCompleted: (completed: boolean) => void
@@ -79,6 +88,10 @@ export const useUIStore = create<UIState>()(
       locale: 'de',
       theme: 'light',
       uiLook: 'solid',
+
+      // Design system (Wave 14+)
+      colorTheme: 'graphit',
+      navLayout: 'sidebar',
 
       // Desk defaults
       deskMaximized: false,
@@ -110,6 +123,12 @@ export const useUIStore = create<UIState>()(
 
       setUILook: (look: 'solid' | 'glass' | 'crystal') =>
         set({ uiLook: look }),
+
+      setColorTheme: (colorTheme) =>
+        set({ colorTheme }),
+
+      setNavLayout: (navLayout) =>
+        set({ navLayout }),
 
       toggleDeskMaximized: () =>
         set((state) => ({ deskMaximized: !state.deskMaximized })),

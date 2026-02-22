@@ -33,6 +33,7 @@ export function DeskEnvironment() {
   const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
   const storeTheme = useUIStore((s) => s.theme)
   const uiLook = useUIStore((s) => s.uiLook)
+  const colorTheme = useUIStore((s) => s.colorTheme)
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
 
   const isDark = storeTheme === 'auto' ? systemIsDark : storeTheme === 'dark'
@@ -47,6 +48,14 @@ export function DeskEnvironment() {
     document.documentElement.classList.toggle('ui-glass', uiLook === 'glass')
     document.documentElement.classList.toggle('ui-crystal', uiLook === 'crystal')
   }, [uiLook])
+
+  // Sync color theme class on <html> (graphit = default, no class needed)
+  useEffect(() => {
+    document.documentElement.classList.remove('theme-sand', 'theme-ozean')
+    if (colorTheme !== 'graphit') {
+      document.documentElement.classList.add(`theme-${colorTheme}`)
+    }
+  }, [colorTheme])
 
   // Build room-level CSS variables from active theme
   const roomStyle = useMemo(() => {
