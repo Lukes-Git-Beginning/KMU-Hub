@@ -201,9 +201,9 @@
   --sidebar-border: rgba(var(--_rgb-sidebar), 0.06);
   --header-background: rgba(var(--_rgb-header), 0.08);
   --header-border: rgba(var(--_rgb-header), 0.06);
-  --background: rgba(var(--_rgb-bg), 0.05);
-  --secondary: rgba(var(--_rgb-secondary), 0.15);
-  --muted: rgba(var(--_rgb-muted), 0.15);
+  --background: rgba(var(--_rgb-bg), 0.08);
+  --secondary: rgba(var(--_rgb-secondary), 0.18);
+  --muted: rgba(var(--_rgb-muted), 0.18);
   --input-background: rgba(var(--_rgb-input), 0.25);
 
   /* Very subtle colored shadows */
@@ -357,26 +357,27 @@
    9. GLASS SCROLLBARS — thinner, more subtle
    ───────────────────────────────────────────────────────────── */
 :is(.ui-glass, .ui-crystal) ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 :is(.ui-glass, .ui-crystal) ::-webkit-scrollbar-thumb {
-  background: rgba(var(--_rgb-primary), 0.15);
+  background: rgba(var(--_rgb-primary), 0.18);
   border-radius: 100px;
   border: none;
+  transition: background 150ms ease;
 }
 
 :is(.ui-glass, .ui-crystal) ::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--_rgb-primary), 0.25);
+  background: rgba(var(--_rgb-primary), 0.32);
 }
 
 :is(.dark.ui-glass, .dark.ui-crystal) ::-webkit-scrollbar-thumb {
-  background: rgba(var(--_rgb-primary), 0.18);
+  background: rgba(var(--_rgb-primary), 0.22);
 }
 
 :is(.dark.ui-glass, .dark.ui-crystal) ::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--_rgb-primary), 0.30);
+  background: rgba(var(--_rgb-primary), 0.38);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -453,7 +454,16 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
-   14. REDUCED MOTION — disable all glass transitions + effects
+   14. GLASS/CRYSTAL DIALOG BACKDROPS
+   Blur underlying content behind modal overlays for readability.
+   ───────────────────────────────────────────────────────────── */
+:is(.ui-glass, .ui-crystal) .fixed.inset-0:has(+ .fixed, + div > [role="dialog"]) {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   15. REDUCED MOTION — disable all glass transitions + effects
    ───────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   :is(.ui-glass, .ui-crystal) * {

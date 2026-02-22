@@ -147,7 +147,7 @@ function NotificationItem({
     <button
       className={cn(
         'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent',
-        !notification.is_read && 'bg-blue-50/50 dark:bg-blue-950/20'
+        !notification.is_read && 'bg-primary-light/50'
       )}
       onClick={onClick}
     >
