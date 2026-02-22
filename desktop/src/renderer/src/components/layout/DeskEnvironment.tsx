@@ -34,6 +34,7 @@ export function DeskEnvironment() {
   const storeTheme = useUIStore((s) => s.theme)
   const uiLook = useUIStore((s) => s.uiLook)
   const colorTheme = useUIStore((s) => s.colorTheme)
+  const accentIntensity = useUIStore((s) => s.accentIntensity)
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
 
   const isDark = storeTheme === 'auto' ? systemIsDark : storeTheme === 'dark'
@@ -56,6 +57,11 @@ export function DeskEnvironment() {
       document.documentElement.classList.add(`theme-${colorTheme}`)
     }
   }, [colorTheme])
+
+  // Sync accent intensity class on <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle('accent-vivid', accentIntensity === 'vivid')
+  }, [accentIntensity])
 
   // Build room-level CSS variables from active theme
   const roomStyle = useMemo(() => {

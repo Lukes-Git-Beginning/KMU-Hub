@@ -28,7 +28,7 @@ export default function DashboardPage() {
     <div className="h-full overflow-auto">
       <div className="p-4 md:p-8">
         {/* Greeting Header */}
-        <div className="mb-8 flex items-start justify-between">
+        <div className="mb-8 flex items-start justify-between animate-fade-up">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
               {getGreeting()}
@@ -72,19 +72,27 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <QuickActionsBar />
+        <div className="animate-fade-up stagger-1">
+          <QuickActionsBar />
+        </div>
 
         {/* Alerts */}
-        <AlertsSection />
+        <div className="animate-fade-up stagger-2">
+          <AlertsSection />
+        </div>
 
         {/* Profile Widget Suggestions */}
-        <ProfileWidgetSuggestions />
+        <div className="animate-fade-up stagger-3">
+          <ProfileWidgetSuggestions />
+        </div>
 
         {/* Modules Grid */}
-        <ModulesGrid />
+        <div className="animate-fade-up stagger-4">
+          <ModulesGrid />
+        </div>
 
         {/* Widget Grid */}
-        <div className="mb-8">
+        <div className="mb-8 animate-fade-up stagger-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
               Widgets

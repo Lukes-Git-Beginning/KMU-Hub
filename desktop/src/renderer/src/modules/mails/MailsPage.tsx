@@ -310,12 +310,12 @@ export default function MailsPage() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden animate-fade-in">
       {/* Folder sidebar */}
       <aside className="w-52 shrink-0 border-r border-border bg-card p-3 overflow-y-auto">
         <button
           onClick={() => openCompose()}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors mb-4"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors mb-4"
         >
           <Plus className="h-4 w-4" />
           Neue E-Mail
@@ -332,7 +332,7 @@ export default function MailsPage() {
                   setSelectedMessageId(null)
                   setPage(1)
                 }}
-                className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
                   activeFolderId === folder.id
                     ? 'bg-primary-light text-primary font-medium'
                     : 'text-foreground hover:bg-secondary'
@@ -341,7 +341,7 @@ export default function MailsPage() {
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="flex-1 text-left truncate">{folder.name}</span>
                 {folder.unread_count > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground px-1">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground px-1 badge-accent">
                     {folder.unread_count}
                   </span>
                 )}
@@ -589,7 +589,7 @@ export default function MailsPage() {
                       <button
                         key={att.id}
                         onClick={() => toast.success(`"${att.filename}" wird heruntergeladen`)}
-                        className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 hover:bg-secondary transition-colors"
+                        className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 hover:bg-secondary hover:shadow-sm transition-all"
                       >
                         <Paperclip className="h-4 w-4 text-muted-foreground" />
                         <div className="text-left">

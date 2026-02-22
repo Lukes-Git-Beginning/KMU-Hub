@@ -54,13 +54,13 @@ export function QuickActionsBar() {
 
   return (
     <div className="flex flex-wrap gap-2 mb-6">
-      {visibleActions.map((action) => (
+      {visibleActions.map((action, i) => (
         <button
           key={action.id}
           onClick={() => navigate(action.route)}
-          className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted hover:border-border transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted hover:border-border hover:shadow-sm transition-all"
         >
-          <action.icon className="h-4 w-4 text-muted-foreground" />
+          <action.icon className={`h-4 w-4 ${i % 2 === 0 ? 'icon-accent' : 'icon-accent-2'} text-muted-foreground`} />
           {action.label}
         </button>
       ))}

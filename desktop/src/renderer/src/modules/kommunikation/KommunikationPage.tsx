@@ -77,7 +77,7 @@ export default function KommunikationPage() {
 
   return (
     <>
-      <div className="flex h-full overflow-hidden">
+      <div className="flex h-full overflow-hidden animate-fade-in">
         {/* Left: Conversation list */}
         <ConversationList
           onNewConversation={() => setShowNewConversation(true)}

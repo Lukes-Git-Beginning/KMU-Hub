@@ -413,7 +413,7 @@ export default function FinanzenPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 animate-fade-up">
         <div>
           <h1 className="text-foreground">Rechnungen & Finanzen</h1>
           <p className="text-sm text-muted-foreground">
@@ -446,14 +446,14 @@ export default function FinanzenPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto">
+      <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto animate-fade-up stagger-1">
         {tabs.map((t) => {
           const Icon = t.icon
           return (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors tab-accent-active ${
                 activeTab === t.key
                   ? 'border-primary text-primary font-medium'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -550,7 +550,7 @@ export default function FinanzenPage() {
             action={{ label: 'Neue Rechnung', onClick: handleNewInvoice }}
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
             <div className="grid grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
               <span>Nr.</span>
               <span>Kunde</span>
@@ -578,7 +578,7 @@ export default function FinanzenPage() {
                   <span className="text-sm text-foreground truncate">
                     {inv.customer.name}
                   </span>
-                  <span className="text-sm font-medium text-foreground">
+                  <span className="text-sm font-medium text-foreground stat-accent">
                     {formatEUR(grossTotal)}
                   </span>
                   <span className="text-xs text-muted-foreground">
@@ -629,7 +629,7 @@ export default function FinanzenPage() {
             action={{ label: 'Neues Angebot', onClick: handleNewQuote }}
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
             <div className="grid grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
               <span>Nr.</span>
               <span>Kunde</span>
@@ -686,7 +686,7 @@ export default function FinanzenPage() {
             }}
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
             <div className="grid grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
               <span>Nr.</span>
               <span>Kunde</span>
@@ -926,8 +926,10 @@ export default function FinanzenPage() {
 
 function LoadingState() {
   return (
-    <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-      Lade...
+    <div className="space-y-3 py-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-14 rounded-xl bg-secondary/50 animate-shimmer" />
+      ))}
     </div>
   )
 }

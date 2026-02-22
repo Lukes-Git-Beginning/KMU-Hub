@@ -324,25 +324,26 @@ export function ModulesGrid() {
 
       {viewState !== 'minimized' && (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {display.map((mod) => {
+          {display.map((mod, i) => {
             const Icon = mod.icon
             return (
               <Link
                 key={mod.id}
                 to={mod.path}
                 className={cn(
-                  'group relative rounded-lg border border-border bg-card p-6 transition-all hover:shadow-lg',
+                  'group relative rounded-xl border border-border bg-card p-6 transition-all hover:shadow-lg hover:-translate-y-0.5',
                   !mod.isActive && 'opacity-75',
+                  `animate-scale-in stagger-${Math.min(i + 1, 8)}`,
                 )}
               >
                 {mod.badge && (
-                  <Badge className="absolute right-4 top-4 bg-primary/10 text-primary">
+                  <Badge className="absolute right-4 top-4 badge-accent bg-primary/10 text-primary">
                     {mod.badge}
                   </Badge>
                 )}
 
                 <div
-                  className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg ${mod.bgColor}`}
+                  className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${mod.bgColor}`}
                 >
                   <Icon className={`h-6 w-6 ${mod.iconColor}`} />
                 </div>
@@ -359,13 +360,13 @@ export function ModulesGrid() {
                     <p className="text-xs text-muted-foreground">
                       {mod.stats.label}
                     </p>
-                    <p className="text-2xl text-foreground">{mod.stats.value}</p>
+                    <p className="text-2xl text-foreground stat-accent">{mod.stats.value}</p>
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground transition-all group-hover:translate-x-1 group-hover:text-primary" />
                 </div>
 
                 {!mod.isActive && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-card/50">
+                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-card/50">
                     <span className="rounded-full bg-foreground px-3 py-1 text-xs text-background">
                       Nicht aktiviert
                     </span>

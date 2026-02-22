@@ -266,6 +266,8 @@ function AppearanceTab() {
   const setUILook = useUIStore((s) => s.setUILook)
   const deskThemeId = useUIStore((s) => s.deskThemeId)
   const setDeskThemeAndDecorations = useUIStore((s) => s.setDeskThemeAndDecorations)
+  const accentIntensity = useUIStore((s) => s.accentIntensity)
+  const setAccentIntensity = useUIStore((s) => s.setAccentIntensity)
   const deskDecorations = useUIStore((s) => s.deskDecorations)
   const setDeskDecoration = useUIStore((s) => s.setDeskDecoration)
 
@@ -355,6 +357,39 @@ function AppearanceTab() {
       <h3 className="text-sm font-medium text-foreground mb-3">Farbpalette</h3>
       <p className="text-xs text-muted-foreground mb-3">Waehle die Akzentfarben fuer die gesamte App</p>
       <PaletteSwitcher className="mb-8" />
+
+      {/* ── ACCENT INTENSITY ─────────────────────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Akzentfarben-Intensitaet</h3>
+      <p className="text-xs text-muted-foreground mb-3">Bestimme wie stark die Akzentfarben in der App eingesetzt werden</p>
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        {([
+          { id: 'subtle' as const, label: 'Dezent', desc: 'Akzente nur bei KPIs, Status-Badges und wichtigen CTAs' },
+          { id: 'vivid' as const, label: 'Lebendig', desc: 'Akzente auch bei Tabs, Kategorien, Charts und Tags' },
+        ]).map((opt) => (
+          <button
+            key={opt.id}
+            onClick={() => setAccentIntensity(opt.id)}
+            className={`relative rounded-lg border p-4 text-left transition-colors ${
+              accentIntensity === opt.id
+                ? 'border-primary bg-primary-light'
+                : 'border-border bg-card hover:bg-secondary'
+            }`}
+          >
+            {accentIntensity === opt.id && (
+              <span className="absolute top-2 right-2">
+                <Check className="h-4 w-4 text-primary" />
+              </span>
+            )}
+            <div className={`mb-2 flex gap-1 ${opt.id === 'vivid' ? 'opacity-100' : 'opacity-60'}`}>
+              <span className="h-3 w-3 rounded-full" style={{ background: 'var(--accent-1)' }} />
+              <span className="h-3 w-3 rounded-full" style={{ background: 'var(--accent-2)' }} />
+              <span className="h-3 w-3 rounded-full" style={{ background: 'var(--primary)' }} />
+            </div>
+            <p className="text-sm font-medium text-foreground">{opt.label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+          </button>
+        ))}
+      </div>
 
       {/* ── NAVIGATION LAYOUT ────────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Navigation</h3>

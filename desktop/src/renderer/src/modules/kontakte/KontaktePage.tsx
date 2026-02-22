@@ -212,7 +212,7 @@ export default function KontaktePage() {
   ]
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden animate-fade-in">
       {/* Category sidebar */}
       <aside className="w-52 shrink-0 border-r border-border bg-card p-3 overflow-y-auto">
         <h3 className="text-sm font-medium text-foreground mb-3 px-2">Kategorien</h3>
@@ -223,7 +223,7 @@ export default function KontaktePage() {
               <button
                 key={cat.key}
                 onClick={() => setCategoryFilter(cat.key)}
-                className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
                   categoryFilter === cat.key
                     ? 'bg-primary-light text-primary font-medium'
                     : 'text-foreground hover:bg-secondary'
@@ -231,7 +231,7 @@ export default function KontaktePage() {
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="flex-1 text-left">{cat.label}</span>
-                <span className="text-xs text-muted-foreground">{cat.count}</span>
+                <span className="text-xs text-muted-foreground badge-accent">{cat.count}</span>
               </button>
             )
           })}
@@ -422,6 +422,7 @@ export default function KontaktePage() {
 
       {/* Detail panel */}
       {selectedContact ? (
+        <div className="animate-slide-in-right">
         <ContactDetailPanel
           contact={selectedContact}
           onClose={() => setSelectedContactId(null)}
@@ -435,6 +436,7 @@ export default function KontaktePage() {
           onMessage={handleMessage}
           onToggleFavorite={toggleFavorite}
         />
+        </div>
       ) : (
         <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
           <div className="text-center">

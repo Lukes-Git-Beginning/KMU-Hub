@@ -31,10 +31,10 @@ export function AlertsSection() {
 
   return (
     <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-      {alerts.map((alert) => (
+      {alerts.map((alert, i) => (
         <div
           key={alert.id}
-          className={`flex items-center justify-between rounded-lg border p-4 ${
+          className={`flex items-center justify-between rounded-xl border p-4 animate-fade-up stagger-${i + 1} ${
             alert.type === 'warning'
               ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20'
               : 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20'

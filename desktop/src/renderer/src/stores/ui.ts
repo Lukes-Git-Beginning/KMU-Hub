@@ -35,6 +35,7 @@ function buildDefaultDecorations(themeId: string): Record<string, DecorationPlac
 
 export type ColorTheme = 'graphit' | 'sand' | 'ozean'
 export type NavLayout = 'sidebar' | 'dock' | 'topnav' | 'classic'
+export type AccentIntensity = 'subtle' | 'vivid'
 
 interface UIState {
   sidebarCollapsed: boolean
@@ -47,6 +48,7 @@ interface UIState {
   // Design system (Wave 14+)
   colorTheme: ColorTheme
   navLayout: NavLayout
+  accentIntensity: AccentIntensity
 
   // Desk environment
   deskMaximized: boolean
@@ -66,6 +68,7 @@ interface UIState {
   setUILook: (look: 'solid' | 'glass' | 'crystal') => void
   setColorTheme: (theme: ColorTheme) => void
   setNavLayout: (layout: NavLayout) => void
+  setAccentIntensity: (intensity: AccentIntensity) => void
 
   // Onboarding
   setOnboardingCompleted: (completed: boolean) => void
@@ -92,6 +95,7 @@ export const useUIStore = create<UIState>()(
       // Design system (Wave 14+)
       colorTheme: 'graphit',
       navLayout: 'sidebar',
+      accentIntensity: 'subtle',
 
       // Desk defaults
       deskMaximized: false,
@@ -129,6 +133,9 @@ export const useUIStore = create<UIState>()(
 
       setNavLayout: (navLayout) =>
         set({ navLayout }),
+
+      setAccentIntensity: (accentIntensity) =>
+        set({ accentIntensity }),
 
       toggleDeskMaximized: () =>
         set((state) => ({ deskMaximized: !state.deskMaximized })),

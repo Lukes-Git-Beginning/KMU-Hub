@@ -1300,6 +1300,46 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
+   ACCENT-VIVID OVERRIDES
+   When .accent-vivid is on <html>, accent colors are used more
+   broadly across tabs, categories, stats, and tags.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Tab active indicators */
+.accent-vivid .tab-accent-active {
+  border-color: var(--accent-1);
+  color: var(--accent-1);
+}
+
+/* Stat / KPI values */
+.accent-vivid .stat-accent {
+  color: var(--accent-1);
+}
+.accent-vivid .stat-accent-2 {
+  color: var(--accent-2);
+}
+
+/* Category / tag badges */
+.accent-vivid .badge-accent {
+  background: var(--accent-1-light);
+  color: var(--accent-1);
+}
+.accent-vivid .badge-accent-2 {
+  background: var(--accent-2-light);
+  color: var(--accent-2);
+}
+
+/* Icon containers */
+.accent-vivid .icon-accent {
+  color: var(--accent-1);
+  background: var(--accent-1-light);
+}
+.accent-vivid .icon-accent-2 {
+  color: var(--accent-2);
+  background: var(--accent-2-light);
+}
+
+/* ═══════════════════════════════════════════════════════════
    DESK DECORATION ANIMATIONS
    6 animation classes for AI-generated decoration items
    ═══════════════════════════════════════════════════════════ */
