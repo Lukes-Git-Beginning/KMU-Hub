@@ -7,7 +7,7 @@ export function TopNavLayout() {
   return (
     <div className="flex h-full flex-col bg-background overflow-hidden glass-surface">
       <TopNavBar />
-      <main className="flex-1 overflow-auto">
+      <main id="main-content" className="flex-1 overflow-auto">
         <OfflineBanner />
         <ModuleErrorBoundary>
           <PageTransitionOutlet />

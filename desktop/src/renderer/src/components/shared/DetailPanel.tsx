@@ -51,10 +51,14 @@ export function DetailPanel({
       <div
         className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity animate-fade-in"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Panel */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || 'Detail-Panel'}
         className={cn(
           'fixed right-0 top-0 z-50 flex h-full flex-col border-l bg-[var(--card)] shadow-xl glass-elevated',
           'animate-in slide-in-from-right duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
@@ -90,8 +94,9 @@ export function DetailPanel({
                   size="icon"
                   className="h-7 w-7"
                   onClick={onExpand}
+                  aria-label="Erweitern"
                 >
-                  <Maximize2 className="h-3.5 w-3.5" />
+                  <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
               )}
               <Button
@@ -99,8 +104,9 @@ export function DetailPanel({
                 size="icon"
                 className="h-7 w-7"
                 onClick={onClose}
+                aria-label="Schließen"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             </div>
           </div>

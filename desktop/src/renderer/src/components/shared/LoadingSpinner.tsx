@@ -24,8 +24,13 @@ export function LoadingSpinner({
   label,
 }: LoadingSpinnerProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-3', className)}>
-      <div className={cn('relative', sizes[size])}>
+    <div
+      className={cn('flex flex-col items-center justify-center gap-3', className)}
+      role="status"
+      aria-live="polite"
+      aria-label={label || 'Wird geladen'}
+    >
+      <div className={cn('relative', sizes[size])} aria-hidden="true">
         {/* Outer ring — gradient stroke, spinning */}
         <svg
           className="absolute inset-0 h-full w-full animate-spin-smooth"

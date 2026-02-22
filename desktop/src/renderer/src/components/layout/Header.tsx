@@ -50,8 +50,9 @@ export function Header() {
           <button
             onClick={() => setSidebarMobileOpen(true)}
             className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
+            aria-label="Navigation öffnen"
           >
-            <Menu className="h-5 w-5 text-muted-foreground" />
+            <Menu className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
         )}
 
@@ -100,6 +101,7 @@ export function Header() {
               className={`inline-block h-2.5 w-2.5 rounded-full ${
                 isOnline ? 'bg-emerald-500' : 'bg-destructive'
               }`}
+              role="status"
               aria-label={isOnline ? 'Online' : 'Offline'}
             />
           </TooltipTrigger>
@@ -119,11 +121,12 @@ export function Header() {
                 size="icon"
                 className="h-9 w-9"
                 onClick={toggleDeskMaximized}
+                aria-label={deskMaximized ? 'Schreibtisch anzeigen' : 'Arbeitsfläche maximieren'}
               >
                 {deskMaximized ? (
-                  <Minimize2 className="h-4 w-4" />
+                  <Minimize2 className="h-4 w-4" aria-hidden="true" />
                 ) : (
-                  <Maximize2 className="h-4 w-4" />
+                  <Maximize2 className="h-4 w-4" aria-hidden="true" />
                 )}
               </Button>
             </TooltipTrigger>

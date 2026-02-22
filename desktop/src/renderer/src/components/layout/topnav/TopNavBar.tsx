@@ -66,8 +66,8 @@ export function TopNavBar() {
       {/* Grid button — opens module overview */}
       <Popover open={overviewOpen} onOpenChange={setOverviewOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
-            <LayoutGrid className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Module anzeigen">
+            <LayoutGrid className="h-5 w-5" aria-hidden="true" />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[480px] p-0" sideOffset={8}>
@@ -83,8 +83,9 @@ export function TopNavBar() {
         <button
           onClick={() => scroll('left')}
           className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          aria-label="Nach links scrollen"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
 
@@ -103,13 +104,14 @@ export function TopNavBar() {
         <button
           onClick={() => scroll('right')}
           className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          aria-label="Nach rechts scrollen"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
 
       {/* Separator */}
-      <div className="h-6 w-px bg-border/50" />
+      <div className="h-6 w-px bg-border/50" aria-hidden="true" />
 
       {/* Header widgets */}
       <div className="flex shrink-0 items-center gap-1.5">
@@ -123,6 +125,7 @@ export function TopNavBar() {
           <TooltipTrigger asChild>
             <span
               className={`inline-block h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-destructive'}`}
+              role="status"
               aria-label={isOnline ? 'Online' : 'Offline'}
             />
           </TooltipTrigger>

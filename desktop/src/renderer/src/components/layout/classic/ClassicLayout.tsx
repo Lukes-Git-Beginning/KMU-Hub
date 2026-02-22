@@ -11,7 +11,7 @@ export function ClassicLayout() {
       <main className="flex flex-1 flex-col overflow-hidden">
         <OfflineBanner />
         <Header />
-        <div className="flex-1 overflow-auto">
+        <div id="main-content" className="flex-1 overflow-auto">
           <ModuleErrorBoundary>
             <PageTransitionOutlet />
           </ModuleErrorBoundary>

@@ -57,10 +57,18 @@ export function NotificationBell() {
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-9 w-9">
-              <Bell className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative h-9 w-9"
+              aria-label={unreadCount > 0 ? `Benachrichtigungen — ${unreadCount} ungelesen` : 'Benachrichtigungen'}
+            >
+              <Bell className="h-4 w-4" aria-hidden="true" />
               {unreadCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
+                <span
+                  className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground"
+                  aria-hidden="true"
+                >
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}

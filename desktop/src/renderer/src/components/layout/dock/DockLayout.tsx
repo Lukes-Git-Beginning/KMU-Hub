@@ -30,6 +30,7 @@ export function DockLayout() {
             <TooltipTrigger asChild>
               <span
                 className={`inline-block h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-destructive'}`}
+                role="status"
                 aria-label={isOnline ? 'Online' : 'Offline'}
               />
             </TooltipTrigger>
@@ -42,7 +43,7 @@ export function DockLayout() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-auto">
+      <main id="main-content" className="flex-1 overflow-auto">
         <OfflineBanner />
         <ModuleErrorBoundary>
           <PageTransitionOutlet />

@@ -54,7 +54,7 @@ export function DockBar() {
         ))}
 
         {enabledBottom.length > 0 && (
-          <div className="mx-1 h-8 w-px bg-border/40" />
+          <div className="mx-1 h-8 w-px bg-border/40" aria-hidden="true" />
         )}
 
         {enabledBottom.map((item) => (
@@ -81,6 +81,8 @@ function DockItem({ item }: { item: NavItemConfig }) {
         <button
           data-dock-item
           onClick={() => navigate(item.to)}
+          aria-label={item.label}
+          aria-current={isActive ? 'page' : undefined}
           className={cn(
             'relative flex items-center justify-center rounded-xl origin-bottom',
             'h-11 w-11 transition-[transform,background-color] duration-150 ease-out',
@@ -89,7 +91,7 @@ function DockItem({ item }: { item: NavItemConfig }) {
               : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
 
           {/* Badge dot */}
           {item.badge && (
