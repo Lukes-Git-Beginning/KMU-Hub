@@ -1,8 +1,7 @@
-import { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
 import { Header } from '../Header'
 import { OfflineBanner } from '../OfflineBanner'
-import { ModuleLoadingFallback, ModuleErrorBoundary } from '../ModuleShell'
+import { ModuleErrorBoundary } from '../ModuleShell'
+import { PageTransitionOutlet } from '../PageTransitionOutlet'
 import { ClassicSidebar } from './ClassicSidebar'
 
 export function ClassicLayout() {
@@ -14,9 +13,7 @@ export function ClassicLayout() {
         <Header />
         <div className="flex-1 overflow-auto">
           <ModuleErrorBoundary>
-            <Suspense fallback={<ModuleLoadingFallback />}>
-              <Outlet />
-            </Suspense>
+            <PageTransitionOutlet />
           </ModuleErrorBoundary>
         </div>
       </main>

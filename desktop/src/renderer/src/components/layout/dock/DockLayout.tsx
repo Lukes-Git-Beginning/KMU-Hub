@@ -1,5 +1,3 @@
-import { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
@@ -11,7 +9,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { OfflineBanner } from '../OfflineBanner'
-import { ModuleLoadingFallback, ModuleErrorBoundary } from '../ModuleShell'
+import { ModuleErrorBoundary } from '../ModuleShell'
+import { PageTransitionOutlet } from '../PageTransitionOutlet'
 import { DockBar } from './DockBar'
 
 export function DockLayout() {
@@ -46,9 +45,7 @@ export function DockLayout() {
       <main className="flex-1 overflow-auto">
         <OfflineBanner />
         <ModuleErrorBoundary>
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <Outlet />
-          </Suspense>
+          <PageTransitionOutlet />
         </ModuleErrorBoundary>
       </main>
 

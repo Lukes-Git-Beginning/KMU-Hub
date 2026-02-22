@@ -2,6 +2,7 @@
 @import "./tiptap.css";
 @import "./animations.css";
 @import "./glass-effects.css";
+@import "./micro-interactions.css";
 
 /* Enable .dark class toggling for Tailwind dark: utilities */
 @custom-variant dark (&:is(.dark *));

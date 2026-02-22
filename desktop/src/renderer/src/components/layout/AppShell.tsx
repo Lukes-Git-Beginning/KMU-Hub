@@ -9,8 +9,6 @@
  *
  * Global overlays (video, help, onboarding) are shared across all layouts.
  */
-import { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
 import { useUIStore } from '@/stores/ui'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -20,7 +18,8 @@ import { IncomingCallOverlay } from '@/features/video/IncomingCallOverlay'
 import { Sidebar } from './sidebar'
 import { Header } from './Header'
 import { OfflineBanner } from './OfflineBanner'
-import { ModuleLoadingFallback, ModuleErrorBoundary } from './ModuleShell'
+import { ModuleErrorBoundary } from './ModuleShell'
+import { PageTransitionOutlet } from './PageTransitionOutlet'
 import { HelpWidget } from '@/components/widgets/HelpWidget'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 import { DockLayout } from './dock'
@@ -86,9 +85,7 @@ function SidebarShell() {
 
         <div className="flex-1 overflow-auto">
           <ModuleErrorBoundary>
-            <Suspense fallback={<ModuleLoadingFallback />}>
-              <Outlet />
-            </Suspense>
+            <PageTransitionOutlet />
           </ModuleErrorBoundary>
         </div>
       </main>

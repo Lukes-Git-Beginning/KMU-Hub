@@ -1,7 +1,6 @@
-import { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
 import { OfflineBanner } from '../OfflineBanner'
-import { ModuleLoadingFallback, ModuleErrorBoundary } from '../ModuleShell'
+import { ModuleErrorBoundary } from '../ModuleShell'
+import { PageTransitionOutlet } from '../PageTransitionOutlet'
 import { TopNavBar } from './TopNavBar'
 
 export function TopNavLayout() {
@@ -11,9 +10,7 @@ export function TopNavLayout() {
       <main className="flex-1 overflow-auto">
         <OfflineBanner />
         <ModuleErrorBoundary>
-          <Suspense fallback={<ModuleLoadingFallback />}>
-            <Outlet />
-          </Suspense>
+          <PageTransitionOutlet />
         </ModuleErrorBoundary>
       </main>
     </div>

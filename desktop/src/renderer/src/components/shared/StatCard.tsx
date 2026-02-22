@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib'
+import { useTiltEffect } from '@/hooks/useTiltEffect'
 
 interface StatCardProps {
   label: string
@@ -10,6 +11,8 @@ interface StatCardProps {
   change?: { value: number; positive: boolean }
   icon?: LucideIcon
   className?: string
+  /** Enable 3D tilt effect for large hero cards */
+  hero?: boolean
 }
 
 export function StatCard({
@@ -20,9 +23,11 @@ export function StatCard({
   change,
   icon: Icon,
   className,
+  hero = false,
 }: StatCardProps) {
   const [displayValue, setDisplayValue] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
+  const tiltRef = useTiltEffect<HTMLDivElement>({ maxAngle: 4, scale: 1.02, enabled: hero })
+  const plainRef = useRef<HTMLDivElement>(null)
   const animated = useRef(false)
 
   useEffect(() => {
@@ -46,13 +51,15 @@ export function StatCard({
 
   return (
     <div
-      ref={ref}
+      ref={hero ? tiltRef : plainRef}
       className={cn(
-        'rounded-xl border bg-card p-5 shadow-sm transition-all duration-200 hover:shadow-md animate-fade-up',
+        'rounded-xl border bg-card p-5 shadow-sm animate-fade-up',
+        hero ? 'tilt-card' : 'hover-lift',
         className
       )}
     >
-      <div className="flex items-center justify-between">
+      {hero && <div className="tilt-shine" />}
+      <div className="flex items-center justify-between relative z-[2]">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
         {Icon && (
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
@@ -60,14 +67,14 @@ export function StatCard({
           </div>
         )}
       </div>
-      <div className="mt-3 flex items-baseline gap-1">
+      <div className="mt-3 flex items-baseline gap-1 relative z-[2]">
         <span className="text-3xl font-bold tracking-tight text-foreground">
           {prefix}{displayValue.toLocaleString('de-DE')}{suffix}
         </span>
       </div>
       {change && (
         <p className={cn(
-          'mt-1.5 text-xs font-medium',
+          'mt-1.5 text-xs font-medium relative z-[2]',
           change.positive ? 'text-[var(--success)]' : 'text-[var(--error)]'
         )}>
           {change.positive ? '+' : ''}{change.value}% zum Vormonat
