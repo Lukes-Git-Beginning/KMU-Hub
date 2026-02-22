@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════
-   UI ANIMATIONS — Wave 14 Design Foundation
+   UI ANIMATIONS — Wave 14 Design Foundation + Wave 15
    Reusable animation utilities for the design system.
    All decorative animations respect prefers-reduced-motion.
    ═══════════════════════════════════════════════════════ */
@@ -124,6 +124,16 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Checkmark Draw (for checkbox) ── */
+@keyframes checkmark-draw {
+  from {
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* ════════════════════════
    UTILITY CLASSES
    ════════════════════════ */
@@ -183,6 +193,13 @@
   animation: count-up 400ms ease-out both;
 }
 
+/* Checkbox checkmark stroke animation */
+.animate-checkmark path {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 0;
+  animation: checkmark-draw 250ms ease-out;
+}
+
 /* ── Stagger Delays ── */
 .stagger-1 { animation-delay: 50ms; }
 .stagger-2 { animation-delay: 100ms; }
@@ -192,6 +209,24 @@
 .stagger-6 { animation-delay: 300ms; }
 .stagger-7 { animation-delay: 350ms; }
 .stagger-8 { animation-delay: 400ms; }
+
+/* ── Menu Item Stagger (for dropdown/context menus) ── */
+.menu-stagger > [role="menuitem"],
+.menu-stagger > [role="menuitemcheckbox"],
+.menu-stagger > [role="menuitemradio"],
+.menu-stagger > [role="option"] {
+  animation: fade-up 120ms ease-out both;
+}
+.menu-stagger > :nth-child(1) { animation-delay: 30ms; }
+.menu-stagger > :nth-child(2) { animation-delay: 50ms; }
+.menu-stagger > :nth-child(3) { animation-delay: 70ms; }
+.menu-stagger > :nth-child(4) { animation-delay: 90ms; }
+.menu-stagger > :nth-child(5) { animation-delay: 110ms; }
+.menu-stagger > :nth-child(6) { animation-delay: 130ms; }
+.menu-stagger > :nth-child(7) { animation-delay: 150ms; }
+.menu-stagger > :nth-child(8) { animation-delay: 170ms; }
+.menu-stagger > :nth-child(9) { animation-delay: 190ms; }
+.menu-stagger > :nth-child(10) { animation-delay: 210ms; }
 
 /* ── Page Transition ── */
 .page-enter {
@@ -218,6 +253,7 @@
   .animate-glow-pulse,
   .animate-spin-smooth,
   .animate-count-up,
+  .animate-checkmark path,
   .page-enter,
   .page-exit {
     animation: none !important;
@@ -225,5 +261,9 @@
 
   [class*="stagger-"] {
     animation-delay: 0ms !important;
+  }
+
+  .menu-stagger > * {
+    animation: none !important;
   }
 }

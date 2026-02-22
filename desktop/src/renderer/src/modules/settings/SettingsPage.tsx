@@ -43,6 +43,8 @@ import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
 import { TeamSettingsTab } from './tabs/TeamSettingsTab'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
 import { useProfileStore } from '@/stores/profile'
+import { PaletteSwitcher } from '@/components/shared/PaletteSwitcher'
+import { LayoutSwitcher } from '@/components/shared/LayoutSwitcher'
 import { BUSINESS_PROFILES } from '@/config/business-profiles'
 import { CalDAVSettingsTab } from './tabs/CalDAVSettingsTab'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
@@ -348,6 +350,16 @@ function AppearanceTab() {
           </button>
         ))}
       </div>
+
+      {/* ── COLOR PALETTE PICKER ────────────────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Farbpalette</h3>
+      <p className="text-xs text-muted-foreground mb-3">Waehle die Akzentfarben fuer die gesamte App</p>
+      <PaletteSwitcher className="mb-8" />
+
+      {/* ── NAVIGATION LAYOUT ────────────────────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Navigation</h3>
+      <p className="text-xs text-muted-foreground mb-3">Waehle wie du durch die App navigierst</p>
+      <LayoutSwitcher className="mb-8" />
 
       {/* ── UI LOOK PICKER ──────────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Oberflächenstil</h3>

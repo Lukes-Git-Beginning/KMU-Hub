@@ -29,19 +29,20 @@ export function SearchResultGroup({
 }: SearchResultGroupProps) {
   return (
     <div className="px-2 py-1.5">
-      <div className="px-2 pb-1 text-xs font-medium text-muted-foreground">
+      <div className="px-2 pb-1 text-xs font-medium text-primary/70 uppercase tracking-wider">
         {group.label}
       </div>
       {group.items.map((item, i) => (
-        <SearchResultItem
-          key={item.id}
-          icon={item.icon}
-          title={item.title}
-          subtitle={item.subtitle}
-          active={activeIndex === startIndex + i}
-          onClick={() => onSelect(item.route)}
-          onMouseEnter={() => onHover(startIndex + i)}
-        />
+        <div key={item.id} className="animate-fade-up" style={{ animationDelay: `${i * 30}ms` }}>
+          <SearchResultItem
+            icon={item.icon}
+            title={item.title}
+            subtitle={item.subtitle}
+            active={activeIndex === startIndex + i}
+            onClick={() => onSelect(item.route)}
+            onMouseEnter={() => onHover(startIndex + i)}
+          />
+        </div>
       ))}
     </div>
   )

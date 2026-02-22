@@ -23,13 +23,18 @@ export function SearchResultItem({
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       className={cn(
-        'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors',
+        'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-all duration-150',
         active
           ? 'bg-primary/10 text-foreground'
           : 'text-foreground/80 hover:bg-accent',
       )}
     >
-      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className={cn(
+        'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors duration-150',
+        active ? 'bg-primary/15 text-primary' : 'text-muted-foreground'
+      )}>
+        <Icon className="h-4 w-4" />
+      </div>
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{title}</div>
         {subtitle && (

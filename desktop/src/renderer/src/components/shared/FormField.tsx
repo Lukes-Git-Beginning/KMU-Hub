@@ -15,20 +15,20 @@ export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(
 
     return (
       <div className={cn('space-y-1.5', className)}>
-        <Label htmlFor={fieldId} className="text-sm font-medium text-[var(--body)]">
+        <Label htmlFor={fieldId} className="text-sm font-medium text-foreground">
           {label}
           {required && <span className="ml-0.5 text-destructive">*</span>}
         </Label>
         <Input
           ref={ref}
           id={fieldId}
-          className={cn(error && 'border-destructive')}
+          className={cn(error && 'border-destructive focus-visible:ring-destructive/30')}
           {...props}
         />
         {description && !error && (
-          <p className="text-xs text-[var(--muted)]">{description}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
         )}
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-destructive animate-fade-up">{error}</p>}
       </div>
     )
   }
