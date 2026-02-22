@@ -20,6 +20,12 @@ export type NotificationType =
 
 export type NotificationPriority = 'low' | 'normal' | 'high'
 
+export interface NotificationAction {
+  key: string
+  label: string
+  variant?: 'default' | 'primary' | 'destructive'
+}
+
 export interface Notification {
   id: string
   type: NotificationType
@@ -33,6 +39,8 @@ export interface Notification {
   actorInitials?: string
   groupKey?: string
   createdAt: string
+  snoozedUntil?: string
+  actions?: NotificationAction[]
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +50,7 @@ export interface Notification {
 interface NotificationsState {
   notifications: Notification[]
   isDropdownOpen: boolean
+  soundEnabled: boolean
 
   // Computed-like
   unreadCount: () => number
@@ -54,6 +63,9 @@ interface NotificationsState {
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void
   toggleDropdown: () => void
   closeDropdown: () => void
+  snoozeNotification: (id: string, until: string) => void
+  toggleSound: () => void
+  handleNotificationAction: (notificationId: string, actionKey: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +98,10 @@ const mockNotifications: Notification[] = [
     actorName: 'Peter Schmidt',
     actorInitials: 'PS',
     createdAt: '2026-02-20T08:45:00',
+    actions: [
+      { key: 'accept', label: 'Annehmen', variant: 'primary' },
+      { key: 'decline', label: 'Ablehnen', variant: 'destructive' },
+    ],
   },
   {
     id: 'n3',
@@ -97,6 +113,10 @@ const mockNotifications: Notification[] = [
     isRead: false,
     actionUrl: '/meetings',
     createdAt: '2026-02-20T09:45:00',
+    actions: [
+      { key: 'join', label: 'Beitreten', variant: 'primary' },
+      { key: 'snooze', label: 'Erinnere in 5 Min' },
+    ],
   },
   {
     id: 'n4',
@@ -194,6 +214,7 @@ export const useNotificationsStore = create<NotificationsState>()(
     (set, get) => ({
       notifications: mockNotifications,
       isDropdownOpen: false,
+      soundEnabled: true,
 
       unreadCount: () => get().notifications.filter((n) => !n.isRead).length,
 
@@ -230,6 +251,27 @@ export const useNotificationsStore = create<NotificationsState>()(
         set((state) => ({ isDropdownOpen: !state.isDropdownOpen })),
 
       closeDropdown: () => set({ isDropdownOpen: false }),
+
+      snoozeNotification: (id, until) =>
+        set((state) => ({
+          notifications: state.notifications.map((n) =>
+            n.id === id ? { ...n, isRead: true, snoozedUntil: until } : n,
+          ),
+        })),
+
+      toggleSound: () =>
+        set((state) => ({ soundEnabled: !state.soundEnabled })),
+
+      handleNotificationAction: (notificationId, actionKey) => {
+        // Mark the notification as read when any action is taken
+        set((state) => ({
+          notifications: state.notifications.map((n) =>
+            n.id === notificationId ? { ...n, isRead: true, actions: undefined } : n,
+          ),
+        }))
+        // In production, actionKey would dispatch to relevant service
+        console.log(`[Notification] Action "${actionKey}" on ${notificationId}`)
+      },
     }),
     {
       name: 'kmuhub-notifications',

@@ -22,6 +22,7 @@ export const ALL_WIDGET_IDS = [
   'activity-feed',
   'quick-actions',
   'notification-summary',
+  'notification-feed',
 ] as const
 
 export type WidgetId = (typeof ALL_WIDGET_IDS)[number]

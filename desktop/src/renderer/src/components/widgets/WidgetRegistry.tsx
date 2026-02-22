@@ -104,6 +104,16 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
     component: lazy(() => import('../../modules/dashboard/widgets/NotificationSummary')),
     roles: ['admin', 'manager', 'member'],
   },
+  'notification-feed': {
+    id: 'notification-feed',
+    name: 'Benachrichtigungs-Feed',
+    description: 'Letzte 10 Benachrichtigungen (offline-faehig).',
+    icon: Bell,
+    defaultSize: { w: 4, h: 4 },
+    minSize: { w: 3, h: 3 },
+    component: lazy(() => import('../../modules/dashboard/widgets/NotificationFeedWidget')),
+    roles: ['admin', 'manager', 'member'],
+  },
 }
 
 /** Ordered list of all widget definitions for the widget picker. */

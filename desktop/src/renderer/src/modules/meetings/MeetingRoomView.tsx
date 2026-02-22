@@ -14,10 +14,14 @@ import {
   Maximize2,
   Minimize2,
   Clock,
+  Settings,
+  MonitorOff,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
 import type { Meeting } from '@/stores/meetings'
+
+type SidebarTab = 'participants' | 'chat' | 'settings'
 
 interface MeetingRoomViewProps {
   meeting: Meeting
@@ -30,8 +34,7 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
   const [isCameraOff, setIsCameraOff] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [isHandRaised, setIsHandRaised] = useState(false)
-  const [showChat, setShowChat] = useState(false)
-  const [showParticipants, setShowParticipants] = useState(false)
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab | null>(null)
   const [isMaximized, setIsMaximized] = useState(false)
   const [elapsed, setElapsed] = useState(0)
 
@@ -96,6 +99,20 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
         </div>
       </div>
 
+      {/* Screen share banner */}
+      {isScreenSharing && (
+        <div className="flex items-center justify-center gap-2 bg-primary/10 border-b border-primary/20 px-4 py-1.5">
+          <Monitor className="h-4 w-4 text-primary" />
+          <span className="text-xs font-medium text-primary">Du teilst deinen Bildschirm</span>
+          <button
+            onClick={() => setIsScreenSharing(false)}
+            className="ml-2 rounded-md bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 transition-colors"
+          >
+            Freigabe beenden
+          </button>
+        </div>
+      )}
+
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Video grid */}
@@ -111,16 +128,22 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-xl font-medium text-foreground">
                     {p.initials}
                   </div>
-                  <span className="text-sm text-muted-foreground">{p.name}</span>
                 </div>
 
-                {/* Name overlay */}
+                {/* Name + mute overlay */}
                 <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md bg-black/50 px-2 py-1">
-                  <span className="text-xs text-foreground">{p.name}</span>
+                  <span className="text-xs text-white">{p.name}</span>
                   {i === 0 && isMuted && <MicOff className="h-3 w-3 text-red-400" />}
                 </div>
 
-                {/* Active speaker indicator */}
+                {/* Hand raise indicator */}
+                {((i === 0 && isHandRaised) || i === 2) && (
+                  <div className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-yellow-500/90 shadow-sm animate-bounce">
+                    <Hand className="h-4 w-4 text-white" />
+                  </div>
+                )}
+
+                {/* Active speaker ring */}
                 {i === 0 && (
                   <div className="absolute inset-0 rounded-xl border-2 border-primary/60 pointer-events-none" />
                 )}
@@ -129,40 +152,58 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
           </div>
         </div>
 
-        {/* Side panel: Participants or Chat */}
-        {(showParticipants || showChat) && (
+        {/* Side panel with tabs */}
+        {sidebarTab !== null && (
           <div className="w-72 flex flex-col border-l border-border bg-card/60">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-              <span className="text-sm font-medium text-foreground">
-                {showParticipants ? 'Teilnehmer' : 'Chat'}
-              </span>
+            {/* Sidebar tab headers */}
+            <div className="flex items-center border-b border-border">
+              {([
+                { key: 'participants' as SidebarTab, label: 'Teilnehmer', icon: Users },
+                { key: 'chat' as SidebarTab, label: 'Chat', icon: MessageSquare },
+                { key: 'settings' as SidebarTab, label: 'Einstellungen', icon: Settings },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSidebarTab(tab.key)}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium border-b-2 transition-colors',
+                    sidebarTab === tab.key
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <tab.icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                </button>
+              ))}
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => {
-                  setShowParticipants(false)
-                  setShowChat(false)
-                }}
+                className="h-7 w-7 mx-1 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                onClick={() => setSidebarTab(null)}
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
 
-            {showParticipants && (
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {participants.map((p) => (
+            {/* Participants */}
+            {sidebarTab === 'participants' && (
+              <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                {participants.map((p, i) => (
                   <div key={p.id} className="flex items-center gap-2 rounded-md p-2 hover:bg-muted/50">
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium text-foreground">
                       {p.initials}
                     </span>
-                    <span className="text-sm text-foreground/90">{p.name}</span>
+                    <span className="flex-1 text-sm text-foreground/90">{p.name}</span>
+                    {i === 0 && isMuted && <MicOff className="h-3.5 w-3.5 text-red-400" />}
+                    {((i === 0 && isHandRaised) || i === 2) && <Hand className="h-3.5 w-3.5 text-yellow-500" />}
                   </div>
                 ))}
               </div>
             )}
 
-            {showChat && (
+            {/* Chat */}
+            {sidebarTab === 'chat' && (
               <div className="flex flex-1 flex-col">
                 <div className="flex-1 overflow-y-auto p-3">
                   <p className="text-xs text-muted-foreground/70 text-center mt-8">
@@ -175,6 +216,49 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
                     placeholder="Nachricht..."
                     className="w-full rounded-md bg-muted px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                </div>
+              </div>
+            )}
+
+            {/* Settings */}
+            {sidebarTab === 'settings' && (
+              <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Mikrofon</label>
+                  <select className="w-full rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs text-foreground">
+                    <option>Standard-Mikrofon</option>
+                    <option>Headset (USB)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Lautsprecher</label>
+                  <select className="w-full rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs text-foreground">
+                    <option>Standard-Lautsprecher</option>
+                    <option>Headset (USB)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Kamera</label>
+                  <select className="w-full rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs text-foreground">
+                    <option>Integrierte Webcam</option>
+                    <option>HD Pro Webcam</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Layout</label>
+                  <div className="flex gap-1">
+                    {(['grid', 'speaker', 'sidebar'] as const).map((l) => (
+                      <button
+                        key={l}
+                        className={cn(
+                          'flex-1 rounded-md py-1.5 text-xs font-medium transition-colors',
+                          l === 'grid' ? 'bg-primary/15 text-primary' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        {l === 'grid' ? 'Raster' : l === 'speaker' ? 'Sprecher' : 'Seite'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -218,14 +302,14 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
         <ToolbarButton
           icon={MessageSquare}
           label="Chat"
-          active={showChat}
-          onClick={() => { setShowChat(!showChat); setShowParticipants(false) }}
+          active={sidebarTab === 'chat'}
+          onClick={() => setSidebarTab(sidebarTab === 'chat' ? null : 'chat')}
         />
         <ToolbarButton
           icon={Users}
           label="Teilnehmer"
-          active={showParticipants}
-          onClick={() => { setShowParticipants(!showParticipants); setShowChat(false) }}
+          active={sidebarTab === 'participants'}
+          onClick={() => setSidebarTab(sidebarTab === 'participants' ? null : 'participants')}
         />
 
         <div className="mx-2 h-8 w-px bg-border" />

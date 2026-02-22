@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button'
 import { AlertsSection, ModulesGrid } from '@/components/dashboard'
 import WidgetContainer from '@/components/widgets/WidgetContainer'
 import { useDashboardStore } from '@/stores/dashboard'
+import { QuickActionsBar } from '@/components/dashboard/QuickActionsBar'
+import { ProfileWidgetSuggestions } from '@/components/dashboard/ProfileWidgetSuggestions'
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -69,8 +71,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Quick Actions */}
+        <QuickActionsBar />
+
         {/* Alerts */}
         <AlertsSection />
+
+        {/* Profile Widget Suggestions */}
+        <ProfileWidgetSuggestions />
 
         {/* Modules Grid */}
         <ModulesGrid />

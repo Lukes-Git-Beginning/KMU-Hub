@@ -39,12 +39,37 @@ export interface ScheduledReport {
   active: boolean
 }
 
+export interface KPIDrilldownRow {
+  date: string
+  label: string
+  amount: string
+  status: string
+}
+
+export interface ComparisonBar {
+  label: string
+  current: number
+  previous: number
+}
+
+export interface DATEVRow {
+  position: string
+  label: string
+  currentMonth: number
+  previousMonth: number
+  yearToDate: number
+}
+
 interface BerichteStore {
   kpis: KPI[]
   chartData: ChartBar[]
   modules: ModuleOption[]
   savedReports: SavedReport[]
   scheduledReports: ScheduledReport[]
+  kpiDrilldownData: Record<string, KPIDrilldownRow[]>
+  comparisonChartData: ComparisonBar[]
+  datevBWA: DATEVRow[]
+  datevSuSa: DATEVRow[]
 }
 
 const MOCK_KPIS: KPI[] = [
@@ -87,6 +112,82 @@ const MOCK_SCHEDULED_REPORTS: ScheduledReport[] = [
   { id: 'sched-2', reportId: 'rpt-3', name: 'Helpdesk SLA-Report', schedule: 'weekly', recipients: ['it-leitung@firma.ch', 'support@firma.ch'], lastRun: '2026-02-10T06:00:00', active: true },
 ]
 
+const MOCK_DRILLDOWN: Record<string, KPIDrilldownRow[]> = {
+  'kpi-1': [
+    { date: '2026-02-18', label: 'Weber GmbH', amount: '42.500 EUR', status: 'Bezahlt' },
+    { date: '2026-02-15', label: 'Mueller AG', amount: '28.900 EUR', status: 'Bezahlt' },
+    { date: '2026-02-12', label: 'Schmidt KG', amount: '65.200 EUR', status: 'Offen' },
+    { date: '2026-02-08', label: 'Fischer OHG', amount: '31.750 EUR', status: 'Bezahlt' },
+    { date: '2026-02-03', label: 'Bauer & Co.', amount: '116.000 EUR', status: 'Teilzahlung' },
+  ],
+  'kpi-2': [
+    { date: '2026-02-20', label: 'Projekt Alpha', amount: '12 Auftraege', status: 'In Arbeit' },
+    { date: '2026-02-18', label: 'Projekt Beta', amount: '8 Auftraege', status: 'In Arbeit' },
+    { date: '2026-02-15', label: 'Wartung Q1', amount: '15 Auftraege', status: 'Geplant' },
+    { date: '2026-02-10', label: 'Notfall-Support', amount: '7 Auftraege', status: 'Dringend' },
+    { date: '2026-02-05', label: 'Kleinauftraege', amount: '5 Auftraege', status: 'In Arbeit' },
+  ],
+  'kpi-3': [
+    { date: '2026-02-20', label: 'Support-Bewertungen', amount: '4.8 / 5.0', status: '23 Bewertungen' },
+    { date: '2026-02-15', label: 'Projektabschluss-Umfrage', amount: '4.5 / 5.0', status: '8 Bewertungen' },
+    { date: '2026-02-10', label: 'NPS Score', amount: '+42', status: '15 Antworten' },
+    { date: '2026-02-05', label: 'Onboarding-Feedback', amount: '4.7 / 5.0', status: '5 Bewertungen' },
+  ],
+  'kpi-4': [
+    { date: '2026-02-20', label: 'Kritisch', amount: '0.8 Std', status: '14 Tickets' },
+    { date: '2026-02-20', label: 'Hoch', amount: '1.5 Std', status: '38 Tickets' },
+    { date: '2026-02-20', label: 'Mittel', amount: '3.2 Std', status: '62 Tickets' },
+    { date: '2026-02-20', label: 'Niedrig', amount: '5.1 Std', status: '27 Tickets' },
+  ],
+  'kpi-5': [
+    { date: '2026-02-20', label: 'Rohmaterial', amount: '12.3x', status: 'Ueber Ziel' },
+    { date: '2026-02-20', label: 'Halbfertig', amount: '6.8x', status: 'Im Ziel' },
+    { date: '2026-02-20', label: 'Fertigware', amount: '9.1x', status: 'Im Ziel' },
+    { date: '2026-02-20', label: 'Ersatzteile', amount: '4.2x', status: 'Unter Ziel' },
+  ],
+  'kpi-6': [
+    { date: '2026-02-20', label: 'Linie A', amount: '1.2%', status: 'Im Ziel' },
+    { date: '2026-02-20', label: 'Linie B', amount: '3.5%', status: 'Ueber Ziel' },
+    { date: '2026-02-20', label: 'Linie C', amount: '1.8%', status: 'Im Ziel' },
+    { date: '2026-02-20', label: 'Nacharbeit', amount: '0.9%', status: 'Unter Ziel' },
+  ],
+}
+
+const MOCK_COMPARISON: ComparisonBar[] = [
+  { label: 'Sep', current: 210, previous: 195 },
+  { label: 'Okt', current: 245, previous: 220 },
+  { label: 'Nov', current: 228, previous: 240 },
+  { label: 'Dez', current: 260, previous: 235 },
+  { label: 'Jan', current: 275, previous: 250 },
+  { label: 'Feb', current: 284, previous: 258 },
+]
+
+const MOCK_BWA: DATEVRow[] = [
+  { position: '1', label: 'Umsatzerloese', currentMonth: 284350, previousMonth: 275100, yearToDate: 559450 },
+  { position: '2', label: 'Bestandsveraenderung', currentMonth: -2100, previousMonth: 1500, yearToDate: -600 },
+  { position: '3', label: 'Gesamtleistung', currentMonth: 282250, previousMonth: 276600, yearToDate: 558850 },
+  { position: '4', label: 'Materialaufwand', currentMonth: -85200, previousMonth: -82400, yearToDate: -167600 },
+  { position: '5', label: 'Rohertrag', currentMonth: 197050, previousMonth: 194200, yearToDate: 391250 },
+  { position: '6', label: 'Personalkosten', currentMonth: -112000, previousMonth: -112000, yearToDate: -224000 },
+  { position: '7', label: 'Raumkosten', currentMonth: -8500, previousMonth: -8500, yearToDate: -17000 },
+  { position: '8', label: 'Sonstige betriebl. Aufwendungen', currentMonth: -24300, previousMonth: -22800, yearToDate: -47100 },
+  { position: '9', label: 'Betriebsergebnis (EBIT)', currentMonth: 52250, previousMonth: 50900, yearToDate: 103150 },
+  { position: '10', label: 'Zinsergebnis', currentMonth: -1200, previousMonth: -1200, yearToDate: -2400 },
+  { position: '11', label: 'Ergebnis vor Steuern', currentMonth: 51050, previousMonth: 49700, yearToDate: 100750 },
+]
+
+const MOCK_SUSA: DATEVRow[] = [
+  { position: '0800', label: 'Bank', currentMonth: 145200, previousMonth: 132800, yearToDate: 145200 },
+  { position: '1000', label: 'Kasse', currentMonth: 2350, previousMonth: 1800, yearToDate: 2350 },
+  { position: '1200', label: 'Forderungen aLuL', currentMonth: 87500, previousMonth: 92300, yearToDate: 87500 },
+  { position: '1600', label: 'Verbindlichkeiten aLuL', currentMonth: -45600, previousMonth: -48200, yearToDate: -45600 },
+  { position: '1800', label: 'USt-Verbindlichkeiten', currentMonth: -12400, previousMonth: -11800, yearToDate: -12400 },
+  { position: '4400', label: 'Erloese 19%', currentMonth: 238950, previousMonth: 231200, yearToDate: 470150 },
+  { position: '4300', label: 'Erloese 7%', currentMonth: 45400, previousMonth: 43900, yearToDate: 89300 },
+  { position: '6300', label: 'Loehne und Gehaelter', currentMonth: -95000, previousMonth: -95000, yearToDate: -190000 },
+  { position: '6400', label: 'Sozialversicherung', currentMonth: -17000, previousMonth: -17000, yearToDate: -34000 },
+]
+
 export const useBerichteStore = create<BerichteStore>()(
   persist(
     () => ({
@@ -95,6 +196,10 @@ export const useBerichteStore = create<BerichteStore>()(
       modules: MOCK_MODULES,
       savedReports: MOCK_SAVED_REPORTS,
       scheduledReports: MOCK_SCHEDULED_REPORTS,
+      kpiDrilldownData: MOCK_DRILLDOWN,
+      comparisonChartData: MOCK_COMPARISON,
+      datevBWA: MOCK_BWA,
+      datevSuSa: MOCK_SUSA,
     }),
     { name: 'kmuhub-berichte' },
   ),

@@ -46,6 +46,8 @@ import { ShareDialog } from './ShareDialog'
 import { FileContextMenu, FolderContextMenu } from './FileContextMenu'
 import { VersionHistoryPanel } from './VersionHistoryPanel'
 import { OnlyOfficeEditor, isOnlyOfficeEditable } from './OnlyOfficeEditor'
+import { TemplateGalleryDialog } from './TemplateGalleryDialog'
+import { ShareLinkDialog } from './ShareLinkDialog'
 import {
   useDocumentFolders,
   useDocumentFiles,
@@ -211,6 +213,10 @@ export default function DokumentePage() {
     token: string
     ttl: number
   } | null>(null)
+
+  // Template gallery + Share link
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false)
+  const [shareLinkTarget, setShareLinkTarget] = useState<{ id: string; name: string } | null>(null)
 
   // Upload tracking
   const [uploadFiles, setUploadFiles] = useState<UploadFileStatus[]>([])
@@ -575,6 +581,27 @@ export default function DokumentePage() {
     return 'Alle Dateien'
   }
 
+  // "In Office oeffnen" handler (Electron only)
+  const isElectron = !!window.electronAPI
+  const handleOpenInOffice = (file: DocumentFile) => {
+    if (isElectron) {
+      toast.success(`"${file.filename}" wird in Office geoeffnet...`)
+    } else {
+      toast.info('Nur in der Desktop-App verfuegbar')
+    }
+  }
+
+  const isOfficeFile = (mimeType: string): boolean => {
+    return (
+      mimeType.includes('word') ||
+      mimeType.includes('document') ||
+      mimeType.includes('spreadsheet') ||
+      mimeType.includes('excel') ||
+      mimeType.includes('presentation') ||
+      mimeType.includes('powerpoint')
+    )
+  }
+
   // OnlyOffice editor handler
   const handleEditInOnlyOffice = async (file: DocumentFile) => {
     try {
@@ -872,6 +899,13 @@ export default function DokumentePage() {
                 </button>
               </div>
               <button
+                onClick={() => setShowTemplateGallery(true)}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Aus Vorlage
+              </button>
+              <button
                 onClick={handleUpload}
                 className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
@@ -1061,6 +1095,14 @@ export default function DokumentePage() {
                           ? () => handleEditInOnlyOffice(file)
                           : undefined
                       }
+                      onShareLink={() =>
+                        setShareLinkTarget({ id: file.id, name: file.filename })
+                      }
+                      onOpenInOffice={
+                        isOfficeFile(file.mime_type)
+                          ? () => handleOpenInOffice(file)
+                          : undefined
+                      }
                     >
                       <FileGridCard
                         file={file}
@@ -1123,6 +1165,14 @@ export default function DokumentePage() {
                       onEditInOnlyOffice={
                         isOnlyOfficeEditable(file.mime_type)
                           ? () => handleEditInOnlyOffice(file)
+                          : undefined
+                      }
+                      onShareLink={() =>
+                        setShareLinkTarget({ id: file.id, name: file.filename })
+                      }
+                      onOpenInOffice={
+                        isOfficeFile(file.mime_type)
+                          ? () => handleOpenInOffice(file)
                           : undefined
                       }
                     >
@@ -1312,6 +1362,22 @@ export default function DokumentePage() {
                 // Invalidate file queries since version may have changed
                 setOnlyOfficeEditor(null)
               }}
+            />
+          )}
+
+          {/* Template Gallery Dialog */}
+          <TemplateGalleryDialog
+            open={showTemplateGallery}
+            onClose={() => setShowTemplateGallery(false)}
+          />
+
+          {/* Share Link Dialog */}
+          {shareLinkTarget && (
+            <ShareLinkDialog
+              open
+              onClose={() => setShareLinkTarget(null)}
+              fileName={shareLinkTarget.name}
+              fileId={shareLinkTarget.id}
             />
           )}
         </div>
