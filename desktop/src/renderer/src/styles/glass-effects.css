@@ -33,7 +33,7 @@
    2. FROSTED GLASS MODE
    Semi-transparent surfaces with tinted backdrop blur.
    ───────────────────────────────────────────────────────────── */
-.ui-glass {
+html.ui-glass {
   --card: rgba(var(--_rgb-card), 0.55);
   --card-hover: rgba(var(--_rgb-card), 0.62);
   --card-border: rgba(var(--_rgb-card), 0.25);
@@ -56,7 +56,7 @@
                        0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
-.dark.ui-glass {
+html.dark.ui-glass {
   --card: rgba(var(--_rgb-card), 0.50);
   --card-hover: rgba(var(--_rgb-card), 0.58);
   --card-border: rgba(var(--_rgb-card), 0.30);
@@ -190,7 +190,7 @@
    7. CRYSTAL / TRANSPARENT MODE
    Near-transparent so desk room scene shows through.
    ═══════════════════════════════════════════════════════════════ */
-.ui-crystal {
+html.ui-crystal {
   --card: rgba(var(--_rgb-card), 0.22);
   --card-hover: rgba(var(--_rgb-card), 0.28);
   --card-border: rgba(var(--_rgb-card), 0.10);
@@ -213,7 +213,7 @@
                        0 2px 4px rgba(0, 0, 0, 0.03);
 }
 
-.dark.ui-crystal {
+html.dark.ui-crystal {
   --card: rgba(var(--_rgb-card), 0.20);
   --card-hover: rgba(var(--_rgb-card), 0.25);
   --card-border: rgba(var(--_rgb-card), 0.08);
@@ -318,7 +318,7 @@
 }
 
 /* Glass elevated — more opaque than base surfaces */
-.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+html.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
   --popover: rgba(var(--_rgb-popover), 0.88);
   --background: rgba(var(--_rgb-bg), 0.88);
   --card: rgba(var(--_rgb-card), 0.88);
@@ -328,7 +328,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
-.dark.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+html.dark.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
   box-shadow:
     0 8px 32px rgba(var(--_rgb-primary), 0.10),
     0 2px 8px rgba(0, 0, 0, 0.20),
@@ -336,7 +336,7 @@
 }
 
 /* Crystal elevated — nearly solid */
-.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+html.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
   --popover: rgba(var(--_rgb-popover), 0.95);
   --background: rgba(var(--_rgb-bg), 0.95);
   --card: rgba(var(--_rgb-card), 0.95);
@@ -346,7 +346,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
-.dark.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+html.dark.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
   box-shadow:
     0 8px 32px rgba(var(--_rgb-primary), 0.08),
     0 2px 8px rgba(0, 0, 0, 0.15),

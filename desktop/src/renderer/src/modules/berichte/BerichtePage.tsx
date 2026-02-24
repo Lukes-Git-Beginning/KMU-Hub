@@ -234,7 +234,8 @@ export default function BerichtePage() {
       <PageHeader
         title="Berichte"
         description={`${kpis.length} KPIs · ${activeScheduled} geplante Berichte aktiv`}
-        gradient
+        icon={BarChart3}
+        moduleId="berichte"
         actions={
           <button
             onClick={handleNewReport}

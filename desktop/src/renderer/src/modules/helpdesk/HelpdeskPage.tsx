@@ -23,6 +23,7 @@ import {
   Pencil,
   Tag,
   Sparkles,
+  LifeBuoy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -247,7 +248,8 @@ export default function HelpdeskPage() {
       <PageHeader
         title="Helpdesk"
         description={`${openTickets.length} offene Tickets · ${kbArticles.length} Wissensartikel`}
-        gradient
+        icon={LifeBuoy}
+        moduleId="helpdesk"
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -909,7 +911,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
   const [editContent, setEditContent] = useState(() => body.split('\n\n').map((p) => `<p>${p}</p>`).join(''))
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl mx-auto">
       <button onClick={onBack} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors mb-5">
         <ArrowLeft className="h-3.5 w-3.5" />Zurueck zur Uebersicht
       </button>

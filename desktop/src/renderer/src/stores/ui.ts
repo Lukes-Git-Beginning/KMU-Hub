@@ -33,7 +33,7 @@ function buildDefaultDecorations(themeId: string): Record<string, DecorationPlac
   return placements
 }
 
-export type ColorTheme = 'graphit' | 'sand' | 'ozean'
+export type ColorTheme = 'graphit' | 'sand' | 'ozean' | 'lavendel' | 'wald' | 'rose' | 'mitternacht' | 'terrakotta'
 export type NavLayout = 'sidebar' | 'dock' | 'topnav' | 'classic'
 export type AccentIntensity = 'subtle' | 'vivid'
 
@@ -50,14 +50,28 @@ interface UIState {
   navLayout: NavLayout
   accentIntensity: AccentIntensity
 
+  // Sidebar pinned modules
+  pinnedModules: string[]
+
   // Desk environment
   deskMaximized: boolean
   deskThemeId: string
   deskDecorations: Record<string, DecorationPlacement>
   deskDecorationsVisible: boolean
 
+  // Background pattern
+  backgroundPattern: string
+
+  // Header widgets (up to 3 mini-widget slots)
+  headerWidgets: string[]
+
   // Onboarding
   onboardingCompleted: boolean
+
+  setBackgroundPattern: (pattern: string) => void
+
+  setHeaderWidgets: (widgets: string[]) => void
+  toggleHeaderWidget: (widgetId: string) => void
 
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
@@ -69,6 +83,10 @@ interface UIState {
   setColorTheme: (theme: ColorTheme) => void
   setNavLayout: (layout: NavLayout) => void
   setAccentIntensity: (intensity: AccentIntensity) => void
+
+  // Sidebar pinned modules
+  setPinnedModules: (modules: string[]) => void
+  togglePinModule: (moduleId: string) => void
 
   // Onboarding
   setOnboardingCompleted: (completed: boolean) => void
@@ -97,12 +115,53 @@ export const useUIStore = create<UIState>()(
       navLayout: 'sidebar',
       accentIntensity: 'subtle',
 
+      // Default pinned modules (most-used for typical KMU)
+      pinnedModules: [
+        'dashboard', 'projects', 'tasks', 'chat', 'contacts',
+        'team', 'calendar', 'mail', 'finance',
+      ],
+
+      // Background pattern default
+      backgroundPattern: 'none',
+
+      // Header widget defaults
+      headerWidgets: ['next-meeting', 'weather', 'pomodoro'],
+
       // Desk defaults
       deskMaximized: false,
       deskThemeId: DEFAULT_DESK_THEME_ID,
       deskDecorations: buildDefaultDecorations(DEFAULT_DESK_THEME_ID),
       deskDecorationsVisible: true,
       onboardingCompleted: false,
+
+      setPinnedModules: (pinnedModules) =>
+        set({ pinnedModules }),
+
+      togglePinModule: (moduleId) =>
+        set((state) => {
+          const has = state.pinnedModules.includes(moduleId)
+          return {
+            pinnedModules: has
+              ? state.pinnedModules.filter((id) => id !== moduleId)
+              : [...state.pinnedModules, moduleId],
+          }
+        }),
+
+      setBackgroundPattern: (backgroundPattern) =>
+        set({ backgroundPattern }),
+
+      setHeaderWidgets: (headerWidgets) =>
+        set({ headerWidgets }),
+
+      toggleHeaderWidget: (widgetId) =>
+        set((state) => {
+          const has = state.headerWidgets.includes(widgetId)
+          if (has) {
+            return { headerWidgets: state.headerWidgets.filter((id) => id !== widgetId) }
+          }
+          if (state.headerWidgets.length >= 3) return state // max 3 slots
+          return { headerWidgets: [...state.headerWidgets, widgetId] }
+        }),
 
       setOnboardingCompleted: (completed: boolean) =>
         set({ onboardingCompleted: completed }),

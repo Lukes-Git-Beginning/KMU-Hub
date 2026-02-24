@@ -914,7 +914,8 @@ export default function VertraegePage() {
       <PageHeader
         title="Vertraege"
         description={`${activeContracts.length} aktive Vertraege${expiringContracts.length > 0 ? ` · ${expiringContracts.length} auslaufend` : ''}`}
-        gradient
+        icon={FileSignature}
+        moduleId="vertraege"
         className="mb-6"
         actions={
           <button

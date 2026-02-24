@@ -24,6 +24,7 @@ import {
   Link2,
   ClipboardCheck,
   AlertTriangle,
+  Warehouse,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -798,7 +799,8 @@ export default function InventarPage() {
       <PageHeader
         title="Inventar"
         description={`${items.length} Artikel${lowStockCount > 0 ? ` · ${lowStockCount} kritisch` : ''}${warningCount > 0 ? ` · ${warningCount} Warnung` : ''}${lowStockCount === 0 && warningCount === 0 ? ' · Alle Bestaende OK' : ''}`}
-        gradient
+        icon={Warehouse}
+        moduleId="inventar"
         className="mb-6"
         actions={
           <button

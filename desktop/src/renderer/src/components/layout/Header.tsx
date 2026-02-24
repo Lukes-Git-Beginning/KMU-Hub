@@ -28,6 +28,7 @@ import {
   LanguageSwitcher,
   ProfileSwitcher,
   ProfileMenu,
+  HeaderWidgetSlots,
 } from '@/components/header'
 
 export function Header() {
@@ -61,6 +62,9 @@ export function Header() {
         <div className="hidden sm:block">
           <HeaderClock />
         </div>
+
+        {/* Configurable header widget slots */}
+        <HeaderWidgetSlots />
       </div>
 
       {/* Spacer */}

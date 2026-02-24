@@ -15,6 +15,7 @@ import { useMemo, useEffect, useCallback, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores/ui'
 import { DESK_THEMES, DEFAULT_DESK_THEME_ID } from '@/config/desk-themes'
 import { DeskFrame } from './DeskFrame'
+import { BackgroundPattern } from './BackgroundPattern'
 import { AppShell } from './AppShell'
 
 // Detect system dark mode preference reactively
@@ -52,7 +53,10 @@ export function DeskEnvironment() {
 
   // Sync color theme class on <html> (graphit = default, no class needed)
   useEffect(() => {
-    document.documentElement.classList.remove('theme-sand', 'theme-ozean')
+    document.documentElement.classList.remove(
+      'theme-sand', 'theme-ozean', 'theme-lavendel',
+      'theme-wald', 'theme-rose', 'theme-mitternacht', 'theme-terrakotta'
+    )
     if (colorTheme !== 'graphit') {
       document.documentElement.classList.add(`theme-${colorTheme}`)
     }
@@ -137,6 +141,9 @@ export function DeskEnvironment() {
         backgroundColor: 'var(--desk-room-bg)',
       }}
     >
+      {/* Background pattern layer (visible through glass/crystal) */}
+      <BackgroundPattern />
+
       {/* Room scene (L1 room bg, L2 furniture) */}
       {showFrame && (
         <DeskFrame

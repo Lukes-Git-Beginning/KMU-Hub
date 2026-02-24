@@ -31,6 +31,36 @@ const palettes: Array<{
     desc: 'Frisch, leicht, Cyan-Akzente',
     colors: { primary: '#0891b2', accent1: '#f43f5e', accent2: '#6366f1', bg: '#f0f7f7' },
   },
+  {
+    id: 'lavendel',
+    label: 'Lavendel',
+    desc: 'Elegant, kreativ, Violett-Akzente',
+    colors: { primary: '#7c3aed', accent1: '#ec4899', accent2: '#06b6d4', bg: '#f3f0f9' },
+  },
+  {
+    id: 'wald',
+    label: 'Wald',
+    desc: 'Natuerlich, ruhig, Gruen-Akzente',
+    colors: { primary: '#16a34a', accent1: '#ca8a04', accent2: '#0d9488', bg: '#f0f5f0' },
+  },
+  {
+    id: 'rose',
+    label: 'Rosé',
+    desc: 'Warm, einladend, Pink-Akzente',
+    colors: { primary: '#e11d48', accent1: '#d946ef', accent2: '#f59e0b', bg: '#fdf2f4' },
+  },
+  {
+    id: 'mitternacht',
+    label: 'Mitternacht',
+    desc: 'Klar, professionell, Blau-Akzente',
+    colors: { primary: '#2563eb', accent1: '#8b5cf6', accent2: '#14b8a6', bg: '#f0f4ff' },
+  },
+  {
+    id: 'terrakotta',
+    label: 'Terrakotta',
+    desc: 'Erdig, warm, Orange-Akzente',
+    colors: { primary: '#c2410c', accent1: '#b45309', accent2: '#059669', bg: '#faf5f0' },
+  },
 ]
 
 export function PaletteSwitcher({ className }: PaletteSwitcherProps) {
@@ -38,7 +68,7 @@ export function PaletteSwitcher({ className }: PaletteSwitcherProps) {
   const setColorTheme = useUIStore((s) => s.setColorTheme)
 
   return (
-    <div className={cn('grid grid-cols-3 gap-3', className)}>
+    <div className={cn('grid grid-cols-4 gap-3', className)}>
       {palettes.map((p) => {
         const active = colorTheme === p.id
         return (

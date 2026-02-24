@@ -45,6 +45,8 @@ import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
 import { useProfileStore } from '@/stores/profile'
 import { PaletteSwitcher } from '@/components/shared/PaletteSwitcher'
 import { LayoutSwitcher } from '@/components/shared/LayoutSwitcher'
+import { headerWidgetList } from '@/components/header/header-widgets'
+import { BACKGROUND_PATTERN_LIST } from '@/config/background-patterns'
 import { BUSINESS_PROFILES } from '@/config/business-profiles'
 import { CalDAVSettingsTab } from './tabs/CalDAVSettingsTab'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
@@ -182,7 +184,7 @@ function ProfileTab() {
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <h2 className="text-foreground mb-1">Profil</h2>
       <p className="text-sm text-muted-foreground mb-6">Verwalte deine persönlichen Informationen</p>
 
@@ -322,7 +324,7 @@ function AppearanceTab() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <h2 className="text-foreground mb-1">Darstellung</h2>
       <p className="text-sm text-muted-foreground mb-6">Passe das Erscheinungsbild der App an</p>
 
@@ -398,6 +400,11 @@ function AppearanceTab() {
       <h3 className="text-sm font-medium text-foreground mb-3">Navigation</h3>
       <p className="text-xs text-muted-foreground mb-3">Waehle wie du durch die App navigierst</p>
       <LayoutSwitcher className="mb-8" />
+
+      {/* ── HEADER WIDGETS ─────────────────────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Header-Widgets</h3>
+      <p className="text-xs text-muted-foreground mb-3">Waehle bis zu 3 Mini-Widgets fuer die Kopfleiste</p>
+      <HeaderWidgetPicker className="mb-8" />
 
       {/* ── UI LOOK PICKER ──────────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Oberflächenstil</h3>
@@ -478,6 +485,13 @@ function AppearanceTab() {
           )
         })}
       </div>
+
+      {/* ── HINTERGRUNDMUSTER ──────────────────────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Hintergrundmuster</h3>
+      <p className="text-xs text-muted-foreground mb-3">
+        Sichtbar bei Milchglas/Transparent. Im Standard-Modus erscheinen dezente Sticker auf Karten.
+      </p>
+      <BackgroundPatternPicker className="mb-8" />
 
       {/* ── DEKO-REGAL ────────────────────────────────── */}
       {!currentTheme?.isMinimal && (
@@ -599,7 +613,7 @@ function LanguageTab() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <h2 className="text-foreground mb-1">Sprache & Region</h2>
       <p className="text-sm text-muted-foreground mb-6">Sprache, Zeitzone und Datumsformat einstellen</p>
 
@@ -708,7 +722,7 @@ function SecurityTab() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <h2 className="text-foreground mb-1">Sicherheit</h2>
       <p className="text-sm text-muted-foreground mb-6">Passwort, 2FA und Sitzungen verwalten</p>
 
@@ -922,7 +936,7 @@ function SecurityTab() {
 // ============================================================
 function AboutTab() {
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <div className="rounded-lg bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
         <h2 className="text-primary-foreground text-xl mb-2">KMU Hub</h2>
         <p className="text-primary-foreground/80 text-sm">
@@ -972,7 +986,7 @@ function BusinessProfileTab() {
   const selectedProfile = BUSINESS_PROFILES.find((p) => p.id === businessProfileId)
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl mx-auto">
       <h2 className="text-lg font-semibold text-foreground mb-1">Branchenprofil</h2>
       <p className="text-sm text-muted-foreground mb-6">
         Wählen Sie das Profil das am besten zu Ihrem Unternehmen passt. Module werden entsprechend angezeigt.
@@ -1044,6 +1058,92 @@ function BusinessProfileTab() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// ============================================================
+// Background Pattern Picker — inline component for Appearance tab
+// ============================================================
+function BackgroundPatternPicker({ className }: { className?: string }) {
+  const backgroundPattern = useUIStore((s) => s.backgroundPattern)
+  const setBackgroundPattern = useUIStore((s) => s.setBackgroundPattern)
+
+  return (
+    <div className={`grid grid-cols-3 gap-3 ${className ?? ''}`}>
+      {BACKGROUND_PATTERN_LIST.map((pattern) => {
+        const active = backgroundPattern === pattern.id
+        const Icon = pattern.icon
+        return (
+          <button
+            key={pattern.id}
+            onClick={() => setBackgroundPattern(pattern.id)}
+            className={`relative rounded-lg border-2 p-4 text-center transition-all ${
+              active
+                ? 'border-primary bg-primary-light'
+                : 'border-border bg-card hover:border-muted-foreground/30'
+            }`}
+          >
+            {active && (
+              <span className="absolute top-2 right-2">
+                <Check className="h-3.5 w-3.5 text-primary" />
+              </span>
+            )}
+            <div className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl ${
+              active ? 'bg-primary/10' : 'bg-secondary'
+            }`}>
+              <Icon className={`h-5 w-5 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
+            </div>
+            <p className="text-sm font-medium text-foreground">{pattern.name}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{pattern.description}</p>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ============================================================
+// Header Widget Picker — inline component for Appearance tab
+// ============================================================
+function HeaderWidgetPicker({ className }: { className?: string }) {
+  const headerWidgets = useUIStore((s) => s.headerWidgets)
+  const toggleHeaderWidget = useUIStore((s) => s.toggleHeaderWidget)
+
+  return (
+    <div className={`grid grid-cols-5 gap-2 ${className ?? ''}`}>
+      {headerWidgetList.map((widget) => {
+        const active = headerWidgets.includes(widget.id)
+        const atMax = headerWidgets.length >= 3 && !active
+        const Icon = widget.icon
+        return (
+          <button
+            key={widget.id}
+            onClick={() => toggleHeaderWidget(widget.id)}
+            disabled={atMax}
+            className={`relative flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-center transition-all ${
+              active
+                ? 'border-primary bg-primary-light'
+                : atMax
+                  ? 'border-border bg-muted/50 opacity-50 cursor-not-allowed'
+                  : 'border-border bg-card hover:border-muted-foreground/30'
+            }`}
+          >
+            {active && (
+              <span className="absolute top-1 right-1">
+                <Check className="h-3 w-3 text-primary" />
+              </span>
+            )}
+            <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+              active ? 'bg-primary/10' : 'bg-secondary'
+            }`}>
+              <Icon className={`h-4 w-4 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
+            </div>
+            <p className="text-xs font-medium text-foreground">{widget.name}</p>
+            <p className="text-[9px] text-muted-foreground leading-tight">{widget.description}</p>
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -26,6 +26,7 @@ import {
   PartyPopper,
   Percent,
   UserCheck,
+  CalendarClock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -590,7 +591,8 @@ export default function SchichtenPage() {
       <PageHeader
         title="Schichtplanung"
         description={`${EMPLOYEES.length} Mitarbeiter · KW ${kw} · ${pendingSwapCount > 0 ? `${pendingSwapCount} offene Tausch-Anfragen` : 'Keine offenen Anfragen'}`}
-        gradient
+        icon={CalendarClock}
+        moduleId="schichten"
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">

@@ -11,6 +11,7 @@ import {
   SearchBar,
   HeaderClock,
   ProfileMenu,
+  HeaderWidgetSlots,
 } from '@/components/header'
 import {
   Popover,
@@ -119,6 +120,7 @@ export function TopNavBar() {
         <div className="hidden sm:block">
           <HeaderClock />
         </div>
+        <HeaderWidgetSlots />
         <PresenceStatusPicker />
         <NotificationBell />
         <Tooltip>
@@ -142,6 +144,11 @@ export function TopNavBar() {
 function TopNavTab({ item }: { item: NavItemConfig }) {
   const Icon = item.icon
 
+  const iconColor = {
+    '--_nav-h': item.color.h,
+    '--_nav-s': `${item.color.s}%`,
+  } as React.CSSProperties
+
   return (
     <NavLink
       to={item.to}
@@ -156,7 +163,15 @@ function TopNavTab({ item }: { item: NavItemConfig }) {
         )
       }
     >
-      <Icon className="h-4 w-4" />
+      <span
+        className="flex items-center justify-center h-5 w-5 rounded-md"
+        style={{
+          ...iconColor,
+          color: `hsl(${item.color.h} ${item.color.s}% 42%)`,
+        }}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
       <span>{item.label}</span>
       {item.badge && (
         <span

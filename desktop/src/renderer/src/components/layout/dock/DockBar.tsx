@@ -10,7 +10,7 @@ import {
 import type { NavItemConfig } from '../sidebar/nav-items'
 
 const MAX_SCALE = 1.5
-const MAGNIFY_RANGE = 120 // pixels from center where magnification applies
+const MAGNIFY_RANGE = 120
 
 export function DockBar() {
   const dockRef = useRef<HTMLDivElement>(null)
@@ -75,6 +75,11 @@ function DockItem({ item }: { item: NavItemConfig }) {
       ? location.pathname === '/'
       : location.pathname.startsWith(item.to)
 
+  const iconStyle = {
+    '--_nav-h': item.color.h,
+    '--_nav-s': `${item.color.s}%`,
+  } as React.CSSProperties
+
   return (
     <Tooltip delayDuration={100}>
       <TooltipTrigger asChild>
@@ -83,21 +88,20 @@ function DockItem({ item }: { item: NavItemConfig }) {
           onClick={() => navigate(item.to)}
           aria-label={item.label}
           aria-current={isActive ? 'page' : undefined}
-          className={cn(
-            'relative flex items-center justify-center rounded-xl origin-bottom',
-            'h-11 w-11 transition-[transform,background-color] duration-150 ease-out',
-            isActive
-              ? 'text-primary bg-primary/10'
-              : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-          )}
+          className="relative flex items-center justify-center origin-bottom transition-transform duration-150 ease-out"
         >
-          <Icon className="h-5 w-5" aria-hidden="true" />
+          <div
+            className={cn('nav-icon-box', isActive && 'active')}
+            style={iconStyle}
+          >
+            <Icon className="h-[18px] w-[18px] relative z-[2]" aria-hidden="true" />
+          </div>
 
           {/* Badge dot */}
           {item.badge && (
             <span
               className={cn(
-                'absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full',
+                'absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full z-10',
                 item.badge.type === 'live'
                   ? 'bg-red-500 animate-pulse'
                   : 'bg-primary'

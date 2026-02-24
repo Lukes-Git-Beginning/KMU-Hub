@@ -36,6 +36,7 @@ import {
   Split,
   Info,
   Globe,
+  FileInput,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -1559,7 +1560,8 @@ export default function FormularePage() {
       <PageHeader
         title="Formulare"
         description={`${activeFormCount} aktive Formulare · ${newSubmissionCount} neue Eingaenge`}
-        gradient
+        icon={FileInput}
+        moduleId="formulare"
         className="mb-6"
         actions={
           <button

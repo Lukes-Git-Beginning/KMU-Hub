@@ -20,6 +20,7 @@ import {
   BookOpen,
   CircleDollarSign,
   Camera,
+  Truck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
@@ -1256,7 +1257,8 @@ export default function FuhrparkPage() {
       <PageHeader
         title="Fuhrpark"
         description={`${activeVehicleCount} aktive Fahrzeuge${urgentCount > 0 ? ` · ${urgentCount} mit faelliger Pruefung/Versicherung` : ''}`}
-        gradient
+        icon={Truck}
+        moduleId="fuhrpark"
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">

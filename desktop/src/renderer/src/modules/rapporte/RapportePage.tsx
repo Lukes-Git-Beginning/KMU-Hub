@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Wind,
   Droplets,
+  ClipboardCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -258,7 +259,8 @@ export default function RapportePage() {
       <PageHeader
         title="Rapporte"
         description="Tagesberichte, Aufmass und Vorlagen für Bauprojekte"
-        gradient
+        icon={ClipboardCheck}
+        moduleId="rapporte"
         className="mb-6"
         actions={
           <div className="flex gap-2">

@@ -185,7 +185,8 @@ export default function ProduktionPage() {
       <PageHeader
         title="Produktion"
         description={`${activeOrders.length} aktive Aufträge · ${boms.length} Stücklisten`}
-        gradient
+        icon={Factory}
+        moduleId="produktion"
         className="mb-6"
         actions={
           <div className="flex gap-2">

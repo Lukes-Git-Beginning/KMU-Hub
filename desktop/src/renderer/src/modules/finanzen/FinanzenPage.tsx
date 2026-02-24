@@ -21,7 +21,7 @@ import {
   Timer,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
 import { useFinanceUIStore, formatEUR, type FinanceTabKey } from '@/stores/finance'
 import {
   useInvoices,
@@ -424,37 +424,38 @@ export default function FinanzenPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 animate-fade-up">
-        <div>
-          <h1 className="text-foreground">Rechnungen & Finanzen</h1>
-          <p className="text-sm text-muted-foreground">
-            Rechnungen, Angebote, Gutschriften, Belegketten und Mahnwesen
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowHoursToInvoice(true)}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <Timer className="h-4 w-4" />
-            Stunden abrechnen
-          </button>
-          <button
-            onClick={() => setShowExport(true)}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            DATEV Export
-          </button>
-          <button
-            onClick={handleNewInvoice}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Neue Rechnung
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Rechnungen & Finanzen"
+        description="Rechnungen, Angebote, Gutschriften, Belegketten und Mahnwesen"
+        icon={Receipt}
+        moduleId="finance"
+        className="mb-6"
+        actions={
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowHoursToInvoice(true)}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <Timer className="h-4 w-4" />
+              Stunden abrechnen
+            </button>
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              DATEV Export
+            </button>
+            <button
+              onClick={handleNewInvoice}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Neue Rechnung
+            </button>
+          </div>
+        }
+      />
 
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto animate-fade-up stagger-1">

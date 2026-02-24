@@ -196,7 +196,7 @@ function SettingsTab() {
   const [background, setBackground] = useState('none')
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="max-w-xl mx-auto space-y-6">
       <div>
         <h3 className="text-sm font-medium text-foreground mb-3">Audio-Einstellungen</h3>
         <div className="space-y-3">

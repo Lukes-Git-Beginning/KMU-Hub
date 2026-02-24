@@ -466,7 +466,8 @@ export default function EinkaufPage() {
       <PageHeader
         title="Einkauf"
         description={`${activeOrderCount} offene Bestellungen · EUR ${formatAmount(totalOpen)}`}
-        gradient
+        icon={ShoppingCart}
+        moduleId="einkauf"
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">

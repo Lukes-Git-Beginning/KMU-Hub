@@ -20,9 +20,10 @@ import {
   type GlobalSearchModule,
   type GlobalSearchResultItem,
 } from '@/api/hooks/useGlobalSearch'
+import { moduleHsl, moduleHslBg } from '@/components/layout/sidebar/nav-items'
 
 // ---------------------------------------------------------------------------
-// Module config
+// Module config — colors derived from nav-items.ts (single source of truth)
 // ---------------------------------------------------------------------------
 
 type ModuleKey = 'contacts' | 'files' | 'emails' | 'tasks' | 'messages'
@@ -30,47 +31,17 @@ type ModuleKey = 'contacts' | 'files' | 'emails' | 'tasks' | 'messages'
 interface ModuleConfig {
   label: string
   icon: typeof Users
-  iconColor: string
-  bgColor: string
+  /** nav-items module ID for color lookup */
+  colorId: string
   basePath: string
 }
 
 const MODULE_CONFIG: Record<string, ModuleConfig> = {
-  crm: {
-    label: 'Kontakte',
-    icon: Users,
-    iconColor: 'text-pink-600',
-    bgColor: 'bg-pink-500/10',
-    basePath: '/kontakte',
-  },
-  documents: {
-    label: 'Dateien',
-    icon: FileText,
-    iconColor: 'text-purple-600',
-    bgColor: 'bg-purple-500/10',
-    basePath: '/dokumente',
-  },
-  email: {
-    label: 'E-Mails',
-    icon: Mail,
-    iconColor: 'text-orange-600',
-    bgColor: 'bg-orange-500/10',
-    basePath: '/email',
-  },
-  tasks: {
-    label: 'Aufgaben',
-    icon: CheckSquare,
-    iconColor: 'text-emerald-600',
-    bgColor: 'bg-emerald-500/10',
-    basePath: '/work/my-tasks',
-  },
-  messages: {
-    label: 'Nachrichten',
-    icon: MessageSquare,
-    iconColor: 'text-blue-600',
-    bgColor: 'bg-blue-500/10',
-    basePath: '/chat',
-  },
+  crm: { label: 'Kontakte', icon: Users, colorId: 'contacts', basePath: '/kontakte' },
+  documents: { label: 'Dateien', icon: FileText, colorId: 'documents', basePath: '/dokumente' },
+  email: { label: 'E-Mails', icon: Mail, colorId: 'mail', basePath: '/email' },
+  tasks: { label: 'Aufgaben', icon: CheckSquare, colorId: 'tasks', basePath: '/work/my-tasks' },
+  messages: { label: 'Nachrichten', icon: MessageSquare, colorId: 'chat', basePath: '/chat' },
 }
 
 // ---------------------------------------------------------------------------
@@ -503,7 +474,7 @@ function ModuleGroup({
         ) : (
           <ChevronRight className="h-3 w-3" />
         )}
-        <ModuleIcon className={`h-3.5 w-3.5 ${config.iconColor}`} />
+        <ModuleIcon className="h-3.5 w-3.5" style={{ color: moduleHsl(config.colorId) }} />
         <span>
           {config.label} ({module.total})
         </span>
@@ -529,9 +500,10 @@ function ModuleGroup({
             }`}
           >
             <div
-              className={`h-9 w-9 rounded-lg ${config.bgColor} flex items-center justify-center shrink-0`}
+              className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ backgroundColor: moduleHslBg(config.colorId) }}
             >
-              <ModuleIcon className={`h-4 w-4 ${config.iconColor}`} />
+              <ModuleIcon className="h-4 w-4" style={{ color: moduleHsl(config.colorId) }} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">

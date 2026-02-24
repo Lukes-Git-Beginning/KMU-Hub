@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Filter,
   ClipboardCheck,
+  Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -829,7 +830,8 @@ export default function VermietungPage() {
       <PageHeader
         title="Vermietung"
         description={`${objects.length} Objekte · ${activeReservations} aktive Reservierungen`}
-        gradient
+        icon={Building2}
+        moduleId="vermietung"
         className="mb-6"
         actions={
           <div className="flex items-center gap-2">

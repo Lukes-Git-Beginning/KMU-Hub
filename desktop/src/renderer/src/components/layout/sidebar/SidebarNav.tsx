@@ -1,15 +1,10 @@
-import { NavLink } from 'react-router-dom'
+import { useLocation, NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
-import { useAuthStore } from '@/stores/auth'
-import { canSeeNavItem } from '@/config/roles'
-import { isModuleAllowedForProfile } from '@/config/business-profiles'
-import { useProfileStore } from '@/stores/profile'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { SidebarBadge } from './SidebarBadge'
 import type { NavItemConfig } from './nav-items'
 
 interface SidebarNavProps {
@@ -19,28 +14,18 @@ interface SidebarNavProps {
 }
 
 export function SidebarNav({ items, collapsed, onItemClick }: SidebarNavProps) {
-  const user = useAuthStore((s) => s.user)
-  const businessProfileId = useProfileStore((s) => s.businessProfileId)
-  const devShowAll = useProfileStore((s) => s.devShowAllModules)
-  const enabledOptionals = useProfileStore((s) => s.enabledOptionalModules)
-
-  const visibleItems = items.filter((item) => {
-    // Layer 1: Role-based filtering (RBAC)
-    if (!canSeeNavItem(user, item.id)) return false
-    // Layer 2: Business profile filtering (skip if dev override)
-    if (devShowAll) return true
-    return isModuleAllowedForProfile(item.id, businessProfileId, enabledOptionals)
-  })
-
   return (
-    <nav className="flex-1 overflow-y-auto p-3">
-      <ul className="space-y-1">
-        {visibleItems.map((item) => (
-          <li key={item.id}>
-            <NavItem item={item} collapsed={collapsed} onItemClick={onItemClick} />
-          </li>
+    <nav className="flex-1 overflow-y-auto px-2 py-1.5">
+      <div className="flex flex-col gap-0.5">
+        {items.map((item) => (
+          <NavItem
+            key={item.id}
+            item={item}
+            collapsed={collapsed}
+            onItemClick={onItemClick}
+          />
         ))}
-      </ul>
+      </div>
     </nav>
   )
 }
@@ -55,36 +40,17 @@ function NavItem({
   onItemClick?: () => void
 }) {
   const Icon = item.icon
+  const location = useLocation()
 
-  const sharedClasses = cn(
-    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
-    collapsed && 'justify-center px-2'
-  )
+  const isActive =
+    item.to === '/'
+      ? location.pathname === '/'
+      : location.pathname.startsWith(item.to)
 
-  if (!item.enabled) {
-    return (
-      <Tooltip delayDuration={100}>
-        <TooltipTrigger asChild>
-          <div
-            className={cn(
-              sharedClasses,
-              'cursor-not-allowed text-sidebar-muted/50'
-            )}
-          >
-            <div className="relative shrink-0">
-              <Icon className="h-5 w-5" />
-            </div>
-            {!collapsed && (
-              <span className="flex-1">{item.label}</span>
-            )}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side={collapsed ? 'right' : 'top'}>
-          {item.label} — Bald verfügbar
-        </TooltipContent>
-      </Tooltip>
-    )
-  }
+  const iconStyle = {
+    '--_nav-h': item.color.h,
+    '--_nav-s': `${item.color.s}%`,
+  } as React.CSSProperties
 
   return (
     <Tooltip delayDuration={collapsed ? 100 : 999999}>
@@ -93,26 +59,51 @@ function NavItem({
           to={item.to}
           end={item.to === '/'}
           onClick={onItemClick}
-          className={({ isActive }) =>
-            cn(
-              sharedClasses,
-              isActive
-                ? 'bg-sidebar-active text-sidebar-primary font-semibold shadow-sm border border-sidebar-border/60'
-                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground border border-transparent',
-            )
-          }
+          className={cn(
+            'group relative flex items-center rounded-lg transition-all duration-150',
+            collapsed ? 'justify-center p-2' : 'gap-2.5 px-2.5 py-1.5',
+            isActive
+              ? 'bg-sidebar-active text-sidebar-foreground'
+              : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground'
+          )}
         >
-          <div className="relative shrink-0">
-            <Icon className="h-5 w-5" />
-            {collapsed && item.badge && (
-              <SidebarBadge badge={item.badge} collapsed />
-            )}
+          {/* Icon */}
+          <div
+            className={cn('nav-icon-box nav-icon-box-sm', isActive && 'active')}
+            style={iconStyle}
+          >
+            <Icon className="h-4 w-4 relative z-[2]" />
           </div>
+
+          {/* Label */}
           {!collapsed && (
-            <>
-              <span className="flex-1">{item.label}</span>
-              {item.badge && <SidebarBadge badge={item.badge} collapsed={false} />}
-            </>
+            <span
+              className={cn(
+                'text-[13px] leading-tight truncate',
+                isActive ? 'font-semibold' : 'font-medium'
+              )}
+            >
+              {item.label}
+            </span>
+          )}
+
+          {/* Badge dot */}
+          {item.badge && (
+            <div className={cn(
+              'absolute z-10',
+              collapsed ? '-top-0.5 -right-0.5' : 'top-1/2 -translate-y-1/2 right-2'
+            )}>
+              {item.badge.type === 'live' ? (
+                <span className="flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                </span>
+              ) : item.badge.value ? (
+                <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary">
+                  {item.badge.value}
+                </span>
+              ) : null}
+            </div>
           )}
         </NavLink>
       </TooltipTrigger>

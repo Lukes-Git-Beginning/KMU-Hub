@@ -239,7 +239,8 @@ export default function TeamPage() {
       <PageHeader
         title="Team"
         description={`${apiEmployees.length} Mitglieder · ${pendingCount} offene Anfragen`}
-        gradient
+        icon={Users}
+        moduleId="team"
         actions={
           <button
             onClick={() => setShowCreateWizard(true)}
