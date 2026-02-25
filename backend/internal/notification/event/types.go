@@ -70,6 +70,13 @@ const (
 	EventAutomationFailed   = "automation.workflow.failed"
 )
 
+// Guest chat events
+const (
+	EventChatGuestNew     = "chat.guest.new"     // new guest session started
+	EventChatGuestMessage = "chat.guest.message"  // guest sent a message
+	EventChatGuestEnded   = "chat.guest.ended"    // guest session deactivated
+)
+
 // Well-known module IDs
 const (
 	ModuleChat     = "chat"
@@ -83,6 +90,7 @@ const (
 	ModuleInbox        = "inbox"
 	ModuleAutomation   = "automation"
 	ModuleIntegration  = "integration"
+	ModuleGuest        = "guest"
 )
 
 // PostgreSQL LISTEN channel name for the event bus

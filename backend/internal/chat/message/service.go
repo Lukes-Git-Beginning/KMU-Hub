@@ -121,7 +121,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		EditedAt:        nil,
 		ParentMessageID: input.ParentMessageID,
 		Lang:            lang,
-		CreatedBy:       input.CreatedBy,
+		CreatedBy:       &input.CreatedBy,
 		CreatedAt:       now,
 	}
 
@@ -165,6 +165,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 
 // emitMessageEvents emits notification events for mentions and DM messages.
 func (s *Service) emitMessageEvents(ctx context.Context, message *models.Message, result *models.MessageWithSender, input CreateInput, mentions []models.MentionWithUser) {
+	if message.CreatedBy == nil {
+		return // Guest messages have separate event handling
+	}
+
 	senderName := result.SenderFirstName + " " + result.SenderLastName
 
 	// Truncate content for preview
@@ -178,7 +182,7 @@ func (s *Service) emitMessageEvents(ctx context.Context, message *models.Message
 		var targetUserIDs []string
 		for _, m := range mentions {
 			// Don't notify the sender about their own mention
-			if m.UserID != message.CreatedBy {
+			if m.UserID != *message.CreatedBy {
 				targetUserIDs = append(targetUserIDs, m.UserID.String())
 			}
 		}
@@ -203,7 +207,7 @@ func (s *Service) emitMessageEvents(ctx context.Context, message *models.Message
 	}
 
 	// Emit DM event
-	recipientID, err := s.repo.GetDMRecipient(ctx, message.ChannelID, message.CreatedBy)
+	recipientID, err := s.repo.GetDMRecipient(ctx, message.ChannelID, *message.CreatedBy)
 	if err == nil && recipientID != nil {
 		_ = s.eventEmitter.EmitChatEvent(ctx, models.EventPayload{
 			Type:          "chat.dm.new",
@@ -322,7 +326,7 @@ func (s *Service) Update(ctx context.Context, id, userID uuid.UUID, input Update
 	}
 
 	// Only author can edit
-	if message.CreatedBy != userID {
+	if message.CreatedBy == nil || *message.CreatedBy != userID {
 		return nil, ErrNotMessageAuthor
 	}
 
@@ -357,7 +361,7 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 	}
 
 	// Check authorization: author or channel admin/owner
-	if message.CreatedBy != userID {
+	if message.CreatedBy == nil || *message.CreatedBy != userID {
 		role, roleErr := s.repo.GetMemberRole(ctx, message.ChannelID, userID)
 		if roleErr != nil {
 			return ErrNotChannelMember
@@ -474,16 +478,20 @@ func (s *Service) GetThreadReplies(ctx context.Context, input GetThreadRepliesIn
 
 // getWithSender loads sender info for a message
 func (s *Service) getWithSender(ctx context.Context, message *models.Message) (*models.MessageWithSender, error) {
-	firstName, lastName, err := s.repo.GetUserInfo(ctx, message.CreatedBy)
-	if err != nil {
-		return nil, err
+	result := &models.MessageWithSender{
+		Message: *message,
 	}
 
-	return &models.MessageWithSender{
-		Message:         *message,
-		SenderFirstName: firstName,
-		SenderLastName:  lastName,
-	}, nil
+	if message.CreatedBy != nil {
+		firstName, lastName, err := s.repo.GetUserInfo(ctx, *message.CreatedBy)
+		if err != nil {
+			return nil, err
+		}
+		result.SenderFirstName = firstName
+		result.SenderLastName = lastName
+	}
+
+	return result, nil
 }
 
 // processMentions validates and creates mentions for a message

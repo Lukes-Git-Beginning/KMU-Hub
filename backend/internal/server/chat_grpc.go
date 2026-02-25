@@ -808,11 +808,14 @@ func toMessageInfo(m *models.MessageWithSender) *chatv1.MessageInfo {
 		ChannelId:       m.ChannelID.String(),
 		Content:         m.Content,
 		IsDeleted:       m.IsDeleted,
-		CreatedBy:       m.CreatedBy.String(),
 		CreatedAt:       m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		SenderFirstName: m.SenderFirstName,
 		SenderLastName:  m.SenderLastName,
 		ReplyCount:      int32(m.ReplyCount),
+	}
+
+	if m.CreatedBy != nil {
+		info.CreatedBy = m.CreatedBy.String()
 	}
 
 	if m.EditedAt != nil {
@@ -823,6 +826,15 @@ func toMessageInfo(m *models.MessageWithSender) *chatv1.MessageInfo {
 	if m.ParentMessageID != nil {
 		parentID := m.ParentMessageID.String()
 		info.ParentMessageId = &parentID
+	}
+
+	if m.GuestSessionID != nil {
+		guestID := m.GuestSessionID.String()
+		info.GuestSessionId = &guestID
+	}
+
+	if m.GuestDisplayName != "" {
+		info.GuestDisplayName = &m.GuestDisplayName
 	}
 
 	for _, mention := range m.Mentions {
@@ -862,9 +874,12 @@ func toMessageInfoFromBase(m *models.Message) *chatv1.MessageInfo {
 		ChannelId:  m.ChannelID.String(),
 		Content:    m.Content,
 		IsDeleted:  m.IsDeleted,
-		CreatedBy:  m.CreatedBy.String(),
 		CreatedAt:  m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		ReplyCount: int32(m.ReplyCount),
+	}
+
+	if m.CreatedBy != nil {
+		info.CreatedBy = m.CreatedBy.String()
 	}
 
 	if m.EditedAt != nil {
