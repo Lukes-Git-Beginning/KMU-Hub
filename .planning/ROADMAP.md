@@ -366,6 +366,23 @@ Plans:
 - [ ] 17-02-PLAN.md -- Forwarder engine + platform adapters + connection layer (notification forwarder as DeliveryCallback, Teams Bot Framework client + Adaptive Cards, Slack API client + Block Kit, account linking service, rate limiter, inbound webhook handlers, gRPC server extension, 18 gateway HTTP routes, notification binary integration, Docker env vars)
 - [ ] 17-03-PLAN.md -- Frontend (TypeScript types, 14 TanStack Query hooks, Integrations settings tab, IntegrationCard reusable component, 4-step TeamsSetupWizard + SlackSetupWizard, ChannelMappingEditor, AccountLinkDialog, SettingsPage integration)
 
+### Phase 17.5: Guest Chat / Kundenportal
+**Goal**: External visitors can chat with KMU Hub agents via a shareable link, with messages flowing into the existing chat infrastructure and Unified Inbox
+**Depends on**: Phase 3 (Chat -- chat infrastructure), Phase 14 (Unified Inbox -- channel adapters), Phase 17 (Integration framework)
+**Requirements**: None (new feature, no pre-existing requirements)
+**Success Criteria** (what must be TRUE):
+  1. Guest opens /guest/:token link in browser, enters name, and can chat with agents in real-time
+  2. Guest messages stored in chat_messages with guest_session_id, threads work across guest/agent messages
+  3. Agents see guest conversations in Unified Inbox as new "guest" channel type
+  4. Guest rate limited to 30 messages/minute, file uploads restricted to images+PDF max 10MB
+  5. Token expiry configurable per channel, sessions deactivatable by agents
+**Plans**: 3 plans
+
+Plans:
+- [ ] 17.5-01-PLAN.md -- Data foundation (migration 000054 with guest_sessions + guest_channel_config tables, channel/message alterations, Go models, repository, session service, rate limiter)
+- [ ] 17.5-02-PLAN.md -- WebSocket hub extension + services + gateway routes + inbox adapter (guest connections, message service extension, 6 public HTTP endpoints, guest inbox adapter, CHANNEL_GUEST proto)
+- [ ] 17.5-03-PLAN.md -- Guest web frontend (standalone Vite+React SPA, pre-chat form, chat window, file upload, typing indicators, gateway static serving)
+
 ### Phase 18: Integration - Bexio
 **Goal**: Swiss SMBs can sync their CRM contacts and invoices with Bexio accounting software
 **Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices)
@@ -438,7 +455,8 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 14. Event Infra + Unified Inbox | 4/4 | Complete    | 2026-02-20 |
 | 15. CalDAV/CardDAV | 1/3 | Complete    | 2026-02-20 |
 | 16. Automation Engine | 1/3 | Complete    | 2026-02-20 |
-| 17. Integration: Teams & Slack | 2/3 | In Progress|  |
+| 17. Integration: Teams & Slack | 3/3 | Complete | 2026-02-25 |
+| 17.5. Guest Chat | 0/3 | Not started | - |
 | 18. Integration: Bexio | 0/2 | Not started | - |
 | 19. Integration: Abacus + RmA | 0/2 | Not started | - |
 | 20. Plugin System + Templates | 0/4 | Not started | - |

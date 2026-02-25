@@ -32,9 +32,10 @@ mobile/android/app/build/
 .env.*.local
 *.env
 
-# === IDE ===
+# === IDE / Tools ===
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 *~
