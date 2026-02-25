@@ -58,34 +58,34 @@ interface BankTransaction {
 const mockAccounts: BankAccount[] = [
   {
     id: 'ba1',
-    bankName: 'UBS',
-    iban: 'CH93 0076 2011 6238 5295 7',
-    bic: 'UBSWCHZH80A',
-    balance: 47832.50,
-    currency: 'CHF',
+    bankName: 'Commerzbank',
+    iban: 'DE89 3704 0044 0532 0130 00',
+    bic: 'COBADEFFXXX',
+    balance: 142850.75,
+    currency: 'EUR',
     connected: true,
-    lastSync: '2026-02-21 09:15',
+    lastSync: '2026-02-24 09:15',
   },
   {
     id: 'ba2',
-    bankName: 'PostFinance',
-    iban: 'CH12 0900 0000 1234 5678 9',
-    bic: 'POFICHBEXXX',
-    balance: 12450.00,
-    currency: 'CHF',
+    bankName: 'Sparkasse Muenchen',
+    iban: 'DE72 7015 0000 0012 3456 78',
+    bic: 'SSKMDEMMXXX',
+    balance: 85000.00,
+    currency: 'EUR',
     connected: false,
     lastSync: null,
   },
 ]
 
 const mockTransactions: BankTransaction[] = [
-  { id: 'bt1', date: '2026-02-20', description: 'Zahlung Muster AG', amount: 12450.00, type: 'credit', counterpart: 'Muster AG', matchStatus: 'matched', matchedInvoice: 'RE-2026-003' },
-  { id: 'bt2', date: '2026-02-19', description: 'Zahlung TechStart', amount: 2750.00, type: 'credit', counterpart: 'TechStart Zuerich', matchStatus: 'matched', matchedInvoice: 'RE-2026-006' },
-  { id: 'bt3', date: '2026-02-18', description: 'Eingang Alpen Logistik', amount: 8900.00, type: 'credit', counterpart: 'Alpen Logistik AG', matchStatus: 'suggested', matchedInvoice: 'RE-2026-008' },
-  { id: 'bt4', date: '2026-02-17', description: 'Bueromaterial Office Plus', amount: -345.60, type: 'debit', counterpart: 'Office Plus GmbH', matchStatus: 'unmatched' },
-  { id: 'bt5', date: '2026-02-16', description: 'Hosting Hetzner', amount: -89.00, type: 'debit', counterpart: 'Hetzner Online', matchStatus: 'unmatched' },
-  { id: 'bt6', date: '2026-02-15', description: 'Eingang Weber & Partner', amount: 5200.00, type: 'credit', counterpart: 'Weber & Partner', matchStatus: 'suggested', matchedInvoice: 'RE-2026-012' },
-  { id: 'bt7', date: '2026-02-14', description: 'SaaS Lizenzen', amount: -199.00, type: 'debit', counterpart: 'Atlassian', matchStatus: 'unmatched' },
+  { id: 'bt1', date: '2026-02-24', description: 'Eingang Gruber Maschinenbau — Abschlag 3', amount: 16000.00, type: 'credit', counterpart: 'Gruber Maschinenbau GmbH', matchStatus: 'matched', matchedInvoice: 'RE-2026-003' },
+  { id: 'bt2', date: '2026-02-22', description: 'Eingang DataFlow — Analytics Dashboard', amount: 14000.00, type: 'credit', counterpart: 'DataFlow GmbH', matchStatus: 'matched', matchedInvoice: 'RE-2026-011' },
+  { id: 'bt3', date: '2026-02-19', description: 'Eingang Stadler Bau — Intranet Portal', amount: 21000.00, type: 'credit', counterpart: 'Stadler Bauunternehmen GmbH', matchStatus: 'suggested', matchedInvoice: 'RE-2026-008' },
+  { id: 'bt4', date: '2026-02-23', description: 'CloudFirst Hosting — Monatsrechnung Feb', amount: -1890.00, type: 'debit', counterpart: 'CloudFirst Hosting GmbH', matchStatus: 'unmatched' },
+  { id: 'bt5', date: '2026-02-21', description: 'Gehaelter Februar 2026', amount: -78500.00, type: 'debit', counterpart: 'Sammelueberweisung', matchStatus: 'unmatched' },
+  { id: 'bt6', date: '2026-02-25', description: 'Eingang Berger — Mobile App Anzahlung', amount: 20000.00, type: 'credit', counterpart: 'Berger & Soehne', matchStatus: 'suggested', matchedInvoice: 'RE-2026-015' },
+  { id: 'bt7', date: '2026-02-18', description: 'Adobe Creative Cloud — Jahresrechnung', amount: -4188.00, type: 'debit', counterpart: 'Adobe Inc.', matchStatus: 'unmatched' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -123,8 +123,8 @@ export function BankingWidget() {
   const suggestedCount = mockTransactions.filter((t) => t.matchStatus === 'suggested').length
   const unmatchedCount = mockTransactions.filter((t) => t.matchStatus === 'unmatched').length
 
-  const formatCHF = (v: number) =>
-    new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(v)
+  const formatEUR = (v: number) =>
+    new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v)
 
   return (
     <div className="space-y-4">
@@ -163,7 +163,7 @@ export function BankingWidget() {
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-[10px] text-muted-foreground">Kontostand</p>
-                  <p className="text-lg font-semibold text-foreground">{formatCHF(acc.balance)}</p>
+                  <p className="text-lg font-semibold text-foreground">{formatEUR(acc.balance)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {acc.lastSync && (
@@ -252,7 +252,7 @@ export function BankingWidget() {
                   ) : (
                     <ArrowUpRight className="h-3 w-3 text-muted-foreground" />
                   )}
-                  {formatCHF(Math.abs(tx.amount))}
+                  {formatEUR(Math.abs(tx.amount))}
                 </span>
                 <div>
                   {tx.matchStatus === 'matched' && (

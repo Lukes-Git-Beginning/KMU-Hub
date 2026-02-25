@@ -3,22 +3,17 @@
  */
 import { memo } from 'react'
 import { CheckCircle2, Circle, AlertTriangle } from 'lucide-react'
+import { KPI } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-const MOCK = {
-  total: 24,
-  done: 17,
-  inProgress: 4,
-  overdue: 3,
-}
-
 function KpiTasks(_props: WidgetProps) {
-  const pct = Math.round((MOCK.done / MOCK.total) * 100)
+  const { total, done, inProgress, overdue } = KPI.tasks
+  const pct = Math.round((done / total) * 100)
 
   const segments = [
-    { label: 'Erledigt', count: MOCK.done, color: 'bg-emerald-500', textColor: 'text-emerald-600', icon: CheckCircle2 },
-    { label: 'In Arbeit', count: MOCK.inProgress, color: 'bg-blue-500', textColor: 'text-blue-600', icon: Circle },
-    { label: 'Ueberfaellig', count: MOCK.overdue, color: 'bg-red-500', textColor: 'text-red-600', icon: AlertTriangle },
+    { label: 'Erledigt', count: done, color: 'bg-emerald-500', textColor: 'text-emerald-600', icon: CheckCircle2 },
+    { label: 'In Arbeit', count: inProgress, color: 'bg-blue-500', textColor: 'text-blue-600', icon: Circle },
+    { label: 'Ueberfaellig', count: overdue, color: 'bg-red-500', textColor: 'text-red-600', icon: AlertTriangle },
   ]
 
   return (
@@ -34,20 +29,20 @@ function KpiTasks(_props: WidgetProps) {
         <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden flex">
           <div
             className="h-full bg-emerald-500 transition-all"
-            style={{ width: `${(MOCK.done / MOCK.total) * 100}%` }}
+            style={{ width: `${(done / total) * 100}%` }}
           />
           <div
             className="h-full bg-blue-500 transition-all"
-            style={{ width: `${(MOCK.inProgress / MOCK.total) * 100}%` }}
+            style={{ width: `${(inProgress / total) * 100}%` }}
           />
           <div
             className="h-full bg-red-500 transition-all"
-            style={{ width: `${(MOCK.overdue / MOCK.total) * 100}%` }}
+            style={{ width: `${(overdue / total) * 100}%` }}
           />
         </div>
 
         <p className="mt-2 text-lg font-bold text-foreground">
-          {MOCK.done} <span className="text-sm font-normal text-muted-foreground">von {MOCK.total}</span>
+          {done} <span className="text-sm font-normal text-muted-foreground">von {total}</span>
         </p>
       </div>
 

@@ -3,24 +3,10 @@
  */
 import { memo } from 'react'
 import { Cake, Gift, PartyPopper } from 'lucide-react'
+import { getUpcomingBirthdays } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-interface MockBirthday {
-  id: string
-  name: string
-  avatar: string
-  date: string
-  daysUntil: number
-  department: string
-}
-
-const MOCK_BIRTHDAYS: MockBirthday[] = [
-  { id: '1', name: 'Anna Schneider', avatar: 'AS', date: '24. Feb', daysUntil: 0, department: 'Projektleitung' },
-  { id: '2', name: 'Thomas Mueller', avatar: 'TM', date: '28. Feb', daysUntil: 4, department: 'Vertrieb' },
-  { id: '3', name: 'Sarah Braun', avatar: 'SB', date: '05. Mär', daysUntil: 9, department: 'Buchhaltung' },
-  { id: '4', name: 'Jonas Hartmann', avatar: 'JH', date: '12. Mär', daysUntil: 16, department: 'Support' },
-  { id: '5', name: 'Lena Fischer', avatar: 'LF', date: '20. Mär', daysUntil: 24, department: 'Design' },
-]
+const birthdays = getUpcomingBirthdays()
 
 function Birthdays(_props: WidgetProps) {
   return (
@@ -33,18 +19,18 @@ function Birthdays(_props: WidgetProps) {
 
       {/* List */}
       <div className="flex-1 overflow-auto divide-y divide-border">
-        {MOCK_BIRTHDAYS.map((bday) => {
+        {birthdays.map((bday) => {
           const isToday = bday.daysUntil === 0
           return (
             <div
-              key={bday.id}
+              key={bday.employeeId}
               className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
                 isToday ? 'bg-pink-500/5' : 'hover:bg-accent/50'
               }`}
             >
               <div className="relative">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                  {bday.avatar}
+                  {bday.initials}
                 </div>
                 {isToday && (
                   <PartyPopper className="absolute -top-1 -right-1 h-3.5 w-3.5 text-pink-500" />
@@ -58,7 +44,7 @@ function Birthdays(_props: WidgetProps) {
               </div>
               <div className="text-right shrink-0">
                 <p className={`text-xs font-medium ${isToday ? 'text-pink-500' : 'text-muted-foreground'}`}>
-                  {bday.date}
+                  {bday.displayDate}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
                   {isToday ? (

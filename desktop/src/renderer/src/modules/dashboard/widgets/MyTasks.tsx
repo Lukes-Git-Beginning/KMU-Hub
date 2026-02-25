@@ -1,27 +1,21 @@
 /**
  * My Tasks widget — personal open tasks with deadlines.
+ * Uses central mock-db, showing tasks assigned to current user.
  */
 import { memo } from 'react'
 import { CheckCircle2, Circle, AlertTriangle, Clock } from 'lucide-react'
+import { TASKS } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-interface MockTask {
-  id: string
-  title: string
-  project: string
-  priority: 'high' | 'medium' | 'low'
-  due: string
-  done: boolean
-}
-
-const MOCK_TASKS: MockTask[] = [
-  { id: '1', title: 'Angebot fuer Meier GmbH erstellen', project: 'CRM', priority: 'high', due: 'Heute', done: false },
-  { id: '2', title: 'Protokoll Sprint Review', project: 'Intern', priority: 'medium', due: 'Heute', done: false },
-  { id: '3', title: 'Kundenfeedback auswerten', project: 'Produkt', priority: 'medium', due: 'Morgen', done: false },
-  { id: '4', title: 'Rechnung #2024-087 pruefen', project: 'Finanzen', priority: 'low', due: 'Mi, 26.02.', done: false },
-  { id: '5', title: 'Onboarding-Unterlagen vorbereiten', project: 'HR', priority: 'high', due: 'Do, 27.02.', done: false },
-  { id: '6', title: 'Wochenbericht abschliessen', project: 'Intern', priority: 'low', due: 'Fr, 28.02.', done: true },
-]
+/** Map central tasks to widget display format. */
+const WIDGET_TASKS = TASKS.slice(0, 8).map((t) => ({
+  id: t.id,
+  title: t.title,
+  project: t.projectName,
+  priority: t.priority,
+  due: t.deadline.replace('2026-02-24', 'Heute').replace('2026-02-25', 'Morgen').replace(/2026-0?(\d)-0?(\d+)/, (_m, mo, d) => `${d}.${mo}.`),
+  done: t.status === 'done',
+}))
 
 const PRIORITY_STYLE = {
   high: 'text-red-500',
@@ -30,8 +24,8 @@ const PRIORITY_STYLE = {
 }
 
 function MyTasks(_props: WidgetProps) {
-  const open = MOCK_TASKS.filter((t) => !t.done)
-  const done = MOCK_TASKS.filter((t) => t.done)
+  const open = WIDGET_TASKS.filter((t) => !t.done)
+  const done = WIDGET_TASKS.filter((t) => t.done)
 
   return (
     <div className="flex h-full flex-col">
@@ -46,7 +40,7 @@ function MyTasks(_props: WidgetProps) {
 
       {/* Task list */}
       <div className="flex-1 overflow-auto divide-y divide-border">
-        {MOCK_TASKS.map((task) => (
+        {WIDGET_TASKS.map((task) => (
           <div
             key={task.id}
             className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"

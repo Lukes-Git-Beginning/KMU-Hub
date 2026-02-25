@@ -125,25 +125,25 @@ const INITIAL_CALENDARS: CalendarSource[] = [
   { id: 'work', name: 'Arbeit', group: 'mine', color: '#3d5c7d', visible: true },
   { id: 'team', name: 'Team-Kalender', group: 'shared', color: '#c4873a', visible: true },
   { id: 'dev', name: 'Entwickler Team', group: 'shared', color: '#4a7c6a', visible: true },
-  { id: 'holidays', name: 'Feiertage CH', group: 'other', color: '#9d8f85', visible: true },
+  { id: 'holidays', name: 'Feiertage DE (Bayern)', group: 'other', color: '#9d8f85', visible: true },
   { id: 'deadlines', name: 'Task-Deadlines', group: 'other', color: '#a13f3f', visible: true },
 ]
 
 const ROOMS = [
-  { id: 'r1', name: 'Raum A — Besprechung', capacity: 8, tags: ['Beamer', 'Whiteboard'] },
-  { id: 'r2', name: 'Raum B — Klein', capacity: 4, tags: ['Display'] },
-  { id: 'r3', name: 'Telefonkabine 1', capacity: 1, tags: [] },
-  { id: 'r4', name: 'Telefonkabine 2', capacity: 1, tags: [] },
+  { id: 'r1', name: 'Raum Alpen — Besprechung', capacity: 10, tags: ['Beamer', 'Whiteboard'] },
+  { id: 'r2', name: 'Raum Isar — Klein', capacity: 4, tags: ['Display'] },
+  { id: 'r3', name: 'Fokusraum 1', capacity: 1, tags: [] },
+  { id: 'r4', name: 'Fokusraum 2', capacity: 1, tags: [] },
 ]
 
 const TEAM_MEMBERS = [
-  { name: 'Anna Mueller', initials: 'AM', role: 'Project Manager' },
-  { name: 'Max Berg', initials: 'MB', role: 'Senior Developer' },
-  { name: 'Sarah Klein', initials: 'SK', role: 'Lead Developer' },
-  { name: 'Jonas Diaz', initials: 'JD', role: 'Designer' },
-  { name: 'Peter Keller', initials: 'PK', role: 'Sales Manager' },
-  { name: 'Lisa Weber', initials: 'LW', role: 'HR Manager' },
-  { name: 'Tom Brunner', initials: 'TB', role: 'Junior Developer' },
+  { name: 'Stefan Vogel', initials: 'SV', role: 'Geschaeftsfuehrer' },
+  { name: 'Markus Weber', initials: 'MW', role: 'CTO' },
+  { name: 'Thomas Meier', initials: 'TM', role: 'Vertriebsleiter' },
+  { name: 'Laura Neumann', initials: 'LN', role: 'Senior Developerin' },
+  { name: 'Nina Richter', initials: 'NR', role: 'Creative Director' },
+  { name: 'Sarah Beck', initials: 'SB', role: 'Projektleiterin' },
+  { name: 'Felix Krause', initials: 'FK', role: 'Backend Developer' },
 ]
 
 const DAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']

@@ -4,29 +4,12 @@
 import { memo } from 'react'
 import { Hash, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { CHAT_MESSAGES } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
-
-interface MockMessage {
-  id: string
-  channel: string
-  sender: string
-  avatar: string
-  text: string
-  time: string
-  unread: boolean
-}
-
-const MOCK_MESSAGES: MockMessage[] = [
-  { id: '1', channel: 'allgemein', sender: 'Anna S.', avatar: 'AS', text: 'Hey Team, kurze Erinnerung: Sprint Review heute um 14 Uhr!', time: '08:45', unread: true },
-  { id: '2', channel: 'entwicklung', sender: 'Markus W.', avatar: 'MW', text: 'PR #247 ist ready for review, kann jemand drueberschauen?', time: '08:32', unread: true },
-  { id: '3', channel: 'allgemein', sender: 'Lena F.', avatar: 'LF', text: 'Die neuen Designs fuer das Dashboard sind im Figma. Link im Thread.', time: '08:15', unread: false },
-  { id: '4', channel: 'vertrieb', sender: 'Thomas M.', avatar: 'TM', text: 'Meier GmbH hat den Vertrag unterschrieben! 🎉', time: 'Gestern', unread: false },
-  { id: '5', channel: 'random', sender: 'Sarah B.', avatar: 'SB', text: 'Wer hat Lust auf Mittagessen beim Italiener?', time: 'Gestern', unread: false },
-]
 
 function TeamChat(_props: WidgetProps) {
   const navigate = useNavigate()
-  const unreadCount = MOCK_MESSAGES.filter((m) => m.unread).length
+  const unreadCount = CHAT_MESSAGES.filter((m) => m.unread).length
 
   return (
     <div className="flex h-full flex-col">
@@ -50,7 +33,7 @@ function TeamChat(_props: WidgetProps) {
 
       {/* Messages */}
       <div className="flex-1 overflow-auto divide-y divide-border">
-        {MOCK_MESSAGES.map((msg) => (
+        {CHAT_MESSAGES.map((msg) => (
           <div
             key={msg.id}
             className={`flex items-start gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-accent/50 ${
@@ -59,11 +42,11 @@ function TeamChat(_props: WidgetProps) {
             onClick={() => navigate('/chat')}
           >
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary mt-0.5">
-              {msg.avatar}
+              {msg.senderInitials}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-foreground">{msg.sender}</span>
+                <span className="text-xs font-semibold text-foreground">{msg.senderName}</span>
                 <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                   <Hash className="h-2.5 w-2.5" />{msg.channel}
                 </span>

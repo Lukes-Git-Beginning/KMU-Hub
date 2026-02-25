@@ -2,35 +2,30 @@
  * My Calendar widget — personal schedule for today.
  */
 import { memo } from 'react'
-import { Clock, Video, MapPin, Users } from 'lucide-react'
+import { Video, MapPin, Users } from 'lucide-react'
+import { TODAY_EVENTS } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-interface TimeSlot {
-  id: string
-  time: string
-  endTime: string
-  title: string
-  type: 'meeting' | 'focus' | 'call' | 'break'
-  location?: string
-  attendees?: number
-}
-
-const MOCK_SCHEDULE: TimeSlot[] = [
-  { id: '1', time: '08:30', endTime: '09:00', title: 'Tagesplanung', type: 'focus' },
-  { id: '2', time: '09:00', endTime: '10:00', title: 'Sprint Planning', type: 'meeting', location: 'Raum A', attendees: 8 },
-  { id: '3', time: '10:30', endTime: '11:00', title: 'Abstimmung mit Marketing', type: 'call' },
-  { id: '4', time: '11:00', endTime: '11:45', title: 'Kundentermin Meier GmbH', type: 'meeting', location: 'Video-Call', attendees: 3 },
-  { id: '5', time: '12:30', endTime: '13:30', title: 'Mittagspause', type: 'break' },
-  { id: '6', time: '14:00', endTime: '14:30', title: 'Design Review', type: 'meeting', location: 'Raum B', attendees: 4 },
-  { id: '7', time: '15:00', endTime: '16:30', title: 'Fokuszeit: Angebot schreiben', type: 'focus' },
-]
-
-const TYPE_STYLE = {
+const TYPE_STYLE: Record<string, { color: string; label: string }> = {
   meeting: { color: 'bg-blue-500', label: 'Meeting' },
   focus: { color: 'bg-emerald-500', label: 'Fokus' },
   call: { color: 'bg-violet-500', label: 'Anruf' },
   break: { color: 'bg-amber-500', label: 'Pause' },
+  workshop: { color: 'bg-teal-500', label: 'Workshop' },
 }
+
+/** Map TODAY_EVENTS to timeline format with endTime calculation. */
+const SCHEDULE = TODAY_EVENTS.map((ev) => {
+  const durMatch = ev.duration.match(/(\d+)\s*(Std|Min)/)
+  let endTime = ev.time
+  if (durMatch) {
+    const [h, m] = ev.time.split(':').map(Number)
+    const addMin = durMatch[2] === 'Std' ? Number(durMatch[1]) * 60 : Number(durMatch[1])
+    const total = h * 60 + m + addMin
+    endTime = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  }
+  return { ...ev, endTime, attendeeCount: ev.attendeeIds.length }
+})
 
 function MyCalendar(_props: WidgetProps) {
   const now = new Date()
@@ -50,10 +45,10 @@ function MyCalendar(_props: WidgetProps) {
 
       {/* Timeline */}
       <div className="flex-1 overflow-auto">
-        {MOCK_SCHEDULE.map((slot) => {
+        {SCHEDULE.map((slot) => {
           const isPast = slot.endTime < currentTimeStr
           const isCurrent = slot.time <= currentTimeStr && slot.endTime > currentTimeStr
-          const style = TYPE_STYLE[slot.type]
+          const style = TYPE_STYLE[slot.type] ?? TYPE_STYLE.meeting
 
           return (
             <div
@@ -85,10 +80,10 @@ function MyCalendar(_props: WidgetProps) {
                       {slot.location}
                     </span>
                   )}
-                  {slot.attendees && (
+                  {slot.attendeeCount > 0 && (
                     <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                       <Users className="h-2.5 w-2.5" />
-                      {slot.attendees}
+                      {slot.attendeeCount}
                     </span>
                   )}
                 </div>

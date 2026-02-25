@@ -3,22 +3,17 @@
  */
 import { memo } from 'react'
 import { Handshake, TrendingUp, Target } from 'lucide-react'
+import { KPI } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
-
-const MOCK = {
-  openDeals: 12,
-  pipelineValue: 237_500,
-  wonThisMonth: 4,
-  lostThisMonth: 1,
-  winRate: 80,
-  avgDealSize: 19_800,
-}
 
 function fmt(n: number) {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 }
 
 function KpiDeals(_props: WidgetProps) {
+  const { pipelineValue, activeDeals, wonThisMonth, winRate } = KPI.deals
+  const lostThisMonth = 1
+
   return (
     <div className="flex h-full flex-col p-4">
       {/* Header */}
@@ -30,24 +25,24 @@ function KpiDeals(_props: WidgetProps) {
       </div>
 
       {/* Main KPI */}
-      <p className="text-2xl font-bold text-foreground">{fmt(MOCK.pipelineValue)}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">Pipeline-Wert ({MOCK.openDeals} offene Deals)</p>
+      <p className="text-2xl font-bold text-foreground">{fmt(pipelineValue)}</p>
+      <p className="text-xs text-muted-foreground mt-0.5">Pipeline-Wert ({activeDeals} offene Deals)</p>
 
       {/* Stats grid */}
       <div className="mt-auto grid grid-cols-3 gap-2 pt-3">
         <div className="rounded-lg bg-emerald-500/10 p-2 text-center">
           <TrendingUp className="mx-auto h-3.5 w-3.5 text-emerald-600 mb-0.5" />
-          <p className="text-sm font-bold text-emerald-600">{MOCK.wonThisMonth}</p>
+          <p className="text-sm font-bold text-emerald-600">{wonThisMonth}</p>
           <p className="text-[9px] text-muted-foreground">Gewonnen</p>
         </div>
         <div className="rounded-lg bg-red-500/10 p-2 text-center">
           <Target className="mx-auto h-3.5 w-3.5 text-red-500 mb-0.5" />
-          <p className="text-sm font-bold text-red-500">{MOCK.lostThisMonth}</p>
+          <p className="text-sm font-bold text-red-500">{lostThisMonth}</p>
           <p className="text-[9px] text-muted-foreground">Verloren</p>
         </div>
         <div className="rounded-lg bg-violet-500/10 p-2 text-center">
           <Handshake className="mx-auto h-3.5 w-3.5 text-violet-600 mb-0.5" />
-          <p className="text-sm font-bold text-violet-600">{MOCK.winRate}%</p>
+          <p className="text-sm font-bold text-violet-600">{winRate}%</p>
           <p className="text-[9px] text-muted-foreground">Win-Rate</p>
         </div>
       </div>

@@ -3,22 +3,8 @@
  */
 import { memo, useState } from 'react'
 import { BarChart3 } from 'lucide-react'
+import { MONTHLY_REVENUE } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
-
-const MOCK_DATA = [
-  { month: 'Mär', value: 42_100 },
-  { month: 'Apr', value: 38_700 },
-  { month: 'Mai', value: 51_200 },
-  { month: 'Jun', value: 47_800 },
-  { month: 'Jul', value: 55_300 },
-  { month: 'Aug', value: 43_600 },
-  { month: 'Sep', value: 52_300 },
-  { month: 'Okt', value: 61_400 },
-  { month: 'Nov', value: 58_900 },
-  { month: 'Dez', value: 67_100 },
-  { month: 'Jan', value: 71_200 },
-  { month: 'Feb', value: 84_750 },
-]
 
 function fmt(n: number) {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
@@ -26,8 +12,8 @@ function fmt(n: number) {
 
 function MiniChart(_props: WidgetProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
-  const max = Math.max(...MOCK_DATA.map((d) => d.value))
-  const total = MOCK_DATA.reduce((sum, d) => sum + d.value, 0)
+  const max = Math.max(...MONTHLY_REVENUE.map((d) => d.revenue))
+  const total = MONTHLY_REVENUE.reduce((sum, d) => sum + d.revenue, 0)
 
   return (
     <div className="flex h-full flex-col p-4">
@@ -44,17 +30,17 @@ function MiniChart(_props: WidgetProps) {
         </div>
         {hoveredIdx !== null && (
           <div className="text-right animate-fade-up">
-            <p className="text-xs text-muted-foreground">{MOCK_DATA[hoveredIdx].month}</p>
-            <p className="text-sm font-bold text-foreground">{fmt(MOCK_DATA[hoveredIdx].value)}</p>
+            <p className="text-xs text-muted-foreground">{MONTHLY_REVENUE[hoveredIdx].label}</p>
+            <p className="text-sm font-bold text-foreground">{fmt(MONTHLY_REVENUE[hoveredIdx].revenue)}</p>
           </div>
         )}
       </div>
 
       {/* Bar chart */}
       <div className="flex-1 flex items-end gap-1 min-h-0">
-        {MOCK_DATA.map((d, i) => {
-          const h = (d.value / max) * 100
-          const isLast = i === MOCK_DATA.length - 1
+        {MONTHLY_REVENUE.map((d, i) => {
+          const h = (d.revenue / max) * 100
+          const isLast = i === MONTHLY_REVENUE.length - 1
           const isHovered = hoveredIdx === i
           return (
             <div
@@ -78,7 +64,7 @@ function MiniChart(_props: WidgetProps) {
               <span className={`text-[8px] leading-none ${
                 isHovered || isLast ? 'text-foreground font-medium' : 'text-muted-foreground'
               }`}>
-                {d.month}
+                {d.label}
               </span>
             </div>
           )

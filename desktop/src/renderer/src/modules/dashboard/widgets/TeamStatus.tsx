@@ -2,28 +2,10 @@
  * Team Status widget — shows who is online, away, or offline.
  */
 import { memo } from 'react'
+import { EMPLOYEES } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 type Status = 'online' | 'away' | 'busy' | 'offline'
-
-interface MockMember {
-  id: string
-  name: string
-  role: string
-  status: Status
-  avatar: string
-}
-
-const MOCK_TEAM: MockMember[] = [
-  { id: '1', name: 'Anna Schneider', role: 'Projektleiterin', status: 'online', avatar: 'AS' },
-  { id: '2', name: 'Markus Weber', role: 'Entwickler', status: 'online', avatar: 'MW' },
-  { id: '3', name: 'Lena Fischer', role: 'Designerin', status: 'busy', avatar: 'LF' },
-  { id: '4', name: 'Thomas Mueller', role: 'Vertrieb', status: 'away', avatar: 'TM' },
-  { id: '5', name: 'Sarah Braun', role: 'Buchhaltung', status: 'online', avatar: 'SB' },
-  { id: '6', name: 'Jonas Hartmann', role: 'Support', status: 'offline', avatar: 'JH' },
-  { id: '7', name: 'Maria Keller', role: 'HR', status: 'online', avatar: 'MK' },
-  { id: '8', name: 'Felix Wagner', role: 'Praktikant', status: 'away', avatar: 'FW' },
-]
 
 const STATUS_CONFIG: Record<Status, { color: string; label: string }> = {
   online: { color: 'bg-emerald-500', label: 'Online' },
@@ -34,12 +16,20 @@ const STATUS_CONFIG: Record<Status, { color: string; label: string }> = {
 
 const STATUS_ORDER: Status[] = ['online', 'busy', 'away', 'offline']
 
+const TEAM = EMPLOYEES.map((e) => ({
+  id: e.id,
+  name: `${e.firstName} ${e.lastName}`,
+  role: e.jobTitle,
+  status: e.status,
+  avatar: e.initials,
+}))
+
 function TeamStatus(_props: WidgetProps) {
-  const sorted = [...MOCK_TEAM].sort(
+  const sorted = [...TEAM].sort(
     (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
   )
 
-  const counts = MOCK_TEAM.reduce<Record<Status, number>>(
+  const counts = TEAM.reduce<Record<Status, number>>(
     (acc, m) => { acc[m.status]++; return acc },
     { online: 0, away: 0, busy: 0, offline: 0 }
   )
