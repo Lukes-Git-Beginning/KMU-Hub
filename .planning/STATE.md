@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 17.5 of 20 (Gast-Chat / Kundenportal) -- EXECUTING
-Plan: 1 of 3 complete
-Status: Plan 01 (data foundation) done, Plan 02 (services + gateway) next
-Last activity: 2026-02-25 -- Phase 17.5-01 executed
+Plan: 2 of 3 complete
+Status: Plan 02 (services + gateway) done, Plan 03 (frontend) next
+Last activity: 2026-02-25 -- Phase 17.5-02 executed
 
-Progress: [█████████████████████████████████] 100% (91/93 plans across phases 4-17.5)
+Progress: [█████████████████████████████████] 100% (92/93 plans across phases 4-17.5)
 
 ## Performance Metrics
 
@@ -54,8 +54,8 @@ Progress: [███████████████████████
 - Phase 15 (CalDAV/CardDAV Integration) COMPLETE -- all 3 plans done (data foundation, backend adapters, gateway+frontend+push)
 - Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
 - Phase 17 (Teams & Slack Integration) COMPLETE -- all 3 plans done (data foundation, forwarder + adapters, frontend)
-- Phase 17.5 (Gast-Chat) STARTED -- plan 01 (data foundation) done
-- 91/93 plans done across Phases 4-17.5
+- Phase 17.5 (Gast-Chat) IN PROGRESS -- plans 01+02 done, plan 03 (frontend) remaining
+- 92/93 plans done across Phases 4-17.5
 
 *Updated after each plan completion*
 
@@ -421,6 +421,11 @@ Recent decisions affecting current work:
 - [17.5-01]: Guest token: UUID v4 stored as SHA-256 hash (64 hex chars), plain token returned once on creation
 - [17.5-01]: In-memory sliding window rate limiter (30 msgs/min), resets on restart
 - [17.5-01]: Guest channel config defaults: 7-day expiry, 10MB file limit, image+PDF, blue primary color, German welcome message
+- [17.5-02]: GuestSessionValidator interface in server package for circular import avoidance
+- [17.5-02]: uuid.Nil as guest sentinel in GetMessages gRPC, server checks is_guest_enabled
+- [17.5-02]: LEFT JOIN users + LEFT JOIN guest_sessions for mixed user/guest message listing
+- [17.5-02]: SkipMembershipCheck flag on ListInput for guest-enabled channel access
+- [17.5-02]: Guest routes public (no JWT) with X-Guest-Token header auth middleware
 
 ### Pending Todos
 
@@ -435,6 +440,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Phase 17.5-01 complete (data foundation)
-Resume file: .planning/phases/17.5-guest-chat/17.5-02-PLAN.md
-Next: Execute 17.5-02 (services + gateway), then 17.5-03 (guest frontend)
+Stopped at: Phase 17.5-02 complete (services + gateway)
+Resume file: .planning/phases/17.5-guest-chat/17.5-03-PLAN.md
+Next: Execute 17.5-03 (guest frontend widget)
