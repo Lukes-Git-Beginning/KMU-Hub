@@ -13,6 +13,13 @@ import {
   Clock,
   XCircle,
   Tag,
+  Archive,
+  Trash2,
+  MailOpen,
+  MailCheck,
+  Forward,
+  ListTodo,
+  StickyNote,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Conversation, CommunicationChannel, ConversationStatus } from '@/types/communication'
@@ -61,8 +68,13 @@ export function ConversationThreadHeader({ conversation: conv }: ConversationThr
   const updateStatus = useKommunikationStore((s) => s.updateStatus)
   const addTag = useKommunikationStore((s) => s.addTag)
   const removeTag = useKommunikationStore((s) => s.removeTag)
+  const toggleRead = useKommunikationStore((s) => s.toggleRead)
+  const archiveConversation = useKommunikationStore((s) => s.archiveConversation)
+  const deleteConversation = useKommunikationStore((s) => s.deleteConversation)
+  const addMessage = useKommunikationStore((s) => s.addMessage)
   const [tagInput, setTagInput] = useState('')
   const [statusOpen, setStatusOpen] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
 
   const ch = channelConfig[conv.channel]
   const ChannelIcon = ch.icon
@@ -135,10 +147,63 @@ export function ConversationThreadHeader({ conversation: conv }: ConversationThr
           </PopoverContent>
         </Popover>
 
-        {/* More menu placeholder */}
-        <button className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
+        {/* Actions menu */}
+        <Popover open={actionsOpen} onOpenChange={setActionsOpen}>
+          <PopoverTrigger asChild>
+            <button className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="end" sideOffset={4}>
+            <button
+              onClick={() => { toggleRead(conv.id); setActionsOpen(false); toast.success(conv.unreadCount === 0 ? 'Als ungelesen markiert' : 'Als gelesen markiert') }}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+            >
+              {conv.unreadCount === 0 ? <MailOpen className="h-3.5 w-3.5" /> : <MailCheck className="h-3.5 w-3.5" />}
+              {conv.unreadCount === 0 ? 'Als ungelesen markieren' : 'Als gelesen markieren'}
+            </button>
+            <button
+              onClick={() => { toast.info('Weiterleitung geoeffnet'); setActionsOpen(false) }}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+            >
+              <Forward className="h-3.5 w-3.5" />
+              Weiterleiten
+            </button>
+            <button
+              onClick={() => {
+                addMessage(conv.id, { conversationId: conv.id, direction: 'internal', senderName: 'Du', senderId: 'self', content: '(Notiz hinzugefuegt)', attachments: [] })
+                setActionsOpen(false)
+                toast.success('Interne Notiz erstellt')
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+            >
+              <StickyNote className="h-3.5 w-3.5" />
+              Notiz hinzufuegen
+            </button>
+            <button
+              onClick={() => { toast.success('Aufgabe erstellt'); setActionsOpen(false) }}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+            >
+              <ListTodo className="h-3.5 w-3.5" />
+              Aufgabe erstellen
+            </button>
+            <div className="my-1 border-t border-border" />
+            <button
+              onClick={() => { archiveConversation(conv.id); setActionsOpen(false); toast.success('Konversation archiviert') }}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+            >
+              <Archive className="h-3.5 w-3.5" />
+              Archivieren
+            </button>
+            <button
+              onClick={() => { deleteConversation(conv.id); setActionsOpen(false); toast.success('Konversation geloescht') }}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-error transition-colors hover:bg-error/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Loeschen
+            </button>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Row 2: Contact info + assigned + tags */}

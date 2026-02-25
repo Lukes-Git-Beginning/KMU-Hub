@@ -170,7 +170,7 @@ export function TimeTrackerWidget() {
   // ─── Render ──────────────────────────────────────────────────
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" ref={dropdownRef} data-tour="time-tracker">
       {/* ── Trigger Button ── */}
       <button
         onClick={() => {

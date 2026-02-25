@@ -31,6 +31,8 @@ import { OfflineBanner } from './OfflineBanner'
 import { ModuleErrorBoundary } from './ModuleShell'
 import { PageTransitionOutlet } from './PageTransitionOutlet'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
+import { TourOverlay } from '@/components/shared/TourOverlay'
+import { PasswordExpiryDialog } from '@/components/shared/PasswordExpiryDialog'
 import { DockBar } from './dock/DockBar'
 import { TopNavBar } from './topnav/TopNavBar'
 import { ClassicSidebar } from './classic/ClassicSidebar'
@@ -110,6 +112,8 @@ export function AppShell() {
       {/* Global overlays — shared across all layouts */}
       <FloatingCallBar />
       <IncomingCallOverlay />
+      <TourOverlay />
+      <PasswordExpiryDialog />
       {!onboardingCompleted && <OnboardingWizard />}
     </PresenceProvider>
   )

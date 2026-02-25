@@ -13,21 +13,16 @@ import {
   Mail,
   Calendar,
   Receipt,
-  Users,
   Lock,
   Copy,
   Eye,
   EyeOff,
-  X,
-  Plus,
-  Building2,
   Landmark,
   Plug,
   Sparkles,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared'
 import { useSettingsStore } from '@/stores/settings'
@@ -35,25 +30,21 @@ import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { canSeeSettingsTab } from '@/config/roles'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
-import { DESK_THEMES, DESK_THEME_ORDER } from '@/config/desk-themes'
-import { getDecosForTheme, DECO_ASSETS } from '@/config/desk-asset-urls'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
 import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
-import { TeamSettingsTab } from './tabs/TeamSettingsTab'
 import { PrivacySettingsTab } from './tabs/PrivacySettingsTab'
-import { useProfileStore } from '@/stores/profile'
 import { PaletteSwitcher } from '@/components/shared/PaletteSwitcher'
 import { LayoutSwitcher } from '@/components/shared/LayoutSwitcher'
 import { headerWidgetList } from '@/components/header/header-widgets'
-import { BACKGROUND_PATTERN_LIST } from '@/config/background-patterns'
-import { BUSINESS_PROFILES } from '@/config/business-profiles'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
 import { NotificationSettingsTab } from './tabs/NotificationSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
 import { AIGovernanceTab } from './tabs/AIGovernanceTab'
+import { ITAdminTab } from './tabs/ITAdminTab'
 import { ThemePreview } from './ThemePreview'
+import { useTourStore } from '@/stores/tour'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'company' | 'integrations' | 'team' | 'privacy' | 'ai' | 'business' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'company' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -72,9 +63,8 @@ const ALL_TABS: TabConfig[] = [
   { key: 'calendar', label: 'Kalender', icon: Calendar, group: 'Module' },
   { key: 'finance', label: 'Buchhaltung', icon: Receipt, group: 'Module' },
   { key: 'company', label: 'Firma', icon: Landmark, group: 'Admin' },
+  { key: 'it-admin', label: 'IT-Admin', icon: Monitor, group: 'Admin' },
   { key: 'integrations', label: 'Integrationen', icon: Plug, group: 'Admin' },
-  { key: 'business', label: 'Branchenprofil', icon: Building2, group: 'Admin' },
-  { key: 'team', label: 'Team & HR', icon: Users, group: 'Admin' },
   { key: 'privacy', label: 'Datenschutz', icon: Lock, group: 'Admin' },
   { key: 'ai', label: 'KI-Assistent', icon: Sparkles, group: 'Admin' },
   { key: 'about', label: 'Über KMU Hub', icon: Info, group: 'Sonstiges' },
@@ -141,11 +131,10 @@ export default function SettingsPage() {
         {effectiveTab === 'calendar' && <CalendarSettingsTab />}
         {effectiveTab === 'finance' && <FinanceSettingsTab />}
         {effectiveTab === 'company' && <CompanySettingsTab />}
+        {effectiveTab === 'it-admin' && <ITAdminTab />}
         {effectiveTab === 'integrations' && <IntegrationSettingsTab />}
-        {effectiveTab === 'team' && <TeamSettingsTab />}
         {effectiveTab === 'privacy' && <PrivacySettingsTab />}
         {effectiveTab === 'ai' && <AIGovernanceTab />}
-        {effectiveTab === 'business' && <BusinessProfileTab />}
         {effectiveTab === 'about' && <AboutTab />}
       </div>
     </div>
@@ -261,14 +250,10 @@ function AppearanceTab() {
 
   const theme = useUIStore((s) => s.theme)
   const setTheme = useUIStore((s) => s.setTheme)
-  const uiLook = useUIStore((s) => s.uiLook)
-  const setUILook = useUIStore((s) => s.setUILook)
-  const deskThemeId = useUIStore((s) => s.deskThemeId)
-  const setDeskThemeAndDecorations = useUIStore((s) => s.setDeskThemeAndDecorations)
   const accentIntensity = useUIStore((s) => s.accentIntensity)
   const setAccentIntensity = useUIStore((s) => s.setAccentIntensity)
-  const deskDecorations = useUIStore((s) => s.deskDecorations)
-  const setDeskDecoration = useUIStore((s) => s.setDeskDecoration)
+  const windowStyle = useUIStore((s) => s.windowStyle)
+  const setWindowStyle = useUIStore((s) => s.setWindowStyle)
 
   const themes = [
     { id: 'light' as const, label: 'Hell', desc: 'Warme, helle Oberfläche' },
@@ -284,39 +269,6 @@ function AppearanceTab() {
   const handleSave = () => {
     updateAppearance({ theme, fontSize })
     toast.success('Darstellung gespeichert')
-  }
-
-  // Theme-aware available decorations
-  const availableDecos = getDecosForTheme(deskThemeId)
-  const activeDecoIds = Object.values(deskDecorations)
-    .filter((p) => p.type === 'image')
-    .map((p) => p.variant)
-
-  // Find first free image mount point for adding a decoration
-  const currentTheme = DESK_THEMES[deskThemeId]
-  const freeImageSlots = currentTheme?.mountPoints.filter(
-    (mp) => mp.acceptTypes.includes('image') && !deskDecorations[mp.id]
-  ) ?? []
-
-  const handleAddDeco = (decoId: string) => {
-    if (freeImageSlots.length === 0) {
-      toast.error('Alle Plätze belegt — entferne erst eine Deko')
-      return
-    }
-    const mp = freeImageSlots[0]
-    const asset = DECO_ASSETS.find((d) => d.id === decoId)
-    if (!asset) return
-    setDeskDecoration(mp.id, {
-      slotId: mp.id,
-      type: 'image',
-      variant: asset.id,
-      imageUrl: asset.image,
-      animationClass: asset.animation ?? undefined,
-    })
-  }
-
-  const handleRemoveDeco = (slotId: string) => {
-    setDeskDecoration(slotId, null)
   }
 
   return (
@@ -397,176 +349,47 @@ function AppearanceTab() {
       <p className="text-xs text-muted-foreground mb-3">Waehle wie du durch die App navigierst</p>
       <LayoutSwitcher className="mb-8" />
 
+      {/* ── FENSTER-STIL ──────────────────────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Fenster-Stil</h3>
+      <p className="text-xs text-muted-foreground mb-3">Vollbild oder abgerundetes Fenster mit Rand</p>
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        {([
+          { id: 'full' as const, label: 'Vollbild', desc: 'Fenster komplett ausgefuellt' },
+          { id: 'bubble' as const, label: 'Bubble', desc: 'Abgerundeter Rahmen mit Rand' },
+        ]).map((style) => (
+          <button
+            key={style.id}
+            onClick={() => setWindowStyle(style.id)}
+            className={`relative rounded-lg border p-4 text-center transition-colors ${
+              windowStyle === style.id
+                ? 'border-primary bg-primary-light'
+                : 'border-border bg-card hover:bg-secondary'
+            }`}
+          >
+            {windowStyle === style.id && (
+              <span className="absolute top-2 right-2">
+                <Check className="h-4 w-4 text-primary" />
+              </span>
+            )}
+            <div className="mx-auto mb-2 h-10 w-16 rounded border border-border bg-secondary/50 flex items-center justify-center">
+              {style.id === 'full' ? (
+                <div className="h-8 w-14 rounded-sm bg-card border border-card-border" />
+              ) : (
+                <div className="h-7 w-12 rounded-lg bg-card border border-card-border shadow-sm" />
+              )}
+            </div>
+            <p className="text-sm font-medium text-foreground">{style.label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{style.desc}</p>
+          </button>
+        ))}
+      </div>
+
       {/* ── HEADER WIDGETS ─────────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Header-Widgets</h3>
       <p className="text-xs text-muted-foreground mb-3">Waehle bis zu 3 Mini-Widgets fuer die Kopfleiste</p>
       <HeaderWidgetPicker className="mb-8" />
 
-      {/* ── UI LOOK PICKER ──────────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Oberflächenstil</h3>
-      <div className="grid grid-cols-3 gap-3 mb-8">
-        {([
-          { id: 'solid' as const, label: 'Standard', desc: 'Solide, opake Oberflächen' },
-          { id: 'glass' as const, label: 'Milchglas', desc: 'Halbtransparent mit Blur' },
-          { id: 'crystal' as const, label: 'Transparent', desc: 'Durchsichtig, Inhalte milchig' },
-        ]).map((look) => (
-          <button
-            key={look.id}
-            onClick={() => setUILook(look.id)}
-            className={`relative rounded-lg border p-4 text-center transition-colors ${
-              uiLook === look.id
-                ? 'border-primary bg-primary-light'
-                : 'border-border bg-card hover:bg-secondary'
-            }`}
-          >
-            {uiLook === look.id && (
-              <span className="absolute top-2 right-2">
-                <Check className="h-4 w-4 text-primary" />
-              </span>
-            )}
-            <div className={`mx-auto mb-2 h-10 w-16 rounded border ${
-              look.id === 'solid'
-                ? 'bg-card border-card-border'
-                : 'border-card-border/40'
-            }`} style={look.id === 'glass' ? {
-              background: 'linear-gradient(135deg, rgba(245,239,232,0.5) 0%, rgba(232,227,221,0.3) 100%)',
-              backdropFilter: 'blur(4px)',
-            } : look.id === 'crystal' ? {
-              background: 'linear-gradient(135deg, rgba(245,239,232,0.25) 0%, rgba(232,227,221,0.15) 100%)',
-              backdropFilter: 'blur(6px)',
-            } : undefined} />
-            <p className="text-sm font-medium text-foreground">{look.label}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{look.desc}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* ── DESK THEME PICKER ─────────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Arbeitsplatz-Theme</h3>
-      <p className="text-xs text-muted-foreground mb-3">Wähle das Ambiente deines virtuellen Schreibtischs</p>
-      <div className="grid grid-cols-3 gap-3 mb-8">
-        {DESK_THEME_ORDER.map((id) => {
-          const dt = DESK_THEMES[id]
-          const isActive = deskThemeId === id
-          return (
-            <button
-              key={id}
-              onClick={() => setDeskThemeAndDecorations(id)}
-              className={`relative rounded-xl border-2 overflow-hidden transition-all ${
-                isActive
-                  ? 'border-primary ring-2 ring-primary/20 scale-[1.02]'
-                  : 'border-border hover:border-muted-foreground/30'
-              }`}
-            >
-              {/* CSS gradient preview from theme roomVariables */}
-              <div
-                className="aspect-[4/3]"
-                style={{ background: dt.roomVariables['desk-room-bg'] ?? '#e5e5e5' }}
-              />
-              <div className="p-2 bg-card">
-                <p className="text-xs font-medium text-foreground truncate">{dt.name}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{dt.description}</p>
-              </div>
-              {dt.isMinimal && (
-                <span className="absolute top-1.5 left-1.5 bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[9px] font-medium">
-                  Kein Schreibtisch
-                </span>
-              )}
-              {isActive && (
-                <span className="absolute top-1.5 right-1.5 bg-primary rounded-full p-0.5">
-                  <Check className="h-3 w-3 text-white" />
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* ── HINTERGRUNDMUSTER ──────────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Hintergrundmuster</h3>
-      <p className="text-xs text-muted-foreground mb-3">
-        Sichtbar bei Milchglas/Transparent. Im Standard-Modus erscheinen dezente Sticker auf Karten.
-      </p>
-      <BackgroundPatternPicker className="mb-8" />
-
-      {/* ── DEKO-REGAL ────────────────────────────────── */}
-      {!currentTheme?.isMinimal && (
-        <>
-          <h3 className="text-sm font-medium text-foreground mb-3">Dekorationen</h3>
-          <p className="text-xs text-muted-foreground mb-3">Platziere Objekte auf deinem Schreibtisch</p>
-
-          {/* Active decorations */}
-          <div className="mb-4">
-            <p className="text-xs text-muted-foreground mb-2">Auf dem Schreibtisch</p>
-            <div className="flex flex-wrap gap-2 min-h-[60px] rounded-lg border border-border bg-card/50 p-3">
-              {Object.entries(deskDecorations)
-                .filter(([, p]) => p.type === 'image')
-                .map(([slotId, placement]) => {
-                  const asset = DECO_ASSETS.find((d) => d.id === placement.variant)
-                  if (!asset) return null
-                  return (
-                    <div
-                      key={slotId}
-                      className="relative group flex flex-col items-center gap-1 rounded-lg border border-border bg-card p-2 w-[72px]"
-                    >
-                      <img
-                        src={asset.image}
-                        alt={asset.name}
-                        className="h-10 w-10 object-contain"
-                      />
-                      <span className="text-[9px] text-muted-foreground text-center leading-tight truncate w-full">{asset.name}</span>
-                      <button
-                        onClick={() => handleRemoveDeco(slotId)}
-                        className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )
-                })}
-              {Object.values(deskDecorations).filter((p) => p.type === 'image').length === 0 && (
-                <p className="text-xs text-muted-foreground italic m-auto">Keine Dekorationen platziert</p>
-              )}
-            </div>
-          </div>
-
-          {/* Available decorations */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">Verfuegbar ({availableDecos.length})</p>
-            <div className="flex flex-wrap gap-2 rounded-lg border border-dashed border-border p-3">
-              {availableDecos.map((deco) => {
-                const isPlaced = activeDecoIds.includes(deco.id)
-                return (
-                  <button
-                    key={deco.id}
-                    onClick={() => {
-                      if (!isPlaced) handleAddDeco(deco.id)
-                    }}
-                    disabled={isPlaced}
-                    className={`flex flex-col items-center gap-1 rounded-lg border p-2 w-[72px] transition-all ${
-                      isPlaced
-                        ? 'border-border/50 opacity-40 cursor-not-allowed'
-                        : 'border-border bg-card hover:border-primary hover:bg-primary-light cursor-pointer'
-                    }`}
-                  >
-                    <img
-                      src={deco.image}
-                      alt={deco.name}
-                      className="h-10 w-10 object-contain"
-                    />
-                    <span className="text-[9px] text-muted-foreground text-center leading-tight truncate w-full">{deco.name}</span>
-                    {!isPlaced && (
-                      <Plus className="h-3 w-3 text-muted-foreground" />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </>
-      )}
-
-      <div className="mt-8 mb-4 border-t border-border" />
+      <div className="mt-4 mb-4 border-t border-border" />
 
       <h3 className="text-sm font-medium text-foreground mb-3">Schriftgröße</h3>
       <div className="flex items-center gap-3 mb-2">
@@ -668,7 +491,7 @@ function LanguageTab() {
 // Security Tab — 2FA setup, sessions, password
 // ============================================================
 function SecurityTab() {
-  const { security, enable2FA, disable2FA } = useSettingsStore()
+  const { security, enable2FA, disable2FA, updateSecurity } = useSettingsStore()
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [currentPw, setCurrentPw] = useState('')
@@ -677,6 +500,14 @@ function SecurityTab() {
   const [show2FASetup, setShow2FASetup] = useState(false)
   const [showDisable2FA, setShowDisable2FA] = useState(false)
   const [showRevokeSession, setShowRevokeSession] = useState<number | null>(null)
+
+  // Password expiry calculation
+  const lastChanged = security.passwordLastChanged ? new Date(security.passwordLastChanged) : null
+  const expiryDays = security.passwordExpiryDays || 90
+  const daysSinceChange = lastChanged ? Math.floor((Date.now() - lastChanged.getTime()) / (1000 * 60 * 60 * 24)) : 0
+  const daysUntilExpiry = Math.max(0, expiryDays - daysSinceChange)
+  const isExpiringSoon = daysUntilExpiry <= 14 && daysUntilExpiry > 0
+  const isExpired = daysUntilExpiry === 0
 
   const mockSessions = [
     { id: 1, device: 'Desktop — Windows', location: 'Zürich, CH', lastActive: 'Jetzt aktiv', isCurrent: true, icon: Monitor },
@@ -694,6 +525,7 @@ function SecurityTab() {
       toast.error('Passwort muss mindestens 8 Zeichen haben')
       return
     }
+    updateSecurity({ passwordLastChanged: new Date().toISOString() })
     toast.success('Passwort geändert')
     setCurrentPw('')
     setNewPw('')
@@ -721,6 +553,43 @@ function SecurityTab() {
     <div className="max-w-2xl mx-auto">
       <h2 className="text-foreground mb-1">Sicherheit</h2>
       <p className="text-sm text-muted-foreground mb-6">Passwort, 2FA und Sitzungen verwalten</p>
+
+      {/* Password Expiry Info */}
+      {expiryDays > 0 && (
+        <section className="mb-6">
+          <div className={`flex items-center gap-3 rounded-lg border p-4 ${
+            isExpired ? 'border-error/50 bg-error/5' :
+            isExpiringSoon ? 'border-warning/50 bg-warning/5' :
+            'border-border bg-card'
+          }`}>
+            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+              isExpired ? 'bg-error/10' : isExpiringSoon ? 'bg-warning/10' : 'bg-secondary'
+            }`}>
+              <Shield className={`h-5 w-5 ${
+                isExpired ? 'text-error' : isExpiringSoon ? 'text-warning' : 'text-muted-foreground'
+              }`} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">
+                {isExpired ? 'Passwort abgelaufen' :
+                 isExpiringSoon ? `Passwort laeuft in ${daysUntilExpiry} Tagen ab` :
+                 `Naechste Aenderung in ${daysUntilExpiry} Tagen`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Zuletzt geaendert: {lastChanged?.toLocaleDateString('de-DE') ?? 'Unbekannt'}
+                {' · '}Richtlinie: alle {expiryDays} Tage
+              </p>
+            </div>
+            {(isExpired || isExpiringSoon) && (
+              <span className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${
+                isExpired ? 'bg-error/15 text-error' : 'bg-warning/15 text-warning'
+              }`}>
+                {isExpired ? 'Sofort aendern' : 'Bald faellig'}
+              </span>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Password */}
       <section className="mb-8">
@@ -931,170 +800,106 @@ function SecurityTab() {
 // About Tab
 // ============================================================
 function AboutTab() {
+  const startTour = useTourStore((s) => s.startTour)
+  const tours = useTourStore((s) => s.tours)
+
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="rounded-lg bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
-        <h2 className="text-primary-foreground text-xl mb-2">KMU Hub</h2>
-        <p className="text-primary-foreground/80 text-sm">
-          All-in-One CRM für DACH-KMUs mit EU-Datensouveränität
+      {/* Hero */}
+      <div className="rounded-xl bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
+        <h2 className="text-primary-foreground text-xl font-semibold mb-1">KMU Hub</h2>
+        <p className="text-primary-foreground/80 text-sm mb-3">
+          All-in-One Business-Plattform fuer DACH-KMUs
         </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Version</p>
-          <p className="text-sm font-medium text-foreground">0.1.0 (Beta)</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Lizenz</p>
-          <p className="text-sm font-medium text-foreground">Enterprise</p>
+        <div className="flex items-center gap-3">
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">v0.1.0 Beta</span>
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">Enterprise</span>
         </div>
       </div>
 
-      <h3 className="text-sm font-medium text-foreground mb-3">Features</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        {[
-          { title: 'EU-Datensouveränität', desc: 'Hosting nur auf EU-Servern' },
-          { title: 'KMU-optimiert', desc: 'Für 5-200 Mitarbeiter' },
-          { title: 'Self-Hosted Option', desc: 'Volle Kontrolle über deine Daten' },
-        ].map((f) => (
-          <div key={f.title} className="rounded-lg border border-border bg-card p-3">
-            <p className="text-sm font-medium text-foreground mb-0.5">{f.title}</p>
-            <p className="text-xs text-muted-foreground">{f.desc}</p>
+      {/* Support & Contact */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Support & Kontakt</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light">
+              <Mail className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">E-Mail Support</p>
+              <p className="text-xs text-muted-foreground">Mo-Fr, 08:00-18:00 Uhr</p>
+            </div>
+          </div>
+          <p className="text-sm text-primary ml-12">support@kmuhub.ch</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light">
+              <Calendar className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Telefon-Support</p>
+              <p className="text-xs text-muted-foreground">Mo-Fr, 09:00-17:00 Uhr</p>
+            </div>
+          </div>
+          <p className="text-sm text-primary ml-12">+41 44 000 00 00</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+              <Info className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Wissensdatenbank</p>
+              <p className="text-xs text-muted-foreground">docs.kmuhub.ch</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+              <Info className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Website</p>
+              <p className="text-xs text-muted-foreground">www.kmuhub.ch</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Tours */}
+      <h3 className="text-sm font-medium text-foreground mb-1">Interaktive Touren</h3>
+      <p className="text-xs text-muted-foreground mb-3">Starte eine gefuehrte Tour um die App oder einzelne Module kennenzulernen</p>
+      <div className="space-y-2 mb-8">
+        {tours.map((tour) => (
+          <div
+            key={tour.id}
+            className="flex items-center justify-between rounded-lg border border-border bg-card p-3 hover:bg-secondary/50 transition-colors"
+          >
+            <div>
+              <p className="text-sm font-medium text-foreground">{tour.name}</p>
+              <p className="text-xs text-muted-foreground">{tour.description} · {tour.steps.length} Schritte</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => startTour(tour.id)}
+            >
+              Tour starten
+            </Button>
           </div>
         ))}
       </div>
 
-      <h3 className="text-sm font-medium text-foreground mb-3">Kontakt</h3>
-      <div className="space-y-2 text-sm text-muted-foreground">
-        <p>Support: support@kmuhub.ch</p>
-        <p>Website: www.kmuhub.ch</p>
+      {/* System info */}
+      <h3 className="text-sm font-medium text-foreground mb-3">System</h3>
+      <div className="rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground space-y-1">
+        <div className="flex justify-between"><span>Version</span><span className="text-foreground">0.1.0 (Beta)</span></div>
+        <div className="flex justify-between"><span>Lizenz</span><span className="text-foreground">Enterprise</span></div>
+        <div className="flex justify-between"><span>Hosting</span><span className="text-foreground">EU (Hetzner)</span></div>
+        <div className="flex justify-between"><span>Datenschutz</span><span className="text-foreground">DSGVO-konform</span></div>
       </div>
-    </div>
-  )
-}
-
-// ============================================================
-// Business Profile Tab — industry profile + optional modules
-// ============================================================
-function BusinessProfileTab() {
-  const { businessProfileId, enabledOptionalModules, setBusinessProfile, enableModule, disableModule } = useProfileStore()
-  const selectedProfile = BUSINESS_PROFILES.find((p) => p.id === businessProfileId)
-
-  return (
-    <div className="max-w-3xl mx-auto">
-      <h2 className="text-lg font-semibold text-foreground mb-1">Branchenprofil</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        Wählen Sie das Profil das am besten zu Ihrem Unternehmen passt. Module werden entsprechend angezeigt.
-      </p>
-
-      {/* Profile grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-        {BUSINESS_PROFILES.map((profile) => {
-          const isActive = businessProfileId === profile.id
-          return (
-            <button
-              key={profile.id}
-              onClick={() => setBusinessProfile(profile.id)}
-              className={`flex items-start gap-3 rounded-lg border-2 p-4 text-left transition-all ${
-                isActive
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/40'
-              }`}
-            >
-              <span className="text-2xl shrink-0">{profile.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                    {profile.name}
-                  </p>
-                  {isActive && <Check className="h-4 w-4 text-primary shrink-0" />}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{profile.description}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  z.B. {profile.examples.slice(0, 3).join(', ')}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {profile.defaultModules.length} Module · {profile.optionalModules.length} optional
-                </p>
-              </div>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Optional modules */}
-      {selectedProfile && selectedProfile.optionalModules.length > 0 && (
-        <>
-          <h3 className="text-sm font-medium text-foreground mb-1">Optionale Module</h3>
-          <p className="text-xs text-muted-foreground mb-4">
-            Erweitern Sie Ihr &quot;{selectedProfile.name}&quot;-Profil mit zusätzlichen Modulen.
-          </p>
-          <div className="space-y-2">
-            {selectedProfile.optionalModules.map((moduleId) => {
-              const isEnabled = enabledOptionalModules.includes(moduleId)
-              const moduleLabel = MODULE_LABELS[moduleId] ?? moduleId
-              return (
-                <div
-                  key={moduleId}
-                  className="flex items-center justify-between rounded-lg border border-border p-3"
-                >
-                  <span className="text-sm text-foreground">{moduleLabel}</span>
-                  <Switch
-                    checked={isEnabled}
-                    onCheckedChange={(checked: boolean) => {
-                      if (checked) enableModule(moduleId)
-                      else disableModule(moduleId)
-                      toast.success(checked ? `${moduleLabel} aktiviert` : `${moduleLabel} deaktiviert`)
-                    }}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-// ============================================================
-// Background Pattern Picker — inline component for Appearance tab
-// ============================================================
-function BackgroundPatternPicker({ className }: { className?: string }) {
-  const backgroundPattern = useUIStore((s) => s.backgroundPattern)
-  const setBackgroundPattern = useUIStore((s) => s.setBackgroundPattern)
-
-  return (
-    <div className={`grid grid-cols-3 gap-3 ${className ?? ''}`}>
-      {BACKGROUND_PATTERN_LIST.map((pattern) => {
-        const active = backgroundPattern === pattern.id
-        const Icon = pattern.icon
-        return (
-          <button
-            key={pattern.id}
-            onClick={() => setBackgroundPattern(pattern.id)}
-            className={`relative rounded-lg border-2 p-4 text-center transition-all ${
-              active
-                ? 'border-primary bg-primary-light'
-                : 'border-border bg-card hover:border-muted-foreground/30'
-            }`}
-          >
-            {active && (
-              <span className="absolute top-2 right-2">
-                <Check className="h-3.5 w-3.5 text-primary" />
-              </span>
-            )}
-            <div className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl ${
-              active ? 'bg-primary/10' : 'bg-secondary'
-            }`}>
-              <Icon className={`h-5 w-5 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
-            </div>
-            <p className="text-sm font-medium text-foreground">{pattern.name}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{pattern.description}</p>
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -1144,30 +949,3 @@ function HeaderWidgetPicker({ className }: { className?: string }) {
   )
 }
 
-/** Label map for module IDs used in the optional modules list */
-const MODULE_LABELS: Record<string, string> = {
-  crm: 'CRM',
-  projects: 'Projekte',
-  tasks: 'Aufgaben',
-  chat: 'Nachrichten',
-  calendar: 'Kalender',
-  meetings: 'Meetings',
-  documents: 'Dokumente',
-  mail: 'E-Mail',
-  contacts: 'Kontakte',
-  team: 'Team',
-  finance: 'Buchhaltung',
-  infrastructure: 'Infrastruktur',
-  inventar: 'Inventar',
-  schichten: 'Schichtplanung',
-  einkauf: 'Einkauf',
-  helpdesk: 'Helpdesk',
-  fuhrpark: 'Fuhrpark',
-  produktion: 'Produktion',
-  berichte: 'Berichte',
-  vertraege: 'Vertraege',
-  rapporte: 'Rapporte',
-  zeiterfassung: 'Zeiterfassung',
-  formulare: 'Formulare',
-  vermietung: 'Vermietung',
-}

@@ -23,6 +23,7 @@ export function DeskEnvironment() {
   const storeTheme = useUIStore((s) => s.theme)
   const colorTheme = useUIStore((s) => s.colorTheme)
   const accentIntensity = useUIStore((s) => s.accentIntensity)
+  const windowStyle = useUIStore((s) => s.windowStyle)
   const fontSize = useSettingsStore((s) => s.appearance.fontSize)
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
 
@@ -59,9 +60,13 @@ export function DeskEnvironment() {
     document.documentElement.style.fontSize = `${fontSize}px`
   }, [fontSize])
 
+  const isBubble = windowStyle === 'bubble'
+
   return (
-    <div className="h-screen w-screen overflow-hidden relative bg-background">
-      <AppShell />
+    <div className={`h-screen w-screen overflow-hidden relative ${isBubble ? 'bg-neutral-200 dark:bg-neutral-900 p-3' : 'bg-background'}`}>
+      <div className={isBubble ? 'h-full w-full overflow-hidden rounded-2xl bg-background shadow-2xl' : 'h-full w-full'}>
+        <AppShell />
+      </div>
     </div>
   )
 }

@@ -41,11 +41,14 @@ interface KommunikationState {
 
   // Actions — conversations
   markAsRead: (conversationId: string) => void
+  toggleRead: (conversationId: string) => void
   updateStatus: (conversationId: string, status: Conversation['status']) => void
   assignTo: (conversationId: string, userId: string) => void
   addTag: (conversationId: string, tag: string) => void
   removeTag: (conversationId: string, tag: string) => void
   addMessage: (conversationId: string, message: Omit<ConversationMessage, 'id' | 'timestamp' | 'isRead'>) => void
+  archiveConversation: (conversationId: string) => void
+  deleteConversation: (conversationId: string) => void
 
   // Actions — canned responses
   addCannedResponse: (response: Omit<CannedResponse, 'id' | 'usageCount'>) => void
@@ -707,6 +710,31 @@ export const useKommunikationStore = create<KommunikationState>()(
                 }
               : c,
           ),
+        })),
+
+      toggleRead: (conversationId) =>
+        set((state) => ({
+          conversations: state.conversations.map((c) => {
+            if (c.id !== conversationId) return c
+            const wasRead = c.unreadCount === 0
+            return wasRead
+              ? { ...c, unreadCount: 1 }
+              : { ...c, unreadCount: 0, messages: c.messages.map((m) => ({ ...m, isRead: true })) }
+          }),
+        })),
+
+      archiveConversation: (conversationId) =>
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === conversationId ? { ...c, status: 'closed' as const } : c,
+          ),
+          selectedConversationId: state.selectedConversationId === conversationId ? null : state.selectedConversationId,
+        })),
+
+      deleteConversation: (conversationId) =>
+        set((state) => ({
+          conversations: state.conversations.filter((c) => c.id !== conversationId),
+          selectedConversationId: state.selectedConversationId === conversationId ? null : state.selectedConversationId,
         })),
 
       updateStatus: (conversationId, status) =>

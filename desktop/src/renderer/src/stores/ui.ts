@@ -36,6 +36,7 @@ function buildDefaultDecorations(themeId: string): Record<string, DecorationPlac
 export type ColorTheme = 'graphit' | 'sand' | 'ozean' | 'lavendel' | 'wald' | 'rose' | 'mitternacht' | 'terrakotta'
 export type NavLayout = 'sidebar' | 'dock' | 'topnav' | 'classic'
 export type AccentIntensity = 'subtle' | 'vivid'
+export type WindowStyle = 'full' | 'bubble'
 
 interface UIState {
   sidebarCollapsed: boolean
@@ -49,6 +50,9 @@ interface UIState {
   colorTheme: ColorTheme
   navLayout: NavLayout
   accentIntensity: AccentIntensity
+
+  // Window style
+  windowStyle: WindowStyle
 
   // Sidebar pinned modules
   pinnedModules: string[]
@@ -83,6 +87,7 @@ interface UIState {
   setColorTheme: (theme: ColorTheme) => void
   setNavLayout: (layout: NavLayout) => void
   setAccentIntensity: (intensity: AccentIntensity) => void
+  setWindowStyle: (style: WindowStyle) => void
 
   // Sidebar pinned modules
   setPinnedModules: (modules: string[]) => void
@@ -114,6 +119,7 @@ export const useUIStore = create<UIState>()(
       colorTheme: 'graphit',
       navLayout: 'sidebar',
       accentIntensity: 'subtle',
+      windowStyle: 'full' as WindowStyle,
 
       // Default pinned modules (most-used for typical KMU)
       pinnedModules: [
@@ -195,6 +201,9 @@ export const useUIStore = create<UIState>()(
 
       setAccentIntensity: (accentIntensity) =>
         set({ accentIntensity }),
+
+      setWindowStyle: (windowStyle) =>
+        set({ windowStyle }),
 
       toggleDeskMaximized: () =>
         set((state) => ({ deskMaximized: !state.deskMaximized })),

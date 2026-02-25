@@ -88,6 +88,8 @@ export interface SecuritySettings {
   twoFactorEnabled: boolean
   twoFactorSecret: string | null
   backupCodes: string[]
+  passwordLastChanged: string // ISO date
+  passwordExpiryDays: number // 0 = no expiry
 }
 
 // ---- Full state ----
@@ -204,6 +206,8 @@ export const useSettingsStore = create<SettingsState>()(
         twoFactorEnabled: false,
         twoFactorSecret: null,
         backupCodes: [],
+        passwordLastChanged: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
+        passwordExpiryDays: 90,
       },
 
       // ---- Actions ----
@@ -226,22 +230,24 @@ export const useSettingsStore = create<SettingsState>()(
       updateSecurity: (data) => set((s) => ({ security: { ...s.security, ...data } })),
 
       enable2FA: () =>
-        set({
+        set((s) => ({
           security: {
+            ...s.security,
             twoFactorEnabled: true,
             twoFactorSecret: 'JBSWY3DPEHPK3PXP',
             backupCodes: ['A1B2-C3D4', 'E5F6-G7H8', 'J9K0-L1M2', 'N3P4-Q5R6', 'S7T8-U9V0', 'W1X2-Y3Z4'],
           },
-        }),
+        })),
 
       disable2FA: () =>
-        set({
+        set((s) => ({
           security: {
+            ...s.security,
             twoFactorEnabled: false,
             twoFactorSecret: null,
             backupCodes: [],
           },
-        }),
+        })),
     }),
     { name: 'kmuhub-settings' },
   ),

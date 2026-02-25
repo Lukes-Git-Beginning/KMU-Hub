@@ -25,6 +25,7 @@ import {
   ListChecks,
   Network,
   UserCircle,
+  Settings,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -51,6 +52,7 @@ import { PersonnelDocuments } from './PersonnelDocuments'
 import { OnboardingChecklist } from './OnboardingChecklist'
 import { OrgChart } from './OrgChart'
 import { SelfServiceView } from './SelfServiceView'
+import { TeamSettingsTab } from '@/modules/settings/tabs/TeamSettingsTab'
 import {
   Dialog,
   DialogContent,
@@ -70,7 +72,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 
-type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'integrationen' | 'schulungen' | 'selfservice'
+type TabKey = 'members' | 'requests' | 'absences' | 'korrekturen' | 'personalakte' | 'onboarding' | 'orgchart' | 'integrationen' | 'schulungen' | 'selfservice' | 'einstellungen'
 
 const contractTypeLabels: Record<string, string> = {
   full_time: 'Vollzeit',
@@ -290,6 +292,7 @@ export default function TeamPage() {
           { key: 'integrationen' as const, label: 'Integrationen', icon: Link2 },
           { key: 'schulungen' as const, label: 'Schulungen', icon: GraduationCap },
           { key: 'selfservice' as const, label: 'Self-Service', icon: UserCircle },
+          { key: 'einstellungen' as const, label: 'Einstellungen', icon: Settings },
         ]).map((t) => (
           <button
             key={t.key}
@@ -577,6 +580,9 @@ export default function TeamPage() {
 
       {/* Self-Service Tab (7.6) */}
       {tab === 'selfservice' && <SelfServiceView />}
+
+      {/* Einstellungen Tab (HR settings moved from global Settings) */}
+      {tab === 'einstellungen' && <TeamSettingsTab />}
 
       {/* Member Detail Panel */}
       {selectedMemberId && (

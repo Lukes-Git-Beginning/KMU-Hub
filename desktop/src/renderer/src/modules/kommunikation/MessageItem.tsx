@@ -1,4 +1,5 @@
-import { Paperclip, FileText, Image, File } from 'lucide-react'
+import { FileText, Image, File, Reply, Forward, Copy, MoreHorizontal } from 'lucide-react'
+import { toast } from 'sonner'
 import type { ConversationMessage } from '@/types/communication'
 
 // ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ export function MessageItem({ message: msg, showDate }: MessageItemProps) {
         </div>
       )}
 
-      <div className={`flex gap-2.5 ${isOutbound ? 'flex-row-reverse' : ''}`}>
+      <div className={`group/msg flex gap-2.5 ${isOutbound ? 'flex-row-reverse' : ''}`}>
         {/* Avatar */}
         <div
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
@@ -84,7 +85,34 @@ export function MessageItem({ message: msg, showDate }: MessageItemProps) {
         </div>
 
         {/* Bubble */}
-        <div className={`max-w-[70%] min-w-[140px] ${isOutbound ? 'items-end' : ''}`}>
+        <div className={`relative max-w-[70%] min-w-[140px] ${isOutbound ? 'items-end' : ''}`}>
+          {/* Hover action toolbar */}
+          <div className={`absolute -top-3 ${isOutbound ? 'left-0' : 'right-0'} hidden group-hover/msg:flex items-center gap-0.5 rounded-md border border-border bg-card px-1 py-0.5 shadow-sm z-10`}>
+            <button
+              onClick={() => toast.info('Antwort wird vorbereitet...')}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Antworten"
+            >
+              <Reply className="h-3 w-3" />
+            </button>
+            <button
+              onClick={() => toast.info('Weiterleitung wird vorbereitet...')}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Weiterleiten"
+            >
+              <Forward className="h-3 w-3" />
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(msg.content)
+                toast.success('Kopiert')
+              }}
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Kopieren"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          </div>
           {/* Sender + time */}
           <div className={`flex items-center gap-2 mb-0.5 ${isOutbound ? 'flex-row-reverse' : ''}`}>
             <span className="text-[11px] font-medium text-foreground">{msg.senderName}</span>

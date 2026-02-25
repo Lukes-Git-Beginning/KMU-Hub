@@ -24,6 +24,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { Shield } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useSettingsStore } from '@/stores/settings'
 import { SidebarBranding } from './SidebarBranding'
 import { SidebarNav } from './SidebarNav'
 import { SidebarUser } from './SidebarUser'
@@ -38,6 +41,13 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClose }: SidebarProps) {
+  const navigate = useNavigate()
+  const security = useSettingsStore((s) => s.security)
+  const pwLastChanged = security.passwordLastChanged ? new Date(security.passwordLastChanged) : null
+  const pwExpiryDays = security.passwordExpiryDays || 90
+  const daysSincePwChange = pwLastChanged ? Math.floor((Date.now() - pwLastChanged.getTime()) / (1000 * 60 * 60 * 24)) : 0
+  const pwDaysLeft = Math.max(0, pwExpiryDays - daysSincePwChange)
+  const showPwWarning = pwExpiryDays > 0 && pwDaysLeft <= 14
   const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1199px)')
   const didAutoCollapse = useRef(false)
   const [modulePanelOpen, setModulePanelOpen] = useState(false)
@@ -63,6 +73,7 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
 
   return (
     <aside
+      data-tour="sidebar"
       className={cn(
         'flex flex-col bg-sidebar border-r border-sidebar-border glass-surface',
         'fixed lg:static inset-y-0 left-0 z-50',
@@ -102,8 +113,25 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
       {/* Main nav — only pinned modules */}
       <SidebarNav items={pinnedItems} collapsed={collapsed} onItemClick={onMobileClose} />
 
-      {/* Bottom: Settings + User */}
+      {/* Bottom: Security warning + Settings + User */}
       <div className="mt-auto border-t border-sidebar-border p-2 space-y-0.5">
+        {showPwWarning && (
+          <button
+            onClick={() => navigate('/settings')}
+            className={cn(
+              'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs transition-colors',
+              pwDaysLeft === 0 ? 'bg-error/10 text-error' : 'bg-warning/10 text-warning',
+              'hover:opacity-80'
+            )}
+          >
+            <Shield className="h-3.5 w-3.5 shrink-0" />
+            {!collapsed && (
+              <span className="truncate">
+                {pwDaysLeft === 0 ? 'PW abgelaufen' : `PW: ${pwDaysLeft}d`}
+              </span>
+            )}
+          </button>
+        )}
         <SidebarNav items={bottomItems} collapsed={collapsed} onItemClick={onMobileClose} />
         <SidebarUser collapsed={collapsed} />
       </div>
