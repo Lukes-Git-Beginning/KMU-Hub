@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -202,6 +203,23 @@ func main() {
 	// Guest inbox adapter
 	guestAdapter := adapter.NewGuestAdapter(pool)
 	_ = guestAdapter // registered below if adapter registry exists
+
+	// =========================================================================
+	// Guest Chat SPA static files
+	// =========================================================================
+	guestChatDir := filepath.Join(".", "guest-chat", "dist")
+	if _, err := os.Stat(guestChatDir); err == nil {
+		fileServer := http.FileServer(http.Dir(guestChatDir))
+		// Serve static assets (JS, CSS, images) directly
+		r.Handle("/guest/assets/*", http.StripPrefix("/guest/", fileServer))
+		// SPA fallback: any /guest/* path serves index.html
+		r.Get("/guest/*", func(w http.ResponseWriter, req *http.Request) {
+			http.ServeFile(w, req, filepath.Join(guestChatDir, "index.html"))
+		})
+		slog.Info("guest chat SPA enabled", "dir", guestChatDir)
+	} else {
+		slog.Info("guest chat SPA not found, /guest/* disabled", "dir", guestChatDir)
+	}
 
 	// =========================================================================
 	// WebSocket hub (cross-cutting: needs chat + auth gRPC clients)
