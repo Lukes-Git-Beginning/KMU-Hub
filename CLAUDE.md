@@ -244,11 +244,11 @@ Diese Fehler wurden im Vorgaenger-Projekt (slot_booking_webapp) gemacht und duer
 
 Dieses Projekt nutzt [Get Shit Done](https://github.com/glittercowboy/get-shit-done) fuer strukturierte AI-Entwicklung.
 
-- Planung: `/gsd:discuss-phase` → `/gsd:plan-phase`
-- Ausfuehrung: `/gsd:execute-phase`
-- Verifikation: `/gsd:verify-work`
-- Ad-hoc Fixes: `/gsd:quick`
-- Status: `/gsd:progress`
+- Planung: `/gsd-discuss-phase` → `/gsd-plan-phase`
+- Ausfuehrung: `/gsd-execute-phase`
+- Verifikation: `/gsd-verify-work`
+- Ad-hoc Fixes: `/gsd-quick`
+- Status: `/gsd-progress`
 
 Planungsdateien in `.planning/` werden committed.
 
