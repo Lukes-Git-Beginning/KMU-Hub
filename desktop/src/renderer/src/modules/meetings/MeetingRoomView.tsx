@@ -57,7 +57,7 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
 
-  const participants = meeting.participants.length > 0 ? meeting.participants : [
+  const participants = meeting.participants && meeting.participants.length > 0 ? meeting.participants : [
     { id: 'self', name: 'Du', initials: 'DU' },
   ]
 

@@ -176,6 +176,19 @@ interface TimeTrackingState {
 
   // GPS
   setGpsEnabled: (enabled: boolean) => void
+
+  // Clock-in / shift
+  isClockedIn: boolean
+  clockedInAt: number | null
+  isOnBreak: boolean
+  breakStartedAt: number | null
+  totalBreakMs: number
+
+  clockIn: () => void
+  clockOut: () => void
+  startBreak: () => void
+  endBreak: () => void
+  switchTask: (categoryId: string, description: string, projectId?: string | null, taskId?: string | null) => void
 }
 
 // ── Mock Data ──────────────────────────────────────────────────
@@ -282,6 +295,64 @@ export const useTimeTrackingStore = create<TimeTrackingState>()(
       teamActivity: INITIAL_TEAM_ACTIVITY,
       weekApprovals: INITIAL_WEEK_APPROVALS,
       gpsEnabled: false,
+      isClockedIn: false,
+      clockedInAt: null,
+      isOnBreak: false,
+      breakStartedAt: null,
+      totalBreakMs: 0,
+
+      // ── Clock-in / Shift ────────────────────────────────────
+
+      clockIn: () =>
+        set({
+          isClockedIn: true,
+          clockedInAt: Date.now(),
+          isOnBreak: false,
+          breakStartedAt: null,
+          totalBreakMs: 0,
+        }),
+
+      clockOut: () => {
+        const state = get()
+        if (state.activeTimer.status !== 'idle') {
+          state.stopTimer()
+        }
+        set({
+          isClockedIn: false,
+          clockedInAt: null,
+          isOnBreak: false,
+          breakStartedAt: null,
+          totalBreakMs: 0,
+        })
+      },
+
+      startBreak: () => {
+        const state = get()
+        if (state.activeTimer.status !== 'idle') {
+          state.stopTimer()
+        }
+        set({
+          isOnBreak: true,
+          breakStartedAt: Date.now(),
+        })
+      },
+
+      endBreak: () =>
+        set((state) => ({
+          isOnBreak: false,
+          breakStartedAt: null,
+          totalBreakMs:
+            state.totalBreakMs +
+            (state.breakStartedAt ? Date.now() - state.breakStartedAt : 0),
+        })),
+
+      switchTask: (categoryId, description, projectId, taskId) => {
+        const state = get()
+        if (state.activeTimer.status !== 'idle') {
+          state.stopTimer()
+        }
+        state.startTimer(categoryId, description, projectId, taskId)
+      },
 
       // ── Timer ──────────────────────────────────────────────
 

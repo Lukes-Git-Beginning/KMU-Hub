@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { BookOpen, Plus, FolderPlus } from 'lucide-react'
+import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { useWikiStore } from '@/stores/wiki'
 import { WikiSearch } from './WikiSearch'
 import { WikiTreeNode } from './WikiTreeNode'
@@ -47,9 +48,17 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
     <div className="flex w-56 shrink-0 flex-col border-r border-border bg-card/50">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Wiki</h2>
-          <p className="text-[10px] text-muted-foreground">{totalArticles} Artikel · {totalViews} Aufrufe</p>
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: moduleHsl('wiki') + '15', color: moduleHsl('wiki') }}
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold" style={{ color: moduleHsl('wiki') }}>Wiki</h2>
+            <p className="text-[10px] text-muted-foreground">{totalArticles} Artikel · {totalViews} Aufrufe</p>
+          </div>
         </div>
         <div className="flex items-center gap-0.5">
           <button

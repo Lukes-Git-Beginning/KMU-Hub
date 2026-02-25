@@ -267,7 +267,7 @@ export function SearchBar() {
       {/* Compact trigger */}
       <button
         onClick={() => setIsOpen(true)}
-        className="flex w-56 md:w-72 items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="flex w-64 md:w-96 items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Suchen...</span>

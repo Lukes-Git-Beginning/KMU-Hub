@@ -174,7 +174,8 @@ export default function BuchhaltungPage() {
       <PageHeader
         title="Buchhaltung"
         description="Rechnungen, Transaktionen und Ausgaben"
-        gradient
+        icon={Receipt}
+        moduleId="finance"
         className="mb-6"
         actions={
           <div className="flex gap-2">

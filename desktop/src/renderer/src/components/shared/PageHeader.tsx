@@ -8,7 +8,7 @@ interface PageHeaderProps {
   actions?: React.ReactNode
   /** Lucide icon shown left of the title */
   icon?: React.ElementType
-  /** nav-items module ID — colors the icon + left accent */
+  /** nav-items module ID — colors the icon + title */
   moduleId?: string
   /** Breadcrumb trail, e.g. ['Finanzen', 'Rechnungen'] */
   breadcrumb?: string[]
@@ -61,12 +61,8 @@ export function PageHeader({
           )}
           <div className="min-w-0">
             <h1
-              className={cn(
-                'text-2xl font-bold tracking-tight',
-                gradient
-                  ? 'bg-gradient-to-r from-[var(--accent-1)] to-[var(--accent-2)] bg-clip-text text-transparent'
-                  : 'text-foreground'
-              )}
+              className="text-2xl font-bold tracking-tight"
+              style={accentColor ? { color: accentColor } : undefined}
             >
               {title}
             </h1>

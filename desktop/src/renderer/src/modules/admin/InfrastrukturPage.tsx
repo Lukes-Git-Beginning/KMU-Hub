@@ -34,6 +34,7 @@ import {
   RotateCcw,
   Settings,
   Activity,
+  Network,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -128,7 +129,8 @@ export default function InfrastrukturPage() {
         <PageHeader
           title="Infrastruktur"
           description="Server-Verwaltung und Systemübersicht"
-          gradient
+          icon={Network}
+          moduleId="infrastructure"
           actions={
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5">

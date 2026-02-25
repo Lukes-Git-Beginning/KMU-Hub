@@ -1,74 +1,55 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { useFilteredNavItems } from '@/hooks/useFilteredNavItems'
-import { NotificationBell } from '@/modules/notifications/NotificationBell'
-import { PresenceStatusPicker } from '@/features/presence'
-import {
-  SearchBar,
-  HeaderClock,
-  ProfileMenu,
-  HeaderWidgetSlots,
-} from '@/components/header'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { ModuleOverviewPanel } from './ModuleOverviewPanel'
 import type { NavItemConfig } from '../sidebar/nav-items'
 
+/**
+ * Compact horizontal module tab strip.
+ * Rendered directly below the header bar in topnav layout.
+ * Supports mouse-wheel horizontal scrolling.
+ */
 export function TopNavBar() {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const { isOnline } = useOnlineStatus()
   const { mainItems, bottomItems } = useFilteredNavItems()
   const enabledItems = mainItems.filter((i) => i.enabled)
   const allEnabled = [...enabledItems, ...bottomItems.filter((i) => i.enabled)]
 
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
   const [overviewOpen, setOverviewOpen] = useState(false)
 
-  useNotificationWebSocket()
+  // Horizontal mouse-wheel scrolling
+  const handleWheel = useCallback((e: WheelEvent) => {
+    const el = scrollRef.current
+    if (!el) return
+    // Prevent vertical page scroll, scroll horizontally instead
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault()
+      el.scrollLeft += e.deltaY
+    }
+  }, [])
 
-  // Detect scroll overflow
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const check = () => {
-      setCanScrollLeft(el.scrollLeft > 4)
-      setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4)
-    }
-    check()
-    el.addEventListener('scroll', check, { passive: true })
-    const ro = new ResizeObserver(check)
-    ro.observe(el)
-    return () => {
-      el.removeEventListener('scroll', check)
-      ro.disconnect()
-    }
-  }, [enabledItems.length])
-
-  const scroll = (dir: 'left' | 'right') => {
-    scrollRef.current?.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' })
-  }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
 
   return (
-    <header className="flex shrink-0 h-14 items-center border-b border-header-border bg-header-background px-3 gap-2 glass-surface">
+    <nav className="flex shrink-0 h-9 items-center border-b border-border/50 bg-card/50 px-2 gap-1">
       {/* Grid button — opens module overview */}
       <Popover open={overviewOpen} onOpenChange={setOverviewOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Module anzeigen">
-            <LayoutGrid className="h-5 w-5" aria-hidden="true" />
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Module anzeigen">
+            <LayoutGrid className="h-4 w-4" aria-hidden="true" />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[480px] p-0" sideOffset={8}>
@@ -79,75 +60,21 @@ export function TopNavBar() {
         </PopoverContent>
       </Popover>
 
-      {/* Scroll left arrow */}
-      {canScrollLeft && (
-        <button
-          onClick={() => scroll('left')}
-          className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          aria-label="Nach links scrollen"
-        >
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        </button>
-      )}
-
-      {/* Scrollable module tabs */}
+      {/* Scrollable module tabs — no scrollbar, wheel-scrollable */}
       <div
         ref={scrollRef}
-        className="flex flex-1 min-w-0 items-center gap-0.5 overflow-x-auto topnav-scroll"
+        className="flex flex-1 min-w-0 items-center gap-0.5 overflow-x-auto scrollbar-hide"
       >
         {enabledItems.map((item) => (
           <TopNavTab key={item.id} item={item} />
         ))}
       </div>
-
-      {/* Scroll right arrow */}
-      {canScrollRight && (
-        <button
-          onClick={() => scroll('right')}
-          className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          aria-label="Nach rechts scrollen"
-        >
-          <ChevronRight className="h-4 w-4" aria-hidden="true" />
-        </button>
-      )}
-
-      {/* Separator */}
-      <div className="h-6 w-px bg-border/50" aria-hidden="true" />
-
-      {/* Header widgets */}
-      <div className="flex shrink-0 items-center gap-1.5">
-        <SearchBar />
-        <div className="hidden sm:block">
-          <HeaderClock />
-        </div>
-        <HeaderWidgetSlots />
-        <PresenceStatusPicker />
-        <NotificationBell />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className={`inline-block h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-destructive'}`}
-              role="status"
-              aria-label={isOnline ? 'Online' : 'Offline'}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            {isOnline ? 'Verbunden' : 'Keine Verbindung'}
-          </TooltipContent>
-        </Tooltip>
-        <ProfileMenu />
-      </div>
-    </header>
+    </nav>
   )
 }
 
 function TopNavTab({ item }: { item: NavItemConfig }) {
   const Icon = item.icon
-
-  const iconColor = {
-    '--_nav-h': item.color.h,
-    '--_nav-s': `${item.color.s}%`,
-  } as React.CSSProperties
 
   return (
     <NavLink
@@ -155,7 +82,7 @@ function TopNavTab({ item }: { item: NavItemConfig }) {
       end={item.to === '/'}
       className={({ isActive }) =>
         cn(
-          'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium',
+          'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium',
           'transition-all duration-150 whitespace-nowrap',
           isActive
             ? 'bg-primary/10 text-primary'
@@ -164,13 +91,12 @@ function TopNavTab({ item }: { item: NavItemConfig }) {
       }
     >
       <span
-        className="flex items-center justify-center h-5 w-5 rounded-md"
+        className="flex items-center justify-center h-4 w-4 rounded"
         style={{
-          ...iconColor,
           color: `hsl(${item.color.h} ${item.color.s}% 42%)`,
         }}
       >
-        <Icon className="h-3.5 w-3.5" />
+        <Icon className="h-3 w-3" />
       </span>
       <span>{item.label}</span>
       {item.badge && (

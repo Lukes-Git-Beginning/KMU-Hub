@@ -22,7 +22,6 @@ import {
   Plus,
   Building2,
   Landmark,
-  RefreshCw,
   Plug,
   Sparkles,
 } from 'lucide-react'
@@ -48,14 +47,13 @@ import { LayoutSwitcher } from '@/components/shared/LayoutSwitcher'
 import { headerWidgetList } from '@/components/header/header-widgets'
 import { BACKGROUND_PATTERN_LIST } from '@/config/background-patterns'
 import { BUSINESS_PROFILES } from '@/config/business-profiles'
-import { CalDAVSettingsTab } from './tabs/CalDAVSettingsTab'
 import { CompanySettingsTab } from './tabs/CompanySettingsTab'
 import { NotificationSettingsTab } from './tabs/NotificationSettingsTab'
 import { IntegrationSettingsTab } from './tabs/IntegrationSettingsTab'
 import { AIGovernanceTab } from './tabs/AIGovernanceTab'
 import { ThemePreview } from './ThemePreview'
 
-type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'caldav' | 'finance' | 'company' | 'integrations' | 'team' | 'privacy' | 'ai' | 'business' | 'about'
+type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'company' | 'integrations' | 'team' | 'privacy' | 'ai' | 'business' | 'about'
 
 interface TabConfig {
   key: TabKey
@@ -72,7 +70,6 @@ const ALL_TABS: TabConfig[] = [
   { key: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'Persönlich' },
   { key: 'mail', label: 'E-Mail', icon: Mail, group: 'Module' },
   { key: 'calendar', label: 'Kalender', icon: Calendar, group: 'Module' },
-  { key: 'caldav', label: 'CalDAV/CardDAV', icon: RefreshCw, group: 'Module' },
   { key: 'finance', label: 'Buchhaltung', icon: Receipt, group: 'Module' },
   { key: 'company', label: 'Firma', icon: Landmark, group: 'Admin' },
   { key: 'integrations', label: 'Integrationen', icon: Plug, group: 'Admin' },
@@ -142,7 +139,6 @@ export default function SettingsPage() {
         {effectiveTab === 'notifications' && <NotificationSettingsTab />}
         {effectiveTab === 'mail' && <MailSettingsTab />}
         {effectiveTab === 'calendar' && <CalendarSettingsTab />}
-        {effectiveTab === 'caldav' && <CalDAVSettingsTab />}
         {effectiveTab === 'finance' && <FinanceSettingsTab />}
         {effectiveTab === 'company' && <CompanySettingsTab />}
         {effectiveTab === 'integrations' && <IntegrationSettingsTab />}

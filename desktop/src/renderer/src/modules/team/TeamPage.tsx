@@ -33,6 +33,7 @@ import {
   type Training,
   type TrainingParticipation,
 } from '@/stores/team'
+import { useTimeTrackingStore, type TeamActivityEntry } from '@/stores/timetracking'
 import { useMeetingsStore } from '@/stores/meetings'
 import { useNavigationStore } from '@/stores/navigation'
 import { useEmployees, useLeaveRequests } from '@/api/hooks/hr-hooks'
@@ -140,6 +141,14 @@ export default function TeamPage() {
   } = useTeamStore()
   const { startCall } = useMeetingsStore()
   const { setIntent } = useNavigationStore()
+
+  // Team activity from time tracking store
+  const teamActivity = useTimeTrackingStore((s) => s.teamActivity)
+  const activityByName = useMemo(() => {
+    const map = new Map<string, TeamActivityEntry>()
+    for (const a of teamActivity) map.set(a.userName, a)
+    return map
+  }, [teamActivity])
 
   // Use TanStack Query for HR data
   const { data: employeesData, isLoading: employeesLoading } = useEmployees()
@@ -348,6 +357,7 @@ export default function TeamPage() {
                     name={name}
                     initials={initials}
                     actions={getEmployeeActions(emp)}
+                    activity={activityByName.get(name)}
                     onEmail={() => handleEmail(name, emp.userEmail)}
                     onMessage={() => handleMessage(name)}
                     onCall={() => handleCall(name, initials)}
@@ -368,6 +378,7 @@ export default function TeamPage() {
                     name={name}
                     initials={initials}
                     actions={getEmployeeActions(emp)}
+                    activity={activityByName.get(name)}
                     onEmail={() => handleEmail(name, emp.userEmail)}
                     onMessage={() => handleMessage(name)}
                     onClick={() => { setSelectedMemberId(emp.id); setSelectedMemberName(name); setSelectedMemberInitials(initials) }}
@@ -638,19 +649,31 @@ interface EmployeeCardProps {
   name: string
   initials: string
   actions: ActionItem[]
+  activity?: TeamActivityEntry
   onEmail: () => void
   onMessage: () => void
   onCall: () => void
   onClick: () => void
 }
 
-function EmployeeCard({ employee, name, initials, actions, onEmail, onMessage, onCall, onClick }: EmployeeCardProps) {
+function EmployeeCard({ employee, name, initials, actions, activity, onEmail, onMessage, onCall, onClick }: EmployeeCardProps) {
+  const statusDot = activity?.status === 'tracking'
+    ? 'bg-emerald-500'
+    : activity?.status === 'absent'
+      ? 'bg-amber-500'
+      : 'bg-gray-400'
+
   return (
     <div className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)]">
       <div className="flex items-start justify-between mb-3">
         <button onClick={onClick} className="flex items-center gap-3 text-left">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
-            {initials}
+          <div className="relative">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary">
+              {initials}
+            </div>
+            {activity && (
+              <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card ${statusDot}`} />
+            )}
           </div>
           <div>
             <h4 className="text-sm font-medium text-foreground">{name}</h4>
@@ -659,6 +682,24 @@ function EmployeeCard({ employee, name, initials, actions, onEmail, onMessage, o
         </button>
         <ItemActions items={actions} />
       </div>
+
+      {/* Current activity */}
+      {activity && activity.status === 'tracking' && activity.currentDescription && (
+        <div className="flex items-center gap-2 mb-3 rounded-md bg-secondary/60 px-2.5 py-1.5">
+          {activity.currentCategoryColor && (
+            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: activity.currentCategoryColor }} />
+          )}
+          <span className="text-[11px] text-foreground/80 truncate">{activity.currentDescription}</span>
+          {activity.startedAt && (
+            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 ml-auto">seit {activity.startedAt}</span>
+          )}
+        </div>
+      )}
+      {activity && activity.status === 'absent' && activity.currentDescription && (
+        <div className="flex items-center gap-2 mb-3 rounded-md bg-amber-500/10 px-2.5 py-1.5">
+          <span className="text-[11px] text-amber-600 dark:text-amber-400">{activity.currentDescription}</span>
+        </div>
+      )}
 
       <div className="space-y-1.5 text-xs text-muted-foreground mb-3">
         <div className="flex items-center gap-2">
@@ -703,24 +744,47 @@ interface EmployeeRowProps {
   name: string
   initials: string
   actions: ActionItem[]
+  activity?: TeamActivityEntry
   onEmail: () => void
   onMessage: () => void
   onClick: () => void
 }
 
-function EmployeeRow({ employee, name, initials, actions, onEmail, onMessage, onClick }: EmployeeRowProps) {
+function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onMessage, onClick }: EmployeeRowProps) {
+  const statusDot = activity?.status === 'tracking'
+    ? 'bg-emerald-500'
+    : activity?.status === 'absent'
+      ? 'bg-amber-500'
+      : 'bg-gray-400'
+
   return (
     <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 hover:shadow-[var(--shadow-card)] transition-shadow">
       <button onClick={onClick} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary">
-          {initials}
+        <div className="relative">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary">
+            {initials}
+          </div>
+          {activity && (
+            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card ${statusDot}`} />
+          )}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <span className="text-sm font-medium text-foreground">{name}</span>
           <p className="text-xs text-muted-foreground truncate">
             {employee.positionTitle ?? ''} &middot; {employee.department ?? ''}
           </p>
         </div>
+        {activity?.status === 'tracking' && activity.currentDescription && (
+          <div className="hidden lg:flex items-center gap-1.5 shrink-0">
+            {activity.currentCategoryColor && (
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: activity.currentCategoryColor }} />
+            )}
+            <span className="text-[11px] text-foreground/70 max-w-[200px] truncate">{activity.currentDescription}</span>
+          </div>
+        )}
+        {activity?.status === 'absent' && activity.currentDescription && (
+          <span className="hidden lg:block text-[11px] text-amber-600 dark:text-amber-400 shrink-0">{activity.currentDescription}</span>
+        )}
       </button>
       <div className="flex gap-1">
         <button onClick={onEmail} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title="E-Mail">

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Search, Plus, MessageSquareText } from 'lucide-react'
+import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import type { CommunicationChannel, ConversationStatus } from '@/types/communication'
 import { ChannelTabs } from './ChannelTabs'
@@ -101,7 +102,15 @@ export function ConversationList({ onNewConversation }: ConversationListProps) {
     <div className="flex w-80 shrink-0 flex-col border-r border-border bg-card/50">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
-        <h2 className="text-sm font-semibold text-foreground">Kommunikation</h2>
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: moduleHsl('kommunikation') + '15', color: moduleHsl('kommunikation') }}
+          >
+            <MessageSquareText className="h-3.5 w-3.5" />
+          </div>
+          <h2 className="text-sm font-semibold" style={{ color: moduleHsl('kommunikation') }}>Kommunikation</h2>
+        </div>
         <button
           onClick={onNewConversation}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"

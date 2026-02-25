@@ -1,10 +1,8 @@
 @import "tailwindcss";
 @import "./tiptap.css";
 @import "./animations.css";
-@import "./glass-effects.css";
 @import "./micro-interactions.css";
 @import "./nav-icons.css";
-@import "./background-patterns.css";
 
 /* Enable .dark class toggling for Tailwind dark: utilities */
 @custom-variant dark (&:is(.dark *));
@@ -2444,34 +2442,6 @@
 
 
 
-/* ═══════════════════════════════════════════════════════════
-   TOPNAV SCROLL — thin horizontal scrollbar for module tabs
-   ═══════════════════════════════════════════════════════════ */
-.topnav-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(140, 140, 150, 0.25) transparent;
-}
-
-.topnav-scroll::-webkit-scrollbar {
-  height: 3px;
-}
-
-.topnav-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.topnav-scroll::-webkit-scrollbar-thumb {
-  background: rgba(140, 140, 150, 0.35);
-  border-radius: 100px;
-}
-
-.topnav-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 120, 130, 0.55);
-}
-
-.dark .topnav-scroll::-webkit-scrollbar-thumb {
-  background: rgba(120, 125, 140, 0.40);
-}
 
 /* ═══════════════════════════════════════════════════════════
    ACCENT-VIVID OVERRIDES

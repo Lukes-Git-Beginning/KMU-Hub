@@ -15,7 +15,7 @@ export function PageTransitionOutlet() {
   const transitionClass = usePageTransition(location.pathname)
 
   return (
-    <div className={transitionClass}>
+    <div className={`h-full ${transitionClass}`}>
       <Suspense fallback={<ModuleLoadingFallback />}>
         <Outlet />
       </Suspense>

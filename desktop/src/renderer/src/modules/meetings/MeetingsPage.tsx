@@ -179,7 +179,8 @@ export default function MeetingsPage() {
       <PageHeader
         title="Meetings"
         description="Plane und verwalte deine Meetings"
-        gradient
+        icon={Video}
+        moduleId="meetings"
         actions={
           <button
             onClick={() => { setEditMeeting(null); setFormOpen(true) }}
@@ -469,22 +470,22 @@ function MeetingCard({
         )}
       </div>
 
-      {meeting.agenda.length > 0 && (
+      {(meeting.agenda?.length ?? 0) > 0 && (
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-3">
           <div className="h-1 flex-1 rounded-full bg-border overflow-hidden">
             <div
               className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${(meeting.agenda.filter((a) => a.done).length / meeting.agenda.length) * 100}%` }}
+              style={{ width: `${((meeting.agenda ?? []).filter((a) => a.done).length / (meeting.agenda?.length ?? 0)) * 100}%` }}
             />
           </div>
-          <span>{meeting.agenda.filter((a) => a.done).length}/{meeting.agenda.length}</span>
+          <span>{(meeting.agenda ?? []).filter((a) => a.done).length}/{(meeting.agenda?.length ?? 0)}</span>
         </div>
       )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="flex -space-x-2">
-            {meeting.participants.slice(0, 4).map((p, i) => (
+            {(meeting.participants ?? []).slice(0, 4).map((p, i) => (
               <div
                 key={i}
                 className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary-light text-[10px] font-medium text-primary"
@@ -493,9 +494,9 @@ function MeetingCard({
                 {p.initials}
               </div>
             ))}
-            {meeting.participants.length > 4 && (
+            {(meeting.participants?.length ?? 0) > 4 && (
               <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-secondary text-[10px] font-medium text-muted-foreground">
-                +{meeting.participants.length - 4}
+                +{(meeting.participants?.length ?? 0) - 4}
               </div>
             )}
           </div>
@@ -591,7 +592,7 @@ function TimelineRow({
           </span>
           <span className="flex items-center gap-1">
             <Users className="h-3 w-3" />
-            {meeting.participants.length}
+            {(meeting.participants?.length ?? 0)}
           </span>
           <span className="text-muted-foreground">{meeting.project}</span>
           {meeting.recurrence !== 'none' && (
@@ -609,7 +610,7 @@ function TimelineRow({
 
       {/* Participants */}
       <div className="hidden sm:flex -space-x-2 shrink-0">
-        {meeting.participants.slice(0, 3).map((p, i) => (
+        {(meeting.participants ?? []).slice(0, 3).map((p, i) => (
           <div
             key={i}
             className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary-light text-[10px] font-medium text-primary"
@@ -618,9 +619,9 @@ function TimelineRow({
             {p.initials}
           </div>
         ))}
-        {meeting.participants.length > 3 && (
+        {(meeting.participants?.length ?? 0) > 3 && (
           <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-secondary text-[10px] font-medium text-muted-foreground">
-            +{meeting.participants.length - 3}
+            +{(meeting.participants?.length ?? 0) - 3}
           </div>
         )}
       </div>

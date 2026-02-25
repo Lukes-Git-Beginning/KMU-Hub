@@ -1,7 +1,7 @@
 /**
  * ThemePreview — Live mini-app preview showing current theme combination.
- * Renders a small mockup of sidebar + header + content with actual CSS variables
- * so every palette/glass/dark switch is reflected instantly.
+ * Renders a small mockup matching the current nav layout + palette + dark mode
+ * so every switch is reflected instantly.
  */
 import { useUIStore, type ColorTheme } from '@/stores/ui'
 
@@ -11,19 +11,18 @@ const PALETTE_LABELS: Record<ColorTheme, string> = {
   ozean: 'Ozean',
 }
 
-const LOOK_LABELS: Record<string, string> = {
-  solid: 'Standard',
-  glass: 'Milchglas',
-  crystal: 'Transparent',
-}
-
 export function ThemePreview({ className = '' }: { className?: string }) {
   const theme = useUIStore((s) => s.theme)
   const colorTheme = useUIStore((s) => s.colorTheme)
-  const uiLook = useUIStore((s) => s.uiLook)
+  const navLayout = useUIStore((s) => s.navLayout)
   const accentIntensity = useUIStore((s) => s.accentIntensity)
 
   const isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+  const layoutLabel =
+    navLayout === 'sidebar' ? 'Sidebar' :
+    navLayout === 'dock' ? 'Dock' :
+    navLayout === 'topnav' ? 'Top-Nav' : 'Kompakt'
 
   return (
     <div className={`rounded-xl border border-border overflow-hidden ${className}`}>
@@ -38,7 +37,7 @@ export function ThemePreview({ className = '' }: { className?: string }) {
             {isDark ? 'Dunkel' : 'Hell'}
           </span>
           <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {LOOK_LABELS[uiLook]}
+            {layoutLabel}
           </span>
           {accentIntensity === 'vivid' && (
             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
@@ -50,57 +49,102 @@ export function ThemePreview({ className = '' }: { className?: string }) {
       </div>
 
       {/* Mini App Mockup */}
-      <div className="flex h-44" style={{ background: 'var(--background)' }}>
-        {/* Mini sidebar */}
-        <div
-          className="w-14 shrink-0 border-r flex flex-col items-center gap-2.5 py-3"
-          style={{
-            background: 'var(--sidebar)',
-            borderColor: 'var(--border)',
-          }}
-        >
-          {/* App icon */}
+      <div className="flex h-44 relative" style={{ background: 'var(--background)' }}>
+        {/* Sidebar (sidebar + classic layouts) */}
+        {(navLayout === 'sidebar' || navLayout === 'classic') && (
           <div
-            className="h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
-            style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
-          >
-            K
-          </div>
-          {/* Nav dots */}
-          {[0, 1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-5 w-5 rounded-md transition-colors"
-              style={{
-                background: i === 0 ? 'var(--sidebar-active)' : 'transparent',
-                border: i === 0 ? '1px solid var(--primary)' : '1px solid transparent',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Mini header */}
-          <div
-            className="h-9 shrink-0 border-b flex items-center gap-2 px-3"
+            className="shrink-0 border-r flex flex-col items-center gap-2.5 py-3"
             style={{
-              background: 'var(--header-background)',
+              width: navLayout === 'classic' ? 40 : 56,
+              background: 'var(--sidebar)',
               borderColor: 'var(--border)',
             }}
           >
             <div
-              className="h-2.5 w-16 rounded-full"
-              style={{ background: 'var(--foreground)', opacity: 0.7 }}
-            />
-            <div className="flex-1" />
-            <div
-              className="h-5 w-14 rounded-md text-[8px] font-medium flex items-center justify-center"
+              className="h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
               style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
             >
-              Aktion
+              K
             </div>
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="rounded-md transition-colors"
+                style={{
+                  width: navLayout === 'classic' ? 18 : 20,
+                  height: navLayout === 'classic' ? 18 : 20,
+                  background: i === 0 ? 'var(--sidebar-active)' : 'transparent',
+                  border: i === 0 ? '1px solid var(--primary)' : '1px solid transparent',
+                }}
+              />
+            ))}
           </div>
+        )}
+
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Mini header (all layouts except dock get a full header) */}
+          {navLayout !== 'dock' && (
+            <div
+              className="h-9 shrink-0 border-b flex items-center gap-2 px-3"
+              style={{
+                background: 'var(--header-background)',
+                borderColor: 'var(--border)',
+              }}
+            >
+              <div
+                className="h-2.5 w-16 rounded-full"
+                style={{ background: 'var(--foreground)', opacity: 0.7 }}
+              />
+              <div className="flex-1" />
+              <div
+                className="h-5 w-14 rounded-md text-[8px] font-medium flex items-center justify-center"
+                style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
+              >
+                Aktion
+              </div>
+            </div>
+          )}
+
+          {/* Dock: mini top bar */}
+          {navLayout === 'dock' && (
+            <div
+              className="h-7 shrink-0 border-b flex items-center gap-2 px-3"
+              style={{
+                background: 'var(--header-background)',
+                borderColor: 'var(--border)',
+              }}
+            >
+              <div className="h-2 w-12 rounded-full" style={{ background: 'var(--foreground)', opacity: 0.5 }} />
+              <div className="flex-1" />
+              <div className="h-3 w-3 rounded-full" style={{ background: 'var(--primary)', opacity: 0.6 }} />
+            </div>
+          )}
+
+          {/* TopNav: tab strip below header */}
+          {navLayout === 'topnav' && (
+            <div
+              className="h-6 shrink-0 border-b flex items-center gap-1.5 px-3"
+              style={{
+                background: 'var(--card)',
+                borderColor: 'var(--border)',
+                opacity: 0.8,
+              }}
+            >
+              {['CRM', 'Mail', 'Proj.'].map((label, i) => (
+                <div
+                  key={label}
+                  className="h-4 rounded-md px-1.5 flex items-center text-[6px] font-medium"
+                  style={{
+                    background: i === 0 ? 'var(--primary)' : 'transparent',
+                    color: i === 0 ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
+                  }}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Mini content */}
           <div className="flex-1 p-2.5 overflow-hidden">
@@ -137,7 +181,6 @@ export function ThemePreview({ className = '' }: { className?: string }) {
                 boxShadow: 'var(--shadow-card)',
               }}
             >
-              {/* Table header */}
               <div
                 className="flex items-center gap-2 px-2 py-1 border-b"
                 style={{
@@ -150,7 +193,6 @@ export function ThemePreview({ className = '' }: { className?: string }) {
                 <div className="flex-1" />
                 <div className="h-1.5 w-6 rounded-full bg-muted-foreground/40" />
               </div>
-              {/* Table rows */}
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
@@ -176,6 +218,31 @@ export function ThemePreview({ className = '' }: { className?: string }) {
               ))}
             </div>
           </div>
+
+          {/* Dock: floating bottom bar */}
+          {navLayout === 'dock' && (
+            <div className="flex justify-center pb-2">
+              <div
+                className="flex items-center gap-2 rounded-full px-4 py-1.5 border"
+                style={{
+                  background: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  boxShadow: 'var(--shadow-card)',
+                }}
+              >
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-4 w-4 rounded-md"
+                    style={{
+                      background: i === 0 ? 'var(--primary)' : 'var(--muted-foreground)',
+                      opacity: i === 0 ? 1 : 0.3,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

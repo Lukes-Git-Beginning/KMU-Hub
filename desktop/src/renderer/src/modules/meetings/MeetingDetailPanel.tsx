@@ -124,8 +124,8 @@ export function MeetingDetailPanel({
   if (!open || !meeting) return null
 
   const status = statusConfig[meeting.status]
-  const agendaDone = meeting.agenda.filter((a) => a.done).length
-  const agendaTotal = meeting.agenda.length
+  const agendaDone = (meeting.agenda ?? []).filter((a) => a.done).length
+  const agendaTotal = (meeting.agenda?.length ?? 0)
   const handleAddAgenda = () => {
     const text = newAgendaText.trim()
     if (!text) return
@@ -223,7 +223,7 @@ export function MeetingDetailPanel({
 
           {/* Participant avatars */}
           <div className="flex items-center gap-1.5 mt-4">
-            {meeting.participants.map((p) => (
+            {(meeting.participants ?? []).map((p) => (
               <div
                 key={p.id}
                 className="relative group"
@@ -238,7 +238,7 @@ export function MeetingDetailPanel({
               </div>
             ))}
             <span className="ml-1 text-xs text-white/60">
-              {meeting.participants.length} Teilnehmer
+              {(meeting.participants?.length ?? 0)} Teilnehmer
             </span>
           </div>
 
@@ -338,7 +338,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
 
   const handleSendInvitations = () => {
     onUpdateMeeting(meeting.id, { invitationsSent: true })
-    toast.success(`Einladungen an ${meeting.participants.length} Teilnehmer versendet (inkl. .ics Kalendereinladung)`)
+    toast.success(`Einladungen an ${(meeting.participants?.length ?? 0)} Teilnehmer versendet (inkl. .ics Kalendereinladung)`)
   }
 
   return (
@@ -447,7 +447,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
               Einladungen versendet
             </span>
             <div className="space-y-1.5 mt-2">
-              {meeting.participants.map((p) => (
+              {(meeting.participants ?? []).map((p) => (
                 <div key={p.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[9px] font-medium text-primary">
@@ -470,7 +470,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
               Einladungen ausstehend
             </span>
             <div className="space-y-1.5 mt-2">
-              {meeting.participants.map((p) => (
+              {(meeting.participants ?? []).map((p) => (
                 <div key={p.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[9px] font-medium text-primary">
@@ -496,10 +496,10 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
       <div>
         <h4 className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
           <Users className="mr-1 inline h-3.5 w-3.5" />
-          Teilnehmer ({meeting.participants.length})
+          Teilnehmer ({(meeting.participants?.length ?? 0)})
         </h4>
         <div className="space-y-1.5">
-          {meeting.participants.map((p) => (
+          {(meeting.participants ?? []).map((p) => (
             <div key={p.id} className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
                 {p.initials}
@@ -594,8 +594,8 @@ function AgendaTab({
   onRemove,
   onReorder,
 }: AgendaTabProps) {
-  const doneCount = meeting.agenda.filter((a) => a.done).length
-  const total = meeting.agenda.length
+  const doneCount = (meeting.agenda ?? []).filter((a) => a.done).length
+  const total = (meeting.agenda?.length ?? 0)
   const progress = total > 0 ? (doneCount / total) * 100 : 0
 
   return (
@@ -620,7 +620,7 @@ function AgendaTab({
 
       {/* Agenda items */}
       <div className="space-y-1">
-        {meeting.agenda.map((item, idx) => (
+        {(meeting.agenda ?? []).map((item, idx) => (
           <div
             key={item.id}
             className="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-secondary/50 transition-colors"
@@ -654,7 +654,7 @@ function AgendaTab({
                   <ChevronUp className="h-3.5 w-3.5" />
                 </button>
               )}
-              {idx < meeting.agenda.length - 1 && (
+              {idx < (meeting.agenda?.length ?? 0) - 1 && (
                 <button
                   onClick={() => onReorder(item.id, 'down')}
                   className="rounded p-0.5 text-[var(--muted)] hover:text-[var(--body)] transition-colors"

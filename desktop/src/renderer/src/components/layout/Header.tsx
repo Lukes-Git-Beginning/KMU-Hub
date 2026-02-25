@@ -5,15 +5,13 @@
  * presence status, notifications, connection status, desk controls,
  * and profile menu.
  */
-import { Maximize2, Minimize2, Menu } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
 import type { NavLayout } from '@/stores/ui'
-import { DESK_THEMES } from '@/config/desk-themes'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { PresenceStatusPicker } from '@/features/presence'
-import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -24,8 +22,6 @@ import {
   HeaderClock,
   DailyPlannerWidget,
   TimeTrackerWidget,
-  ClockInButton,
-  LanguageSwitcher,
   ProfileSwitcher,
   ProfileMenu,
   HeaderWidgetSlots,
@@ -34,11 +30,7 @@ import {
 export function Header() {
   const { isOnline } = useOnlineStatus()
   const navLayout = useUIStore((s) => s.navLayout)
-  const deskMaximized = useUIStore((s) => s.deskMaximized)
-  const deskThemeId = useUIStore((s) => s.deskThemeId)
-  const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
   const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
-  const isMinimalTheme = DESK_THEMES[deskThemeId]?.isMinimal ?? false
 
   // Initialize notification WebSocket listener so it's always active
   useNotificationWebSocket()
@@ -77,19 +69,9 @@ export function Header() {
           <DailyPlannerWidget />
         </div>
 
-        {/* HR Clock In/Out */}
-        <div className="hidden sm:block">
-          <ClockInButton />
-        </div>
-
-        {/* Time Tracker */}
+        {/* Unified Time Tracker (clock-in + task tracking) */}
         <div className="hidden sm:block">
           <TimeTrackerWidget />
-        </div>
-
-        {/* Language Switcher */}
-        <div className="hidden md:block">
-          <LanguageSwitcher />
         </div>
 
         {/* User presence status picker */}
@@ -115,32 +97,6 @@ export function Header() {
               : 'Keine Verbindung zum Server'}
           </TooltipContent>
         </Tooltip>
-
-        {/* Desk maximize toggle — hidden for minimal theme */}
-        {!isMinimalTheme && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9"
-                onClick={toggleDeskMaximized}
-                aria-label={deskMaximized ? 'Schreibtisch anzeigen' : 'Arbeitsfläche maximieren'}
-              >
-                {deskMaximized ? (
-                  <Minimize2 className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  <Maximize2 className="h-4 w-4" aria-hidden="true" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {deskMaximized
-                ? 'Schreibtisch anzeigen'
-                : 'Arbeitsfläche maximieren'}
-            </TooltipContent>
-          </Tooltip>
-        )}
 
         {/* Profile Switcher */}
         <div className="hidden sm:block">

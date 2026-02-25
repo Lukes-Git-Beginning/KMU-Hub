@@ -186,7 +186,7 @@ const router = createHashRouter([
       { path: 'crm/*', element: lazyRoute(CRMLayout) },
       { path: 'chat/*', element: lazyRoute(ChatLayout) },
       { path: 'work/*', element: lazyRoute(WorkLayout) },
-      { path: 'calendar', element: lazyRoute(KalenderPage) },
+      { path: 'kalender', element: lazyRoute(KalenderPage) },
       { path: 'video/*', element: lazyRoute(VideoPage) },
       { path: 'meetings/*', element: lazyRoute(MeetingsPage) },
       { path: 'notifications', element: lazyRoute(NotificationCenter) },

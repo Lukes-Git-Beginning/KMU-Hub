@@ -30,7 +30,6 @@ import { Header } from './Header'
 import { OfflineBanner } from './OfflineBanner'
 import { ModuleErrorBoundary } from './ModuleShell'
 import { PageTransitionOutlet } from './PageTransitionOutlet'
-import { HelpWidget } from '@/components/widgets/HelpWidget'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 import { DockBar } from './dock/DockBar'
 import { TopNavBar } from './topnav/TopNavBar'
@@ -90,19 +89,14 @@ export function AppShell() {
 
         {/* Main column — content area stays mounted across layout switches */}
         <main className="flex flex-1 flex-col overflow-hidden">
-          {/* Top chrome — only one renders at a time */}
-          {isTopNav && <TopNavBar />}
+          {/* Top chrome */}
+          <OfflineBanner />
           {isDock && <DockHeader />}
-          {(isSidebar || isClassic) && (
-            <>
-              <OfflineBanner />
-              <Header />
-            </>
-          )}
-          {(isTopNav || isDock) && <OfflineBanner />}
+          {(isSidebar || isClassic || isTopNav) && <Header />}
+          {isTopNav && <TopNavBar />}
 
           {/* Content — stable position, never unmounts */}
-          <div id="main-content" className="flex-1 overflow-auto">
+          <div id="main-content" className="flex flex-1 flex-col min-h-0 overflow-auto">
             <ModuleErrorBoundary>
               <PageTransitionOutlet />
             </ModuleErrorBoundary>
@@ -116,7 +110,6 @@ export function AppShell() {
       {/* Global overlays — shared across all layouts */}
       <FloatingCallBar />
       <IncomingCallOverlay />
-      <HelpWidget />
       {!onboardingCompleted && <OnboardingWizard />}
     </PresenceProvider>
   )
