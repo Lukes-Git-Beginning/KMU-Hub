@@ -68,3 +68,6 @@ ehthumbs.db
 tmp/
 temp/
 *.tmp
+.ralph/
+.ralphrc
+.claude/settings.local.json
