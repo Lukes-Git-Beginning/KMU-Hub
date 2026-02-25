@@ -10,10 +10,11 @@
  * - Finance: Invoice & currency settings
  * - Mail: Email account configuration
  * - Team: HR & team settings (admin/manager)
+ * - Integrations: Teams, Slack & external services (admin)
  */
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Globe, Lock, LayoutDashboard, Shield, Calendar, Receipt, Mail, Users, RefreshCw } from 'lucide-react'
+import { Globe, Lock, LayoutDashboard, Shield, Calendar, Receipt, Mail, Users, RefreshCw, Plug } from 'lucide-react'
 import { FormattedMessage } from 'react-intl'
 import { useAuthStore } from '@/stores/auth'
 import DashboardSettings from './DashboardSettings'
@@ -25,8 +26,9 @@ import { FinanceSettingsTab } from './tabs/FinanceSettingsTab'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
 import { TeamSettingsTab } from './tabs/TeamSettingsTab'
 import { CalDAVSettingsTab } from './tabs/CalDAVSettingsTab'
+import { IntegrationsSettingsTab } from './tabs/IntegrationsSettingsTab'
 
-type TabKey = 'general' | 'security' | 'language' | 'privacy' | 'calendar' | 'finance' | 'mail' | 'team' | 'caldav'
+type TabKey = 'general' | 'security' | 'language' | 'privacy' | 'calendar' | 'finance' | 'mail' | 'team' | 'caldav' | 'integrations'
 
 interface TabConfig {
   key: TabKey
@@ -103,6 +105,14 @@ const TABS: TabConfig[] = [
     subtitleId: 'settings.team.subtitle',
     icon: Users,
     roles: ['admin', 'manager', 'hr'],
+    group: 'modules',
+  },
+  {
+    key: 'integrations',
+    labelId: 'settings.integrations.title',
+    subtitleId: 'settings.integrations.subtitle',
+    icon: Plug,
+    roles: ['admin'],
     group: 'modules',
   },
 ]
@@ -187,6 +197,7 @@ export default function SettingsPage() {
         {effectiveTab === 'finance' && <FinanceSettingsTab />}
         {effectiveTab === 'mail' && <MailSettingsTab />}
         {effectiveTab === 'team' && <TeamSettingsTab />}
+        {effectiveTab === 'integrations' && <IntegrationsSettingsTab />}
       </div>
     </div>
   )
