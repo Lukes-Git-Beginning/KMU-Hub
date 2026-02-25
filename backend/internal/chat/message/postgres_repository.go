@@ -25,10 +25,11 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, message *models.Message) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, guest_session_id, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		message.ID, message.ChannelID, message.Content, message.IsDeleted,
-		message.EditedAt, message.ParentMessageID, message.Lang, message.CreatedBy, message.CreatedAt,
+		message.EditedAt, message.ParentMessageID, message.Lang, message.CreatedBy,
+		message.GuestSessionID, message.CreatedAt,
 	)
 	return err
 }
@@ -36,10 +37,10 @@ func (r *PostgresRepository) Create(ctx context.Context, message *models.Message
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Message, error) {
 	var m models.Message
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, channel_id, content, is_deleted, edited_at, parent_message_id, reply_count, lang, created_by, created_at
+		`SELECT id, channel_id, content, is_deleted, edited_at, parent_message_id, reply_count, lang, created_by, guest_session_id, created_at
 		 FROM messages WHERE id = $1`, id,
 	).Scan(&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
-		&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.CreatedAt)
+		&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.GuestSessionID, &m.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrMessageNotFound
 	}
@@ -89,10 +90,12 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 
 	query := fmt.Sprintf(`
 		SELECT m.id, m.channel_id, m.content, m.is_deleted, m.edited_at,
-		       m.parent_message_id, m.reply_count, m.lang, m.created_by, m.created_at,
-		       u.first_name, u.last_name
+		       m.parent_message_id, m.reply_count, m.lang, m.created_by, m.guest_session_id, m.created_at,
+		       COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
+		       COALESCE(gs.display_name, '')
 		FROM messages m
-		JOIN users u ON m.created_by = u.id
+		LEFT JOIN users u ON m.created_by = u.id
+		LEFT JOIN guest_sessions gs ON m.guest_session_id = gs.id
 		WHERE m.channel_id = $1 AND m.is_deleted = FALSE%s
 		ORDER BY m.created_at DESC
 		LIMIT $%d`, extraConditions, argNum)
@@ -110,8 +113,9 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 		var m models.MessageWithSender
 		if scanErr := rows.Scan(
 			&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
-			&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.CreatedAt,
+			&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.GuestSessionID, &m.CreatedAt,
 			&m.SenderFirstName, &m.SenderLastName,
+			&m.GuestDisplayName,
 		); scanErr != nil {
 			return nil, scanErr
 		}
@@ -197,10 +201,11 @@ func (r *PostgresRepository) CreateWithReplyCount(ctx context.Context, message *
 
 	// Insert the reply message
 	_, err = tx.Exec(ctx,
-		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		`INSERT INTO messages (id, channel_id, content, is_deleted, edited_at, parent_message_id, lang, created_by, guest_session_id, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		message.ID, message.ChannelID, message.Content, message.IsDeleted,
-		message.EditedAt, message.ParentMessageID, message.Lang, message.CreatedBy, message.CreatedAt,
+		message.EditedAt, message.ParentMessageID, message.Lang, message.CreatedBy,
+		message.GuestSessionID, message.CreatedAt,
 	)
 	if err != nil {
 		return err
@@ -251,10 +256,12 @@ func (r *PostgresRepository) ListReplies(ctx context.Context, filter ThreadListF
 
 	query := fmt.Sprintf(`
 		SELECT m.id, m.channel_id, m.content, m.is_deleted, m.edited_at,
-		       m.parent_message_id, m.reply_count, m.lang, m.created_by, m.created_at,
-		       u.first_name, u.last_name
+		       m.parent_message_id, m.reply_count, m.lang, m.created_by, m.guest_session_id, m.created_at,
+		       COALESCE(u.first_name, ''), COALESCE(u.last_name, ''),
+		       COALESCE(gs.display_name, '')
 		FROM messages m
-		JOIN users u ON m.created_by = u.id
+		LEFT JOIN users u ON m.created_by = u.id
+		LEFT JOIN guest_sessions gs ON m.guest_session_id = gs.id
 		WHERE m.parent_message_id = $1 AND m.is_deleted = FALSE%s
 		ORDER BY m.created_at ASC
 		LIMIT $%d`, extraConditions, argNum)
@@ -272,8 +279,9 @@ func (r *PostgresRepository) ListReplies(ctx context.Context, filter ThreadListF
 		var m models.MessageWithSender
 		if scanErr := rows.Scan(
 			&m.ID, &m.ChannelID, &m.Content, &m.IsDeleted, &m.EditedAt,
-			&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.CreatedAt,
+			&m.ParentMessageID, &m.ReplyCount, &m.Lang, &m.CreatedBy, &m.GuestSessionID, &m.CreatedAt,
 			&m.SenderFirstName, &m.SenderLastName,
+			&m.GuestDisplayName,
 		); scanErr != nil {
 			return nil, scanErr
 		}
@@ -480,4 +488,26 @@ func (r *PostgresRepository) GetChannelName(ctx context.Context, channelID uuid.
 		return "", err
 	}
 	return name, nil
+}
+
+func (r *PostgresRepository) GetGuestDisplayName(ctx context.Context, sessionID uuid.UUID) (string, error) {
+	var name string
+	err := r.pool.QueryRow(ctx,
+		`SELECT display_name FROM guest_sessions WHERE id = $1`, sessionID,
+	).Scan(&name)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+func (r *PostgresRepository) IsChannelGuestEnabled(ctx context.Context, channelID uuid.UUID) (bool, error) {
+	var enabled bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT is_guest_enabled FROM channels WHERE id = $1`, channelID,
+	).Scan(&enabled)
+	if err != nil {
+		return false, err
+	}
+	return enabled, nil
 }

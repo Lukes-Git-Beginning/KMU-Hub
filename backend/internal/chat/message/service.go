@@ -49,6 +49,7 @@ type CreateInput struct {
 	ChannelID        uuid.UUID
 	Content          string
 	CreatedBy        uuid.UUID
+	GuestSessionID   *uuid.UUID  // Set for guest messages, mutually exclusive with CreatedBy
 	ParentMessageID  *uuid.UUID  // For thread replies
 	MentionedUserIDs []uuid.UUID // User IDs to mention (Sprint 3)
 	MentionEveryone  bool        // @everyone/@channel mention (Sprint 3)
@@ -80,13 +81,15 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		return nil, ErrChannelArchived
 	}
 
-	// Check user is a member
-	isMember, err := s.repo.IsMember(ctx, input.ChannelID, input.CreatedBy)
-	if err != nil {
-		return nil, err
-	}
-	if !isMember {
-		return nil, ErrNotChannelMember
+	// Guest messages bypass membership check; regular messages require it
+	if input.GuestSessionID == nil {
+		isMember, memberErr := s.repo.IsMember(ctx, input.ChannelID, input.CreatedBy)
+		if memberErr != nil {
+			return nil, memberErr
+		}
+		if !isMember {
+			return nil, ErrNotChannelMember
+		}
 	}
 
 	// Validate thread reply if parent is specified
@@ -121,8 +124,11 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Messag
 		EditedAt:        nil,
 		ParentMessageID: input.ParentMessageID,
 		Lang:            lang,
-		CreatedBy:       &input.CreatedBy,
+		GuestSessionID:  input.GuestSessionID,
 		CreatedAt:       now,
+	}
+	if input.GuestSessionID == nil {
+		message.CreatedBy = &input.CreatedBy
 	}
 
 	// Use atomic create+increment for thread replies
@@ -246,11 +252,12 @@ func (s *Service) GetByID(ctx context.Context, id, userID uuid.UUID) (*models.Me
 
 // ListInput contains options for listing messages
 type ListInput struct {
-	ChannelID uuid.UUID
-	UserID    uuid.UUID // For membership check
-	Limit     int
-	Before    *uuid.UUID
-	After     *uuid.UUID
+	ChannelID           uuid.UUID
+	UserID              uuid.UUID // For membership check
+	Limit               int
+	Before              *uuid.UUID
+	After               *uuid.UUID
+	SkipMembershipCheck bool // Set for guest-enabled channels where guests bypass membership
 }
 
 // List retrieves messages from a channel
@@ -264,13 +271,15 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.MessageW
 		return nil, false, ErrChannelNotFound
 	}
 
-	// Check user is a member
-	isMember, memberErr := s.repo.IsMember(ctx, input.ChannelID, input.UserID)
-	if memberErr != nil {
-		return nil, false, memberErr
-	}
-	if !isMember {
-		return nil, false, ErrNotChannelMember
+	// Check user is a member (skip for guest-enabled channels)
+	if !input.SkipMembershipCheck {
+		isMember, memberErr := s.repo.IsMember(ctx, input.ChannelID, input.UserID)
+		if memberErr != nil {
+			return nil, false, memberErr
+		}
+		if !isMember {
+			return nil, false, ErrNotChannelMember
+		}
 	}
 
 	if input.Limit < 1 || input.Limit > 100 {
@@ -489,6 +498,13 @@ func (s *Service) getWithSender(ctx context.Context, message *models.Message) (*
 		}
 		result.SenderFirstName = firstName
 		result.SenderLastName = lastName
+	} else if message.GuestSessionID != nil {
+		displayName, err := s.repo.GetGuestDisplayName(ctx, *message.GuestSessionID)
+		if err != nil {
+			slog.Warn("failed to get guest display name", "session_id", message.GuestSessionID, "error", err)
+			displayName = "Gast"
+		}
+		result.GuestDisplayName = displayName
 	}
 
 	return result, nil

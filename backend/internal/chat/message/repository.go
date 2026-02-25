@@ -43,6 +43,10 @@ type Repository interface {
 	// Channel info for notification events
 	GetDMRecipient(ctx context.Context, channelID, senderID uuid.UUID) (*uuid.UUID, error)
 	GetChannelName(ctx context.Context, channelID uuid.UUID) (string, error)
+
+	// Guest session info
+	GetGuestDisplayName(ctx context.Context, sessionID uuid.UUID) (string, error)
+	IsChannelGuestEnabled(ctx context.Context, channelID uuid.UUID) (bool, error)
 }
 
 // ListFilter contains filtering options for listing messages
