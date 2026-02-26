@@ -70,6 +70,11 @@ type Config struct {
 	// CalDAV/CardDAV (external client sync)
 	CalDAVEnabled bool `env:"CALDAV_ENABLED,default=false"`
 
+	// Bexio Integration (optional)
+	BexioClientID     string `env:"BEXIO_CLIENT_ID,default="`
+	BexioClientSecret string `env:"BEXIO_CLIENT_SECRET,default="`
+	BexioRedirectURL  string `env:"BEXIO_REDIRECT_URL,default="`
+
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
 	MinIOAccessKey  string `env:"MINIO_ACCESS_KEY,default=kmuhub"`

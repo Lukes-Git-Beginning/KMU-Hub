@@ -149,6 +149,7 @@ func main() {
 		gateway.NewEmailRoutes(registry),
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
+		gateway.NewBexioRoutes(registry),
 		gateway.NewHRRoutes(registry),
 		gateway.NewInboxRoutes(registry),
 		gateway.NewAutomationRoutes(registry),

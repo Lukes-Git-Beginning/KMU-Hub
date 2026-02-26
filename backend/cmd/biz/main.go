@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/kmuhub/kmuhub/internal/biz/bexio"
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
@@ -28,6 +29,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
+	"github.com/kmuhub/kmuhub/internal/security/vault"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -194,6 +196,47 @@ func main() {
 
 	slog.Info("HR services registered on biz gRPC server")
 
+	// =========================================================================
+	// Bexio Integration (optional, depends on BEXIO_CLIENT_ID being set)
+	// =========================================================================
+	var bexioSvc *bexio.Service
+	if cfg.BexioClientID != "" {
+		bexioConfig := bexio.DefaultClientConfig(cfg.BexioClientID, cfg.BexioClientSecret, cfg.BexioRedirectURL)
+		bexioRepo := bexio.NewPostgresRepository(pool)
+		bexioConfigRepo := bexio.NewPostgresIntegrationConfigRepo(pool)
+
+		var vaultSvc bexio.VaultService
+		if cfg.VaultMasterSecret != "" {
+			vaultRepo := vault.NewPostgresRepository(pool)
+			vs, vaultErr := vault.NewService(vaultRepo, cfg.VaultMasterSecret)
+			if vaultErr != nil {
+				slog.Error("failed to initialize vault for bexio", "error", vaultErr)
+				os.Exit(1)
+			}
+			vaultSvc = vs
+		} else {
+			slog.Warn("VAULT_MASTER_SECRET not set, Bexio token storage unavailable")
+		}
+
+		bexioClient := bexio.NewClient(bexioConfig, vaultSvc)
+		bexioSvc = bexio.NewService(
+			bexioClient, bexioRepo, bexioConfigRepo, vaultSvc, bexioConfig,
+			nil, // ContactService: wired via CRM gRPC in gateway (not available in biz binary)
+			invoiceSvc, invoiceSvc, quoteRepo,
+		)
+
+		bexioGRPC := server.NewBexioGRPCServer(bexioSvc)
+		bizv1.RegisterBexioIntegrationServiceServer(grpcServer, bexioGRPC)
+
+		if err := bexioSvc.StartScheduler(ctx); err != nil {
+			slog.Warn("bexio scheduler start failed", "error", err)
+		} else {
+			slog.Info("bexio integration enabled, scheduler started")
+		}
+	} else {
+		slog.Info("Bexio integration disabled (BEXIO_CLIENT_ID not set)")
+	}
+
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)
 
 	lis, err := net.Listen("tcp", cfg.BizGRPCPort)
@@ -243,6 +286,11 @@ func main() {
 	}
 
 	// Graceful shutdown
+	if bexioSvc != nil {
+		bexioSvc.StopScheduler()
+		slog.Info("bexio scheduler stopped")
+	}
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
