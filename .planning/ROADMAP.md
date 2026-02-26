@@ -11,7 +11,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - ✅ **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
 - ✅ **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
 - ✅ **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
-- 📋 **Integrations** - Phases 17-19 (Teams/Slack, Bexio, DATEV API + Lexware Office -- external DACH connectivity)
+- ✅ **Integrations** - Phases 17-19 (Teams/Slack, Bexio, DATEV API + Lexware Office -- external DACH connectivity)
 - 📋 **Extensibility** - Phase 20 (Plugin System + Industry Templates -- customization layer)
 
 ## Phases
@@ -52,9 +52,9 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 ### Integrations (Phases 17-19)
 
-- [ ] **Phase 17: Integration - Teams & Slack** - Notification forwarding and basic bidirectional interaction
-- [ ] **Phase 18: Integration - Bexio** - Contact and invoice sync with Bexio accounting
-- [ ] **Phase 19: Integration - DATEV API + Lexware Office** - Lexware Office contact/invoice sync (API key auth, webhooks) and DATEV Buchungsdatenservice upload (OAuth2)
+- [x] **Phase 17: Integration - Teams & Slack** - Notification forwarding and basic bidirectional interaction
+- [x] **Phase 18: Integration - Bexio** - Contact and invoice sync with Bexio accounting
+- [x] **Phase 19: Integration - DATEV API + Lexware Office** - Lexware Office contact/invoice sync (API key auth, webhooks) and DATEV Buchungsdatenservice upload (OAuth2)
 
 ### Extensibility (Phase 20)
 
@@ -362,9 +362,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 17-01-PLAN.md -- Data foundation (migration 000053 with 5 integration tables, Go domain models, repository layer, proto extension with 13 RPCs, Go deps for Teams Bot Framework + Slack API + Adaptive Cards)
-- [ ] 17-02-PLAN.md -- Forwarder engine + platform adapters + connection layer (notification forwarder as DeliveryCallback, Teams Bot Framework client + Adaptive Cards, Slack API client + Block Kit, account linking service, rate limiter, inbound webhook handlers, gRPC server extension, 18 gateway HTTP routes, notification binary integration, Docker env vars)
-- [ ] 17-03-PLAN.md -- Frontend (TypeScript types, 14 TanStack Query hooks, Integrations settings tab, IntegrationCard reusable component, 4-step TeamsSetupWizard + SlackSetupWizard, ChannelMappingEditor, AccountLinkDialog, SettingsPage integration)
+- [x] 17-01-PLAN.md -- Data foundation (migration 000053 with 5 integration tables, Go domain models, repository layer, proto extension with 13 RPCs, Go deps for Teams Bot Framework + Slack API + Adaptive Cards)
+- [x] 17-02-PLAN.md -- Forwarder engine + platform adapters + connection layer (notification forwarder as DeliveryCallback, Teams Bot Framework client + Adaptive Cards, Slack API client + Block Kit, account linking service, rate limiter, inbound webhook handlers, gRPC server extension, 18 gateway HTTP routes, notification binary integration, Docker env vars)
+- [x] 17-03-PLAN.md -- Frontend (TypeScript types, 14 TanStack Query hooks, Integrations settings tab, IntegrationCard reusable component, 4-step TeamsSetupWizard + SlackSetupWizard, ChannelMappingEditor, AccountLinkDialog, SettingsPage integration)
 
 ### Phase 17.5: Guest Chat / Kundenportal
 **Goal**: External visitors can chat with KMU Hub agents via a shareable link, with messages flowing into the existing chat infrastructure and Unified Inbox
@@ -379,9 +379,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 17.5-01-PLAN.md -- Data foundation (migration 000054 with guest_sessions + guest_channel_config tables, channel/message alterations, Go models, repository, session service, rate limiter)
-- [ ] 17.5-02-PLAN.md -- WebSocket hub extension + services + gateway routes + inbox adapter (guest connections, message service extension, 6 public HTTP endpoints, guest inbox adapter, CHANNEL_GUEST proto)
-- [ ] 17.5-03-PLAN.md -- Guest web frontend (standalone Vite+React SPA, pre-chat form, chat window, file upload, typing indicators, gateway static serving)
+- [x] 17.5-01-PLAN.md -- Data foundation (migration 000054 with guest_sessions + guest_channel_config tables, channel/message alterations, Go models, repository, session service, rate limiter)
+- [x] 17.5-02-PLAN.md -- WebSocket hub extension + services + gateway routes + inbox adapter (guest connections, message service extension, 6 public HTTP endpoints, guest inbox adapter, CHANNEL_GUEST proto)
+- [x] 17.5-03-PLAN.md -- Guest web frontend (standalone Vite+React SPA, pre-chat form, chat window, file upload, typing indicators, gateway static serving)
 
 ### Phase 18: Integration - Bexio
 **Goal**: Swiss SMBs can sync their CRM contacts and invoices with Bexio accounting software
@@ -391,11 +391,13 @@ Plans:
   1. Admin can authenticate with Bexio via OAuth2
   2. Contacts sync bidirectionally between KMU Hub CRM and Bexio
   3. Invoices created in KMU Hub are pushed to Bexio
-**Plans**: 2 plans (estimated)
+**Plans**: 4 plans
 
 Plans:
-- [ ] 18-01: Bexio connector (OAuth2 flow, API client, contact sync engine)
-- [ ] 18-02: Invoice sync + conflict resolution (invoice push to Bexio, field mapping, error handling)
+- [x] 18-01: Bexio data foundation (OAuth2, API client, rate limiter, repository, domain models)
+- [x] 18-02: Sync engine (contact sync, invoice push, quote push, scheduler, event emitter)
+- [x] 18-03: gRPC server + gateway routes (BexioGRPCServer, OAuth callback, admin routes, biz binary wiring)
+- [x] 18-04: Frontend (TypeScript types, API client, React Query hooks, 4-step setup wizard, sync dashboard, field mapping editor)
 
 ### Phase 19: Integration - DATEV API + Lexware Office
 **Goal**: German SMBs can sync contacts and invoices with Lexware Office (300k+ customers) and upload Buchungsstapel/Belege to DATEV via API (2.5M+ companies via Steuerberater) -- completing full DACH accounting coverage (Bexio CH + Lexware DE + DATEV DE/AT)
@@ -412,8 +414,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 19-01: Data foundation + Lexware Office + DATEV upload backend (migration, models, Lexware package with API key auth + webhooks + contact sync + invoice/quote push, DATEV upload extension with OAuth2 + Buchungsdatenservice, proto, gRPC, gateway, biz binary wiring)
-- [ ] 19-02: Frontend + integration wiring (TypeScript types, API clients, React Query hooks, LexwareSetupWizard, LexwareSyncDashboard, DatevSettingsPanel, IntegrationsSettingsTab update, Docker Compose)
+- [x] 19-01: Data foundation + Lexware Office + DATEV upload backend (migration, models, Lexware package with API key auth + webhooks + contact sync + invoice/quote push, DATEV upload extension with OAuth2 + Buchungsdatenservice, proto, gRPC, gateway, biz binary wiring)
+- [x] 19-02: Frontend + integration wiring (TypeScript types, API clients, React Query hooks, LexwareSetupWizard, LexwareSyncDashboard, DatevSettingsPanel, IntegrationsSettingsTab update, Docker Compose)
 
 ### Phase 20: Plugin System + Industry Templates
 **Goal**: Admins can customize the Hub for their company's specific processes without modifying source code, and developers can extend it via sandboxed WASM plugins. Industry modules (Fuhrpark, Produktion, Rapporte, etc.) are implemented as plugin templates, NOT as core backend endpoints.
@@ -457,9 +459,9 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 15. CalDAV/CardDAV | 1/3 | Complete    | 2026-02-20 |
 | 16. Automation Engine | 1/3 | Complete    | 2026-02-20 |
 | 17. Integration: Teams & Slack | 3/3 | Complete | 2026-02-25 |
-| 17.5. Guest Chat | 0/3 | Not started | - |
-| 18. Integration: Bexio | 0/2 | Not started | - |
-| 19. Integration: DATEV + Lexware | 0/2 | Not started | - |
+| 17.5. Guest Chat | 3/3 | Complete | 2026-02-25 |
+| 18. Integration: Bexio | 4/4 | Complete | 2026-02-26 |
+| 19. Integration: DATEV + Lexware | 2/2 | Complete | 2026-02-26 |
 | 20. Plugin System + Templates | 0/4 | Not started | - |
 
 ---
