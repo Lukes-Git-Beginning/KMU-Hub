@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 17.5 (Gast-Chat / Kundenportal) -- COMPLETE
+**Current focus:** Phase 18 (Bexio Integration) -- IN PROGRESS
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 17.5 of 20 (Gast-Chat / Kundenportal) -- COMPLETE
-Plan: 3 of 3 complete
-Status: All plans complete. Phase 17.5 DONE.
-Last activity: 2026-02-25 -- Phase 17.5-03 executed
+Phase: 18 of 20 (Bexio Integration) -- IN PROGRESS
+Plan: 1 of 4 complete
+Status: Plan 18-01 complete. Next: 18-02
+Last activity: 2026-02-26 -- Phase 18-01 executed
 
-Progress: [█████████████████████████████████] 100% (93/93 plans across phases 4-17.5)
+Progress: [█████████████████████████████████░] 97% (94/97 plans across phases 4-18)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 71
+- Total plans completed: 72
 - Average duration: ~7 minutes
-- Total execution time: ~7h 35min
+- Total execution time: ~7h 50min
 
 **By Phase:**
 
@@ -46,6 +46,7 @@ Progress: [███████████████████████
 | 16 | 3/3 | ~48min | ~16min |
 | 17 | 3/3 | ~16min | ~5min |
 | 17.5 | 3/3 | ~32min | ~11min |
+| 18 | 1/4 | ~15min | ~15min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -56,7 +57,8 @@ Progress: [███████████████████████
 - Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
 - Phase 17 (Teams & Slack Integration) COMPLETE -- all 3 plans done (data foundation, forwarder + adapters, frontend)
 - Phase 17.5 (Gast-Chat) COMPLETE -- all 3 plans done (data foundation, services+gateway, frontend SPA)
-- 93/93 plans done across Phases 4-17.5
+- Phase 18 (Bexio Integration) IN PROGRESS -- 1/4 plans done (data foundation)
+- 94/97 plans done across Phases 4-18
 
 *Updated after each plan completion*
 
@@ -433,6 +435,14 @@ Recent decisions affecting current work:
 - [17.5-03]: Graceful degradation: if guest-chat/dist/ doesn't exist, guest chat is simply disabled
 - [17.5-03]: useRef<T | null>(null) pattern for React 19 strict mode compatibility
 
+- [18-01]: VaultService interface in types.go matches vault.Service signature (ctx + createdBy uuid) for direct implementation
+- [18-01]: Token cache uses 30s safety margin before expiry to prevent edge-case token usage during refresh
+- [18-01]: Rate limiter adaptive: starts with defaults (50/10s), adjusts from X-RateLimit-* response headers
+- [18-01]: Client.do() handles 429 with exponential backoff (1s, 2s, 4s) and 401 with single token refresh retry
+- [18-01]: Bexio API quirks: POST for updates (not PATCH), Content-Length:0 for GET, salutation_id 0 = none
+- [18-01]: GetFieldMappings returns nil (not error) when no mapping exists
+- [18-01]: UpdateLastSyncTime uses column name switch (not dynamic SQL) for safety
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -445,7 +455,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-25
-Stopped at: Phase 17.5 COMPLETE (all 3 plans done)
+Last session: 2026-02-26
+Stopped at: Phase 18-01 COMPLETE (data foundation)
 Resume file: N/A
-Next: Phase 18 (Bexio Integration) -- needs planning
+Next: Phase 18-02 (Sync Service)
