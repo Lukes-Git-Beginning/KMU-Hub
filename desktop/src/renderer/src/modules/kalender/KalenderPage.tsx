@@ -30,6 +30,7 @@ import {
   Phone,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { RoomBookingView } from './RoomBookingView'
 import { CategoryManagerDialog } from './CategoryManagerDialog'
 import { CalendarBrowseDialog } from './CalendarBrowseDialog'
@@ -492,14 +493,16 @@ export default function KalenderPage() {
       <div className="flex items-center gap-6 border-b border-border bg-card px-6 pt-3">
         <button
           onClick={() => setTopTab('kalender')}
-          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'kalender' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'kalender' ? 'font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          style={topTab === 'kalender' ? { borderColor: moduleHsl('calendar'), color: moduleHsl('calendar') } : undefined}
         >
           <Calendar className="mr-1.5 inline h-4 w-4" />
           Kalender
         </button>
         <button
           onClick={() => setTopTab('terminbuchung')}
-          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'terminbuchung' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          className={`border-b-2 px-1 pb-2 text-sm transition-colors ${topTab === 'terminbuchung' ? 'font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+          style={topTab === 'terminbuchung' ? { borderColor: moduleHsl('calendar'), color: moduleHsl('calendar') } : undefined}
         >
           <CalendarCheck className="mr-1.5 inline h-4 w-4" />
           Terminbuchung

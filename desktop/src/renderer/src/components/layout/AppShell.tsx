@@ -125,7 +125,7 @@ function DockHeader() {
   useNotificationWebSocket()
 
   return (
-    <header className="flex h-12 shrink-0 items-center border-b border-header-border bg-header-background px-4 glass-surface">
+    <header className="relative z-20 flex h-12 shrink-0 items-center border-b border-header-border bg-header-background px-4 glass-surface">
       <SearchBar />
       <div className="flex-1" />
       <div className="flex items-center gap-2">

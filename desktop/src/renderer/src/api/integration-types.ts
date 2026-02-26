@@ -25,6 +25,11 @@ export interface IntegrationConfig {
   created_by: string
   created_at: string
   updated_at: string
+  // UI-layer fields (optional, not in backend response)
+  name?: string
+  status?: string
+  last_tested_at?: string
+  webhook_url?: string
 }
 
 export interface CreateIntegrationConfigRequest {
@@ -115,6 +120,28 @@ export interface TestNotificationRequest {
 export interface TestNotificationResponse {
   success: boolean
   message: string
+}
+
+// ---------------------------------------------------------------------------
+// Module definitions for the mapping editor
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Backward-compatible aliases for design-integration hooks
+// ---------------------------------------------------------------------------
+
+export type IntegrationPlatform = Platform
+
+export interface CreateIntegrationRequest {
+  platform: Platform
+  name: string
+  webhook_url?: string
+}
+
+export interface UpdateIntegrationRequest {
+  name?: string
+  webhook_url?: string
+  is_active?: boolean
 }
 
 // ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@
 @import "./animations.css";
 @import "./micro-interactions.css";
 @import "./nav-icons.css";
+@import "./glass-effects.css";
 
 /* Enable .dark class toggling for Tailwind dark: utilities */
 @custom-variant dark (&:is(.dark *));

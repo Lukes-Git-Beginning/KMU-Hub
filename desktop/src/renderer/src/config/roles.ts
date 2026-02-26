@@ -19,7 +19,7 @@ export type RoleId = 'admin' | 'manager' | 'member' | 'hr' | 'it_support'
 // ---- Which sidebar nav-item IDs each role can see ----
 // Items NOT listed here are visible to everyone (dashboard, projects, tasks, chat, meetings, calendar, documents, mail, contacts)
 export const RESTRICTED_NAV_ITEMS: Record<string, RoleId[]> = {
-  team:           ['admin', 'manager', 'hr'],
+  team:           ['admin', 'manager', 'hr', 'member', 'it_support'],
   finance:        ['admin'],
   infrastructure: ['admin', 'it_support'],
   'security-admin': ['admin'],

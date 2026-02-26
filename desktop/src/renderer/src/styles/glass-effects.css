@@ -34,20 +34,20 @@
    Semi-transparent surfaces with tinted backdrop blur.
    ───────────────────────────────────────────────────────────── */
 html.ui-glass {
-  --card: rgba(var(--_rgb-card), 0.55);
-  --card-hover: rgba(var(--_rgb-card), 0.62);
-  --card-border: rgba(var(--_rgb-card), 0.25);
-  --popover: rgba(var(--_rgb-popover), 0.72);
-  --sidebar: rgba(var(--_rgb-sidebar), 0.50);
-  --sidebar-accent: rgba(var(--_rgb-sidebar), 0.55);
-  --sidebar-active: rgba(var(--_rgb-sidebar), 0.60);
-  --sidebar-border: rgba(var(--_rgb-sidebar), 0.20);
-  --header-background: rgba(var(--_rgb-header), 0.50);
-  --header-border: rgba(var(--_rgb-header), 0.20);
-  --background: rgba(var(--_rgb-bg), 0.40);
-  --secondary: rgba(var(--_rgb-secondary), 0.50);
-  --muted: rgba(var(--_rgb-muted), 0.45);
-  --input-background: rgba(var(--_rgb-input), 0.50);
+  --card: rgba(var(--_rgb-card), 0.80);
+  --card-hover: rgba(var(--_rgb-card), 0.85);
+  --card-border: rgba(var(--_rgb-card), 0.35);
+  --popover: rgba(var(--_rgb-popover), 0.90);
+  --sidebar: rgba(var(--_rgb-sidebar), 0.82);
+  --sidebar-accent: rgba(var(--_rgb-sidebar), 0.85);
+  --sidebar-active: rgba(var(--_rgb-sidebar), 0.88);
+  --sidebar-border: rgba(var(--_rgb-sidebar), 0.30);
+  --header-background: rgba(var(--_rgb-header), 0.82);
+  --header-border: rgba(var(--_rgb-header), 0.30);
+  --background: rgba(var(--_rgb-bg), 0.75);
+  --secondary: rgba(var(--_rgb-secondary), 0.72);
+  --muted: rgba(var(--_rgb-muted), 0.65);
+  --input-background: rgba(var(--_rgb-input), 0.75);
 
   /* Colored shadows — primary-tinted instead of neutral black */
   --shadow-card: 0 2px 12px rgba(var(--_rgb-primary), 0.06),
@@ -56,21 +56,29 @@ html.ui-glass {
                        0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
+/* Module content area — more transparent so desk background shines through */
+.ui-glass #main-content {
+  --background: rgba(var(--_rgb-bg), 0.45);
+}
+.dark.ui-glass #main-content {
+  --background: rgba(var(--_rgb-bg), 0.40);
+}
+
 html.dark.ui-glass {
-  --card: rgba(var(--_rgb-card), 0.50);
-  --card-hover: rgba(var(--_rgb-card), 0.58);
-  --card-border: rgba(var(--_rgb-card), 0.30);
-  --popover: rgba(var(--_rgb-popover), 0.68);
-  --sidebar: rgba(var(--_rgb-sidebar), 0.45);
-  --sidebar-accent: rgba(var(--_rgb-sidebar), 0.50);
-  --sidebar-active: rgba(var(--_rgb-sidebar), 0.55);
-  --sidebar-border: rgba(var(--_rgb-sidebar), 0.18);
-  --header-background: rgba(var(--_rgb-header), 0.45);
-  --header-border: rgba(var(--_rgb-header), 0.18);
-  --background: rgba(var(--_rgb-bg), 0.35);
-  --secondary: rgba(var(--_rgb-secondary), 0.45);
-  --muted: rgba(var(--_rgb-muted), 0.40);
-  --input-background: rgba(var(--_rgb-input), 0.50);
+  --card: rgba(var(--_rgb-card), 0.78);
+  --card-hover: rgba(var(--_rgb-card), 0.83);
+  --card-border: rgba(var(--_rgb-card), 0.35);
+  --popover: rgba(var(--_rgb-popover), 0.88);
+  --sidebar: rgba(var(--_rgb-sidebar), 0.80);
+  --sidebar-accent: rgba(var(--_rgb-sidebar), 0.83);
+  --sidebar-active: rgba(var(--_rgb-sidebar), 0.86);
+  --sidebar-border: rgba(var(--_rgb-sidebar), 0.28);
+  --header-background: rgba(var(--_rgb-header), 0.80);
+  --header-border: rgba(var(--_rgb-header), 0.28);
+  --background: rgba(var(--_rgb-bg), 0.72);
+  --secondary: rgba(var(--_rgb-secondary), 0.68);
+  --muted: rgba(var(--_rgb-muted), 0.60);
+  --input-background: rgba(var(--_rgb-input), 0.72);
 
   /* Colored shadows — brighter tint in dark mode */
   --shadow-card: 0 2px 12px rgba(var(--_rgb-primary), 0.08),
@@ -317,11 +325,14 @@ html.dark.ui-crystal {
   isolation: isolate;
 }
 
-/* Glass elevated — more opaque than base surfaces */
+/* Glass elevated — solid for dropdowns, dialogs, popovers (no see-through) */
 html.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
-  --popover: rgba(var(--_rgb-popover), 0.88);
-  --background: rgba(var(--_rgb-bg), 0.88);
-  --card: rgba(var(--_rgb-card), 0.88);
+  --popover: rgba(var(--_rgb-popover), 0.98);
+  --background: rgba(var(--_rgb-bg), 0.98);
+  --card: rgba(var(--_rgb-card), 0.98);
+  --secondary: rgba(var(--_rgb-secondary), 0.94);
+  --muted: rgba(var(--_rgb-muted), 0.90);
+  --accent: rgba(var(--_rgb-card), 0.94);
   box-shadow:
     0 8px 32px rgba(var(--_rgb-primary), 0.08),
     0 2px 8px rgba(0, 0, 0, 0.06),
@@ -337,9 +348,11 @@ html.dark.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"],
 
 /* Crystal elevated — nearly solid */
 html.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
-  --popover: rgba(var(--_rgb-popover), 0.95);
-  --background: rgba(var(--_rgb-bg), 0.95);
-  --card: rgba(var(--_rgb-card), 0.95);
+  --popover: rgba(var(--_rgb-popover), 0.97);
+  --background: rgba(var(--_rgb-bg), 0.97);
+  --card: rgba(var(--_rgb-card), 0.97);
+  --secondary: rgba(var(--_rgb-secondary), 0.92);
+  --muted: rgba(var(--_rgb-muted), 0.88);
   box-shadow:
     0 8px 32px rgba(var(--_rgb-primary), 0.06),
     0 2px 8px rgba(0, 0, 0, 0.04),

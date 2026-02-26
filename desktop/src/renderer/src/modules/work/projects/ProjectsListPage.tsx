@@ -7,6 +7,7 @@
  * creating from templates, and filtering template projects.
  */
 import { useState, useEffect } from 'react'
+import { PageHeader } from '@/components/shared/PageHeader'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus,
@@ -112,26 +113,29 @@ export default function ProjectsListPage() {
 
   return (
     <div className="p-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Projekte</h1>
-        <div className="flex items-center gap-2">
-          {templates.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => setTemplateDialogOpen(true)}
-              className="gap-2"
-            >
-              <Copy className="h-4 w-4" />
-              Aus Vorlage erstellen
+      <PageHeader
+        title="Projekte"
+        icon={FolderKanban}
+        moduleId="projects"
+        actions={
+          <div className="flex items-center gap-2">
+            {templates.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => setTemplateDialogOpen(true)}
+                className="gap-2"
+              >
+                <Copy className="h-4 w-4" />
+                Aus Vorlage erstellen
+              </Button>
+            )}
+            <Button onClick={() => setCreateOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Neues Projekt
             </Button>
-          )}
-          <Button onClick={() => setCreateOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Neues Projekt
-          </Button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Search bar + template toggle */}
       <div className="flex items-center gap-3">

@@ -115,7 +115,6 @@ export function TimeTrackerWidget() {
 
   const handleClockIn = () => {
     clockIn()
-    setIsOpen(false)
   }
 
   const handleClockOut = () => {
@@ -173,13 +172,7 @@ export function TimeTrackerWidget() {
     <div className="relative" ref={dropdownRef} data-tour="time-tracker">
       {/* ── Trigger Button ── */}
       <button
-        onClick={() => {
-          if (!isClockedIn) {
-            handleClockIn()
-          } else {
-            setIsOpen(!isOpen)
-          }
-        }}
+        onClick={() => setIsOpen(!isOpen)}
         className={cn(
           'flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-colors text-sm',
           isClockedIn
@@ -228,10 +221,42 @@ export function TimeTrackerWidget() {
       </button>
 
       {/* ── Dropdown ── */}
-      {isOpen && isClockedIn && (
+      {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden">
-          {/* ── On Break State ── */}
-          {isOnBreak ? (
+          {/* ── Not Clocked In ── */}
+          {!isClockedIn ? (
+            <div className="p-4 space-y-3">
+              <div className="text-center space-y-1">
+                <Timer className="h-6 w-6 text-muted-foreground mx-auto" />
+                <p className="text-sm font-medium text-foreground">Arbeitstag starten</p>
+                <p className="text-xs text-muted-foreground">Stempel dich ein um die Zeiterfassung zu beginnen</p>
+              </div>
+              {overtimeSaldo !== 0 && (
+                <div className="text-center">
+                  <span className={cn(
+                    'text-xs font-medium tabular-nums',
+                    overtimeSaldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+                  )}>
+                    Saldo: {overtimeSaldo >= 0 ? '+' : ''}{formatMinutes(overtimeSaldo)}
+                  </span>
+                </div>
+              )}
+              <button
+                onClick={handleClockIn}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <Play className="h-4 w-4" />
+                Einstempeln
+              </button>
+              <button
+                onClick={handleGoToProfile}
+                className="w-full flex items-center justify-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                Zur Zeiterfassung
+                <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+          ) : isOnBreak ? (
             <div className="p-4 space-y-3">
               <div className="text-center space-y-1">
                 <Coffee className="h-6 w-6 text-amber-500 mx-auto" />

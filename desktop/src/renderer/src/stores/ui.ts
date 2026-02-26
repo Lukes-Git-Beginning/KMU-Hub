@@ -66,6 +66,9 @@ interface UIState {
   // Background pattern
   backgroundPattern: string
 
+  // Desk background (gradient/image preset for glass mode)
+  deskBackground: string | null
+
   // Header widgets (up to 3 mini-widget slots)
   headerWidgets: string[]
 
@@ -73,6 +76,7 @@ interface UIState {
   onboardingCompleted: boolean
 
   setBackgroundPattern: (pattern: string) => void
+  setDeskBackground: (bg: string | null) => void
 
   setHeaderWidgets: (widgets: string[]) => void
   toggleHeaderWidget: (widgetId: string) => void
@@ -129,6 +133,7 @@ export const useUIStore = create<UIState>()(
 
       // Background pattern default
       backgroundPattern: 'none',
+      deskBackground: null,
 
       // Header widget defaults
       headerWidgets: ['next-meeting', 'weather', 'pomodoro'],
@@ -155,6 +160,9 @@ export const useUIStore = create<UIState>()(
 
       setBackgroundPattern: (backgroundPattern) =>
         set({ backgroundPattern }),
+
+      setDeskBackground: (deskBackground) =>
+        set({ deskBackground }),
 
       setHeaderWidgets: (headerWidgets) =>
         set({ headerWidgets }),

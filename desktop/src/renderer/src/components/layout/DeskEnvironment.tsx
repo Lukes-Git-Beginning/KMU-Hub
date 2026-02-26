@@ -1,13 +1,41 @@
 /**
  * Outermost layout wrapper.
  *
- * Manages dark mode, color theme, and accent intensity on <html>,
- * then renders the AppShell fullscreen.
+ * Manages dark mode, color theme, accent intensity, glass mode,
+ * and desk background on <html>, then renders the AppShell fullscreen.
  */
 import { useEffect, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores/ui'
 import { useSettingsStore } from '@/stores/settings'
 import { AppShell } from './AppShell'
+
+// Background gradient presets
+export const DESK_BACKGROUNDS: Record<string, { label: string; css: string }> = {
+  'gradient-warm': {
+    label: 'Sonnenuntergang',
+    css: 'linear-gradient(135deg, #f5af19 0%, #f12711 50%, #c41a5a 100%)',
+  },
+  'gradient-cool': {
+    label: 'Ozean',
+    css: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #6B8DD6 100%)',
+  },
+  'gradient-forest': {
+    label: 'Wald',
+    css: 'linear-gradient(135deg, #134E5E 0%, #71B280 50%, #2C7744 100%)',
+  },
+  'gradient-sunset': {
+    label: 'Abendhimmel',
+    css: 'linear-gradient(135deg, #ee9ca7 0%, #ffdde1 30%, #f9a8d4 60%, #c084fc 100%)',
+  },
+  'gradient-night': {
+    label: 'Nacht',
+    css: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+  },
+  'gradient-minimal': {
+    label: 'Dezent',
+    css: 'linear-gradient(135deg, #e0e0e0 0%, #c9d6dd 50%, #d5dbe0 100%)',
+  },
+}
 
 // Detect system dark mode preference reactively
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -24,6 +52,8 @@ export function DeskEnvironment() {
   const colorTheme = useUIStore((s) => s.colorTheme)
   const accentIntensity = useUIStore((s) => s.accentIntensity)
   const windowStyle = useUIStore((s) => s.windowStyle)
+  const uiLook = useUIStore((s) => s.uiLook)
+  const deskBackground = useUIStore((s) => s.deskBackground)
   const fontSize = useSettingsStore((s) => s.appearance.fontSize)
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
 
@@ -34,10 +64,12 @@ export function DeskEnvironment() {
     document.documentElement.classList.toggle('dark', isDark)
   }, [isDark])
 
-  // Remove any leftover glass/crystal classes
+  // Sync glass mode on <html>
   useEffect(() => {
-    document.documentElement.classList.remove('ui-glass', 'ui-crystal')
-  }, [])
+    document.documentElement.classList.toggle('ui-glass', uiLook === 'glass')
+    // Remove crystal if it was ever set (we only support solid/glass now)
+    document.documentElement.classList.remove('ui-crystal')
+  }, [uiLook])
 
   // Sync color theme class on <html> (graphit = default, no class needed)
   useEffect(() => {
@@ -61,10 +93,19 @@ export function DeskEnvironment() {
   }, [fontSize])
 
   const isBubble = windowStyle === 'bubble'
+  const showBackground = uiLook === 'glass' && deskBackground && DESK_BACKGROUNDS[deskBackground]
+  const bgCss = showBackground ? DESK_BACKGROUNDS[deskBackground!].css : undefined
 
   return (
     <div className={`h-screen w-screen overflow-hidden relative ${isBubble ? 'bg-neutral-200 dark:bg-neutral-900 p-3' : 'bg-background'}`}>
-      <div className={isBubble ? 'h-full w-full overflow-hidden rounded-2xl bg-background shadow-2xl' : 'h-full w-full'}>
+      {/* Background layer — visible through frosted glass */}
+      {bgCss && (
+        <div
+          className="absolute inset-0 z-0 pointer-events-none"
+          style={{ background: bgCss }}
+        />
+      )}
+      <div className={`relative z-10 ${isBubble ? 'h-full w-full overflow-hidden rounded-2xl bg-background shadow-2xl' : 'h-full w-full'}`}>
         <AppShell />
       </div>
     </div>

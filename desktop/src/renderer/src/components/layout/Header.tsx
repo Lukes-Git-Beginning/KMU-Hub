@@ -36,9 +36,9 @@ export function Header() {
   useNotificationWebSocket()
 
   return (
-    <header data-tour="header" className="flex h-16 items-center border-b border-header-border bg-header-background px-4 md:px-6 glass-surface">
+    <header data-tour="header" className="relative z-20 flex h-[64px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
       {/* Left: mobile menu + compact search + clock */}
-      <div className="flex items-center gap-3 md:gap-4">
+      <div className="flex items-center gap-[12px] md:gap-[16px]">
         {navLayout === 'sidebar' && (
           <button
             onClick={() => setSidebarMobileOpen(true)}
@@ -63,7 +63,7 @@ export function Header() {
       <div className="flex-1" />
 
       {/* Right: controls */}
-      <div className="flex shrink-0 items-center gap-1 md:gap-2">
+      <div className="flex min-w-0 items-center gap-[4px] md:gap-[8px]">
         {/* Daily Planner */}
         <div className="hidden sm:block">
           <DailyPlannerWidget />

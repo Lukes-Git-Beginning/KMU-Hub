@@ -28,6 +28,7 @@ import { ConfirmDialog } from '@/components/shared'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import { DESK_BACKGROUNDS } from '@/components/layout/DeskEnvironment'
 import { canSeeSettingsTab } from '@/config/roles'
 import { MailSettingsTab } from './tabs/MailSettingsTab'
 import { CalendarSettingsTab } from './tabs/CalendarSettingsTab'
@@ -246,7 +247,6 @@ function ProfileTab() {
 // ============================================================
 function AppearanceTab() {
   const { appearance, updateAppearance } = useSettingsStore()
-  const [fontSize, setFontSize] = useState(appearance.fontSize)
 
   const theme = useUIStore((s) => s.theme)
   const setTheme = useUIStore((s) => s.setTheme)
@@ -254,6 +254,10 @@ function AppearanceTab() {
   const setAccentIntensity = useUIStore((s) => s.setAccentIntensity)
   const windowStyle = useUIStore((s) => s.windowStyle)
   const setWindowStyle = useUIStore((s) => s.setWindowStyle)
+  const uiLook = useUIStore((s) => s.uiLook)
+  const setUILook = useUIStore((s) => s.setUILook)
+  const deskBackground = useUIStore((s) => s.deskBackground)
+  const setDeskBackground = useUIStore((s) => s.setDeskBackground)
 
   const themes = [
     { id: 'light' as const, label: 'Hell', desc: 'Warme, helle Oberfläche' },
@@ -264,11 +268,6 @@ function AppearanceTab() {
   const handleThemeChange = (t: 'light' | 'dark' | 'auto') => {
     setTheme(t)
     updateAppearance({ theme: t })
-  }
-
-  const handleSave = () => {
-    updateAppearance({ theme, fontSize })
-    toast.success('Darstellung gespeichert')
   }
 
   return (
@@ -371,11 +370,25 @@ function AppearanceTab() {
                 <Check className="h-4 w-4 text-primary" />
               </span>
             )}
-            <div className="mx-auto mb-2 h-10 w-16 rounded border border-border bg-secondary/50 flex items-center justify-center">
+            <div className="mx-auto mb-2 h-12 w-20 rounded-md bg-muted/60 flex items-center justify-center p-0 overflow-hidden">
               {style.id === 'full' ? (
-                <div className="h-8 w-14 rounded-sm bg-card border border-card-border" />
+                /* Vollbild: fills the entire frame, sharp corners */
+                <div className="h-full w-full bg-card flex flex-col">
+                  <div className="h-1.5 bg-secondary border-b border-border" />
+                  <div className="flex flex-1">
+                    <div className="w-4 bg-secondary/60 border-r border-border" />
+                    <div className="flex-1" />
+                  </div>
+                </div>
               ) : (
-                <div className="h-7 w-12 rounded-lg bg-card border border-card-border shadow-sm" />
+                /* Bubble: smaller window with rounded corners + visible gap */
+                <div className="h-8 w-14 rounded-lg bg-card shadow-md flex flex-col overflow-hidden">
+                  <div className="h-1.5 bg-secondary border-b border-border" />
+                  <div className="flex flex-1">
+                    <div className="w-3 bg-secondary/60 border-r border-border" />
+                    <div className="flex-1" />
+                  </div>
+                </div>
               )}
             </div>
             <p className="text-sm font-medium text-foreground">{style.label}</p>
@@ -383,6 +396,102 @@ function AppearanceTab() {
           </button>
         ))}
       </div>
+
+      {/* ── OBERFLAECHE (SOLID / MILCHGLAS) ─────────── */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Oberflaeche</h3>
+      <p className="text-xs text-muted-foreground mb-3">Standard oder Milchglas-Effekt fuer die gesamte App</p>
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        {([
+          { id: 'solid' as const, label: 'Standard', desc: 'Solide, deckende Oberflaechen' },
+          { id: 'glass' as const, label: 'Milchglas', desc: 'Frosted Glass mit Hintergrund-Durchschein' },
+        ]).map((opt) => (
+          <button
+            key={opt.id}
+            onClick={() => setUILook(opt.id)}
+            className={`relative rounded-lg border p-4 text-center transition-colors ${
+              uiLook === opt.id
+                ? 'border-primary bg-primary-light'
+                : 'border-border bg-card hover:bg-secondary'
+            }`}
+          >
+            {uiLook === opt.id && (
+              <span className="absolute top-2 right-2">
+                <Check className="h-4 w-4 text-primary" />
+              </span>
+            )}
+            <div className="mx-auto mb-2 h-12 w-20 rounded-md overflow-hidden">
+              {opt.id === 'solid' ? (
+                /* Standard: Solid opaque card */
+                <div className="h-full w-full bg-card border border-border flex flex-col">
+                  <div className="h-2 bg-secondary border-b border-border" />
+                  <div className="flex-1 p-1 space-y-0.5">
+                    <div className="h-1 w-10 rounded-full bg-foreground/20" />
+                    <div className="h-1 w-7 rounded-full bg-foreground/10" />
+                  </div>
+                </div>
+              ) : (
+                /* Milchglas: Frosted, translucent with gradient behind */
+                <div className="h-full w-full bg-gradient-to-br from-primary/30 via-accent-1/20 to-primary/10 relative">
+                  <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] flex flex-col">
+                    <div className="h-2 bg-white/40 border-b border-white/20" />
+                    <div className="flex-1 p-1 space-y-0.5">
+                      <div className="h-1 w-10 rounded-full bg-foreground/15" />
+                      <div className="h-1 w-7 rounded-full bg-foreground/10" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <p className="text-sm font-medium text-foreground">{opt.label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* ── HINTERGRUND (nur bei Milchglas) ──────────── */}
+      {uiLook === 'glass' && (
+        <>
+          <h3 className="text-sm font-medium text-foreground mb-3">Hintergrund</h3>
+          <p className="text-xs text-muted-foreground mb-3">Waehle einen Hintergrund der durch die Milchglas-Oberflaeche scheint</p>
+          <div className="grid grid-cols-4 gap-2 mb-8">
+            <button
+              onClick={() => setDeskBackground(null)}
+              className={`relative h-16 rounded-lg border-2 transition-colors flex items-center justify-center ${
+                !deskBackground
+                  ? 'border-primary'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              <span className="text-xs text-muted-foreground">Keiner</span>
+              {!deskBackground && (
+                <span className="absolute top-1 right-1">
+                  <Check className="h-3 w-3 text-primary" />
+                </span>
+              )}
+            </button>
+            {Object.entries(DESK_BACKGROUNDS).map(([id, bg]) => (
+              <button
+                key={id}
+                onClick={() => setDeskBackground(id)}
+                className={`relative h-16 rounded-lg border-2 transition-colors overflow-hidden ${
+                  deskBackground === id
+                    ? 'border-primary'
+                    : 'border-border hover:border-primary/40'
+                }`}
+                title={bg.label}
+              >
+                <div className="absolute inset-0" style={{ background: bg.css }} />
+                <span className="relative z-10 text-[10px] font-medium text-white drop-shadow-md">{bg.label}</span>
+                {deskBackground === id && (
+                  <span className="absolute top-1 right-1 z-10">
+                    <Check className="h-3 w-3 text-white drop-shadow-md" />
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* ── HEADER WIDGETS ─────────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Header-Widgets</h3>
@@ -398,15 +507,13 @@ function AppearanceTab() {
           type="range"
           min={12}
           max={20}
-          value={fontSize}
-          onChange={(e) => setFontSize(Number(e.target.value))}
+          value={appearance.fontSize}
+          onChange={(e) => updateAppearance({ fontSize: Number(e.target.value) })}
           className="flex-1 accent-[var(--primary)]"
         />
         <span className="text-xs text-muted-foreground">Gross</span>
       </div>
-      <p className="text-xs text-muted-foreground mb-8">{fontSize}px</p>
-
-      <Button onClick={handleSave}>Speichern</Button>
+      <p className="text-xs text-muted-foreground mb-8">{appearance.fontSize}px</p>
     </div>
   )
 }
