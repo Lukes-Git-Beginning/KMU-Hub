@@ -20,6 +20,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
 	"github.com/kmuhub/kmuhub/internal/biz/dashboard"
 	"github.com/kmuhub/kmuhub/internal/biz/datev"
+	"github.com/kmuhub/kmuhub/internal/biz/lexware"
 	"github.com/kmuhub/kmuhub/internal/biz/dunning"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
@@ -237,6 +238,82 @@ func main() {
 		slog.Info("Bexio integration disabled (BEXIO_CLIENT_ID not set)")
 	}
 
+	// =========================================================================
+	// Lexware Office Integration (optional, depends on vault)
+	// =========================================================================
+	var lexwareSvc *lexware.Service
+	if cfg.VaultMasterSecret != "" {
+		lexwareConfig := lexware.DefaultClientConfig()
+		if cfg.LexwareAPIBaseURL != "" {
+			lexwareConfig.BaseURL = cfg.LexwareAPIBaseURL
+		}
+		lexwareRepo := lexware.NewPostgresRepository(pool)
+		lexwareConfigRepo := lexware.NewPostgresIntegrationConfigRepo(pool)
+
+		var lexwareVault lexware.VaultService
+		vaultRepo := vault.NewPostgresRepository(pool)
+		vs, vaultErr := vault.NewService(vaultRepo, cfg.VaultMasterSecret)
+		if vaultErr != nil {
+			slog.Error("failed to initialize vault for lexware", "error", vaultErr)
+		} else {
+			lexwareVault = vs
+		}
+
+		if lexwareVault != nil {
+			lexwareClient := lexware.NewClient(lexwareConfig, lexwareVault)
+			lexwareSvc = lexware.NewService(
+				lexwareClient, lexwareRepo, lexwareConfigRepo, lexwareVault,
+				nil, // ContactService
+				invoiceSvc, invoiceSvc, quoteRepo,
+			)
+
+			lexwareGRPC := server.NewLexwareGRPCServer(lexwareSvc)
+			bizv1.RegisterLexwareIntegrationServiceServer(grpcServer, lexwareGRPC)
+
+			if err := lexwareSvc.StartScheduler(ctx); err != nil {
+				slog.Warn("lexware scheduler start failed", "error", err)
+			} else {
+				slog.Info("lexware integration enabled, scheduler started")
+			}
+		}
+	} else {
+		slog.Info("Lexware integration disabled (VAULT_MASTER_SECRET not set)")
+	}
+
+	// =========================================================================
+	// DATEV Upload Service (optional, depends on DATEV_CLIENT_ID)
+	// =========================================================================
+	var datevUploadSvc *datev.UploadService
+	if cfg.DatevClientID != "" {
+		var datevVault datev.VaultService
+		if cfg.VaultMasterSecret != "" {
+			vaultRepo := vault.NewPostgresRepository(pool)
+			vs, vaultErr := vault.NewService(vaultRepo, cfg.VaultMasterSecret)
+			if vaultErr != nil {
+				slog.Error("failed to initialize vault for datev", "error", vaultErr)
+			} else {
+				datevVault = vs
+			}
+		}
+
+		if datevVault != nil {
+			datevOAuth := datev.NewOAuthManager(datevVault, cfg.DatevClientID, cfg.DatevClientSecret, cfg.DatevTokenURL)
+			datevUploader := datev.NewUploader(datevOAuth, cfg.DatevAPIBaseURL)
+			datevBelegUploader := datev.NewBelegbilderUploader(datevOAuth, cfg.DatevAPIBaseURL)
+			datevUploadRepo := datev.NewPostgresUploadRepository(pool)
+			datevConfigRepo := datev.NewPostgresIntegrationConfigRepo(pool)
+
+			datevUploadSvc = datev.NewUploadService(datevExp, datevUploader, datevBelegUploader, datevUploadRepo, datevConfigRepo, datevOAuth)
+
+			datevUploadGRPC := server.NewDatevUploadGRPCServer(datevUploadSvc)
+			bizv1.RegisterDatevUploadServiceServer(grpcServer, datevUploadGRPC)
+
+			slog.Info("DATEV upload service enabled")
+		}
+	} else {
+		slog.Info("DATEV upload service disabled (DATEV_CLIENT_ID not set)")
+	}
+
 	metricsRegistry.InitializeGRPCMetrics(grpcServer)
 
 	lis, err := net.Listen("tcp", cfg.BizGRPCPort)
@@ -286,6 +363,11 @@ func main() {
 	}
 
 	// Graceful shutdown
+	if lexwareSvc != nil {
+		lexwareSvc.StopScheduler()
+		slog.Info("lexware scheduler stopped")
+	}
+
 	if bexioSvc != nil {
 		bexioSvc.StopScheduler()
 		slog.Info("bexio scheduler stopped")

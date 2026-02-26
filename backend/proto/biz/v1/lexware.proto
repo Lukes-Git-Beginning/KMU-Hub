@@ -1,0 +1,194 @@
+syntax = "proto3";
+
+package biz.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/biz/v1;bizv1";
+
+import "google/protobuf/timestamp.proto";
+
+service LexwareIntegrationService {
+  // Connection
+  rpc ConnectLexware(ConnectLexwareRequest) returns (ConnectLexwareResponse);
+  rpc DisconnectLexware(DisconnectLexwareRequest) returns (DisconnectLexwareResponse);
+  rpc GetLexwareConnectionStatus(GetLexwareConnectionStatusRequest) returns (GetLexwareConnectionStatusResponse);
+  rpc TestLexwareConnection(TestLexwareConnectionRequest) returns (TestLexwareConnectionResponse);
+
+  // Sync Operations
+  rpc TriggerLexwareSync(TriggerLexwareSyncRequest) returns (TriggerLexwareSyncResponse);
+  rpc GetLexwareSyncStatus(GetLexwareSyncStatusRequest) returns (GetLexwareSyncStatusResponse);
+  rpc ListLexwareSyncLogs(ListLexwareSyncLogsRequest) returns (ListLexwareSyncLogsResponse);
+
+  // Field Mappings
+  rpc GetLexwareFieldMappings(GetLexwareFieldMappingsRequest) returns (GetLexwareFieldMappingsResponse);
+  rpc UpdateLexwareFieldMappings(UpdateLexwareFieldMappingsRequest) returns (UpdateLexwareFieldMappingsResponse);
+
+  // Manual Push
+  rpc PushInvoiceToLexware(PushInvoiceToLexwareRequest) returns (PushInvoiceToLexwareResponse);
+  rpc PushQuoteToLexware(PushQuoteToLexwareRequest) returns (PushQuoteToLexwareResponse);
+
+  // Webhooks
+  rpc HandleLexwareWebhookEvent(HandleLexwareWebhookEventRequest) returns (HandleLexwareWebhookEventResponse);
+}
+
+// ============================================================================
+// Connection Messages
+// ============================================================================
+
+message ConnectLexwareRequest {
+  string tenant_id = 1;
+  string api_key = 2;
+}
+
+message ConnectLexwareResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message DisconnectLexwareRequest {
+  string tenant_id = 1;
+}
+
+message DisconnectLexwareResponse {
+  bool success = 1;
+}
+
+message GetLexwareConnectionStatusRequest {
+  string tenant_id = 1;
+}
+
+message GetLexwareConnectionStatusResponse {
+  bool connected = 1;
+  google.protobuf.Timestamp connected_at = 2;
+}
+
+message TestLexwareConnectionRequest {
+  string tenant_id = 1;
+}
+
+message TestLexwareConnectionResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ============================================================================
+// Sync Messages
+// ============================================================================
+
+message TriggerLexwareSyncRequest {
+  string tenant_id = 1;
+  string sync_type = 2; // Optional: "contacts" or empty for all
+}
+
+message TriggerLexwareSyncResponse {
+  string sync_id = 1;
+  string status = 2;
+}
+
+message GetLexwareSyncStatusRequest {
+  string tenant_id = 1;
+}
+
+message GetLexwareSyncStatusResponse {
+  bool contact_sync_enabled = 1;
+  bool invoice_push_enabled = 2;
+  bool quote_push_enabled = 3;
+  bool webhook_enabled = 4;
+  google.protobuf.Timestamp last_contact_sync_at = 5;
+  int32 total_contacts_mapped = 6;
+  int32 total_invoices_mapped = 7;
+  int32 total_quotes_mapped = 8;
+  string last_sync_error = 9;
+  google.protobuf.Timestamp last_sync_error_at = 10;
+}
+
+message ListLexwareSyncLogsRequest {
+  string tenant_id = 1;
+  int32 limit = 2;
+}
+
+message ListLexwareSyncLogsResponse {
+  repeated LexwareSyncLogEntry entries = 1;
+}
+
+message LexwareSyncLogEntry {
+  string id = 1;
+  string sync_type = 2;
+  string status = 3;
+  int32 items_processed = 4;
+  int32 items_created = 5;
+  int32 items_updated = 6;
+  int32 items_failed = 7;
+  string error_message = 8;
+  google.protobuf.Timestamp started_at = 9;
+  google.protobuf.Timestamp completed_at = 10;
+}
+
+// ============================================================================
+// Field Mapping Messages
+// ============================================================================
+
+message GetLexwareFieldMappingsRequest {
+  string tenant_id = 1;
+  string entity_type = 2;
+}
+
+message GetLexwareFieldMappingsResponse {
+  repeated LexwareFieldMappingEntry mappings = 1;
+}
+
+message LexwareFieldMappingEntry {
+  string kmuhub_field = 1;
+  string lexware_field = 2;
+  string direction = 3;
+  bool required = 4;
+}
+
+message UpdateLexwareFieldMappingsRequest {
+  string tenant_id = 1;
+  string entity_type = 2;
+  repeated LexwareFieldMappingEntry mappings = 3;
+}
+
+message UpdateLexwareFieldMappingsResponse {
+  bool success = 1;
+}
+
+// ============================================================================
+// Push Messages
+// ============================================================================
+
+message PushInvoiceToLexwareRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;
+}
+
+message PushInvoiceToLexwareResponse {
+  bool success = 1;
+  string lexware_id = 2;
+  string error_message = 3;
+}
+
+message PushQuoteToLexwareRequest {
+  string tenant_id = 1;
+  string quote_id = 2;
+}
+
+message PushQuoteToLexwareResponse {
+  bool success = 1;
+  string lexware_id = 2;
+  string error_message = 3;
+}
+
+// ============================================================================
+// Webhook Messages
+// ============================================================================
+
+message HandleLexwareWebhookEventRequest {
+  string event_type = 1;
+  string resource_id = 2;
+  string organization_id = 3;
+}
+
+message HandleLexwareWebhookEventResponse {
+  bool success = 1;
+}

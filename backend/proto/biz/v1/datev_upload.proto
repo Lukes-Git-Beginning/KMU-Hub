@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package biz.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/biz/v1;bizv1";
+
+import "google/protobuf/timestamp.proto";
+
+service DatevUploadService {
+  // OAuth
+  rpc GetDatevAuthURL(GetDatevAuthURLRequest) returns (GetDatevAuthURLResponse);
+  rpc HandleDatevOAuthCallback(HandleDatevOAuthCallbackRequest) returns (HandleDatevOAuthCallbackResponse);
+  rpc DisconnectDatev(DisconnectDatevRequest) returns (DisconnectDatevResponse);
+  rpc GetDatevConnectionStatus(GetDatevConnectionStatusRequest) returns (GetDatevConnectionStatusResponse);
+
+  // Upload Operations
+  rpc UploadDatevBuchungsstapel(UploadDatevBuchungsstapelRequest) returns (UploadDatevBuchungsstapelResponse);
+  rpc UploadDatevBeleg(UploadDatevBelegRequest) returns (UploadDatevBelegResponse);
+
+  // Config
+  rpc GetDatevUploadConfig(GetDatevUploadConfigRequest) returns (GetDatevUploadConfigResponse);
+  rpc UpdateDatevUploadConfig(UpdateDatevUploadConfigRequest) returns (UpdateDatevUploadConfigResponse);
+
+  // Logs
+  rpc ListDatevUploadLogs(ListDatevUploadLogsRequest) returns (ListDatevUploadLogsResponse);
+}
+
+// ============================================================================
+// OAuth Messages
+// ============================================================================
+
+message GetDatevAuthURLRequest {
+  string tenant_id = 1;
+  string redirect_url = 2;
+}
+
+message GetDatevAuthURLResponse {
+  string authorization_url = 1;
+}
+
+message HandleDatevOAuthCallbackRequest {
+  string tenant_id = 1;
+  string code = 2;
+  string redirect_url = 3;
+}
+
+message HandleDatevOAuthCallbackResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message DisconnectDatevRequest {
+  string tenant_id = 1;
+}
+
+message DisconnectDatevResponse {
+  bool success = 1;
+}
+
+message GetDatevConnectionStatusRequest {
+  string tenant_id = 1;
+}
+
+message GetDatevConnectionStatusResponse {
+  bool connected = 1;
+}
+
+// ============================================================================
+// Upload Messages
+// ============================================================================
+
+message UploadDatevBuchungsstapelRequest {
+  string tenant_id = 1;
+  string start_date = 2;
+  string end_date = 3;
+  string fiscal_year_start = 4;
+}
+
+message UploadDatevBuchungsstapelResponse {
+  bool success = 1;
+  int32 document_count = 2;
+  int32 file_size = 3;
+  string error_message = 4;
+}
+
+message UploadDatevBelegRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;
+}
+
+message UploadDatevBelegResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// ============================================================================
+// Config Messages
+// ============================================================================
+
+message GetDatevUploadConfigRequest {
+  string tenant_id = 1;
+}
+
+message GetDatevUploadConfigResponse {
+  string client_number = 1;
+  bool auto_upload_enabled = 2;
+  bool upload_after_export = 3;
+}
+
+message UpdateDatevUploadConfigRequest {
+  string tenant_id = 1;
+  string client_number = 2;
+  bool auto_upload_enabled = 3;
+  bool upload_after_export = 4;
+}
+
+message UpdateDatevUploadConfigResponse {
+  bool success = 1;
+}
+
+// ============================================================================
+// Log Messages
+// ============================================================================
+
+message ListDatevUploadLogsRequest {
+  string tenant_id = 1;
+  int32 limit = 2;
+}
+
+message ListDatevUploadLogsResponse {
+  repeated DatevUploadLogEntry entries = 1;
+}
+
+message DatevUploadLogEntry {
+  string id = 1;
+  string upload_type = 2;
+  string status = 3;
+  int32 file_size = 4;
+  int32 document_count = 5;
+  string error_message = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+}

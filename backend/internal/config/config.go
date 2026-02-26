@@ -75,6 +75,16 @@ type Config struct {
 	BexioClientSecret string `env:"BEXIO_CLIENT_SECRET,default="`
 	BexioRedirectURL  string `env:"BEXIO_REDIRECT_URL,default="`
 
+	// Lexware Office Integration (optional)
+	LexwareAPIBaseURL string `env:"LEXWARE_API_BASE_URL,default=https://api.lexware.io"`
+
+	// DATEV API Integration (optional)
+	DatevClientID     string `env:"DATEV_CLIENT_ID,default="`
+	DatevClientSecret string `env:"DATEV_CLIENT_SECRET,default="`
+	DatevTokenURL     string `env:"DATEV_TOKEN_URL,default=https://login.datev.de/openidconnect/token"`
+	DatevAuthURL      string `env:"DATEV_AUTH_URL,default=https://login.datev.de/openidconnect/authorize"`
+	DatevAPIBaseURL   string `env:"DATEV_API_BASE_URL,default=https://accounting-documents.api.datev.de"`
+
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`
 	MinIOAccessKey  string `env:"MINIO_ACCESS_KEY,default=kmuhub"`

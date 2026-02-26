@@ -146,12 +146,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **INT-07**: Admin can connect to Bexio API via OAuth2 authentication
 - [ ] **INT-08**: Contacts sync bidirectionally between KMU Hub CRM and Bexio
 - [ ] **INT-09**: Invoices sync from KMU Hub Finance to Bexio accounting
-- [ ] **INT-10**: Admin can connect to Abacus ERP via API key or OAuth2 authentication
-- [ ] **INT-11**: Contacts sync bidirectionally between KMU Hub CRM and Abacus
-- [ ] **INT-12**: Invoices/financial documents sync from KMU Hub Finance to Abacus
-- [ ] **INT-13**: Admin can connect to Run my Accounts API via authentication
-- [ ] **INT-14**: Contacts sync bidirectionally between KMU Hub CRM and Run my Accounts
-- [ ] **INT-15**: Financial documents sync from KMU Hub Finance to Run my Accounts
+- [ ] **INT-10**: Admin can connect to Lexware Office via API key authentication
+- [ ] **INT-11**: Contacts sync bidirectionally between KMU Hub CRM and Lexware Office
+- [ ] **INT-12**: Invoices and quotes push from KMU Hub Finance to Lexware Office
+- [ ] **INT-13**: Lexware webhooks trigger real-time sync updates for contacts and invoice status changes
+- [ ] **INT-14**: Admin can connect to DATEV API via OAuth2 and upload Buchungsstapel/Belegbilder
+- [ ] **INT-15**: DATEV integration gracefully falls back to manual CSV export when no API credentials configured
 
 ### Automation Engine
 
@@ -248,7 +248,7 @@ Deferred to future release. Tracked but not in current roadmap.
 ### External Integrations
 
 - **INT-16**: Generic webhook/REST connector for arbitrary external services
-- **INT-17**: DATEV Unternehmen Online direct API integration (beyond CSV export)
+- **INT-17**: DATEV Unternehmen Online direct API integration (enhanced beyond Phase 19 basic upload)
 
 ### General
 

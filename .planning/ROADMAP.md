@@ -2,7 +2,7 @@
 
 ## Overview
 
-KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehensive workplace platform across 17 additional phases (20 total). The journey continues with Project Management (including Gantt and time tracking), then Calendar and an expanded Video/Voice/Meetings phase. Security & Compliance gates the Beta release with 2FA, audit logging, DSGVO compliance, and i18n. Email and Documents round out the communication layer with global search. Finance ("Rechnungen & Finanzen", NOT full accounting) and HR deliver the Business Suite. Event Infrastructure and Unified Inbox aggregate all communication channels. CalDAV/CardDAV provides external calendar/contact sync. Automation Engine (vorgezogen as killer feature) enables cross-module workflows. Integration mini-phases (Teams/Slack, Bexio, Abacus+RmA merged) connect to the DACH ecosystem. Finally, Plugins provide the extensibility layer with industry templates. The architecture consolidates new modules into 3 backend services (Work, Biz, Automation) to keep operational complexity manageable for a solo developer.
+KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehensive workplace platform across 17 additional phases (20 total). The journey continues with Project Management (including Gantt and time tracking), then Calendar and an expanded Video/Voice/Meetings phase. Security & Compliance gates the Beta release with 2FA, audit logging, DSGVO compliance, and i18n. Email and Documents round out the communication layer with global search. Finance ("Rechnungen & Finanzen", NOT full accounting) and HR deliver the Business Suite. Event Infrastructure and Unified Inbox aggregate all communication channels. CalDAV/CardDAV provides external calendar/contact sync. Automation Engine (vorgezogen as killer feature) enables cross-module workflows. Integration mini-phases (Teams/Slack, Bexio, DATEV API + Lexware Office) connect to the DACH ecosystem. Finally, Plugins provide the extensibility layer with industry templates. The architecture consolidates new modules into 3 backend services (Work, Biz, Automation) to keep operational complexity manageable for a solo developer.
 
 ## Milestones
 
@@ -11,7 +11,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 - ✅ **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
 - ✅ **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
 - ✅ **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
-- 📋 **Integrations** - Phases 17-19 (Teams/Slack, Bexio, Abacus + Run my Accounts -- external DACH connectivity)
+- 📋 **Integrations** - Phases 17-19 (Teams/Slack, Bexio, DATEV API + Lexware Office -- external DACH connectivity)
 - 📋 **Extensibility** - Phase 20 (Plugin System + Industry Templates -- customization layer)
 
 ## Phases
@@ -54,7 +54,7 @@ KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehen
 
 - [ ] **Phase 17: Integration - Teams & Slack** - Notification forwarding and basic bidirectional interaction
 - [ ] **Phase 18: Integration - Bexio** - Contact and invoice sync with Bexio accounting
-- [ ] **Phase 19: Integration - Abacus + Run my Accounts** - Contact and invoice sync with Abacus ERP and Run my Accounts cloud accounting (merged)
+- [ ] **Phase 19: Integration - DATEV API + Lexware Office** - Lexware Office contact/invoice sync (API key auth, webhooks) and DATEV Buchungsdatenservice upload (OAuth2)
 
 ### Extensibility (Phase 20)
 
@@ -397,22 +397,23 @@ Plans:
 - [ ] 18-01: Bexio connector (OAuth2 flow, API client, contact sync engine)
 - [ ] 18-02: Invoice sync + conflict resolution (invoice push to Bexio, field mapping, error handling)
 
-### Phase 19: Integration - Abacus + Run my Accounts
-**Goal**: Swiss SMBs can sync their CRM contacts and invoices with Abacus ERP and Run my Accounts cloud accounting (merged phase -- both are CH accounting integrations with similar patterns)
-**Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices)
+### Phase 19: Integration - DATEV API + Lexware Office
+**Goal**: German SMBs can sync contacts and invoices with Lexware Office (300k+ customers) and upload Buchungsstapel/Belege to DATEV via API (2.5M+ companies via Steuerberater) -- completing full DACH accounting coverage (Bexio CH + Lexware DE + DATEV DE/AT)
+**Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices, DATEV CSV export)
 **Requirements**: INT-10, INT-11, INT-12, INT-13, INT-14, INT-15
 **Success Criteria** (what must be TRUE):
-  1. Admin can authenticate with Abacus ERP via API key or OAuth2
-  2. Contacts sync bidirectionally between KMU Hub CRM and Abacus
-  3. Invoices created in KMU Hub are pushed to Abacus
-  4. Admin can authenticate with Run my Accounts API
-  5. Contacts sync bidirectionally between KMU Hub CRM and Run my Accounts
-  6. Financial documents sync from KMU Hub Finance to Run my Accounts
-**Plans**: 2 plans (estimated)
+  1. Admin can connect to Lexware Office via API key authentication
+  2. Contacts sync bidirectionally between KMU Hub CRM and Lexware Office
+  3. Invoices and quotes created in KMU Hub are pushed to Lexware Office
+  4. Lexware webhooks trigger real-time sync updates
+  5. Admin can connect to DATEV via OAuth2 authentication
+  6. User can upload Buchungsstapel (CSV) and Belegbilder (PDF) to DATEV API
+  7. DATEV integration gracefully falls back to manual CSV export when no API credentials configured
+**Plans**: 2 plans
 
 Plans:
-- [ ] 19-01: Abacus + Run my Accounts connectors (OAuth2/API key flows, API clients, contact sync engines, shared integration framework)
-- [ ] 19-02: Invoice + document sync + conflict resolution (invoice push, field mapping, error handling, reconciliation)
+- [ ] 19-01: Data foundation + Lexware Office + DATEV upload backend (migration, models, Lexware package with API key auth + webhooks + contact sync + invoice/quote push, DATEV upload extension with OAuth2 + Buchungsdatenservice, proto, gRPC, gateway, biz binary wiring)
+- [ ] 19-02: Frontend + integration wiring (TypeScript types, API clients, React Query hooks, LexwareSetupWizard, LexwareSyncDashboard, DatevSettingsPanel, IntegrationsSettingsTab update, Docker Compose)
 
 ### Phase 20: Plugin System + Industry Templates
 **Goal**: Admins can customize the Hub for their company's specific processes without modifying source code, and developers can extend it via sandboxed WASM plugins. Industry modules (Fuhrpark, Produktion, Rapporte, etc.) are implemented as plugin templates, NOT as core backend endpoints.
@@ -458,7 +459,7 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 17. Integration: Teams & Slack | 3/3 | Complete | 2026-02-25 |
 | 17.5. Guest Chat | 0/3 | Not started | - |
 | 18. Integration: Bexio | 0/2 | Not started | - |
-| 19. Integration: Abacus + RmA | 0/2 | Not started | - |
+| 19. Integration: DATEV + Lexware | 0/2 | Not started | - |
 | 20. Plugin System + Templates | 0/4 | Not started | - |
 
 ---
