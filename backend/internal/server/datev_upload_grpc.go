@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -106,6 +107,12 @@ func (s *DatevUploadGRPCServer) UploadDatevBuchungsstapel(ctx context.Context, r
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
+	// Parse fiscal year start from request
+	fiscalYearStart, err := time.Parse("2006-01-02", req.GetFiscalYearStart())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid fiscal_year_start: %v", err)
+	}
+
 	// ExportAndUpload requires invoices and credit notes to be fetched by the caller.
 	// At the gRPC level we pass empty slices — the real orchestration happens in a
 	// higher-level handler that fetches invoices for the date range. This RPC serves
@@ -113,11 +120,9 @@ func (s *DatevUploadGRPCServer) UploadDatevBuchungsstapel(ctx context.Context, r
 	csvData, err := s.uploadService.ExportAndUpload(
 		ctx,
 		tenantID,
-		[]models.Invoice{},
-		[]models.CreditNote{},
-		req.GetStartDate(),
-		req.GetEndDate(),
-		req.GetFiscalYearStart(),
+		[]*models.Invoice{},
+		[]*models.CreditNote{},
+		fiscalYearStart,
 	)
 	if err != nil {
 		slog.Error("datev buchungsstapel upload failed",

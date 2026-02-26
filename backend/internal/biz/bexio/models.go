@@ -1,7 +1,5 @@
 package bexio
 
-import "time"
-
 // BexioContact represents a contact from the Bexio API.
 // contact_type_id: 1 = company, 2 = person
 type BexioContact struct {

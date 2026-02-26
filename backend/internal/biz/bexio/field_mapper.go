@@ -128,7 +128,7 @@ func (fm *FieldMapper) MapContactToKMUHub(bexioContact *BexioContact, mappings [
 	data := &ContactSyncData{
 		IsCompany:  bexioContact.IsCompany(),
 		FirstName:  bexioContact.NameFirst,
-		Mail:       bexioContact.Mail,
+		Email:      bexioContact.Mail,
 		Phone:      bexioContact.PhoneFixed,
 		Mobile:     bexioContact.PhoneMobile,
 		Address:    bexioContact.Address,

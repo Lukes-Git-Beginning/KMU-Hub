@@ -82,8 +82,8 @@ func (s *UploadService) Disconnect(ctx context.Context, tenantID uuid.UUID) erro
 }
 
 // ExportAndUpload exports DATEV CSV and uploads via API. Falls back to export-only when no API credentials.
-func (s *UploadService) ExportAndUpload(ctx context.Context, tenantID uuid.UUID, invoices []models.Invoice, creditNotes []models.CreditNote, startDate, endDate, fiscalYearStart string) ([]byte, error) {
-	csvData, err := s.exporter.Export(invoices, creditNotes, startDate, endDate, fiscalYearStart)
+func (s *UploadService) ExportAndUpload(ctx context.Context, tenantID uuid.UUID, invoices []*models.Invoice, creditNotes []*models.CreditNote, fiscalYearStart time.Time) ([]byte, error) {
+	csvData, err := s.exporter.Export(invoices, creditNotes, fiscalYearStart, time.Now().UTC())
 	if err != nil {
 		return nil, fmt.Errorf("datev export: %w", err)
 	}
@@ -117,7 +117,7 @@ func (s *UploadService) ExportAndUpload(ctx context.Context, tenantID uuid.UUID,
 		FileSize:      len(csvData),
 		DocumentCount: len(invoices) + len(creditNotes),
 		StartedAt:     now,
-		Metadata:      map[string]any{"start_date": startDate, "end_date": endDate},
+		Metadata:      map[string]any{"fiscal_year_start": fiscalYearStart.Format("2006-01-02")},
 	}
 	if err := s.uploadRepo.CreateUploadLog(ctx, uploadLog); err != nil {
 		slog.Error("datev: failed to create upload log", "error", err)

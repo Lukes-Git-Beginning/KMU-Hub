@@ -33,7 +33,6 @@ const (
 	ExecutionStatusSuccess ExecutionStatus = "success"
 	ExecutionStatusError   ExecutionStatus = "error"
 	ExecutionStatusTimeout ExecutionStatus = "timeout"
-	ExecutionStatusSkipped ExecutionStatus = "skipped"
 )
 
 // ValidationRuleType defines supported validation rule types

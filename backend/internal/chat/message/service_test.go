@@ -266,6 +266,14 @@ func (m *MockRepository) GetChannelName(_ context.Context, _ uuid.UUID) (string,
 	return "test-channel", nil
 }
 
+func (m *MockRepository) GetGuestDisplayName(_ context.Context, _ uuid.UUID) (string, error) {
+	return "Guest", nil
+}
+
+func (m *MockRepository) IsChannelGuestEnabled(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 // Helpers for setting up test data
 func (m *MockRepository) AddChannel(id uuid.UUID, archived bool) {
 	m.channels[id] = struct{ archived bool }{archived}

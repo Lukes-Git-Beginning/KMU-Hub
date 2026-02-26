@@ -1,3 +1,5 @@
+//go:build wasip1
+
 package sdk
 
 // Host function imports for WASM plugins.
