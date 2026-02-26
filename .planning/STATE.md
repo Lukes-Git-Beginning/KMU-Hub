@@ -11,18 +11,18 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 18 of 20 (Bexio Integration) -- IN PROGRESS
-Plan: 1 of 4 complete
-Status: Plan 18-01 complete. Next: 18-02
-Last activity: 2026-02-26 -- Phase 18-01 executed
+Plan: 2 of 4 complete
+Status: Plan 18-02 complete. Next: 18-03
+Last activity: 2026-02-26 -- Phase 18-02 executed
 
-Progress: [█████████████████████████████████░] 97% (94/97 plans across phases 4-18)
+Progress: [█████████████████████████████████░] 98% (95/97 plans across phases 4-18)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 72
+- Total plans completed: 73
 - Average duration: ~7 minutes
-- Total execution time: ~7h 50min
+- Total execution time: ~8h 8min
 
 **By Phase:**
 
@@ -46,7 +46,7 @@ Progress: [███████████████████████
 | 16 | 3/3 | ~48min | ~16min |
 | 17 | 3/3 | ~16min | ~5min |
 | 17.5 | 3/3 | ~32min | ~11min |
-| 18 | 1/4 | ~15min | ~15min |
+| 18 | 2/4 | ~33min | ~17min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -57,8 +57,8 @@ Progress: [███████████████████████
 - Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
 - Phase 17 (Teams & Slack Integration) COMPLETE -- all 3 plans done (data foundation, forwarder + adapters, frontend)
 - Phase 17.5 (Gast-Chat) COMPLETE -- all 3 plans done (data foundation, services+gateway, frontend SPA)
-- Phase 18 (Bexio Integration) IN PROGRESS -- 1/4 plans done (data foundation)
-- 94/97 plans done across Phases 4-18
+- Phase 18 (Bexio Integration) IN PROGRESS -- 2/4 plans done (data foundation + sync engine)
+- 95/97 plans done across Phases 4-18
 
 *Updated after each plan completion*
 
@@ -442,6 +442,13 @@ Recent decisions affecting current work:
 - [18-01]: Bexio API quirks: POST for updates (not PATCH), Content-Length:0 for GET, salutation_id 0 = none
 - [18-01]: GetFieldMappings returns nil (not error) when no mapping exists
 - [18-01]: UpdateLastSyncTime uses column name switch (not dynamic SQL) for safety
+- [18-02]: ContactService/InvoiceReader/QuoteReader interfaces in bexio package to avoid circular imports
+- [18-02]: ContactSyncData intermediate struct decouples Bexio API from CRM service
+- [18-02]: Last-write-wins uses bexio_updated_at vs kmuhub_updated_at from entity mapping
+- [18-02]: IntegrationConfigRepo interface for shared integration_configs table (same as Teams/Slack)
+- [18-02]: Scheduler per-tenant goroutines with context cancellation for graceful shutdown
+- [18-02]: Payment poller skips already-paid invoices for efficiency
+- [18-02]: noopEmitter default for EventEmitter (same pattern as invoice/quote services)
 
 ### Pending Todos
 
@@ -456,6 +463,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 18-01 COMPLETE (data foundation)
+Stopped at: Phase 18-02 COMPLETE (sync engine)
 Resume file: N/A
-Next: Phase 18-02 (Sync Service)
+Next: Phase 18-03 (gRPC + Gateway)
