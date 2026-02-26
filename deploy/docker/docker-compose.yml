@@ -401,6 +401,31 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  plugin:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.plugin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      PLUGIN_GRPC_PORT: ":50060"
+      PLUGIN_HEALTH_PORT: ":9100"
+    ports:
+      - "50060:50060"
+      - "9100:9100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9100/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
   onlyoffice:
     image: onlyoffice/documentserver:latest
     environment:
@@ -442,6 +467,8 @@ services:
         condition: service_started
       automation:
         condition: service_started
+      plugin:
+        condition: service_started
       livekit:
         condition: service_healthy
       minio:
@@ -474,6 +501,8 @@ services:
       BIZ_GRPC_PORT: ":50058"
       AUTOMATION_GRPC_ADDRESS: automation:50059
       AUTOMATION_GRPC_PORT: ":50059"
+      PLUGIN_GRPC_ADDRESS: plugin:50060
+      PLUGIN_GRPC_PORT: ":50060"
       WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"

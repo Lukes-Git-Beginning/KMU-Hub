@@ -1,0 +1,542 @@
+syntax = "proto3";
+
+package plugin.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/plugin/v1;pluginv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+service PluginService {
+  // Manifest CRUD
+  rpc CreateManifest(CreateManifestRequest) returns (CreateManifestResponse);
+  rpc GetManifest(GetManifestRequest) returns (GetManifestResponse);
+  rpc ListManifests(ListManifestsRequest) returns (ListManifestsResponse);
+  rpc DeleteManifest(DeleteManifestRequest) returns (DeleteManifestResponse);
+
+  // Installation Lifecycle
+  rpc InstallPlugin(InstallPluginRequest) returns (InstallPluginResponse);
+  rpc UninstallPlugin(UninstallPluginRequest) returns (UninstallPluginResponse);
+  rpc EnablePlugin(EnablePluginRequest) returns (EnablePluginResponse);
+  rpc DisablePlugin(DisablePluginRequest) returns (DisablePluginResponse);
+  rpc GetInstallation(GetInstallationRequest) returns (GetInstallationResponse);
+  rpc ListInstallations(ListInstallationsRequest) returns (ListInstallationsResponse);
+
+  // Permission Approval
+  rpc ApprovePermissions(ApprovePermissionsRequest) returns (ApprovePermissionsResponse);
+  rpc ListGrantedPermissions(ListGrantedPermissionsRequest) returns (ListGrantedPermissionsResponse);
+
+  // Plugin Settings
+  rpc GetPluginSettings(GetPluginSettingsRequest) returns (GetPluginSettingsResponse);
+  rpc UpdatePluginSettings(UpdatePluginSettingsRequest) returns (UpdatePluginSettingsResponse);
+  rpc GetPluginSettingsSchema(GetPluginSettingsSchemaRequest) returns (GetPluginSettingsSchemaResponse);
+
+  // Validation Rules CRUD
+  rpc CreateValidationRule(CreateValidationRuleRequest) returns (CreateValidationRuleResponse);
+  rpc ListValidationRules(ListValidationRulesRequest) returns (ListValidationRulesResponse);
+  rpc UpdateValidationRule(UpdateValidationRuleRequest) returns (UpdateValidationRuleResponse);
+  rpc DeleteValidationRule(DeleteValidationRuleRequest) returns (DeleteValidationRuleResponse);
+
+  // Workflow Rules CRUD
+  rpc CreateWorkflowRule(CreateWorkflowRuleRequest) returns (CreateWorkflowRuleResponse);
+  rpc ListWorkflowRules(ListWorkflowRulesRequest) returns (ListWorkflowRulesResponse);
+  rpc UpdateWorkflowRule(UpdateWorkflowRuleRequest) returns (UpdateWorkflowRuleResponse);
+  rpc DeleteWorkflowRule(DeleteWorkflowRuleRequest) returns (DeleteWorkflowRuleResponse);
+
+  // Industry Templates
+  rpc ListIndustryTemplates(ListIndustryTemplatesRequest) returns (ListIndustryTemplatesResponse);
+  rpc ApplyIndustryTemplate(ApplyIndustryTemplateRequest) returns (ApplyIndustryTemplateResponse);
+
+  // Execution Logs
+  rpc ListExecutionLogs(ListExecutionLogsRequest) returns (ListExecutionLogsResponse);
+
+  // KV Store
+  rpc KVGet(KVGetRequest) returns (KVGetResponse);
+  rpc KVSet(KVSetRequest) returns (KVSetResponse);
+  rpc KVDelete(KVDeleteRequest) returns (KVDeleteResponse);
+  rpc KVList(KVListRequest) returns (KVListResponse);
+
+  // Hook Execution (called by other services)
+  rpc ExecuteHooks(ExecuteHooksRequest) returns (ExecuteHooksResponse);
+  rpc ValidateEntity(ValidateEntityRequest) returns (ValidateEntityResponse);
+}
+
+// ============================================================================
+// Common Messages
+// ============================================================================
+
+message PluginManifestMsg {
+  string id = 1;
+  string slug = 2;
+  string name = 3;
+  string description = 4;
+  string version = 5;
+  string author = 6;
+  string settings_schema = 7; // JSON string
+  repeated string permissions = 8;
+  repeated HookRegistrationMsg hook_registrations = 9;
+  string wasm_binary_hash = 10;
+  string plugin_type = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+message HookRegistrationMsg {
+  string hook_type = 1;
+  string module = 2;
+  string entity_type = 3;
+  int32 priority = 4;
+}
+
+message PluginInstallationMsg {
+  string id = 1;
+  string tenant_id = 2;
+  string manifest_id = 3;
+  string status = 4;
+  string settings = 5; // JSON string
+  string error_message = 6;
+  string installed_by = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  // Enriched fields
+  string manifest_slug = 10;
+  string manifest_name = 11;
+  string manifest_version = 12;
+  string plugin_type = 13;
+  repeated string required_permissions = 14;
+  repeated string granted_permissions = 15;
+  string settings_schema = 16;
+}
+
+message ValidationRuleMsg {
+  string id = 1;
+  string tenant_id = 2;
+  string installation_id = 3;
+  string name = 4;
+  string description = 5;
+  string entity_type = 6;
+  string field_name = 7;
+  string rule_type = 8;
+  string rule_config = 9; // JSON string
+  string error_message = 10;
+  int32 priority = 11;
+  bool enabled = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message WorkflowRuleMsg {
+  string id = 1;
+  string tenant_id = 2;
+  string installation_id = 3;
+  string name = 4;
+  string description = 5;
+  string trigger_event = 6;
+  string conditions = 7; // JSON string
+  string actions = 8; // JSON string
+  int32 priority = 9;
+  bool enabled = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message IndustryTemplateMsg {
+  string id = 1;
+  string slug = 2;
+  string name = 3;
+  string description = 4;
+  string industry = 5;
+  string icon = 6;
+  string custom_fields = 7; // JSON string
+  string validation_rules = 8; // JSON string
+  string workflow_rules = 9; // JSON string
+  string default_settings = 10; // JSON string
+}
+
+message ExecutionLogMsg {
+  string id = 1;
+  string installation_id = 2;
+  string hook_type = 3;
+  string module = 4;
+  string entity_type = 5;
+  string entity_id = 6;
+  int32 duration_ms = 7;
+  string status = 8;
+  string error_message = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+// ============================================================================
+// Manifest CRUD
+// ============================================================================
+
+message CreateManifestRequest {
+  string slug = 1;
+  string name = 2;
+  string description = 3;
+  string version = 4;
+  string author = 5;
+  string settings_schema = 6;
+  repeated string permissions = 7;
+  repeated HookRegistrationMsg hook_registrations = 8;
+  bytes wasm_binary = 9;
+  string plugin_type = 10;
+}
+
+message CreateManifestResponse {
+  PluginManifestMsg manifest = 1;
+}
+
+message GetManifestRequest {
+  string manifest_id = 1;
+}
+
+message GetManifestResponse {
+  PluginManifestMsg manifest = 1;
+}
+
+message ListManifestsRequest {
+  string plugin_type = 1; // Optional filter
+}
+
+message ListManifestsResponse {
+  repeated PluginManifestMsg manifests = 1;
+}
+
+message DeleteManifestRequest {
+  string manifest_id = 1;
+}
+
+message DeleteManifestResponse {
+  bool success = 1;
+}
+
+// ============================================================================
+// Installation Lifecycle
+// ============================================================================
+
+message InstallPluginRequest {
+  string tenant_id = 1;
+  string manifest_id = 2;
+  string installed_by = 3;
+}
+
+message InstallPluginResponse {
+  PluginInstallationMsg installation = 1;
+}
+
+message UninstallPluginRequest {
+  string installation_id = 1;
+}
+
+message UninstallPluginResponse {
+  bool success = 1;
+}
+
+message EnablePluginRequest {
+  string installation_id = 1;
+}
+
+message EnablePluginResponse {
+  PluginInstallationMsg installation = 1;
+}
+
+message DisablePluginRequest {
+  string installation_id = 1;
+}
+
+message DisablePluginResponse {
+  PluginInstallationMsg installation = 1;
+}
+
+message GetInstallationRequest {
+  string installation_id = 1;
+}
+
+message GetInstallationResponse {
+  PluginInstallationMsg installation = 1;
+}
+
+message ListInstallationsRequest {
+  string tenant_id = 1;
+  string status = 2; // Optional filter
+}
+
+message ListInstallationsResponse {
+  repeated PluginInstallationMsg installations = 1;
+}
+
+// ============================================================================
+// Permission Approval
+// ============================================================================
+
+message ApprovePermissionsRequest {
+  string installation_id = 1;
+  repeated string permissions = 2;
+  string granted_by = 3;
+}
+
+message ApprovePermissionsResponse {
+  bool success = 1;
+}
+
+message ListGrantedPermissionsRequest {
+  string installation_id = 1;
+}
+
+message ListGrantedPermissionsResponse {
+  repeated string permissions = 1;
+}
+
+// ============================================================================
+// Plugin Settings
+// ============================================================================
+
+message GetPluginSettingsRequest {
+  string installation_id = 1;
+}
+
+message GetPluginSettingsResponse {
+  string settings = 1; // JSON string
+}
+
+message UpdatePluginSettingsRequest {
+  string installation_id = 1;
+  string settings = 2; // JSON string
+}
+
+message UpdatePluginSettingsResponse {
+  bool success = 1;
+}
+
+message GetPluginSettingsSchemaRequest {
+  string installation_id = 1;
+}
+
+message GetPluginSettingsSchemaResponse {
+  string schema = 1; // JSON Schema string
+}
+
+// ============================================================================
+// Validation Rules CRUD
+// ============================================================================
+
+message CreateValidationRuleRequest {
+  string tenant_id = 1;
+  string installation_id = 2; // Optional
+  string name = 3;
+  string description = 4;
+  string entity_type = 5;
+  string field_name = 6;
+  string rule_type = 7;
+  string rule_config = 8; // JSON string
+  string error_message = 9;
+  int32 priority = 10;
+}
+
+message CreateValidationRuleResponse {
+  ValidationRuleMsg rule = 1;
+}
+
+message ListValidationRulesRequest {
+  string tenant_id = 1;
+  string entity_type = 2; // Optional filter
+}
+
+message ListValidationRulesResponse {
+  repeated ValidationRuleMsg rules = 1;
+}
+
+message UpdateValidationRuleRequest {
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  string rule_config = 4;
+  string error_message = 5;
+  int32 priority = 6;
+  bool enabled = 7;
+}
+
+message UpdateValidationRuleResponse {
+  ValidationRuleMsg rule = 1;
+}
+
+message DeleteValidationRuleRequest {
+  string rule_id = 1;
+}
+
+message DeleteValidationRuleResponse {
+  bool success = 1;
+}
+
+// ============================================================================
+// Workflow Rules CRUD
+// ============================================================================
+
+message CreateWorkflowRuleRequest {
+  string tenant_id = 1;
+  string installation_id = 2; // Optional
+  string name = 3;
+  string description = 4;
+  string trigger_event = 5;
+  string conditions = 6; // JSON string
+  string actions = 7; // JSON string
+  int32 priority = 8;
+}
+
+message CreateWorkflowRuleResponse {
+  WorkflowRuleMsg rule = 1;
+}
+
+message ListWorkflowRulesRequest {
+  string tenant_id = 1;
+  string trigger_event = 2; // Optional filter
+}
+
+message ListWorkflowRulesResponse {
+  repeated WorkflowRuleMsg rules = 1;
+}
+
+message UpdateWorkflowRuleRequest {
+  string rule_id = 1;
+  string name = 2;
+  string description = 3;
+  string conditions = 4;
+  string actions = 5;
+  int32 priority = 6;
+  bool enabled = 7;
+}
+
+message UpdateWorkflowRuleResponse {
+  WorkflowRuleMsg rule = 1;
+}
+
+message DeleteWorkflowRuleRequest {
+  string rule_id = 1;
+}
+
+message DeleteWorkflowRuleResponse {
+  bool success = 1;
+}
+
+// ============================================================================
+// Industry Templates
+// ============================================================================
+
+message ListIndustryTemplatesRequest {
+  string industry = 1; // Optional filter
+}
+
+message ListIndustryTemplatesResponse {
+  repeated IndustryTemplateMsg templates = 1;
+}
+
+message ApplyIndustryTemplateRequest {
+  string tenant_id = 1;
+  string template_id = 2;
+  string applied_by = 3;
+}
+
+message ApplyIndustryTemplateResponse {
+  bool success = 1;
+  string installation_id = 2; // If template creates a plugin installation
+}
+
+// ============================================================================
+// Execution Logs
+// ============================================================================
+
+message ListExecutionLogsRequest {
+  string tenant_id = 1;
+  string installation_id = 2; // Optional filter
+  int32 limit = 3;
+}
+
+message ListExecutionLogsResponse {
+  repeated ExecutionLogMsg logs = 1;
+}
+
+// ============================================================================
+// KV Store
+// ============================================================================
+
+message KVGetRequest {
+  string installation_id = 1;
+  string key = 2;
+}
+
+message KVGetResponse {
+  string value = 1; // JSON string
+  bool found = 2;
+}
+
+message KVSetRequest {
+  string installation_id = 1;
+  string key = 2;
+  string value = 3; // JSON string
+}
+
+message KVSetResponse {
+  bool success = 1;
+}
+
+message KVDeleteRequest {
+  string installation_id = 1;
+  string key = 2;
+}
+
+message KVDeleteResponse {
+  bool success = 1;
+}
+
+message KVListRequest {
+  string installation_id = 1;
+  string key_prefix = 2; // Optional prefix filter
+}
+
+message KVListResponse {
+  map<string, string> entries = 1; // key -> JSON value
+}
+
+// ============================================================================
+// Hook Execution (called by other services via gRPC)
+// ============================================================================
+
+message ExecuteHooksRequest {
+  string tenant_id = 1;
+  string hook_type = 2; // e.g., "before_create", "after_update"
+  string module = 3; // e.g., "crm", "work", "biz"
+  string entity_type = 4; // e.g., "contact", "task", "invoice"
+  string entity_id = 5;
+  google.protobuf.Struct entity_data = 6; // The entity data as JSON
+}
+
+message ExecuteHooksResponse {
+  bool modified = 1;
+  google.protobuf.Struct modified_data = 2; // Modified entity data (for before_* hooks)
+  repeated HookExecutionResult results = 3;
+}
+
+message HookExecutionResult {
+  string plugin_slug = 1;
+  string status = 2;
+  int32 duration_ms = 3;
+  string error_message = 4;
+}
+
+message ValidateEntityRequest {
+  string tenant_id = 1;
+  string entity_type = 2;
+  google.protobuf.Struct entity_data = 3;
+}
+
+message ValidateEntityResponse {
+  bool valid = 1;
+  repeated ValidationError errors = 2;
+}
+
+message ValidationError {
+  string field = 1;
+  string rule = 2;
+  string message = 3;
+}

@@ -36,6 +36,7 @@ require (
 	github.com/slack-go/slack v0.17.3
 	github.com/stretchr/testify v1.11.1
 	github.com/teambition/rrule-go v1.8.2
+	github.com/tetratelabs/wazero v1.9.0
 	github.com/wagslane/go-password-validator v0.3.0
 	golang.org/x/crypto v0.48.0
 	google.golang.org/grpc v1.78.0
