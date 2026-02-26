@@ -470,7 +470,7 @@ func (s *PluginGRPCServer) ListIndustryTemplates(ctx context.Context, req *plugi
 
 	result := make([]*pluginv1.IndustryTemplateMsg, 0, len(templates))
 	for _, t := range templates {
-		result = append(result, templateToProto(t))
+		result = append(result, industryTemplateToProto(t))
 	}
 	return &pluginv1.ListIndustryTemplatesResponse{Templates: result}, nil
 }
@@ -768,7 +768,7 @@ func workflowRuleToProto(r *models.WorkflowRule) *pluginv1.WorkflowRuleMsg {
 	return msg
 }
 
-func templateToProto(t *models.IndustryTemplate) *pluginv1.IndustryTemplateMsg {
+func industryTemplateToProto(t *models.IndustryTemplate) *pluginv1.IndustryTemplateMsg {
 	return &pluginv1.IndustryTemplateMsg{
 		Id:              t.ID.String(),
 		Slug:            t.Slug,

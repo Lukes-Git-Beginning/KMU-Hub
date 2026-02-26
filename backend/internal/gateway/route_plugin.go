@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -645,19 +646,5 @@ func (pr *PluginRoutes) HandleListExecutionLogs(w http.ResponseWriter, r *http.R
 }
 
 func parseIntParam(s string) (int, error) {
-	return 0, nil // placeholder for strconv.Atoi
-}
-
-func init() {
-	// Override parseIntParam with actual implementation
-	parseIntParam = func(s string) (int, error) {
-		var n int
-		for _, c := range s {
-			if c < '0' || c > '9' {
-				return 0, nil
-			}
-			n = n*10 + int(c-'0')
-		}
-		return n, nil
-	}
+	return strconv.Atoi(s)
 }
