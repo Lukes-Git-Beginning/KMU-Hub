@@ -27,7 +27,13 @@ import {
 } from '../integrations/IntegrationCard'
 import { TeamsSetupWizard } from '../integrations/TeamsSetupWizard'
 import { SlackSetupWizard } from '../integrations/SlackSetupWizard'
+import { BexioSetupWizard } from '../integrations/BexioSetupWizard'
+import { BexioSyncDashboard } from '../integrations/BexioSyncDashboard'
 import { AccountLinkDialog } from '../integrations/AccountLinkDialog'
+import {
+  useBexioConnectionStatus,
+  useBexioDisconnect,
+} from '@/api/hooks/useBexio'
 
 // ---------------------------------------------------------------------------
 // SVG icons for platform logos (inline to avoid external deps)
@@ -70,9 +76,15 @@ export function IntegrationsSettingsTab() {
   const updateTeams = useUpdateIntegrationConfig('teams')
   const updateSlack = useUpdateIntegrationConfig('slack')
 
+  // Bexio connection
+  const { data: bexioConnection } = useBexioConnectionStatus()
+  const bexioDisconnect = useBexioDisconnect()
+
   // Wizard state
   const [teamsWizardOpen, setTeamsWizardOpen] = useState(false)
   const [slackWizardOpen, setSlackWizardOpen] = useState(false)
+  const [bexioWizardOpen, setBexioWizardOpen] = useState(false)
+  const [bexioDashboardOpen, setBexioDashboardOpen] = useState(false)
 
   // Account link dialog state
   const [linkPlatform, setLinkPlatform] = useState<Platform | null>(null)
@@ -143,20 +155,34 @@ export function IntegrationsSettingsTab() {
             isToggling={updateSlack.isPending}
           />
 
-          {/* Future platform placeholders */}
+          {/* Bexio integration */}
           <IntegrationCard
             name="Bexio"
             description="Buchhaltung & Rechnungen synchronisieren"
             icon={
-              <span className="text-sm font-bold text-muted-foreground">
+              <span className="text-sm font-bold text-foreground">
                 Bx
               </span>
             }
-            status="disconnected"
-            isActive={false}
-            onConfigure={() => {}}
-            onToggle={() => {}}
-            comingSoon
+            status={
+              bexioConnection?.connected
+                ? 'connected'
+                : 'disconnected'
+            }
+            isActive={bexioConnection?.connected ?? false}
+            onConfigure={() =>
+              bexioConnection?.connected
+                ? setBexioDashboardOpen(true)
+                : setBexioWizardOpen(true)
+            }
+            onToggle={() => {
+              if (bexioConnection?.connected) {
+                if (confirm('Bexio-Verbindung trennen?')) {
+                  bexioDisconnect.mutate()
+                }
+              }
+            }}
+            isToggling={bexioDisconnect.isPending}
           />
           <IntegrationCard
             name="Abacus"
@@ -212,6 +238,18 @@ export function IntegrationsSettingsTab() {
         onClose={() => setSlackWizardOpen(false)}
         existingConfig={slackConfig}
       />
+
+      {/* Bexio wizard and dashboard */}
+      <BexioSetupWizard
+        isOpen={bexioWizardOpen}
+        onClose={() => setBexioWizardOpen(false)}
+      />
+      {bexioDashboardOpen && (
+        <BexioSyncDashboard
+          isOpen={bexioDashboardOpen}
+          onClose={() => setBexioDashboardOpen(false)}
+        />
+      )}
 
       {/* Account link dialog */}
       {linkPlatform && (
