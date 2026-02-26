@@ -260,11 +260,10 @@ func main() {
 		}
 
 		if lexwareVault != nil {
-			lexwareClient := lexware.NewClient(lexwareConfig, lexwareVault)
 			lexwareSvc = lexware.NewService(
-				lexwareClient, lexwareRepo, lexwareConfigRepo, lexwareVault,
+				lexwareRepo, lexwareConfigRepo, lexwareVault,
 				nil, // ContactService
-				invoiceSvc, invoiceSvc, quoteRepo,
+				invoiceSvc, quoteRepo,
 			)
 
 			lexwareGRPC := server.NewLexwareGRPCServer(lexwareSvc)
