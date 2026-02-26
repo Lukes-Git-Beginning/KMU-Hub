@@ -9,6 +9,23 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-commit-message.sh",
+            "description": "Enforce conventional commit messages (feat:|fix:|docs:|refactor:|test:|chore:)"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-no-secrets.sh",
+            "description": "Block staging of files with secrets (.env, credentials, keys)"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

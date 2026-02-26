@@ -103,10 +103,10 @@ const persister = createSyncStoragePersister({
 /**
  * Redirect to login if user is not authenticated.
  *
- * DEV_BYPASS_AUTH: Set to true to skip auth for design work
- * without a running backend. REMOVE before merging to main.
+ * DEV_BYPASS_AUTH: Automatically enabled in dev mode (npm run dev),
+ * disabled in production builds. No manual toggle needed.
  */
-const DEV_BYPASS_AUTH = true
+const DEV_BYPASS_AUTH = import.meta.env.DEV
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
