@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 18 of 20 (Bexio Integration) -- IN PROGRESS
-Plan: 2 of 4 complete
-Status: Plan 18-02 complete. Next: 18-03
-Last activity: 2026-02-26 -- Phase 18-02 executed
+Plan: 3 of 4 complete
+Status: Plan 18-03 complete. Next: 18-04
+Last activity: 2026-02-26 -- Phase 18-03 executed
 
-Progress: [█████████████████████████████████░] 98% (95/97 plans across phases 4-18)
+Progress: [█████████████████████████████████░] 99% (96/97 plans across phases 4-18)
 
 ## Performance Metrics
 
@@ -46,7 +46,7 @@ Progress: [███████████████████████
 | 16 | 3/3 | ~48min | ~16min |
 | 17 | 3/3 | ~16min | ~5min |
 | 17.5 | 3/3 | ~32min | ~11min |
-| 18 | 2/4 | ~33min | ~17min |
+| 18 | 3/4 | ~47min | ~16min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -57,8 +57,8 @@ Progress: [███████████████████████
 - Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
 - Phase 17 (Teams & Slack Integration) COMPLETE -- all 3 plans done (data foundation, forwarder + adapters, frontend)
 - Phase 17.5 (Gast-Chat) COMPLETE -- all 3 plans done (data foundation, services+gateway, frontend SPA)
-- Phase 18 (Bexio Integration) IN PROGRESS -- 2/4 plans done (data foundation + sync engine)
-- 95/97 plans done across Phases 4-18
+- Phase 18 (Bexio Integration) IN PROGRESS -- 3/4 plans done (data foundation + sync engine + gRPC/gateway)
+- 96/97 plans done across Phases 4-18
 
 *Updated after each plan completion*
 
@@ -449,6 +449,13 @@ Recent decisions affecting current work:
 - [18-02]: Scheduler per-tenant goroutines with context cancellation for graceful shutdown
 - [18-02]: Payment poller skips already-paid invoices for efficiency
 - [18-02]: noopEmitter default for EventEmitter (same pattern as invoice/quote services)
+- [18-03]: BexioGRPCServer in internal/server/ (not internal/biz/server/) following existing BizGRPCServer pattern
+- [18-03]: BexioRoutes ServiceName returns "biz" to reuse existing gRPC connection (co-hosted service)
+- [18-03]: OAuth callback route public (no auth middleware), all admin routes use RequireRole("admin")
+- [18-03]: Bexio service optional: only initialized when BEXIO_CLIENT_ID env var is set
+- [18-03]: PostgresIntegrationConfigRepo in bexio package (same table as notification, avoids import cycle)
+- [18-03]: Vault initialized per biz binary for OAuth token storage when VAULT_MASTER_SECRET set
+- [18-03]: Bexio scheduler shutdown before gRPC graceful stop in shutdown sequence
 
 ### Pending Todos
 
