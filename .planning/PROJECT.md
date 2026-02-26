@@ -80,13 +80,13 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 | PostgreSQL full-text search over Elasticsearch | Simpler ops, good enough for SMB scale, one less service to manage | ✓ Good — multi-language FTS working well |
 | MinIO over cloud S3 | Self-hosted compatible, S3 API means easy migration, EU sovereign | ✓ Good — file sharing working |
 | LiveKit for video | Self-hostable, WebRTC-based, open source, EU-deployable | — Pending |
-| Config + WASM plugin system | Config for 80% of customization, WASM for complex cases — avoids full scripting engine security nightmare | — Pending |
-| Case-by-case integrations | No generic integration framework upfront. Build connectors as customers need them. Pragmatic over comprehensive. | — Pending |
+| Config + WASM plugin system | Config for 80% of customization, WASM for complex cases — avoids full scripting engine security nightmare | ✓ Good — wazero runtime, hook dispatcher, Fuhrpark reference plugin |
+| Case-by-case integrations | No generic integration framework upfront. Build connectors as customers need them. Pragmatic over comprehensive. | ✓ Good — Bexio, DATEV, Lexware, Teams, Slack |
 | Role-based dashboards + personalizable workspace | Every employee sees what they need. CEO dashboard ≠ office worker dashboard. Onsite analysis determines defaults. | ✓ Good — dashboard system working |
-| Feature gap analysis expansion | Security before business modules, meetings merged into video, integrations as mini-phases, documents as standalone module. Roadmap from 13 to 18 phases. | — Pending |
+| Feature gap analysis expansion | Security before business modules, meetings merged into video, integrations as mini-phases, documents as standalone module. Roadmap from 13 to 20 phases. | ✓ Applied — all 20 phases complete |
 | Buchhaltung → Finanzen rename | "Rechnungen & Finanzen" (invoices + finance), NOT full accounting. No doppelte Buchfuehrung, no payroll. | ✓ Applied |
 | Payroll as anti-feature | Lohnabrechnung NEVER built in-house. Integration only via Bexio/Abacus/RmA. 8 planned endpoints struck. | ✓ Applied |
 | Phase reorder (strategy session) | Unified Inbox as Phase 14, Automation vorgezogen to 16, Abacus+RmA merged into 19. Industry modules as Phase 20 plugins. | ✓ Applied |
 
 ---
-*Last updated: 2026-02-17 after product strategy session (phase reorder, finanzen rename, payroll anti-feature)*
+*Last updated: 2026-02-26 after all 20 phases completed (103/103 plans)*

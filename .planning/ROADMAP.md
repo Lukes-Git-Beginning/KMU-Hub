@@ -451,20 +451,20 @@ Decimal phases (if inserted) execute between their surrounding integers.
 | 7. Calendar & Scheduling | 9/9 | Complete | 2026-02-11 |
 | 8. Video, Voice & Meetings | 9/9 | Complete | 2026-02-11 |
 | 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
-| 10. Email Integration | 3/7 | In progress | - |
-| 11. Documents & Files + WOPI | 0/6 | Complete    | 2026-02-17 |
-| 12. Rechnungen & Finanzen | 7/7 | Complete    | 2026-02-18 |
-| 13. HR & Zeiterfassung | 4/4 | Complete    | 2026-02-19 |
-| 14. Event Infra + Unified Inbox | 4/4 | Complete    | 2026-02-20 |
-| 15. CalDAV/CardDAV | 1/3 | Complete    | 2026-02-20 |
-| 16. Automation Engine | 1/3 | Complete    | 2026-02-20 |
+| 10. Email Integration | 7/7 | Complete | 2026-02-14 |
+| 11. Documents & Files + WOPI | 6/6 | Complete | 2026-02-17 |
+| 12. Rechnungen & Finanzen | 7/7 | Complete | 2026-02-18 |
+| 13. HR & Zeiterfassung | 4/4 | Complete | 2026-02-19 |
+| 14. Event Infra + Unified Inbox | 4/4 | Complete | 2026-02-20 |
+| 15. CalDAV/CardDAV | 3/3 | Complete | 2026-02-20 |
+| 16. Automation Engine | 3/3 | Complete | 2026-02-20 |
 | 17. Integration: Teams & Slack | 3/3 | Complete | 2026-02-25 |
 | 17.5. Guest Chat | 3/3 | Complete | 2026-02-25 |
 | 18. Integration: Bexio | 4/4 | Complete | 2026-02-26 |
 | 19. Integration: DATEV + Lexware | 2/2 | Complete | 2026-02-26 |
-| 20. Plugin System + Templates | 0/4 | Not started | - |
+| 20. Plugin System + Templates | 4/4 | Complete | 2026-02-26 |
 
 ---
 *Roadmap created: 2026-02-07*
 *Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-17 after product strategy session (phase reorder, finanzen rename, payroll removed)*
+*Last updated: 2026-02-26 after all 20 phases completed (103/103 plans)*
