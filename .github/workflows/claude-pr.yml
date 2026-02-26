@@ -28,7 +28,7 @@ jobs:
       - name: Claude Code Review
         uses: anthropics/claude-code-action@main
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Review this PR thoroughly. Check for:
 
@@ -72,7 +72,7 @@ jobs:
       - name: Claude Interactive Response
         uses: anthropics/claude-code-action@main
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   # Assignment: Claude investigates when assigned to an issue
   issue-triage:
@@ -91,7 +91,7 @@ jobs:
       - name: Claude Issue Investigation
         uses: anthropics/claude-code-action@main
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Investigate this issue. Analyze the codebase to:
             1. Identify the root cause or relevant code

@@ -16,7 +16,7 @@
 | 5 | GitHub MCP Server | MCP Integration | Direkter GitHub-Zugriff aus Claude Code | Kostenlos |
 | 6 | Claude Code Hooks | Projekt-Config | Pre-Commit-Guards und Enforcement | Kostenlos |
 
-**Monatliche Gesamtkosten:** ~$42-45 (2x Claude Pro + minimale API-Kosten)
+**Monatliche Gesamtkosten:** ~$40 (2x Claude Pro/Max — GitHub Actions laufen ueber bestehendes Abo via OAuth)
 
 ---
 
@@ -47,7 +47,7 @@
 
 | Parameter | Default | Beschreibung |
 |-----------|---------|-------------|
-| `claude-api-key` | Pflicht | Anthropic API Key |
+| `claude-api-key` | Pflicht | OAuth Token (via `/install-github-app`) oder API Key |
 | `comment-pr` | `true` | Findings als PR-Kommentare posten |
 | `upload-results` | `true` | Ergebnisse als GitHub Artifact hochladen |
 | `exclude-directories` | — | Verzeichnisse ausschliessen (kommasepariert) |
@@ -258,20 +258,20 @@ Siehe `.claude/settings.json` fuer die aktive Konfiguration.
 
 | Posten | Kosten |
 |--------|--------|
-| Claude Pro — Luke | $20 |
+| Claude Max — Luke | Im bestehenden Abo |
 | Claude Pro — Darien | $20 |
-| API-Kosten (Security Review Action, ~40 PRs/Monat) | ~$2-5 |
+| GitHub Actions (via OAuth) | Im Abo enthalten |
 | GitHub Actions Minutes | Free Tier ausreichend |
 | GitHub MCP Server | Kostenlos |
 | Code Review Plugin | Kostenlos |
 | Hooks | Kostenlos |
-| **Gesamt** | **~$42-45/Monat** |
+| **Gesamt** | **Keine Zusatzkosten** (bestehendes Max/Pro Abo) |
 
 ### Vergleich
 
 | Setup | Monatlich | Security | Code Review | Automation |
 |-------|-----------|----------|-------------|-----------|
-| **Unser Claude Setup** | ~$45 | Semantisch (deep) | Multi-Agent + Confidence | Voll (Actions + MCP) |
+| **Unser Claude Setup** | Im Abo | Semantisch (deep) | Multi-Agent + Confidence | Voll (Actions + MCP) |
 | CodeRabbit (3 Devs) | $72 | Ja | Pattern-based | Nein |
 | GitHub Copilot (3 Devs) | $30-60 | Basic | Oberflaechlich | Nein |
 | Snyk + CodeRabbit | $100+ | Pattern-based | Ja | Teilweise |
