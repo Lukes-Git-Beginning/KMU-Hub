@@ -10,12 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 ## Current Position
 
-Phase: 18 of 20 (Bexio Integration) -- IN PROGRESS
-Plan: 3 of 4 complete
-Status: Plan 18-03 complete. Next: 18-04
-Last activity: 2026-02-26 -- Phase 18-03 executed
+Phase: 18 of 20 (Bexio Integration) -- COMPLETE
+Plan: 4 of 4 complete
+Status: Phase 18 COMPLETE. Next: Phase 19 (Abacus + RmA)
+Last activity: 2026-02-26 -- Phase 18-04 executed
 
-Progress: [█████████████████████████████████░] 99% (96/97 plans across phases 4-18)
+Progress: [██████████████████████████████████] 100% (97/97 plans across phases 4-18)
 
 ## Performance Metrics
 
@@ -46,7 +46,7 @@ Progress: [███████████████████████
 | 16 | 3/3 | ~48min | ~16min |
 | 17 | 3/3 | ~16min | ~5min |
 | 17.5 | 3/3 | ~32min | ~11min |
-| 18 | 3/4 | ~47min | ~16min |
+| 18 | 4/4 | ~65min | ~16min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -57,8 +57,8 @@ Progress: [███████████████████████
 - Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
 - Phase 17 (Teams & Slack Integration) COMPLETE -- all 3 plans done (data foundation, forwarder + adapters, frontend)
 - Phase 17.5 (Gast-Chat) COMPLETE -- all 3 plans done (data foundation, services+gateway, frontend SPA)
-- Phase 18 (Bexio Integration) IN PROGRESS -- 3/4 plans done (data foundation + sync engine + gRPC/gateway)
-- 96/97 plans done across Phases 4-18
+- Phase 18 (Bexio Integration) COMPLETE -- all 4 plans done (data foundation + sync engine + gRPC/gateway + frontend)
+- 97/97 plans done across Phases 4-18
 
 *Updated after each plan completion*
 
@@ -456,6 +456,12 @@ Recent decisions affecting current work:
 - [18-03]: PostgresIntegrationConfigRepo in bexio package (same table as notification, avoids import cycle)
 - [18-03]: Vault initialized per biz binary for OAuth token storage when VAULT_MASTER_SECRET set
 - [18-03]: Bexio scheduler shutdown before gRPC graceful stop in shutdown sequence
+- [18-04]: bexio-client.ts follows integration-client.ts fetch wrapper pattern (typed fetch + auth + 401 retry)
+- [18-04]: Separate useBexio.ts hooks (not merged into useIntegration.ts) for clean separation
+- [18-04]: BexioSetupWizard 4 steps: OAuth → Sync Config → Field Mapping → Initial Sync
+- [18-04]: BexioSyncDashboard as Dialog (same pattern as Teams/Slack wizards)
+- [18-04]: Field mapping editor compact prop for wizard-embedded vs standalone mode
+- [18-04]: Components in modules/settings/integrations/ with re-exports in components/settings/
 
 ### Pending Todos
 
@@ -470,6 +476,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Phase 18-02 COMPLETE (sync engine)
+Stopped at: Phase 18 COMPLETE (all 4 plans)
 Resume file: N/A
-Next: Phase 18-03 (gRPC + Gateway)
+Next: Phase 19 (Abacus + RmA Integration)
