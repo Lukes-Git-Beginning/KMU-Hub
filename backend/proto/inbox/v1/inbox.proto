@@ -57,6 +57,7 @@ enum Channel {
   CHANNEL_EMAIL = 1;
   CHANNEL_CHAT = 2;
   CHANNEL_NOTIFICATION = 3;
+  CHANNEL_GUEST = 4;
 }
 
 enum AssignmentMode {

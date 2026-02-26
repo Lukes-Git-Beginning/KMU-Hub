@@ -204,6 +204,8 @@
   "settings.privacy.subtitle": "Data export and deletion",
   "settings.general.title": "General",
   "settings.general.subtitle": "Basic settings",
+  "settings.integrations.title": "Integrations",
+  "settings.integrations.subtitle": "Teams, Slack & external services",
 
   "role.admin": "Administrator",
   "role.manager": "Manager",

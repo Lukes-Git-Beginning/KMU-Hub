@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 17 (Teams & Slack Integration) -- IN PROGRESS
+**Current focus:** Phase 17.5 (Gast-Chat / Kundenportal) -- COMPLETE
 **Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
 
 ## Current Position
 
-Phase: 17 of 20 (Teams & Slack Integration)
-Plan: 2 of 3 complete
-Status: Plan 17-02 COMPLETE -- forwarder engine, platform adapters, webhook handlers, gateway routes, binary integration
-Last activity: 2026-02-20 -- Phase 17 plan 02 (forwarder engine + platform adapters) complete
+Phase: 17.5 of 20 (Gast-Chat / Kundenportal) -- COMPLETE
+Plan: 3 of 3 complete
+Status: All plans complete. Phase 17.5 DONE.
+Last activity: 2026-02-25 -- Phase 17.5-03 executed
 
-Progress: [█████████████████████████████████] 100% (89/90 plans across phases 4-17)
+Progress: [█████████████████████████████████] 100% (93/93 plans across phases 4-17.5)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 70
+- Total plans completed: 71
 - Average duration: ~7 minutes
 - Total execution time: ~7h 35min
 
@@ -44,7 +44,8 @@ Progress: [███████████████████████
 | 14 | 4/4 | ~33min | ~8min |
 | 15 | 3/3 | ~19min | ~6min |
 | 16 | 3/3 | ~48min | ~16min |
-| 17 | 2/3 | ~8min | ~4min |
+| 17 | 3/3 | ~16min | ~5min |
+| 17.5 | 3/3 | ~32min | ~11min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -53,8 +54,9 @@ Progress: [███████████████████████
 - Phase 14 (Event Infrastructure + Unified Inbox) COMPLETE -- all 4 plans done (proto, services, gRPC+gateway, frontend)
 - Phase 15 (CalDAV/CardDAV Integration) COMPLETE -- all 3 plans done (data foundation, backend adapters, gateway+frontend+push)
 - Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
-- Phase 17 (Teams & Slack Integration) IN PROGRESS -- 2/3 plans done (data foundation, forwarder + adapters)
-- 89/90 plans done across Phases 4-17
+- Phase 17 (Teams & Slack Integration) COMPLETE -- all 3 plans done (data foundation, forwarder + adapters, frontend)
+- Phase 17.5 (Gast-Chat) COMPLETE -- all 3 plans done (data foundation, services+gateway, frontend SPA)
+- 93/93 plans done across Phases 4-17.5
 
 *Updated after each plan completion*
 
@@ -416,6 +418,20 @@ Recent decisions affecting current work:
 - [17-02]: WithIntegration functional option pattern for backward-compatible gRPC server extension
 - [17-02]: Nil-safe platform initialization: missing env vars = platform disabled, not crash
 - [17-02]: Inbound webhook routes bypass JWT auth but verify platform-specific signatures
+- [17.5-01]: Message.CreatedBy changed to *uuid.UUID -- nullable for guest messages, CHECK constraint enforces exactly one sender
+- [17.5-01]: Guest token: UUID v4 stored as SHA-256 hash (64 hex chars), plain token returned once on creation
+- [17.5-01]: In-memory sliding window rate limiter (30 msgs/min), resets on restart
+- [17.5-01]: Guest channel config defaults: 7-day expiry, 10MB file limit, image+PDF, blue primary color, German welcome message
+- [17.5-02]: GuestSessionValidator interface in server package for circular import avoidance
+- [17.5-02]: uuid.Nil as guest sentinel in GetMessages gRPC, server checks is_guest_enabled
+- [17.5-02]: LEFT JOIN users + LEFT JOIN guest_sessions for mixed user/guest message listing
+- [17.5-02]: SkipMembershipCheck flag on ListInput for guest-enabled channel access
+- [17.5-02]: Guest routes public (no JWT) with X-Guest-Token header auth middleware
+- [17.5-03]: Standalone Vite SPA (no Tailwind/TanStack/Zustand) for minimal bundle size (~66KB gzipped)
+- [17.5-03]: CSS custom properties for theming, primary color overridden by channel config
+- [17.5-03]: Gateway serves SPA with /guest/assets/* for static files and /guest/* SPA fallback
+- [17.5-03]: Graceful degradation: if guest-chat/dist/ doesn't exist, guest chat is simply disabled
+- [17.5-03]: useRef<T | null>(null) pattern for React 19 strict mode compatibility
 
 ### Pending Todos
 
@@ -429,7 +445,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-20
-Stopped at: Completed 17-02-PLAN.md
-Resume file: .planning/phases/17-integration-teams-slack/17-02-SUMMARY.md
-Next: Phase 17 plan 03 (frontend -- TypeScript types, TanStack Query hooks, setup wizards, settings UI)
+Last session: 2026-02-25
+Stopped at: Phase 17.5 COMPLETE (all 3 plans done)
+Resume file: N/A
+Next: Phase 18 (Bexio Integration) -- needs planning

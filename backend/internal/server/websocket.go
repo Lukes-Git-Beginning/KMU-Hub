@@ -16,6 +16,22 @@ import (
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 )
 
+// GuestSessionValidator validates guest tokens and enforces rate limits.
+// Uses an interface to avoid circular imports between server and guest packages.
+type GuestSessionValidator interface {
+	ValidateToken(ctx context.Context, token string) (*GuestSessionInfo, error)
+	CheckRateLimit(sessionID string) error
+	UpdateLastActivity(ctx context.Context, sessionID uuid.UUID) error
+}
+
+// GuestSessionInfo contains guest session data needed by the WebSocket hub.
+type GuestSessionInfo struct {
+	ID          uuid.UUID
+	ChannelID   uuid.UUID
+	DisplayName string
+	IsActive    bool
+}
+
 // UserInfoFunc is a callback to resolve user IDs to names
 type UserInfoFunc func(ctx context.Context, userID string) (firstName, lastName string, err error)
 
@@ -53,9 +69,15 @@ type WebSocketHub struct {
 	userNames    map[string]struct{ firstName, lastName string }
 	userInfoFunc UserInfoFunc
 
+	// Guest connections: maps guest session ID to their connections
+	guestConnections map[string]map[*websocket.Conn]struct{}
+	// Guest session channel mapping: guest session ID -> channel ID (for isolation)
+	guestChannels map[string]string
+
 	// Optional services for presence and call signaling (set after construction)
 	presenceService WSPresenceService
 	videoService    WSVideoService
+	guestService    GuestSessionValidator
 
 	mu sync.RWMutex
 }
@@ -70,6 +92,8 @@ func NewWebSocketHub(chatClient chatv1.ChatServiceClient, tokenMaker *auth.Token
 		presenceSubscribers: make(map[string]map[string]struct{}),
 		userNames:           make(map[string]struct{ firstName, lastName string }),
 		userInfoFunc:        userInfoFunc,
+		guestConnections:    make(map[string]map[*websocket.Conn]struct{}),
+		guestChannels:       make(map[string]string),
 	}
 }
 
@@ -142,9 +166,22 @@ func (h *WebSocketHub) SetVideoService(svc WSVideoService) {
 	h.videoService = svc
 }
 
+// SetGuestService injects an optional guest session validator for WebSocket-based guest chat.
+// Must be called before the hub starts handling connections.
+func (h *WebSocketHub) SetGuestService(svc GuestSessionValidator) {
+	h.guestService = svc
+}
+
 // HandleWebSocket handles WebSocket connections
-// Authentication is done via query parameter: /api/v1/ws?token=<JWT>
+// Authentication is done via query parameter: /api/v1/ws?token=<JWT> or ?guest_token=<opaque>
 func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Check for guest token first
+	guestToken := r.URL.Query().Get("guest_token")
+	if guestToken != "" {
+		h.handleGuestWebSocket(w, r, guestToken)
+		return
+	}
+
 	// Get token from query parameter
 	token := r.URL.Query().Get("token")
 	if token == "" {
@@ -181,6 +218,44 @@ func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Handle messages
 	ctx := r.Context()
 	h.handleConnection(ctx, conn, userID)
+}
+
+// handleGuestWebSocket handles WebSocket connections for guest users.
+func (h *WebSocketHub) handleGuestWebSocket(w http.ResponseWriter, r *http.Request, token string) {
+	if h.guestService == nil {
+		http.Error(w, "guest chat not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	session, err := h.guestService.ValidateToken(r.Context(), token)
+	if err != nil {
+		slog.Warn("guest websocket auth failed", "error", err)
+		http.Error(w, "invalid guest token", http.StatusUnauthorized)
+		return
+	}
+
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		OriginPatterns: []string{"*"},
+	})
+	if err != nil {
+		slog.Error("guest websocket accept failed", "error", err)
+		return
+	}
+
+	sessionID := session.ID.String()
+	channelID := session.ChannelID.String()
+
+	h.registerGuestConnection(sessionID, channelID, conn)
+	defer h.unregisterGuestConnection(sessionID, conn)
+
+	slog.Info("guest websocket connected",
+		"session_id", sessionID,
+		"channel_id", channelID,
+		"display_name", session.DisplayName,
+	)
+
+	ctx := r.Context()
+	h.handleGuestConnectionLoop(ctx, conn, session)
 }
 
 func (h *WebSocketHub) registerConnection(userID string, conn *websocket.Conn) {
@@ -392,6 +467,139 @@ func (h *WebSocketHub) sendError(ctx context.Context, conn *websocket.Conn, errM
 	})
 }
 
+// ============================================================================
+// Guest Connection Management
+// ============================================================================
+
+func (h *WebSocketHub) registerGuestConnection(sessionID, channelID string, conn *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.guestConnections[sessionID] == nil {
+		h.guestConnections[sessionID] = make(map[*websocket.Conn]struct{})
+	}
+	h.guestConnections[sessionID][conn] = struct{}{}
+	h.guestChannels[sessionID] = channelID
+}
+
+func (h *WebSocketHub) unregisterGuestConnection(sessionID string, conn *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if conns, ok := h.guestConnections[sessionID]; ok {
+		delete(conns, conn)
+		if len(conns) == 0 {
+			delete(h.guestConnections, sessionID)
+			delete(h.guestChannels, sessionID)
+		}
+	}
+
+	_ = conn.Close(websocket.StatusNormalClosure, "connection closed")
+}
+
+func (h *WebSocketHub) handleGuestConnectionLoop(ctx context.Context, conn *websocket.Conn, session *GuestSessionInfo) {
+	sessionID := session.ID.String()
+	for {
+		var msg WSMessage
+		err := wsjson.Read(ctx, conn, &msg)
+		if err != nil {
+			if websocket.CloseStatus(err) != -1 {
+				slog.Info("guest websocket closed", "session_id", sessionID, "status", websocket.CloseStatus(err))
+			} else {
+				slog.Error("guest websocket read error", "session_id", sessionID, "error", err)
+			}
+			return
+		}
+
+		h.handleGuestMessage(ctx, conn, session, &msg)
+	}
+}
+
+func (h *WebSocketHub) handleGuestMessage(ctx context.Context, conn *websocket.Conn, session *GuestSessionInfo, msg *WSMessage) {
+	switch msg.Type {
+	case WSMessageSend:
+		h.handleGuestSendMessage(ctx, conn, session, msg)
+	case WSTypingStart, WSTypingStop:
+		h.handleGuestTypingIndicator(ctx, session, msg)
+	default:
+		h.sendError(ctx, conn, "not allowed for guests")
+	}
+}
+
+func (h *WebSocketHub) handleGuestSendMessage(ctx context.Context, conn *websocket.Conn, session *GuestSessionInfo, msg *WSMessage) {
+	channelID := session.ChannelID.String()
+
+	if msg.Content == "" {
+		h.sendError(ctx, conn, "content is required")
+		return
+	}
+
+	// Enforce channel isolation
+	if msg.ChannelID != "" && msg.ChannelID != channelID {
+		h.sendError(ctx, conn, "cannot send to other channels")
+		return
+	}
+
+	// Check rate limit
+	if err := h.guestService.CheckRateLimit(session.ID.String()); err != nil {
+		h.sendError(ctx, conn, "rate limit exceeded")
+		return
+	}
+
+	sessionID := session.ID.String()
+	grpcReq := &chatv1.SendMessageRequest{
+		ChannelId:      channelID,
+		Content:        msg.Content,
+		GuestSessionId: &sessionID,
+	}
+
+	resp, err := h.chatClient.SendMessage(ctx, grpcReq)
+	if err != nil {
+		slog.Error("failed to send guest message", "error", err, "session_id", sessionID)
+		h.sendError(ctx, conn, "failed to send message")
+		return
+	}
+
+	// Broadcast to channel subscribers (users + guests)
+	h.broadcastToChannel(ctx, channelID, WSMessage{
+		Type:      WSMessageNew,
+		ChannelID: channelID,
+		Message:   mustMarshal(resp.Message),
+	})
+}
+
+func (h *WebSocketHub) handleGuestTypingIndicator(ctx context.Context, session *GuestSessionInfo, msg *WSMessage) {
+	channelID := session.ChannelID.String()
+
+	h.broadcastToChannelExcept(ctx, channelID, "", WSMessage{
+		Type:      WSTypingIndicator,
+		ChannelID: channelID,
+		UserID:    session.ID.String(),
+		FirstName: session.DisplayName,
+		Content:   msg.Type,
+	})
+}
+
+// sendToGuest sends a message to all connections of a specific guest session.
+func (h *WebSocketHub) sendToGuest(ctx context.Context, sessionID string, msg WSMessage) {
+	h.mu.RLock()
+	conns := h.guestConnections[sessionID]
+	connList := make([]*websocket.Conn, 0, len(conns))
+	for conn := range conns {
+		connList = append(connList, conn)
+	}
+	h.mu.RUnlock()
+
+	writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	for _, conn := range connList {
+		if err := wsjson.Write(writeCtx, conn, msg); err != nil {
+			slog.Warn("failed to send message to guest", "session_id", sessionID, "error", err)
+		}
+	}
+}
+
 func (h *WebSocketHub) broadcastToChannel(ctx context.Context, channelID string, msg WSMessage) {
 	h.mu.RLock()
 	members := h.channelMembers[channelID]
@@ -399,10 +607,22 @@ func (h *WebSocketHub) broadcastToChannel(ctx context.Context, channelID string,
 	for userID := range members {
 		memberIDs = append(memberIDs, userID)
 	}
+
+	// Collect guest sessions connected to this channel
+	var guestSessionIDs []string
+	for sessionID, chID := range h.guestChannels {
+		if chID == channelID {
+			guestSessionIDs = append(guestSessionIDs, sessionID)
+		}
+	}
 	h.mu.RUnlock()
 
 	for _, userID := range memberIDs {
 		h.sendToUser(ctx, userID, msg)
+	}
+
+	for _, sessionID := range guestSessionIDs {
+		h.sendToGuest(ctx, sessionID, msg)
 	}
 }
 

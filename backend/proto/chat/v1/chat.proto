@@ -71,6 +71,7 @@ message ChannelInfo {
   optional string my_role = 11;  // Current user's role in the channel
   optional MessageInfo last_message = 12;
   int32 unread_count = 13;  // Unread messages for the requesting user (Sprint 3)
+  bool is_guest_enabled = 14;  // Whether this channel accepts guest chat sessions
 }
 
 message CreateChannelRequest {
@@ -221,6 +222,9 @@ message MessageInfo {
   repeated MentionInfo mentions = 12;
   // Files (Sprint 4)
   repeated FileInfo files = 13;
+  // Guest chat (Phase 17.5)
+  optional string guest_session_id = 14;
+  optional string guest_display_name = 15;
 }
 
 message SendMessageRequest {
@@ -230,6 +234,7 @@ message SendMessageRequest {
   optional string parent_message_id = 4;  // For thread replies
   repeated string mentioned_user_ids = 5;  // User IDs to mention (Sprint 3)
   bool mention_everyone = 6;               // @everyone/@channel mention (Sprint 3)
+  optional string guest_session_id = 7;    // For guest chat messages (mutually exclusive with created_by)
 }
 
 message SendMessageResponse {

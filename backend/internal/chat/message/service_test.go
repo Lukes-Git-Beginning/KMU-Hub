@@ -69,12 +69,13 @@ func (m *MockRepository) List(ctx context.Context, filter ListFilter) ([]*models
 		if filter.ExcludeReplies && msg.ParentMessageID != nil {
 			continue
 		}
-		user := m.users[msg.CreatedBy]
-		result = append(result, &models.MessageWithSender{
-			Message:         *msg,
-			SenderFirstName: user.firstName,
-			SenderLastName:  user.lastName,
-		})
+		mws := &models.MessageWithSender{Message: *msg}
+		if msg.CreatedBy != nil {
+			user := m.users[*msg.CreatedBy]
+			mws.SenderFirstName = user.firstName
+			mws.SenderLastName = user.lastName
+		}
+		result = append(result, mws)
 	}
 	if len(result) > filter.Limit {
 		result = result[:filter.Limit]
@@ -159,12 +160,13 @@ func (m *MockRepository) ListReplies(ctx context.Context, filter ThreadListFilte
 		if msg.IsDeleted {
 			continue
 		}
-		user := m.users[msg.CreatedBy]
-		result = append(result, &models.MessageWithSender{
-			Message:         *msg,
-			SenderFirstName: user.firstName,
-			SenderLastName:  user.lastName,
-		})
+		mws := &models.MessageWithSender{Message: *msg}
+		if msg.CreatedBy != nil {
+			user := m.users[*msg.CreatedBy]
+			mws.SenderFirstName = user.firstName
+			mws.SenderLastName = user.lastName
+		}
+		result = append(result, mws)
 	}
 	if len(result) > filter.Limit {
 		result = result[:filter.Limit]
@@ -210,7 +212,10 @@ func (m *MockRepository) GetMentionsForUser(ctx context.Context, userID uuid.UUI
 			if mention.UserID == userID {
 				msg := m.messages[msgID]
 				if msg != nil && !msg.IsDeleted {
-					sender := m.users[msg.CreatedBy]
+					var sender struct{ firstName, lastName string }
+					if msg.CreatedBy != nil {
+						sender = m.users[*msg.CreatedBy]
+					}
 					result = append(result, MentionDetailRow{
 						MessageID:       msgID,
 						ChannelID:       msg.ChannelID,
@@ -302,7 +307,8 @@ func TestService_Create(t *testing.T) {
 		assert.NotEqual(t, uuid.Nil, msg.ID)
 		assert.Equal(t, "Hello, world!", msg.Content)
 		assert.Equal(t, channelID, msg.ChannelID)
-		assert.Equal(t, userID, msg.CreatedBy)
+		require.NotNil(t, msg.CreatedBy)
+		assert.Equal(t, userID, *msg.CreatedBy)
 		assert.Equal(t, "John", msg.SenderFirstName)
 		assert.Equal(t, "Doe", msg.SenderLastName)
 	})

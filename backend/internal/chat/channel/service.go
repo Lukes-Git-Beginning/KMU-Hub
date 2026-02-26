@@ -665,3 +665,34 @@ func (s *Service) MarkRead(ctx context.Context, channelID, userID uuid.UUID, mes
 func (s *Service) GetUnreadCounts(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int, error) {
 	return s.repo.GetUnreadCountsForUser(ctx, userID)
 }
+
+// EnableGuest enables guest chat on a channel
+func (s *Service) EnableGuest(ctx context.Context, channelID uuid.UUID) error {
+	channel, err := s.repo.GetByID(ctx, channelID)
+	if err != nil {
+		return err
+	}
+	channel.IsGuestEnabled = true
+	channel.UpdatedAt = time.Now()
+	return s.repo.Update(ctx, channel)
+}
+
+// DisableGuest disables guest chat on a channel
+func (s *Service) DisableGuest(ctx context.Context, channelID uuid.UUID) error {
+	channel, err := s.repo.GetByID(ctx, channelID)
+	if err != nil {
+		return err
+	}
+	channel.IsGuestEnabled = false
+	channel.UpdatedAt = time.Now()
+	return s.repo.Update(ctx, channel)
+}
+
+// IsGuestEnabled checks if a channel accepts guest chat sessions
+func (s *Service) IsGuestEnabled(ctx context.Context, channelID uuid.UUID) (bool, error) {
+	channel, err := s.repo.GetByID(ctx, channelID)
+	if err != nil {
+		return false, err
+	}
+	return channel.IsGuestEnabled, nil
+}

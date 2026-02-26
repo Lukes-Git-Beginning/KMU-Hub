@@ -32,9 +32,14 @@ mobile/android/app/build/
 .env.*.local
 *.env
 
-# === IDE ===
+# === IDE / Tools ===
 .idea/
 .vscode/
+# Claude Code — keep shared config, ignore personal
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/commands/
 *.swp
 *.swo
 *~

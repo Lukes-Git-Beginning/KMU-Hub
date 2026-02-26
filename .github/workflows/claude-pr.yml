@@ -1,0 +1,102 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  # Automatic code review on every PR
+  pr-review:
+    name: Claude Code Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@main
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review this PR thoroughly. Check for:
+
+            1. **Architecture Compliance** (from CLAUDE.md):
+               - Thick Services, Thin Handlers — business logic must be in services
+               - Structured Logging — no fmt.Println or console.log
+               - Database access only through service layer
+               - Idempotent API operations
+
+            2. **Code Quality**:
+               - Go: error handling, context propagation, resource cleanup
+               - TypeScript/React: proper hook usage, no memory leaks, type safety
+               - Test coverage for new code
+
+            3. **Security** (basic check, detailed security review runs separately):
+               - No hardcoded secrets
+               - Input validation at boundaries
+               - Proper auth checks
+
+            4. **Electron-Specific**:
+               - IPC handler security
+               - Context isolation compliance
+               - No nodeIntegration in renderer
+
+            Be concise. Only comment on actual issues, not style preferences.
+            Reference the project's CLAUDE.md for architecture rules.
+
+  # Interactive: respond to @claude mentions in PR comments
+  interactive:
+    name: Claude Interactive
+    if: |
+      github.event_name == 'issue_comment' &&
+      contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Interactive Response
+        uses: anthropics/claude-code-action@main
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  # Assignment: Claude investigates when assigned to an issue
+  issue-triage:
+    name: Claude Issue Analysis
+    if: |
+      github.event_name == 'issues' &&
+      github.event.action == 'assigned' &&
+      github.event.assignee.login == 'claude[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Issue Investigation
+        uses: anthropics/claude-code-action@main
+        with:
+          anthropic_api_key: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Investigate this issue. Analyze the codebase to:
+            1. Identify the root cause or relevant code
+            2. Suggest an implementation approach
+            3. List affected files
+            4. Estimate complexity (small/medium/large)
+
+            Reference CLAUDE.md for architecture rules and conventions.

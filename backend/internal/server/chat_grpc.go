@@ -303,16 +303,25 @@ func (s *ChatGRPCServer) SendMessage(ctx context.Context, req *chatv1.SendMessag
 		return nil, status.Error(codes.InvalidArgument, "invalid channel id")
 	}
 
-	createdBy, err := uuid.Parse(req.CreatedBy)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
-	}
-
 	input := message.CreateInput{
 		ChannelID:       channelID,
 		Content:         req.Content,
-		CreatedBy:       createdBy,
 		MentionEveryone: req.MentionEveryone,
+	}
+
+	// Guest messages: guest_session_id is set, created_by may be empty
+	if req.GuestSessionId != nil && *req.GuestSessionId != "" {
+		guestID, parseErr := uuid.Parse(*req.GuestSessionId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid guest_session_id")
+		}
+		input.GuestSessionID = &guestID
+	} else {
+		createdBy, parseErr := uuid.Parse(req.CreatedBy)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid created_by user id")
+		}
+		input.CreatedBy = createdBy
 	}
 
 	if req.ParentMessageId != nil && *req.ParentMessageId != "" {
@@ -356,6 +365,15 @@ func (s *ChatGRPCServer) GetMessages(ctx context.Context, req *chatv1.GetMessage
 		ChannelID: channelID,
 		UserID:    userID,
 		Limit:     int(req.Limit),
+	}
+
+	// Guest access: uuid.Nil means guest — skip membership, verify channel is guest-enabled
+	if userID == uuid.Nil {
+		guestEnabled, chkErr := s.channelService.IsGuestEnabled(ctx, channelID)
+		if chkErr != nil || !guestEnabled {
+			return nil, status.Error(codes.PermissionDenied, "channel does not allow guest access")
+		}
+		input.SkipMembershipCheck = true
 	}
 
 	if req.Before != nil && *req.Before != "" {
@@ -756,16 +774,17 @@ func (s *ChatGRPCServer) SearchChat(ctx context.Context, req *chatv1.SearchChatR
 
 func toChannelInfo(ch *models.ChannelWithRelations) *chatv1.ChannelInfo {
 	info := &chatv1.ChannelInfo{
-		Id:          ch.ID.String(),
-		Name:        ch.Name,
-		IsPrivate:   ch.IsPrivate,
-		IsDm:        ch.IsDM,
-		IsArchived:  ch.IsArchived,
-		CreatedBy:   ch.CreatedBy.String(),
-		CreatedAt:   ch.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:   ch.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		MemberCount: int32(ch.MemberCount),
-		UnreadCount: int32(ch.UnreadCount),
+		Id:             ch.ID.String(),
+		Name:           ch.Name,
+		IsPrivate:      ch.IsPrivate,
+		IsDm:           ch.IsDM,
+		IsArchived:     ch.IsArchived,
+		IsGuestEnabled: ch.IsGuestEnabled,
+		CreatedBy:      ch.CreatedBy.String(),
+		CreatedAt:      ch.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:      ch.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		MemberCount:    int32(ch.MemberCount),
+		UnreadCount:    int32(ch.UnreadCount),
 	}
 
 	if ch.Description != nil {
@@ -808,11 +827,14 @@ func toMessageInfo(m *models.MessageWithSender) *chatv1.MessageInfo {
 		ChannelId:       m.ChannelID.String(),
 		Content:         m.Content,
 		IsDeleted:       m.IsDeleted,
-		CreatedBy:       m.CreatedBy.String(),
 		CreatedAt:       m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		SenderFirstName: m.SenderFirstName,
 		SenderLastName:  m.SenderLastName,
 		ReplyCount:      int32(m.ReplyCount),
+	}
+
+	if m.CreatedBy != nil {
+		info.CreatedBy = m.CreatedBy.String()
 	}
 
 	if m.EditedAt != nil {
@@ -823,6 +845,15 @@ func toMessageInfo(m *models.MessageWithSender) *chatv1.MessageInfo {
 	if m.ParentMessageID != nil {
 		parentID := m.ParentMessageID.String()
 		info.ParentMessageId = &parentID
+	}
+
+	if m.GuestSessionID != nil {
+		guestID := m.GuestSessionID.String()
+		info.GuestSessionId = &guestID
+	}
+
+	if m.GuestDisplayName != "" {
+		info.GuestDisplayName = &m.GuestDisplayName
 	}
 
 	for _, mention := range m.Mentions {
@@ -862,9 +893,12 @@ func toMessageInfoFromBase(m *models.Message) *chatv1.MessageInfo {
 		ChannelId:  m.ChannelID.String(),
 		Content:    m.Content,
 		IsDeleted:  m.IsDeleted,
-		CreatedBy:  m.CreatedBy.String(),
 		CreatedAt:  m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		ReplyCount: int32(m.ReplyCount),
+	}
+
+	if m.CreatedBy != nil {
+		info.CreatedBy = m.CreatedBy.String()
 	}
 
 	if m.EditedAt != nil {

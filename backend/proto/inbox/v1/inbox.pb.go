@@ -30,6 +30,7 @@ const (
 	Channel_CHANNEL_EMAIL        Channel = 1
 	Channel_CHANNEL_CHAT         Channel = 2
 	Channel_CHANNEL_NOTIFICATION Channel = 3
+	Channel_CHANNEL_GUEST        Channel = 4
 )
 
 // Enum value maps for Channel.
@@ -39,12 +40,14 @@ var (
 		1: "CHANNEL_EMAIL",
 		2: "CHANNEL_CHAT",
 		3: "CHANNEL_NOTIFICATION",
+		4: "CHANNEL_GUEST",
 	}
 	Channel_value = map[string]int32{
 		"CHANNEL_UNSPECIFIED":  0,
 		"CHANNEL_EMAIL":        1,
 		"CHANNEL_CHAT":         2,
 		"CHANNEL_NOTIFICATION": 3,
+		"CHANNEL_GUEST":        4,
 	}
 )
 

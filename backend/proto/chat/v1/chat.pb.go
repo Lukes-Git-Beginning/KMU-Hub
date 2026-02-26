@@ -85,9 +85,10 @@ type ChannelInfo struct {
 	MemberCount   int32        `protobuf:"varint,10,opt,name=member_count,json=memberCount,proto3" json:"member_count,omitempty"`
 	MyRole        *string      `protobuf:"bytes,11,opt,name=my_role,json=myRole,proto3,oneof" json:"my_role,omitempty"` // Current user's role in the channel
 	LastMessage   *MessageInfo `protobuf:"bytes,12,opt,name=last_message,json=lastMessage,proto3,oneof" json:"last_message,omitempty"`
-	UnreadCount   int32        `protobuf:"varint,13,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"` // Unread messages for the requesting user (Sprint 3)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	UnreadCount    int32        `protobuf:"varint,13,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"` // Unread messages for the requesting user (Sprint 3)
+	IsGuestEnabled bool         `protobuf:"varint,14,opt,name=is_guest_enabled,json=isGuestEnabled,proto3" json:"is_guest_enabled,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ChannelInfo) Reset() {
@@ -209,6 +210,13 @@ func (x *ChannelInfo) GetUnreadCount() int32 {
 		return x.UnreadCount
 	}
 	return 0
+}
+
+func (x *ChannelInfo) GetIsGuestEnabled() bool {
+	if x != nil {
+		return x.IsGuestEnabled
+	}
+	return false
 }
 
 type CreateChannelRequest struct {
@@ -1430,9 +1438,12 @@ type MessageInfo struct {
 	// Mentions (Sprint 3)
 	Mentions []*MentionInfo `protobuf:"bytes,12,rep,name=mentions,proto3" json:"mentions,omitempty"`
 	// Files (Sprint 4)
-	Files         []*FileInfo `protobuf:"bytes,13,rep,name=files,proto3" json:"files,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Files []*FileInfo `protobuf:"bytes,13,rep,name=files,proto3" json:"files,omitempty"`
+	// Guest chat (Phase 17.5)
+	GuestSessionId   *string `protobuf:"bytes,14,opt,name=guest_session_id,json=guestSessionId,proto3,oneof" json:"guest_session_id,omitempty"`
+	GuestDisplayName *string `protobuf:"bytes,15,opt,name=guest_display_name,json=guestDisplayName,proto3,oneof" json:"guest_display_name,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *MessageInfo) Reset() {
@@ -1556,6 +1567,20 @@ func (x *MessageInfo) GetFiles() []*FileInfo {
 	return nil
 }
 
+func (x *MessageInfo) GetGuestSessionId() string {
+	if x != nil && x.GuestSessionId != nil {
+		return *x.GuestSessionId
+	}
+	return ""
+}
+
+func (x *MessageInfo) GetGuestDisplayName() string {
+	if x != nil && x.GuestDisplayName != nil {
+		return *x.GuestDisplayName
+	}
+	return ""
+}
+
 type SendMessageRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	ChannelId        string                 `protobuf:"bytes,1,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
@@ -1564,6 +1589,7 @@ type SendMessageRequest struct {
 	ParentMessageId  *string                `protobuf:"bytes,4,opt,name=parent_message_id,json=parentMessageId,proto3,oneof" json:"parent_message_id,omitempty"` // For thread replies
 	MentionedUserIds []string               `protobuf:"bytes,5,rep,name=mentioned_user_ids,json=mentionedUserIds,proto3" json:"mentioned_user_ids,omitempty"`    // User IDs to mention (Sprint 3)
 	MentionEveryone  bool                   `protobuf:"varint,6,opt,name=mention_everyone,json=mentionEveryone,proto3" json:"mention_everyone,omitempty"`        // @everyone/@channel mention (Sprint 3)
+	GuestSessionId   *string                `protobuf:"bytes,7,opt,name=guest_session_id,json=guestSessionId,proto3,oneof" json:"guest_session_id,omitempty"`    // For guest chat messages
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -1638,6 +1664,13 @@ func (x *SendMessageRequest) GetMentionEveryone() bool {
 		return x.MentionEveryone
 	}
 	return false
+}
+
+func (x *SendMessageRequest) GetGuestSessionId() string {
+	if x != nil && x.GuestSessionId != nil {
+		return *x.GuestSessionId
+	}
+	return ""
 }
 
 type SendMessageResponse struct {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 	"github.com/kmuhub/kmuhub/internal/auth"
 	caldavpkg "github.com/kmuhub/kmuhub/internal/caldav"
 	"github.com/kmuhub/kmuhub/internal/chat/file"
+	"github.com/kmuhub/kmuhub/internal/chat/guest"
+	"github.com/kmuhub/kmuhub/internal/inbox/adapter"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/document/wopi"
@@ -187,10 +190,45 @@ func main() {
 	slog.Info("routes registered", "service", "caldav")
 
 	// =========================================================================
+	// Guest Chat Support
+	// =========================================================================
+	guestRepo := guest.NewPostgresRepository(pool)
+	guestService := guest.NewService(guestRepo)
+
+	// Guest routes (public, no auth middleware)
+	guestRoutes := gateway.NewGuestRoutes(guestService, registry)
+	guestRoutes.RegisterPublicRoutes(r)
+	slog.Info("routes registered", "service", "guest")
+
+	// Guest inbox adapter
+	guestAdapter := adapter.NewGuestAdapter(pool)
+	_ = guestAdapter // registered below if adapter registry exists
+
+	// =========================================================================
+	// Guest Chat SPA static files
+	// =========================================================================
+	guestChatDir := filepath.Join(".", "guest-chat", "dist")
+	if _, err := os.Stat(guestChatDir); err == nil {
+		fileServer := http.FileServer(http.Dir(guestChatDir))
+		// Serve static assets (JS, CSS, images) directly
+		r.Handle("/guest/assets/*", http.StripPrefix("/guest/", fileServer))
+		// SPA fallback: any /guest/* path serves index.html
+		r.Get("/guest/*", func(w http.ResponseWriter, req *http.Request) {
+			http.ServeFile(w, req, filepath.Join(guestChatDir, "index.html"))
+		})
+		slog.Info("guest chat SPA enabled", "dir", guestChatDir)
+	} else {
+		slog.Info("guest chat SPA not found, /guest/* disabled", "dir", guestChatDir)
+	}
+
+	// =========================================================================
 	// WebSocket hub (cross-cutting: needs chat + auth gRPC clients)
 	// =========================================================================
 	wsHub := setupWebSocketHub(registry, tokenMaker)
 	if wsHub != nil {
+		// Wire guest service to WebSocket hub for guest token validation
+		wsHub.SetGuestService(&guestServiceAdapter{svc: guestService})
+
 		r.Get("/api/v1/ws", wsHub.HandleWebSocket)
 
 		// File upload handler (multipart/form-data, not gRPC)
@@ -348,6 +386,38 @@ func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.Token
 		}
 		return resp.User.FirstName, resp.User.LastName, nil
 	})
+}
+
+// guestServiceAdapter adapts guest.Service to server.GuestSessionValidator,
+// breaking the import cycle between server and guest packages.
+type guestServiceAdapter struct {
+	svc *guest.Service
+}
+
+func (a *guestServiceAdapter) ValidateToken(ctx context.Context, token string) (*server.GuestSessionInfo, error) {
+	session, err := a.svc.ValidateToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	return &server.GuestSessionInfo{
+		ID:          session.ID,
+		ChannelID:   session.ChannelID,
+		DisplayName: session.DisplayName,
+		IsActive:    session.IsActive,
+	}, nil
+}
+
+func (a *guestServiceAdapter) CheckRateLimit(sessionID string) error {
+	id, err := uuid.Parse(sessionID)
+	if err != nil {
+		return err
+	}
+	return a.svc.CheckRateLimit(id)
+}
+
+func (a *guestServiceAdapter) UpdateLastActivity(ctx context.Context, sessionID uuid.UUID) error {
+	// ValidateToken already updates last activity
+	return nil
 }
 
 // caldavPasswordAdapter adapts caldavpkg.AppPasswordService to gateway.CalDAVPasswordService,
