@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package biz.v1;
+
+option go_package = "github.com/kmuhub/kmuhub/proto/biz/v1;bizv1";
+
+import "google/protobuf/timestamp.proto";
+
+service BexioIntegrationService {
+  // OAuth
+  rpc GetBexioAuthURL(GetBexioAuthURLRequest) returns (GetBexioAuthURLResponse);
+  rpc HandleBexioOAuthCallback(HandleBexioOAuthCallbackRequest) returns (HandleBexioOAuthCallbackResponse);
+  rpc DisconnectBexio(DisconnectBexioRequest) returns (DisconnectBexioResponse);
+  rpc GetBexioConnectionStatus(GetBexioConnectionStatusRequest) returns (GetBexioConnectionStatusResponse);
+
+  // Sync Operations
+  rpc TriggerBexioSync(TriggerBexioSyncRequest) returns (TriggerBexioSyncResponse);
+  rpc GetBexioSyncStatus(GetBexioSyncStatusRequest) returns (GetBexioSyncStatusResponse);
+  rpc ListBexioSyncLogs(ListBexioSyncLogsRequest) returns (ListBexioSyncLogsResponse);
+
+  // Field Mappings
+  rpc GetBexioFieldMappings(GetBexioFieldMappingsRequest) returns (GetBexioFieldMappingsResponse);
+  rpc UpdateBexioFieldMappings(UpdateBexioFieldMappingsRequest) returns (UpdateBexioFieldMappingsResponse);
+
+  // Manual Push
+  rpc PushInvoiceToBexio(PushInvoiceToBexioRequest) returns (PushInvoiceToBexioResponse);
+  rpc PushQuoteToBexio(PushQuoteToBexioRequest) returns (PushQuoteToBexioResponse);
+}
+
+// ============================================================================
+// OAuth Messages
+// ============================================================================
+
+message GetBexioAuthURLRequest {
+  string tenant_id = 1;
+  string redirect_url = 2;
+}
+
+message GetBexioAuthURLResponse {
+  string authorization_url = 1;
+}
+
+message HandleBexioOAuthCallbackRequest {
+  string tenant_id = 1;
+  string code = 2;
+}
+
+message HandleBexioOAuthCallbackResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message DisconnectBexioRequest {
+  string tenant_id = 1;
+}
+
+message DisconnectBexioResponse {
+  bool success = 1;
+}
+
+message GetBexioConnectionStatusRequest {
+  string tenant_id = 1;
+}
+
+message GetBexioConnectionStatusResponse {
+  bool connected = 1;
+  string org_name = 2;
+  google.protobuf.Timestamp connected_at = 3;
+}
+
+// ============================================================================
+// Sync Messages
+// ============================================================================
+
+message TriggerBexioSyncRequest {
+  string tenant_id = 1;
+  string sync_type = 2; // Optional: "contacts", "payments", or empty for all
+}
+
+message TriggerBexioSyncResponse {
+  string sync_id = 1;
+  string status = 2;
+}
+
+message GetBexioSyncStatusRequest {
+  string tenant_id = 1;
+}
+
+message GetBexioSyncStatusResponse {
+  bool contact_sync_enabled = 1;
+  bool invoice_push_enabled = 2;
+  bool quote_push_enabled = 3;
+  bool payment_poll_enabled = 4;
+  google.protobuf.Timestamp last_contact_sync_at = 5;
+  google.protobuf.Timestamp last_payment_poll_at = 6;
+  int32 total_contacts_mapped = 7;
+  int32 total_invoices_mapped = 8;
+  int32 total_quotes_mapped = 9;
+  string last_sync_error = 10;
+  google.protobuf.Timestamp last_sync_error_at = 11;
+}
+
+message ListBexioSyncLogsRequest {
+  string tenant_id = 1;
+  int32 limit = 2;
+}
+
+message ListBexioSyncLogsResponse {
+  repeated BexioSyncLogEntry entries = 1;
+}
+
+message BexioSyncLogEntry {
+  string id = 1;
+  string sync_type = 2;
+  string status = 3;
+  int32 items_processed = 4;
+  int32 items_created = 5;
+  int32 items_updated = 6;
+  int32 items_failed = 7;
+  string error_message = 8;
+  google.protobuf.Timestamp started_at = 9;
+  google.protobuf.Timestamp completed_at = 10;
+}
+
+// ============================================================================
+// Field Mapping Messages
+// ============================================================================
+
+message GetBexioFieldMappingsRequest {
+  string tenant_id = 1;
+  string entity_type = 2;
+}
+
+message GetBexioFieldMappingsResponse {
+  repeated BexioFieldMappingEntry mappings = 1;
+}
+
+message BexioFieldMappingEntry {
+  string kmuhub_field = 1;
+  string bexio_field = 2;
+  string direction = 3;
+  bool required = 4;
+}
+
+message UpdateBexioFieldMappingsRequest {
+  string tenant_id = 1;
+  string entity_type = 2;
+  repeated BexioFieldMappingEntry mappings = 3;
+}
+
+message UpdateBexioFieldMappingsResponse {
+  bool success = 1;
+}
+
+// ============================================================================
+// Push Messages
+// ============================================================================
+
+message PushInvoiceToBexioRequest {
+  string tenant_id = 1;
+  string invoice_id = 2;
+}
+
+message PushInvoiceToBexioResponse {
+  bool success = 1;
+  string bexio_id = 2;
+  string error_message = 3;
+}
+
+message PushQuoteToBexioRequest {
+  string tenant_id = 1;
+  string quote_id = 2;
+}
+
+message PushQuoteToBexioResponse {
+  bool success = 1;
+  string bexio_id = 2;
+  string error_message = 3;
+}
