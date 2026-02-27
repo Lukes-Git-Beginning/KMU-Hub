@@ -96,7 +96,7 @@ func (c *Client) do(ctx context.Context, tenantID uuid.UUID, method, path string
 		}
 
 		respBody, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			lastErr = fmt.Errorf("lexware: failed to read response: %w", err)
 			continue

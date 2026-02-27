@@ -12,21 +12,36 @@ linters:
     - unconvert
   settings:
     govet:
-      enable:
-        - shadow
+      enable: []          # Remove shadow — too aggressive for short if-err patterns
+    errcheck:
+      exclude-functions:
+        - io.Copy
+        - (io.Closer).Close
+        - (net/http.ResponseWriter).Write
+        - (*encoding/json.Encoder).Encode
     gosec:
       excludes:
         - G404
         - G115
+        - G101   # Scope constant names are not hardcoded credentials
+        - G109   # int32 cast from Atoi is bounds-safe in our query contexts
+        - G402   # Email TLS config — MinVersion handled by server
   exclusions:
     paths:
       - proto
       - bin
+      - plugins   # WASM plugins are not regular Go — compiled with GOOS=wasip1
     rules:
       - path: _test\.go
         linters:
           - errcheck
           - gosec
+      - linters:
+          - staticcheck
+        text: "SA4017"   # Equal return value — false positive in if-conditions
+      - linters:
+          - staticcheck
+        text: "QF1003"   # tagged switch suggestion — style only
 
 formatters:
   enable:

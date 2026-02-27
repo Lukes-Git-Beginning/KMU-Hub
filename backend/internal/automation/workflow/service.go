@@ -345,7 +345,7 @@ func (s *Service) DryRun(ctx context.Context, automationID uuid.UUID, sampleEnv 
 
 	// Evaluate conditions
 	var condConfig models.ConditionConfig
-	if auto.Conditions != nil && len(auto.Conditions) > 0 {
+	if len(auto.Conditions) > 0 {
 		if err := json.Unmarshal(auto.Conditions, &condConfig); err != nil {
 			return nil, fmt.Errorf("invalid conditions: %w", err)
 		}
@@ -408,7 +408,7 @@ func (s *Service) validateAutomation(auto *models.Automation) error {
 	}
 
 	// Validate conditions if present
-	if auto.Conditions != nil && len(auto.Conditions) > 0 {
+	if len(auto.Conditions) > 0 {
 		var condConfig models.ConditionConfig
 		if err := json.Unmarshal(auto.Conditions, &condConfig); err != nil {
 			return fmt.Errorf("%w: %v", ErrInvalidCondition, err)

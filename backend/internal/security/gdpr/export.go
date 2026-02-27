@@ -68,11 +68,11 @@ func ExecuteExport(ctx context.Context, userID uuid.UUID, handlers []DataExportH
 			if createErr != nil {
 				continue
 			}
-			_, _ = errFile.Write([]byte(fmt.Sprintf("Export failed: %s", exportErr.Error())))
+			fmt.Fprintf(errFile, "Export failed: %s", exportErr.Error())
 			continue
 		}
 
-		if data == nil || len(data) == 0 {
+		if len(data) == 0 {
 			slog.Info("gdpr export: no data for module",
 				"module", moduleName,
 				"user_id", userID,

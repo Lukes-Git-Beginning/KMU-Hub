@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 
@@ -77,7 +78,7 @@ func (mm *MemoryManager) Allocate(size uint32) (uint32, error) {
 	if mallocFn == nil {
 		return 0, fmt.Errorf("module does not export malloc")
 	}
-	results, err := mallocFn.Call(nil, uint64(size))
+	results, err := mallocFn.Call(context.TODO(), uint64(size))
 	if err != nil {
 		return 0, fmt.Errorf("malloc(%d) failed: %w", size, err)
 	}
@@ -93,5 +94,5 @@ func (mm *MemoryManager) Free(ptr uint32) {
 	if freeFn == nil {
 		return
 	}
-	_, _ = freeFn.Call(nil, uint64(ptr))
+	_, _ = freeFn.Call(context.TODO(), uint64(ptr))
 }

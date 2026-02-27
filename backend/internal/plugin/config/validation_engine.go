@@ -43,7 +43,7 @@ func (e *ValidationEngine) ValidateEntity(rules []*models.ValidationRule, data m
 func (e *ValidationEngine) evaluateRule(rule *models.ValidationRule, data map[string]any) *FieldError {
 	value, exists := data[rule.FieldName]
 
-	switch models.ValidationRuleType(rule.RuleType) {
+	switch rule.RuleType {
 	case models.ValidationRuleTypeRegex:
 		return e.evalRegex(rule, value, exists)
 	case models.ValidationRuleTypeRange:

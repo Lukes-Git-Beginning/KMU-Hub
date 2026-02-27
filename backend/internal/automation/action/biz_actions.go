@@ -33,7 +33,7 @@ type createInvoiceDraftConfig struct {
 
 func (a *CreateInvoiceDraftAction) Execute(ctx context.Context, config json.RawMessage, env map[string]any) (ActionResult, error) {
 	if a.client == nil {
-		return ActionResult{Success: false, Error: "Finance service unavailable"}, fmt.Errorf("Finance gRPC client is nil")
+		return ActionResult{Success: false, Error: "finance service unavailable"}, fmt.Errorf("finance gRPC client is nil")
 	}
 
 	var cfg createInvoiceDraftConfig
@@ -107,7 +107,7 @@ type createDunningConfig struct {
 
 func (a *CreateDunningAction) Execute(ctx context.Context, config json.RawMessage, env map[string]any) (ActionResult, error) {
 	if a.client == nil {
-		return ActionResult{Success: false, Error: "Finance service unavailable"}, fmt.Errorf("Finance gRPC client is nil")
+		return ActionResult{Success: false, Error: "finance service unavailable"}, fmt.Errorf("finance gRPC client is nil")
 	}
 
 	var cfg createDunningConfig

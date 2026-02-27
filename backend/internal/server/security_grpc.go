@@ -162,16 +162,8 @@ func (s *SecurityGRPCServer) ExportAuditLog(ctx context.Context, req *securityv1
 }
 
 func (s *SecurityGRPCServer) VerifyAuditChain(ctx context.Context, req *securityv1.VerifyAuditChainRequest) (*securityv1.VerifyAuditChainResponse, error) {
-	var fromSeq, toSeq int64 = 1, 0
-
-	// Use sequence-based verification; from/to timestamps map to sequence ranges
-	// For simplicity, use a large range if not specified
-	if req.From != nil && req.To != nil {
-		// Use a reasonable max
-		toSeq = 1000000
-	} else {
-		toSeq = 1000000
-	}
+	fromSeq := int64(1)
+	toSeq := int64(1000000)
 
 	valid, firstInvalid, err := s.auditService.VerifyChainIntegrity(ctx, fromSeq, toSeq)
 	if err != nil {

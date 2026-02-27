@@ -36,7 +36,7 @@ type createCalendarEventConfig struct {
 
 func (a *CreateCalendarEventAction) Execute(ctx context.Context, config json.RawMessage, env map[string]any) (ActionResult, error) {
 	if a.client == nil {
-		return ActionResult{Success: false, Error: "Calendar service unavailable"}, fmt.Errorf("Calendar gRPC client is nil")
+		return ActionResult{Success: false, Error: "calendar service unavailable"}, fmt.Errorf("calendar gRPC client is nil")
 	}
 
 	var cfg createCalendarEventConfig
