@@ -201,7 +201,7 @@ export function SecuritySettingsTab() {
               </CardDescription>
             </div>
             <Link
-              to="/admin/security/sessions"
+              to="/admin/security"
               className="text-sm text-primary hover:underline flex items-center gap-1"
             >
               <FormattedMessage id="common.details" />

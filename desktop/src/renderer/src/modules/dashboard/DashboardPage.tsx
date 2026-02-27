@@ -1,54 +1,18 @@
-/**
- * Dashboard page -- the home screen after login.
- *
- * Renders a personalizable widget grid via WidgetContainer.
- * Users can toggle edit mode to drag, resize, add, and remove widgets.
- * Layout syncs to server with offline fallback to localStorage.
- */
 import { useEffect } from 'react'
-import { Settings, RotateCcw, Cloud, CloudOff, Loader2 } from 'lucide-react'
+import { Pencil, Check, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { useDashboardStore, type SyncStatus } from '@/stores/dashboard'
+import { AlertsSection, ModulesGrid } from '@/components/dashboard'
 import WidgetContainer from '@/components/widgets/WidgetContainer'
+import { useDashboardStore } from '@/stores/dashboard'
+import { QuickActionsBar } from '@/components/dashboard/QuickActionsBar'
+import { ProfileWidgetSuggestions } from '@/components/dashboard/ProfileWidgetSuggestions'
+import { TextReveal } from '@/components/shared/TextReveal'
 
-/** Small sync status indicator icon. */
-function SyncStatusIcon({ status }: { status: SyncStatus }) {
-  switch (status) {
-    case 'synced':
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Cloud className="h-4 w-4 text-green-500" />
-          </TooltipTrigger>
-          <TooltipContent>Mit Server synchronisiert</TooltipContent>
-        </Tooltip>
-      )
-    case 'syncing':
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </TooltipTrigger>
-          <TooltipContent>Synchronisiere...</TooltipContent>
-        </Tooltip>
-      )
-    case 'offline':
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <CloudOff className="h-4 w-4 text-amber-500" />
-          </TooltipTrigger>
-          <TooltipContent>Offline -- lokal gespeichert</TooltipContent>
-        </Tooltip>
-      )
-    default:
-      return null
-  }
+function getGreeting(): string {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Guten Morgen'
+  if (hour < 18) return 'Guten Tag'
+  return 'Guten Abend'
 }
 
 export default function DashboardPage() {
@@ -56,43 +20,36 @@ export default function DashboardPage() {
   const toggleEditing = useDashboardStore((s) => s.toggleEditing)
   const resetToDefaults = useDashboardStore((s) => s.resetToDefaults)
   const ensureDefaults = useDashboardStore((s) => s.ensureDefaults)
-  const initFromServer = useDashboardStore((s) => s.initFromServer)
-  const serverSyncStatus = useDashboardStore((s) => s.serverSyncStatus)
 
-  // Load default widgets if this is the first visit
   useEffect(() => {
     ensureDefaults()
   }, [ensureDefaults])
 
-  // Initialize from server on mount
-  useEffect(() => {
-    initFromServer()
-  }, [initFromServer])
-
   return (
     <div className="h-full overflow-auto">
-      <div className="px-6 py-6">
-        {/* Page header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Willkommen bei KMU Hub
-              </p>
-            </div>
-            <SyncStatusIcon status={serverSyncStatus} />
+      <div className="p-4 md:p-8">
+        {/* Greeting Header */}
+        <div className="mb-8 flex items-start justify-between animate-fade-up">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">
+              <TextReveal text={getGreeting()} wordDelay={80} />
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: '200ms' }}>
+              Willkommen im KMU Digital Hub &ndash; Ihre All-in-One Plattform
+            </p>
           </div>
 
+          {/* Dashboard edit controls */}
           <div className="flex items-center gap-2">
             {isEditing && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={resetToDefaults}
+                className="text-muted-foreground"
               >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Zuruecksetzen
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Zurücksetzen
               </Button>
             )}
             <Button
@@ -100,14 +57,55 @@ export default function DashboardPage() {
               size="sm"
               onClick={toggleEditing}
             >
-              <Settings className="mr-2 h-4 w-4" />
-              {isEditing ? 'Fertig' : 'Anpassen'}
+              {isEditing ? (
+                <>
+                  <Check className="mr-1.5 h-3.5 w-3.5" />
+                  Fertig
+                </>
+              ) : (
+                <>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Dashboard anpassen
+                </>
+              )}
             </Button>
           </div>
         </div>
 
-        {/* Widget grid */}
-        <WidgetContainer />
+        {/* Quick Actions */}
+        <div className="animate-fade-up stagger-1">
+          <QuickActionsBar />
+        </div>
+
+        {/* Alerts */}
+        <div className="animate-fade-up stagger-2">
+          <AlertsSection />
+        </div>
+
+        {/* Profile Widget Suggestions */}
+        <div className="animate-fade-up stagger-3">
+          <ProfileWidgetSuggestions />
+        </div>
+
+        {/* Modules Grid */}
+        <div className="animate-fade-up stagger-4">
+          <ModulesGrid />
+        </div>
+
+        {/* Widget Grid */}
+        <div className="mb-8 animate-fade-up stagger-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">
+              Widgets
+            </h2>
+            {isEditing && (
+              <p className="text-xs text-muted-foreground">
+                Widgets verschieben, skalieren oder entfernen
+              </p>
+            )}
+          </div>
+          <WidgetContainer />
+        </div>
       </div>
     </div>
   )

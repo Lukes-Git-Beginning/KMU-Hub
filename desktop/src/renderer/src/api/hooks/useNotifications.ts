@@ -204,4 +204,93 @@ export function useNotificationWebSocket() {
   }, [queryClient])
 }
 
-export type { Notification, NotificationPreference }
+// ---------------------------------------------------------------------------
+// Quiet Hours hooks
+// ---------------------------------------------------------------------------
+
+import { quietHoursApi, dndApi, mutingApi } from '../notification-client'
+import type { QuietHours, MutedResource } from '../notification-client'
+
+export const quietHoursKeys = {
+  quietHours: () => ['notifications', 'quiet-hours'] as const,
+  dnd: () => ['notifications', 'dnd'] as const,
+  mutes: () => ['notifications', 'mutes'] as const,
+}
+
+export function useQuietHours() {
+  return useQuery({
+    queryKey: quietHoursKeys.quietHours(),
+    queryFn: () => quietHoursApi.get(),
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.quiet_hours,
+  })
+}
+
+export function useUpdateQuietHours() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Partial<QuietHours>) => quietHoursApi.update(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: quietHoursKeys.quietHours() })
+    },
+  })
+}
+
+export function useDNDStatus() {
+  return useQuery({
+    queryKey: quietHoursKeys.dnd(),
+    queryFn: () => dndApi.getStatus(),
+    refetchInterval: 60_000,
+  })
+}
+
+export function useEnableDND() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (expiresAt?: string) => dndApi.enable(expiresAt),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: quietHoursKeys.dnd() })
+    },
+  })
+}
+
+export function useDisableDND() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => dndApi.disable(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: quietHoursKeys.dnd() })
+    },
+  })
+}
+
+export function useMutedResources() {
+  return useQuery({
+    queryKey: quietHoursKeys.mutes(),
+    queryFn: () => mutingApi.list(),
+    select: (data) => data.mutes,
+  })
+}
+
+export function useMuteResource() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ resourceType, resourceId }: { resourceType: string; resourceId: string }) =>
+      mutingApi.mute(resourceType, resourceId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: quietHoursKeys.mutes() })
+    },
+  })
+}
+
+export function useUnmuteResource() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (muteId: string) => mutingApi.unmute(muteId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: quietHoursKeys.mutes() })
+    },
+  })
+}
+
+export type { Notification, NotificationPreference, QuietHours, MutedResource }

@@ -40,13 +40,66 @@ export interface Meeting {
   files: MeetingFile[]
   whiteboardLink: string
   projectLink: string
+  calendarEventId?: string
+  invitationsSent?: boolean
 }
+
+// ---------------------------------------------------------------------------
+// Video meeting state (for in-meeting UI)
+// ---------------------------------------------------------------------------
+
+export type MeetingLayout = 'grid' | 'speaker' | 'sidebar'
+
+export interface VideoMeetingState {
+  isInMeeting: boolean
+  audioEnabled: boolean
+  videoEnabled: boolean
+  screenSharing: boolean
+  activeSpeakerId: string | null
+  layout: MeetingLayout
+  handRaised: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Call history
+// ---------------------------------------------------------------------------
+
+export interface CallHistoryEntry {
+  id: string
+  contactName: string
+  contactInitials: string
+  type: 'video' | 'audio'
+  direction: 'incoming' | 'outgoing' | 'missed'
+  date: string
+  startTime: string
+  duration: number // minutes, 0 for missed
+}
+
+const mockCallHistory: CallHistoryEntry[] = [
+  { id: 'ch1', contactName: 'Anna Mueller', contactInitials: 'AM', type: 'video', direction: 'outgoing', date: '2026-02-22', startTime: '09:15', duration: 23 },
+  { id: 'ch2', contactName: 'Weber GmbH', contactInitials: 'WG', type: 'audio', direction: 'incoming', date: '2026-02-22', startTime: '08:42', duration: 8 },
+  { id: 'ch3', contactName: 'Peter Koch', contactInitials: 'PK', type: 'video', direction: 'missed', date: '2026-02-21', startTime: '17:30', duration: 0 },
+  { id: 'ch4', contactName: 'Sarah Klein', contactInitials: 'SK', type: 'video', direction: 'incoming', date: '2026-02-21', startTime: '14:00', duration: 45 },
+  { id: 'ch5', contactName: 'Lisa Schmidt', contactInitials: 'LS', type: 'audio', direction: 'outgoing', date: '2026-02-21', startTime: '11:20', duration: 12 },
+  { id: 'ch6', contactName: 'Thomas Weber', contactInitials: 'TW', type: 'video', direction: 'outgoing', date: '2026-02-20', startTime: '16:00', duration: 31 },
+  { id: 'ch7', contactName: 'Jonas Diaz', contactInitials: 'JD', type: 'audio', direction: 'missed', date: '2026-02-20', startTime: '10:05', duration: 0 },
+  { id: 'ch8', contactName: 'Meier AG', contactInitials: 'MA', type: 'video', direction: 'incoming', date: '2026-02-19', startTime: '13:30', duration: 58 },
+]
+
+// ---------------------------------------------------------------------------
+// Store interface
+// ---------------------------------------------------------------------------
 
 interface MeetingsState {
   meetings: Meeting[]
+  callHistory: CallHistoryEntry[]
   activeMeetingId: string | null
   activeCallContactId: string | null
   activeCallContactName: string | null
+
+  // Video meeting state
+  videoMeeting: VideoMeetingState
+
   addMeeting: (meeting: Omit<Meeting, 'id'>) => void
   updateMeeting: (id: string, updates: Partial<Meeting>) => void
   deleteMeeting: (id: string) => void
@@ -60,6 +113,16 @@ interface MeetingsState {
   setActiveMeeting: (id: string | null) => void
   startCall: (contactId: string, contactName: string) => void
   endCall: () => void
+
+  // Video meeting actions
+  joinMeeting: (meetingId: string) => void
+  leaveMeeting: () => void
+  toggleAudio: () => void
+  toggleVideo: () => void
+  toggleScreenShare: () => void
+  toggleHandRaise: () => void
+  setLayout: (layout: MeetingLayout) => void
+  setActiveSpeaker: (userId: string | null) => void
 }
 
 const mockMeetings: Meeting[] = [
@@ -93,6 +156,8 @@ const mockMeetings: Meeting[] = [
     files: [{ id: 'f1', name: 'Sprint-Backlog.xlsx', size: '245 KB' }],
     whiteboardLink: '',
     projectLink: 'website-relaunch',
+    calendarEventId: 'cal-m1',
+    invitationsSent: true,
   },
   {
     id: 'm2',
@@ -122,6 +187,7 @@ const mockMeetings: Meeting[] = [
     files: [{ id: 'f2', name: 'Mockups-v3.fig', size: '12 MB' }],
     whiteboardLink: '',
     projectLink: 'mobile-app',
+    invitationsSent: false,
   },
   {
     id: 'm3',
@@ -156,6 +222,8 @@ const mockMeetings: Meeting[] = [
     ],
     whiteboardLink: '',
     projectLink: 'crm-integration',
+    calendarEventId: 'cal-m3',
+    invitationsSent: true,
   },
   {
     id: 'm4',
@@ -318,9 +386,20 @@ export const useMeetingsStore = create<MeetingsState>()(
   persist(
     (set, get) => ({
       meetings: mockMeetings,
+      callHistory: mockCallHistory,
       activeMeetingId: null,
       activeCallContactId: null,
       activeCallContactName: null,
+
+      videoMeeting: {
+        isInMeeting: false,
+        audioEnabled: true,
+        videoEnabled: true,
+        screenSharing: false,
+        activeSpeakerId: null,
+        layout: 'grid' as MeetingLayout,
+        handRaised: false,
+      },
 
       addMeeting: (meeting) =>
         set((state) => ({
@@ -414,6 +493,63 @@ export const useMeetingsStore = create<MeetingsState>()(
 
       endCall: () =>
         set({ activeCallContactId: null, activeCallContactName: null }),
+
+      // -- Video meeting actions --
+
+      joinMeeting: (meetingId) =>
+        set({
+          activeMeetingId: meetingId,
+          videoMeeting: {
+            isInMeeting: true,
+            audioEnabled: true,
+            videoEnabled: true,
+            screenSharing: false,
+            activeSpeakerId: null,
+            layout: 'grid',
+            handRaised: false,
+          },
+        }),
+
+      leaveMeeting: () =>
+        set((state) => ({
+          activeMeetingId: null,
+          videoMeeting: {
+            ...state.videoMeeting,
+            isInMeeting: false,
+            screenSharing: false,
+            handRaised: false,
+          },
+        })),
+
+      toggleAudio: () =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, audioEnabled: !state.videoMeeting.audioEnabled },
+        })),
+
+      toggleVideo: () =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, videoEnabled: !state.videoMeeting.videoEnabled },
+        })),
+
+      toggleScreenShare: () =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, screenSharing: !state.videoMeeting.screenSharing },
+        })),
+
+      toggleHandRaise: () =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, handRaised: !state.videoMeeting.handRaised },
+        })),
+
+      setLayout: (layout) =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, layout },
+        })),
+
+      setActiveSpeaker: (userId) =>
+        set((state) => ({
+          videoMeeting: { ...state.videoMeeting, activeSpeakerId: userId },
+        })),
     }),
     { name: 'kmuhub-meetings' }
   )

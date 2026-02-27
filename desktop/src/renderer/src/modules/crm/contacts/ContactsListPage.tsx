@@ -17,6 +17,7 @@ import {
   Download,
   Globe,
   Lock,
+  Contact,
 } from 'lucide-react'
 import { useContacts } from '@/api/hooks/useContacts'
 import { Button } from '@/components/ui/button'
@@ -40,6 +41,7 @@ import {
 } from '@/components/ui/table'
 import ImportWizard from '@/modules/mails/ImportWizard'
 import ExportDialog from '@/modules/mails/ExportDialog'
+import { PageHeader } from '@/components/shared'
 
 const PAGE_SIZE = 20
 
@@ -108,27 +110,32 @@ export default function ContactsListPage() {
   return (
     <div className="p-6 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Kontakte</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
-            <Upload className="h-4 w-4" />
-            Importieren
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setExportOpen(true)}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Exportieren
-          </Button>
-          <Button onClick={showComingSoon} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Neuer Kontakt
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Kontakte"
+        description={`${total} Kontakte`}
+        icon={Contact}
+        moduleId="contacts"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
+              <Upload className="h-4 w-4" />
+              Importieren
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setExportOpen(true)}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Exportieren
+            </Button>
+            <Button onClick={showComingSoon} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Neuer Kontakt
+            </Button>
+          </div>
+        }
+      />
 
       {/* Search bar + visibility filter */}
       <div className="flex items-center gap-3">

@@ -4,7 +4,7 @@ import {
   ArrowRight, Timer,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
-import { useTimeTrackingStore } from '@/stores/timetracking'
+import { useTimeTrackingStore, getOvertimeSaldo } from '@/stores/timetracking'
 import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
 import {
   formatMinutes, formatHoursDecimal, isToday,
@@ -45,7 +45,8 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
   const dailyTarget = targets.dailyHours * 60
   const todayPercent = Math.min(100, Math.round((todayMinutes / dailyTarget) * 100))
 
-  // ── Overtime (all-time) ─────────────────────────────
+  // ── Overtime (all-time, using helper 6.8) ───────────
+  const overtime = useMemo(() => getOvertimeSaldo(entries, targets), [entries, targets])
   const uniqueDates = [...new Set(entries.map((e) => e.date))]
   const workingDays = uniqueDates.filter((ds) => {
     const d = new Date(ds)
@@ -53,7 +54,6 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
   }).length
   const totalMinutesAllTime = entries.reduce((s, e) => s + e.durationMinutes, 0)
   const totalTarget = workingDays * targets.dailyHours * 60
-  const overtime = totalMinutesAllTime - totalTarget
 
   // ── This Month ──────────────────────────────────────
   const thisMonth = new Date().toISOString().slice(0, 7) // YYYY-MM

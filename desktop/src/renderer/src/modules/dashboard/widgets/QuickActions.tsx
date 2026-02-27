@@ -20,7 +20,7 @@ const actions = [
   { label: 'Neuer Kontakt', icon: UserPlus, path: '/crm/contacts' },
   { label: 'Neuer Deal', icon: DollarSign, path: '/crm/deals' },
   { label: 'Neue Nachricht', icon: MessageSquarePlus, path: '/chat' },
-  { label: 'Neue Aktivitaet', icon: PlusCircle, path: '/crm/activities' },
+  { label: 'Neue Aktivität', icon: PlusCircle, path: '/crm/activities' },
   { label: 'Suche', icon: Search, path: '/crm/search' },
   { label: 'Benachrichtigungen', icon: Bell, path: '/notifications' },
 ] as const

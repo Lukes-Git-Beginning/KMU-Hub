@@ -25,6 +25,7 @@ import {
   Monitor,
   Smartphone,
   Globe,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -34,6 +35,7 @@ import {
   useRevokeAppPassword,
   useEnableCalDAV,
   useDisableCalDAV,
+  useTestCalDAVConnection,
 } from '@/api/hooks/useCaldav'
 import { API_BASE_URL } from '@/lib/constants'
 
@@ -401,41 +403,118 @@ export function CalDAVSettingsTab() {
       <Separator className="mb-8" />
 
       {/* Connection test */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <RefreshCw className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">
-            Verbindungstest
-          </h3>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (status?.org_enabled && status?.user_enabled) {
-                toast.success(
-                  `CalDAV/CardDAV aktiv: ${status.password_count} Passwort(e) konfiguriert`,
-                )
-              } else if (!status?.org_enabled) {
-                toast.warning(
-                  'CalDAV/CardDAV ist organisationsweit deaktiviert',
-                )
-              } else {
-                toast.warning(
-                  'CalDAV/CardDAV ist fuer Ihren Account deaktiviert',
-                )
-              }
-            }}
-          >
-            Verbindung testen
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Prueft ob CalDAV/CardDAV korrekt eingerichtet ist
-          </p>
-        </div>
-      </section>
+      <ConnectionTestSection
+        orgEnabled={status?.org_enabled ?? false}
+        userEnabled={status?.user_enabled ?? false}
+      />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Connection test section
+// ---------------------------------------------------------------------------
+
+function ConnectionTestSection({
+  orgEnabled,
+  userEnabled,
+}: {
+  orgEnabled: boolean
+  userEnabled: boolean
+}) {
+  const testMutation = useTestCalDAVConnection()
+
+  const handleTest = () => {
+    testMutation.mutate()
+  }
+
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-4">
+        <RefreshCw className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-medium text-foreground">
+          Verbindungstest
+        </h3>
+      </div>
+
+      <div className="flex items-center gap-3 mb-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleTest}
+          disabled={testMutation.isPending || !orgEnabled || !userEnabled}
+        >
+          {testMutation.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          {testMutation.isPending ? 'Teste...' : 'Verbindung testen'}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Prueft ob CalDAV/CardDAV korrekt eingerichtet ist
+        </p>
+      </div>
+
+      {(!orgEnabled || !userEnabled) && (
+        <div className="rounded-md border border-yellow-500/30 bg-yellow-50/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
+          {!orgEnabled
+            ? 'CalDAV/CardDAV ist organisationsweit deaktiviert. Bitte wenden Sie sich an Ihren Administrator.'
+            : 'Aktivieren Sie zuerst Ihren persoenlichen Zugang (oben), um den Verbindungstest ausfuehren zu koennen.'}
+        </div>
+      )}
+
+      {testMutation.data && (
+        <div
+          className={`rounded-md border px-3 py-2.5 text-xs ${
+            testMutation.data.success
+              ? 'border-green-500/30 bg-green-50/10 text-green-700 dark:text-green-400'
+              : 'border-red-500/30 bg-red-50/10 text-red-700 dark:text-red-400'
+          }`}
+        >
+          <div className="flex items-center gap-2 mb-1.5">
+            {testMutation.data.success ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
+            <span className="font-medium">
+              {testMutation.data.success
+                ? 'Verbindung erfolgreich'
+                : 'Verbindung fehlgeschlagen'}
+            </span>
+          </div>
+          <div className="space-y-0.5 ml-6">
+            <p className="flex items-center gap-1.5">
+              {testMutation.data.caldav_reachable ? (
+                <CheckCircle className="h-3 w-3" />
+              ) : (
+                <XCircle className="h-3 w-3" />
+              )}
+              CalDAV {testMutation.data.caldav_reachable ? 'erreichbar' : 'nicht erreichbar'}
+            </p>
+            <p className="flex items-center gap-1.5">
+              {testMutation.data.carddav_reachable ? (
+                <CheckCircle className="h-3 w-3" />
+              ) : (
+                <XCircle className="h-3 w-3" />
+              )}
+              CardDAV {testMutation.data.carddav_reachable ? 'erreichbar' : 'nicht erreichbar'}
+            </p>
+            {testMutation.data.message && (
+              <p className="mt-1 text-muted-foreground">{testMutation.data.message}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {testMutation.isError && (
+        <div className="rounded-md border border-red-500/30 bg-red-50/10 px-3 py-2 text-xs text-red-700 dark:text-red-400 flex items-center gap-2">
+          <XCircle className="h-4 w-4" />
+          Fehler: {(testMutation.error as Error)?.message ?? 'Verbindungstest fehlgeschlagen'}
+        </div>
+      )}
+    </section>
   )
 }
 

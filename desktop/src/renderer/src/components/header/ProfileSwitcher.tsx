@@ -51,18 +51,12 @@ export function ProfileSwitcher() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent transition-colors"
+        className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-accent transition-colors"
       >
-        <span className="text-lg">{activeProfile?.icon ?? '\u2699\uFE0F'}</span>
-        <div className="hidden md:flex flex-col items-start">
-          <span className="text-xs text-muted-foreground">Profil</span>
-          <span className="text-sm font-medium text-foreground">
-            {activeProfile?.name}
-          </span>
-        </div>
+        <span className="text-base">{activeProfile?.icon ?? '\u2699\uFE0F'}</span>
         <ChevronDown
           className={cn(
-            'h-4 w-4 text-muted-foreground transition-transform',
+            'h-3.5 w-3.5 text-muted-foreground transition-transform',
             isOpen && 'rotate-180',
           )}
         />

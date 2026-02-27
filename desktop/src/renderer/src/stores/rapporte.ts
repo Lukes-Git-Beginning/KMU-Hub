@@ -38,9 +38,13 @@ export interface FieldReport {
   workers: ReportWorker[]
   activities: ReportActivity[]
   materials: ReportMaterial[]
-  photos: { id: string; caption: string }[]
+  photos: { id: string; caption: string; thumbnailUrl?: string }[]
   notes: string
   signatureStatus: 'pending' | 'signed'
+  signatureDataUrl?: string
+  approvalStatus: 'draft' | 'submitted' | 'approved' | 'rejected'
+  approvalComment?: string
+  approvedBy?: string
 }
 
 export interface MeasurementPosition {
@@ -111,6 +115,8 @@ const MOCK_REPORTS: FieldReport[] = [
     ],
     notes: 'Betonpumpe ab 13:00 im Einsatz. Nächster Guss geplant für Mittwoch.',
     signatureStatus: 'signed',
+    approvalStatus: 'approved',
+    approvedBy: 'Peter Widmer',
   },
   {
     id: 'rpt-2',
@@ -143,6 +149,8 @@ const MOCK_REPORTS: FieldReport[] = [
     photos: [],
     notes: 'Südseite komplett entfernt. Untergrund stellenweise schadhaft — Bauherr informiert.',
     signatureStatus: 'signed',
+    approvalStatus: 'approved',
+    approvedBy: 'Hans Meier',
   },
   {
     id: 'rpt-3',
@@ -178,6 +186,7 @@ const MOCK_REPORTS: FieldReport[] = [
     ],
     notes: 'Büromöbel-Lieferung am Donnerstag erwartet. Bodenleger morgen für Korridor eingeplant.',
     signatureStatus: 'pending',
+    approvalStatus: 'submitted',
   },
   {
     id: 'rpt-4',
@@ -208,6 +217,8 @@ const MOCK_REPORTS: FieldReport[] = [
     ],
     notes: 'Arbeiten wegen starkem Regen vorzeitig beendet. Wetterprognose für morgen besser — Weiterarbeit geplant.',
     signatureStatus: 'signed',
+    approvalStatus: 'approved',
+    approvedBy: 'Beat Zimmermann',
   },
   {
     id: 'rpt-5',
@@ -241,6 +252,9 @@ const MOCK_REPORTS: FieldReport[] = [
     photos: [],
     notes: 'NIV-Kontrolle für nächste Woche angemeldet. Unterverteilung UG bereit für Abnahme.',
     signatureStatus: 'pending',
+    approvalStatus: 'rejected',
+    approvalComment: 'Prüfprotokoll Erdung fehlt als Anlage',
+    approvedBy: 'Peter Widmer',
   },
   {
     id: 'rpt-6',
@@ -284,6 +298,8 @@ const MOCK_REPORTS: FieldReport[] = [
     ],
     notes: 'Bagger morgen nicht verfügbar — Erdarbeiten am Mittwoch weiterführen. Pflanzlieferung für Freitag bestätigt.',
     signatureStatus: 'signed',
+    approvalStatus: 'approved',
+    approvedBy: 'Adrian Steffen',
   },
   {
     id: 'rpt-7',
@@ -316,6 +332,7 @@ const MOCK_REPORTS: FieldReport[] = [
     ],
     notes: 'Bodenplatten ca. 70% verlegt. Fugenarbeiten morgen. Duscharmatur-Lieferung ausstehend (erwartet Donnerstag).',
     signatureStatus: 'pending',
+    approvalStatus: 'draft',
   },
   {
     id: 'rpt-8',
@@ -349,6 +366,8 @@ const MOCK_REPORTS: FieldReport[] = [
     ],
     notes: 'Trotz Schneefall konnte in der Tiefgarage gearbeitet werden (überdacht). Temperatur grenzwertig für Bitumenverarbeitung — Heizgebläse eingesetzt.',
     signatureStatus: 'signed',
+    approvalStatus: 'approved',
+    approvedBy: 'Marco Brunner',
   },
 ]
 

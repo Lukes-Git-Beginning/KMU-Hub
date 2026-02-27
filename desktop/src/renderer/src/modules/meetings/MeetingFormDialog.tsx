@@ -1,10 +1,3 @@
-/**
- * MeetingFormDialog -- create or edit a meeting.
- *
- * Adapted from Darien's design (design/brainstorm) to use real backend API
- * via useCreateMeeting/useUpdateMeeting mutations. Replaces mock participants
- * with attendee_ids array for backend API.
- */
 import { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -17,145 +10,241 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react'
-import { toast } from 'sonner'
-import { useCreateMeeting, useUpdateMeeting } from '@/api/hooks/useMeetings'
-import type { Meeting } from '@/api/video-types'
+import {
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  FolderOpen,
+  ListChecks,
+  MapPin,
+  Paperclip,
+  Plus,
+  Repeat,
+  Bell,
+  Users,
+  Video,
+  X,
+  FileText,
+} from 'lucide-react'
+import type { Meeting, AgendaItem } from '@/stores/meetings'
 
 interface MeetingFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   meeting?: Meeting | null
+  onSubmit: (data: Omit<Meeting, 'id'>) => void
 }
 
-export function MeetingFormDialog({ open, onOpenChange, meeting }: MeetingFormDialogProps) {
+const rooms = ['Konferenzraum A', 'Konferenzraum B', 'Huddle Space', 'Besprechungsraum', 'Remote']
+const durations = [15, 30, 45, 60, 90, 120]
+const recurrenceOptions = [
+  { value: 'none', label: 'Keine Wiederholung' },
+  { value: 'daily', label: 'Täglich' },
+  { value: 'weekly', label: 'Wöchentlich' },
+  { value: 'monthly', label: 'Monatlich' },
+  { value: 'custom', label: 'Benutzerdefiniert' },
+]
+
+const customIntervalUnits = [
+  { value: 'days', label: 'Tage' },
+  { value: 'weeks', label: 'Wochen' },
+  { value: 'months', label: 'Monate' },
+]
+const reminderOptions = [
+  { value: 'none', label: 'Keine Erinnerung' },
+  { value: '15min', label: '15 Minuten vorher' },
+  { value: '30min', label: '30 Minuten vorher' },
+  { value: '1h', label: '1 Stunde vorher' },
+]
+const projects = ['Website Relaunch', 'Mobile App', 'CRM Integration', 'Security Audit', 'Finanzen', 'Allgemein']
+
+const PRESET_COLORS = [
+  '#3B82F6', // blue
+  '#8B5CF6', // violet
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#EC4899', // pink
+  '#6B7280', // gray
+  '#06B6D4', // cyan
+]
+
+const availableParticipants = [
+  { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
+  { id: 'p2', name: 'Michael Berg', initials: 'MB' },
+  { id: 'p3', name: 'Sarah Klein', initials: 'SK' },
+  { id: 'p4', name: 'Lisa Schmidt', initials: 'LS' },
+  { id: 'p5', name: 'Peter Koch', initials: 'PK' },
+  { id: 'p6', name: 'Jonas Diaz', initials: 'JD' },
+  { id: 'p7', name: 'Thomas Weber', initials: 'TW' },
+  { id: 'p8', name: 'Eva Brunner', initials: 'EB' },
+]
+
+export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: MeetingFormDialogProps) {
   const isEdit = !!meeting
-  const createMutation = useCreateMeeting()
-  const updateMutation = useUpdateMeeting()
 
-  // Form state
   const [title, setTitle] = useState('')
-  const [scheduledStart, setScheduledStart] = useState('')
+  const [date, setDate] = useState('')
   const [startTime, setStartTime] = useState('09:00')
-  const [scheduledEnd, setScheduledEnd] = useState('')
-  const [endTime, setEndTime] = useState('10:00')
-  const [agenda, setAgenda] = useState('')
+  const [duration, setDuration] = useState(30)
+  const [room, setRoom] = useState('Remote')
+  const [isVideoCall, setIsVideoCall] = useState(true)
+  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none')
+  const [recurrenceDisplay, setRecurrenceDisplay] = useState<string>('none')
+  const [customInterval, setCustomInterval] = useState(2)
+  const [customUnit, setCustomUnit] = useState<'days' | 'weeks' | 'months'>('weeks')
+  const [reminder, setReminder] = useState<'15min' | '30min' | '1h' | 'none'>('15min')
   const [description, setDescription] = useState('')
-  const [attendeeInput, setAttendeeInput] = useState('')
-  const [attendeeIds, setAttendeeIds] = useState<string[]>([])
+  const [project, setProject] = useState('')
+  const [color, setColor] = useState(PRESET_COLORS[0])
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([])
   const [showExtras, setShowExtras] = useState(false)
-  const [calendarEventId, setCalendarEventId] = useState('')
-  const [recurringMeetingId, setRecurringMeetingId] = useState('')
+  const [participantSearch, setParticipantSearch] = useState('')
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
+  const [newAgendaText, setNewAgendaText] = useState('')
+  const [addToCalendar, setAddToCalendar] = useState(true)
+  const [sendInvitations, setSendInvitations] = useState(true)
 
-  // Reset form when dialog opens/closes or meeting changes
   useEffect(() => {
     if (meeting) {
       setTitle(meeting.title)
-      const start = new Date(meeting.scheduled_start)
-      const end = new Date(meeting.scheduled_end)
-      setScheduledStart(start.toISOString().split('T')[0])
-      setStartTime(
-        start.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
-      )
-      setScheduledEnd(end.toISOString().split('T')[0])
-      setEndTime(
-        end.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }),
-      )
-      setAgenda(meeting.agenda ?? '')
-      setDescription(meeting.description ?? '')
-      setAttendeeIds(meeting.attendees?.map((a) => a.user_id) ?? [])
-      setCalendarEventId(meeting.calendar_event_id ?? '')
-      setRecurringMeetingId(meeting.recurring_meeting_id ?? '')
+      setDate(meeting.date)
+      setStartTime(meeting.startTime)
+      setDuration(meeting.duration)
+      setRoom(meeting.room)
+      setIsVideoCall(meeting.isVideoCall)
+      setRecurrence(meeting.recurrence)
+      setRecurrenceDisplay(meeting.recurrence)
+      setCustomInterval(2)
+      setCustomUnit('weeks')
+      setReminder(meeting.reminder)
+      setDescription(meeting.description)
+      setProject(meeting.project)
+      setColor(meeting.color || PRESET_COLORS[0])
+      setSelectedParticipants(meeting.participants.map((p) => p.id))
+      setAgendaItems(meeting.agenda.map((a) => ({ ...a })))
+      setShowExtras(meeting.recurrence !== 'none' || !!meeting.description || meeting.agenda.length > 0)
+      setAddToCalendar(!!meeting.calendarEventId)
+      setSendInvitations(!!meeting.invitationsSent)
     } else {
       setTitle('')
-      setScheduledStart(new Date().toISOString().split('T')[0])
+      setDate(new Date().toISOString().split('T')[0])
       setStartTime('09:00')
-      setScheduledEnd(new Date().toISOString().split('T')[0])
-      setEndTime('10:00')
-      setAgenda('')
+      setDuration(30)
+      setRoom('Remote')
+      setIsVideoCall(true)
+      setRecurrence('none')
+      setRecurrenceDisplay('none')
+      setCustomInterval(2)
+      setCustomUnit('weeks')
+      setReminder('15min')
       setDescription('')
-      setAttendeeIds([])
-      setAttendeeInput('')
+      setProject('')
+      setColor(PRESET_COLORS[0])
+      setSelectedParticipants([])
       setShowExtras(false)
-      setCalendarEventId('')
-      setRecurringMeetingId('')
+      setAgendaItems([])
+      setNewAgendaText('')
+      setAddToCalendar(true)
+      setSendInvitations(true)
     }
   }, [meeting, open])
 
-  /** Build full ISO datetime from date + time strings. */
-  function buildISO(date: string, time: string): string {
-    return `${date}T${time}:00Z`
+  const filteredParticipants = availableParticipants.filter(
+    (p) =>
+      !selectedParticipants.includes(p.id) &&
+      p.name.toLowerCase().includes(participantSearch.toLowerCase())
+  )
+
+  const handleAddAgenda = () => {
+    const text = newAgendaText.trim()
+    if (!text) return
+    setAgendaItems((prev) => [...prev, { id: `a${Date.now()}`, text, done: false }])
+    setNewAgendaText('')
+  }
+
+  const handleRemoveAgenda = (id: string) => {
+    setAgendaItems((prev) => prev.filter((a) => a.id !== id))
+  }
+
+  const handleReorderAgenda = (id: string, direction: 'up' | 'down') => {
+    setAgendaItems((prev) => {
+      const idx = prev.findIndex((a) => a.id === id)
+      if (idx === -1) return prev
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
+      return next
+    })
+  }
+
+  const handleRecurrenceChange = (value: string) => {
+    setRecurrenceDisplay(value)
+    if (value === 'custom') {
+      // Map custom to the closest standard recurrence for storage
+      const unitMap: Record<string, 'daily' | 'weekly' | 'monthly'> = {
+        days: 'daily',
+        weeks: 'weekly',
+        months: 'monthly',
+      }
+      setRecurrence(unitMap[customUnit])
+    } else {
+      setRecurrence(value as 'none' | 'daily' | 'weekly' | 'monthly')
+    }
   }
 
   const handleSubmit = () => {
     if (!title.trim()) return
-
-    const startISO = buildISO(scheduledStart, startTime)
-    const endISO = buildISO(scheduledEnd || scheduledStart, endTime)
-
-    // Validate: start must be before end
-    if (new Date(startISO) >= new Date(endISO)) {
-      toast.error('Startzeit muss vor der Endzeit liegen')
-      return
+    const participants = availableParticipants.filter((p) =>
+      selectedParticipants.includes(p.id)
+    )
+    // Resolve custom recurrence to closest standard value
+    let finalRecurrence = recurrence
+    if (recurrenceDisplay === 'custom') {
+      const unitMap: Record<string, 'daily' | 'weekly' | 'monthly'> = {
+        days: 'daily',
+        weeks: 'weekly',
+        months: 'monthly',
+      }
+      finalRecurrence = unitMap[customUnit]
     }
 
-    if (isEdit && meeting) {
-      updateMutation.mutate(
-        {
-          id: meeting.id,
-          data: {
-            title: title.trim(),
-            description: description || undefined,
-            agenda: agenda || undefined,
-            scheduled_start: startISO,
-            scheduled_end: endISO,
-          },
-        },
-        {
-          onSuccess: () => {
-            toast.success('Meeting aktualisiert')
-            onOpenChange(false)
-          },
-          onError: () => toast.error('Fehler beim Aktualisieren'),
-        },
-      )
-    } else {
-      createMutation.mutate(
-        {
-          title: title.trim(),
-          description: description || undefined,
-          agenda: agenda || undefined,
-          scheduled_start: startISO,
-          scheduled_end: endISO,
-          attendee_ids: attendeeIds,
-          calendar_event_id: calendarEventId || undefined,
-          recurring_meeting_id: recurringMeetingId || undefined,
-        },
-        {
-          onSuccess: () => {
-            toast.success('Meeting erstellt')
-            onOpenChange(false)
-          },
-          onError: () => toast.error('Fehler beim Erstellen'),
-        },
-      )
-    }
+    const newMeetingId = meeting?.id || `m${Date.now()}`
+    onSubmit({
+      title: title.trim(),
+      status: meeting?.status || 'scheduled',
+      project: project || 'Allgemein',
+      color,
+      date,
+      startTime,
+      duration,
+      room,
+      isVideoCall,
+      recurrence: finalRecurrence,
+      reminder,
+      description,
+      participants,
+      organizerId: meeting?.organizerId || selectedParticipants[0] || '',
+      agenda: agendaItems,
+      notes: meeting?.notes || '',
+      files: meeting?.files || [],
+      whiteboardLink: meeting?.whiteboardLink || '',
+      projectLink: project.toLowerCase().replace(/\s+/g, '-'),
+      calendarEventId: addToCalendar ? (meeting?.calendarEventId || `cal-${newMeetingId}`) : undefined,
+      invitationsSent: sendInvitations ? true : (meeting?.invitationsSent || false),
+    })
+    onOpenChange(false)
   }
-
-  const addAttendee = () => {
-    const trimmed = attendeeInput.trim()
-    if (trimmed && !attendeeIds.includes(trimmed)) {
-      setAttendeeIds((prev) => [...prev, trimmed])
-      setAttendeeInput('')
-    }
-  }
-
-  const removeAttendee = (id: string) => {
-    setAttendeeIds((prev) => prev.filter((a) => a !== id))
-  }
-
-  const isPending = createMutation.isPending || updateMutation.isPending
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,10 +253,13 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: MeetingFormDi
           <DialogTitle>{isEdit ? 'Meeting bearbeiten' : 'Neues Meeting'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Title */}
+        <div className="space-y-5 py-2">
+          {/* ── Title ── */}
           <div className="space-y-1.5">
-            <Label>Titel *</Label>
+            <Label className="flex items-center gap-1.5">
+              <Video className="h-3.5 w-3.5 text-[var(--muted)]" />
+              Titel *
+            </Label>
             <Input
               placeholder="z.B. Sprint Planning"
               value={title}
@@ -176,138 +268,340 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: MeetingFormDi
             />
           </div>
 
-          {/* Date + Time */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Startdatum</Label>
-              <Input
-                type="date"
-                value={scheduledStart}
-                onChange={(e) => setScheduledStart(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Startzeit</Label>
-              <Input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Enddatum</Label>
-              <Input
-                type="date"
-                value={scheduledEnd || scheduledStart}
-                onChange={(e) => setScheduledEnd(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Endzeit</Label>
-              <Input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Agenda */}
+          {/* ── Color Picker ── */}
           <div className="space-y-1.5">
-            <Label>Agenda</Label>
-            <Textarea
-              placeholder="Meeting-Agenda eingeben..."
-              value={agenda}
-              onChange={(e) => setAgenda(e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          {/* Attendees */}
-          <div className="space-y-1.5">
-            <Label>Teilnehmer (User-IDs)</Label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {attendeeIds.map((id) => (
-                <span
-                  key={id}
-                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-                >
-                  {id.slice(0, 8)}...
-                  <button
-                    onClick={() => removeAttendee(id)}
-                    className="ml-0.5 rounded-full hover:bg-primary/20 p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
+            <Label className="text-xs">Farbe</Label>
+            <div className="flex items-center gap-2">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`h-7 w-7 rounded-full transition-all ${
+                    color === c
+                      ? 'ring-2 ring-offset-2 ring-primary scale-110'
+                      : 'hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
               ))}
             </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="User-ID eingeben..."
-                value={attendeeInput}
-                onChange={(e) => setAttendeeInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addAttendee()
-                  }
-                }}
-                className="text-sm"
-              />
-              <Button variant="outline" size="sm" onClick={addAttendee}>
-                <Plus className="h-4 w-4" />
-              </Button>
+          </div>
+
+          {/* ── Date + Time + Duration ── */}
+          <div>
+            <Label className="flex items-center gap-1.5 mb-1.5">
+              <Calendar className="h-3.5 w-3.5 text-[var(--muted)]" />
+              Termin
+            </Label>
+            <div className="grid grid-cols-3 gap-3">
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <div className="relative">
+                <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--muted)] pointer-events-none" />
+                <Input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+              <Select value={String(duration)} onValueChange={(v) => setDuration(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {durations.map((d) => (
+                    <SelectItem key={d} value={String(d)}>
+                      {d >= 60 ? `${d / 60} Std` : `${d} Min`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Expandable extras */}
+          {/* ── Room + Video ── */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-[var(--muted)]" />
+                Raum
+              </Label>
+              <Select value={room} onValueChange={setRoom}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end gap-3 pb-0.5">
+              <div className="flex items-center gap-2">
+                <Switch checked={isVideoCall} onCheckedChange={setIsVideoCall} id="video-toggle" />
+                <Label htmlFor="video-toggle" className="cursor-pointer flex items-center gap-1.5">
+                  <Video className="h-3.5 w-3.5 text-[var(--muted)]" />
+                  Video-Call
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Participants ── */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-[var(--muted)]" />
+              Teilnehmer
+            </Label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {selectedParticipants.map((pId) => {
+                const p = availableParticipants.find((x) => x.id === pId)
+                if (!p) return null
+                return (
+                  <span
+                    key={pId}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                  >
+                    {p.name}
+                    <button
+                      onClick={() => setSelectedParticipants((s) => s.filter((id) => id !== pId))}
+                      className="ml-0.5 rounded-full hover:bg-primary/20 p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )
+              })}
+            </div>
+            <Input
+              placeholder="Teilnehmer suchen..."
+              value={participantSearch}
+              onChange={(e) => setParticipantSearch(e.target.value)}
+              className="text-sm"
+            />
+            {participantSearch && filteredParticipants.length > 0 && (
+              <div className="mt-1 max-h-32 overflow-y-auto rounded-md border bg-card p-1">
+                {filteredParticipants.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedParticipants((s) => [...s, p.id])
+                      setParticipantSearch('')
+                    }}
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-secondary"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-medium text-primary">
+                      {p.initials}
+                    </span>
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Project ── */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <FolderOpen className="h-3.5 w-3.5 text-[var(--muted)]" />
+              Projekt
+            </Label>
+            <Select value={project} onValueChange={setProject}>
+              <SelectTrigger><SelectValue placeholder="Projekt zuordnen..." /></SelectTrigger>
+              <SelectContent>
+                {projects.map((p) => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* ── Expandable Extras ── */}
           <button
             onClick={() => setShowExtras(!showExtras)}
             className="flex items-center gap-1 text-sm text-primary hover:underline"
           >
-            {showExtras ? (
-              <ChevronUp className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5" />
-            )}
+            {showExtras ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             {showExtras ? 'Weniger Optionen' : 'Weitere Optionen'}
           </button>
 
           {showExtras && (
             <div className="space-y-4 rounded-lg border border-border p-3">
+              {/* Recurrence + Reminder */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Repeat className="h-3.5 w-3.5 text-[var(--muted)]" />
+                    Wiederholung
+                  </Label>
+                  <Select value={recurrenceDisplay} onValueChange={handleRecurrenceChange}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {recurrenceOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {recurrenceDisplay === 'custom' && (
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Alle</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={customInterval}
+                          onChange={(e) => setCustomInterval(Math.max(1, Number(e.target.value)))}
+                          className="w-16 text-sm"
+                        />
+                        <Select value={customUnit} onValueChange={(v) => {
+                          setCustomUnit(v as typeof customUnit)
+                          const unitMap: Record<string, 'daily' | 'weekly' | 'monthly'> = { days: 'daily', weeks: 'weekly', months: 'monthly' }
+                          setRecurrence(unitMap[v])
+                        }}>
+                          <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {customIntervalUnits.map((u) => (
+                              <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Naechste {Math.min(customInterval * 3, 12)} Termine werden automatisch erstellt
+                      </p>
+                    </div>
+                  )}
+                  {recurrenceDisplay !== 'none' && recurrenceDisplay !== 'custom' && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Naechste Termine werden automatisch erstellt
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Bell className="h-3.5 w-3.5 text-[var(--muted)]" />
+                    Erinnerung
+                  </Label>
+                  <Select value={reminder} onValueChange={(v) => setReminder(v as typeof reminder)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {reminderOptions.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               {/* Description */}
               <div className="space-y-1.5">
-                <Label>Beschreibung</Label>
+                <Label className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-[var(--muted)]" />
+                  Beschreibung
+                </Label>
                 <Textarea
-                  placeholder="Zusaetzliche Beschreibung..."
+                  placeholder="Kontext, Ziele, Vorbereitung..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
+                  rows={3}
                 />
               </div>
 
-              {/* Calendar Event Link */}
+              {/* ── Agenda Editor ── */}
               <div className="space-y-1.5">
-                <Label>Kalender-Event-ID (optional)</Label>
-                <Input
-                  placeholder="calendar_event_id..."
-                  value={calendarEventId}
-                  onChange={(e) => setCalendarEventId(e.target.value)}
-                />
+                <Label className="flex items-center gap-1.5">
+                  <ListChecks className="h-3.5 w-3.5 text-[var(--muted)]" />
+                  Agenda
+                </Label>
+                {agendaItems.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {agendaItems.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        className="group flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm"
+                      >
+                        <span className="text-xs text-[var(--muted)] w-4 text-center shrink-0">
+                          {idx + 1}.
+                        </span>
+                        <span className="flex-1 text-[var(--body)] truncate">
+                          {item.text}
+                        </span>
+                        <div className="hidden group-hover:flex items-center gap-0.5">
+                          {idx > 0 && (
+                            <button
+                              onClick={() => handleReorderAgenda(item.id, 'up')}
+                              className="rounded p-0.5 text-[var(--muted)] hover:text-[var(--body)]"
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {idx < agendaItems.length - 1 && (
+                            <button
+                              onClick={() => handleReorderAgenda(item.id, 'down')}
+                              className="rounded p-0.5 text-[var(--muted)] hover:text-[var(--body)]"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveAgenda(item.id)}
+                            className="rounded p-0.5 text-[var(--muted)] hover:text-red-500"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newAgendaText}
+                    onChange={(e) => setNewAgendaText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddAgenda()}
+                    placeholder="Neuen Agenda-Punkt hinzufügen..."
+                    className="text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={handleAddAgenda}
+                    disabled={!newAgendaText.trim()}
+                    type="button"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
-              {/* Recurring Meeting Link */}
+              {/* Files placeholder */}
               <div className="space-y-1.5">
-                <Label>Wiederkehrendes Meeting-ID (optional)</Label>
-                <Input
-                  placeholder="recurring_meeting_id..."
-                  value={recurringMeetingId}
-                  onChange={(e) => setRecurringMeetingId(e.target.value)}
-                />
+                <Label className="flex items-center gap-1.5">
+                  <Paperclip className="h-3.5 w-3.5 text-[var(--muted)]" />
+                  Dateien
+                </Label>
+                <button className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors w-full">
+                  <Paperclip className="h-4 w-4" />
+                  Dateien anhängen...
+                </button>
+              </div>
+
+              {/* Calendar + Invitation checkboxes */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center gap-2">
+                  <Switch checked={addToCalendar} onCheckedChange={setAddToCalendar} id="cal-toggle" />
+                  <Label htmlFor="cal-toggle" className="cursor-pointer flex items-center gap-1.5 text-sm">
+                    <Calendar className="h-3.5 w-3.5 text-[var(--muted)]" />
+                    Automatisch im Kalender eintragen
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={sendInvitations} onCheckedChange={setSendInvitations} id="invite-toggle" />
+                  <Label htmlFor="invite-toggle" className="cursor-pointer flex items-center gap-1.5 text-sm">
+                    <Users className="h-3.5 w-3.5 text-[var(--muted)]" />
+                    Teilnehmer per E-Mail einladen
+                  </Label>
+                </div>
               </div>
             </div>
           )}
@@ -317,9 +611,9 @@ export function MeetingFormDialog({ open, onOpenChange, meeting }: MeetingFormDi
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Abbrechen
           </Button>
-          <Button onClick={handleSubmit} disabled={!title.trim() || isPending}>
+          <Button onClick={handleSubmit} disabled={!title.trim()}>
             <Plus className="mr-1.5 h-4 w-4" />
-            {isPending ? 'Speichern...' : isEdit ? 'Speichern' : 'Meeting erstellen'}
+            {isEdit ? 'Speichern' : 'Meeting erstellen'}
           </Button>
         </DialogFooter>
       </DialogContent>

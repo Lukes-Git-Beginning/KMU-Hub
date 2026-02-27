@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Mail,
   Phone,
@@ -10,9 +11,22 @@ import {
   PhoneCall,
   Loader2,
   FileText,
+  Upload,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { DetailPanel } from '@/components/shared'
-import { useEmployee, useEmployeeLeaveBalance, useEmployeeDocuments } from '@/api/hooks/hr-hooks'
+import { toast } from 'sonner'
+import {
+  useEmployee,
+  useEmployeeLeaveBalance,
+  useEmployeeDocuments,
+  useDocumentCategories,
+  useUploadEmployeeDocument,
+} from '@/api/hooks/hr-hooks'
 import type { EmployeeProfile } from '@/api/hr-types'
 
 const contractTypeLabels: Record<string, string> = {
@@ -206,29 +220,7 @@ export function MemberDetailPanel({
           )}
 
           {/* Documents */}
-          {documents && documents.length > 0 && (
-            <section className="space-y-2">
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Dokumente ({documents.length})
-              </h4>
-              <div className="space-y-1">
-                {documents.slice(0, 5).map((doc) => (
-                  <div key={doc.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <FileText className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{doc.fileName ?? doc.categoryName ?? 'Dokument'}</span>
-                    <span className="text-[10px] ml-auto shrink-0">
-                      {new Date(doc.createdAt).toLocaleDateString('de-DE')}
-                    </span>
-                  </div>
-                ))}
-                {documents.length > 5 && (
-                  <p className="text-[10px] text-muted-foreground">
-                    +{documents.length - 5} weitere
-                  </p>
-                )}
-              </div>
-            </section>
-          )}
+          <DocumentsSection memberId={memberId} documents={documents ?? []} />
 
           {/* Edit button */}
           <button
@@ -240,6 +232,169 @@ export function MemberDetailPanel({
         </div>
       )}
     </DetailPanel>
+  )
+}
+
+// ============================================================
+// Documents Section with upload
+// ============================================================
+function DocumentsSection({
+  memberId,
+  documents,
+}: {
+  memberId: string
+  documents: { id: string; fileName?: string; categoryName?: string; createdAt: string }[]
+}) {
+  const { data: categories } = useDocumentCategories(memberId)
+  const uploadMutation = useUploadEmployeeDocument()
+
+  const [expanded, setExpanded] = useState(false)
+  const [showUpload, setShowUpload] = useState(false)
+  const [categoryId, setCategoryId] = useState('')
+  const [notes, setNotes] = useState('')
+  const [fileName, setFileName] = useState('')
+
+  const handleUpload = () => {
+    if (!categoryId) {
+      toast.error('Bitte Kategorie waehlen')
+      return
+    }
+    // In real app, fileId comes from a file upload service. Here we simulate.
+    const mockFileId = `file-${Date.now()}`
+    uploadMutation.mutate(
+      {
+        employeeId: memberId,
+        data: {
+          categoryId,
+          fileId: mockFileId,
+          notes: notes.trim() || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setShowUpload(false)
+          setCategoryId('')
+          setNotes('')
+          setFileName('')
+        },
+      },
+    )
+  }
+
+  const Chevron = expanded ? ChevronUp : ChevronDown
+
+  return (
+    <section className="space-y-2">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 w-full text-left"
+      >
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Dokumente ({documents.length})
+        </h4>
+        <Chevron className="h-3 w-3 text-muted-foreground ml-auto" />
+      </button>
+
+      {expanded && (
+        <div className="space-y-2">
+          {/* Document list */}
+          {documents.length > 0 ? (
+            <div className="space-y-1">
+              {documents.map((doc) => (
+                <div key={doc.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{doc.fileName ?? doc.categoryName ?? 'Dokument'}</span>
+                  <span className="text-[10px] ml-auto shrink-0">
+                    {new Date(doc.createdAt).toLocaleDateString('de-DE')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Keine Dokumente vorhanden</p>
+          )}
+
+          {/* Upload area */}
+          {!showUpload ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => setShowUpload(true)}
+            >
+              <Upload className="mr-1.5 h-3.5 w-3.5" />
+              Dokument hochladen
+            </Button>
+          ) : (
+            <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Kategorie</Label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full rounded border border-border bg-input-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                >
+                  <option value="">Waehlen...</option>
+                  {(categories ?? []).map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                  {/* Fallback categories if API not loaded */}
+                  {!categories && (
+                    <>
+                      <option value="contract">Vertrag</option>
+                      <option value="certificate">Zeugnis</option>
+                      <option value="id">Ausweis</option>
+                      <option value="cert">Zertifikat</option>
+                      <option value="other">Sonstiges</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Datei</Label>
+                <Input
+                  type="file"
+                  onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
+                  className="text-xs h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Notizen (optional)</Label>
+                <Input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="z.B. Gueltigkeit, Bemerkungen"
+                  className="text-xs h-8"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 text-xs h-7"
+                  onClick={handleUpload}
+                  disabled={uploadMutation.isPending}
+                >
+                  {uploadMutation.isPending ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Upload className="mr-1 h-3 w-3" />
+                  )}
+                  Hochladen
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => { setShowUpload(false); setCategoryId(''); setNotes(''); setFileName('') }}
+                >
+                  Abbrechen
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 

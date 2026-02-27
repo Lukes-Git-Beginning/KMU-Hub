@@ -322,6 +322,7 @@ function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
 export function ConditionBuilder() {
   const { draftWorkflow, updateDraftConditions } = useAutomatisierungStore()
   const { data: triggerData } = useTriggerDefinitions()
+  const testMutation = useTestCondition()
   const conditions = draftWorkflow?.conditions as ConditionConfig | undefined
   const isExpression = conditions?.mode === 'expression'
 
@@ -356,6 +357,14 @@ export function ConditionBuilder() {
     })
   }
 
+  const handleTestSimple = () => {
+    if (!conditions?.simple) return
+    testMutation.mutate({
+      condition: conditions,
+      sample_env: {},
+    })
+  }
+
   return (
     <div className="space-y-4">
       {/* Mode toggle */}
@@ -383,14 +392,49 @@ export function ConditionBuilder() {
       {isExpression ? (
         <ExpressionEditor fields={fields} />
       ) : (
-        <div>
+        <div className="space-y-3">
           {conditions?.simple ? (
-            <ConditionGroup
-              condition={conditions.simple}
-              onChange={handleSimpleChange}
-              fields={fields}
-              depth={0}
-            />
+            <>
+              <ConditionGroup
+                condition={conditions.simple}
+                onChange={handleSimpleChange}
+                fields={fields}
+                depth={0}
+              />
+
+              {/* Test button for simple mode */}
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  onClick={handleTestSimple}
+                  disabled={testMutation.isPending}
+                  className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                >
+                  <Play className="h-3 w-3" />
+                  {testMutation.isPending ? 'Teste...' : 'Bedingung testen'}
+                </button>
+
+                {testMutation.data && (
+                  <span className="flex items-center gap-1 text-xs">
+                    {testMutation.data.matches ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span className="text-green-600">Bedingung trifft zu</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4 text-red-500" />
+                        <span className="text-red-600">
+                          Bedingung trifft nicht zu
+                          {testMutation.data.error
+                            ? `: ${testMutation.data.error}`
+                            : ''}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
+            </>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">

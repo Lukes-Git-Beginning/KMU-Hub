@@ -225,3 +225,32 @@ export function unlinkAccount(platform: Platform) {
     path: `/api/v1/integrations/link/${platform}`,
   })
 }
+
+// ---------------------------------------------------------------------------
+// Namespace re-exports for useIntegrations hooks (backward compat)
+// ---------------------------------------------------------------------------
+
+export const integrationConfigApi = {
+  list: listConfigs,
+  create: (data: CreateIntegrationConfigRequest) => createConfig(data),
+  update: (id: string, data: UpdateIntegrationConfigRequest) =>
+    updateConfig(id as Platform, data),
+  delete: (id: string) => deleteConfig(id as Platform),
+  test: (id: string) => testConfig(id as Platform),
+}
+
+export const accountLinkApi = {
+  list: (): Promise<{ links: AccountLinkStatus[] }> =>
+    Promise.resolve({ links: [] }),
+  link: (platform: string, token: string) =>
+    linkAccount({ token } as LinkAccountRequest),
+  unlink: (platform: string) => unlinkAccount(platform as Platform),
+}
+
+export const channelMappingApi = {
+  list: (integrationId: string) => listMappings(integrationId as Platform),
+  create: (integrationId: string, data: CreateChannelMappingRequest) =>
+    createMapping(integrationId as Platform, data),
+  delete: (_integrationId: string, mappingId: string) =>
+    deleteMapping(mappingId),
+}

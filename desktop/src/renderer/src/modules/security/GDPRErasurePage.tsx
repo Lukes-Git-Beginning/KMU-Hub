@@ -10,22 +10,9 @@
  */
 import { useState, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
-import { AlertTriangle, Search, Eye, Trash2 } from 'lucide-react'
-import { FormattedMessage } from 'react-intl'
+import { AlertTriangle, Search, Eye, Trash2, CheckCircle, X, Download } from 'lucide-react'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -43,7 +30,14 @@ interface ErasureModule {
   action: ModuleAction
 }
 
+const ACTION_BADGE: Record<ModuleAction, string> = {
+  delete: 'bg-error-light text-error',
+  anonymize: 'bg-warning-light text-warning',
+  retain: 'bg-secondary text-muted-foreground',
+}
+
 export default function GDPRErasurePage() {
+  const intl = useIntl()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -60,9 +54,10 @@ export default function GDPRErasurePage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [isExecuting, setIsExecuting] = useState(false)
+  const [executionProgress, setExecutionProgress] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
 
-  // Mock user search results for now
+  // Mock user search results
   const mockUsers = [
     { id: 'user-1', name: 'Max Mustermann', email: 'max@example.com' },
     { id: 'user-2', name: 'Anna Schmidt', email: 'anna@example.com' },
@@ -71,7 +66,7 @@ export default function GDPRErasurePage() {
     (u) =>
       searchQuery.length >= 2 &&
       (u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase()))
+        u.email.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   const handleSelectUser = useCallback((userId: string, userName: string) => {
@@ -86,15 +81,18 @@ export default function GDPRErasurePage() {
     if (!selectedUserId) return
     setIsLoadingPreview(true)
 
-    // Simulate API call - in production, this calls the preview erasure endpoint
     setTimeout(() => {
       setPreviewData([
-        { module: 'CRM Contacts', record_count: 47, action: 'anonymize' },
-        { module: 'Chat Messages', record_count: 1283, action: 'delete' },
-        { module: 'Calendar Events', record_count: 156, action: 'delete' },
-        { module: 'Work Tasks', record_count: 89, action: 'anonymize' },
+        { module: 'CRM Kontakte', record_count: 47, action: 'anonymize' },
+        { module: 'Chat-Nachrichten', record_count: 1283, action: 'delete' },
+        { module: 'Kalender-Termine', record_count: 156, action: 'delete' },
+        { module: 'Aufgaben/Projekte', record_count: 89, action: 'anonymize' },
+        { module: 'Helpdesk-Tickets', record_count: 34, action: 'anonymize' },
+        { module: 'Dokumente', record_count: 23, action: 'delete' },
+        { module: 'E-Mails', record_count: 412, action: 'delete' },
+        { module: 'Formulare', record_count: 8, action: 'anonymize' },
         { module: 'Audit Log', record_count: 342, action: 'retain' },
-        { module: 'Invoices', record_count: 12, action: 'retain' },
+        { module: 'Rechnungen', record_count: 12, action: 'retain' },
       ])
       setIsLoadingPreview(false)
     }, 500)
@@ -103,28 +101,39 @@ export default function GDPRErasurePage() {
   const handleModuleActionChange = useCallback(
     (module: string, action: ModuleAction) => {
       setPreviewData((prev) =>
-        prev
-          ? prev.map((m) => (m.module === module ? { ...m, action } : m))
-          : null
+        prev ? prev.map((m) => (m.module === module ? { ...m, action } : m)) : null,
       )
     },
-    []
+    [],
   )
 
   const handleExecute = useCallback(() => {
     if (!adminPassword || !previewData || !selectedUserId) return
     setIsExecuting(true)
+    setExecutionProgress(0)
 
-    // Simulate API call - in production, this calls the execute erasure endpoint
-    // with module_actions map and admin password for verification
-    setTimeout(() => {
-      setIsExecuting(false)
-      setShowConfirm(false)
-      setAdminPassword('')
-      setIsCompleted(true)
-      toast.success(<FormattedMessage id="gdpr.erasure.success" />)
-    }, 1500)
-  }, [adminPassword, previewData, selectedUserId])
+    // Simulate progress bar
+    const steps = 10
+    let step = 0
+    const interval = setInterval(() => {
+      step++
+      setExecutionProgress(Math.round((step / steps) * 100))
+      if (step >= steps) {
+        clearInterval(interval)
+        setIsExecuting(false)
+        setShowConfirm(false)
+        setAdminPassword('')
+        setExecutionProgress(0)
+        setIsCompleted(true)
+        toast.success(intl.formatMessage({ id: 'gdpr.erasure.success' }))
+      }
+    }, 150)
+  }, [adminPassword, previewData, selectedUserId, intl])
+
+  const handleDownloadReceipt = useCallback(() => {
+    toast.success('Loeschprotokoll wird heruntergeladen...')
+    setTimeout(() => toast.success('Loeschprotokoll_' + selectedUserName?.replace(/\s/g, '_') + '.pdf gespeichert'), 1000)
+  }, [selectedUserName])
 
   const totalRecords = previewData
     ? previewData.reduce((sum, m) => sum + m.record_count, 0)
@@ -135,272 +144,270 @@ export default function GDPRErasurePage() {
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="mx-auto max-w-3xl px-6 py-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            <FormattedMessage id="gdpr.erasure.title" />
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            <FormattedMessage id="gdpr.erasure.description" />
-          </p>
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="mx-auto max-w-3xl">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-error-light">
+            <AlertTriangle className="h-6 w-6 text-error" />
+          </div>
+          <div>
+            <h1 className="text-foreground">
+              <FormattedMessage id="gdpr.erasure.title" />
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              <FormattedMessage id="gdpr.erasure.description" />
+            </p>
+          </div>
         </div>
 
         {/* Warning Banner */}
-        <div className="flex gap-3 rounded-lg bg-red-50 p-4 dark:bg-red-950/30">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
-          <p className="text-sm text-red-800 dark:text-red-300">
+        <div className="flex gap-3 rounded-lg bg-error-light p-4 mb-6">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-error mt-0.5" />
+          <p className="text-sm text-error font-medium">
             <FormattedMessage id="gdpr.erasureWarning" />
           </p>
         </div>
 
         {/* User Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              <FormattedMessage id="gdpr.erasure.selectUser" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search user..."
-              />
-            </div>
+        <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
+          <h3 className="text-base font-semibold text-foreground mb-4">
+            <FormattedMessage id="gdpr.erasure.selectUser" />
+          </h3>
 
-            {/* Search results dropdown */}
-            {mockUsers.length > 0 && (
-              <div className="rounded-lg border border-border divide-y divide-border">
-                {mockUsers.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => handleSelectUser(u.id, u.name)}
-                    className="flex w-full items-center gap-3 p-3 hover:bg-accent transition-colors text-left"
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                      {u.name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{u.name}</p>
-                      <p className="text-xs text-muted-foreground">{u.email}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search user..."
+              className="w-full rounded-lg border border-border bg-card pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
+            />
+          </div>
 
-            {/* Selected user */}
-            {selectedUserId && (
-              <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{selectedUserName}</p>
-                  <p className="text-xs text-muted-foreground">ID: {selectedUserId}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePreview}
-                  disabled={isLoadingPreview}
+          {/* Search results */}
+          {mockUsers.length > 0 && (
+            <div className="rounded-lg border border-border divide-y divide-border-muted mb-3">
+              {mockUsers.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => handleSelectUser(u.id, u.name)}
+                  className="flex w-full items-center gap-3 p-3 hover:bg-secondary/50 transition-colors text-left"
                 >
-                  <Eye className="mr-1 h-3 w-3" />
-                  <FormattedMessage id="gdpr.erasure.preview" />
-                </Button>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-medium text-foreground">
+                    {u.name.split(' ').map((n) => n[0]).join('')}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{u.name}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Selected user */}
+          {selectedUserId && (
+            <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary-light/30 p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">{selectedUserName}</p>
+                <p className="text-xs text-muted-foreground font-mono">ID: {selectedUserId}</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <button
+                onClick={handlePreview}
+                disabled={isLoadingPreview}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <FormattedMessage id="gdpr.erasure.preview" />
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Preview Data */}
         {previewData && !isCompleted && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                <FormattedMessage id="gdpr.erasurePreview" />
-              </CardTitle>
-              <CardDescription>
-                <FormattedMessage
-                  id="gdpr.recordsAffected"
-                  values={{ count: totalRecords }}
-                />{' '}
-                &middot;{' '}
-                <FormattedMessage
-                  id="gdpr.modulesAffected"
-                  values={{ count: previewData.length }}
-                />
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="gdpr.erasure.module" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="gdpr.erasure.records" />
-                      </th>
-                      <th className="pb-2 text-xs font-medium text-muted-foreground">
-                        <FormattedMessage id="gdpr.erasure.action" />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {previewData.map((mod) => (
-                      <tr key={mod.module}>
-                        <td className="py-3 text-sm text-foreground">{mod.module}</td>
-                        <td className="py-3">
-                          <Badge variant="secondary">{mod.record_count}</Badge>
-                        </td>
-                        <td className="py-3">
-                          <Select
-                            value={mod.action}
-                            onValueChange={(v) =>
-                              handleModuleActionChange(mod.module, v as ModuleAction)
-                            }
-                          >
-                            <SelectTrigger className="w-48">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="anonymize">
-                                <FormattedMessage id="gdpr.moduleAction.anonymize" />
-                              </SelectItem>
-                              <SelectItem value="delete">
-                                <FormattedMessage id="gdpr.moduleAction.delete" />
-                              </SelectItem>
-                              <SelectItem value="retain">
-                                <FormattedMessage id="gdpr.moduleAction.retain" />
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
+            <h3 className="text-base font-semibold text-foreground mb-1">
+              <FormattedMessage id="gdpr.erasurePreview" />
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              <FormattedMessage id="gdpr.recordsAffected" values={{ count: totalRecords }} />
+              {' '}&middot;{' '}
+              <FormattedMessage id="gdpr.modulesAffected" values={{ count: previewData.length }} />
+            </p>
 
-              <div className="mt-6">
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowConfirm(true)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <FormattedMessage id="gdpr.erasure.execute" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="rounded-lg border border-border overflow-hidden mb-5">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                      <FormattedMessage id="gdpr.erasure.module" />
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                      <FormattedMessage id="gdpr.erasure.records" />
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
+                      <FormattedMessage id="gdpr.erasure.action" />
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.map((mod) => (
+                    <tr key={mod.module} className="border-b border-border-muted last:border-0">
+                      <td className="px-4 py-3 text-sm text-foreground">{mod.module}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                          {mod.record_count}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Select
+                          value={mod.action}
+                          onValueChange={(v) => handleModuleActionChange(mod.module, v as ModuleAction)}
+                        >
+                          <SelectTrigger className="w-44 h-8 rounded-lg border-border bg-card text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="anonymize">
+                              <FormattedMessage id="gdpr.moduleAction.anonymize" />
+                            </SelectItem>
+                            <SelectItem value="delete">
+                              <FormattedMessage id="gdpr.moduleAction.delete" />
+                            </SelectItem>
+                            <SelectItem value="retain">
+                              <FormattedMessage id="gdpr.moduleAction.retain" />
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="flex items-center gap-2 rounded-lg bg-error px-4 py-2 text-sm text-white hover:bg-error/90 transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              <FormattedMessage id="gdpr.erasure.execute" />
+            </button>
+          </div>
         )}
 
         {/* Completed State */}
         {isCompleted && (
-          <Card>
-            <CardContent className="py-8 text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <Trash2 className="h-6 w-6 text-green-600" />
-              </div>
-              <p className="text-lg font-medium text-foreground">
-                <FormattedMessage id="gdpr.erasure.success" />
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {selectedUserName} &rarr;{' '}
-                <FormattedMessage
-                  id="gdpr.anonymizedUser"
-                  values={{ id: selectedUserId?.slice(-4) ?? '0000' }}
-                />
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Two-Step Confirmation Dialog */}
-        <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                <FormattedMessage id="gdpr.erasure.confirmTitle" />
-              </DialogTitle>
-              <DialogDescription>
-                <FormattedMessage id="gdpr.erasure.confirmDescription" />
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              {/* Summary */}
-              <div className="rounded-lg bg-red-50 p-3 dark:bg-red-950/30">
-                <p className="text-sm text-red-800 dark:text-red-300">
-                  <FormattedMessage id="gdpr.erasureWarning" />
-                </p>
-                <p className="mt-1 text-sm text-red-700 dark:text-red-400">
-                  {selectedUserName} &middot;{' '}
-                  <FormattedMessage
-                    id="gdpr.recordsAffected"
-                    values={{ count: totalRecords }}
-                  />
-                </p>
-              </div>
-
-              {/* Module action summary */}
-              <div className="space-y-1">
-                {previewData?.map((mod) => (
-                  <div key={mod.module} className="flex items-center justify-between text-sm">
-                    <span className="text-foreground">{mod.module}</span>
-                    <Badge
-                      variant="secondary"
-                      className={
-                        mod.action === 'delete'
-                          ? 'bg-red-100 text-red-800'
-                          : mod.action === 'anonymize'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
-                      }
-                    >
-                      <FormattedMessage id={`gdpr.moduleAction.${mod.action}`} />
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-
-              {/* Admin password confirmation */}
-              <div className="space-y-1.5">
-                <Label>
-                  <FormattedMessage id="gdpr.erasurePasswordConfirm" />
-                </Label>
-                <Input
-                  type="password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  autoFocus
-                />
-              </div>
+          <div className="rounded-lg border border-border bg-card p-8 text-center glass-surface">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-light">
+              <CheckCircle className="h-6 w-6 text-success" />
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setShowConfirm(false); setAdminPassword('') }}>
+            <p className="text-lg font-medium text-foreground">
+              <FormattedMessage id="gdpr.erasure.success" />
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {selectedUserName} &rarr;{' '}
+              <FormattedMessage
+                id="gdpr.anonymizedUser"
+                values={{ id: selectedUserId?.slice(-4) ?? '0000' }}
+              />
+            </p>
+            <button
+              onClick={handleDownloadReceipt}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Loeschprotokoll herunterladen
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Two-Step Confirmation Dialog */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => { setShowConfirm(false); setAdminPassword('') }} />
+          <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-foreground">
+                <FormattedMessage id="gdpr.erasure.confirmTitle" />
+              </h2>
+              <button
+                onClick={() => { setShowConfirm(false); setAdminPassword('') }}
+                className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              <FormattedMessage id="gdpr.erasure.confirmDescription" />
+            </p>
+
+            {/* Warning summary */}
+            <div className="rounded-lg bg-error-light p-3 mb-4">
+              <p className="text-sm text-error font-medium">
+                <FormattedMessage id="gdpr.erasureWarning" />
+              </p>
+              <p className="mt-1 text-sm text-error/80">
+                {selectedUserName} &middot;{' '}
+                <FormattedMessage id="gdpr.recordsAffected" values={{ count: totalRecords }} />
+              </p>
+            </div>
+
+            {/* Module action summary */}
+            <div className="space-y-1.5 mb-4">
+              {previewData?.map((mod) => (
+                <div key={mod.module} className="flex items-center justify-between text-sm">
+                  <span className="text-foreground">{mod.module}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${ACTION_BADGE[mod.action]}`}>
+                    <FormattedMessage id={`gdpr.moduleAction.${mod.action}`} />
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Admin password */}
+            <div className="space-y-1.5 mb-6">
+              <label className="text-sm font-medium text-foreground">
+                <FormattedMessage id="gdpr.erasurePasswordConfirm" />
+              </label>
+              <input
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                autoFocus
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setShowConfirm(false); setAdminPassword('') }}
+                className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
+              >
                 <FormattedMessage id="common.cancel" />
-              </Button>
-              <Button
-                variant="destructive"
+              </button>
+              <button
                 onClick={handleExecute}
                 disabled={!adminPassword || isExecuting}
+                className="rounded-lg bg-error px-4 py-2 text-sm text-white hover:bg-error/90 transition-colors disabled:opacity-50"
               >
                 {isExecuting ? (
-                  <FormattedMessage id="common.loading" />
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    {executionProgress}%
+                  </span>
                 ) : (
                   <FormattedMessage id="gdpr.erasureConfirm" />
                 )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

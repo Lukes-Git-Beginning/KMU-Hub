@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { toast } from 'sonner'
+import { getAllTeamMembers, DEPARTMENTS } from '@/mocks/mock-db'
 
 export interface TeamMember {
   id: string
@@ -107,220 +108,66 @@ function getInitials(first: string, last: string): string {
   return `${first[0] || ''}${last[0] || ''}`.toUpperCase()
 }
 
-const INITIAL_DEPARTMENTS: Department[] = [
-  { id: 'dev', name: 'Entwicklung', color: 'var(--primary)' },
-  { id: 'design', name: 'Design', color: 'var(--info)' },
-  { id: 'marketing', name: 'Marketing', color: 'var(--warning)' },
-  { id: 'management', name: 'Management', color: 'var(--success)' },
-  { id: 'hr', name: 'Human Resources', color: '#7c5a8a' },
-  { id: 'sales', name: 'Vertrieb', color: '#c4873a' },
-]
+// ---------------------------------------------------------------------------
+// Initial data from central mock-db (TechVision GmbH, 18 employees)
+// ---------------------------------------------------------------------------
 
-const INITIAL_MEMBERS: TeamMember[] = [
-  {
-    id: 'm1', firstName: 'Anna', lastName: 'Mueller', initials: 'AM',
-    role: 'Projektleiterin', department: 'Management',
-    email: 'anna.mueller@kmuhub.ch', phone: '+41 79 123 45 67',
-    status: 'online', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2024-03-15', location: 'Zürich',
-    currentTask: 'Sprint Planning vorbereiten',
-    projects: ['Website Relaunch', 'Mobile App'],
-    skills: ['Scrum', 'Jira', 'Confluence'], isActive: true,
-  },
-  {
-    id: 'm2', firstName: 'Michael', lastName: 'Berg', initials: 'MB',
-    role: 'Senior Developer', department: 'Entwicklung',
-    email: 'michael.berg@kmuhub.ch', phone: '+41 79 234 56 78', mobile: '+41 76 234 56 78',
-    status: 'online', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2024-01-10', location: 'Zürich',
-    currentTask: 'API Integration testen',
-    projects: ['CRM Integration', 'Security Audit'],
-    skills: ['Go', 'TypeScript', 'PostgreSQL', 'Docker'], isActive: true,
-  },
-  {
-    id: 'm3', firstName: 'Sarah', lastName: 'Klein', initials: 'SK',
-    role: 'UI/UX Designer', department: 'Design',
-    email: 'sarah.klein@kmuhub.ch', phone: '+41 79 345 67 89',
-    status: 'away', contractType: 'Vollzeit', workload: 80,
-    joinDate: '2024-06-01', location: 'Bern',
-    currentTask: 'Landing Page Mockup',
-    projects: ['Website Relaunch'],
-    skills: ['Figma', 'Sketch', 'Tailwind CSS'], isActive: true,
-  },
-  {
-    id: 'm4', firstName: 'Jonas', lastName: 'Diaz', initials: 'JD',
-    role: 'Full-Stack Developer', department: 'Entwicklung',
-    email: 'jonas.diaz@kmuhub.ch', phone: '+41 79 456 78 90',
-    status: 'online', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2024-09-15', location: 'Zürich',
-    currentTask: 'Bug Fix: iOS Login',
-    projects: ['Mobile App', 'Security Audit'],
-    skills: ['React', 'Node.js', 'React Native'], isActive: true,
-  },
-  {
-    id: 'm5', firstName: 'Lisa', lastName: 'Schmidt', initials: 'LS',
-    role: 'Marketing Manager', department: 'Marketing',
-    email: 'lisa.schmidt@kmuhub.ch', phone: '+41 79 567 89 01',
-    status: 'offline', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2024-04-20', location: 'Basel',
-    projects: ['Marketing Kampagne'],
-    skills: ['SEO', 'Google Analytics', 'Content Marketing'], isActive: true,
-  },
-  {
-    id: 'm6', firstName: 'Peter', lastName: 'Koch', initials: 'PK',
-    role: 'Security Engineer', department: 'Entwicklung',
-    email: 'peter.koch@kmuhub.ch', phone: '+41 79 678 90 12',
-    status: 'online', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2024-02-01', location: 'Zürich',
-    currentTask: 'Penetration Testing',
-    projects: ['Security Audit', 'Datenmigration'],
-    skills: ['Go', 'Penetration Testing', 'OWASP'], isActive: true,
-  },
-  {
-    id: 'm7', firstName: 'Eva', lastName: 'Brunner', initials: 'EB',
-    role: 'Content Creator', department: 'Marketing',
-    email: 'eva.brunner@kmuhub.ch', phone: '+41 79 789 01 23',
-    status: 'online', contractType: 'Teilzeit', workload: 60,
-    joinDate: '2025-01-15', location: 'Luzern',
-    currentTask: 'Blog-Artikel: KMU Digitalisierung',
-    projects: ['Marketing Kampagne', 'Website Relaunch'],
-    skills: ['Copywriting', 'Social Media', 'WordPress'], isActive: true,
-  },
-  {
-    id: 'm8', firstName: 'Tom', lastName: 'Brunner', initials: 'TB',
-    role: 'Junior Developer', department: 'Entwicklung',
-    email: 'tom.brunner@kmuhub.ch', phone: '+41 79 890 12 34',
-    status: 'away', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2025-06-01', manager: 'Michael Berg', location: 'Zürich',
-    currentTask: 'Unit Tests schreiben',
-    projects: ['CRM Integration'],
-    skills: ['TypeScript', 'React', 'Jest'], isActive: true,
-  },
-  {
-    id: 'm9', firstName: 'Claudia', lastName: 'Frei', initials: 'CF',
-    role: 'Grafikdesignerin', department: 'Design',
-    email: 'claudia.frei@kmuhub.ch', phone: '+41 79 901 23 45',
-    status: 'online', contractType: 'Teilzeit', workload: 80,
-    joinDate: '2025-03-01', location: 'Bern',
-    currentTask: 'Icon-Set für App',
-    projects: ['Mobile App'],
-    skills: ['Illustrator', 'Photoshop', 'Figma'], isActive: true,
-  },
-  {
-    id: 'm10', firstName: 'Markus', lastName: 'Steiner', initials: 'MS',
-    role: 'Sales Manager', department: 'Vertrieb',
-    email: 'markus.steiner@kmuhub.ch', phone: '+41 79 012 34 56',
-    status: 'online', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2024-11-01', location: 'Zürich',
-    currentTask: 'Demo für Meier AG vorbereiten',
-    projects: ['CRM Integration'],
-    skills: ['Verhandlung', 'CRM', 'Präsentation'], isActive: true,
-  },
-  {
-    id: 'm11', firstName: 'Laura', lastName: 'Weber', initials: 'LW',
-    role: 'HR Managerin', department: 'Human Resources',
-    email: 'laura.weber@kmuhub.ch', phone: '+41 79 123 99 88',
-    status: 'online', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2024-05-15', location: 'Zürich',
-    currentTask: 'Quartal-Review vorbereiten',
-    projects: [],
-    skills: ['Recruiting', 'Arbeitsrecht', 'SAP HR'], isActive: true,
-  },
-  {
-    id: 'm12', firstName: 'Nils', lastName: 'Hofer', initials: 'NH',
-    role: 'DevOps Engineer', department: 'Entwicklung',
-    email: 'nils.hofer@kmuhub.ch', phone: '+41 79 456 00 11',
-    status: 'dnd', contractType: 'Vollzeit', workload: 100,
-    joinDate: '2025-02-01', location: 'Zürich',
-    currentTask: 'Kubernetes Cluster Upgrade',
-    projects: ['Security Audit', 'Datenmigration'],
-    skills: ['Kubernetes', 'Terraform', 'AWS', 'Linux'], isActive: true,
-  },
-]
+const INITIAL_DEPARTMENTS: Department[] = DEPARTMENTS.map((d) => ({
+  id: d.id,
+  name: d.name,
+  color: d.color,
+}))
+
+const INITIAL_MEMBERS: TeamMember[] = getAllTeamMembers()
 
 const INITIAL_REQUESTS: HRRequest[] = [
-  { id: 'hr1', type: 'vacation', memberId: 'm3', memberName: 'Sarah Klein', memberInitials: 'SK', startDate: '2026-02-17', endDate: '2026-02-21', days: 5, status: 'pending', reason: 'Skiurlaub', createdAt: '2026-02-03' },
-  { id: 'hr2', type: 'sick', memberId: 'm5', memberName: 'Lisa Schmidt', memberInitials: 'LS', startDate: '2026-02-08', endDate: '2026-02-08', days: 1, status: 'approved', reason: 'Krankheit', comment: 'Gute Besserung!', createdAt: '2026-02-08' },
-  { id: 'hr3', type: 'overtime', memberId: 'm2', memberName: 'Michael Berg', memberInitials: 'MB', startDate: '2026-02-07', endDate: '2026-02-07', days: 1, status: 'approved', reason: 'Release-Vorbereitung, 3h Überstunden', createdAt: '2026-02-07' },
-  { id: 'hr4', type: 'doctor', memberId: 'm4', memberName: 'Jonas Diaz', memberInitials: 'JD', startDate: '2026-02-12', endDate: '2026-02-12', days: 0.5, status: 'pending', reason: 'Arzttermin nachmittags', createdAt: '2026-02-10' },
-  { id: 'hr5', type: 'vacation', memberId: 'm10', memberName: 'Markus Steiner', memberInitials: 'MS', startDate: '2026-03-02', endDate: '2026-03-06', days: 5, status: 'pending', reason: 'Familienurlaub Mallorca', createdAt: '2026-02-05' },
-  { id: 'hr6', type: 'homeoffice', memberId: 'm7', memberName: 'Eva Brunner', memberInitials: 'EB', startDate: '2026-02-10', endDate: '2026-02-14', days: 5, status: 'approved', reason: 'Homeoffice-Woche (Kind krank)', createdAt: '2026-02-09' },
-  { id: 'hr7', type: 'education', memberId: 'm8', memberName: 'Tom Brunner', memberInitials: 'TB', startDate: '2026-02-24', endDate: '2026-02-25', days: 2, status: 'pending', reason: 'React Advanced Kurs', createdAt: '2026-02-06' },
+  { id: 'hr1', type: 'vacation', memberId: 'e10', memberName: 'Sabine Fischer', memberInitials: 'SF', startDate: '2026-02-17', endDate: '2026-02-28', days: 8, status: 'approved', reason: 'Winterurlaub Oesterreich', createdAt: '2026-02-03' },
+  { id: 'hr2', type: 'sick', memberId: 'e13', memberName: 'Petra Zimmermann', memberInitials: 'PZ', startDate: '2026-02-21', endDate: '2026-02-24', days: 2, status: 'approved', reason: 'Grippe', comment: 'Gute Besserung!', createdAt: '2026-02-21' },
+  { id: 'hr3', type: 'overtime', memberId: 'e2', memberName: 'Markus Weber', memberInitials: 'MW', startDate: '2026-02-20', endDate: '2026-02-20', days: 1, status: 'approved', reason: 'Release-Vorbereitung API v2, 4h Ueberstunden', createdAt: '2026-02-20' },
+  { id: 'hr4', type: 'doctor', memberId: 'e6', memberName: 'Tim Hartmann', memberInitials: 'TH', startDate: '2026-02-26', endDate: '2026-02-26', days: 0.5, status: 'pending', reason: 'Zahnarzttermin nachmittags', createdAt: '2026-02-22' },
+  { id: 'hr5', type: 'vacation', memberId: 'e3', memberName: 'Thomas Meier', memberInitials: 'TM', startDate: '2026-03-10', endDate: '2026-03-14', days: 5, status: 'pending', reason: 'Familienurlaub Mallorca', createdAt: '2026-02-15' },
+  { id: 'hr6', type: 'homeoffice', memberId: 'e8', memberName: 'Sophie Lang', memberInitials: 'SL', startDate: '2026-02-24', endDate: '2026-02-28', days: 5, status: 'approved', reason: 'Homeoffice-Woche (Usability Tests remote)', createdAt: '2026-02-20' },
+  { id: 'hr7', type: 'education', memberId: 'e7', memberName: 'Lena Braun', memberInitials: 'LB', startDate: '2026-02-24', endDate: '2026-02-25', days: 2, status: 'approved', reason: 'React Advanced Workshop, TU Muenchen', createdAt: '2026-02-18' },
+  { id: 'hr8', type: 'vacation', memberId: 'e12', memberName: 'Julia Hofmann', memberInitials: 'JH', startDate: '2026-03-03', endDate: '2026-03-07', days: 5, status: 'pending', reason: 'Staedtetrip Barcelona', createdAt: '2026-02-22' },
 ]
 
 const INITIAL_PAYROLL: PayrollEntry[] = [
-  {
-    id: 'pay1', memberId: 'm1', memberName: 'Anna Mueller', department: 'Management',
-    employmentType: 'fulltime', grossSalary: 8500, month: '2026-01', status: 'paid',
-    deductions: { ahv: 1105, pension: 595, tax: 1020, other: 45 },
-    netSalary: 5735,
-  },
-  {
-    id: 'pay2', memberId: 'm2', memberName: 'Michael Berg', department: 'Entwicklung',
-    employmentType: 'fulltime', grossSalary: 8200, month: '2026-01', status: 'paid',
-    deductions: { ahv: 1066, pension: 574, tax: 984, other: 45 },
-    netSalary: 5531,
-  },
-  {
-    id: 'pay3', memberId: 'm3', memberName: 'Sarah Klein', department: 'Design',
-    employmentType: 'parttime', grossSalary: 5600, month: '2026-01', status: 'approved',
-    deductions: { ahv: 728, pension: 392, tax: 672, other: 35 },
-    netSalary: 3773,
-  },
-  {
-    id: 'pay4', memberId: 'm4', memberName: 'Jonas Diaz', department: 'Entwicklung',
-    employmentType: 'fulltime', grossSalary: 7200, month: '2026-01', status: 'approved',
-    deductions: { ahv: 936, pension: 504, tax: 864, other: 40 },
-    netSalary: 4856,
-  },
-  {
-    id: 'pay5', memberId: 'm5', memberName: 'Lisa Schmidt', department: 'Marketing',
-    employmentType: 'fulltime', grossSalary: 7000, month: '2026-01', status: 'draft',
-    deductions: { ahv: 910, pension: 490, tax: 840, other: 40 },
-    netSalary: 4720,
-  },
-  {
-    id: 'pay6', memberId: 'm6', memberName: 'Peter Koch', department: 'Entwicklung',
-    employmentType: 'fulltime', grossSalary: 7800, month: '2026-01', status: 'draft',
-    deductions: { ahv: 1014, pension: 546, tax: 936, other: 42 },
-    netSalary: 5262,
-  },
-  {
-    id: 'pay7', memberId: 'm7', memberName: 'Eva Brunner', department: 'Marketing',
-    employmentType: 'parttime', grossSalary: 4500, month: '2026-01', status: 'draft',
-    deductions: { ahv: 585, pension: 315, tax: 540, other: 30 },
-    netSalary: 3030,
-  },
-  {
-    id: 'pay8', memberId: 'm8', memberName: 'Tom Brunner', department: 'Entwicklung',
-    employmentType: 'fulltime', grossSalary: 5800, month: '2026-01', status: 'draft',
-    deductions: { ahv: 754, pension: 406, tax: 696, other: 35 },
-    netSalary: 3909,
-  },
+  { id: 'pay1', memberId: 'e1', memberName: 'Stefan Vogel', department: 'Geschaeftsfuehrung', employmentType: 'fulltime', grossSalary: 12500, month: '2026-01', status: 'paid', deductions: { ahv: 1188, pension: 938, tax: 2875, other: 62 }, netSalary: 7437 },
+  { id: 'pay2', memberId: 'e2', memberName: 'Markus Weber', department: 'Entwicklung', employmentType: 'fulltime', grossSalary: 9800, month: '2026-01', status: 'paid', deductions: { ahv: 931, pension: 735, tax: 2058, other: 49 }, netSalary: 6027 },
+  { id: 'pay3', memberId: 'e3', memberName: 'Thomas Meier', department: 'Vertrieb', employmentType: 'fulltime', grossSalary: 8500, month: '2026-01', status: 'paid', deductions: { ahv: 808, pension: 638, tax: 1700, other: 43 }, netSalary: 5311 },
+  { id: 'pay4', memberId: 'e4', memberName: 'Laura Neumann', department: 'Entwicklung', employmentType: 'fulltime', grossSalary: 7200, month: '2026-01', status: 'paid', deductions: { ahv: 684, pension: 540, tax: 1368, other: 36 }, netSalary: 4572 },
+  { id: 'pay5', memberId: 'e5', memberName: 'Felix Krause', department: 'Entwicklung', employmentType: 'fulltime', grossSalary: 6800, month: '2026-01', status: 'paid', deductions: { ahv: 646, pension: 510, tax: 1258, other: 34 }, netSalary: 4352 },
+  { id: 'pay6', memberId: 'e6', memberName: 'Tim Hartmann', department: 'Entwicklung', employmentType: 'fulltime', grossSalary: 6200, month: '2026-01', status: 'paid', deductions: { ahv: 589, pension: 465, tax: 1116, other: 31 }, netSalary: 3999 },
+  { id: 'pay7', memberId: 'e9', memberName: 'Nina Richter', department: 'Design', employmentType: 'fulltime', grossSalary: 7500, month: '2026-01', status: 'paid', deductions: { ahv: 713, pension: 563, tax: 1463, other: 38 }, netSalary: 4723 },
+  { id: 'pay8', memberId: 'e8', memberName: 'Sophie Lang', department: 'Design', employmentType: 'parttime', grossSalary: 4800, month: '2026-01', status: 'draft', deductions: { ahv: 456, pension: 360, tax: 816, other: 24 }, netSalary: 3144 },
+  { id: 'pay9', memberId: 'e10', memberName: 'Sabine Fischer', department: 'Vertrieb', employmentType: 'fulltime', grossSalary: 5800, month: '2026-01', status: 'draft', deductions: { ahv: 551, pension: 435, tax: 1044, other: 29 }, netSalary: 3741 },
+  { id: 'pay10', memberId: 'e11', memberName: 'Kevin Baumann', department: 'Vertrieb', employmentType: 'fulltime', grossSalary: 4800, month: '2026-01', status: 'draft', deductions: { ahv: 456, pension: 360, tax: 816, other: 24 }, netSalary: 3144 },
+  { id: 'pay11', memberId: 'e12', memberName: 'Julia Hofmann', department: 'Marketing', employmentType: 'fulltime', grossSalary: 5500, month: '2026-01', status: 'draft', deductions: { ahv: 523, pension: 413, tax: 963, other: 28 }, netSalary: 3573 },
+  { id: 'pay12', memberId: 'e13', memberName: 'Petra Zimmermann', department: 'Buchhaltung', employmentType: 'fulltime', grossSalary: 5200, month: '2026-01', status: 'draft', deductions: { ahv: 494, pension: 390, tax: 884, other: 26 }, netSalary: 3406 },
 ]
 
 const INITIAL_TRAININGS: Training[] = [
-  { id: 'tr1', name: 'Erste Hilfe', type: 'safety', duration: '1 Tag', mandatory: true, provider: 'Schweizerisches Rotes Kreuz', validityMonths: 24 },
-  { id: 'tr2', name: 'Arbeitssicherheit', type: 'safety', duration: '4 Stunden', mandatory: true, provider: 'SUVA', validityMonths: 12 },
-  { id: 'tr3', name: 'Excel Advanced', type: 'technical', duration: '2 Tage', mandatory: false, provider: 'Digicomp', validityMonths: 0 },
-  { id: 'tr4', name: 'Datenschutz DSGVO', type: 'compliance', duration: '3 Stunden', mandatory: true, provider: 'SwissLegal Academy', validityMonths: 12 },
-  { id: 'tr5', name: 'Gabelstapler-Schein', type: 'certification', duration: '3 Tage', mandatory: false, provider: 'TÜV Schweiz', validityMonths: 60 },
-  { id: 'tr6', name: 'Führungskompetenz', type: 'soft_skills', duration: '2 Tage', mandatory: false, provider: 'HSG Executive Education', validityMonths: 0 },
+  { id: 'tr1', name: 'Erste Hilfe', type: 'safety', duration: '1 Tag', mandatory: true, provider: 'Deutsches Rotes Kreuz', validityMonths: 24 },
+  { id: 'tr2', name: 'Arbeitssicherheit', type: 'safety', duration: '4 Stunden', mandatory: true, provider: 'BG ETEM', validityMonths: 12 },
+  { id: 'tr3', name: 'React Advanced', type: 'technical', duration: '2 Tage', mandatory: false, provider: 'TU Muenchen Weiterbildung', validityMonths: 0 },
+  { id: 'tr4', name: 'Datenschutz DSGVO', type: 'compliance', duration: '3 Stunden', mandatory: true, provider: 'IHK Muenchen', validityMonths: 12 },
+  { id: 'tr5', name: 'ITIL Foundation', type: 'certification', duration: '3 Tage', mandatory: false, provider: 'SERVIEW GmbH', validityMonths: 0 },
+  { id: 'tr6', name: 'Fuehrungskompetenz', type: 'soft_skills', duration: '2 Tage', mandatory: false, provider: 'WHU Executive Education', validityMonths: 0 },
 ]
 
 const INITIAL_PARTICIPATIONS: TrainingParticipation[] = [
-  { id: 'tp1', trainingId: 'tr1', memberId: 'm1', memberName: 'Anna Mueller', status: 'completed', completedAt: '2025-06-15', expiresAt: '2027-06-15', certificateId: 'CERT-EH-2025-001' },
-  { id: 'tp2', trainingId: 'tr2', memberId: 'm1', memberName: 'Anna Mueller', status: 'completed', completedAt: '2025-09-10', expiresAt: '2026-09-10', certificateId: 'CERT-AS-2025-014' },
-  { id: 'tp3', trainingId: 'tr4', memberId: 'm2', memberName: 'Michael Berg', status: 'completed', completedAt: '2025-11-20', expiresAt: '2026-11-20', certificateId: 'CERT-DS-2025-088' },
-  { id: 'tp4', trainingId: 'tr1', memberId: 'm3', memberName: 'Sarah Klein', status: 'expired', completedAt: '2024-01-10', expiresAt: '2026-01-10' },
-  { id: 'tp5', trainingId: 'tr3', memberId: 'm4', memberName: 'Jonas Diaz', status: 'completed', completedAt: '2025-08-22', certificateId: 'CERT-EX-2025-045' },
-  { id: 'tp6', trainingId: 'tr6', memberId: 'm1', memberName: 'Anna Mueller', status: 'completed', completedAt: '2025-10-05', certificateId: 'CERT-FK-2025-012' },
-  { id: 'tp7', trainingId: 'tr2', memberId: 'm6', memberName: 'Peter Koch', status: 'expired', completedAt: '2024-12-01', expiresAt: '2025-12-01' },
-  { id: 'tp8', trainingId: 'tr5', memberId: 'm10', memberName: 'Markus Steiner', status: 'completed', completedAt: '2025-04-18', expiresAt: '2030-04-18', certificateId: 'CERT-GS-2025-007' },
-  { id: 'tp9', trainingId: 'tr4', memberId: 'm5', memberName: 'Lisa Schmidt', status: 'pending', },
-  { id: 'tp10', trainingId: 'tr1', memberId: 'm8', memberName: 'Tom Brunner', status: 'scheduled', },
-  { id: 'tp11', trainingId: 'tr2', memberId: 'm4', memberName: 'Jonas Diaz', status: 'scheduled', },
-  { id: 'tp12', trainingId: 'tr6', memberId: 'm11', memberName: 'Laura Weber', status: 'pending', },
+  { id: 'tp1', trainingId: 'tr1', memberId: 'e1', memberName: 'Stefan Vogel', status: 'completed', completedAt: '2025-06-15', expiresAt: '2027-06-15', certificateId: 'CERT-EH-2025-001' },
+  { id: 'tp2', trainingId: 'tr4', memberId: 'e2', memberName: 'Markus Weber', status: 'completed', completedAt: '2025-11-20', expiresAt: '2026-11-20', certificateId: 'CERT-DS-2025-088' },
+  { id: 'tp3', trainingId: 'tr6', memberId: 'e1', memberName: 'Stefan Vogel', status: 'completed', completedAt: '2025-10-05', certificateId: 'CERT-FK-2025-012' },
+  { id: 'tp4', trainingId: 'tr1', memberId: 'e4', memberName: 'Laura Neumann', status: 'expired', completedAt: '2024-01-10', expiresAt: '2026-01-10' },
+  { id: 'tp5', trainingId: 'tr3', memberId: 'e6', memberName: 'Tim Hartmann', status: 'completed', completedAt: '2025-08-22', certificateId: 'CERT-RA-2025-045' },
+  { id: 'tp6', trainingId: 'tr2', memberId: 'e5', memberName: 'Felix Krause', status: 'expired', completedAt: '2024-12-01', expiresAt: '2025-12-01' },
+  { id: 'tp7', trainingId: 'tr5', memberId: 'e16', memberName: 'Martin Wolf', status: 'completed', completedAt: '2025-04-18', certificateId: 'CERT-IT-2025-007' },
+  { id: 'tp8', trainingId: 'tr4', memberId: 'e12', memberName: 'Julia Hofmann', status: 'pending' },
+  { id: 'tp9', trainingId: 'tr1', memberId: 'e7', memberName: 'Lena Braun', status: 'scheduled' },
+  { id: 'tp10', trainingId: 'tr2', memberId: 'e6', memberName: 'Tim Hartmann', status: 'scheduled' },
+  { id: 'tp11', trainingId: 'tr6', memberId: 'e3', memberName: 'Thomas Meier', status: 'pending' },
+  { id: 'tp12', trainingId: 'tr4', memberId: 'e15', memberName: 'Elena Schuster', status: 'completed', completedAt: '2025-09-15', expiresAt: '2026-09-15', certificateId: 'CERT-DS-2025-102' },
 ]
 
 export const useTeamStore = create<TeamStore>()(
@@ -339,7 +186,7 @@ export const useTeamStore = create<TeamStore>()(
             ...state.members,
             {
               ...member,
-              id: `m${Date.now()}`,
+              id: `e${Date.now()}`,
               initials: getInitials(member.firstName, member.lastName),
               isActive: true,
             },
@@ -404,7 +251,7 @@ export const useTeamStore = create<TeamStore>()(
         set((state) => {
           const drafts = state.payroll.filter((p) => p.status === 'draft')
           if (drafts.length === 0) {
-            toast.info('Keine Entwürfe vorhanden')
+            toast.info('Keine Entwuerfe vorhanden')
             return state
           }
           toast.success(`${drafts.length} Lohnabrechnungen freigegeben`)

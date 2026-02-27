@@ -20,6 +20,8 @@ import {
   FolderPlus,
   Upload,
   FileEdit,
+  Link2,
+  AppWindow,
 } from 'lucide-react'
 import type { DocumentFile, DocumentFolder } from '@/api/types/document-types'
 
@@ -45,6 +47,8 @@ interface FileContextMenuProps {
   onDelete: () => void
   onProperties: () => void
   onEditInOnlyOffice?: () => void
+  onShareLink?: () => void
+  onOpenInOffice?: () => void
 }
 
 interface FolderContextMenuProps {
@@ -168,6 +172,8 @@ export function FileContextMenu({
   onDelete,
   onProperties,
   onEditInOnlyOffice,
+  onShareLink,
+  onOpenInOffice,
 }: FileContextMenuProps) {
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
 
@@ -185,11 +191,17 @@ export function FileContextMenu({
     ...(onEditInOnlyOffice
       ? [{ label: 'In OnlyOffice bearbeiten', icon: FileEdit, onClick: onEditInOnlyOffice }]
       : []),
+    ...(onOpenInOffice
+      ? [{ label: 'In Office oeffnen', icon: AppWindow, onClick: onOpenInOffice }]
+      : []),
     { label: 'Herunterladen', icon: Download, onClick: onDownload },
     { label: 'Umbenennen', icon: Pencil, onClick: onRename, separator: true },
     { label: 'Verschieben...', icon: FolderInput, onClick: onMove },
     { label: 'Kopieren...', icon: Copy, onClick: onCopy },
     { label: 'Teilen', icon: Share2, onClick: onShare, separator: true },
+    ...(onShareLink
+      ? [{ label: 'Link teilen', icon: Link2, onClick: onShareLink }]
+      : []),
     { label: 'Versionsverlauf', icon: History, onClick: onVersionHistory },
     {
       label: 'Loeschen',

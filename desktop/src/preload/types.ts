@@ -36,4 +36,14 @@ export interface ElectronAPI {
   deepLink: {
     onDeepLink: (callback: (url: string) => void) => () => void
   }
+
+  /** Compose: open compose in a separate OS window */
+  compose: {
+    openWindow: () => Promise<void>
+  }
+
+  /** Employee wizard: open employee creation wizard in a separate OS window */
+  employeeWizard: {
+    openWindow: () => Promise<void>
+  }
 }

@@ -4,10 +4,10 @@
  * Displays sender avatar, name, timestamp, content, thread indicator,
  * and hover actions (reply, edit, delete for own messages).
  */
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
-import { MessageSquare, Pencil, Trash2 } from 'lucide-react'
+import { MessageSquare, Pencil, Trash2, SmilePlus } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -16,9 +16,21 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { usePresenceStore } from '@/stores/presence'
+import { ReactionBar, generateMockReactions, type Reaction } from './ReactionBar'
+import { ReactionPicker } from './ReactionPicker'
+import { FileAttachmentCard } from './FileAttachmentCard'
+import type { AttachedFile } from './FileDropZone'
 import type { components } from '@/api/types'
 
 type MessageInfo = components['schemas']['MessageInfo']
+
+const PRESENCE_COLORS: Record<string, string> = {
+  online: 'bg-emerald-500',
+  away: 'bg-amber-400',
+  dnd: 'bg-red-500',
+  offline: 'bg-gray-400',
+}
 
 interface MessageBubbleProps {
   message: MessageInfo
@@ -26,10 +38,36 @@ interface MessageBubbleProps {
   onOpenThread?: (messageId: string) => void
   onEdit?: (messageId: string, content: string) => void
   onDelete?: (messageId: string) => void
+  attachments?: AttachedFile[]
 }
 
-export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, attachments }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false)
+  const [reactions, setReactions] = useState<Reaction[]>(() => generateMockReactions(message.id ?? ''))
+  const [showPicker, setShowPicker] = useState(false)
+  const presenceMap = usePresenceStore((s) => s.presenceMap)
+
+  const presence = message.created_by ? presenceMap[message.created_by] ?? 'offline' : 'offline'
+
+  const handleToggleReaction = useCallback((emoji: string) => {
+    setReactions((prev) => {
+      const existing = prev.find((r) => r.emoji === emoji)
+      if (existing) {
+        if (existing.count <= 1) return prev.filter((r) => r.emoji !== emoji)
+        return prev.map((r) => r.emoji === emoji ? { ...r, count: r.count - 1 } : r)
+      }
+      return [...prev, { emoji, users: ['me'], count: 1 }]
+    })
+  }, [])
+
+  const handlePickEmoji = useCallback((emoji: string) => {
+    setReactions((prev) => {
+      const existing = prev.find((r) => r.emoji === emoji)
+      if (existing) return prev.map((r) => r.emoji === emoji ? { ...r, count: r.count + 1, users: [...r.users, 'me'] } : r)
+      return [...prev, { emoji, users: ['me'], count: 1 }]
+    })
+    setShowPicker(false)
+  }, [])
 
   const senderName = [message.sender_first_name, message.sender_last_name]
     .filter(Boolean)
@@ -79,9 +117,14 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      <Avatar className="h-8 w-8 mt-0.5 shrink-0">
-        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-      </Avatar>
+      <div className="relative mt-0.5 shrink-0">
+        <Avatar className="h-8 w-8">
+          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+        </Avatar>
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${PRESENCE_COLORS[presence] ?? 'bg-gray-400'}`}
+        />
+      </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
@@ -94,6 +137,28 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }
 
         <div className="text-sm text-foreground whitespace-pre-wrap break-words">
           {renderedContent}
+        </div>
+
+        {/* File attachments */}
+        {attachments && attachments.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {attachments.map((file) => (
+              <FileAttachmentCard key={file.id} file={file} compact />
+            ))}
+          </div>
+        )}
+
+        {/* Reactions */}
+        <div className="relative">
+          <ReactionBar
+            reactions={reactions}
+            currentUserId="me"
+            onToggleReaction={handleToggleReaction}
+            onOpenPicker={() => setShowPicker(true)}
+          />
+          {showPicker && (
+            <ReactionPicker onSelect={handlePickEmoji} onClose={() => setShowPicker(false)} />
+          )}
         </div>
 
         {/* Thread indicator */}
@@ -111,6 +176,20 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete }
       {/* Hover actions */}
       {showActions && (
         <div className="absolute right-2 top-0 -translate-y-1/2 flex items-center gap-0.5 rounded-md border border-border bg-card px-1 py-0.5 shadow-sm">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setShowPicker(!showPicker)}
+              >
+                <SmilePlus className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Reagieren</TooltipContent>
+          </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

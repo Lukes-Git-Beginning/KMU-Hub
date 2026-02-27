@@ -20,10 +20,6 @@ import {
   Trash2,
   Plus,
   Pencil,
-  BookOpen,
-  Users,
-  Monitor,
-  GitBranch,
   HardDrive,
   Paperclip,
   MessageSquare,
@@ -35,6 +31,8 @@ import {
   Eye,
   Hash,
   Tag,
+  Sparkles,
+  Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
@@ -46,6 +44,9 @@ import { ShareDialog } from './ShareDialog'
 import { FileContextMenu, FolderContextMenu } from './FileContextMenu'
 import { VersionHistoryPanel } from './VersionHistoryPanel'
 import { OnlyOfficeEditor, isOnlyOfficeEditable } from './OnlyOfficeEditor'
+import { TemplateGalleryDialog } from './TemplateGalleryDialog'
+import { ShareLinkDialog } from './ShareLinkDialog'
+import { useAIStore, type ClassificationLevel } from '@/stores/ai'
 import {
   useDocumentFolders,
   useDocumentFiles,
@@ -85,10 +86,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-// Wiki imports -- keep Zustand for wiki as per plan
-import { useDocumentsStore, type WikiArticle } from '@/stores/documents'
-
-type TabKey = 'dateien' | 'wiki'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -155,21 +152,11 @@ const SIDEBAR_VIRTUAL_CHAT = '__virtual_chat__'
 const SIDEBAR_VIRTUAL_EMAIL = '__virtual_email__'
 const SIDEBAR_VIRTUAL_TASK = '__virtual_task__'
 
-// Wiki constants (kept from original)
-const wikiCategoryIcons: Record<string, typeof BookOpen> = {
-  BookOpen: BookOpen,
-  Monitor: Monitor,
-  Users: Users,
-  GitBranch: GitBranch,
-  FileText: FileText,
-}
-
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 
 export default function DokumentePage() {
-  const [activeTab, setActiveTab] = useState<TabKey>('dateien')
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
   const [activeSpecialView, setActiveSpecialView] = useState<string | null>(null)
   const [view, setView] = useState<'grid' | 'list'>(() => getViewPref('default'))
@@ -211,6 +198,10 @@ export default function DokumentePage() {
     token: string
     ttl: number
   } | null>(null)
+
+  // Template gallery + Share link
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false)
+  const [shareLinkTarget, setShareLinkTarget] = useState<{ id: string; name: string } | null>(null)
 
   // Upload tracking
   const [uploadFiles, setUploadFiles] = useState<UploadFileStatus[]>([])
@@ -575,6 +566,27 @@ export default function DokumentePage() {
     return 'Alle Dateien'
   }
 
+  // "In Office oeffnen" handler (Electron only)
+  const isElectron = !!window.electronAPI
+  const handleOpenInOffice = (file: DocumentFile) => {
+    if (isElectron) {
+      toast.success(`"${file.filename}" wird in Office geoeffnet...`)
+    } else {
+      toast.info('Nur in der Desktop-App verfuegbar')
+    }
+  }
+
+  const isOfficeFile = (mimeType: string): boolean => {
+    return (
+      mimeType.includes('word') ||
+      mimeType.includes('document') ||
+      mimeType.includes('spreadsheet') ||
+      mimeType.includes('excel') ||
+      mimeType.includes('presentation') ||
+      mimeType.includes('powerpoint')
+    )
+  }
+
   // OnlyOffice editor handler
   const handleEditInOnlyOffice = async (file: DocumentFile) => {
     try {
@@ -593,34 +605,9 @@ export default function DokumentePage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      {/* Tab bar */}
-      <div className="flex items-center gap-4 border-b border-border px-6 pt-3">
-        {([
-          { key: 'dateien' as const, label: 'Dateien', icon: FileText },
-          { key: 'wiki' as const, label: 'Wiki', icon: BookOpen },
-        ]).map((t) => {
-          const Icon = t.icon
-          return (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
-                activeTab === t.key
-                  ? 'border-primary text-primary font-medium'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {t.label}
-            </button>
-          )
-        })}
-      </div>
+    <div className="flex h-full flex-col overflow-hidden animate-fade-up">
 
-      {/* Dateien tab */}
-      {activeTab === 'dateien' && (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Hidden file input */}
           <input
             ref={fileInputRef}
@@ -632,7 +619,7 @@ export default function DokumentePage() {
 
           {/* Sidebar */}
           {sidebarOpen && (
-            <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
+            <aside className="h-full w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
               {/* Personal Space */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
@@ -872,6 +859,13 @@ export default function DokumentePage() {
                 </button>
               </div>
               <button
+                onClick={() => setShowTemplateGallery(true)}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Aus Vorlage
+              </button>
+              <button
                 onClick={handleUpload}
                 className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
@@ -974,7 +968,7 @@ export default function DokumentePage() {
                         }
                       >
                         <div
-                          className="group rounded-lg border border-border bg-card p-3 cursor-pointer hover:shadow-[var(--shadow-card-hover)] transition-shadow"
+                          className="group rounded-xl border border-border bg-card p-3 cursor-pointer hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 transition-all duration-200"
                           onDoubleClick={() =>
                             navigateToFolder(folder.id)
                           }
@@ -1061,6 +1055,14 @@ export default function DokumentePage() {
                           ? () => handleEditInOnlyOffice(file)
                           : undefined
                       }
+                      onShareLink={() =>
+                        setShareLinkTarget({ id: file.id, name: file.filename })
+                      }
+                      onOpenInOffice={
+                        isOfficeFile(file.mime_type)
+                          ? () => handleOpenInOffice(file)
+                          : undefined
+                      }
                     >
                       <FileGridCard
                         file={file}
@@ -1123,6 +1125,14 @@ export default function DokumentePage() {
                       onEditInOnlyOffice={
                         isOnlyOfficeEditable(file.mime_type)
                           ? () => handleEditInOnlyOffice(file)
+                          : undefined
+                      }
+                      onShareLink={() =>
+                        setShareLinkTarget({ id: file.id, name: file.filename })
+                      }
+                      onOpenInOffice={
+                        isOfficeFile(file.mime_type)
+                          ? () => handleOpenInOffice(file)
                           : undefined
                       }
                     >
@@ -1314,11 +1324,24 @@ export default function DokumentePage() {
               }}
             />
           )}
-        </div>
-      )}
 
-      {/* Wiki tab */}
-      {activeTab === 'wiki' && <WikiTab />}
+          {/* Template Gallery Dialog */}
+          <TemplateGalleryDialog
+            open={showTemplateGallery}
+            onClose={() => setShowTemplateGallery(false)}
+          />
+
+          {/* Share Link Dialog */}
+          {shareLinkTarget && (
+            <ShareLinkDialog
+              open
+              onClose={() => setShareLinkTarget(null)}
+              fileName={shareLinkTarget.name}
+              fileId={shareLinkTarget.id}
+            />
+          )}
+        </div>
+
     </div>
   )
 }
@@ -1432,6 +1455,50 @@ function SidebarFolderItem({
 // File Grid Card
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// AI Classification Badge
+// ---------------------------------------------------------------------------
+
+const CLASSIFICATION_COLORS: Record<ClassificationLevel, string> = {
+  oeffentlich: 'bg-success-light text-success',
+  intern: 'bg-info-light text-info',
+  vertraulich: 'bg-error-light text-error',
+}
+
+const CLASSIFICATION_LABELS: Record<ClassificationLevel, string> = {
+  oeffentlich: 'Oeffentlich',
+  intern: 'Intern',
+  vertraulich: 'Vertraulich',
+}
+
+function classifyByFilename(filename: string): ClassificationLevel {
+  const lower = filename.toLowerCase()
+  if (/vertrag|gehalt|personal|lohn|kuendigung|zeugnis|steuer|sozialversicherung/.test(lower)) return 'vertraulich'
+  if (/angebot|bericht|budget|intern|entwurf|protokoll|strategie|planung/.test(lower)) return 'intern'
+  return 'oeffentlich'
+}
+
+function ClassificationBadge({ fileId, filename }: { fileId: string; filename: string }) {
+  const aiDocsEnabled = useAIStore((s) => s.isModuleEnabled('docs'))
+  const classifications = useAIStore((s) => s.fileClassifications)
+  const setClassification = useAIStore((s) => s.setFileClassification)
+
+  if (!aiDocsEnabled) return null
+
+  let level = classifications[fileId]
+  if (!level) {
+    level = classifyByFilename(filename)
+    // Defer to avoid set-during-render
+    setTimeout(() => setClassification(fileId, level!), 0)
+  }
+
+  return (
+    <span className={`rounded-full px-1.5 py-0 text-[9px] font-medium ${CLASSIFICATION_COLORS[level]}`}>
+      {CLASSIFICATION_LABELS[level]}
+    </span>
+  )
+}
+
 function FileGridCard({
   file,
   isSelected,
@@ -1451,7 +1518,7 @@ function FileGridCard({
 
   return (
     <div
-      className={`group rounded-lg border bg-card p-3 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer ${
+      className={`group rounded-xl border bg-card p-3 transition-all duration-200 hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 cursor-pointer ${
         isSelected
           ? 'border-primary ring-2 ring-primary/20'
           : 'border-border'
@@ -1465,6 +1532,9 @@ function FileGridCard({
         className={`flex h-20 items-center justify-center rounded-md ${colorClass} mb-3 relative`}
       >
         <Icon className="h-8 w-8" />
+        <div className="absolute top-1.5 right-1.5">
+          <ClassificationBadge fileId={file.id} filename={file.filename} />
+        </div>
       </div>
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0">
@@ -1558,6 +1628,7 @@ function FileListRow({
         <div className="min-w-0">
           <p className="text-sm text-foreground truncate">{file.filename}</p>
         </div>
+        <ClassificationBadge fileId={file.id} filename={file.filename} />
         {file.is_favorite && (
           <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />
         )}
@@ -1574,608 +1645,4 @@ function FileListRow({
     </div>
   )
 }
-
-// =====================================================================
-// Wiki Tab (kept from original -- uses Zustand store)
-// =====================================================================
-
-function WikiTab() {
-  const {
-    wikiArticles,
-    wikiCategories,
-    addWikiArticle,
-    updateWikiArticle,
-    deleteWikiArticle,
-  } = useDocumentsStore()
-
-  const [wikiSearch, setWikiSearch] = useState('')
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [selectedArticle, setSelectedArticle] = useState<WikiArticle | null>(
-    null,
-  )
-  const [activeTag, setActiveTag] = useState<string | null>(null)
-
-  // Dialogs
-  const [showArticleForm, setShowArticleForm] = useState(false)
-  const [editArticle, setEditArticle] = useState<WikiArticle | null>(null)
-  const [deleteArticleConfirm, setDeleteArticleConfirm] =
-    useState<WikiArticle | null>(null)
-
-  // Form state
-  const [formTitle, setFormTitle] = useState('')
-  const [formCategory, setFormCategory] = useState('')
-  const [formContent, setFormContent] = useState('')
-  const [formTags, setFormTags] = useState('')
-
-  // Derived
-  const filteredArticles = useMemo(() => {
-    let result = [...wikiArticles]
-    if (activeCategory) {
-      result = result.filter((a) => a.categoryId === activeCategory)
-    }
-    if (activeTag) {
-      result = result.filter((a) => a.tags.includes(activeTag))
-    }
-    if (wikiSearch) {
-      const q = wikiSearch.toLowerCase()
-      result = result.filter(
-        (a) =>
-          a.title.toLowerCase().includes(q) ||
-          a.content.toLowerCase().includes(q) ||
-          a.tags.some((t) => t.toLowerCase().includes(q)),
-      )
-    }
-    return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  }, [wikiArticles, activeCategory, activeTag, wikiSearch])
-
-  const allTags = useMemo(() => {
-    const tagMap: Record<string, number> = {}
-    wikiArticles.forEach((a) =>
-      a.tags.forEach((t) => {
-        tagMap[t] = (tagMap[t] || 0) + 1
-      }),
-    )
-    return Object.entries(tagMap).sort((a, b) => b[1] - a[1])
-  }, [wikiArticles])
-
-  const recentlyUpdated = useMemo(
-    () =>
-      [...wikiArticles]
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .slice(0, 5),
-    [wikiArticles],
-  )
-
-  const latestUpdate = recentlyUpdated[0]?.updatedAt
-    ? new Date(recentlyUpdated[0].updatedAt).toLocaleDateString('de-CH')
-    : '-'
-
-  const getCategoryName = (id: string) =>
-    wikiCategories.find((c) => c.id === id)?.name || 'Unbekannt'
-
-  const openNewArticle = () => {
-    setEditArticle(null)
-    setFormTitle('')
-    setFormCategory(wikiCategories[0]?.id || '')
-    setFormContent('')
-    setFormTags('')
-    setShowArticleForm(true)
-  }
-
-  const openEditArticle = (article: WikiArticle) => {
-    setEditArticle(article)
-    setFormTitle(article.title)
-    setFormCategory(article.categoryId)
-    setFormContent(article.content)
-    setFormTags(article.tags.join(', '))
-    setShowArticleForm(true)
-  }
-
-  const handleArticleSubmit = () => {
-    if (!formTitle.trim() || !formCategory) return
-    const tags = formTags
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean)
-    const now = new Date().toISOString().split('T')[0]
-
-    if (editArticle) {
-      updateWikiArticle(editArticle.id, {
-        title: formTitle.trim(),
-        categoryId: formCategory,
-        content: formContent.trim(),
-        tags,
-        updatedAt: now,
-      })
-      if (selectedArticle?.id === editArticle.id) {
-        setSelectedArticle({
-          ...editArticle,
-          title: formTitle.trim(),
-          categoryId: formCategory,
-          content: formContent.trim(),
-          tags,
-          updatedAt: now,
-        })
-      }
-      toast.success('Artikel aktualisiert')
-    } else {
-      addWikiArticle({
-        title: formTitle.trim(),
-        categoryId: formCategory,
-        content: formContent.trim(),
-        tags,
-        author: 'Du',
-        createdAt: now,
-        updatedAt: now,
-        views: 0,
-      })
-      toast.success('Artikel erstellt')
-    }
-    setShowArticleForm(false)
-  }
-
-  const handleDeleteArticle = () => {
-    if (!deleteArticleConfirm) return
-    deleteWikiArticle(deleteArticleConfirm.id)
-    if (selectedArticle?.id === deleteArticleConfirm.id)
-      setSelectedArticle(null)
-    setDeleteArticleConfirm(null)
-    toast.success('Artikel geloescht')
-  }
-
-  return (
-    <div className="flex flex-1 overflow-hidden">
-      {/* Left Sidebar -- Categories */}
-      <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-foreground">Kategorien</h3>
-        </div>
-        <nav className="space-y-0.5">
-          <button
-            onClick={() => {
-              setActiveCategory(null)
-              setActiveTag(null)
-              setSelectedArticle(null)
-            }}
-            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-              !activeCategory && !activeTag
-                ? 'bg-primary-light text-primary font-medium'
-                : 'text-foreground hover:bg-secondary'
-            }`}
-          >
-            <BookOpen className="h-4 w-4 shrink-0" />
-            <span className="truncate">Alle Artikel</span>
-            <span className="ml-auto text-xs text-muted-foreground">
-              {wikiArticles.length}
-            </span>
-          </button>
-
-          {wikiCategories
-            .sort((a, b) => a.order - b.order)
-            .map((cat) => {
-              const CatIcon = wikiCategoryIcons[cat.icon] || BookOpen
-              const count = wikiArticles.filter(
-                (a) => a.categoryId === cat.id,
-              ).length
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    setActiveCategory(cat.id)
-                    setActiveTag(null)
-                    setSelectedArticle(null)
-                  }}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                    activeCategory === cat.id
-                      ? 'bg-primary-light text-primary font-medium'
-                      : 'text-foreground hover:bg-secondary'
-                  }`}
-                >
-                  <CatIcon className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{cat.name}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
-        </nav>
-
-        <div className="mt-6 rounded-lg border border-border p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">
-              Artikel gesamt
-            </span>
-            <span className="text-xs font-medium text-foreground">
-              {wikiArticles.length}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">
-              Kategorien
-            </span>
-            <span className="text-xs font-medium text-foreground">
-              {wikiCategories.length}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">
-              Letzte Aenderung
-            </span>
-            <span className="text-xs font-medium text-foreground">
-              {latestUpdate}
-            </span>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center gap-3 border-b border-border px-6 py-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Wiki durchsuchen..."
-              value={wikiSearch}
-              onChange={(e) => setWikiSearch(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
-            />
-          </div>
-          {activeTag && (
-            <button
-              onClick={() => setActiveTag(null)}
-              className="flex items-center gap-1 rounded-full bg-primary-light px-2.5 py-1 text-xs text-primary"
-            >
-              <Tag className="h-3 w-3" />
-              {activeTag}
-              <span className="ml-1 font-medium">&times;</span>
-            </button>
-          )}
-          <span className="text-xs text-muted-foreground hidden sm:block">
-            {filteredArticles.length} Artikel
-          </span>
-          <button
-            onClick={openNewArticle}
-            className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Neuer Artikel
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {selectedArticle ? (
-            <WikiArticleDetail
-              article={selectedArticle}
-              categoryName={getCategoryName(selectedArticle.categoryId)}
-              onBack={() => setSelectedArticle(null)}
-              onEdit={() => openEditArticle(selectedArticle)}
-              onDelete={() => setDeleteArticleConfirm(selectedArticle)}
-            />
-          ) : filteredArticles.length === 0 ? (
-            <EmptyState
-              icon={BookOpen}
-              title="Keine Artikel gefunden"
-              description={
-                wikiSearch
-                  ? 'Versuche einen anderen Suchbegriff'
-                  : 'Erstelle deinen ersten Wiki-Artikel'
-              }
-              action={
-                !wikiSearch
-                  ? { label: 'Neuer Artikel', onClick: openNewArticle }
-                  : undefined
-              }
-            />
-          ) : (
-            <div className="grid gap-3">
-              {filteredArticles.map((article) => (
-                <WikiArticleCard
-                  key={article.id}
-                  article={article}
-                  categoryName={getCategoryName(article.categoryId)}
-                  onClick={() => setSelectedArticle(article)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Right Sidebar -- Recent + Tags */}
-      <aside className="w-48 shrink-0 border-l border-border bg-card p-4 overflow-y-auto hidden lg:block">
-        <h4 className="text-xs font-medium text-foreground mb-3">
-          Letzte Aenderungen
-        </h4>
-        <div className="space-y-2 mb-6">
-          {recentlyUpdated.map((a) => (
-            <button
-              key={a.id}
-              onClick={() => setSelectedArticle(a)}
-              className="block w-full text-left group"
-            >
-              <p className="text-xs text-foreground truncate group-hover:text-primary transition-colors">
-                {a.title}
-              </p>
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Clock className="h-2.5 w-2.5" />
-                {new Date(a.updatedAt).toLocaleDateString('de-CH')}
-              </p>
-            </button>
-          ))}
-        </div>
-
-        <h4 className="text-xs font-medium text-foreground mb-3">Tags</h4>
-        <div className="flex flex-wrap gap-1.5">
-          {allTags.map(([tag, count]) => (
-            <button
-              key={tag}
-              onClick={() => {
-                setActiveTag(activeTag === tag ? null : tag)
-                setActiveCategory(null)
-                setSelectedArticle(null)
-              }}
-              className={`rounded-full px-2 py-0.5 text-[10px] transition-colors ${
-                activeTag === tag
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tag} ({count})
-            </button>
-          ))}
-        </div>
-      </aside>
-
-      {/* Article Form Dialog */}
-      <Dialog open={showArticleForm} onOpenChange={setShowArticleForm}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editArticle ? 'Artikel bearbeiten' : 'Neuer Artikel'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Titel</Label>
-              <Input
-                placeholder="Artikelname"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Kategorie</Label>
-              <Select
-                value={formCategory}
-                onValueChange={setFormCategory}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Kategorie waehlen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {wikiCategories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Inhalt</Label>
-              <Textarea
-                placeholder="Artikelinhalt..."
-                value={formContent}
-                onChange={(e) => setFormContent(e.target.value)}
-                rows={6}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tags (kommagetrennt)</Label>
-              <Input
-                placeholder="z.B. Anleitung, IT, Wichtig"
-                value={formTags}
-                onChange={(e) => setFormTags(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowArticleForm(false)}
-            >
-              Abbrechen
-            </Button>
-            <Button
-              onClick={handleArticleSubmit}
-              disabled={!formTitle.trim() || !formCategory}
-            >
-              {editArticle ? 'Speichern' : 'Erstellen'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmDialog
-        open={!!deleteArticleConfirm}
-        onOpenChange={(open) => !open && setDeleteArticleConfirm(null)}
-        title="Artikel loeschen?"
-        description={`"${deleteArticleConfirm?.title}" wird unwiderruflich geloescht.`}
-        confirmLabel="Loeschen"
-        variant="destructive"
-        onConfirm={handleDeleteArticle}
-      />
-    </div>
-  )
-}
-
-// =====================================================================
-// Wiki sub-components (unchanged from original)
-// =====================================================================
-
-function WikiArticleCard({
-  article,
-  categoryName,
-  onClick,
-}: {
-  article: WikiArticle
-  categoryName: string
-  onClick: () => void
-}) {
-  const firstLine = article.content.split('\n')[0].slice(0, 120)
-
-  return (
-    <div
-      onClick={onClick}
-      className="group rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-              {article.title}
-            </h3>
-            <span className="shrink-0 rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">
-              {categoryName}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground line-clamp-1 mb-2">
-            {firstLine}
-          </p>
-          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {article.author}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {new Date(article.updatedAt).toLocaleDateString('de-CH')}
-            </span>
-            <span className="flex items-center gap-1">
-              <Eye className="h-3 w-3" />
-              {article.views}
-            </span>
-          </div>
-        </div>
-      </div>
-      {article.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2.5">
-          {article.tags.slice(0, 4).map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground"
-            >
-              {tag}
-            </span>
-          ))}
-          {article.tags.length > 4 && (
-            <span className="text-[10px] text-muted-foreground">
-              +{article.tags.length - 4}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function WikiArticleDetail({
-  article,
-  categoryName,
-  onBack,
-  onEdit,
-  onDelete,
-}: {
-  article: WikiArticle
-  categoryName: string
-  onBack: () => void
-  onEdit: () => void
-  onDelete: () => void
-}) {
-  return (
-    <div className="max-w-3xl">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Zurueck zur Uebersicht
-      </button>
-
-      <h1 className="text-xl font-semibold text-foreground mb-3">
-        {article.title}
-      </h1>
-
-      <div className="flex flex-wrap items-center gap-3 mb-4 text-xs text-muted-foreground">
-        <span className="rounded-full bg-primary-light px-2.5 py-0.5 text-[11px] font-medium text-primary">
-          {categoryName}
-        </span>
-        <span className="flex items-center gap-1">
-          <Users className="h-3.5 w-3.5" />
-          {article.author}
-        </span>
-        <span className="flex items-center gap-1">
-          <Clock className="h-3.5 w-3.5" />
-          Erstellt:{' '}
-          {new Date(article.createdAt).toLocaleDateString('de-CH')}
-        </span>
-        <span className="flex items-center gap-1">
-          <Clock className="h-3.5 w-3.5" />
-          Aktualisiert:{' '}
-          {new Date(article.updatedAt).toLocaleDateString('de-CH')}
-        </span>
-        <span className="flex items-center gap-1">
-          <Eye className="h-3.5 w-3.5" />
-          {article.views} Aufrufe
-        </span>
-      </div>
-
-      {article.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-6">
-          {article.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] text-muted-foreground flex items-center gap-1"
-            >
-              <Hash className="h-3 w-3" />
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="rounded-lg border border-border bg-card p-5 mb-6">
-        {article.content.split('\n').map((paragraph, i) => (
-          <p
-            key={i}
-            className={`text-sm text-foreground leading-relaxed ${
-              paragraph.trim() === '' ? 'h-3' : i > 0 ? 'mt-2' : ''
-            }`}
-          >
-            {paragraph}
-          </p>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onEdit}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-        >
-          <Pencil className="h-4 w-4" />
-          Bearbeiten
-        </button>
-        <button
-          onClick={onDelete}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-error hover:bg-error-light transition-colors"
-        >
-          <Trash2 className="h-4 w-4" />
-          Loeschen
-        </button>
-      </div>
-    </div>
-  )
-}
+

@@ -1,0 +1,341 @@
+/* ═══════════════════════════════════════════════════════
+   UI ANIMATIONS — Wave 14 Design Foundation + Wave 15
+   Reusable animation utilities for the design system.
+   All decorative animations respect prefers-reduced-motion.
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Fade Animations ── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Scale Animations ── */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scale-in-bounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  70% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Slide Animations ── */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-bottom {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Shimmer (for skeleton loaders) ── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ── Glow Pulse (for live indicators, active states) ── */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--primary);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 20%, transparent);
+  }
+}
+
+/* ── Spin (for loading spinners) ── */
+@keyframes spin-smooth {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Count Up Number (for stat cards) ── */
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Checkmark Draw (for checkbox) ── */
+@keyframes checkmark-draw {
+  from {
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ── Confetti Fall (for celebratory bursts) ── */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(85vh) translateX(var(--confetti-drift, 0px)) rotate(var(--confetti-rot, 720deg)) scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* ── Animated Checkmark (circle + tick draw) ── */
+@keyframes check-circle-draw {
+  0% {
+    stroke-dashoffset: 150;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes check-tick-draw {
+  0% {
+    stroke-dashoffset: 40;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ════════════════════════
+   UTILITY CLASSES
+   ════════════════════════ */
+
+.animate-fade-in {
+  animation: fade-in 200ms ease-out both;
+}
+
+.animate-fade-up {
+  animation: fade-up 300ms ease-out both;
+}
+
+.animate-fade-down {
+  animation: fade-down 300ms ease-out both;
+}
+
+.animate-scale-in {
+  animation: scale-in 200ms ease-out both;
+}
+
+.animate-scale-in-bounce {
+  animation: scale-in-bounce 350ms ease-out both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 300ms ease-out both;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 300ms ease-out both;
+}
+
+.animate-slide-in-bottom {
+  animation: slide-in-bottom 300ms ease-out both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--muted) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.animate-spin-smooth {
+  animation: spin-smooth 600ms linear infinite;
+}
+
+.animate-count-up {
+  animation: count-up 400ms ease-out both;
+}
+
+/* Checkbox checkmark stroke animation */
+.animate-checkmark path {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 0;
+  animation: checkmark-draw 250ms ease-out;
+}
+
+/* Animated Checkmark — hero success */
+.anim-check-circle {
+  stroke-dasharray: 150;
+  stroke-dashoffset: 150;
+  animation: check-circle-draw 500ms ease-out both;
+}
+
+.anim-check-tick {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: check-tick-draw 300ms ease-out 350ms both;
+}
+
+/* ── Stagger Delays ── */
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+.stagger-6 { animation-delay: 300ms; }
+.stagger-7 { animation-delay: 350ms; }
+.stagger-8 { animation-delay: 400ms; }
+
+/* ── Menu Item Stagger (for dropdown/context menus) ── */
+.menu-stagger > [role="menuitem"],
+.menu-stagger > [role="menuitemcheckbox"],
+.menu-stagger > [role="menuitemradio"],
+.menu-stagger > [role="option"] {
+  animation: fade-up 120ms ease-out both;
+}
+.menu-stagger > :nth-child(1) { animation-delay: 30ms; }
+.menu-stagger > :nth-child(2) { animation-delay: 50ms; }
+.menu-stagger > :nth-child(3) { animation-delay: 70ms; }
+.menu-stagger > :nth-child(4) { animation-delay: 90ms; }
+.menu-stagger > :nth-child(5) { animation-delay: 110ms; }
+.menu-stagger > :nth-child(6) { animation-delay: 130ms; }
+.menu-stagger > :nth-child(7) { animation-delay: 150ms; }
+.menu-stagger > :nth-child(8) { animation-delay: 170ms; }
+.menu-stagger > :nth-child(9) { animation-delay: 190ms; }
+.menu-stagger > :nth-child(10) { animation-delay: 210ms; }
+
+/* ── Page Transition ── */
+@keyframes page-enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter-up 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.page-exit {
+  animation: fade-in 150ms ease-in both reverse;
+}
+
+/* ════════════════════════
+   REDUCED MOTION
+   ════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-fade-up,
+  .animate-fade-down,
+  .animate-scale-in,
+  .animate-scale-in-bounce,
+  .animate-slide-in-right,
+  .animate-slide-in-left,
+  .animate-slide-in-bottom,
+  .animate-shimmer,
+  .animate-glow-pulse,
+  .animate-spin-smooth,
+  .animate-count-up,
+  .animate-checkmark path,
+  .page-enter,
+  .page-exit,
+  .page-enter-up,
+  .anim-check-circle,
+  .anim-check-tick {
+    animation: none !important;
+  }
+
+  .anim-check-circle {
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+
+  .anim-check-tick {
+    stroke-dashoffset: 0 !important;
+  }
+
+  [class*="stagger-"] {
+    animation-delay: 0ms !important;
+  }
+
+  .menu-stagger > * {
+    animation: none !important;
+  }
+}

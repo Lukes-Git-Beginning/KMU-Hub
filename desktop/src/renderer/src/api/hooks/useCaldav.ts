@@ -89,6 +89,13 @@ export function useEnableCalDAV() {
   })
 }
 
+/** Test CalDAV/CardDAV connection. */
+export function useTestCalDAVConnection() {
+  return useMutation({
+    mutationFn: () => caldavClient.testCalDAVConnection(),
+  })
+}
+
 /** Disable CalDAV for the current user. */
 export function useDisableCalDAV() {
   const qc = useQueryClient()

@@ -17,13 +17,18 @@ import {
   Eye,
   BarChart3,
   Calendar,
+  ChevronRight,
+  ArrowLeftRight,
+  Landmark,
+  Table2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useBerichteStore } from '@/stores/berichte'
+import { PageHeader } from '@/components/shared'
 
 /* ---------- constants ---------- */
 
-type TabKey = 'dashboard' | 'erstellen' | 'geplant'
+type TabKey = 'dashboard' | 'erstellen' | 'geplant' | 'datev'
 
 const scheduleLabels: Record<string, string> = {
   daily: 'Taeglich',
@@ -95,13 +100,16 @@ function computeNextRun(lastRun: string, schedule: string): string {
 /* ---------- component ---------- */
 
 export default function BerichtePage() {
-  const { kpis, chartData, scheduledReports, savedReports, modules } = useBerichteStore()
+  const { kpis, chartData, scheduledReports, savedReports, modules, kpiDrilldownData, comparisonChartData, datevBWA, datevSuSa } = useBerichteStore()
 
   /* --- tab state --- */
   const [tab, setTab] = useState<TabKey>('dashboard')
 
   /* --- dashboard state --- */
   const [moduleFilter, setModuleFilter] = useState<string>('all')
+  const [drilldownKpi, setDrilldownKpi] = useState<string | null>(null)
+  const [showComparison, setShowComparison] = useState(false)
+  const [datevSubTab, setDatevSubTab] = useState<'bwa' | 'susa'>('bwa')
 
   /* --- erstellen state --- */
   const [reportName, setReportName] = useState('')
@@ -223,21 +231,22 @@ export default function BerichtePage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* ---- Header ---- */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-foreground">Berichte</h1>
-          <p className="text-sm text-muted-foreground">
-            {kpis.length} KPIs &middot; {activeScheduled} geplante Berichte aktiv
-          </p>
-        </div>
-        <button
-          onClick={handleNewReport}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
-        >
-          <Plus className="h-4 w-4" />
-          Neuer Bericht
-        </button>
-      </div>
+      <PageHeader
+        title="Berichte"
+        description={`${kpis.length} KPIs · ${activeScheduled} geplante Berichte aktiv`}
+        icon={BarChart3}
+        moduleId="berichte"
+        actions={
+          <button
+            onClick={handleNewReport}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+          >
+            <Plus className="h-4 w-4" />
+            Neuer Bericht
+          </button>
+        }
+        className="mb-6"
+      />
 
       {/* ---- Tabs ---- */}
       <div className="mb-6 flex items-center gap-4 border-b border-border">
@@ -246,6 +255,7 @@ export default function BerichtePage() {
             { key: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
             { key: 'erstellen' as const, label: 'Erstellen', icon: FilePlus },
             { key: 'geplant' as const, label: `Geplant (${scheduledReports.length})`, icon: CalendarClock },
+            { key: 'datev' as const, label: 'DATEV', icon: Landmark },
           ] as const
         ).map((t) => (
           <button
@@ -253,7 +263,7 @@ export default function BerichtePage() {
             onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
               tab === t.key
-                ? 'border-primary font-medium text-primary'
+                ? 'border-primary font-medium text-primary tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -294,7 +304,7 @@ export default function BerichtePage() {
           </div>
 
           {/* KPI Cards */}
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-fade-up" style={{ animationDelay: '100ms' }}>
             {filteredKpis.length === 0 && (
               <div className="col-span-full rounded-lg border border-border bg-card p-8 text-center">
                 <TrendingUp className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
@@ -310,27 +320,34 @@ export default function BerichtePage() {
                 kpi.id === 'kpi-4' || kpi.id === 'kpi-6'
                   ? !isPositive
                   : isPositive
+              const isActive = drilldownKpi === kpi.id
               return (
-                <div
+                <button
                   key={kpi.id}
-                  className="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
+                  onClick={() => setDrilldownKpi(isActive ? null : kpi.id)}
+                  className={`group rounded-xl border bg-card p-4 text-left transition-all duration-200 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-md ${
+                    isActive ? 'border-primary ring-1 ring-primary/20' : 'border-border'
+                  }`}
                 >
                   <div className="mb-1 flex items-center justify-between">
                     <p className="text-xs text-muted-foreground">{kpi.label}</p>
-                    <div
-                      className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                        isGood
-                          ? 'bg-success-light text-success'
-                          : 'bg-error-light text-error'
-                      }`}
-                    >
-                      {isPositive ? (
-                        <ArrowUpRight className="h-3 w-3" />
-                      ) : (
-                        <ArrowDownRight className="h-3 w-3" />
-                      )}
-                      {isPositive ? '+' : ''}
-                      {kpi.changePercent}%
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          isGood
+                            ? 'bg-success-light text-success'
+                            : 'bg-error-light text-error'
+                        }`}
+                      >
+                        {isPositive ? (
+                          <ArrowUpRight className="h-3 w-3" />
+                        ) : (
+                          <ArrowDownRight className="h-3 w-3" />
+                        )}
+                        {isPositive ? '+' : ''}
+                        {kpi.changePercent}%
+                      </div>
+                      <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isActive ? 'rotate-90' : ''}`} />
                     </div>
                   </div>
                   <div className="mb-1 flex items-baseline gap-2">
@@ -340,57 +357,183 @@ export default function BerichtePage() {
                     )}
                   </div>
                   <p className="text-[10px] text-muted-foreground">vs. Vormonat</p>
-                </div>
+                </button>
               )
             })}
           </div>
 
+          {/* KPI Drill-Down Panel */}
+          {drilldownKpi && kpiDrilldownData[drilldownKpi] && (
+            <div className="mb-8 rounded-lg border border-primary/20 bg-card p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-medium text-foreground">
+                  {kpis.find((k) => k.id === drilldownKpi)?.label} — Details
+                </h3>
+                <button
+                  onClick={() => setDrilldownKpi(null)}
+                  className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Datum</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Bezeichnung</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Wert</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kpiDrilldownData[drilldownKpi].map((row, i) => (
+                      <tr key={i} className="border-b border-border/40 last:border-0">
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{row.date}</td>
+                        <td className="px-3 py-2 text-sm text-foreground">{row.label}</td>
+                        <td className="px-3 py-2 text-right text-sm font-medium text-foreground">{row.amount}</td>
+                        <td className="px-3 py-2">
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            {row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Comparison toggle */}
+          <div className="mb-4 flex items-center gap-3">
+            <button
+              onClick={() => setShowComparison(!showComparison)}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                showComparison
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:bg-secondary'
+              }`}
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              Periodenvergleich
+            </button>
+          </div>
+
           {/* Charts row */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Vertical bar chart: Umsatzverlauf */}
-            <div className="rounded-lg border border-border bg-card p-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 animate-fade-up" style={{ animationDelay: '200ms' }}>
+            {/* Vertical bar chart: Umsatzverlauf (with optional comparison) */}
+            <div className="rounded-xl border border-border bg-card p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-foreground">Umsatzverlauf</h3>
-                  <p className="text-xs text-muted-foreground">Letzte 6 Monate in Tsd. CHF</p>
+                  <p className="text-xs text-muted-foreground">
+                    {showComparison ? 'Aktuell vs. Vorjahr (Tsd. EUR)' : 'Letzte 6 Monate in Tsd. EUR'}
+                  </p>
                 </div>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light">
                   <TrendingUp className="h-4 w-4 text-primary" />
                 </div>
               </div>
-              <div className="flex items-end gap-3 h-48">
-                {chartData.map((bar, idx) => {
-                  const pct = Math.max(6, (bar.value / chartMax) * 100)
-                  const isLast = idx === chartData.length - 1
-                  return (
-                    <div key={idx} className="group/bar flex flex-1 flex-col items-center gap-1">
-                      <span className="text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover/bar:opacity-100">
-                        {bar.value}k
-                      </span>
-                      <div
-                        className={`w-full rounded-t transition-all duration-500 ${
-                          isLast ? 'bg-primary' : 'bg-primary/50'
-                        } group-hover/bar:bg-primary`}
-                        style={{
-                          height: `${pct}%`,
-                          animationDelay: `${idx * 80}ms`,
-                        }}
-                      />
-                      <span
-                        className={`text-[10px] ${
-                          isLast ? 'font-medium text-primary' : 'text-muted-foreground'
-                        }`}
-                      >
-                        {bar.label}
-                      </span>
+
+              {showComparison ? (
+                <>
+                  <div className="flex items-end gap-3 h-48">
+                    {comparisonChartData.map((bar, idx) => {
+                      const compMax = Math.max(...comparisonChartData.flatMap(b => [b.current, b.previous]), 1)
+                      const curPct = Math.max(6, (bar.current / compMax) * 100)
+                      const prevPct = Math.max(6, (bar.previous / compMax) * 100)
+                      return (
+                        <div key={idx} className="group/bar flex flex-1 flex-col items-center gap-1">
+                          <div className="flex items-end gap-0.5 w-full h-full">
+                            <div className="flex-1 flex flex-col items-center justify-end h-full">
+                              <span className="text-[9px] font-medium text-muted-foreground opacity-0 group-hover/bar:opacity-100 transition-opacity">{bar.previous}k</span>
+                              <div className="w-full rounded-t bg-muted-foreground/30" style={{ height: `${prevPct}%` }} />
+                            </div>
+                            <div className="flex-1 flex flex-col items-center justify-end h-full">
+                              <span className="text-[9px] font-medium text-primary opacity-0 group-hover/bar:opacity-100 transition-opacity">{bar.current}k</span>
+                              <div className="w-full rounded-t bg-primary" style={{ height: `${curPct}%` }} />
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{bar.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {/* Legend */}
+                  <div className="mt-3 flex items-center justify-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2.5 w-2.5 rounded-sm bg-muted-foreground/30" />
+                      <span className="text-[10px] text-muted-foreground">Vorjahr</span>
                     </div>
-                  )
-                })}
-              </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2.5 w-2.5 rounded-sm bg-primary" />
+                      <span className="text-[10px] text-muted-foreground">Aktuell</span>
+                    </div>
+                  </div>
+                  {/* Difference summary */}
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {(() => {
+                      const totalCurr = comparisonChartData.reduce((s, b) => s + b.current, 0)
+                      const totalPrev = comparisonChartData.reduce((s, b) => s + b.previous, 0)
+                      const diff = totalCurr - totalPrev
+                      const diffPct = ((diff / totalPrev) * 100).toFixed(1)
+                      return (
+                        <>
+                          <div className="rounded-lg bg-muted/50 p-2 text-center">
+                            <p className="text-[10px] text-muted-foreground">Aktuell</p>
+                            <p className="text-sm font-semibold text-foreground">{totalCurr}k</p>
+                          </div>
+                          <div className="rounded-lg bg-muted/50 p-2 text-center">
+                            <p className="text-[10px] text-muted-foreground">Vorjahr</p>
+                            <p className="text-sm font-semibold text-foreground">{totalPrev}k</p>
+                          </div>
+                          <div className="rounded-lg bg-muted/50 p-2 text-center">
+                            <p className="text-[10px] text-muted-foreground">Differenz</p>
+                            <p className={`text-sm font-semibold ${diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {diff >= 0 ? '+' : ''}{diff}k ({diff >= 0 ? '+' : ''}{diffPct}%)
+                            </p>
+                          </div>
+                        </>
+                      )
+                    })()}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-end gap-3 h-48">
+                  {chartData.map((bar, idx) => {
+                    const pct = Math.max(6, (bar.value / chartMax) * 100)
+                    const isLast = idx === chartData.length - 1
+                    return (
+                      <div key={idx} className="group/bar flex flex-1 flex-col items-center gap-1">
+                        <span className="text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover/bar:opacity-100">
+                          {bar.value}k
+                        </span>
+                        <div
+                          className={`w-full rounded-t transition-all duration-500 ${
+                            isLast ? 'bg-primary' : 'bg-primary/50'
+                          } group-hover/bar:bg-primary`}
+                          style={{
+                            height: `${pct}%`,
+                            animationDelay: `${idx * 80}ms`,
+                          }}
+                        />
+                        <span
+                          className={`text-[10px] ${
+                            isLast ? 'font-medium text-primary' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {bar.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Horizontal bar chart: Tickets nach Prioritaet */}
-            <div className="rounded-lg border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-medium text-foreground">Tickets nach Prioritaet</h3>
@@ -431,7 +574,7 @@ export default function BerichtePage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Create form */}
           <div className="lg:col-span-2">
-            <div className="rounded-lg border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-6">
               {/* Header */}
               <div className="mb-6 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-light">
@@ -759,6 +902,123 @@ export default function BerichtePage() {
               </div>
             )}
           </div>
+        </>
+      )}
+
+      {/* ================================================================ */}
+      {/*  DATEV TAB                                                         */}
+      {/* ================================================================ */}
+      {tab === 'datev' && (
+        <>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex gap-1">
+              {([
+                { key: 'bwa' as const, label: 'BWA', icon: BarChart3 },
+                { key: 'susa' as const, label: 'Summen & Salden', icon: Table2 },
+              ]).map((st) => (
+                <button
+                  key={st.key}
+                  onClick={() => setDatevSubTab(st.key)}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                    datevSubTab === st.key
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-secondary'
+                  }`}
+                >
+                  <st.icon className="h-3.5 w-3.5" />
+                  {st.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => toast.success('DATEV-Export wird generiert...')}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
+            >
+              <Download className="h-4 w-4" />
+              DATEV Export
+            </button>
+          </div>
+
+          {datevSubTab === 'bwa' && (
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="border-b border-border px-4 py-3">
+                <h3 className="text-sm font-medium text-foreground">Betriebswirtschaftliche Auswertung (BWA)</h3>
+                <p className="text-xs text-muted-foreground">Zeitraum: Februar 2026</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-8">Pos.</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Bezeichnung</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Aktueller Monat</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Vormonat</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Kumuliert</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {datevBWA.map((row) => {
+                      const isSummary = ['3', '5', '9', '11'].includes(row.position)
+                      return (
+                        <tr key={row.position} className={`border-b border-border/40 last:border-0 ${isSummary ? 'bg-muted/20 font-medium' : ''}`}>
+                          <td className="px-4 py-2 text-xs text-muted-foreground">{row.position}</td>
+                          <td className={`px-4 py-2 text-sm ${isSummary ? 'text-foreground font-medium' : 'text-foreground'}`}>{row.label}</td>
+                          <td className={`px-4 py-2 text-right text-sm ${row.currentMonth < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                            {row.currentMonth.toLocaleString('de-DE')} EUR
+                          </td>
+                          <td className={`px-4 py-2 text-right text-sm ${row.previousMonth < 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                            {row.previousMonth.toLocaleString('de-DE')} EUR
+                          </td>
+                          <td className={`px-4 py-2 text-right text-sm ${row.yearToDate < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                            {row.yearToDate.toLocaleString('de-DE')} EUR
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {datevSubTab === 'susa' && (
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="border-b border-border px-4 py-3">
+                <h3 className="text-sm font-medium text-foreground">Summen- und Saldenliste</h3>
+                <p className="text-xs text-muted-foreground">Zeitraum: Februar 2026</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-16">Konto</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Bezeichnung</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Aktueller Monat</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Vormonat</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Kumuliert</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {datevSuSa.map((row) => (
+                      <tr key={row.position} className="border-b border-border/40 last:border-0 hover:bg-muted/20">
+                        <td className="px-4 py-2 text-xs font-mono text-muted-foreground">{row.position}</td>
+                        <td className="px-4 py-2 text-sm text-foreground">{row.label}</td>
+                        <td className={`px-4 py-2 text-right text-sm ${row.currentMonth < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                          {row.currentMonth.toLocaleString('de-DE')} EUR
+                        </td>
+                        <td className={`px-4 py-2 text-right text-sm ${row.previousMonth < 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                          {row.previousMonth.toLocaleString('de-DE')} EUR
+                        </td>
+                        <td className={`px-4 py-2 text-right text-sm ${row.yearToDate < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                          {row.yearToDate.toLocaleString('de-DE')} EUR
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
 

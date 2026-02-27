@@ -20,6 +20,8 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/lib'
+import { PageHeader } from '@/components/shared/PageHeader'
+import { ListChecks } from 'lucide-react'
 import { useMyTasks, useCreateTask, useUpdateTask } from '@/api/hooks/useTasks'
 import { useProjects } from '@/api/hooks/useProjects'
 import { Button } from '@/components/ui/button'
@@ -229,17 +231,17 @@ export default function MyTasksPage() {
 
   return (
     <div className="p-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Meine Aufgaben</h1>
-        <Button
-          className="gap-2"
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Neue Aufgabe
-        </Button>
-      </div>
+      <PageHeader
+        title="Meine Aufgaben"
+        icon={ListChecks}
+        moduleId="tasks"
+        actions={
+          <Button className="gap-2" onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Neue Aufgabe
+          </Button>
+        }
+      />
 
       {/* Search bar + filters */}
       <div className="flex items-center gap-3 flex-wrap">

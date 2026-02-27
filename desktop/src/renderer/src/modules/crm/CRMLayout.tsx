@@ -28,7 +28,7 @@ const crmNavItems = [
 
 export default function CRMLayout() {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col animate-fade-in">
       {/* Sub-navigation bar */}
       <nav className="flex items-center gap-1 border-b border-border bg-card px-6 py-2">
         {crmNavItems.map((item) => (
@@ -37,9 +37,9 @@ export default function CRMLayout() {
             to={item.to}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
                 isActive
-                  ? 'bg-secondary text-secondary-foreground'
+                  ? 'bg-primary/10 text-primary tab-accent-active'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )
             }

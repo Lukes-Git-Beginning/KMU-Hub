@@ -6,10 +6,9 @@
  * Admin view toggles to show all users' sessions.
  */
 import { useState, useCallback } from 'react'
-import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
+import { FormattedMessage, useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Monitor, Smartphone, Tablet, MapPin, Wifi, X } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +20,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Card, CardContent } from '@/components/ui/card'
 import { useAuthStore } from '@/stores/auth'
 import {
   useMySessions,
@@ -31,30 +29,22 @@ import {
 } from '@/api/hooks/useSessions'
 import type { UserSession } from '@/api/security-types'
 
-function DeviceIcon({ deviceType }: { deviceType: string }) {
-  // Simple text-based device indicator
-  switch (deviceType.toLowerCase()) {
-    case 'desktop':
-      return <span className="text-lg" aria-hidden="true">&#128187;</span>
-    case 'mobile':
-      return <span className="text-lg" aria-hidden="true">&#128241;</span>
-    case 'tablet':
-      return <span className="text-lg" aria-hidden="true">&#128241;</span>
-    default:
-      return <span className="text-lg" aria-hidden="true">&#128187;</span>
-  }
+const deviceConfig: Record<string, { icon: typeof Monitor; colorBg: string; colorText: string }> = {
+  desktop: { icon: Monitor, colorBg: 'bg-info-light', colorText: 'text-info' },
+  mobile: { icon: Smartphone, colorBg: 'bg-primary-light', colorText: 'text-primary' },
+  tablet: { icon: Tablet, colorBg: 'bg-warning-light', colorText: 'text-warning' },
+}
+
+function getDeviceConfig(deviceType: string) {
+  return deviceConfig[deviceType.toLowerCase()] ?? deviceConfig.desktop
 }
 
 function deviceTypeMessageId(deviceType: string): string {
   switch (deviceType.toLowerCase()) {
-    case 'desktop':
-      return 'session.device.desktop'
-    case 'mobile':
-      return 'session.device.mobile'
-    case 'tablet':
-      return 'session.device.tablet'
-    default:
-      return 'session.device.unknown'
+    case 'desktop': return 'session.device.desktop'
+    case 'mobile': return 'session.device.mobile'
+    case 'tablet': return 'session.device.tablet'
+    default: return 'session.device.unknown'
   }
 }
 
@@ -66,30 +56,48 @@ interface SessionCardProps {
 
 function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) {
   const intl = useIntl()
+  const device = getDeviceConfig(session.device_type)
+  const DeviceIcon = device.icon
 
   return (
-    <Card className={session.is_current ? 'border-primary' : ''}>
-      <CardContent className="flex items-center gap-4 p-4">
-        <DeviceIcon deviceType={session.device_type} />
+    <div
+      className={`rounded-lg border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] glass-surface ${
+        session.is_current
+          ? 'border-success bg-success-light/10'
+          : 'border-border'
+      }`}
+    >
+      <div className="flex items-center gap-4">
+        {/* Device icon */}
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${device.colorBg}`}>
+          <DeviceIcon className={`h-5 w-5 ${device.colorText}`} />
+        </div>
 
-        <div className="flex-1 space-y-1">
+        {/* Info */}
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-sm">
+            <span className="font-medium text-sm text-foreground truncate">
               {session.device_name || intl.formatMessage({ id: deviceTypeMessageId(session.device_type) })}
             </span>
             {session.is_current && (
-              <Badge variant="default" className="text-xs">
+              <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success shrink-0">
                 <FormattedMessage id="session.current" />
-              </Badge>
+              </span>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-            <span className="font-mono">{session.ip_address}</span>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Wifi className="h-3 w-3" />
+              <span className="font-mono">{session.ip_address}</span>
+            </span>
             {session.location && (
-              <span>{session.location}</span>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3" />
+                {session.location}
+              </span>
             )}
-            <span>
+            <span className="text-xs text-muted-foreground">
               <FormattedMessage
                 id="session.createdAt"
                 values={{
@@ -103,7 +111,7 @@ function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) 
                 }}
               />
             </span>
-            <span>
+            <span className="text-xs text-muted-foreground">
               <FormattedMessage
                 id="session.lastActive"
                 values={{
@@ -120,18 +128,18 @@ function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) 
           </div>
         </div>
 
+        {/* Terminate button */}
         {!session.is_current && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                size="sm"
+              <button
                 disabled={isTerminating}
+                className="shrink-0 rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-error hover:bg-error-light transition-colors disabled:opacity-40"
               >
                 <FormattedMessage id="session.terminate" />
-              </Button>
+              </button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent className="glass-elevated">
               <AlertDialogHeader>
                 <AlertDialogTitle>
                   <FormattedMessage id="session.terminate" />
@@ -151,8 +159,8 @@ function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) 
             </AlertDialogContent>
           </AlertDialog>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -207,38 +215,48 @@ export default function SessionsPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            <FormattedMessage id="session.title" />
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            <FormattedMessage id="session.description" />
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-info-light">
+            <Monitor className="h-6 w-6 text-info" />
+          </div>
+          <div>
+            <h1 className="text-foreground">
+              <FormattedMessage id="session.title" />
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="rounded-full bg-info-light px-2.5 py-0.5 text-xs font-medium text-info">
+                {sessions.length} {showAll ? 'Alle' : 'Meine'}
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex items-center gap-2">
           {isAdmin && (
-            <Button
-              variant={showAll ? 'default' : 'outline'}
-              size="sm"
+            <button
               onClick={() => setShowAll(!showAll)}
+              className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+                showAll
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border text-foreground hover:bg-secondary'
+              }`}
             >
               {showAll ? 'My Sessions' : 'All Sessions'}
-            </Button>
+            </button>
           )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                size="sm"
+              <button
                 disabled={terminateAllMutation.isPending || sessions.length <= 1}
+                className="rounded-lg bg-error px-3 py-2 text-sm text-white hover:bg-error/90 transition-colors disabled:opacity-40"
               >
                 <FormattedMessage id="session.terminateAll" />
-              </Button>
+              </button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent className="glass-elevated">
               <AlertDialogHeader>
                 <AlertDialogTitle>
                   <FormattedMessage id="session.terminateAll" />
@@ -262,15 +280,21 @@ export default function SessionsPage() {
 
       {/* Session list */}
       {isLoading && (
-        <p className="text-center text-muted-foreground py-8">
-          <FormattedMessage id="common.loading" />
-        </p>
+        <div className="py-12 text-center">
+          <Monitor className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2 animate-pulse" />
+          <p className="text-sm text-muted-foreground">
+            <FormattedMessage id="common.loading" />
+          </p>
+        </div>
       )}
 
       {!isLoading && sortedSessions.length === 0 && (
-        <p className="text-center text-muted-foreground py-8">
-          <FormattedMessage id="common.noResults" />
-        </p>
+        <div className="py-12 text-center">
+          <Monitor className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2" />
+          <p className="text-sm text-muted-foreground">
+            <FormattedMessage id="common.noResults" />
+          </p>
+        </div>
       )}
 
       <div className="space-y-3">

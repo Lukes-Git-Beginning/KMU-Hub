@@ -59,7 +59,7 @@ function ActivityFeed(_props: WidgetProps) {
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
           <Activity className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">Keine Aktivitaeten</p>
+          <p className="mt-2 text-sm text-muted-foreground">Keine Aktivitäten</p>
         </div>
       </div>
     )

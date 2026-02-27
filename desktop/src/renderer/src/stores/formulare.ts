@@ -10,6 +10,8 @@ export interface FormField {
   required: boolean
   placeholder?: string
   options?: string[] // for select, radio
+  conditionalLogic?: { fieldId: string; operator: 'equals' | 'not_equals' | 'contains'; value: string }
+  page?: number
 }
 
 export interface Form {
@@ -23,6 +25,9 @@ export interface Form {
   createdBy: string
   submissionCount: number
   isTemplate: boolean
+  pageCount?: number
+  actions?: { type: 'email' | 'task' | 'crm_contact'; config: Record<string, string> }[]
+  isPublic?: boolean
 }
 
 export interface FormSubmission {
@@ -50,6 +55,9 @@ const MOCK_FORMS: Form[] = [
     createdBy: 'Anna Mueller',
     submissionCount: 8,
     isTemplate: false,
+    pageCount: 1,
+    actions: [],
+    isPublic: false,
     fields: [
       { id: 'f1-1', type: 'text', label: 'Name', required: true, placeholder: 'Ihr vollstaendiger Name' },
       { id: 'f1-2', type: 'text', label: 'E-Mail', required: true, placeholder: 'ihre.email@beispiel.ch' },
@@ -69,11 +77,14 @@ const MOCK_FORMS: Form[] = [
     createdBy: 'Peter Koch',
     submissionCount: 4,
     isTemplate: false,
+    pageCount: 1,
+    actions: [],
+    isPublic: false,
     fields: [
       { id: 'f2-1', type: 'text', label: 'Melder', required: true, placeholder: 'Name der meldenden Person' },
       { id: 'f2-2', type: 'date', label: 'Datum', required: true },
       { id: 'f2-3', type: 'text', label: 'Ort', required: true, placeholder: 'Wo ist der Schaden aufgetreten?' },
-      { id: 'f2-4', type: 'textarea', label: 'Beschreibung', required: true, placeholder: 'Beschreiben Sie den Schaden detailliert...' },
+      { id: 'f2-4', type: 'textarea', label: 'Beschreibung', required: true, placeholder: 'Beschreiben Sie den Schaden detailliert...', conditionalLogic: { fieldId: 'f2-5', operator: 'not_equals', value: '' } },
       { id: 'f2-5', type: 'select', label: 'Schwere', required: true, options: ['Gering', 'Mittel', 'Schwer', 'Kritisch'] },
       { id: 'f2-6', type: 'file', label: 'Fotos', required: false },
       { id: 'f2-7', type: 'textarea', label: 'Sofortmassnahmen', required: false, placeholder: 'Welche Massnahmen wurden bereits ergriffen?' },
@@ -89,6 +100,8 @@ const MOCK_FORMS: Form[] = [
     createdBy: 'Lisa Schmidt',
     submissionCount: 3,
     isTemplate: false,
+    pageCount: 1,
+    isPublic: false,
     fields: [
       { id: 'f3-1', type: 'text', label: 'Name', required: true, placeholder: 'Vor- und Nachname' },
       { id: 'f3-2', type: 'text', label: 'E-Mail', required: true, placeholder: 'ihre.email@beispiel.ch' },
@@ -108,6 +121,8 @@ const MOCK_FORMS: Form[] = [
     createdBy: 'Michael Berg',
     submissionCount: 0,
     isTemplate: false,
+    pageCount: 1,
+    isPublic: false,
     fields: [
       { id: 'f4-1', type: 'text', label: 'Bereich', required: true, placeholder: 'Lager, Buero, Werkstatt...' },
       { id: 'f4-2', type: 'number', label: 'Artikel-Anzahl', required: true },
@@ -126,6 +141,8 @@ const MOCK_FORMS: Form[] = [
     createdBy: 'Lisa Schmidt',
     submissionCount: 5,
     isTemplate: false,
+    pageCount: 1,
+    isPublic: false,
     fields: [
       { id: 'f5-1', type: 'select', label: 'Abteilung', required: true, options: ['IT', 'HR', 'Marketing', 'Vertrieb', 'Produktion'] },
       { id: 'f5-2', type: 'rating', label: 'Zufriedenheit', required: true },

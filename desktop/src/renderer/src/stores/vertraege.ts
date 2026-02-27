@@ -7,6 +7,14 @@ export interface ContractHistoryEntry {
   user: string
 }
 
+export interface ContractSigner {
+  email: string
+  name: string
+  status: 'pending' | 'sent' | 'viewed' | 'signed' | 'declined'
+  signedAt?: string
+  order: number
+}
+
 export interface Contract {
   id: string
   contractNumber: string
@@ -23,14 +31,92 @@ export interface Contract {
   documentRef?: string
   notes: string
   history: ContractHistoryEntry[]
+  currency?: string
+  reminderDays?: number[]
+  templateId?: string
+  signers?: ContractSigner[]
 }
 
 export type ContractType = Contract['type']
 export type ContractStatus = Contract['status']
 
+export interface ContractTemplate {
+  id: string
+  name: string
+  description: string
+  type: ContractType
+  defaultDuration: string
+  defaultNoticePeriodDays: number
+  defaultRenewal: 'auto' | 'manual'
+  defaultMonthlyCost?: number
+}
+
+const MOCK_TEMPLATES: ContractTemplate[] = [
+  {
+    id: 'tpl-miet',
+    name: 'Standard-Mietvertrag',
+    description: 'Gewerbliche Mietvertraege fuer Buero- und Lagerraeume mit ueblichen Konditionen',
+    type: 'mietvertrag',
+    defaultDuration: '36',
+    defaultNoticePeriodDays: 90,
+    defaultRenewal: 'manual',
+    defaultMonthlyCost: 2500,
+  },
+  {
+    id: 'tpl-service',
+    name: 'Servicevertrag (SLA)',
+    description: 'IT- und Facility-Servicevertraege mit definierten Service Level Agreements',
+    type: 'servicevertrag',
+    defaultDuration: '12',
+    defaultNoticePeriodDays: 30,
+    defaultRenewal: 'auto',
+    defaultMonthlyCost: 500,
+  },
+  {
+    id: 'tpl-lizenz',
+    name: 'Software-Lizenzvertrag',
+    description: 'Jahreslizenzen fuer Software und Cloud-Dienste mit automatischer Verlaengerung',
+    type: 'lizenz',
+    defaultDuration: '12',
+    defaultNoticePeriodDays: 30,
+    defaultRenewal: 'auto',
+    defaultMonthlyCost: 300,
+  },
+  {
+    id: 'tpl-liefer',
+    name: 'Rahmenvertrag Lieferant',
+    description: 'Rahmenvertraege mit Lieferanten inkl. Mengenrabatte und Zahlungskonditionen',
+    type: 'liefervertrag',
+    defaultDuration: '12',
+    defaultNoticePeriodDays: 30,
+    defaultRenewal: 'auto',
+  },
+  {
+    id: 'tpl-arbeit',
+    name: 'Arbeitsvertrag (unbefristet)',
+    description: 'Standard-Arbeitsvertrag fuer unbefristete Anstellungen nach deutschem Recht',
+    type: 'arbeitsvertrag',
+    defaultDuration: '',
+    defaultNoticePeriodDays: 90,
+    defaultRenewal: 'auto',
+  },
+  {
+    id: 'tpl-versicherung',
+    name: 'Betriebsversicherung',
+    description: 'Haftpflicht-, Inventar- und Betriebsunterbrechungsversicherungen',
+    type: 'versicherung',
+    defaultDuration: '12',
+    defaultNoticePeriodDays: 90,
+    defaultRenewal: 'auto',
+    defaultMonthlyCost: 400,
+  },
+]
+
 interface VertraegeStore {
   contracts: Contract[]
+  contractTemplates: ContractTemplate[]
   addContract: (contract: Contract) => void
+  addContractFromTemplate: (templateId: string, overrides?: Partial<Contract>) => void
   updateContract: (id: string, updates: Partial<Contract>) => void
   deleteContract: (id: string) => void
   terminateContract: (id: string, reason: string, date: string) => void
@@ -52,6 +138,8 @@ const MOCK_CONTRACTS: Contract[] = [
     totalValue: 270000,
     documentRef: 'DOC-MV-001',
     notes: 'Hauptsitz im Kreis 5. Miete inkl. Nebenkosten und 2 Parkplaetze in der Tiefgarage. Kaution CHF 13500 hinterlegt bei der Zuercher Kantonalbank.',
+    currency: 'EUR',
+    reminderDays: [30, 60, 90],
     history: [
       { date: '2024-01-01', action: 'Vertrag unterzeichnet', user: 'Markus Weber' },
       { date: '2024-01-15', action: 'Bueroeinrichtung abgeschlossen', user: 'Sandra Buerki' },
@@ -73,6 +161,7 @@ const MOCK_CONTRACTS: Contract[] = [
     totalValue: 4536,
     documentRef: 'DOC-SV-003',
     notes: 'Business Internet XL mit 10 Gbit/s symmetrisch, inkl. Managed Router und SLA 99.9%. Stoerungshotline 24/7.',
+    currency: 'EUR',
     history: [
       { date: '2025-01-01', action: 'Vertrag aktiviert', user: 'Thomas Keller' },
       { date: '2025-01-10', action: 'Router installiert und konfiguriert', user: 'Thomas Keller' },
@@ -93,6 +182,8 @@ const MOCK_CONTRACTS: Contract[] = [
     totalValue: 5400,
     documentRef: 'DOC-LZ-002',
     notes: '25 Lizenzen Microsoft 365 Business Premium. Inkl. Exchange Online, Teams, SharePoint und Intune. Verlaengerung muss manuell bestaetigt werden.',
+    currency: 'EUR',
+    reminderDays: [30, 60, 90],
     history: [
       { date: '2025-04-01', action: 'Lizenz aktiviert', user: 'Thomas Keller' },
       { date: '2025-04-05', action: 'Migration von G Suite abgeschlossen', user: 'Thomas Keller' },
@@ -114,6 +205,7 @@ const MOCK_CONTRACTS: Contract[] = [
     totalValue: 32040,
     documentRef: 'DOC-VS-004',
     notes: 'Kombinierte Betriebsversicherung: Haftpflicht (CHF 5 Mio.), Inventar (CHF 500000), Betriebsunterbrechung (12 Monate). Selbstbehalt CHF 1000 pro Schadensfall.',
+    currency: 'EUR',
     history: [
       { date: '2024-06-01', action: 'Police ausgestellt', user: 'Markus Weber' },
       { date: '2024-12-15', action: 'Jaehrliche Praemienanpassung +2.1%', user: 'Sandra Buerki' },
@@ -134,6 +226,12 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 2200,
     totalValue: 26400,
     notes: 'Rahmenvertrag fuer Stahlkomponenten und Sonderanfertigungen. Lieferzeit max. 10 Werktage, Zahlungsziel 30 Tage netto. Mengenrabatt ab CHF 5000 pro Bestellung.',
+    currency: 'EUR',
+    reminderDays: [30, 60, 90],
+    signers: [
+      { email: 'l.brunner@firma.de', name: 'Lukas Brunner', status: 'signed', signedAt: '2025-02-28T14:30:00', order: 1 },
+      { email: 'h.mueller@metallbau.de', name: 'Hans Mueller', status: 'pending', order: 2 },
+    ],
     history: [
       { date: '2025-03-01', action: 'Rahmenvertrag unterzeichnet', user: 'Lukas Brunner' },
       { date: '2025-05-20', action: 'Erste Bestellung ausgeloest', user: 'Lukas Brunner' },
@@ -153,6 +251,7 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 750,
     totalValue: 9000,
     notes: 'Buroreinigung 3x woechtentlich (Mo/Mi/Fr), Grundreinigung 1x monatlich. Reinigungsmittel inkl. Fensterreinigung quartalsweise.',
+    currency: 'EUR',
     history: [
       { date: '2025-06-01', action: 'Servicevertrag gestartet', user: 'Sandra Buerki' },
       { date: '2025-08-10', action: 'Zusaetzliche Fensterreinigung vereinbart', user: 'Sandra Buerki' },
@@ -172,6 +271,7 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 6500,
     totalValue: 0,
     notes: 'Unbefristeter Arbeitsvertrag, Senior Entwickler. 100% Pensum, 5 Wochen Ferien. 13. Monatslohn. Homeoffice 2 Tage/Woche gemaess Reglement.',
+    currency: 'EUR',
     history: [
       { date: '2023-03-01', action: 'Arbeitsvertrag unterzeichnet', user: 'Markus Weber' },
       { date: '2024-03-01', action: 'Lohnerhoehung +3.5%', user: 'Markus Weber' },
@@ -193,6 +293,7 @@ const MOCK_CONTRACTS: Contract[] = [
     totalValue: 8160,
     documentRef: 'DOC-LZ-005',
     notes: '10 Lizenzen Creative Cloud All Apps. Nutzung fuer Marketing-Team und Design-Abteilung. Schulung ueber Adobe Learning inbegriffen.',
+    currency: 'EUR',
     history: [
       { date: '2025-01-01', action: 'Jahreslizenz erneuert', user: 'Thomas Keller' },
       { date: '2025-01-15', action: 'Lizenzen zugewiesen an Team', user: 'Thomas Keller' },
@@ -212,6 +313,7 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 320,
     totalValue: 3840,
     notes: 'Flottenversicherung fuer 3 Firmenfahrzeuge. Vollkasko mit CHF 500 Selbstbehalt. Pannenhilfe Schweiz und Europa inkl.',
+    currency: 'EUR',
     history: [
       { date: '2025-01-01', action: 'Police erneuert', user: 'Sandra Buerki' },
       { date: '2025-04-12', action: 'Neues Fahrzeug hinzugefuegt (ZH-345678)', user: 'Sandra Buerki' },
@@ -231,6 +333,7 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 1800,
     totalValue: 43200,
     notes: 'Rahmenvertrag fuer regelmaessige Warentransporte. Gekuendigt per 31.12.2025 wegen Wechsel zu guenstigerem Anbieter. Restliche Lieferungen werden noch abgewickelt.',
+    currency: 'EUR',
     history: [
       { date: '2024-01-01', action: 'Rahmenvertrag unterzeichnet', user: 'Lukas Brunner' },
       { date: '2025-06-15', action: 'Kuendigung eingereicht', user: 'Markus Weber' },
@@ -252,6 +355,7 @@ const MOCK_CONTRACTS: Contract[] = [
     totalValue: 28800,
     documentRef: 'DOC-MV-002',
     notes: 'Lagerraum 120m2 im Industriegebiet Winterthur-Toess. Zugang 6-22 Uhr, Rampe fuer LKW-Anlieferung vorhanden. Heizung und Strom inkl.',
+    currency: 'EUR',
     history: [
       { date: '2024-06-01', action: 'Mietvertrag unterzeichnet', user: 'Markus Weber' },
       { date: '2025-01-15', action: 'Lagerregale installiert', user: 'Lukas Brunner' },
@@ -273,6 +377,7 @@ const MOCK_CONTRACTS: Contract[] = [
     totalValue: 70200,
     documentRef: 'DOC-LZ-007',
     notes: '15 Named-User-Lizenzen SAP Business One. Inkl. Finanzwesen, Einkauf, Vertrieb und Lagerverwaltung. Support Level: Enterprise (Reaktionszeit 4h).',
+    currency: 'EUR',
     history: [
       { date: '2025-07-01', action: 'Lizenzvertrag aktiviert', user: 'Thomas Keller' },
       { date: '2025-07-20', action: 'Go-Live nach 3 Wochen Implementierung', user: 'Thomas Keller' },
@@ -283,13 +388,50 @@ const MOCK_CONTRACTS: Contract[] = [
 
 export const useVertraegeStore = create<VertraegeStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       contracts: MOCK_CONTRACTS,
+      contractTemplates: MOCK_TEMPLATES,
 
       addContract: (contract) =>
         set((state) => ({
           contracts: [...state.contracts, contract],
         })),
+
+      addContractFromTemplate: (templateId, overrides) => {
+        const template = get().contractTemplates.find((t) => t.id === templateId)
+        if (!template) return
+        const today = new Date().toISOString().split('T')[0]
+        let endDate = ''
+        if (template.defaultDuration) {
+          const end = new Date()
+          end.setMonth(end.getMonth() + Number(template.defaultDuration))
+          endDate = end.toISOString().split('T')[0]
+        }
+        const months = template.defaultDuration ? Number(template.defaultDuration) : 0
+        const monthlyCost = template.defaultMonthlyCost ?? 0
+        const contract: Contract = {
+          id: `v-${Date.now()}`,
+          contractNumber: '',
+          title: '',
+          partner: '',
+          type: template.type,
+          status: 'active',
+          startDate: today,
+          endDate,
+          noticePeriodDays: template.defaultNoticePeriodDays,
+          renewal: template.defaultRenewal,
+          monthlyCost,
+          totalValue: monthlyCost * months,
+          notes: '',
+          templateId,
+          currency: 'EUR',
+          history: [
+            { date: today, action: `Aus Vorlage "${template.name}" erstellt`, user: 'Aktueller Benutzer' },
+          ],
+          ...overrides,
+        }
+        set((state) => ({ contracts: [...state.contracts, contract] }))
+      },
 
       updateContract: (id, updates) =>
         set((state) => ({

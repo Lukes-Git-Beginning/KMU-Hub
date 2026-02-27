@@ -26,6 +26,38 @@ export interface ProductionOrder {
   progress: number
   startDate: string
   dueDate: string
+  scrapQuantity: number
+  scrapRate: number
+}
+
+export interface WorkStep {
+  id: string
+  orderId: string
+  stepNr: number
+  name: string
+  description: string
+  durationMinutes: number
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped'
+  assignee?: string
+}
+
+export interface Machine {
+  id: string
+  name: string
+  type: string
+  status: 'available' | 'in_use' | 'maintenance'
+}
+
+export interface MachineBooking {
+  id: string
+  machineId: string
+  machineName: string
+  orderId: string
+  orderNr: string
+  product: string
+  startDate: string
+  endDate: string
+  color: string
 }
 
 export interface QualityCheck {
@@ -43,6 +75,9 @@ interface ProduktionStore {
   orders: ProductionOrder[]
   boms: BOM[]
   qualityChecks: QualityCheck[]
+  workSteps: WorkStep[]
+  machines: Machine[]
+  machineBookings: MachineBooking[]
 }
 
 const MOCK_BOMS: BOM[] = [
@@ -100,14 +135,50 @@ const MOCK_BOMS: BOM[] = [
 ]
 
 const MOCK_ORDERS: ProductionOrder[] = [
-  { id: 'prod-1', orderNr: 'PRD-2026-041', bomId: 'bom-1', product: 'Schaltschrank Standard 600mm', quantity: 10, status: 'in_progress', progress: 70, startDate: '2026-02-03', dueDate: '2026-02-17' },
-  { id: 'prod-2', orderNr: 'PRD-2026-042', bomId: 'bom-2', product: 'Steuerungspanel Touch 10"', quantity: 25, status: 'in_progress', progress: 40, startDate: '2026-02-10', dueDate: '2026-02-24' },
-  { id: 'prod-3', orderNr: 'PRD-2026-043', bomId: 'bom-3', product: 'Kabelsatz Industrieanlage A', quantity: 50, status: 'completed', progress: 100, startDate: '2026-01-20', dueDate: '2026-02-07' },
-  { id: 'prod-4', orderNr: 'PRD-2026-044', bomId: 'bom-4', product: 'LED-Leuchte IP65 Outdoor', quantity: 200, status: 'planned', progress: 0, startDate: '2026-02-18', dueDate: '2026-03-07' },
-  { id: 'prod-5', orderNr: 'PRD-2026-045', bomId: 'bom-1', product: 'Schaltschrank Standard 600mm', quantity: 5, status: 'paused', progress: 20, startDate: '2026-02-05', dueDate: '2026-02-20' },
-  { id: 'prod-6', orderNr: 'PRD-2026-046', bomId: 'bom-3', product: 'Kabelsatz Industrieanlage A', quantity: 30, status: 'planned', progress: 0, startDate: '2026-02-20', dueDate: '2026-03-10' },
-  { id: 'prod-7', orderNr: 'PRD-2026-047', bomId: 'bom-2', product: 'Steuerungspanel Touch 10"', quantity: 15, status: 'in_progress', progress: 85, startDate: '2026-01-27', dueDate: '2026-02-16' },
-  { id: 'prod-8', orderNr: 'PRD-2026-048', bomId: 'bom-4', product: 'LED-Leuchte IP65 Outdoor', quantity: 100, status: 'cancelled', progress: 10, startDate: '2026-02-01', dueDate: '2026-02-15' },
+  { id: 'prod-1', orderNr: 'PRD-2026-041', bomId: 'bom-1', product: 'Schaltschrank Standard 600mm', quantity: 10, status: 'in_progress', progress: 70, startDate: '2026-02-03', dueDate: '2026-02-17', scrapQuantity: 1, scrapRate: 10 },
+  { id: 'prod-2', orderNr: 'PRD-2026-042', bomId: 'bom-2', product: 'Steuerungspanel Touch 10"', quantity: 25, status: 'in_progress', progress: 40, startDate: '2026-02-10', dueDate: '2026-02-24', scrapQuantity: 2, scrapRate: 8 },
+  { id: 'prod-3', orderNr: 'PRD-2026-043', bomId: 'bom-3', product: 'Kabelsatz Industrieanlage A', quantity: 50, status: 'completed', progress: 100, startDate: '2026-01-20', dueDate: '2026-02-07', scrapQuantity: 1, scrapRate: 2 },
+  { id: 'prod-4', orderNr: 'PRD-2026-044', bomId: 'bom-4', product: 'LED-Leuchte IP65 Outdoor', quantity: 200, status: 'planned', progress: 0, startDate: '2026-02-18', dueDate: '2026-03-07', scrapQuantity: 0, scrapRate: 0 },
+  { id: 'prod-5', orderNr: 'PRD-2026-045', bomId: 'bom-1', product: 'Schaltschrank Standard 600mm', quantity: 5, status: 'paused', progress: 20, startDate: '2026-02-05', dueDate: '2026-02-20', scrapQuantity: 1, scrapRate: 20 },
+  { id: 'prod-6', orderNr: 'PRD-2026-046', bomId: 'bom-3', product: 'Kabelsatz Industrieanlage A', quantity: 30, status: 'planned', progress: 0, startDate: '2026-02-20', dueDate: '2026-03-10', scrapQuantity: 0, scrapRate: 0 },
+  { id: 'prod-7', orderNr: 'PRD-2026-047', bomId: 'bom-2', product: 'Steuerungspanel Touch 10"', quantity: 15, status: 'in_progress', progress: 85, startDate: '2026-01-27', dueDate: '2026-02-16', scrapQuantity: 0, scrapRate: 0 },
+  { id: 'prod-8', orderNr: 'PRD-2026-048', bomId: 'bom-4', product: 'LED-Leuchte IP65 Outdoor', quantity: 100, status: 'cancelled', progress: 10, startDate: '2026-02-01', dueDate: '2026-02-15', scrapQuantity: 3, scrapRate: 3 },
+]
+
+const MOCK_WORK_STEPS: WorkStep[] = [
+  { id: 'ws-1', orderId: 'prod-1', stepNr: 1, name: 'Gehaeuse vorbereiten', description: 'Stahlgehaeuse entgraten, bohren und grundieren', durationMinutes: 120, status: 'completed', assignee: 'Thomas Keller' },
+  { id: 'ws-2', orderId: 'prod-1', stepNr: 2, name: 'Hutschienen montieren', description: 'Hutschienen und Kabelkanaele einbauen', durationMinutes: 60, status: 'completed', assignee: 'Thomas Keller' },
+  { id: 'ws-3', orderId: 'prod-1', stepNr: 3, name: 'Sicherungen einbauen', description: 'LSS, FI und Hauptschalter montieren', durationMinutes: 90, status: 'in_progress', assignee: 'Lukas Brunner' },
+  { id: 'ws-4', orderId: 'prod-1', stepNr: 4, name: 'Verdrahtung', description: 'Interne Verdrahtung nach Plan', durationMinutes: 180, status: 'pending' },
+  { id: 'ws-5', orderId: 'prod-1', stepNr: 5, name: 'Pruefung / Inbetriebnahme', description: 'Isolationsmessung, Funktionstest, Protokoll', durationMinutes: 60, status: 'pending' },
+  { id: 'ws-6', orderId: 'prod-2', stepNr: 1, name: 'Gehaeuse fertigen', description: 'Aluminiumgehaeuse CNC-fraesen und eloxieren', durationMinutes: 90, status: 'completed', assignee: 'Werner Stoeckli' },
+  { id: 'ws-7', orderId: 'prod-2', stepNr: 2, name: 'Elektronik bestuecken', description: 'CM4, Display und Netzteil montieren', durationMinutes: 120, status: 'in_progress', assignee: 'Irene Graf' },
+  { id: 'ws-8', orderId: 'prod-2', stepNr: 3, name: 'Software flashen', description: 'Firmware und Konfiguration aufspielen', durationMinutes: 45, status: 'pending' },
+  { id: 'ws-9', orderId: 'prod-2', stepNr: 4, name: 'Endpruefung', description: 'Touch-Kalibrierung, Kommunikationstest, Verpackung', durationMinutes: 60, status: 'pending' },
+  { id: 'ws-10', orderId: 'prod-4', stepNr: 1, name: 'LED-Module vorbereiten', description: 'LED-Module und Treiber pruefen und vorsortieren', durationMinutes: 60, status: 'pending' },
+  { id: 'ws-11', orderId: 'prod-4', stepNr: 2, name: 'Gehaeuse giessen', description: 'Druckguss-Gehaeuse fertigen und entgraten', durationMinutes: 150, status: 'pending' },
+  { id: 'ws-12', orderId: 'prod-4', stepNr: 3, name: 'Montage', description: 'LED-Modul, Treiber und Optik in Gehaeuse montieren', durationMinutes: 90, status: 'pending' },
+  { id: 'ws-13', orderId: 'prod-4', stepNr: 4, name: 'IP65-Pruefung', description: 'Dichtheit und Schutzart pruefen', durationMinutes: 45, status: 'pending' },
+]
+
+const MOCK_MACHINES: Machine[] = [
+  { id: 'mc-1', name: 'CNC-Fraese Alpha', type: 'CNC-Fraese', status: 'in_use' },
+  { id: 'mc-2', name: 'Lötstation Pro', type: 'Lötstation', status: 'in_use' },
+  { id: 'mc-3', name: 'Druckgussmaschine DG-400', type: 'Druckguss', status: 'available' },
+  { id: 'mc-4', name: 'Montageband 1', type: 'Montage', status: 'in_use' },
+  { id: 'mc-5', name: 'Pruefstand Elektro', type: 'Pruefung', status: 'available' },
+  { id: 'mc-6', name: 'Verpackungslinie VP-1', type: 'Verpackung', status: 'maintenance' },
+]
+
+const MOCK_MACHINE_BOOKINGS: MachineBooking[] = [
+  { id: 'mb-1', machineId: 'mc-1', machineName: 'CNC-Fraese Alpha', orderId: 'prod-2', orderNr: 'PRD-2026-042', product: 'Steuerungspanel Touch 10"', startDate: '2026-02-10', endDate: '2026-02-14', color: '#3b82f6' },
+  { id: 'mb-2', machineId: 'mc-2', machineName: 'Lötstation Pro', orderId: 'prod-2', orderNr: 'PRD-2026-042', product: 'Steuerungspanel Touch 10"', startDate: '2026-02-14', endDate: '2026-02-20', color: '#3b82f6' },
+  { id: 'mb-3', machineId: 'mc-4', machineName: 'Montageband 1', orderId: 'prod-1', orderNr: 'PRD-2026-041', product: 'Schaltschrank Standard 600mm', startDate: '2026-02-03', endDate: '2026-02-17', color: '#10b981' },
+  { id: 'mb-4', machineId: 'mc-5', machineName: 'Pruefstand Elektro', orderId: 'prod-1', orderNr: 'PRD-2026-041', product: 'Schaltschrank Standard 600mm', startDate: '2026-02-15', endDate: '2026-02-17', color: '#10b981' },
+  { id: 'mb-5', machineId: 'mc-3', machineName: 'Druckgussmaschine DG-400', orderId: 'prod-4', orderNr: 'PRD-2026-044', product: 'LED-Leuchte IP65 Outdoor', startDate: '2026-02-18', endDate: '2026-02-28', color: '#f59e0b' },
+  { id: 'mb-6', machineId: 'mc-4', machineName: 'Montageband 1', orderId: 'prod-4', orderNr: 'PRD-2026-044', product: 'LED-Leuchte IP65 Outdoor', startDate: '2026-02-28', endDate: '2026-03-07', color: '#f59e0b' },
+  { id: 'mb-7', machineId: 'mc-1', machineName: 'CNC-Fraese Alpha', orderId: 'prod-7', orderNr: 'PRD-2026-047', product: 'Steuerungspanel Touch 10"', startDate: '2026-01-27', endDate: '2026-02-03', color: '#8b5cf6' },
+  { id: 'mb-8', machineId: 'mc-2', machineName: 'Lötstation Pro', orderId: 'prod-7', orderNr: 'PRD-2026-047', product: 'Steuerungspanel Touch 10"', startDate: '2026-02-03', endDate: '2026-02-10', color: '#8b5cf6' },
 ]
 
 const MOCK_QUALITY_CHECKS: QualityCheck[] = [
@@ -125,6 +196,9 @@ export const useProduktionStore = create<ProduktionStore>()(
       orders: MOCK_ORDERS,
       boms: MOCK_BOMS,
       qualityChecks: MOCK_QUALITY_CHECKS,
+      workSteps: MOCK_WORK_STEPS,
+      machines: MOCK_MACHINES,
+      machineBookings: MOCK_MACHINE_BOOKINGS,
     }),
     { name: 'kmuhub-produktion' },
   ),

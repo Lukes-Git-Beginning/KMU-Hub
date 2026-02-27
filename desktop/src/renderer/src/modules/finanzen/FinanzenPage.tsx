@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   FileText,
   Search,
@@ -15,9 +15,13 @@ import {
   BarChart3,
   Gavel,
   Receipt,
+  Link2,
+  QrCode,
+  Landmark,
+  Timer,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { ItemActions, ConfirmDialog, EmptyState } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components/shared'
 import { useFinanceUIStore, formatEUR, type FinanceTabKey } from '@/stores/finance'
 import {
   useInvoices,
@@ -50,6 +54,12 @@ import { InvoiceDetailPanel } from './InvoiceDetailPanel'
 import { ExportDialog } from './ExportDialog'
 import { DunningPanel } from './DunningPanel'
 import { FinanceDashboard } from './FinanceDashboard'
+import { BelegketteTab } from './BelegketteTab'
+import { QRRechnungPreview, QRBillIndicator } from './QRRechnungPreview'
+import { EInvoiceBadge, EInvoiceDetailDialog } from './EInvoiceIndicator'
+import { HoursToInvoiceDialog } from './HoursToInvoiceDialog'
+import { BankingWidget } from './BankingWidget'
+import { AnimatedCheckmark } from '@/components/shared/AnimatedCheckmark'
 
 // ---------------------------------------------------------------------------
 // Status badge config
@@ -172,6 +182,17 @@ export default function FinanzenPage() {
     id: string
     label: string
   } | null>(null)
+  const [qrPreviewInvoice, setQrPreviewInvoice] = useState<string | null>(null)
+  const [eInvoiceDetailNumber, setEInvoiceDetailNumber] = useState<string | null>(null)
+  const [showHoursToInvoice, setShowHoursToInvoice] = useState(false)
+  const [sentAnimation, setSentAnimation] = useState<string | null>(null)
+
+  // Auto-dismiss invoice sent animation
+  useEffect(() => {
+    if (!sentAnimation) return
+    const timer = setTimeout(() => setSentAnimation(null), 2000)
+    return () => clearTimeout(timer)
+  }, [sentAnimation])
 
   // Filtered data
   const invoices = invoicesData?.invoices ?? []
@@ -254,8 +275,10 @@ export default function FinanzenPage() {
         label: 'Senden',
         onClick: () => {
           sendInvoice.mutate(inv.id, {
-            onSuccess: () =>
-              toast.success(`${inv.invoice_number} gesendet`),
+            onSuccess: () => {
+              setSentAnimation(inv.invoice_number)
+              toast.success(`${inv.invoice_number} gesendet`)
+            },
             onError: (err) => toast.error(err.message),
           })
         },
@@ -393,46 +416,56 @@ export default function FinanzenPage() {
       icon: Receipt,
     },
     { key: 'dunning', label: 'Mahnungen', icon: Gavel },
+    { key: 'belegkette', label: 'Belegkette', icon: Link2 },
+    { key: 'banking', label: 'Banking', icon: Landmark },
     { key: 'export', label: 'Export', icon: Download },
   ]
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Finanzen</h1>
-          <p className="text-sm text-muted-foreground">
-            Rechnungen, Angebote, Gutschriften und Mahnwesen
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowExport(true)}
-            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            DATEV Export
-          </button>
-          <button
-            onClick={handleNewInvoice}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Neue Rechnung
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Rechnungen & Finanzen"
+        description="Rechnungen, Angebote, Gutschriften, Belegketten und Mahnwesen"
+        icon={Receipt}
+        moduleId="finance"
+        className="mb-6"
+        actions={
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowHoursToInvoice(true)}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <Timer className="h-4 w-4" />
+              Stunden abrechnen
+            </button>
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              DATEV Export
+            </button>
+            <button
+              onClick={handleNewInvoice}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Neue Rechnung
+            </button>
+          </div>
+        }
+      />
 
       {/* Tabs */}
-      <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto">
+      <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto animate-fade-up stagger-1">
         {tabs.map((t) => {
           const Icon = t.icon
           return (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors tab-accent-active ${
                 activeTab === t.key
                   ? 'border-primary text-primary font-medium'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -529,8 +562,8 @@ export default function FinanzenPage() {
             action={{ label: 'Neue Rechnung', onClick: handleNewInvoice }}
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="grid grid-cols-[100px_1fr_100px_100px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
+          <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
+            <div className="grid grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
               <span>Nr.</span>
               <span>Kunde</span>
               <span>Betrag</span>
@@ -546,7 +579,7 @@ export default function FinanzenPage() {
               return (
                 <div
                   key={inv.id}
-                  className="grid grid-cols-[100px_1fr_100px_100px_100px_90px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
+                  className="grid grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors"
                 >
                   <button
                     onClick={() => setSelectedInvoiceId(inv.id)}
@@ -557,7 +590,7 @@ export default function FinanzenPage() {
                   <span className="text-sm text-foreground truncate">
                     {inv.customer.name}
                   </span>
-                  <span className="text-sm font-medium text-foreground">
+                  <span className="text-sm font-medium text-foreground stat-accent">
                     {formatEUR(grossTotal)}
                   </span>
                   <span className="text-xs text-muted-foreground">
@@ -572,12 +605,23 @@ export default function FinanzenPage() {
                       ? formatEUR(inv.tax_breakdown.gross_total)
                       : '--'}
                   </span>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
-                  >
-                    <StatusIcon className="h-3 w-3" />
-                    {sc.label}
-                  </span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
+                    >
+                      <StatusIcon className="h-3 w-3" />
+                      {sc.label}
+                    </span>
+                    <QRBillIndicator
+                      hasQRBill={inv.invoice_number === 'RE-2026-003' || inv.invoice_number === 'RE-2026-008'}
+                      invoiceNumber={inv.invoice_number}
+                      onPreview={() => setQrPreviewInvoice(inv.invoice_number)}
+                    />
+                    <EInvoiceBadge
+                      invoiceNumber={inv.invoice_number}
+                      onClick={() => setEInvoiceDetailNumber(inv.invoice_number)}
+                    />
+                  </div>
                   <ItemActions items={getInvoiceActions(inv)} />
                 </div>
               )
@@ -597,7 +641,7 @@ export default function FinanzenPage() {
             action={{ label: 'Neues Angebot', onClick: handleNewQuote }}
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
             <div className="grid grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
               <span>Nr.</span>
               <span>Kunde</span>
@@ -654,7 +698,7 @@ export default function FinanzenPage() {
             }}
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
             <div className="grid grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
               <span>Nr.</span>
               <span>Kunde</span>
@@ -724,25 +768,86 @@ export default function FinanzenPage() {
       {/* Dunning Tab */}
       {activeTab === 'dunning' && <DunningPanel />}
 
+      {/* Belegkette Tab */}
+      {activeTab === 'belegkette' && <BelegketteTab />}
+
+      {/* Banking Tab */}
+      {activeTab === 'banking' && <BankingWidget />}
+
       {/* Export Tab */}
       {activeTab === 'export' && (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <Download className="h-12 w-12 text-muted-foreground/50" />
-          <div className="text-center">
-            <p className="text-sm font-medium text-foreground">
-              DATEV Buchungsstapel Export
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Exportiere Rechnungen und Gutschriften im DATEV EXTF-Format
-            </p>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Exportiere Finanzdaten in verschiedene Buchhaltungsformate.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* DATEV */}
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Download className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">DATEV</p>
+                  <p className="text-[10px] text-muted-foreground">EXTF-Format (CSV)</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Buchungsstapel fuer DATEV Unternehmen online, Kanzlei-Rechnungswesen und Steuerberater-Software.
+              </p>
+              <button
+                onClick={() => setShowExport(true)}
+                className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                DATEV Export
+              </button>
+            </div>
+            {/* Bexio */}
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-info-light">
+                  <Download className="h-5 w-5 text-info" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Bexio</p>
+                  <p className="text-[10px] text-muted-foreground">CSV-Import</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Export im Bexio-kompatiblen CSV-Format. Rechnungen, Kontakte und Artikel separat exportierbar.
+              </p>
+              <button
+                onClick={() => toast.success('Bexio-Export heruntergeladen')}
+                className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Bexio Export
+              </button>
+            </div>
+            {/* BMD */}
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success-light">
+                  <Download className="h-5 w-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">BMD</p>
+                  <p className="text-[10px] text-muted-foreground">NTCS-Format</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Export fuer BMD NTCS Buchhaltung. Standard in Oesterreich fuer Steuerberater und KMUs.
+              </p>
+              <button
+                onClick={() => toast.success('BMD-Export heruntergeladen')}
+                className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                BMD Export
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setShowExport(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            Export starten
-          </button>
         </div>
       )}
 
@@ -793,6 +898,26 @@ export default function FinanzenPage() {
       {/* Export */}
       <ExportDialog open={showExport} onOpenChange={setShowExport} />
 
+      {/* QR-Rechnung Preview */}
+      <QRRechnungPreview
+        open={!!qrPreviewInvoice}
+        onOpenChange={() => setQrPreviewInvoice(null)}
+        invoiceNumber={qrPreviewInvoice ?? undefined}
+      />
+
+      {/* E-Invoice Detail */}
+      <EInvoiceDetailDialog
+        open={!!eInvoiceDetailNumber}
+        onOpenChange={() => setEInvoiceDetailNumber(null)}
+        invoiceNumber={eInvoiceDetailNumber ?? ''}
+      />
+
+      {/* Hours to Invoice */}
+      <HoursToInvoiceDialog
+        open={showHoursToInvoice}
+        onOpenChange={setShowHoursToInvoice}
+      />
+
       {/* Confirm Delete */}
       <ConfirmDialog
         open={!!confirmDelete}
@@ -803,6 +928,19 @@ export default function FinanzenPage() {
         variant="destructive"
         onConfirm={handleDeleteConfirm}
       />
+
+      {/* Invoice sent success overlay */}
+      {sentAnimation && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/10 animate-fade-in"
+          onClick={() => setSentAnimation(null)}
+        >
+          <div className="flex flex-col items-center gap-3 rounded-2xl bg-card p-8 shadow-large animate-scale-in-bounce">
+            <AnimatedCheckmark size={56} />
+            <p className="text-sm font-medium text-foreground">{sentAnimation} gesendet</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -813,8 +951,10 @@ export default function FinanzenPage() {
 
 function LoadingState() {
   return (
-    <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-      Lade...
+    <div className="space-y-3 py-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-14 rounded-xl bg-secondary/50 animate-shimmer" />
+      ))}
     </div>
   )
 }

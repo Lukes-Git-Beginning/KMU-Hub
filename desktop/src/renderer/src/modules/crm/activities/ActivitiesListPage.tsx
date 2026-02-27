@@ -6,6 +6,7 @@
  */
 import { useState, useEffect } from 'react'
 import { Plus, ChevronLeft, ChevronRight, Activity } from 'lucide-react'
+import { PageHeader } from '@/components/shared'
 import {
   useActivities,
   useCompleteActivity,
@@ -69,13 +70,17 @@ export default function ActivitiesListPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Aktivitäten</h1>
-        <Button onClick={showComingSoon} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Neue Aktivität
-        </Button>
-      </div>
+      <PageHeader
+        title="Aktivitaeten"
+        icon={Activity}
+        moduleId="contacts"
+        actions={
+          <Button onClick={showComingSoon} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Neue Aktivitaet
+          </Button>
+        }
+      />
 
       {/* Type filter tabs */}
       <Tabs

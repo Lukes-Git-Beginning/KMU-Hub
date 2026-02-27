@@ -22,6 +22,8 @@ import {
   CalendarPlus,
   ChevronDown,
   Filter,
+  ClipboardCheck,
+  Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -29,8 +31,11 @@ import {
   type RentalObject,
   type RentalObjectType,
   type Reservation,
+  type Zustandsprotokoll,
 } from '@/stores/vermietung'
-import { ItemActions, ConfirmDialog, EmptyState, DetailPanel } from '@/components/shared'
+import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
+import { formatCurrency } from '@/lib/format'
+import ZustandsprotokollDialog from './ZustandsprotokollDialog'
 
 // ============================================================
 // Types
@@ -74,7 +79,16 @@ const RESERVATION_STATUS_CONFIG: Record<
   cancelled: { label: 'Storniert', bg: 'bg-error-light text-error' },
 }
 
-const CHF = new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' })
+const DEPOSIT_STATUS_CONFIG: Record<
+  NonNullable<Reservation['depositStatus']>,
+  { label: string; bg: string }
+> = {
+  none: { label: 'Offen', bg: 'bg-secondary text-muted-foreground' },
+  collected: { label: 'Eingezogen', bg: 'bg-success-light text-success' },
+  returned: { label: 'Zurueckgegeben', bg: 'bg-info-light text-info' },
+}
+
+const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD'] as const
 
 // ============================================================
 // Helpers
@@ -133,6 +147,30 @@ function dateInRange(date: string, start: string, end: string): boolean {
   return date >= start && date <= end
 }
 
+/** Compute rental price breakdown given days and rates. */
+function computeRentalPrice(
+  totalDays: number,
+  dailyRate: number,
+  weeklyRate?: number,
+): { weeks: number; remainingDays: number; total: number; breakdown: string; currency?: string } {
+  if (weeklyRate && totalDays >= 7) {
+    const weeks = Math.floor(totalDays / 7)
+    const remainingDays = totalDays % 7
+    const total = weeks * weeklyRate + remainingDays * dailyRate
+    const parts: string[] = [`${weeks} Woche${weeks > 1 ? 'n' : ''}`]
+    if (remainingDays > 0) {
+      parts.push(`${remainingDays} Tag${remainingDays > 1 ? 'e' : ''}`)
+    }
+    return { weeks, remainingDays, total, breakdown: parts.join(' + ') }
+  }
+  return {
+    weeks: 0,
+    remainingDays: totalDays,
+    total: totalDays * dailyRate,
+    breakdown: `${totalDays} Tag${totalDays > 1 ? 'e' : ''}`,
+  }
+}
+
 // ============================================================
 // Sub-components
 // ============================================================
@@ -154,6 +192,8 @@ function ObjectDialog({
   const [location, setLocation] = useState(initial?.location ?? '')
   const [dailyRate, setDailyRate] = useState(initial?.dailyRate?.toString() ?? '')
   const [weeklyRate, setWeeklyRate] = useState(initial?.weeklyRate?.toString() ?? '')
+  const [currency, setCurrency] = useState(initial?.currency ?? 'EUR')
+  const [deposit, setDeposit] = useState(initial?.deposit?.toString() ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [serialNumber, setSerialNumber] = useState(initial?.serialNumber ?? '')
 
@@ -171,6 +211,8 @@ function ObjectDialog({
       serialNumber: serialNumber.trim() || undefined,
       dailyRate: Number(dailyRate),
       weeklyRate: weeklyRate ? Number(weeklyRate) : undefined,
+      currency,
+      deposit: deposit ? Number(deposit) : undefined,
       status: initial?.status ?? 'available',
     }
 
@@ -249,10 +291,30 @@ function ObjectDialog({
             />
           </div>
 
+          {/* Currency */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Waehrung</label>
+            <div className="flex gap-2">
+              {CURRENCY_OPTIONS.map((cur) => (
+                <button
+                  key={cur}
+                  onClick={() => setCurrency(cur)}
+                  className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    currency === cur
+                      ? 'border-primary bg-primary-light text-primary font-medium'
+                      : 'border-border text-muted-foreground hover:bg-secondary'
+                  }`}
+                >
+                  {cur}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Rates */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Tagessatz (CHF) <span className="text-destructive">*</span></label>
+              <label className="text-sm font-medium text-foreground">Tagessatz ({currency}) <span className="text-destructive">*</span></label>
               <input
                 type="number"
                 min={0}
@@ -264,7 +326,7 @@ function ObjectDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Wochensatz (CHF) <span className="text-xs text-muted-foreground font-normal">optional</span></label>
+              <label className="text-sm font-medium text-foreground">Wochensatz ({currency}) <span className="text-xs text-muted-foreground font-normal">optional</span></label>
               <input
                 type="number"
                 min={0}
@@ -275,6 +337,20 @@ function ObjectDialog({
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring tabular-nums"
               />
             </div>
+          </div>
+
+          {/* Kaution */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Kaution ({currency}) <span className="text-xs text-muted-foreground font-normal">optional</span></label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={deposit}
+              onChange={(e) => setDeposit(e.target.value)}
+              placeholder="0.00"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring tabular-nums"
+            />
           </div>
 
           {/* Beschreibung */}
@@ -357,6 +433,10 @@ function ReservationDialog({
     if (startDate > endDate) { toast.error('Enddatum muss nach Startdatum liegen'); return }
     if (!renter.trim()) { toast.error('Bitte einen Mieter angeben'); return }
 
+    const days = daysBetween(startDate, endDate)
+    const pricing = selectedObj ? computeRentalPrice(days, selectedObj.dailyRate, selectedObj.weeklyRate) : null
+    const objCurrency = selectedObj?.currency ?? 'EUR'
+
     const res: Reservation = {
       id: `res-${Date.now()}`,
       objectId,
@@ -369,6 +449,10 @@ function ReservationDialog({
       status: startDate <= new Date().toISOString().split('T')[0] ? 'active' : 'upcoming',
       pickupLocation: pickupLocation.trim() || selectedObj?.location || '',
       returnLocation: returnLocation.trim() || selectedObj?.location || '',
+      currency: objCurrency,
+      totalPrice: pricing?.total,
+      depositAmount: selectedObj?.deposit,
+      depositStatus: selectedObj?.deposit ? 'none' : undefined,
     }
 
     addReservation(res)
@@ -505,6 +589,56 @@ function ReservationDialog({
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
           </div>
+
+          {/* Price Calculation (9.12) */}
+          {selectedObj && startDate && endDate && startDate <= endDate && (
+            <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Preisberechnung</h4>
+              {(() => {
+                const days = daysBetween(startDate, endDate)
+                const objCurrency = selectedObj.currency ?? 'EUR'
+                const pricing = computeRentalPrice(days, selectedObj.dailyRate, selectedObj.weeklyRate)
+
+                return (
+                  <div className="space-y-1">
+                    {pricing.weeks > 0 ? (
+                      <>
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {pricing.weeks} Woche{pricing.weeks > 1 ? 'n' : ''} &times; {formatCurrency(selectedObj.weeklyRate!, objCurrency)}/Woche
+                          = {formatCurrency(pricing.weeks * selectedObj.weeklyRate!, objCurrency)}
+                        </p>
+                        {pricing.remainingDays > 0 && (
+                          <p className="text-xs text-muted-foreground tabular-nums">
+                            + {pricing.remainingDays} Tag{pricing.remainingDays > 1 ? 'e' : ''} &times; {formatCurrency(selectedObj.dailyRate, objCurrency)}/Tag
+                            = {formatCurrency(pricing.remainingDays * selectedObj.dailyRate, objCurrency)}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {days} Tag{days > 1 ? 'e' : ''} &times; {formatCurrency(selectedObj.dailyRate, objCurrency)}/Tag
+                        = {formatCurrency(pricing.total, objCurrency)}
+                      </p>
+                    )}
+                    <div className="border-t border-border-muted pt-1.5 mt-1.5">
+                      <p className="text-sm font-semibold text-foreground tabular-nums">
+                        Gesamt: {formatCurrency(pricing.total, objCurrency)}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* Deposit Notice (9.13) */}
+          {selectedObj?.deposit && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-3">
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                Kaution: {formatCurrency(selectedObj.deposit, selectedObj.currency ?? 'EUR')} (wird bei Abholung eingezogen)
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
@@ -525,7 +659,7 @@ function ReservationDialog({
 // ============================================================
 
 export default function VermietungPage() {
-  const { objects, reservations, deleteObject, cancelReservation } = useVermietungStore()
+  const { objects, reservations, zustandsprotokolle, deleteObject, cancelReservation } = useVermietungStore()
 
   // State
   const [tab, setTab] = useState<TabKey>('objekte')
@@ -545,6 +679,7 @@ export default function VermietungPage() {
   const [preSelectedDate, setPreSelectedDate] = useState<string | undefined>()
   const [confirmDelete, setConfirmDelete] = useState<RentalObject | null>(null)
   const [confirmCancel, setConfirmCancel] = useState<Reservation | null>(null)
+  const [zustandsprotokollReservation, setZustandsprotokollReservation] = useState<Reservation | null>(null)
 
   // Derived data
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset])
@@ -636,6 +771,12 @@ export default function VermietungPage() {
     [reservations],
   )
 
+  // Check if a reservation has zustandsprotokoll(e)
+  const hasZustandsprotokoll = useCallback(
+    (reservationId: string) => zustandsprotokolle.some((z) => z.reservationId === reservationId),
+    [zustandsprotokolle],
+  )
+
   // Handlers
   const openObjectDialog = (obj?: RentalObject) => {
     setEditObject(obj ?? null)
@@ -686,31 +827,31 @@ export default function VermietungPage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      {/* ---- Header ---- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="text-foreground">Vermietung</h1>
-          <p className="text-sm text-muted-foreground">
-            {objects.length} Objekte &middot; {activeReservations} aktive Reservierungen
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => openReservationDialog()}
-            className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <CalendarPlus className="h-4 w-4" />
-            Reservierung
-          </button>
-          <button
-            onClick={() => openObjectDialog()}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Objekt anlegen
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Vermietung"
+        description={`${objects.length} Objekte · ${activeReservations} aktive Reservierungen`}
+        icon={Building2}
+        moduleId="vermietung"
+        className="mb-6"
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openReservationDialog()}
+              className="flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Reservierung
+            </button>
+            <button
+              onClick={() => openObjectDialog()}
+              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Objekt anlegen
+            </button>
+          </div>
+        }
+      />
 
       {/* ---- KPI Row ---- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -746,7 +887,7 @@ export default function VermietungPage() {
         ].map((stat) => {
           const Icon = stat.icon
           return (
-            <div key={stat.label} className="rounded-lg border border-border bg-card p-4">
+            <div key={stat.label} className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
                 <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
@@ -773,7 +914,7 @@ export default function VermietungPage() {
               onClick={() => { setTab(t.key); setSearch('') }}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
                 tab === t.key
-                  ? 'border-primary text-primary font-medium'
+                  ? 'border-primary text-primary font-medium tab-accent-active'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -862,9 +1003,12 @@ export default function VermietungPage() {
 
                     {/* Pricing */}
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-sm font-medium text-foreground tabular-nums">{CHF.format(obj.dailyRate)}/Tag</span>
+                      <span className="text-sm font-medium text-foreground tabular-nums">{formatCurrency(obj.dailyRate, obj.currency)}/Tag</span>
                       {obj.weeklyRate && (
-                        <span className="text-xs text-muted-foreground tabular-nums">{CHF.format(obj.weeklyRate)}/Woche</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{formatCurrency(obj.weeklyRate, obj.currency)}/Woche</span>
+                      )}
+                      {obj.deposit && (
+                        <span className="text-[10px] text-muted-foreground tabular-nums">Kaution: {formatCurrency(obj.deposit, obj.currency)}</span>
                       )}
                     </div>
 
@@ -954,6 +1098,7 @@ export default function VermietungPage() {
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Zeitraum</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">Dauer</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Kaution</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Abholung</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rueckgabe</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground w-12"></th>
@@ -988,12 +1133,27 @@ export default function VermietungPage() {
                             {statusCfg.label}
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          {res.depositStatus ? (
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${DEPOSIT_STATUS_CONFIG[res.depositStatus].bg}`}>
+                              {DEPOSIT_STATUS_CONFIG[res.depositStatus].label}
+                              {res.depositAmount ? ` (${formatCurrency(res.depositAmount, res.currency)})` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">–</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">{res.pickupLocation}</td>
                         <td className="px-4 py-3 text-muted-foreground">{res.returnLocation}</td>
                         <td className="px-4 py-3 text-right">
                           {(res.status === 'active' || res.status === 'upcoming') && (
                             <ItemActions
                               items={[
+                                {
+                                  label: 'Zustandsprotokoll',
+                                  icon: ClipboardCheck,
+                                  onClick: () => setZustandsprotokollReservation(res),
+                                },
                                 {
                                   label: 'Stornieren',
                                   icon: X,
@@ -1287,16 +1447,24 @@ export default function VermietungPage() {
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-baseline justify-between">
                   <div>
-                    <span className="text-lg font-semibold text-foreground tabular-nums">{CHF.format(selectedObject.dailyRate)}</span>
+                    <span className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(selectedObject.dailyRate, selectedObject.currency)}</span>
                     <span className="text-xs text-muted-foreground ml-1">/ Tag</span>
                   </div>
                   {selectedObject.weeklyRate && (
                     <div>
-                      <span className="text-sm font-medium text-muted-foreground tabular-nums">{CHF.format(selectedObject.weeklyRate)}</span>
+                      <span className="text-sm font-medium text-muted-foreground tabular-nums">{formatCurrency(selectedObject.weeklyRate, selectedObject.currency)}</span>
                       <span className="text-xs text-muted-foreground ml-1">/ Woche</span>
                     </div>
                   )}
                 </div>
+                {selectedObject.deposit && (
+                  <div className="mt-2 pt-2 border-t border-border-muted flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Kaution</span>
+                    <span className="text-sm font-medium text-foreground tabular-nums">
+                      {formatCurrency(selectedObject.deposit, selectedObject.currency)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1340,10 +1508,18 @@ export default function VermietungPage() {
                   <div className="space-y-1">
                     {objectReservations.map((res) => {
                       const statusCfg = RESERVATION_STATUS_CONFIG[res.status]
+                      const hasProtokoll = hasZustandsprotokoll(res.id)
                       return (
                         <div key={res.id} className="flex items-center gap-2 rounded-md border border-border-muted p-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground">{res.renter}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs font-medium text-foreground">{res.renter}</p>
+                              {hasProtokoll && (
+                                <span title="Zustandsprotokoll vorhanden" className="flex items-center">
+                                  <ClipboardCheck className="h-3 w-3 text-success" />
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-muted-foreground">
                               {formatDate(res.startDate)} – {formatDate(res.endDate)}
                             </p>
@@ -1406,6 +1582,14 @@ export default function VermietungPage() {
         confirmLabel="Stornieren"
         variant="destructive"
         onConfirm={() => confirmCancel && handleCancelReservation(confirmCancel)}
+      />
+
+      {/* Zustandsprotokoll Dialog (9.14) */}
+      <ZustandsprotokollDialog
+        open={!!zustandsprotokollReservation}
+        onClose={() => setZustandsprotokollReservation(null)}
+        reservation={zustandsprotokollReservation}
+        object={zustandsprotokollReservation ? objects.find((o) => o.id === zustandsprotokollReservation.objectId) ?? null : null}
       />
     </div>
   )

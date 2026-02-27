@@ -30,6 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import DealPipelineView from './DealPipelineView'
+import { PageHeader } from '@/components/shared'
 
 const PAGE_SIZE = 20
 
@@ -93,34 +94,38 @@ export default function DealsListPage() {
   return (
     <div className="p-6 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Deals</h1>
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex items-center rounded-md border border-border">
-            <Button
-              variant={view === 'list' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="rounded-r-none"
-              onClick={() => setView('list')}
-            >
-              <LayoutList className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={view === 'pipeline' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="rounded-l-none"
-              onClick={() => setView('pipeline')}
-            >
-              <Columns3 className="h-4 w-4" />
+      <PageHeader
+        title="Deals"
+        description={`${data?.total ?? 0} Deals`}
+        icon={TrendingUp}
+        moduleId="contacts"
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-md border border-border">
+              <Button
+                variant={view === 'list' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="rounded-r-none"
+                onClick={() => setView('list')}
+              >
+                <LayoutList className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={view === 'pipeline' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="rounded-l-none"
+                onClick={() => setView('pipeline')}
+              >
+                <Columns3 className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button onClick={showComingSoon} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Neuer Deal
             </Button>
           </div>
-          <Button onClick={showComingSoon} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Neuer Deal
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {view === 'pipeline' ? (
         <DealPipelineView />

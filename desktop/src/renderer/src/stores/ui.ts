@@ -33,6 +33,11 @@ function buildDefaultDecorations(themeId: string): Record<string, DecorationPlac
   return placements
 }
 
+export type ColorTheme = 'graphit' | 'sand' | 'ozean' | 'lavendel' | 'wald' | 'rose' | 'mitternacht' | 'terrakotta'
+export type NavLayout = 'sidebar' | 'dock' | 'topnav' | 'classic'
+export type AccentIntensity = 'subtle' | 'vivid'
+export type WindowStyle = 'full' | 'bubble'
+
 interface UIState {
   sidebarCollapsed: boolean
   sidebarWidth: number
@@ -41,14 +46,40 @@ interface UIState {
   theme: 'light' | 'dark' | 'auto'
   uiLook: 'solid' | 'glass' | 'crystal'
 
+  // Design system (Wave 14+)
+  colorTheme: ColorTheme
+  navLayout: NavLayout
+  accentIntensity: AccentIntensity
+
+  // Window style
+  windowStyle: WindowStyle
+
+  // Sidebar pinned modules
+  pinnedModules: string[]
+
   // Desk environment
   deskMaximized: boolean
   deskThemeId: string
   deskDecorations: Record<string, DecorationPlacement>
   deskDecorationsVisible: boolean
 
+  // Background pattern
+  backgroundPattern: string
+
+  // Desk background (gradient/image preset for glass mode)
+  deskBackground: string | null
+
+  // Header widgets (up to 3 mini-widget slots)
+  headerWidgets: string[]
+
   // Onboarding
   onboardingCompleted: boolean
+
+  setBackgroundPattern: (pattern: string) => void
+  setDeskBackground: (bg: string | null) => void
+
+  setHeaderWidgets: (widgets: string[]) => void
+  toggleHeaderWidget: (widgetId: string) => void
 
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
@@ -57,6 +88,14 @@ interface UIState {
   setLocale: (locale: string) => void
   setTheme: (theme: 'light' | 'dark' | 'auto') => void
   setUILook: (look: 'solid' | 'glass' | 'crystal') => void
+  setColorTheme: (theme: ColorTheme) => void
+  setNavLayout: (layout: NavLayout) => void
+  setAccentIntensity: (intensity: AccentIntensity) => void
+  setWindowStyle: (style: WindowStyle) => void
+
+  // Sidebar pinned modules
+  setPinnedModules: (modules: string[]) => void
+  togglePinModule: (moduleId: string) => void
 
   // Onboarding
   setOnboardingCompleted: (completed: boolean) => void
@@ -80,12 +119,63 @@ export const useUIStore = create<UIState>()(
       theme: 'light',
       uiLook: 'solid',
 
+      // Design system (Wave 14+)
+      colorTheme: 'graphit',
+      navLayout: 'sidebar',
+      accentIntensity: 'subtle',
+      windowStyle: 'full' as WindowStyle,
+
+      // Default pinned modules (most-used for typical KMU)
+      pinnedModules: [
+        'dashboard', 'projects', 'tasks', 'chat', 'contacts',
+        'team', 'calendar', 'mail', 'finance',
+      ],
+
+      // Background pattern default
+      backgroundPattern: 'none',
+      deskBackground: null,
+
+      // Header widget defaults
+      headerWidgets: ['next-meeting', 'weather', 'pomodoro'],
+
       // Desk defaults
       deskMaximized: false,
       deskThemeId: DEFAULT_DESK_THEME_ID,
       deskDecorations: buildDefaultDecorations(DEFAULT_DESK_THEME_ID),
       deskDecorationsVisible: true,
       onboardingCompleted: false,
+
+      setPinnedModules: (pinnedModules) =>
+        set({ pinnedModules }),
+
+      togglePinModule: (moduleId) =>
+        set((state) => {
+          const has = state.pinnedModules.includes(moduleId)
+          return {
+            pinnedModules: has
+              ? state.pinnedModules.filter((id) => id !== moduleId)
+              : [...state.pinnedModules, moduleId],
+          }
+        }),
+
+      setBackgroundPattern: (backgroundPattern) =>
+        set({ backgroundPattern }),
+
+      setDeskBackground: (deskBackground) =>
+        set({ deskBackground }),
+
+      setHeaderWidgets: (headerWidgets) =>
+        set({ headerWidgets }),
+
+      toggleHeaderWidget: (widgetId) =>
+        set((state) => {
+          const has = state.headerWidgets.includes(widgetId)
+          if (has) {
+            return { headerWidgets: state.headerWidgets.filter((id) => id !== widgetId) }
+          }
+          if (state.headerWidgets.length >= 3) return state // max 3 slots
+          return { headerWidgets: [...state.headerWidgets, widgetId] }
+        }),
 
       setOnboardingCompleted: (completed: boolean) =>
         set({ onboardingCompleted: completed }),
@@ -110,6 +200,18 @@ export const useUIStore = create<UIState>()(
 
       setUILook: (look: 'solid' | 'glass' | 'crystal') =>
         set({ uiLook: look }),
+
+      setColorTheme: (colorTheme) =>
+        set({ colorTheme }),
+
+      setNavLayout: (navLayout) =>
+        set({ navLayout }),
+
+      setAccentIntensity: (accentIntensity) =>
+        set({ accentIntensity }),
+
+      setWindowStyle: (windowStyle) =>
+        set({ windowStyle }),
 
       toggleDeskMaximized: () =>
         set((state) => ({ deskMaximized: !state.deskMaximized })),

@@ -21,6 +21,7 @@ import type {
   HRDocumentCategory,
   HRSettings,
   CreateLeaveRequestInput,
+  CreateEmployeeInput,
   ApproveRejectInput,
   RecordSickLeaveInput,
   SubmitCorrectionInput,
@@ -273,6 +274,13 @@ export const hrEmployeeApi = {
     return request<{ employees: EmployeeProfile[]; total: number }>(
       `/api/v1/hr/employees${qs(params)}`,
     )
+  },
+
+  create(data: CreateEmployeeInput) {
+    return request<{ employee: EmployeeProfile }>('/api/v1/hr/employees', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   getSelf() {

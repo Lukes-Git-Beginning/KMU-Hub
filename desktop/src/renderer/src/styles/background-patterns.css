@@ -1,0 +1,144 @@
+/* ============================================================
+ * BACKGROUND PATTERNS — themed SVG tiles for the Hintergrund-System.
+ *
+ * Each pattern uses var(--primary) (as rgb hex) for color adaptation.
+ * The patterns are subtle — low opacity so they don't distract.
+ * ============================================================ */
+
+/* ── PFLANZEN (Botanical leaves) ───────────────────────────── */
+.bg-pattern-pflanzen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%234f46e5' stroke-width='0.8' opacity='0.12'%3E%3Cpath d='M20 60 C20 40, 35 30, 40 10 C45 30, 55 35, 50 60' /%3E%3Cpath d='M30 55 C25 45, 35 35, 40 20' /%3E%3Cpath d='M60 70 C55 55, 65 45, 70 30 C72 45, 78 50, 75 70' /%3E%3Ccircle cx='15' cy='25' r='2' fill='%234f46e5' opacity='0.08' /%3E%3Ccircle cx='65' cy='15' r='1.5' fill='%234f46e5' opacity='0.06' /%3E%3C/g%3E%3C/svg%3E");
+  background-size: 80px 80px;
+}
+.theme-sand .bg-pattern-pflanzen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%231e7e74' stroke-width='0.8' opacity='0.12'%3E%3Cpath d='M20 60 C20 40, 35 30, 40 10 C45 30, 55 35, 50 60' /%3E%3Cpath d='M30 55 C25 45, 35 35, 40 20' /%3E%3Cpath d='M60 70 C55 55, 65 45, 70 30 C72 45, 78 50, 75 70' /%3E%3Ccircle cx='15' cy='25' r='2' fill='%231e7e74' opacity='0.08' /%3E%3Ccircle cx='65' cy='15' r='1.5' fill='%231e7e74' opacity='0.06' /%3E%3C/g%3E%3C/svg%3E");
+}
+.theme-ozean .bg-pattern-pflanzen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%230891b2' stroke-width='0.8' opacity='0.12'%3E%3Cpath d='M20 60 C20 40, 35 30, 40 10 C45 30, 55 35, 50 60' /%3E%3Cpath d='M30 55 C25 45, 35 35, 40 20' /%3E%3Cpath d='M60 70 C55 55, 65 45, 70 30 C72 45, 78 50, 75 70' /%3E%3Ccircle cx='15' cy='25' r='2' fill='%230891b2' opacity='0.08' /%3E%3Ccircle cx='65' cy='15' r='1.5' fill='%230891b2' opacity='0.06' /%3E%3C/g%3E%3C/svg%3E");
+}
+.theme-lavendel .bg-pattern-pflanzen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%237c3aed' stroke-width='0.8' opacity='0.12'%3E%3Cpath d='M20 60 C20 40, 35 30, 40 10 C45 30, 55 35, 50 60' /%3E%3Cpath d='M30 55 C25 45, 35 35, 40 20' /%3E%3Cpath d='M60 70 C55 55, 65 45, 70 30 C72 45, 78 50, 75 70' /%3E%3Ccircle cx='15' cy='25' r='2' fill='%237c3aed' opacity='0.08' /%3E%3Ccircle cx='65' cy='15' r='1.5' fill='%237c3aed' opacity='0.06' /%3E%3C/g%3E%3C/svg%3E");
+}
+.theme-wald .bg-pattern-pflanzen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%2316a34a' stroke-width='0.8' opacity='0.12'%3E%3Cpath d='M20 60 C20 40, 35 30, 40 10 C45 30, 55 35, 50 60' /%3E%3Cpath d='M30 55 C25 45, 35 35, 40 20' /%3E%3Cpath d='M60 70 C55 55, 65 45, 70 30 C72 45, 78 50, 75 70' /%3E%3Ccircle cx='15' cy='25' r='2' fill='%2316a34a' opacity='0.08' /%3E%3Ccircle cx='65' cy='15' r='1.5' fill='%2316a34a' opacity='0.06' /%3E%3C/g%3E%3C/svg%3E");
+}
+.theme-rose .bg-pattern-pflanzen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23e11d48' stroke-width='0.8' opacity='0.12'%3E%3Cpath d='M20 60 C20 40, 35 30, 40 10 C45 30, 55 35, 50 60' /%3E%3Cpath d='M30 55 C25 45, 35 35, 40 20' /%3E%3Cpath d='M60 70 C55 55, 65 45, 70 30 C72 45, 78 50, 75 70' /%3E%3Ccircle cx='15' cy='25' r='2' fill='%23e11d48' opacity='0.08' /%3E%3Ccircle cx='65' cy='15' r='1.5' fill='%23e11d48' opacity='0.06' /%3E%3C/g%3E%3C/svg%3E");
+}
+.theme-mitternacht .bg-pattern-pflanzen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%232563eb' stroke-width='0.8' opacity='0.12'%3E%3Cpath d='M20 60 C20 40, 35 30, 40 10 C45 30, 55 35, 50 60' /%3E%3Cpath d='M30 55 C25 45, 35 35, 40 20' /%3E%3Cpath d='M60 70 C55 55, 65 45, 70 30 C72 45, 78 50, 75 70' /%3E%3Ccircle cx='15' cy='25' r='2' fill='%232563eb' opacity='0.08' /%3E%3Ccircle cx='65' cy='15' r='1.5' fill='%232563eb' opacity='0.06' /%3E%3C/g%3E%3C/svg%3E");
+}
+.theme-terrakotta .bg-pattern-pflanzen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23c2410c' stroke-width='0.8' opacity='0.12'%3E%3Cpath d='M20 60 C20 40, 35 30, 40 10 C45 30, 55 35, 50 60' /%3E%3Cpath d='M30 55 C25 45, 35 35, 40 20' /%3E%3Cpath d='M60 70 C55 55, 65 45, 70 30 C72 45, 78 50, 75 70' /%3E%3Ccircle cx='15' cy='25' r='2' fill='%23c2410c' opacity='0.08' /%3E%3Ccircle cx='65' cy='15' r='1.5' fill='%23c2410c' opacity='0.06' /%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ── HUNDE (Paw prints) ────────────────────────────────────── */
+.bg-pattern-hunde {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%234f46e5' opacity='0.08'%3E%3Cellipse cx='30' cy='50' rx='6' ry='7' /%3E%3Ccircle cx='22' cy='38' r='3.5' /%3E%3Ccircle cx='38' cy='38' r='3.5' /%3E%3Ccircle cx='18' cy='46' r='3' /%3E%3Ccircle cx='42' cy='46' r='3' /%3E%3Cellipse cx='75' cy='20' rx='4' ry='5' transform='rotate(20 75 20)' /%3E%3Ccircle cx='69' cy='11' r='2.5' /%3E%3Ccircle cx='81' cy='13' r='2.5' /%3E%3Ccircle cx='66' cy='17' r='2' /%3E%3Ccircle cx='84' cy='19' r='2' /%3E%3C/g%3E%3C/svg%3E");
+  background-size: 100px 100px;
+}
+.theme-sand .bg-pattern-hunde { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%231e7e74' opacity='0.08'%3E%3Cellipse cx='30' cy='50' rx='6' ry='7' /%3E%3Ccircle cx='22' cy='38' r='3.5' /%3E%3Ccircle cx='38' cy='38' r='3.5' /%3E%3Ccircle cx='18' cy='46' r='3' /%3E%3Ccircle cx='42' cy='46' r='3' /%3E%3Cellipse cx='75' cy='20' rx='4' ry='5' transform='rotate(20 75 20)' /%3E%3Ccircle cx='69' cy='11' r='2.5' /%3E%3Ccircle cx='81' cy='13' r='2.5' /%3E%3Ccircle cx='66' cy='17' r='2' /%3E%3Ccircle cx='84' cy='19' r='2' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-ozean .bg-pattern-hunde { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%230891b2' opacity='0.08'%3E%3Cellipse cx='30' cy='50' rx='6' ry='7' /%3E%3Ccircle cx='22' cy='38' r='3.5' /%3E%3Ccircle cx='38' cy='38' r='3.5' /%3E%3Ccircle cx='18' cy='46' r='3' /%3E%3Ccircle cx='42' cy='46' r='3' /%3E%3Cellipse cx='75' cy='20' rx='4' ry='5' transform='rotate(20 75 20)' /%3E%3Ccircle cx='69' cy='11' r='2.5' /%3E%3Ccircle cx='81' cy='13' r='2.5' /%3E%3Ccircle cx='66' cy='17' r='2' /%3E%3Ccircle cx='84' cy='19' r='2' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-lavendel .bg-pattern-hunde { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%237c3aed' opacity='0.08'%3E%3Cellipse cx='30' cy='50' rx='6' ry='7' /%3E%3Ccircle cx='22' cy='38' r='3.5' /%3E%3Ccircle cx='38' cy='38' r='3.5' /%3E%3Ccircle cx='18' cy='46' r='3' /%3E%3Ccircle cx='42' cy='46' r='3' /%3E%3Cellipse cx='75' cy='20' rx='4' ry='5' transform='rotate(20 75 20)' /%3E%3Ccircle cx='69' cy='11' r='2.5' /%3E%3Ccircle cx='81' cy='13' r='2.5' /%3E%3Ccircle cx='66' cy='17' r='2' /%3E%3Ccircle cx='84' cy='19' r='2' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-wald .bg-pattern-hunde { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%2316a34a' opacity='0.08'%3E%3Cellipse cx='30' cy='50' rx='6' ry='7' /%3E%3Ccircle cx='22' cy='38' r='3.5' /%3E%3Ccircle cx='38' cy='38' r='3.5' /%3E%3Ccircle cx='18' cy='46' r='3' /%3E%3Ccircle cx='42' cy='46' r='3' /%3E%3Cellipse cx='75' cy='20' rx='4' ry='5' transform='rotate(20 75 20)' /%3E%3Ccircle cx='69' cy='11' r='2.5' /%3E%3Ccircle cx='81' cy='13' r='2.5' /%3E%3Ccircle cx='66' cy='17' r='2' /%3E%3Ccircle cx='84' cy='19' r='2' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-rose .bg-pattern-hunde { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%23e11d48' opacity='0.08'%3E%3Cellipse cx='30' cy='50' rx='6' ry='7' /%3E%3Ccircle cx='22' cy='38' r='3.5' /%3E%3Ccircle cx='38' cy='38' r='3.5' /%3E%3Ccircle cx='18' cy='46' r='3' /%3E%3Ccircle cx='42' cy='46' r='3' /%3E%3Cellipse cx='75' cy='20' rx='4' ry='5' transform='rotate(20 75 20)' /%3E%3Ccircle cx='69' cy='11' r='2.5' /%3E%3Ccircle cx='81' cy='13' r='2.5' /%3E%3Ccircle cx='66' cy='17' r='2' /%3E%3Ccircle cx='84' cy='19' r='2' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-mitternacht .bg-pattern-hunde { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%232563eb' opacity='0.08'%3E%3Cellipse cx='30' cy='50' rx='6' ry='7' /%3E%3Ccircle cx='22' cy='38' r='3.5' /%3E%3Ccircle cx='38' cy='38' r='3.5' /%3E%3Ccircle cx='18' cy='46' r='3' /%3E%3Ccircle cx='42' cy='46' r='3' /%3E%3Cellipse cx='75' cy='20' rx='4' ry='5' transform='rotate(20 75 20)' /%3E%3Ccircle cx='69' cy='11' r='2.5' /%3E%3Ccircle cx='81' cy='13' r='2.5' /%3E%3Ccircle cx='66' cy='17' r='2' /%3E%3Ccircle cx='84' cy='19' r='2' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-terrakotta .bg-pattern-hunde { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%23c2410c' opacity='0.08'%3E%3Cellipse cx='30' cy='50' rx='6' ry='7' /%3E%3Ccircle cx='22' cy='38' r='3.5' /%3E%3Ccircle cx='38' cy='38' r='3.5' /%3E%3Ccircle cx='18' cy='46' r='3' /%3E%3Ccircle cx='42' cy='46' r='3' /%3E%3Cellipse cx='75' cy='20' rx='4' ry='5' transform='rotate(20 75 20)' /%3E%3Ccircle cx='69' cy='11' r='2.5' /%3E%3Ccircle cx='81' cy='13' r='2.5' /%3E%3Ccircle cx='66' cy='17' r='2' /%3E%3Ccircle cx='84' cy='19' r='2' /%3E%3C/g%3E%3C/svg%3E"); }
+
+/* ── GEOMETRISCH (Hexagons + triangles) ────────────────────── */
+.bg-pattern-geometrisch {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cg fill='none' stroke='%234f46e5' stroke-width='0.6' opacity='0.1'%3E%3Cpolygon points='30,2 56,15 56,37 30,50 4,37 4,15' /%3E%3Cline x1='30' y1='2' x2='30' y2='50' /%3E%3Cline x1='4' y1='15' x2='56' y2='37' /%3E%3Cline x1='56' y1='15' x2='4' y2='37' /%3E%3C/g%3E%3C/svg%3E");
+  background-size: 60px 52px;
+}
+.theme-sand .bg-pattern-geometrisch { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cg fill='none' stroke='%231e7e74' stroke-width='0.6' opacity='0.1'%3E%3Cpolygon points='30,2 56,15 56,37 30,50 4,37 4,15' /%3E%3Cline x1='30' y1='2' x2='30' y2='50' /%3E%3Cline x1='4' y1='15' x2='56' y2='37' /%3E%3Cline x1='56' y1='15' x2='4' y2='37' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-ozean .bg-pattern-geometrisch { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cg fill='none' stroke='%230891b2' stroke-width='0.6' opacity='0.1'%3E%3Cpolygon points='30,2 56,15 56,37 30,50 4,37 4,15' /%3E%3Cline x1='30' y1='2' x2='30' y2='50' /%3E%3Cline x1='4' y1='15' x2='56' y2='37' /%3E%3Cline x1='56' y1='15' x2='4' y2='37' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-lavendel .bg-pattern-geometrisch { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cg fill='none' stroke='%237c3aed' stroke-width='0.6' opacity='0.1'%3E%3Cpolygon points='30,2 56,15 56,37 30,50 4,37 4,15' /%3E%3Cline x1='30' y1='2' x2='30' y2='50' /%3E%3Cline x1='4' y1='15' x2='56' y2='37' /%3E%3Cline x1='56' y1='15' x2='4' y2='37' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-wald .bg-pattern-geometrisch { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cg fill='none' stroke='%2316a34a' stroke-width='0.6' opacity='0.1'%3E%3Cpolygon points='30,2 56,15 56,37 30,50 4,37 4,15' /%3E%3Cline x1='30' y1='2' x2='30' y2='50' /%3E%3Cline x1='4' y1='15' x2='56' y2='37' /%3E%3Cline x1='56' y1='15' x2='4' y2='37' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-rose .bg-pattern-geometrisch { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cg fill='none' stroke='%23e11d48' stroke-width='0.6' opacity='0.1'%3E%3Cpolygon points='30,2 56,15 56,37 30,50 4,37 4,15' /%3E%3Cline x1='30' y1='2' x2='30' y2='50' /%3E%3Cline x1='4' y1='15' x2='56' y2='37' /%3E%3Cline x1='56' y1='15' x2='4' y2='37' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-mitternacht .bg-pattern-geometrisch { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cg fill='none' stroke='%232563eb' stroke-width='0.6' opacity='0.1'%3E%3Cpolygon points='30,2 56,15 56,37 30,50 4,37 4,15' /%3E%3Cline x1='30' y1='2' x2='30' y2='50' /%3E%3Cline x1='4' y1='15' x2='56' y2='37' /%3E%3Cline x1='56' y1='15' x2='4' y2='37' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-terrakotta .bg-pattern-geometrisch { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cg fill='none' stroke='%23c2410c' stroke-width='0.6' opacity='0.1'%3E%3Cpolygon points='30,2 56,15 56,37 30,50 4,37 4,15' /%3E%3Cline x1='30' y1='2' x2='30' y2='50' /%3E%3Cline x1='4' y1='15' x2='56' y2='37' /%3E%3Cline x1='56' y1='15' x2='4' y2='37' /%3E%3C/g%3E%3C/svg%3E"); }
+
+/* ── WELLEN (Wavy lines) ───────────────────────────────────── */
+.bg-pattern-wellen {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%234f46e5' stroke-width='0.8' opacity='0.1'%3E%3Cpath d='M0 20 C20 8, 40 8, 60 20 C80 32, 100 32, 120 20' /%3E%3Cpath d='M0 30 C20 18, 40 18, 60 30 C80 42, 100 42, 120 30' /%3E%3C/g%3E%3C/svg%3E");
+  background-size: 120px 40px;
+}
+.theme-sand .bg-pattern-wellen { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%231e7e74' stroke-width='0.8' opacity='0.1'%3E%3Cpath d='M0 20 C20 8, 40 8, 60 20 C80 32, 100 32, 120 20' /%3E%3Cpath d='M0 30 C20 18, 40 18, 60 30 C80 42, 100 42, 120 30' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-ozean .bg-pattern-wellen { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%230891b2' stroke-width='0.8' opacity='0.1'%3E%3Cpath d='M0 20 C20 8, 40 8, 60 20 C80 32, 100 32, 120 20' /%3E%3Cpath d='M0 30 C20 18, 40 18, 60 30 C80 42, 100 42, 120 30' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-lavendel .bg-pattern-wellen { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%237c3aed' stroke-width='0.8' opacity='0.1'%3E%3Cpath d='M0 20 C20 8, 40 8, 60 20 C80 32, 100 32, 120 20' /%3E%3Cpath d='M0 30 C20 18, 40 18, 60 30 C80 42, 100 42, 120 30' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-wald .bg-pattern-wellen { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%2316a34a' stroke-width='0.8' opacity='0.1'%3E%3Cpath d='M0 20 C20 8, 40 8, 60 20 C80 32, 100 32, 120 20' /%3E%3Cpath d='M0 30 C20 18, 40 18, 60 30 C80 42, 100 42, 120 30' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-rose .bg-pattern-wellen { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%23e11d48' stroke-width='0.8' opacity='0.1'%3E%3Cpath d='M0 20 C20 8, 40 8, 60 20 C80 32, 100 32, 120 20' /%3E%3Cpath d='M0 30 C20 18, 40 18, 60 30 C80 42, 100 42, 120 30' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-mitternacht .bg-pattern-wellen { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%232563eb' stroke-width='0.8' opacity='0.1'%3E%3Cpath d='M0 20 C20 8, 40 8, 60 20 C80 32, 100 32, 120 20' /%3E%3Cpath d='M0 30 C20 18, 40 18, 60 30 C80 42, 100 42, 120 30' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-terrakotta .bg-pattern-wellen { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40' viewBox='0 0 120 40'%3E%3Cg fill='none' stroke='%23c2410c' stroke-width='0.8' opacity='0.1'%3E%3Cpath d='M0 20 C20 8, 40 8, 60 20 C80 32, 100 32, 120 20' /%3E%3Cpath d='M0 30 C20 18, 40 18, 60 30 C80 42, 100 42, 120 30' /%3E%3C/g%3E%3C/svg%3E"); }
+
+/* ── ABSTRAKT (Soft blobs + circles) ───────────────────────── */
+.bg-pattern-abstrakt {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%234f46e5' opacity='0.06'%3E%3Ccircle cx='25' cy='25' r='12' /%3E%3Ccircle cx='75' cy='65' r='8' /%3E%3Ccircle cx='60' cy='20' r='5' /%3E%3Ccircle cx='15' cy='70' r='6' /%3E%3Cellipse cx='50' cy='50' rx='15' ry='10' transform='rotate(30 50 50)' /%3E%3C/g%3E%3C/svg%3E");
+  background-size: 100px 100px;
+}
+.theme-sand .bg-pattern-abstrakt { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%231e7e74' opacity='0.06'%3E%3Ccircle cx='25' cy='25' r='12' /%3E%3Ccircle cx='75' cy='65' r='8' /%3E%3Ccircle cx='60' cy='20' r='5' /%3E%3Ccircle cx='15' cy='70' r='6' /%3E%3Cellipse cx='50' cy='50' rx='15' ry='10' transform='rotate(30 50 50)' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-ozean .bg-pattern-abstrakt { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%230891b2' opacity='0.06'%3E%3Ccircle cx='25' cy='25' r='12' /%3E%3Ccircle cx='75' cy='65' r='8' /%3E%3Ccircle cx='60' cy='20' r='5' /%3E%3Ccircle cx='15' cy='70' r='6' /%3E%3Cellipse cx='50' cy='50' rx='15' ry='10' transform='rotate(30 50 50)' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-lavendel .bg-pattern-abstrakt { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%237c3aed' opacity='0.06'%3E%3Ccircle cx='25' cy='25' r='12' /%3E%3Ccircle cx='75' cy='65' r='8' /%3E%3Ccircle cx='60' cy='20' r='5' /%3E%3Ccircle cx='15' cy='70' r='6' /%3E%3Cellipse cx='50' cy='50' rx='15' ry='10' transform='rotate(30 50 50)' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-wald .bg-pattern-abstrakt { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%2316a34a' opacity='0.06'%3E%3Ccircle cx='25' cy='25' r='12' /%3E%3Ccircle cx='75' cy='65' r='8' /%3E%3Ccircle cx='60' cy='20' r='5' /%3E%3Ccircle cx='15' cy='70' r='6' /%3E%3Cellipse cx='50' cy='50' rx='15' ry='10' transform='rotate(30 50 50)' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-rose .bg-pattern-abstrakt { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%23e11d48' opacity='0.06'%3E%3Ccircle cx='25' cy='25' r='12' /%3E%3Ccircle cx='75' cy='65' r='8' /%3E%3Ccircle cx='60' cy='20' r='5' /%3E%3Ccircle cx='15' cy='70' r='6' /%3E%3Cellipse cx='50' cy='50' rx='15' ry='10' transform='rotate(30 50 50)' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-mitternacht .bg-pattern-abstrakt { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%232563eb' opacity='0.06'%3E%3Ccircle cx='25' cy='25' r='12' /%3E%3Ccircle cx='75' cy='65' r='8' /%3E%3Ccircle cx='60' cy='20' r='5' /%3E%3Ccircle cx='15' cy='70' r='6' /%3E%3Cellipse cx='50' cy='50' rx='15' ry='10' transform='rotate(30 50 50)' /%3E%3C/g%3E%3C/svg%3E"); }
+.theme-terrakotta .bg-pattern-abstrakt { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%23c2410c' opacity='0.06'%3E%3Ccircle cx='25' cy='25' r='12' /%3E%3Ccircle cx='75' cy='65' r='8' /%3E%3Ccircle cx='60' cy='20' r='5' /%3E%3Ccircle cx='15' cy='70' r='6' /%3E%3Cellipse cx='50' cy='50' rx='15' ry='10' transform='rotate(30 50 50)' /%3E%3C/g%3E%3C/svg%3E"); }
+
+
+/* ============================================================
+ * STICKER/TATTOO — subtle watermarks on cards in solid mode.
+ *
+ * Only shown when:
+ * - A pattern is active (parent has .has-pattern)
+ * - UI is in solid mode (NOT .ui-glass or .ui-crystal)
+ *
+ * Applied via ::after pseudo-element on elements with
+ * .sticker-surface class. The sticker type is controlled by
+ * .sticker-pflanzen, .sticker-hunde, etc. on <html>.
+ * ============================================================ */
+
+/* Base sticker surface — positioned relative for pseudo-element */
+html:not(.ui-glass):not(.ui-crystal) .sticker-surface {
+  position: relative;
+  overflow: hidden;
+}
+
+html:not(.ui-glass):not(.ui-crystal) .sticker-surface::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  right: -10px;
+  width: 120px;
+  height: 120px;
+  pointer-events: none;
+  opacity: 0;
+  background-repeat: no-repeat;
+  background-size: contain;
+  transition: opacity 0.3s ease;
+}
+
+/* Activate stickers when pattern is active */
+html:not(.ui-glass):not(.ui-crystal).has-bg-pattern .sticker-surface::after {
+  opacity: 1;
+}
+
+/* Sticker variants */
+html.sticker-pflanzen:not(.ui-glass):not(.ui-crystal) .sticker-surface::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%234f46e5' stroke-width='1' opacity='0.05'%3E%3Cpath d='M80 90 C70 60, 50 40, 30 10 C40 35, 55 50, 60 80' /%3E%3Cpath d='M70 85 C65 65, 55 50, 40 25' /%3E%3Ccircle cx='28' cy='8' r='3' fill='%234f46e5' opacity='0.04' /%3E%3C/g%3E%3C/svg%3E");
+}
+
+html.sticker-hunde:not(.ui-glass):not(.ui-crystal) .sticker-surface::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%234f46e5' opacity='0.04'%3E%3Cellipse cx='55' cy='55' rx='10' ry='12' /%3E%3Ccircle cx='44' cy='40' r='5' /%3E%3Ccircle cx='66' cy='40' r='5' /%3E%3Ccircle cx='40' cy='50' r='4' /%3E%3Ccircle cx='70' cy='50' r='4' /%3E%3C/g%3E%3C/svg%3E");
+}
+
+html.sticker-geometrisch:not(.ui-glass):not(.ui-crystal) .sticker-surface::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%234f46e5' stroke-width='0.8' opacity='0.04'%3E%3Cpolygon points='50,10 85,30 85,70 50,90 15,70 15,30' /%3E%3Cpolygon points='50,25 70,37 70,63 50,75 30,63 30,37' /%3E%3C/g%3E%3C/svg%3E");
+}
+
+html.sticker-wellen:not(.ui-glass):not(.ui-crystal) .sticker-surface::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='%234f46e5' stroke-width='0.8' opacity='0.04'%3E%3Cpath d='M0 50 C15 35, 35 35, 50 50 C65 65, 85 65, 100 50' /%3E%3Cpath d='M0 65 C15 50, 35 50, 50 65 C65 80, 85 80, 100 65' /%3E%3Cpath d='M0 80 C15 65, 35 65, 50 80 C65 95, 85 95, 100 80' /%3E%3C/g%3E%3C/svg%3E");
+}
+
+html.sticker-abstrakt:not(.ui-glass):not(.ui-crystal) .sticker-surface::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%234f46e5' opacity='0.04'%3E%3Ccircle cx='60' cy='60' r='20' /%3E%3Ccircle cx='35' cy='40' r='10' /%3E%3Ccircle cx='75' cy='35' r='7' /%3E%3C/g%3E%3C/svg%3E");
+}

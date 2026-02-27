@@ -4,7 +4,7 @@
  * Orchestrates data fetching (tasks + dependencies), computes critical path,
  * manages zoom level and horizontal scroll, and renders the fixed-left +
  * scrollable-right split layout. Unscheduled tasks appear in a separate
- * section below the timeline.
+ * section below the timeline. Supports interactive bar drag for rescheduling.
  */
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import { useQueries } from '@tanstack/react-query'
@@ -17,9 +17,10 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { toast } from 'sonner'
 import type { components } from '@/api/types'
 import { apiClient } from '@/api/client'
-import { useTasks } from '@/api/hooks/useTasks'
+import { useTasks, useUpdateTask } from '@/api/hooks/useTasks'
 
 type TaskResponse = components['schemas']['TaskResponse']
 type TaskDependencyResponse = components['schemas']['TaskDependencyResponse']
@@ -239,6 +240,34 @@ export default function GanttChart({ projectId }: GanttChartProps) {
   )
 
   // -------------------------------------------------------------------------
+  // Task date change handler (from interactive Gantt bar drag)
+  // -------------------------------------------------------------------------
+  const updateTask = useUpdateTask()
+
+  const handleTaskDateChange = useCallback(
+    (taskId: string, newStart: Date, newEnd: Date) => {
+      const isoEnd = newEnd.toISOString().split('T')[0]
+
+      updateTask.mutate(
+        { id: taskId, due_date: isoEnd },
+        {
+          onSuccess: () => {
+            toast.success('Aufgabenzeitraum aktualisiert', {
+              description: `Neues Faelligkeitsdatum: ${format(newEnd, 'dd.MM.yyyy', { locale: de })}`,
+            })
+          },
+          onError: () => {
+            toast.error('Fehler beim Aktualisieren', {
+              description: 'Die Aenderung konnte nicht gespeichert werden.',
+            })
+          },
+        }
+      )
+    },
+    [updateTask]
+  )
+
+  // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
 
@@ -274,7 +303,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
         <div className="text-center">
           <AlertTriangle className="mx-auto h-12 w-12 text-warning" />
           <p className="mt-4 text-lg font-semibold text-foreground">
-            Zu viele Aufgaben für Gantt-Ansicht
+            Zu viele Aufgaben fuer Gantt-Ansicht
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Dieses Projekt hat mehr als {MAX_GANTT_TASKS} Aufgaben.
@@ -340,7 +369,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
             </div>
             <div className="flex items-center gap-1.5">
               <ArrowRight className="h-3 w-3" />
-              <span>Abhängigkeit</span>
+              <span>Abhaengigkeit</span>
             </div>
           </div>
         </div>
@@ -425,6 +454,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
                   config={config}
                   rowIndex={index}
                   onTaskClick={handleTaskClick}
+                  onTaskDateChange={handleTaskDateChange}
                   timelineWidth={timelineWidth}
                 />
               ))}

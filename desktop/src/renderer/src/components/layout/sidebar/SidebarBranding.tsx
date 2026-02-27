@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,41 +10,53 @@ import {
 interface SidebarBrandingProps {
   collapsed: boolean
   onToggle: () => void
+  onOpenModules: () => void
 }
 
-export function SidebarBranding({ collapsed, onToggle }: SidebarBrandingProps) {
+export function SidebarBranding({ collapsed, onToggle, onOpenModules }: SidebarBrandingProps) {
   return (
-    <div className="border-b border-sidebar-border">
-      <div className={cn('flex items-center p-4', collapsed ? 'justify-center' : 'justify-between')}>
-        {collapsed ? (
-          <span className="text-lg font-bold text-sidebar-primary">K</span>
-        ) : (
-          <div>
-            <h1 className="text-sm font-bold text-sidebar-foreground">KMU Digital Hub</h1>
-            <p className="text-xs text-sidebar-muted">Schweizer Lösung</p>
-          </div>
-        )}
-      </div>
+    <div className="border-b border-sidebar-border px-3 py-3">
+      <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-2')}>
+        {/* Grid button — opens all-modules panel */}
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              onClick={onOpenModules}
+              aria-label="Alle Module anzeigen"
+            >
+              <LayoutGrid className="h-4.5 w-4.5" aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side={collapsed ? 'right' : 'bottom'}>Alle Module</TooltipContent>
+        </Tooltip>
 
-      <div className="px-3 pb-3">
+        {/* Branding text */}
+        {!collapsed && (
+          <span className="text-sm font-bold text-sidebar-foreground truncate select-none">
+            KMU Hub
+          </span>
+        )}
+
+        {/* Spacer + collapse toggle */}
+        {!collapsed && <div className="flex-1" />}
         <Tooltip delayDuration={collapsed ? 100 : 999999}>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={onToggle}
               className={cn(
-                'hidden lg:flex w-full items-center gap-2 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
-                collapsed && 'justify-center'
+                'hidden lg:flex h-7 w-7 shrink-0 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                collapsed && 'mt-2'
               )}
             >
               {collapsed ? (
-                <ChevronRight className="h-4 w-4 text-sidebar-primary" />
+                <ChevronRight className="h-3.5 w-3.5" />
               ) : (
-                <>
-                  <ChevronLeft className="h-4 w-4 text-sidebar-primary" />
-                  <span className="text-sm">Minimieren</span>
-                </>
+                <ChevronLeft className="h-3.5 w-3.5" />
               )}
             </Button>
           </TooltipTrigger>

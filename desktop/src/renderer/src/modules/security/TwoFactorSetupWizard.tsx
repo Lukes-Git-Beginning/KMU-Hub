@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { Shield } from 'lucide-react'
 import {
   useSetup2FA,
   useVerify2FA,
@@ -187,15 +187,16 @@ export default function TwoFactorSetupWizard({
   if (twoFactorEnabled && step === 'intro') {
     return (
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md glass-elevated">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
               <FormattedMessage id="security.2fa.title" />
             </DialogTitle>
             <DialogDescription>
-              <Badge variant="default" className="mt-2">
+              <span className="inline-flex mt-2 rounded-full bg-success-light px-2.5 py-0.5 text-xs font-medium text-success">
                 <FormattedMessage id="security.2fa.enabled" />
-              </Badge>
+              </span>
             </DialogDescription>
           </DialogHeader>
 
@@ -207,7 +208,7 @@ export default function TwoFactorSetupWizard({
                   <FormattedMessage id="security.2fa.regenerateCodes" />
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="glass-elevated">
                 <AlertDialogHeader>
                   <AlertDialogTitle>
                     <FormattedMessage id="security.2fa.regenerateCodes" />
@@ -246,7 +247,7 @@ export default function TwoFactorSetupWizard({
                     <FormattedMessage id="security.2fa.disable" />
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                <AlertDialogContent className="glass-elevated">
                   <AlertDialogHeader>
                     <AlertDialogTitle>
                       <FormattedMessage id="security.2fa.disable" />
@@ -279,9 +280,10 @@ export default function TwoFactorSetupWizard({
   if (twoFactorEnabled && step === 'recovery') {
     return (
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md glass-elevated">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
               <FormattedMessage id="security.2fa.recoveryCodes" />
             </DialogTitle>
             <DialogDescription>
@@ -289,7 +291,7 @@ export default function TwoFactorSetupWizard({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted p-4 font-mono text-sm">
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/50 p-4 font-mono text-sm text-foreground">
             {recoveryCodes.map((code) => (
               <div key={code} className="text-center">
                 {code}
@@ -316,9 +318,10 @@ export default function TwoFactorSetupWizard({
   // Main wizard for new setup
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md glass-elevated">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
             <FormattedMessage id="security.2fa.title" />
           </DialogTitle>
           <DialogDescription>
@@ -334,7 +337,7 @@ export default function TwoFactorSetupWizard({
             <div
               key={s}
               className={`h-1.5 flex-1 rounded-full ${
-                i < stepIndex(step) ? 'bg-primary' : 'bg-muted'
+                i < stepIndex(step) ? 'bg-primary' : 'bg-secondary'
               }`}
             />
           ))}
@@ -380,7 +383,7 @@ export default function TwoFactorSetupWizard({
               <p className="text-xs text-muted-foreground">
                 <FormattedMessage id="security.2fa.manualEntry" />
               </p>
-              <code className="block rounded-md border bg-muted p-2 text-center text-sm font-mono select-all">
+              <code className="block rounded-lg border border-border bg-secondary/50 p-2 text-center text-sm font-mono text-foreground select-all">
                 {manualSecret}
               </code>
             </div>
@@ -434,7 +437,7 @@ export default function TwoFactorSetupWizard({
             <p className="text-sm text-muted-foreground">
               <FormattedMessage id="security.2fa.recoveryDescription" />
             </p>
-            <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted p-4 font-mono text-sm">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/50 p-4 font-mono text-sm text-foreground">
               {recoveryCodes.map((code) => (
                 <div key={code} className="text-center">
                   {code}

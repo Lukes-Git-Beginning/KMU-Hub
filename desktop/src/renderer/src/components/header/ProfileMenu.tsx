@@ -72,11 +72,11 @@ export function ProfileMenu() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-border hover:opacity-80 transition-opacity"
       >
-        <div className="hidden md:block text-right">
-          <p className="text-sm text-foreground">
+        <div className="hidden lg:block text-right">
+          <p className="text-[14px] leading-[20px] text-foreground">
             {firstName} {lastName}
           </p>
-          <p className="text-xs text-muted-foreground">{role}</p>
+          <p className="text-[11px] leading-[16px] text-muted-foreground">{role}</p>
         </div>
         <Avatar className="ring-2 ring-transparent hover:ring-primary transition-all">
           <AvatarFallback>{initials}</AvatarFallback>

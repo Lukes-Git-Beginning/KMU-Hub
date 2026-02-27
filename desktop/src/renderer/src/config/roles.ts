@@ -19,9 +19,10 @@ export type RoleId = 'admin' | 'manager' | 'member' | 'hr' | 'it_support'
 // ---- Which sidebar nav-item IDs each role can see ----
 // Items NOT listed here are visible to everyone (dashboard, projects, tasks, chat, meetings, calendar, documents, mail, contacts)
 export const RESTRICTED_NAV_ITEMS: Record<string, RoleId[]> = {
-  team:           ['admin', 'manager', 'hr'],
+  team:           ['admin', 'manager', 'hr', 'member', 'it_support'],
   finance:        ['admin'],
   infrastructure: ['admin', 'it_support'],
+  'security-admin': ['admin'],
   settings:       ['admin', 'it_support'],
 }
 
@@ -31,9 +32,12 @@ export const SETTINGS_TAB_ROLES: Record<string, RoleId[]> = {
   mail:     ['admin', 'manager', 'member', 'hr'],
   calendar: ['admin', 'manager', 'member', 'hr'],
   finance:  ['admin'],
-  business: ['admin'],
+  company:       ['admin'],
+  integrations:  ['admin'],
+  business:      ['admin'],
   team:     ['admin', 'hr'],
   privacy:  ['admin', 'it_support'],
+  ai:       ['admin'],
 }
 
 // ---- Mock user profiles for design testing ----

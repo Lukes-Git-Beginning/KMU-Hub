@@ -49,30 +49,37 @@ export function DetailPanel({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/20 transition-opacity"
+        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity animate-fade-in"
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* Panel */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || 'Detail-Panel'}
         className={cn(
           'fixed right-0 top-0 z-50 flex h-full flex-col border-l bg-[var(--card)] shadow-xl glass-elevated',
-          'animate-in slide-in-from-right duration-200',
+          'animate-in slide-in-from-right duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
           width,
           className
         )}
       >
+        {/* Gradient Header Stripe */}
+        <div className="h-0.5 w-full bg-gradient-to-r from-[var(--accent-1)] to-[var(--accent-2)] shrink-0" />
+
         {/* Header */}
         {(title || badge) && (
           <div className="flex items-center justify-between border-b px-4 py-3">
             <div className="flex items-center gap-2 min-w-0">
               {title && (
                 <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold text-[var(--heading)]">
+                  <h3 className="truncate text-sm font-semibold text-foreground">
                     {title}
                   </h3>
                   {subtitle && (
-                    <p className="truncate text-xs text-[var(--muted)]">
+                    <p className="truncate text-xs text-muted-foreground">
                       {subtitle}
                     </p>
                   )}
@@ -87,8 +94,9 @@ export function DetailPanel({
                   size="icon"
                   className="h-7 w-7"
                   onClick={onExpand}
+                  aria-label="Erweitern"
                 >
-                  <Maximize2 className="h-3.5 w-3.5" />
+                  <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
               )}
               <Button
@@ -96,8 +104,9 @@ export function DetailPanel({
                 size="icon"
                 className="h-7 w-7"
                 onClick={onClose}
+                aria-label="Schließen"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             </div>
           </div>

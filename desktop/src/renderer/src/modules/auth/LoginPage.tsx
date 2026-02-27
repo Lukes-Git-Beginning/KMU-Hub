@@ -208,10 +208,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight">
+          <CardTitle className="text-2xl font-bold tracking-tight animate-scale-in-bounce">
             KMU Hub
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="animate-fade-up" style={{ animationDelay: '200ms' }}>
             <FormattedMessage id="auth.login" />
           </CardDescription>
         </CardHeader>

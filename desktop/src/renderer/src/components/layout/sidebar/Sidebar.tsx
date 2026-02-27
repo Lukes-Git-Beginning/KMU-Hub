@@ -1,29 +1,37 @@
 /**
- * Redesigned sidebar with navigation, badges, branding, and responsive behavior.
+ * Redesigned sidebar — single column, pinned modules, module overview panel.
  *
  * Features:
- * - 10 navigation items (enabled routes + disabled "coming soon")
- * - Badge system (text counters, live indicator)
- * - Branding header with collapse toggle
- * - User profile with online status
- * - Mobile drawer (fixed overlay) + tablet auto-collapse
- * - Figma color tokens (sidebar-*)
+ * - 1-column layout: Icon + label side-by-side (horizontal)
+ * - Narrower: w-56 expanded (224px), w-16 collapsed (64px)
+ * - Shows only pinned/favorite modules
+ * - Grid button opens all-modules popover panel
+ * - Badge dots on icons
+ * - Mobile drawer + tablet auto-collapse
  */
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useLocation, NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/stores/auth'
+import { useUIStore } from '@/stores/ui'
 import { canSeeNavItem } from '@/config/roles'
+import { isModuleAllowedForProfile } from '@/config/business-profiles'
+import { useProfileStore } from '@/stores/profile'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
-import { navItems } from './nav-items'
+import { useFilteredNavItems } from '@/hooks/useFilteredNavItems'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Shield } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useSettingsStore } from '@/stores/settings'
 import { SidebarBranding } from './SidebarBranding'
 import { SidebarNav } from './SidebarNav'
 import { SidebarUser } from './SidebarUser'
-import { NavLink } from 'react-router-dom'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { SidebarModulePanel } from './SidebarModulePanel'
+import type { NavItemConfig } from './nav-items'
 
 interface SidebarProps {
   collapsed: boolean
@@ -33,9 +41,19 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClose }: SidebarProps) {
-  const user = useAuthStore((s) => s.user)
+  const navigate = useNavigate()
+  const security = useSettingsStore((s) => s.security)
+  const pwLastChanged = security.passwordLastChanged ? new Date(security.passwordLastChanged) : null
+  const pwExpiryDays = security.passwordExpiryDays || 90
+  const daysSincePwChange = pwLastChanged ? Math.floor((Date.now() - pwLastChanged.getTime()) / (1000 * 60 * 60 * 24)) : 0
+  const pwDaysLeft = Math.max(0, pwExpiryDays - daysSincePwChange)
+  const showPwWarning = pwExpiryDays > 0 && pwDaysLeft <= 14
   const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1199px)')
   const didAutoCollapse = useRef(false)
+  const [modulePanelOpen, setModulePanelOpen] = useState(false)
+
+  const pinnedModules = useUIStore((s) => s.pinnedModules)
+  const { mainItems, bottomItems, allItems } = useFilteredNavItems()
 
   // Auto-collapse on tablet
   useEffect(() => {
@@ -48,58 +66,73 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
     }
   }, [isTablet, collapsed, onToggle])
 
-  const mainItems = navItems.filter((item) => item.section === 'main')
-  const bottomItems = navItems.filter((item) => item.section === 'bottom').filter((item) => canSeeNavItem(user, item.id))
+  // Filter main items to only pinned ones (preserve pin order)
+  const pinnedItems = pinnedModules
+    .map((id) => mainItems.find((item) => item.id === id))
+    .filter((item): item is NavItemConfig => item != null)
 
   return (
     <aside
+      data-tour="sidebar"
       className={cn(
         'flex flex-col bg-sidebar border-r border-sidebar-border glass-surface',
         'fixed lg:static inset-y-0 left-0 z-50',
         'transform transition-all duration-300 ease-in-out',
         isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
-        collapsed ? 'lg:w-16' : 'lg:w-64',
-        'w-64'
+        collapsed ? 'lg:w-16' : 'lg:w-56',
+        'w-56'
       )}
     >
-      <SidebarBranding collapsed={collapsed} onToggle={onToggle} />
+      {/* Branding header with grid button — wraps the popover anchor */}
+      <Popover open={modulePanelOpen} onOpenChange={setModulePanelOpen}>
+        <PopoverTrigger asChild>
+          <div>
+            <SidebarBranding
+              collapsed={collapsed}
+              onToggle={onToggle}
+              onOpenModules={() => setModulePanelOpen((o) => !o)}
+            />
+          </div>
+        </PopoverTrigger>
+        <PopoverContent
+          side="right"
+          align="start"
+          className="w-80 p-0"
+          sideOffset={4}
+        >
+          <SidebarModulePanel
+            items={allItems}
+            onSelect={() => {
+              setModulePanelOpen(false)
+              onMobileClose?.()
+            }}
+          />
+        </PopoverContent>
+      </Popover>
 
-      <SidebarNav items={mainItems} collapsed={collapsed} onItemClick={onMobileClose} />
+      {/* Main nav — only pinned modules */}
+      <SidebarNav items={pinnedItems} collapsed={collapsed} onItemClick={onMobileClose} />
 
-      {/* Bottom: Settings + User */}
-      <div className="mt-auto border-t border-sidebar-border glass-elevated">
-        {bottomItems.map((item) => {
-          const Icon = item.icon
-          return (
-            <div key={item.id} className="p-3 pb-1">
-              <Tooltip delayDuration={collapsed ? 100 : 999999}>
-                <TooltipTrigger asChild>
-                  <NavLink
-                    to={item.to}
-                    onClick={onMobileClose}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                        isActive
-                          ? 'border-l-2 border-sidebar-active-border bg-sidebar-active text-sidebar-primary'
-                          : 'text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                        collapsed && 'justify-center px-2',
-                        collapsed && isActive && 'border-l-0'
-                      )
-                    }
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
-                  </NavLink>
-                </TooltipTrigger>
-                {collapsed && (
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                )}
-              </Tooltip>
-            </div>
-          )
-        })}
-
+      {/* Bottom: Security warning + Settings + User */}
+      <div className="mt-auto border-t border-sidebar-border p-2 space-y-0.5">
+        {showPwWarning && (
+          <button
+            onClick={() => navigate('/settings')}
+            className={cn(
+              'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs transition-colors',
+              pwDaysLeft === 0 ? 'bg-error/10 text-error' : 'bg-warning/10 text-warning',
+              'hover:opacity-80'
+            )}
+          >
+            <Shield className="h-3.5 w-3.5 shrink-0" />
+            {!collapsed && (
+              <span className="truncate">
+                {pwDaysLeft === 0 ? 'PW abgelaufen' : `PW: ${pwDaysLeft}d`}
+              </span>
+            )}
+          </button>
+        )}
+        <SidebarNav items={bottomItems} collapsed={collapsed} onItemClick={onMobileClose} />
         <SidebarUser collapsed={collapsed} />
       </div>
     </aside>

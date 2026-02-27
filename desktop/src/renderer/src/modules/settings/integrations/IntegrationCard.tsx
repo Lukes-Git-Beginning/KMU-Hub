@@ -1,127 +1,77 @@
 /**
- * Reusable integration platform card component.
+ * IntegrationCard — single card in the integration grid.
  *
- * Displays platform name, description, connection status, and provides
- * configure/toggle actions. Designed for reuse in Phase 18 (Bexio) and
- * Phase 19 (Abacus/RmA) -- no Teams/Slack-specific logic inside.
+ * Shows icon, name, description (2-line clamp), connection status badge,
+ * and chevron. Clickable to open drill-down panel.
  */
-import { Switch } from '@/components/ui/switch'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Settings2 } from 'lucide-react'
-
-export type ConnectionStatus = 'connected' | 'paused' | 'disconnected'
-
-export interface IntegrationCardProps {
-  /** Platform display name (e.g., "Microsoft Teams") */
-  name: string
-  /** Short description of the integration */
-  description: string
-  /** Platform icon/logo as a React node */
-  icon: React.ReactNode
-  /** Current connection status */
-  status: ConnectionStatus
-  /** Whether the integration is active (toggle state) */
-  isActive: boolean
-  /** Fired when admin clicks "Konfigurieren" */
-  onConfigure: () => void
-  /** Fired when admin toggles the enable/disable switch */
-  onToggle: (enabled: boolean) => void
-  /** Whether the toggle mutation is pending */
-  isToggling?: boolean
-  /** Show a "Demnachst" badge for future integrations */
-  comingSoon?: boolean
-}
+import { ChevronRight, Loader2 } from 'lucide-react'
+import type { IntegrationDefinition } from './integration-registry'
+import type { IntegrationConnectionStatus } from '@/stores/integrations'
 
 const STATUS_CONFIG: Record<
-  ConnectionStatus,
-  { label: string; dotClass: string; badgeClass: string }
+  IntegrationConnectionStatus,
+  { label: string; dotClass: string; textClass: string }
 > = {
-  connected: {
-    label: 'Verbunden',
-    dotClass: 'bg-green-500',
-    badgeClass: 'border-green-500/30 text-green-600 dark:text-green-400',
-  },
-  paused: {
-    label: 'Pausiert',
-    dotClass: 'bg-yellow-500',
-    badgeClass: 'border-yellow-500/30 text-yellow-600 dark:text-yellow-400',
-  },
-  disconnected: {
-    label: 'Nicht verbunden',
-    dotClass: 'bg-gray-400',
-    badgeClass: 'border-border text-muted-foreground',
-  },
+  connected: { label: 'Verbunden', dotClass: 'bg-green-500', textClass: 'text-green-700 dark:text-green-400' },
+  disconnected: { label: 'Nicht verbunden', dotClass: 'bg-muted-foreground/40', textClass: 'text-muted-foreground' },
+  syncing: { label: 'Synchronisiert...', dotClass: 'bg-blue-500', textClass: 'text-blue-600 dark:text-blue-400' },
+  error: { label: 'Fehler', dotClass: 'bg-red-500', textClass: 'text-red-600 dark:text-red-400' },
 }
 
-export function IntegrationCard({
-  name,
-  description,
-  icon,
-  status,
-  isActive,
-  onConfigure,
-  onToggle,
-  isToggling = false,
-  comingSoon = false,
-}: IntegrationCardProps) {
-  const statusCfg = STATUS_CONFIG[status]
+interface IntegrationCardProps {
+  definition: IntegrationDefinition
+  status: IntegrationConnectionStatus
+  onClick: () => void
+}
+
+export function IntegrationCard({ definition, status, onClick }: IntegrationCardProps) {
+  const Icon = definition.icon
+  const cfg = STATUS_CONFIG[status]
+
+  if (definition.comingSoon) {
+    return (
+      <div className="rounded-lg border border-border bg-card/50 p-4 opacity-50 cursor-not-allowed">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
+            <Icon className={`h-5 w-5 ${definition.iconColor}`} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-medium text-foreground">{definition.name}</h3>
+            <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{definition.description}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground italic">Demnaechst verfuegbar</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3">
-      {/* Header: icon + name + status badge */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted">
-            {icon}
-          </div>
-          <div>
-            <h4 className="text-sm font-medium text-foreground">{name}</h4>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {description}
-            </p>
-          </div>
+    <button
+      onClick={onClick}
+      className="w-full rounded-lg border border-border bg-card p-4 text-left hover:border-primary/40 hover:bg-secondary/30 transition-all group"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
+          <Icon className={`h-5 w-5 ${definition.iconColor}`} />
         </div>
-        {comingSoon ? (
-          <Badge variant="secondary" className="text-xs shrink-0">
-            Demnachst
-          </Badge>
-        ) : (
-          <Badge variant="outline" className={`text-xs shrink-0 ${statusCfg.badgeClass}`}>
-            <span
-              className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${statusCfg.dotClass}`}
-            />
-            {statusCfg.label}
-          </Badge>
-        )}
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium text-foreground">{definition.name}</h3>
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{definition.description}</p>
+        </div>
       </div>
-
-      {/* Actions row */}
-      {!comingSoon && (
-        <div className="flex items-center justify-between pt-1 border-t border-border-muted">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onConfigure}
-          >
-            <Settings2 className="h-3.5 w-3.5 mr-1.5" />
-            Konfigurieren
-          </Button>
-
-          {status !== 'disconnected' && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {isActive ? 'Aktiv' : 'Inaktiv'}
-              </span>
-              <Switch
-                checked={isActive}
-                onCheckedChange={onToggle}
-                disabled={isToggling}
-              />
-            </div>
+      <div className="mt-3 flex items-center justify-between">
+        <span className={`flex items-center gap-1.5 text-[11px] font-medium ${cfg.textClass}`}>
+          {status === 'syncing' ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <span className={`h-2 w-2 rounded-full ${cfg.dotClass}`} />
           )}
-        </div>
-      )}
-    </div>
+          {cfg.label}
+        </span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+    </button>
   )
 }

@@ -22,6 +22,19 @@ export const ALL_WIDGET_IDS = [
   'activity-feed',
   'quick-actions',
   'notification-summary',
+  'notification-feed',
+  'kpi-revenue',
+  'kpi-tasks',
+  'kpi-deals',
+  'calendar-upcoming',
+  'team-status',
+  'mini-chart',
+  'my-tasks',
+  'my-calendar',
+  'time-clock',
+  'team-chat',
+  'absences',
+  'birthdays',
 ] as const
 
 export type WidgetId = (typeof ALL_WIDGET_IDS)[number]
@@ -31,12 +44,30 @@ export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'idle'
 /** Default 12-column grid layout: 2 rows of 3 widgets. */
 function getDefaultLayout(): Layout[] {
   return [
-    { i: 'recent-contacts', x: 0, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
-    { i: 'deal-pipeline', x: 4, y: 0, w: 4, h: 4, minW: 4, minH: 3 },
-    { i: 'unread-messages', x: 8, y: 0, w: 4, h: 3, minW: 2, minH: 2 },
-    { i: 'activity-feed', x: 0, y: 3, w: 4, h: 4, minW: 3, minH: 3 },
-    { i: 'quick-actions', x: 4, y: 4, w: 4, h: 2, minW: 2, minH: 2 },
-    { i: 'notification-summary', x: 8, y: 3, w: 4, h: 3, minW: 2, minH: 2 },
+    // Row 1: personal (visible for ALL employees)
+    { i: 'my-tasks', x: 0, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'my-calendar', x: 4, y: 0, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'time-clock', x: 8, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
+    // Row 2: team overview
+    { i: 'team-chat', x: 0, y: 4, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'absences', x: 4, y: 4, w: 4, h: 3, minW: 3, minH: 2 },
+    { i: 'birthdays', x: 8, y: 3, w: 4, h: 3, minW: 3, minH: 2 },
+    // Row 3: KPI overview (manager/admin)
+    { i: 'kpi-revenue', x: 0, y: 8, w: 4, h: 3, minW: 3, minH: 2 },
+    { i: 'kpi-tasks', x: 4, y: 7, w: 4, h: 3, minW: 3, minH: 2 },
+    { i: 'kpi-deals', x: 8, y: 6, w: 4, h: 3, minW: 3, minH: 2 },
+    // Row 4: data + charts
+    { i: 'calendar-upcoming', x: 0, y: 11, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'mini-chart', x: 4, y: 10, w: 4, h: 3, minW: 4, minH: 2 },
+    { i: 'team-status', x: 8, y: 9, w: 4, h: 4, minW: 3, minH: 3 },
+    // Row 5: CRM data
+    { i: 'recent-contacts', x: 0, y: 15, w: 4, h: 3, minW: 2, minH: 2 },
+    { i: 'deal-pipeline', x: 4, y: 13, w: 4, h: 4, minW: 4, minH: 3 },
+    { i: 'unread-messages', x: 8, y: 13, w: 4, h: 3, minW: 2, minH: 2 },
+    // Row 6: misc
+    { i: 'activity-feed', x: 0, y: 18, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'quick-actions', x: 4, y: 17, w: 4, h: 2, minW: 2, minH: 2 },
+    { i: 'notification-summary', x: 8, y: 16, w: 4, h: 3, minW: 2, minH: 2 },
   ]
 }
 

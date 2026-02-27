@@ -11,6 +11,8 @@ import {
   Send,
   Ban,
   Info,
+  History,
+  Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DetailPanel } from '@/components/shared'
@@ -25,6 +27,7 @@ import {
 } from '@/api/hooks/useFinance'
 import { formatEUR } from '@/stores/finance'
 import type { InvoiceStatus } from '@/types/finance-types'
+import { PDFPreviewPanel } from './PDFPreviewPanel'
 
 const statusConfig: Record<
   InvoiceStatus,
@@ -317,6 +320,85 @@ export function InvoiceDetailPanel({
             <p className="text-xs text-muted-foreground">{invoice.notes}</p>
           </section>
         )}
+
+        {/* PDF Preview (3.18) */}
+        <PDFPreviewPanel
+          invoiceNumber={invoice.invoice_number}
+          customerName={invoice.customer.name}
+          date={new Date(invoice.invoice_date).toLocaleDateString('de-DE')}
+          amount={formatEUR(invoice.tax_breakdown.gross_total)}
+          onDownload={() => downloadPDF.mutate(invoiceId)}
+        />
+
+        {/* GoBD Audit Log (3.17) */}
+        <section>
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            GoBD-Aenderungsprotokoll
+          </h4>
+          <div className="rounded-md border border-border overflow-hidden">
+            {[
+              {
+                action: 'Rechnung erstellt',
+                user: 'Max Mueller',
+                date: invoice.invoice_date,
+                detail: `Nummer: ${invoice.invoice_number}`,
+              },
+              ...(invoice.status !== 'draft'
+                ? [
+                    {
+                      action: 'Rechnung gesendet',
+                      user: 'Max Mueller',
+                      date: invoice.invoice_date,
+                      detail: `An: ${invoice.customer.email}`,
+                    },
+                  ]
+                : []),
+              ...(invoice.status === 'cancelled'
+                ? [
+                    {
+                      action: 'Rechnung storniert',
+                      user: 'Max Mueller',
+                      date: new Date().toISOString().split('T')[0],
+                      detail: 'Storno (keine Loeschung)',
+                    },
+                  ]
+                : []),
+              ...(payments.length > 0
+                ? payments.map((p) => ({
+                    action: 'Zahlung erfasst',
+                    user: 'System',
+                    date: p.payment_date,
+                    detail: `${formatEUR(p.amount)} via ${PAYMENT_METHOD_LABELS[p.method] ?? p.method}`,
+                  }))
+                : []),
+            ].map((entry, idx) => (
+              <div
+                key={idx}
+                className={`flex items-start gap-2 px-3 py-2 text-xs ${
+                  idx > 0 ? 'border-t border-border-muted' : ''
+                }`}
+              >
+                <History className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-foreground">{entry.action}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(entry.date).toLocaleDateString('de-DE')}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {entry.user} — {entry.detail}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-[9px] text-muted-foreground flex items-center gap-1">
+            <Shield className="h-2.5 w-2.5" />
+            GoBD-konform: Unveraenderbar nach Versand. Storno statt Loeschung.
+          </p>
+        </section>
 
         {/* Actions */}
         <div className="flex flex-wrap gap-2">

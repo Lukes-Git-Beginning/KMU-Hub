@@ -1,0 +1,494 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLASS EFFECTS — KMU Hub Design System
+   Enhanced frosted glass & crystal transparency modes.
+   All effects are theme-agnostic via --_rgb-* and --_rgb-primary variables.
+   Each palette (Graphit/Sand/Ozean) provides its own RGB components.
+
+   Modes:
+   - .ui-glass    → Frosted glass with tinted blur + noise + edge highlights
+   - .ui-crystal  → Near-transparent crystal with desk room showing through
+   Both support .dark variants.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────
+   1. SHARED TRANSITIONS
+   Smooth switching between solid / glass / crystal modes.
+   ───────────────────────────────────────────────────────────── */
+:is(.ui-glass, .ui-crystal) :is(
+  .bg-card, [class*="bg-card"],
+  .bg-sidebar, [class*="bg-sidebar"],
+  .bg-popover, [class*="bg-popover"],
+  .bg-background, [class*="bg-background"],
+  .bg-secondary, [class*="bg-secondary"],
+  .bg-muted, [class*="bg-muted"],
+  header, aside, nav
+) {
+  transition:
+    background-color 350ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 350ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 350ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   2. FROSTED GLASS MODE
+   Semi-transparent surfaces with tinted backdrop blur.
+   ───────────────────────────────────────────────────────────── */
+html.ui-glass {
+  --card: rgba(var(--_rgb-card), 0.80);
+  --card-hover: rgba(var(--_rgb-card), 0.85);
+  --card-border: rgba(var(--_rgb-card), 0.35);
+  --popover: rgba(var(--_rgb-popover), 0.90);
+  --sidebar: rgba(var(--_rgb-sidebar), 0.82);
+  --sidebar-accent: rgba(var(--_rgb-sidebar), 0.85);
+  --sidebar-active: rgba(var(--_rgb-sidebar), 0.88);
+  --sidebar-border: rgba(var(--_rgb-sidebar), 0.30);
+  --header-background: rgba(var(--_rgb-header), 0.82);
+  --header-border: rgba(var(--_rgb-header), 0.30);
+  --background: rgba(var(--_rgb-bg), 0.75);
+  --secondary: rgba(var(--_rgb-secondary), 0.72);
+  --muted: rgba(var(--_rgb-muted), 0.65);
+  --input-background: rgba(var(--_rgb-input), 0.75);
+
+  /* Colored shadows — primary-tinted instead of neutral black */
+  --shadow-card: 0 2px 12px rgba(var(--_rgb-primary), 0.06),
+                 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-card-hover: 0 8px 24px rgba(var(--_rgb-primary), 0.10),
+                       0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* Module content area — more transparent so desk background shines through */
+.ui-glass #main-content {
+  --background: rgba(var(--_rgb-bg), 0.35);
+}
+.dark.ui-glass #main-content {
+  --background: rgba(var(--_rgb-bg), 0.30);
+}
+
+html.dark.ui-glass {
+  --card: rgba(var(--_rgb-card), 0.78);
+  --card-hover: rgba(var(--_rgb-card), 0.83);
+  --card-border: rgba(var(--_rgb-card), 0.35);
+  --popover: rgba(var(--_rgb-popover), 0.88);
+  --sidebar: rgba(var(--_rgb-sidebar), 0.80);
+  --sidebar-accent: rgba(var(--_rgb-sidebar), 0.83);
+  --sidebar-active: rgba(var(--_rgb-sidebar), 0.86);
+  --sidebar-border: rgba(var(--_rgb-sidebar), 0.28);
+  --header-background: rgba(var(--_rgb-header), 0.80);
+  --header-border: rgba(var(--_rgb-header), 0.28);
+  --background: rgba(var(--_rgb-bg), 0.72);
+  --secondary: rgba(var(--_rgb-secondary), 0.68);
+  --muted: rgba(var(--_rgb-muted), 0.60);
+  --input-background: rgba(var(--_rgb-input), 0.72);
+
+  /* Colored shadows — brighter tint in dark mode */
+  --shadow-card: 0 2px 12px rgba(var(--_rgb-primary), 0.08),
+                 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-card-hover: 0 8px 24px rgba(var(--_rgb-primary), 0.14),
+                       0 2px 6px rgba(0, 0, 0, 0.10);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   3. GLASS BLUR + TINTED BACKDROP
+   Primary color at 3% opacity creates a subtle warm/cool tint.
+   ───────────────────────────────────────────────────────────── */
+.ui-glass .glass-surface {
+  -webkit-backdrop-filter: blur(18px) saturate(1.45);
+  backdrop-filter: blur(18px) saturate(1.45);
+  background-image:
+    linear-gradient(
+      135deg,
+      rgba(var(--_rgb-primary), 0.03) 0%,
+      transparent 50%,
+      rgba(var(--_rgb-primary), 0.02) 100%
+    );
+}
+
+.dark.ui-glass .glass-surface {
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+  background-image:
+    linear-gradient(
+      135deg,
+      rgba(var(--_rgb-primary), 0.04) 0%,
+      transparent 50%,
+      rgba(var(--_rgb-primary), 0.03) 100%
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   4. EDGE HIGHLIGHTS
+   Subtle light reflex on glass surfaces — top + left inset.
+   ───────────────────────────────────────────────────────────── */
+.ui-glass :is(.bg-card, [class*="rounded-xl"][class*="border"]) {
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 1px 0 0 rgba(255, 255, 255, 0.06);
+}
+
+.ui-glass :is(.bg-card, [class*="rounded-xl"][class*="border"]):hover {
+  box-shadow:
+    var(--shadow-card-hover),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.dark.ui-glass :is(.bg-card, [class*="rounded-xl"][class*="border"]) {
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+.dark.ui-glass :is(.bg-card, [class*="rounded-xl"][class*="border"]):hover {
+  box-shadow:
+    var(--shadow-card-hover),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   5. NOISE TEXTURE OVERLAY
+   Subtle grain via SVG feTurbulence on glass surfaces.
+   Applied to sidebar and header containers for visual depth.
+   ───────────────────────────────────────────────────────────── */
+.ui-glass .glass-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.028;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+.dark.ui-glass .glass-surface::after {
+  opacity: 0.04;
+  mix-blend-mode: soft-light;
+}
+
+/* Noise on elevated surfaces (dialogs, popovers) */
+:is(.ui-glass) :is([role="dialog"], .glass-elevated)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.022;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   6. GLASS TEXT READABILITY
+   Subtle text shadow for contrast on transparent backgrounds.
+   ───────────────────────────────────────────────────────────── */
+.ui-glass :is(h1, h2, h3, .text-foreground) {
+  text-shadow: 0 0 12px rgba(var(--_rgb-bg), 0.3);
+}
+
+.dark.ui-glass :is(h1, h2, h3, .text-foreground) {
+  text-shadow: 0 0 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   7. CRYSTAL / TRANSPARENT MODE
+   Near-transparent so desk room scene shows through.
+   ═══════════════════════════════════════════════════════════════ */
+html.ui-crystal {
+  --card: rgba(var(--_rgb-card), 0.22);
+  --card-hover: rgba(var(--_rgb-card), 0.28);
+  --card-border: rgba(var(--_rgb-card), 0.10);
+  --popover: rgba(var(--_rgb-popover), 0.30);
+  --sidebar: rgba(var(--_rgb-sidebar), 0.08);
+  --sidebar-accent: rgba(var(--_rgb-sidebar), 0.12);
+  --sidebar-active: rgba(var(--_rgb-sidebar), 0.18);
+  --sidebar-border: rgba(var(--_rgb-sidebar), 0.06);
+  --header-background: rgba(var(--_rgb-header), 0.08);
+  --header-border: rgba(var(--_rgb-header), 0.06);
+  --background: rgba(var(--_rgb-bg), 0.08);
+  --secondary: rgba(var(--_rgb-secondary), 0.18);
+  --muted: rgba(var(--_rgb-muted), 0.18);
+  --input-background: rgba(var(--_rgb-input), 0.25);
+
+  /* Very subtle colored shadows */
+  --shadow-card: 0 2px 10px rgba(var(--_rgb-primary), 0.04),
+                 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 6px 20px rgba(var(--_rgb-primary), 0.08),
+                       0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
+html.dark.ui-crystal {
+  --card: rgba(var(--_rgb-card), 0.20);
+  --card-hover: rgba(var(--_rgb-card), 0.25);
+  --card-border: rgba(var(--_rgb-card), 0.08);
+  --popover: rgba(var(--_rgb-popover), 0.25);
+  --sidebar: rgba(var(--_rgb-sidebar), 0.06);
+  --sidebar-accent: rgba(var(--_rgb-sidebar), 0.10);
+  --sidebar-active: rgba(var(--_rgb-sidebar), 0.14);
+  --sidebar-border: rgba(var(--_rgb-sidebar), 0.04);
+  --header-background: rgba(var(--_rgb-header), 0.06);
+  --header-border: rgba(var(--_rgb-header), 0.04);
+  --background: rgba(var(--_rgb-bg), 0.04);
+  --secondary: rgba(var(--_rgb-secondary), 0.15);
+  --muted: rgba(var(--_rgb-muted), 0.12);
+  --input-background: rgba(var(--_rgb-input), 0.22);
+
+  --shadow-card: 0 2px 10px rgba(var(--_rgb-primary), 0.06),
+                 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-card-hover: 0 6px 20px rgba(var(--_rgb-primary), 0.10),
+                       0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Crystal blur — lighter than glass so room shows through */
+.ui-crystal .glass-surface {
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  backdrop-filter: blur(12px) saturate(1.3);
+  background-image:
+    linear-gradient(
+      135deg,
+      rgba(var(--_rgb-primary), 0.02) 0%,
+      transparent 60%,
+      rgba(var(--_rgb-primary), 0.015) 100%
+    );
+}
+
+.dark.ui-crystal .glass-surface {
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  background-image:
+    linear-gradient(
+      135deg,
+      rgba(var(--_rgb-primary), 0.03) 0%,
+      transparent 60%,
+      rgba(var(--_rgb-primary), 0.02) 100%
+    );
+}
+
+/* Crystal: content areas get milky frosted treatment for readability */
+.ui-crystal :is(.bg-card, [class*="bg-card"]) {
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+}
+
+.ui-crystal :is(input, textarea, select) {
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.ui-crystal table th,
+.ui-crystal table td {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* Crystal edge highlights — more subtle than glass */
+.ui-crystal :is(.bg-card, [class*="rounded-xl"][class*="border"]) {
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.dark.ui-crystal :is(.bg-card, [class*="rounded-xl"][class*="border"]) {
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Crystal text readability */
+.ui-crystal :is(h1, h2, h3, .text-foreground) {
+  text-shadow: 0 0 14px rgba(var(--_rgb-bg), 0.4);
+}
+
+.dark.ui-crystal :is(h1, h2, h3, .text-foreground) {
+  text-shadow: 0 0 18px rgba(0, 0, 0, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   8. ELEVATED OVERLAYS
+   Dialogs, popovers, tooltips — opaque enough to read.
+   ═══════════════════════════════════════════════════════════════ */
+:is(.ui-glass, .ui-crystal) [data-radix-popper-content-wrapper] > * {
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+  isolation: isolate;
+}
+
+:is(.ui-glass, .ui-crystal) [role="dialog"],
+:is(.ui-glass, .ui-crystal) [role="alertdialog"],
+:is(.ui-glass, .ui-crystal) .glass-elevated {
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  backdrop-filter: blur(24px) saturate(1.5);
+  isolation: isolate;
+}
+
+/* Glass elevated — solid for dropdowns, dialogs, popovers (no see-through) */
+html.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+  --popover: rgba(var(--_rgb-popover), 0.98);
+  --background: rgba(var(--_rgb-bg), 0.98);
+  --card: rgba(var(--_rgb-card), 0.98);
+  --secondary: rgba(var(--_rgb-secondary), 0.94);
+  --muted: rgba(var(--_rgb-muted), 0.90);
+  --accent: rgba(var(--_rgb-card), 0.94);
+  box-shadow:
+    0 8px 32px rgba(var(--_rgb-primary), 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+html.dark.ui-glass :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+  box-shadow:
+    0 8px 32px rgba(var(--_rgb-primary), 0.10),
+    0 2px 8px rgba(0, 0, 0, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Crystal elevated — nearly solid */
+html.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+  --popover: rgba(var(--_rgb-popover), 0.97);
+  --background: rgba(var(--_rgb-bg), 0.97);
+  --card: rgba(var(--_rgb-card), 0.97);
+  --secondary: rgba(var(--_rgb-secondary), 0.92);
+  --muted: rgba(var(--_rgb-muted), 0.88);
+  box-shadow:
+    0 8px 32px rgba(var(--_rgb-primary), 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+html.dark.ui-crystal :is([data-radix-popper-content-wrapper] > *, [role="dialog"], [role="alertdialog"], .glass-elevated) {
+  box-shadow:
+    0 8px 32px rgba(var(--_rgb-primary), 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   9. GLASS SCROLLBARS — thinner, more subtle
+   ───────────────────────────────────────────────────────────── */
+:is(.ui-glass, .ui-crystal) ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+:is(.ui-glass, .ui-crystal) ::-webkit-scrollbar-thumb {
+  background: rgba(var(--_rgb-primary), 0.18);
+  border-radius: 100px;
+  border: none;
+  transition: background 150ms ease;
+}
+
+:is(.ui-glass, .ui-crystal) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--_rgb-primary), 0.32);
+}
+
+:is(.dark.ui-glass, .dark.ui-crystal) ::-webkit-scrollbar-thumb {
+  background: rgba(var(--_rgb-primary), 0.22);
+}
+
+:is(.dark.ui-glass, .dark.ui-crystal) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--_rgb-primary), 0.38);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   10. GLASS SIDEBAR GLOW
+   Subtle primary-colored glow along the sidebar edge.
+   ───────────────────────────────────────────────────────────── */
+.ui-glass aside[class*="border-r"] {
+  border-right-color: rgba(var(--_rgb-primary), 0.08);
+  box-shadow: 1px 0 24px rgba(var(--_rgb-primary), 0.04);
+}
+
+.dark.ui-glass aside[class*="border-r"] {
+  border-right-color: rgba(var(--_rgb-primary), 0.10);
+  box-shadow: 1px 0 28px rgba(var(--_rgb-primary), 0.06);
+}
+
+.ui-crystal aside[class*="border-r"] {
+  border-right-color: rgba(var(--_rgb-primary), 0.05);
+  box-shadow: 1px 0 20px rgba(var(--_rgb-primary), 0.03);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   11. GLASS HEADER BAR EFFECTS
+   Bottom border glow and tinted background.
+   ───────────────────────────────────────────────────────────── */
+.ui-glass header[class*="border-b"],
+.ui-glass [class*="border-b"][class*="bg-card"] {
+  border-bottom-color: rgba(var(--_rgb-primary), 0.06);
+}
+
+.dark.ui-glass header[class*="border-b"],
+.dark.ui-glass [class*="border-b"][class*="bg-card"] {
+  border-bottom-color: rgba(var(--_rgb-primary), 0.08);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   12. GLASS INPUT FIELDS
+   Enhanced input styling with edge highlight + tinted focus ring.
+   ───────────────────────────────────────────────────────────── */
+:is(.ui-glass, .ui-crystal) :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+
+:is(.ui-glass, .ui-crystal) :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]):focus {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 2px rgba(var(--_rgb-primary), 0.15),
+    0 0 16px rgba(var(--_rgb-primary), 0.06);
+}
+
+.dark :is(.ui-glass, .ui-crystal) :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]):focus {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 2px rgba(var(--_rgb-primary), 0.20),
+    0 0 20px rgba(var(--_rgb-primary), 0.08);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   13. GLASS BUTTON EFFECTS
+   Primary buttons get a subtle glow in glass/crystal mode.
+   ───────────────────────────────────────────────────────────── */
+:is(.ui-glass, .ui-crystal) .bg-primary {
+  box-shadow:
+    0 2px 8px rgba(var(--_rgb-primary), 0.25),
+    0 0 1px rgba(var(--_rgb-primary), 0.20);
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+:is(.ui-glass, .ui-crystal) .bg-primary:hover {
+  box-shadow:
+    0 4px 16px rgba(var(--_rgb-primary), 0.35),
+    0 0 2px rgba(var(--_rgb-primary), 0.25);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   14. GLASS/CRYSTAL DIALOG BACKDROPS
+   Blur underlying content behind modal overlays for readability.
+   ───────────────────────────────────────────────────────────── */
+:is(.ui-glass, .ui-crystal) .fixed.inset-0:has(+ .fixed, + div > [role="dialog"]) {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   15. REDUCED MOTION — disable all glass transitions + effects
+   ───────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :is(.ui-glass, .ui-crystal) * {
+    transition-duration: 0ms !important;
+  }
+
+  .ui-glass .glass-surface::after,
+  .ui-glass :is([role="dialog"], .glass-elevated)::after {
+    display: none;
+  }
+
+  :is(.ui-glass, .ui-crystal) :is(h1, h2, h3, .text-foreground) {
+    text-shadow: none;
+  }
+}

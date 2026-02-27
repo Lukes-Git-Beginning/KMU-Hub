@@ -8,6 +8,7 @@ import { useState, useMemo } from 'react'
 import { Hash, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useChannels, useDMs, useUnreadCounts, type ChannelInfo } from '@/api/hooks/useChannels'
+import { usePresenceStore } from '@/stores/presence'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +16,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { CreateChannelDialog } from './CreateChannelDialog'
+
+const PRESENCE_DOT_COLORS: Record<string, string> = {
+  online: 'bg-emerald-500',
+  away: 'bg-amber-400',
+  dnd: 'bg-red-500',
+  offline: 'bg-gray-400',
+}
 
 interface ChannelListProps {
   selectedChannelId: string | null
@@ -181,6 +189,7 @@ function DMItem({
   unreadCount: number
   onClick: () => void
 }) {
+  const presenceMap = usePresenceStore((s) => s.presenceMap)
   const name = channel.name || 'Unbekannt'
   const initials = name
     .split(' ')
@@ -188,6 +197,10 @@ function DMItem({
     .map((w) => w.charAt(0))
     .join('')
     .toUpperCase()
+
+  // Use channel member ID for presence lookup (fallback to 'offline')
+  const memberId = (channel as Record<string, unknown>).other_user_id as string | undefined
+  const presence = memberId ? presenceMap[memberId] ?? 'offline' : 'offline'
 
   return (
     <button
@@ -199,9 +212,14 @@ function DMItem({
       )}
       onClick={onClick}
     >
-      <Avatar className="h-6 w-6 shrink-0">
-        <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
-      </Avatar>
+      <div className="relative shrink-0">
+        <Avatar className="h-6 w-6">
+          <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+        </Avatar>
+        <span
+          className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-[1.5px] border-card ${PRESENCE_DOT_COLORS[presence] ?? 'bg-gray-400'}`}
+        />
+      </div>
       <span className="flex-1 truncate text-left">{name}</span>
       {unreadCount > 0 && (
         <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs">

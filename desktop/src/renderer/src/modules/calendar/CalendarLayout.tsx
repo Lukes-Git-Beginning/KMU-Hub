@@ -95,7 +95,7 @@ export default function CalendarLayout() {
           size="icon"
           className="h-8 w-8"
           onClick={navigateForward}
-          title="Vorwaerts"
+          title="Vorwärts"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>

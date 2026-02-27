@@ -1,21 +1,41 @@
 /**
- * Outermost layout wrapper implementing the desk/room metaphor.
+ * Outermost layout wrapper.
  *
- * 5-Layer workspace:
- *   L1 – Room Scene (painted room + window view)
- *   L2 – Furniture Overlays (desk, shelves)
- *   L3 – Decorations (on mount points)
- *   L4 – Mount Points (data only)
- *   L5 – UI Skin (CSS variable overrides on work area)
- *
- * The functional UI "floats" inside the room's window.
- * Minimal theme skips the room entirely.
+ * Manages dark mode, color theme, accent intensity, glass mode,
+ * and desk background on <html>, then renders the AppShell fullscreen.
  */
-import { useMemo, useEffect, useCallback, useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { useUIStore } from '@/stores/ui'
-import { DESK_THEMES, DEFAULT_DESK_THEME_ID } from '@/config/desk-themes'
-import { DeskFrame } from './DeskFrame'
+import { useSettingsStore } from '@/stores/settings'
 import { AppShell } from './AppShell'
+
+// Background gradient presets
+export const DESK_BACKGROUNDS: Record<string, { label: string; css: string }> = {
+  'gradient-warm': {
+    label: 'Sonnenuntergang',
+    css: 'linear-gradient(135deg, #f5af19 0%, #f12711 50%, #c41a5a 100%)',
+  },
+  'gradient-cool': {
+    label: 'Ozean',
+    css: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #6B8DD6 100%)',
+  },
+  'gradient-forest': {
+    label: 'Wald',
+    css: 'linear-gradient(135deg, #134E5E 0%, #71B280 50%, #2C7744 100%)',
+  },
+  'gradient-sunset': {
+    label: 'Abendhimmel',
+    css: 'linear-gradient(135deg, #ee9ca7 0%, #ffdde1 30%, #f9a8d4 60%, #c084fc 100%)',
+  },
+  'gradient-night': {
+    label: 'Nacht',
+    css: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+  },
+  'gradient-minimal': {
+    label: 'Dezent',
+    css: 'linear-gradient(135deg, #e0e0e0 0%, #c9d6dd 50%, #d5dbe0 100%)',
+  },
+}
 
 // Detect system dark mode preference reactively
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -28,133 +48,65 @@ function getSystemIsDark() {
 }
 
 export function DeskEnvironment() {
-  const deskMaximized = useUIStore((s) => s.deskMaximized)
-  const deskThemeId = useUIStore((s) => s.deskThemeId)
-  const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
   const storeTheme = useUIStore((s) => s.theme)
+  const colorTheme = useUIStore((s) => s.colorTheme)
+  const accentIntensity = useUIStore((s) => s.accentIntensity)
+  const windowStyle = useUIStore((s) => s.windowStyle)
   const uiLook = useUIStore((s) => s.uiLook)
+  const deskBackground = useUIStore((s) => s.deskBackground)
+  const fontSize = useSettingsStore((s) => s.appearance.fontSize)
   const systemIsDark = useSyncExternalStore(subscribeSystemTheme, getSystemIsDark)
 
   const isDark = storeTheme === 'auto' ? systemIsDark : storeTheme === 'dark'
-  const activeTheme = DESK_THEMES[deskThemeId] ?? DESK_THEMES[DEFAULT_DESK_THEME_ID]
 
-  // Sync .dark and .ui-glass classes on <html>
+  // Sync .dark class on <html>
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
   }, [isDark])
 
+  // Sync glass mode on <html>
   useEffect(() => {
     document.documentElement.classList.toggle('ui-glass', uiLook === 'glass')
-    document.documentElement.classList.toggle('ui-crystal', uiLook === 'crystal')
+    // Remove crystal if it was ever set (we only support solid/glass now)
+    document.documentElement.classList.remove('ui-crystal')
   }, [uiLook])
 
-  // Build room-level CSS variables from active theme
-  const roomStyle = useMemo(() => {
-    const vars: Record<string, string> = {}
-    const base = activeTheme.roomVariables
-    const dark = isDark ? activeTheme.roomVariablesDark ?? {} : {}
-    const merged = { ...base, ...dark }
-    for (const [key, value] of Object.entries(merged)) {
-      vars[`--${key}`] = value
-    }
-    return vars
-  }, [activeTheme, isDark])
-
-  // Build UI skin CSS variables (Layer 5)
-  const uiSkinStyle = useMemo(() => {
-    const vars: Record<string, string> = {}
-    const base = activeTheme.uiSkin.variables
-    const dark = isDark ? activeTheme.uiSkin.variablesDark ?? {} : {}
-    const merged = { ...base, ...dark }
-    for (const [key, value] of Object.entries(merged)) {
-      vars[`--${key}`] = value
-    }
-    return vars
-  }, [activeTheme, isDark])
-
-  // Work area positioning — percentage-based window within room
-  const workAreaStyle = useMemo<React.CSSProperties>(() => {
-    if (deskMaximized || activeTheme.isMinimal) {
-      return {
-        position: 'absolute' as const,
-        top: '0',
-        right: '0',
-        bottom: '0',
-        left: '0',
-        padding: activeTheme.isMinimal ? '0' : '8px',
-      }
-    }
-    const { top, right, bottom, left, innerPadding } = activeTheme.window
-    return {
-      position: 'absolute' as const,
-      top,
-      right,
-      bottom,
-      left,
-      padding: innerPadding,
-    }
-  }, [deskMaximized, activeTheme])
-
-  // Keyboard shortcut: Ctrl+Shift+F to toggle maximize
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (activeTheme.isMinimal) return
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
-        e.preventDefault()
-        toggleDeskMaximized()
-      }
-    },
-    [toggleDeskMaximized, activeTheme.isMinimal]
-  )
-
+  // Sync color theme class on <html> (graphit = default, no class needed)
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
+    document.documentElement.classList.remove(
+      'theme-sand', 'theme-ozean', 'theme-lavendel',
+      'theme-wald', 'theme-rose', 'theme-mitternacht', 'theme-terrakotta'
+    )
+    if (colorTheme !== 'graphit') {
+      document.documentElement.classList.add(`theme-${colorTheme}`)
+    }
+  }, [colorTheme])
 
-  const showFrame = !activeTheme.isMinimal
+  // Sync accent intensity class on <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle('accent-vivid', accentIntensity === 'vivid')
+  }, [accentIntensity])
+
+  // Sync font size on <html>
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${fontSize}px`
+  }, [fontSize])
+
+  const isBubble = windowStyle === 'bubble'
+  const showBackground = uiLook === 'glass' && deskBackground && DESK_BACKGROUNDS[deskBackground]
+  const bgCss = showBackground ? DESK_BACKGROUNDS[deskBackground!].css : undefined
 
   return (
-    <div
-      className="h-screen w-screen overflow-hidden relative"
-      style={{
-        ...roomStyle,
-        backgroundColor: 'var(--desk-room-bg)',
-      }}
-    >
-      {/* Room scene (L1 room bg, L2 furniture) */}
-      {showFrame && (
-        <DeskFrame
-          visible={!deskMaximized || uiLook !== 'solid'}
-          theme={activeTheme}
-          isDark={isDark}
-          zoomToWindow={deskMaximized && uiLook !== 'solid'}
+    <div className={`h-screen w-screen overflow-hidden relative ${isBubble ? 'bg-neutral-200 dark:bg-neutral-900 p-3' : 'bg-background'}`}>
+      {/* Background layer — visible through frosted glass */}
+      {bgCss && (
+        <div
+          className="absolute inset-0 z-0 pointer-events-none"
+          style={{ background: bgCss }}
         />
       )}
-
-      {/* Work area — the "window" containing all functional UI */}
-      <div
-        className="z-10"
-        style={{
-          ...workAreaStyle,
-          transitionProperty: 'top, right, bottom, left, padding',
-          transitionDuration: 'var(--desk-transition-duration)',
-          transitionTimingFunction: 'var(--desk-transition-easing)',
-        }}
-      >
-        <div
-          className={`h-full overflow-hidden ${activeTheme.uiSkin.className ?? ''}`}
-          style={{
-            ...uiSkinStyle,
-            borderRadius: activeTheme.isMinimal ? '0' : 'var(--desk-window-radius)',
-            boxShadow: activeTheme.isMinimal ? 'none' : 'var(--desk-window-shadow)',
-            border: activeTheme.isMinimal ? 'none' : '1px solid var(--desk-window-border)',
-            transition: `border-radius var(--desk-transition-duration) var(--desk-transition-easing),
-                         box-shadow var(--desk-transition-duration) var(--desk-transition-easing)`,
-          }}
-        >
-          <AppShell />
-        </div>
+      <div className={`relative z-10 ${isBubble ? 'h-full w-full overflow-hidden rounded-2xl shadow-2xl' : 'h-full w-full'}`}>
+        <AppShell />
       </div>
     </div>
   )

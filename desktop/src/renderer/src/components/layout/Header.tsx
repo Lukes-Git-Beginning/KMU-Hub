@@ -5,14 +5,13 @@
  * presence status, notifications, connection status, desk controls,
  * and profile menu.
  */
-import { Maximize2, Minimize2, Menu } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
-import { DESK_THEMES } from '@/config/desk-themes'
+import type { NavLayout } from '@/stores/ui'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { PresenceStatusPicker } from '@/features/presence'
-import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -23,64 +22,56 @@ import {
   HeaderClock,
   DailyPlannerWidget,
   TimeTrackerWidget,
-  ClockInButton,
-  LanguageSwitcher,
   ProfileSwitcher,
   ProfileMenu,
+  HeaderWidgetSlots,
 } from '@/components/header'
 
 export function Header() {
   const { isOnline } = useOnlineStatus()
-  const deskMaximized = useUIStore((s) => s.deskMaximized)
-  const deskThemeId = useUIStore((s) => s.deskThemeId)
-  const toggleDeskMaximized = useUIStore((s) => s.toggleDeskMaximized)
+  const navLayout = useUIStore((s) => s.navLayout)
   const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
-  const isMinimalTheme = DESK_THEMES[deskThemeId]?.isMinimal ?? false
 
   // Initialize notification WebSocket listener so it's always active
   useNotificationWebSocket()
 
   return (
-    <header className="flex h-16 items-center border-b border-header-border bg-header-background px-4 md:px-6 glass-surface">
+    <header data-tour="header" className="relative z-20 flex h-[64px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
       {/* Left: mobile menu + compact search + clock */}
-      <div className="flex items-center gap-3 md:gap-4">
-        <button
-          onClick={() => setSidebarMobileOpen(true)}
-          className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
-        >
-          <Menu className="h-5 w-5 text-muted-foreground" />
-        </button>
+      <div className="flex items-center gap-[12px] md:gap-[16px]">
+        {navLayout === 'sidebar' && (
+          <button
+            onClick={() => setSidebarMobileOpen(true)}
+            className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
+            aria-label="Navigation öffnen"
+          >
+            <Menu className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          </button>
+        )}
 
         <SearchBar />
 
         <div className="hidden sm:block">
           <HeaderClock />
         </div>
+
+        {/* Configurable header widget slots */}
+        <HeaderWidgetSlots />
       </div>
 
       {/* Spacer */}
       <div className="flex-1" />
 
       {/* Right: controls */}
-      <div className="flex shrink-0 items-center gap-1 md:gap-2">
+      <div className="flex min-w-0 items-center gap-[4px] md:gap-[8px]">
         {/* Daily Planner */}
         <div className="hidden sm:block">
           <DailyPlannerWidget />
         </div>
 
-        {/* HR Clock In/Out */}
-        <div className="hidden sm:block">
-          <ClockInButton />
-        </div>
-
-        {/* Time Tracker */}
+        {/* Unified Time Tracker (clock-in + task tracking) */}
         <div className="hidden sm:block">
           <TimeTrackerWidget />
-        </div>
-
-        {/* Language Switcher */}
-        <div className="hidden md:block">
-          <LanguageSwitcher />
         </div>
 
         {/* User presence status picker */}
@@ -96,6 +87,7 @@ export function Header() {
               className={`inline-block h-2.5 w-2.5 rounded-full ${
                 isOnline ? 'bg-emerald-500' : 'bg-destructive'
               }`}
+              role="status"
               aria-label={isOnline ? 'Online' : 'Offline'}
             />
           </TooltipTrigger>
@@ -105,31 +97,6 @@ export function Header() {
               : 'Keine Verbindung zum Server'}
           </TooltipContent>
         </Tooltip>
-
-        {/* Desk maximize toggle — hidden for minimal theme */}
-        {!isMinimalTheme && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9"
-                onClick={toggleDeskMaximized}
-              >
-                {deskMaximized ? (
-                  <Minimize2 className="h-4 w-4" />
-                ) : (
-                  <Maximize2 className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {deskMaximized
-                ? 'Schreibtisch anzeigen'
-                : 'Arbeitsfläche maximieren'}
-            </TooltipContent>
-          </Tooltip>
-        )}
 
         {/* Profile Switcher */}
         <div className="hidden sm:block">

@@ -2,9 +2,11 @@
  * Project detail page showing project info, view toggle, and task views.
  *
  * Accessed via /work/projects/:id. Shows project header with name, key,
- * view toggle (List/Kanban/Gantt), settings, and new task button. Content
- * area renders TaskListView, KanbanBoard, or GanttChart based on persisted
- * user preference. Includes TaskDetailPanel slide-over for quick task viewing.
+ * view toggle (List/Kanban/Gantt/Auslastung), settings, hours-to-invoice,
+ * and new task button. Content area renders TaskListView, KanbanBoard,
+ * GanttChart, or AuslastungReport based on persisted user preference.
+ * BudgetSection is shown as a collapsible panel for list/kanban views.
+ * Includes TaskDetailPanel slide-over for quick task viewing.
  */
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Routes, Route } from 'react-router-dom'
@@ -13,8 +15,10 @@ import {
   LayoutList,
   Columns3,
   GanttChartSquare,
+  BarChart3,
   Settings,
   Plus,
+  Receipt,
 } from 'lucide-react'
 import {
   useProject,
@@ -32,6 +36,9 @@ import TaskCreateDialog from '../components/TaskCreateDialog'
 import TaskDetailPanel from '../tasks/TaskDetailPanel'
 import TaskDetailPage from '../tasks/TaskDetailPage'
 import GanttChart from '../gantt/GanttChart'
+import HoursToInvoiceDialog from '../components/HoursToInvoiceDialog'
+import BudgetSection from '../components/BudgetSection'
+import AuslastungReport from '../components/AuslastungReport'
 
 /**
  * Wrapper component that handles nested routing for project detail.
@@ -54,6 +61,7 @@ function ProjectBoardView() {
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
 
   const { data, isLoading, error, refetch } = useProject(id ?? '')
   const { data: statusesData } = useProjectStatuses(id ?? '')
@@ -64,7 +72,7 @@ function ProjectBoardView() {
   const statuses = statusesData?.statuses ?? []
 
   // View type from preferences (default to list)
-  type ViewType = 'list' | 'kanban' | 'gantt'
+  type ViewType = 'list' | 'kanban' | 'gantt' | 'auslastung'
   const [view, setView] = useState<ViewType>('list')
 
   // Sync view from preferences once loaded
@@ -78,7 +86,9 @@ function ProjectBoardView() {
   function handleViewChange(newView: ViewType) {
     setView(newView)
     if (id) {
-      setPreference.mutate({ projectId: id, view_type: newView as any })
+      // Persist auslastung as gantt in preferences (not a standard view type)
+      const persistView = newView === 'auslastung' ? 'gantt' : newView
+      setPreference.mutate({ projectId: id, view_type: persistView as any })
     }
   }
 
@@ -185,13 +195,32 @@ function ProjectBoardView() {
             <Button
               variant={view === 'gantt' ? 'secondary' : 'ghost'}
               size="sm"
-              className="rounded-l-none"
+              className="rounded-none border-r border-border"
               onClick={() => handleViewChange('gantt')}
               title="Gantt-Ansicht"
             >
               <GanttChartSquare className="h-4 w-4" />
             </Button>
+            <Button
+              variant={view === 'auslastung' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-l-none"
+              onClick={() => handleViewChange('auslastung')}
+              title="Auslastung"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </Button>
           </div>
+
+          {/* Hours to Invoice */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setInvoiceOpen(true)}
+            title="Stunden zu Rechnung"
+          >
+            <Receipt className="h-4 w-4" />
+          </Button>
 
           <Button
             variant="outline"
@@ -208,12 +237,22 @@ function ProjectBoardView() {
         </div>
       </div>
 
-      {/* Content area: List, Kanban, or Gantt view */}
+      {/* Budget section (shown for list and kanban views) */}
+      {(view === 'list' || view === 'kanban') && (
+        <BudgetSection
+          budget={50000}
+          projectName={project.name}
+        />
+      )}
+
+      {/* Content area: List, Kanban, Gantt, or Auslastung view */}
       <div className="flex-1 min-h-0">
         {view === 'list' ? (
           <TaskListView projectId={id ?? ''} statuses={statuses} />
         ) : view === 'kanban' ? (
           <KanbanBoard projectId={id ?? ''} statuses={kanbanStatuses} />
+        ) : view === 'auslastung' ? (
+          <AuslastungReport projectId={id ?? ''} />
         ) : (
           <GanttChart projectId={id ?? ''} />
         )}
@@ -234,6 +273,12 @@ function ProjectBoardView() {
         onOpenChange={setCreateOpen}
         projectId={id ?? ''}
         statuses={statuses}
+      />
+
+      <HoursToInvoiceDialog
+        open={invoiceOpen}
+        onOpenChange={setInvoiceOpen}
+        projectName={project.name}
       />
     </div>
   )

@@ -5,7 +5,7 @@
  * Background/room assets will be added in Batch E (asset generation phase).
  *
  * Theme associations updated for the 5-theme system:
- * cozy, dreamy, raumstation (clean + minimal have no decos).
+ * cozy, dreamy, raumstation, clean (minimal has no decos).
  */
 
 // ── DECORATIONS: Shared ─────────────────────────────────
@@ -40,7 +40,7 @@ import decoEnchantedHourglass from '@/../assets/desk/dreamy/enchanted-hourglass.
 import decoStarWand from '@/../assets/desk/dreamy/star-wand.png'
 import decoFloatingCrystals from '@/../assets/desk/dreamy/floating-crystals.png'
 
-// ── DECORATIONS: Industrial (reused for Raumstation) ────
+// ── DECORATIONS: Raumstation (industrial/sci-fi) ────────
 
 import decoVintageCompass from '@/../assets/desk/industrial/vintage-compass.png'
 import decoMetalGear from '@/../assets/desk/industrial/metal-gear.png'
@@ -55,6 +55,7 @@ export type AnimationClass =
   | 'desk-anim-flicker'
   | 'desk-anim-glow'
   | 'desk-anim-sparkle'
+  | 'desk-anim-paint-drip'
   | null
 
 export interface DecoAsset {
@@ -65,8 +66,8 @@ export interface DecoAsset {
   animation: AnimationClass
 }
 
-/** All themes that support decorations (excludes clean + minimal). */
-const ALL_DECO_THEMES = ['cozy', 'dreamy', 'raumstation']
+/** All themes that support decorations (excludes minimal). */
+const ALL_DECO_THEMES = ['cozy', 'dreamy', 'raumstation', 'clean']
 
 export const DECO_ASSETS: DecoAsset[] = [
   // Shared (all non-minimal themes)
@@ -98,7 +99,7 @@ export const DECO_ASSETS: DecoAsset[] = [
   { id: 'star-wand', name: 'Kristall-Stab', image: decoStarWand, themes: ['dreamy'], animation: 'desk-anim-shimmer' },
   { id: 'floating-crystals', name: 'Schwebende Kristalle', image: decoFloatingCrystals, themes: ['dreamy'], animation: 'desk-anim-float' },
 
-  // Raumstation (tech/sci-fi — reuses industrial assets)
+  // Raumstation (tech/sci-fi)
   { id: 'vintage-compass', name: 'Navigations-Kompass', image: decoVintageCompass, themes: ['raumstation'], animation: 'desk-anim-sparkle' },
   { id: 'metal-gear', name: 'Deko-Zahnrad', image: decoMetalGear, themes: ['raumstation'], animation: null },
 ]

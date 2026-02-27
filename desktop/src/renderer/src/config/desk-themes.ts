@@ -15,7 +15,7 @@ import type { DeskTheme, MountPoint } from '@/types/desk-theme'
 
 // ── Room Scene Imports ──────────────────────────────────────────────────────
 import cozyRoomLight from '@/../assets/desk/cozy/room-scene-light-v7.png'
-import dreamyRoomLight from '@/../assets/desk/dreamy/room-scene-light.png'
+import dreamyRoomLight from '@/../assets/desk/dreamy/a93a6529-244d-446c-a025-2fd2ac6e1479.png'
 import raumstationRoomLight from '@/../assets/desk/raumstation/b1939468-3d5d-4503-a128-f9a8f7e60e12.png'
 import cleanRoomLight from '@/../assets/desk/clean/room-scene-light.png'
 

@@ -31,11 +31,52 @@ interface LineItemDraft {
   tax_rate: string
 }
 
-const TAX_RATES = [
-  { value: '19', label: '19% (Standard)' },
-  { value: '7', label: '7% (Ermaessigt)' },
-  { value: '0', label: '0%' },
+// ---------------------------------------------------------------------------
+// Multi-country tax rates (3.15)
+// ---------------------------------------------------------------------------
+
+type TaxCountry = 'DE' | 'AT' | 'CH'
+
+const TAX_RATES_BY_COUNTRY: Record<TaxCountry, { value: string; label: string }[]> = {
+  DE: [
+    { value: '19', label: '19% (Standard)' },
+    { value: '7', label: '7% (Ermaessigt)' },
+    { value: '0', label: '0%' },
+  ],
+  AT: [
+    { value: '20', label: '20% (Standard)' },
+    { value: '13', label: '13% (Ermaessigt)' },
+    { value: '10', label: '10% (Ermaessigt)' },
+    { value: '0', label: '0%' },
+  ],
+  CH: [
+    { value: '8.1', label: '8.1% (Normal)' },
+    { value: '3.8', label: '3.8% (Beherbergung)' },
+    { value: '2.6', label: '2.6% (Reduziert)' },
+    { value: '0', label: '0%' },
+  ],
+}
+
+const COUNTRY_LABELS: Record<TaxCountry, string> = {
+  DE: 'Deutschland',
+  AT: 'Oesterreich',
+  CH: 'Schweiz',
+}
+
+// ---------------------------------------------------------------------------
+// Currency options (3.16)
+// ---------------------------------------------------------------------------
+
+type InvoiceCurrency = 'EUR' | 'CHF' | 'USD'
+
+const CURRENCY_OPTIONS: { value: InvoiceCurrency; label: string; symbol: string }[] = [
+  { value: 'EUR', label: 'Euro (EUR)', symbol: '\u20AC' },
+  { value: 'CHF', label: 'Schweizer Franken (CHF)', symbol: 'CHF' },
+  { value: 'USD', label: 'US-Dollar (USD)', symbol: '$' },
 ]
+
+// Legacy alias for backward compatibility
+const TAX_RATES = TAX_RATES_BY_COUNTRY.DE
 
 function emptyItem(position: number): LineItemDraft {
   return {
@@ -70,6 +111,8 @@ export function InvoiceFormDialog({
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerUstIdNr, setCustomerUstIdNr] = useState('')
   const [taxMode, setTaxMode] = useState<TaxMode>('standard')
+  const [taxCountry, setTaxCountry] = useState<TaxCountry>('DE')
+  const [currency, setCurrency] = useState<InvoiceCurrency>('EUR')
   const [invoiceDate, setInvoiceDate] = useState('')
   const [deliveryDate, setDeliveryDate] = useState('')
   const [paymentTermsDays, setPaymentTermsDays] = useState('30')
@@ -82,6 +125,8 @@ export function InvoiceFormDialog({
     setCustomerEmail('')
     setCustomerUstIdNr('')
     setTaxMode('standard')
+    setTaxCountry('DE')
+    setCurrency('EUR')
     setInvoiceDate(new Date().toISOString().split('T')[0])
     setDeliveryDate('')
     setPaymentTermsDays(
@@ -207,6 +252,16 @@ export function InvoiceFormDialog({
   const tax = calcInvoiceTax(effectiveItems)
   const total = calcInvoiceTotal(effectiveItems)
 
+  // Currency-aware formatter (3.16)
+  const formatAmount = (value: number | string): string => {
+    const n = typeof value === 'string' ? Number(value) : value
+    if (isNaN(n)) return `${currency} 0,00`
+    return new Intl.NumberFormat('de-DE', {
+      style: 'currency',
+      currency: currency,
+    }).format(n)
+  }
+
   const isPending = createInvoice.isPending || updateInvoice.isPending
 
   return (
@@ -259,21 +314,43 @@ export function InvoiceFormDialog({
             </div>
           </div>
 
-          {/* Tax mode, dates, terms */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Tax country + currency (3.15 + 3.16) */}
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label>Steuerbehandlung</Label>
+              <Label>Mandanten-Land</Label>
               <Select
-                value={taxMode}
-                onValueChange={(v) => setTaxMode(v as TaxMode)}
+                value={taxCountry}
+                onValueChange={(v) => {
+                  const country = v as TaxCountry
+                  setTaxCountry(country)
+                  // Auto-set currency to match country
+                  if (country === 'CH') setCurrency('CHF')
+                  else setCurrency('EUR')
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard (19% / 7%)</SelectItem>
-                  <SelectItem value="reverse_charge">Reverse Charge</SelectItem>
-                  <SelectItem value="kleinunternehmer">Kleinunternehmer</SelectItem>
+                  {(Object.entries(COUNTRY_LABELS) as [TaxCountry, string][]).map(([k, l]) => (
+                    <SelectItem key={k} value={k}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Waehrung</Label>
+              <Select
+                value={currency}
+                onValueChange={(v) => setCurrency(v as InvoiceCurrency)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCY_OPTIONS.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -285,6 +362,28 @@ export function InvoiceFormDialog({
                 value={paymentTermsDays}
                 onChange={(e) => setPaymentTermsDays(e.target.value)}
               />
+            </div>
+          </div>
+
+          {/* Tax mode */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Steuerbehandlung</Label>
+              <Select
+                value={taxMode}
+                onValueChange={(v) => setTaxMode(v as TaxMode)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">
+                    Standard ({TAX_RATES_BY_COUNTRY[taxCountry][0].label})
+                  </SelectItem>
+                  <SelectItem value="reverse_charge">Reverse Charge</SelectItem>
+                  <SelectItem value="kleinunternehmer">Kleinunternehmer</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -381,7 +480,7 @@ export function InvoiceFormDialog({
                       }
                       className="h-7 rounded border border-input-border bg-input-background px-1 text-[10px] text-foreground outline-none"
                     >
-                      {TAX_RATES.map((r) => (
+                      {TAX_RATES_BY_COUNTRY[taxCountry].map((r) => (
                         <option key={r.value} value={r.value}>
                           {r.label}
                         </option>
@@ -393,7 +492,7 @@ export function InvoiceFormDialog({
                     </span>
                   )}
                   <span className="text-xs text-foreground text-right font-medium">
-                    {formatEUR(calcLineTotal(item.quantity, item.unit_price))}
+                    {formatAmount(calcLineTotal(item.quantity, item.unit_price))}
                   </span>
                   <button
                     onClick={() => removeItem(idx)}
@@ -419,17 +518,17 @@ export function InvoiceFormDialog({
             <div className="w-64 space-y-1.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Zwischensumme (netto)</span>
-                <span>{formatEUR(subtotal)}</span>
+                <span>{formatAmount(subtotal)}</span>
               </div>
               {taxMode !== 'kleinunternehmer' && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>MwSt</span>
-                  <span>{formatEUR(tax)}</span>
+                  <span>{formatAmount(tax)}</span>
                 </div>
               )}
               <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
                 <span>Gesamtbetrag</span>
-                <span>{formatEUR(total)}</span>
+                <span>{formatAmount(total)}</span>
               </div>
             </div>
           </div>

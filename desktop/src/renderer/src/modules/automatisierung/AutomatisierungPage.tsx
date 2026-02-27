@@ -249,7 +249,7 @@ export default function AutomatisierungPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden animate-fade-up">
       <StatsBar />
 
       <div className="flex-1 overflow-hidden">

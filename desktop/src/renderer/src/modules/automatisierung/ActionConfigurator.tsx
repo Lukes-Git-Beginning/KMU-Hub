@@ -111,7 +111,7 @@ function ActionSlot({
             {index + 1}
           </span>
           <span className="text-xs font-medium text-foreground">
-            {actionDef?.name ?? action.type || 'Aktion waehlen'}
+            {actionDef?.name ?? (action.type || 'Aktion waehlen')}
           </span>
         </div>
         <div className="flex items-center gap-1">

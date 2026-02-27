@@ -1,0 +1,32 @@
+/**
+ * Standalone page for the employee wizard pop-out Electron BrowserWindow.
+ * Reads initial form data from localStorage (saved by the inline wizard).
+ */
+import { useState, useEffect } from 'react'
+import { CreateEmployeeWizard } from './CreateEmployeeWizard'
+
+export default function EmployeeWizardWindowPage() {
+  const [initialData, setInitialData] = useState<Record<string, unknown> | undefined>(undefined)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('kmuhub-employee-wizard-draft')
+      if (raw) {
+        setInitialData(JSON.parse(raw))
+        localStorage.removeItem('kmuhub-employee-wizard-draft')
+      }
+    } catch { /* ignore parse errors */ }
+    setReady(true)
+  }, [])
+
+  if (!ready) return null
+
+  return (
+    <CreateEmployeeWizard
+      onClose={() => window.electronAPI?.window.close()}
+      isWindow
+      initialData={initialData as never}
+    />
+  )
+}

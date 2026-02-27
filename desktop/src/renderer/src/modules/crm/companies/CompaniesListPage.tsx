@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
+import { PageHeader } from '@/components/shared'
 import { useCompanies } from '@/api/hooks/useCompanies'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -71,13 +72,18 @@ export default function CompaniesListPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-foreground">Unternehmen</h1>
-        <Button onClick={showComingSoon} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Neues Unternehmen
-        </Button>
-      </div>
+      <PageHeader
+        title="Unternehmen"
+        description={`${data?.total ?? 0} Unternehmen`}
+        icon={Building2}
+        moduleId="contacts"
+        actions={
+          <Button onClick={showComingSoon} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Neues Unternehmen
+          </Button>
+        }
+      />
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

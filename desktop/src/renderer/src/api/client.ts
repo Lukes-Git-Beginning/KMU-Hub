@@ -17,7 +17,7 @@ import { API_BASE_URL } from '@/lib/constants'
  */
 export class OfflineError extends Error {
   constructor() {
-    super('Aenderungen sind offline nicht moeglich. Bitte stellen Sie die Internetverbindung wieder her.')
+    super('Änderungen sind offline nicht möglich. Bitte stellen Sie die Internetverbindung wieder her.')
     this.name = 'OfflineError'
   }
 }
