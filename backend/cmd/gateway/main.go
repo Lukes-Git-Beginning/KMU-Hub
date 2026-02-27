@@ -78,8 +78,9 @@ func main() {
 	}
 	defer pool.Close()
 
-	// Initialize MinIO file store for upload handler
-	fileStore, err := file.NewMinIOStore(
+	// Initialize MinIO file store for upload handler (best-effort)
+	var fileStore file.FileStore
+	minioStore, err := file.NewMinIOStore(
 		cfg.MinIOEndpoint,
 		cfg.MinIOAccessKey,
 		cfg.MinIOSecretKey,
@@ -87,8 +88,10 @@ func main() {
 		cfg.MinIOUseSSL,
 	)
 	if err != nil {
-		slog.Error("failed to connect to minio", "error", err)
-		os.Exit(1)
+		slog.Warn("minio unavailable, file upload and WOPI disabled", "error", err)
+		fileStore = file.NewUnavailableStore()
+	} else {
+		fileStore = minioStore
 	}
 
 	fileRepo := file.NewPostgresRepository(pool)
