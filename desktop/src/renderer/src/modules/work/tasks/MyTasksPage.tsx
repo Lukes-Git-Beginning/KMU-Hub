@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { EmptyTasks } from '@/components/shared/illustrations'
 import { ListChecks } from 'lucide-react'
 import { useMyTasks, useCreateTask, useUpdateTask } from '@/api/hooks/useTasks'
 import { useProjects } from '@/api/hooks/useProjects'
@@ -326,21 +328,16 @@ export default function MyTasksPage() {
           ))}
         </div>
       ) : filteredTasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <CheckSquare className="h-12 w-12 text-muted-foreground" />
-          <p className="mt-4 text-lg font-medium text-foreground">
-            Keine Aufgaben zugewiesen
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {debouncedSearch
+        <EmptyState
+          illustration={<EmptyTasks />}
+          title="Keine Aufgaben zugewiesen"
+          description={
+            debouncedSearch
               ? 'Versuche einen anderen Suchbegriff.'
-              : 'Dir sind aktuell keine Aufgaben zugewiesen.'}
-          </p>
-          <Button className="mt-4 gap-2" onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Erste Aufgabe erstellen
-          </Button>
-        </div>
+              : 'Dir sind aktuell keine Aufgaben zugewiesen.'
+          }
+          action={{ label: 'Erste Aufgabe erstellen', onClick: () => setCreateDialogOpen(true) }}
+        />
       ) : (
         <>
           <div className="space-y-6">
