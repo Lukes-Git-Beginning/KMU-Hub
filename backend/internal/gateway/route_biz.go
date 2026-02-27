@@ -1268,7 +1268,7 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", resp.Filename))
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp.CsvData)
+	_, _ = w.Write(resp.CsvData)
 }
 
 // ============================================================================
@@ -1462,5 +1462,5 @@ func respondPDF(w http.ResponseWriter, pdfData []byte, filename string) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.Header().Set("Content-Length", strconv.Itoa(len(pdfData)))
 	w.WriteHeader(http.StatusOK)
-	w.Write(pdfData)
+	_, _ = w.Write(pdfData)
 }

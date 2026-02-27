@@ -964,7 +964,7 @@ func (c *CRMRoutes) HandleExportContactsCSV(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", resp.ContentType)
 	w.Header().Set("Content-Disposition", "attachment; filename="+resp.Filename)
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp.FileContent)
+	_, _ = w.Write(resp.FileContent)
 }
 
 type exportContactsVCardRequest struct {
@@ -1000,7 +1000,7 @@ func (c *CRMRoutes) HandleExportContactsVCard(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", resp.ContentType)
 	w.Header().Set("Content-Disposition", "attachment; filename="+resp.Filename)
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp.FileContent)
+	_, _ = w.Write(resp.FileContent)
 }
 
 type updateContactVisibilityRequest struct {
