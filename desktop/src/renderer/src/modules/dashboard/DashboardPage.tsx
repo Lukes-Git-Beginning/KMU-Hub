@@ -29,7 +29,7 @@ export default function DashboardPage() {
     <div className="h-full overflow-auto">
       <div className="p-4 md:p-8">
         {/* Greeting Header */}
-        <div className="mb-8 flex items-start justify-between animate-fade-up">
+        <div className="mb-4 flex items-start justify-between animate-fade-up">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
               <TextReveal text={getGreeting()} wordDelay={80} />

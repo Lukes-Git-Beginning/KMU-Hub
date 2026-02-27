@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react'
 import {
   Search,
   Plus,
-  Ticket,
-  BookOpen,
   BarChart3,
   AlertCircle,
   Clock,
@@ -41,7 +39,8 @@ import { BusinessHoursDialog } from './BusinessHoursDialog'
 import { TicketRoutingConfig } from './TicketRoutingConfig'
 import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
 import { useAIStore } from '@/stores/ai'
-import { PageHeader } from '@/components/shared'
+import { PageHeader, EmptyState } from '@/components/shared'
+import { EmptyHelpdesk } from '@/components/shared/illustrations'
 
 type TabKey = 'tickets' | 'wissensdatenbank' | 'statistik'
 type StatusFilter = 'all' | TicketType['status']
@@ -426,11 +425,12 @@ export default function HelpdeskPage() {
               </table>
             </div>
             {filteredTickets.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Ticket className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm font-medium">Keine Tickets gefunden</p>
-                <p className="text-xs mt-1">{hasActiveFilters || search ? 'Passe deine Filter an' : 'Erstelle ein neues Ticket'}</p>
-              </div>
+              <EmptyState
+                illustration={<EmptyHelpdesk />}
+                title="Keine Tickets gefunden"
+                description={hasActiveFilters || search ? 'Passe deine Filter an' : 'Erstelle ein neues Ticket'}
+                action={!hasActiveFilters && !search ? { label: 'Erstes Ticket anlegen', onClick: handleOpenNewTicket } : undefined}
+              />
             )}
           </div>
         </div>
@@ -446,9 +446,11 @@ export default function HelpdeskPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {kbArticles.length === 0 ? (
-                <div className="col-span-full flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <BookOpen className="h-10 w-10 mb-3 opacity-40" />
-                  <p className="text-sm font-medium">Keine Artikel vorhanden</p>
+                <div className="col-span-full">
+                  <EmptyState
+                    illustration={<EmptyHelpdesk />}
+                    title="Keine Artikel vorhanden"
+                  />
                 </div>
               ) : (
                 kbArticles.map((article) => (

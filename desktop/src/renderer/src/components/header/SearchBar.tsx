@@ -263,7 +263,7 @@ export function SearchBar() {
   }, [highlightedIndex])
 
   return (
-    <>
+    <div className="relative">
       {/* Compact trigger */}
       <button
         onClick={() => setIsOpen(true)}
@@ -276,19 +276,17 @@ export function SearchBar() {
         </kbd>
       </button>
 
-      {/* Modal overlay */}
+      {/* Dropdown overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsOpen(false)
-          }}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" />
+        <>
+          {/* Invisible backdrop to catch outside clicks */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsOpen(false)}
+          />
 
-          {/* Search modal */}
-          <div className="relative w-full max-w-xl rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
+          {/* Search dropdown */}
+          <div className="absolute top-full left-0 z-50 mt-2 w-[32rem] rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
             {/* Search input */}
             <div className="flex items-center gap-3 border-b border-border px-4 py-3">
               <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -424,9 +422,9 @@ export function SearchBar() {
               </span>
             </div>
           </div>
-        </div>
+        </>
       )}
-    </>
+    </div>
   )
 }
 

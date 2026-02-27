@@ -25,6 +25,8 @@ import {
 import { toast } from 'sonner'
 import { useBerichteStore } from '@/stores/berichte'
 import { PageHeader } from '@/components/shared'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { EmptyReports } from '@/components/shared/illustrations'
 
 /* ---------- constants ---------- */
 
@@ -306,11 +308,11 @@ export default function BerichtePage() {
           {/* KPI Cards */}
           <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-fade-up" style={{ animationDelay: '100ms' }}>
             {filteredKpis.length === 0 && (
-              <div className="col-span-full rounded-lg border border-border bg-card p-8 text-center">
-                <TrendingUp className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">
-                  Keine KPIs fuer dieses Modul vorhanden
-                </p>
+              <div className="col-span-full">
+                <EmptyState
+                  illustration={<EmptyReports />}
+                  title="Keine KPIs fuer dieses Modul vorhanden"
+                />
               </div>
             )}
             {filteredKpis.map((kpi) => {
@@ -728,10 +730,10 @@ export default function BerichtePage() {
               </div>
 
               {savedReports.length === 0 ? (
-                <div className="py-8 text-center">
-                  <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-xs text-muted-foreground">Noch keine Berichte gespeichert</p>
-                </div>
+                <EmptyState
+                  illustration={<EmptyReports />}
+                  title="Noch keine Berichte gespeichert"
+                />
               ) : (
                 <div className="space-y-3">
                   {savedReports.map((report) => (
@@ -895,11 +897,11 @@ export default function BerichtePage() {
               </table>
             </div>
             {scheduledReports.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <CalendarClock className="mb-3 h-10 w-10 opacity-40" />
-                <p className="text-sm font-medium">Keine geplanten Berichte</p>
-                <p className="mt-1 text-xs">Erstelle einen geplanten Bericht</p>
-              </div>
+              <EmptyState
+                illustration={<EmptyReports />}
+                title="Keine geplanten Berichte"
+                description="Erstelle einen geplanten Bericht"
+              />
             )}
           </div>
         </>

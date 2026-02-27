@@ -28,6 +28,8 @@ import {
 } from '@/api/hooks/useAutomation'
 import { useAutomatisierungStore } from '@/stores/automatisierung'
 import type { Automation } from '@/api/automation-types'
+import { EmptyState } from '@/components/shared/EmptyState'
+import { EmptyAutomation } from '@/components/shared/illustrations'
 import { AutomationWizard } from './AutomationWizard'
 import { TemplateGallery } from './TemplateGallery'
 import { ExecutionLogViewer } from './ExecutionLogViewer'
@@ -170,25 +172,12 @@ function AutomationList({
 
   if (automations.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-4">
-        <div className="rounded-full bg-secondary p-4">
-          <Zap className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <div className="text-center">
-          <h3 className="text-sm font-medium text-foreground">
-            Keine Automatisierungen
-          </h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            Erstellen Sie Ihre erste Automatisierung oder entdecken Sie Vorlagen.
-          </p>
-        </div>
-        <button
-          onClick={onNew}
-          className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
-        >
-          Neue Automatisierung
-        </button>
-      </div>
+      <EmptyState
+        illustration={<EmptyAutomation />}
+        title="Keine Automatisierungen"
+        description="Erstelle deine erste Automation um wiederkehrende Aufgaben zu vereinfachen."
+        action={{ label: 'Erste Automation erstellen', onClick: onNew }}
+      />
     )
   }
 

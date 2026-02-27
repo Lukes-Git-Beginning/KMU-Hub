@@ -34,7 +34,8 @@ import {
   type Machine,
   type MachineBooking,
 } from '@/stores/produktion'
-import { DetailPanel, PageHeader } from '@/components/shared'
+import { DetailPanel, PageHeader, EmptyState } from '@/components/shared'
+import { EmptyGeneric } from '@/components/shared/illustrations'
 import {
   Dialog,
   DialogContent,
@@ -341,11 +342,11 @@ export default function ProduktionPage() {
               </table>
             </div>
             {filteredOrders.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Factory className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm font-medium">Keine Aufträge gefunden</p>
-                <p className="text-xs mt-1">{search || statusFilter !== 'all' ? 'Passe deine Filter an' : 'Erstelle einen neuen Auftrag'}</p>
-              </div>
+              <EmptyState
+                illustration={<EmptyGeneric />}
+                title="Keine Aufträge gefunden"
+                description={search || statusFilter !== 'all' ? 'Passe deine Filter an' : 'Erstelle einen neuen Auftrag'}
+              />
             )}
           </div>
         </>
@@ -357,11 +358,11 @@ export default function ProduktionPage() {
       {tab === 'stücklisten' && (
         <div className="space-y-3">
           {boms.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <ClipboardList className="h-10 w-10 mb-3 opacity-40" />
-              <p className="text-sm font-medium">Keine Stücklisten vorhanden</p>
-              <p className="text-xs mt-1">Erstelle eine neue Stückliste</p>
-            </div>
+            <EmptyState
+              illustration={<EmptyGeneric />}
+              title="Keine Stücklisten vorhanden"
+              description="Erstelle eine neue Stückliste"
+            />
           ) : (
             boms.map((bom) => {
               const usedByOrders = orders.filter((o) => o.bomId === bom.id)
@@ -484,11 +485,11 @@ export default function ProduktionPage() {
             </table>
           </div>
           {qualityChecks.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <ShieldCheck className="h-10 w-10 mb-3 opacity-40" />
-              <p className="text-sm font-medium">Keine Qualitätsprüfungen</p>
-              <p className="text-xs mt-1">Prüfungen werden hier aufgelistet</p>
-            </div>
+            <EmptyState
+              illustration={<EmptyGeneric />}
+              title="Keine Qualitätsprüfungen"
+              description="Prüfungen werden hier aufgelistet"
+            />
           )}
         </div>
       )}
@@ -896,7 +897,10 @@ function OrderDetailPanel({
             Qualitätsprüfungen ({qualityChecks.length})
           </h4>
           {qualityChecks.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Keine Prüfungen vorhanden</p>
+            <EmptyState
+              illustration={<EmptyGeneric />}
+              title="Keine Prüfungen vorhanden"
+            />
           ) : (
             <div className="space-y-1.5">
               {qualityChecks.map((qc) => (
