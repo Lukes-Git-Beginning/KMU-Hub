@@ -37,8 +37,8 @@ export function Header() {
 
   return (
     <header data-tour="header" className="relative z-20 flex h-[64px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
-      {/* Left: mobile menu + compact search + clock */}
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      {/* Left: mobile menu + compact search */}
+      <div className="flex shrink-0 items-center gap-3">
         {navLayout === 'sidebar' && (
           <button
             onClick={() => setSidebarMobileOpen(true)}
@@ -49,36 +49,32 @@ export function Header() {
           </button>
         )}
 
-        <div className="min-w-0 w-72 lg:w-80 xl:w-[26rem] shrink-1">
-          <SearchBar />
-        </div>
+        <SearchBar />
+      </div>
 
-        <div className="hidden md:block shrink-0">
+      {/* Center: clock + widget slots — fills the gap */}
+      <div className="flex flex-1 items-center justify-center gap-2">
+        <div className="hidden sm:block">
           <HeaderClock />
         </div>
 
-        {/* Configurable header widget slots — only on wide screens */}
-        <div className="hidden xl:block shrink-0">
-          <HeaderWidgetSlots />
+        <HeaderWidgetSlots />
+
+        <div className="hidden lg:block">
+          <DailyPlannerWidget />
+        </div>
+
+        <div className="hidden lg:block">
+          <TimeTrackerWidget />
         </div>
       </div>
 
       {/* Right: controls */}
       <div className="flex shrink-0 items-center gap-1 md:gap-2">
-        {/* Daily Planner */}
-        <div className="hidden lg:block">
-          <DailyPlannerWidget />
-        </div>
-
-        {/* Unified Time Tracker (clock-in + task tracking) */}
-        <div className="hidden lg:block">
-          <TimeTrackerWidget />
-        </div>
-
         {/* User presence status picker */}
         <PresenceStatusPicker />
 
-        {/* Notification bell (existing, real API) */}
+        {/* Notification bell */}
         <NotificationBell />
 
         {/* Connection status dot */}

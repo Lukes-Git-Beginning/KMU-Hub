@@ -264,36 +264,38 @@ export function SearchBar() {
 
   return (
     <div className="relative">
-      {/* Compact trigger */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-      >
-        <Search className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Suchen...</span>
-        <kbd className="hidden md:inline-flex h-5 items-center rounded border border-border bg-card px-1.5 text-[10px] font-medium text-text-disabled">
-          Ctrl+K
-        </kbd>
-      </button>
+      {/* Compact trigger — only visible when closed */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span>Suchen...</span>
+          <kbd className="hidden md:inline-flex h-5 items-center rounded border border-border bg-card px-1.5 text-[10px] font-medium text-text-disabled">
+            Ctrl+K
+          </kbd>
+        </button>
+      )}
 
-      {/* Dropdown overlay */}
+      {/* Expanded search — replaces the trigger, expands downward */}
       {isOpen && (
         <>
-          {/* Invisible backdrop to catch outside clicks */}
+          {/* Backdrop to catch outside clicks */}
           <div
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* Search dropdown */}
-          <div className="absolute top-full left-0 z-50 mt-1 w-full min-w-[24rem] rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
-            {/* Search input */}
-            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-              <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
+          {/* Single expanding search panel */}
+          <div className="absolute top-0 left-0 z-50 w-[30rem] rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
+            {/* Search input — this IS the search bar, expanded */}
+            <div className="flex items-center gap-3 px-4 py-2">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="Projekte, Aufgaben, Kontakte, Dokumente..."
+                placeholder="Suchen..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -311,7 +313,7 @@ export function SearchBar() {
             </div>
 
             {/* Category filters */}
-            <div className="flex items-center gap-1 border-b border-border-muted px-4 py-2 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-1 border-t border-border/50 px-4 py-1.5 overflow-x-auto scrollbar-hide">
               <Filter className="h-3.5 w-3.5 shrink-0 text-muted-foreground mr-1" />
               {availableFilters.map((filter) => (
                 <button
@@ -329,7 +331,7 @@ export function SearchBar() {
             </div>
 
             {/* Results */}
-            <div ref={resultsRef} className="max-h-80 overflow-y-auto">
+            <div ref={resultsRef} className="max-h-80 overflow-y-auto border-t border-border/50">
               {/* Grouped results */}
               {debouncedQuery.length >= 2 &&
                 !isLoading &&
@@ -368,8 +370,8 @@ export function SearchBar() {
 
               {/* Error state */}
               {isError && debouncedQuery.length >= 2 && (
-                <div className="py-10 text-center">
-                  <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive/50" />
+                <div className="py-8 text-center">
+                  <AlertCircle className="h-6 w-6 mx-auto mb-2 text-destructive/50" />
                   <p className="text-sm text-muted-foreground">
                     Suche fehlgeschlagen. Versuche es erneut.
                   </p>
@@ -382,8 +384,8 @@ export function SearchBar() {
                 !isError &&
                 data?.modules &&
                 !data.modules.some((m) => m.results?.length > 0) && (
-                  <div className="py-10 text-center">
-                    <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                  <div className="py-8 text-center">
+                    <Search className="h-6 w-6 mx-auto mb-2 text-muted-foreground/30" />
                     <p className="text-sm text-muted-foreground">
                       Keine Ergebnisse fuer &ldquo;{debouncedQuery}&rdquo;
                     </p>
@@ -392,8 +394,8 @@ export function SearchBar() {
 
               {/* Empty state */}
               {debouncedQuery.length < 2 && (
-                <div className="py-10 text-center">
-                  <p className="text-sm text-muted-foreground">
+                <div className="py-6 text-center">
+                  <p className="text-xs text-muted-foreground">
                     Tippe, um zu suchen
                   </p>
                 </div>
@@ -401,7 +403,7 @@ export function SearchBar() {
             </div>
 
             {/* Footer hints */}
-            <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[10px] text-text-disabled">
+            <div className="flex items-center gap-4 border-t border-border px-4 py-1.5 text-[10px] text-text-disabled">
               <span>
                 <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
                   ↑↓
