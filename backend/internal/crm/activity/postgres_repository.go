@@ -358,6 +358,61 @@ func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, ent
 	return exists, err
 }
 
+// GetContactTimeline returns a unified timeline of activities and deal links for a contact.
+func (r *PostgresRepository) GetContactTimeline(ctx context.Context, contactID uuid.UUID, offset, limit int) ([]*TimelineEvent, int, error) {
+	// Count total
+	var total int
+	countQuery := `
+		SELECT COUNT(*) FROM (
+			SELECT id FROM activities WHERE contact_id = $1
+			UNION ALL
+			SELECT d.id FROM deals d WHERE d.contact_id = $1
+		) sub
+	`
+	if err := r.pool.QueryRow(ctx, countQuery, contactID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// UNION query: activities + deal links
+	query := `
+		SELECT id, 'activity' AS event_type, created_at AS occurred_at,
+		       subject AS title, description,
+		       COALESCE((SELECT first_name || ' ' || last_name FROM users WHERE id = created_by), '') AS created_by_name
+		FROM activities
+		WHERE contact_id = $1
+
+		UNION ALL
+
+		SELECT d.id, 'deal_linked' AS event_type, d.created_at AS occurred_at,
+		       'Deal verknüpft: ' || d.name AS title, NULL::text AS description,
+		       COALESCE((SELECT first_name || ' ' || last_name FROM users WHERE id = d.created_by), '') AS created_by_name
+		FROM deals d
+		WHERE d.contact_id = $1
+
+		ORDER BY occurred_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.pool.Query(ctx, query, contactID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var events []*TimelineEvent
+	for rows.Next() {
+		var e TimelineEvent
+		var desc *string
+		if scanErr := rows.Scan(&e.ID, &e.EventType, &e.OccurredAt, &e.Title, &desc, &e.CreatedByName); scanErr != nil {
+			return nil, 0, scanErr
+		}
+		e.Description = desc
+		events = append(events, &e)
+	}
+
+	return events, total, rows.Err()
+}
+
 // Helper to scan a single row into Activity
 func (r *PostgresRepository) scanActivity(row pgx.Row) (*models.Activity, error) {
 	var a models.Activity

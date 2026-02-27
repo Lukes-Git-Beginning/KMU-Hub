@@ -244,6 +244,19 @@ func (g *Generator) GenerateCreditNotePDF(creditNote models.CreditNote) ([]byte,
 	return g.generate(m)
 }
 
+// GenerateZUGFeRDInvoicePDF generates an invoice PDF with embedded Factur-X/ZUGFeRD 2.1 XML.
+func (g *Generator) GenerateZUGFeRDInvoicePDF(invoice models.Invoice) ([]byte, error) {
+	pdfBytes, err := g.GenerateInvoicePDF(invoice)
+	if err != nil {
+		return nil, err
+	}
+	xmlBytes, err := GenerateZUGFeRDXML(invoice, g.settings)
+	if err != nil {
+		return nil, fmt.Errorf("generate zugferd xml: %w", err)
+	}
+	return EmbedZUGFeRDXML(pdfBytes, xmlBytes, invoice.InvoiceNumber)
+}
+
 // GenerateDunningPDF generates a PDF for a dunning letter (Mahnung).
 // Level determines the tone: 1=friendly, 2=formal, 3=urgent (threatens Inkasso).
 func (g *Generator) GenerateDunningPDF(dunning models.DunningRecord, invoice models.Invoice, level int) ([]byte, error) {

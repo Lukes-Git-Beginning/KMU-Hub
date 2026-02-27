@@ -12,4 +12,6 @@ var (
 	ErrContactInUse       = errors.New("contact is in use and cannot be deleted")
 	ErrTagNotFound        = errors.New("tag not found")
 	ErrInvalidCustomField = errors.New("invalid custom field")
+	ErrCannotMergeSelf    = errors.New("cannot merge a contact with itself")
+	ErrAlreadyMerged      = errors.New("contact has already been merged")
 )

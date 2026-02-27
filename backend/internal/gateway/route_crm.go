@@ -17,11 +17,13 @@ import (
 // CRMRoutes handles HTTP routes for the CRM backend service.
 type CRMRoutes struct {
 	registry *ServiceRegistry
+	ext      *CRMExtRoutes // optional: direct-DB extension handlers
 }
 
 // NewCRMRoutes creates a new CRMRoutes with the given service registry.
-func NewCRMRoutes(registry *ServiceRegistry) *CRMRoutes {
-	return &CRMRoutes{registry: registry}
+// ext may be nil if extension features are not configured.
+func NewCRMRoutes(registry *ServiceRegistry, ext *CRMExtRoutes) *CRMRoutes {
+	return &CRMRoutes{registry: registry, ext: ext}
 }
 
 // ServiceName returns the backend service name.
@@ -76,6 +78,11 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("contacts", "write")).Post("/import/preview", c.HandlePreviewImportCSV)
 		r.With(middleware.RequirePermission("contacts", "read")).Post("/export/csv", c.HandleExportContactsCSV)
 		r.With(middleware.RequirePermission("contacts", "read")).Post("/export/vcard", c.HandleExportContactsVCard)
+
+		// Extension features: duplicate detection, timeline, consent management
+		if c.ext != nil {
+			c.ext.registerContactExtRoutes(r)
+		}
 	})
 
 	// Companies
@@ -87,6 +94,11 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("companies", "write")).Post("/", c.HandleCreateCompany)
 		r.With(middleware.RequirePermission("companies", "write")).Put("/{id}", c.HandleUpdateCompany)
 		r.With(middleware.RequirePermission("companies", "delete")).Delete("/{id}", c.HandleDeleteCompany)
+
+		// Extension features: duplicate detection
+		if c.ext != nil {
+			c.ext.registerCompanyExtRoutes(r)
+		}
 	})
 
 	// Pipeline Stages
@@ -149,6 +161,11 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 		r.With(middleware.RequirePermission("reports", "read")).Get("/conversion", c.HandleGetConversionReport)
 		r.With(middleware.RequirePermission("reports", "read")).Get("/activities", c.HandleGetActivityReport)
 	})
+
+	// GDPR deletion requests (top-level, admin only)
+	if c.ext != nil {
+		c.ext.registerGDPRRoutes(r, authMiddleware)
+	}
 }
 
 // ============================================================================

@@ -9,4 +9,6 @@ var (
 	ErrTagNotFound        = errors.New("tag not found")
 	ErrTagWrongType       = errors.New("tag is not for companies")
 	ErrInvalidCustomField = errors.New("invalid custom field")
+	ErrCannotMergeSelf    = errors.New("cannot merge a company with itself")
+	ErrAlreadyMerged      = errors.New("company has already been merged")
 )

@@ -18,11 +18,13 @@ import (
 // so ServiceName returns "biz" to reuse the existing connection.
 type HRRoutes struct {
 	registry *ServiceRegistry
+	bizExt   *BizExtRoutes // optional: direct-DB extension handlers
 }
 
 // NewHRRoutes creates a new HRRoutes with the given service registry.
-func NewHRRoutes(registry *ServiceRegistry) *HRRoutes {
-	return &HRRoutes{registry: registry}
+// bizExt may be nil if extension features are not configured.
+func NewHRRoutes(registry *ServiceRegistry, bizExt *BizExtRoutes) *HRRoutes {
+	return &HRRoutes{registry: registry, bizExt: bizExt}
 }
 
 // ServiceName returns "biz" because HR services share the biz gRPC server.
@@ -68,6 +70,11 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/weekly", h.HandleWeeklySummary)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections", h.HandleSubmitCorrection)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections/{id}/approve", h.HandleApproveCorrection)
+
+		// Extension: time-tracking → invoice conversion
+		if h.bizExt != nil {
+			h.bizExt.registerTimeExtRoutes(r)
+		}
 	})
 
 	// Absence calendar

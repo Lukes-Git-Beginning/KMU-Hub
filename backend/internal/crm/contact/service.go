@@ -378,6 +378,74 @@ func (s *Service) getWithRelations(ctx context.Context, contact *models.Contact)
 	return result, nil
 }
 
+// DuplicateCandidate represents a potential duplicate contact with similarity scoring.
+type DuplicateCandidate struct {
+	Contact    *models.ContactWithRelations `json:"contact"`
+	Similarity float64                      `json:"similarity"`
+	MatchType  string                       `json:"match_type"` // "email_exact", "name_fuzzy", "phone_exact"
+}
+
+// FindDuplicates returns potential duplicate contacts for the given contact ID.
+// Matches by: exact email (similarity 1.0), trigram name (>= 0.7), exact phone (0.9).
+func (s *Service) FindDuplicates(ctx context.Context, contactID uuid.UUID) ([]*DuplicateCandidate, error) {
+	// Verify contact exists
+	if _, err := s.repo.GetByID(ctx, contactID); err != nil {
+		return nil, ErrContactNotFound
+	}
+
+	candidates, err := s.repo.FindDuplicateCandidates(ctx, contactID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Enrich with relations
+	for _, c := range candidates {
+		withRel, relErr := s.getWithRelations(ctx, &c.Contact.Contact)
+		if relErr == nil {
+			c.Contact = withRel
+		}
+	}
+
+	return candidates, nil
+}
+
+// MergeContacts merges a duplicate contact into a primary contact.
+// All activities, deals, tags, and custom fields are reassigned to the primary.
+// The duplicate is soft-deleted by setting merged_into_id.
+func (s *Service) MergeContacts(ctx context.Context, primaryID, duplicateID uuid.UUID) (*models.ContactWithRelations, error) {
+	if primaryID == duplicateID {
+		return nil, ErrCannotMergeSelf
+	}
+
+	// Verify both exist
+	primary, err := s.repo.GetByID(ctx, primaryID)
+	if err != nil {
+		return nil, ErrContactNotFound
+	}
+	if primary.MergedIntoID != nil {
+		return nil, ErrAlreadyMerged
+	}
+
+	dup, err := s.repo.GetByID(ctx, duplicateID)
+	if err != nil {
+		return nil, ErrContactNotFound
+	}
+	if dup.MergedIntoID != nil {
+		return nil, ErrAlreadyMerged
+	}
+
+	if err := s.repo.MergeInto(ctx, primaryID, duplicateID); err != nil {
+		return nil, err
+	}
+
+	slog.Info("contacts merged",
+		"primary_id", primaryID,
+		"duplicate_id", duplicateID,
+	)
+
+	return s.getWithRelations(ctx, primary)
+}
+
 // GetByEmail retrieves a contact by email address (used by import merge logic).
 func (s *Service) GetByEmail(ctx context.Context, email string) (*models.Contact, error) {
 	return s.repo.GetByEmail(ctx, email)

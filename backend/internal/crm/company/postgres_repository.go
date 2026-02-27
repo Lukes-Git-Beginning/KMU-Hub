@@ -37,7 +37,7 @@ func (r *PostgresRepository) Create(ctx context.Context, company *models.Company
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Company, error) {
 	return r.scanCompany(r.pool.QueryRow(ctx,
-		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, created_by, created_at, updated_at
+		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, created_by, created_at, updated_at
 		 FROM companies WHERE id = $1`, id,
 	))
 }
@@ -94,7 +94,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 
 	// Query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, name, domain, industry, employee_count, address, city, country, notes, created_by, created_at, updated_at
+		SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, created_by, created_at, updated_at
 		FROM companies %s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d
@@ -253,12 +253,163 @@ func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, ent
 	return exists, err
 }
 
+// FindDuplicateCandidates finds potential duplicate companies using domain and trigram name matching.
+func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, companyID uuid.UUID) ([]*DuplicateCandidate, error) {
+	src, err := r.GetByID(ctx, companyID)
+	if err != nil {
+		return nil, err
+	}
+
+	var candidates []*DuplicateCandidate
+
+	// 1. Domain exact match
+	if src.Domain != nil && *src.Domain != "" {
+		rows, queryErr := r.pool.Query(ctx,
+			`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, created_by, created_at, updated_at
+			 FROM companies
+			 WHERE LOWER(domain) = LOWER($1) AND id != $2 AND merged_into_id IS NULL
+			 LIMIT 10`,
+			*src.Domain, companyID,
+		)
+		if queryErr == nil {
+			defer rows.Close()
+			for rows.Next() {
+				c, scanErr := r.scanCompanyFromRows(rows)
+				if scanErr == nil {
+					candidates = append(candidates, &DuplicateCandidate{
+						Company:    &models.CompanyWithRelations{Company: *c},
+						Similarity: 1.0,
+						MatchType:  "domain_exact",
+					})
+				}
+			}
+		}
+	}
+
+	// 2. Trigram name match (>= 0.7 similarity)
+	rows2, queryErr2 := r.pool.Query(ctx,
+		`SELECT id, name, domain, industry, employee_count, address, city, country, notes, merged_into_id, created_by, created_at, updated_at,
+		        similarity(lower(name), lower($1)) AS sim
+		 FROM companies
+		 WHERE similarity(lower(name), lower($1)) >= 0.7
+		   AND id != $2
+		   AND merged_into_id IS NULL
+		 ORDER BY sim DESC
+		 LIMIT 10`,
+		src.Name, companyID,
+	)
+	if queryErr2 == nil {
+		defer rows2.Close()
+		for rows2.Next() {
+			var c models.Company
+			var sim float64
+			scanErr := rows2.Scan(
+				&c.ID, &c.Name, &c.Domain, &c.Industry, &c.EmployeeCount,
+				&c.Address, &c.City, &c.Country, &c.Notes, &c.MergedIntoID,
+				&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
+				&sim,
+			)
+			if scanErr == nil {
+				alreadyAdded := false
+				for _, existing := range candidates {
+					if existing.Company.Company.ID == c.ID {
+						alreadyAdded = true
+						break
+					}
+				}
+				if !alreadyAdded {
+					candidates = append(candidates, &DuplicateCandidate{
+						Company:    &models.CompanyWithRelations{Company: c},
+						Similarity: sim,
+						MatchType:  "name_fuzzy",
+					})
+				}
+			}
+		}
+	}
+
+	for i := 1; i < len(candidates); i++ {
+		for j := i; j > 0 && candidates[j].Similarity > candidates[j-1].Similarity; j-- {
+			candidates[j], candidates[j-1] = candidates[j-1], candidates[j]
+		}
+	}
+	if len(candidates) > 10 {
+		candidates = candidates[:10]
+	}
+
+	return candidates, nil
+}
+
+// MergeInto reassigns all related records from duplicateID to primaryID, then soft-deletes duplicate.
+func (r *PostgresRepository) MergeInto(ctx context.Context, primaryID, duplicateID uuid.UUID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Reassign contacts
+	if _, err := tx.Exec(ctx,
+		`UPDATE contacts SET company_id = $1 WHERE company_id = $2`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("reassign contacts: %w", err)
+	}
+
+	// Reassign activities
+	if _, err := tx.Exec(ctx,
+		`UPDATE activities SET company_id = $1 WHERE company_id = $2`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("reassign activities: %w", err)
+	}
+
+	// Reassign deals
+	if _, err := tx.Exec(ctx,
+		`UPDATE deals SET company_id = $1 WHERE company_id = $2`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("reassign deals: %w", err)
+	}
+
+	// Merge tags
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO company_tags (company_id, tag_id)
+		 SELECT $1, tag_id FROM company_tags WHERE company_id = $2
+		 ON CONFLICT DO NOTHING`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("merge tags: %w", err)
+	}
+
+	// Merge custom fields
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO company_custom_field_values (company_id, field_id, value, created_at, updated_at)
+		 SELECT $1, field_id, value, NOW(), NOW() FROM company_custom_field_values
+		 WHERE company_id = $2
+		 ON CONFLICT (company_id, field_id) DO NOTHING`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("merge custom fields: %w", err)
+	}
+
+	// Soft-delete duplicate
+	if _, err := tx.Exec(ctx,
+		`UPDATE companies SET merged_into_id = $1, updated_at = NOW() WHERE id = $2`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("soft-delete duplicate: %w", err)
+	}
+
+	return tx.Commit(ctx)
+}
+
 // Helper to scan a single row into Company
 func (r *PostgresRepository) scanCompany(row pgx.Row) (*models.Company, error) {
 	var c models.Company
 	err := row.Scan(
 		&c.ID, &c.Name, &c.Domain, &c.Industry, &c.EmployeeCount,
-		&c.Address, &c.City, &c.Country, &c.Notes,
+		&c.Address, &c.City, &c.Country, &c.Notes, &c.MergedIntoID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -275,7 +426,7 @@ func (r *PostgresRepository) scanCompanyFromRows(rows pgx.Rows) (*models.Company
 	var c models.Company
 	err := rows.Scan(
 		&c.ID, &c.Name, &c.Domain, &c.Industry, &c.EmployeeCount,
-		&c.Address, &c.City, &c.Country, &c.Notes,
+		&c.Address, &c.City, &c.Country, &c.Notes, &c.MergedIntoID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {

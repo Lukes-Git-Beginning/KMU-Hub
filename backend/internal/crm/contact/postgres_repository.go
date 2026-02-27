@@ -42,14 +42,14 @@ func (r *PostgresRepository) Create(ctx context.Context, contact *models.Contact
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Contact, error) {
 	return r.scanContact(r.pool.QueryRow(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at
 		 FROM contacts WHERE id = $1`, id,
 	))
 }
 
 func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*models.Contact, error) {
 	return r.scanContact(r.pool.QueryRow(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at
 		 FROM contacts WHERE LOWER(email) = LOWER($1)`, email,
 	))
 }
@@ -114,7 +114,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter, offset
 
 	// Query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at
 		FROM contacts %s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d
@@ -227,7 +227,7 @@ func (r *PostgresRepository) ListWithVisibility(ctx context.Context, userID uuid
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at
 		FROM contacts %s
 		ORDER BY %s %s
 		LIMIT $%d OFFSET $%d
@@ -258,7 +258,7 @@ func (r *PostgresRepository) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]
 		return nil, nil
 	}
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at
 		 FROM contacts WHERE id = ANY($1)`, ids,
 	)
 	if err != nil {
@@ -279,7 +279,7 @@ func (r *PostgresRepository) ListByIDs(ctx context.Context, ids []uuid.UUID) ([]
 
 func (r *PostgresRepository) ListAll(ctx context.Context, userID uuid.UUID, isAdmin bool) ([]*models.Contact, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, created_by, created_at, updated_at
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at
 		 FROM contacts
 		 WHERE (visibility = 'shared' OR owner_id = $1 OR $2 = true)
 		 ORDER BY created_at DESC`, userID, isAdmin,
@@ -430,13 +430,194 @@ func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, ent
 	return exists, err
 }
 
+// FindDuplicateCandidates finds potential duplicate contacts using email, phone, and trigram name matching.
+func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, contactID uuid.UUID) ([]*DuplicateCandidate, error) {
+	// Get source contact
+	src, err := r.GetByID(ctx, contactID)
+	if err != nil {
+		return nil, err
+	}
+
+	var candidates []*DuplicateCandidate
+
+	// 1. Email exact match
+	if src.Email != nil && *src.Email != "" {
+		rows, queryErr := r.pool.Query(ctx,
+			`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at
+			 FROM contacts
+			 WHERE LOWER(email) = LOWER($1) AND id != $2 AND merged_into_id IS NULL
+			 LIMIT 10`,
+			*src.Email, contactID,
+		)
+		if queryErr == nil {
+			defer rows.Close()
+			for rows.Next() {
+				c, scanErr := r.scanContactFromRows(rows)
+				if scanErr == nil {
+					candidates = append(candidates, &DuplicateCandidate{
+						Contact:    &models.ContactWithRelations{Contact: *c},
+						Similarity: 1.0,
+						MatchType:  "email_exact",
+					})
+				}
+			}
+		}
+	}
+
+	// 2. Trigram name match (>= 0.7 similarity)
+	fullName := strings.ToLower(src.FirstName + " " + src.LastName)
+	rows2, queryErr2 := r.pool.Query(ctx,
+		`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at,
+		        similarity(lower(first_name) || ' ' || lower(last_name), $1) AS sim
+		 FROM contacts
+		 WHERE similarity(lower(first_name) || ' ' || lower(last_name), $1) >= 0.7
+		   AND id != $2
+		   AND merged_into_id IS NULL
+		 ORDER BY sim DESC
+		 LIMIT 10`,
+		fullName, contactID,
+	)
+	if queryErr2 == nil {
+		defer rows2.Close()
+		for rows2.Next() {
+			var c models.Contact
+			var sim float64
+			scanErr := rows2.Scan(
+				&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
+				&c.CompanyID, &c.Position, &c.Notes,
+				&c.Visibility, &c.OwnerID, &c.MergedIntoID,
+				&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
+				&sim,
+			)
+			if scanErr == nil {
+				// Skip if already found via email match
+				alreadyAdded := false
+				for _, existing := range candidates {
+					if existing.Contact.Contact.ID == c.ID {
+						alreadyAdded = true
+						break
+					}
+				}
+				if !alreadyAdded {
+					candidates = append(candidates, &DuplicateCandidate{
+						Contact:    &models.ContactWithRelations{Contact: c},
+						Similarity: sim,
+						MatchType:  "name_fuzzy",
+					})
+				}
+			}
+		}
+	}
+
+	// 3. Phone exact match
+	if src.Phone != nil && *src.Phone != "" {
+		rows3, queryErr3 := r.pool.Query(ctx,
+			`SELECT id, first_name, last_name, email, phone, company_id, position, notes, visibility, owner_id, merged_into_id, created_by, created_at, updated_at
+			 FROM contacts
+			 WHERE phone = $1 AND id != $2 AND merged_into_id IS NULL
+			 LIMIT 10`,
+			*src.Phone, contactID,
+		)
+		if queryErr3 == nil {
+			defer rows3.Close()
+			for rows3.Next() {
+				c, scanErr := r.scanContactFromRows(rows3)
+				if scanErr == nil {
+					alreadyAdded := false
+					for _, existing := range candidates {
+						if existing.Contact.Contact.ID == c.ID {
+							alreadyAdded = true
+							break
+						}
+					}
+					if !alreadyAdded {
+						candidates = append(candidates, &DuplicateCandidate{
+							Contact:    &models.ContactWithRelations{Contact: *c},
+							Similarity: 0.9,
+							MatchType:  "phone_exact",
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// Sort by similarity descending (simple insertion sort for small slices)
+	for i := 1; i < len(candidates); i++ {
+		for j := i; j > 0 && candidates[j].Similarity > candidates[j-1].Similarity; j-- {
+			candidates[j], candidates[j-1] = candidates[j-1], candidates[j]
+		}
+	}
+	if len(candidates) > 10 {
+		candidates = candidates[:10]
+	}
+
+	return candidates, nil
+}
+
+// MergeInto reassigns all related records from duplicateID to primaryID, then soft-deletes duplicate.
+func (r *PostgresRepository) MergeInto(ctx context.Context, primaryID, duplicateID uuid.UUID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Reassign activities
+	if _, err := tx.Exec(ctx,
+		`UPDATE activities SET contact_id = $1 WHERE contact_id = $2`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("reassign activities: %w", err)
+	}
+
+	// Reassign deals
+	if _, err := tx.Exec(ctx,
+		`UPDATE deals SET contact_id = $1 WHERE contact_id = $2`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("reassign deals: %w", err)
+	}
+
+	// Merge tags (insert missing, ignore duplicates)
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO contact_tags (contact_id, tag_id)
+		 SELECT $1, tag_id FROM contact_tags WHERE contact_id = $2
+		 ON CONFLICT DO NOTHING`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("merge tags: %w", err)
+	}
+
+	// Merge custom fields (insert missing, ignore duplicates)
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO contact_custom_field_values (contact_id, field_id, value, created_at, updated_at)
+		 SELECT $1, field_id, value, NOW(), NOW() FROM contact_custom_field_values
+		 WHERE contact_id = $2
+		 ON CONFLICT (contact_id, field_id) DO NOTHING`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("merge custom fields: %w", err)
+	}
+
+	// Soft-delete duplicate
+	if _, err := tx.Exec(ctx,
+		`UPDATE contacts SET merged_into_id = $1, updated_at = NOW() WHERE id = $2`,
+		primaryID, duplicateID,
+	); err != nil {
+		return fmt.Errorf("soft-delete duplicate: %w", err)
+	}
+
+	return tx.Commit(ctx)
+}
+
 // Helper to scan a single row into Contact
 func (r *PostgresRepository) scanContact(row pgx.Row) (*models.Contact, error) {
 	var c models.Contact
 	err := row.Scan(
 		&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
 		&c.CompanyID, &c.Position, &c.Notes,
-		&c.Visibility, &c.OwnerID,
+		&c.Visibility, &c.OwnerID, &c.MergedIntoID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -454,7 +635,7 @@ func (r *PostgresRepository) scanContactFromRows(rows pgx.Rows) (*models.Contact
 	err := rows.Scan(
 		&c.ID, &c.FirstName, &c.LastName, &c.Email, &c.Phone,
 		&c.CompanyID, &c.Position, &c.Notes,
-		&c.Visibility, &c.OwnerID,
+		&c.Visibility, &c.OwnerID, &c.MergedIntoID,
 		&c.CreatedBy, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {

@@ -86,14 +86,15 @@ type EmployeeProfile struct {
 	AnnualLeaveDays       int            `json:"annual_leave_days"`
 	ManagerUserID         *uuid.UUID     `json:"manager_user_id,omitempty"`
 	StartDate             time.Time      `json:"start_date"`
-	EmergencyContactName  string         `json:"emergency_contact_name"`
-	EmergencyContactPhone string         `json:"emergency_contact_phone"`
-	AddressStreet         string         `json:"address_street"`
-	AddressCity           string         `json:"address_city"`
-	AddressPostalCode     string         `json:"address_postal_code"`
-	AddressCountry        string         `json:"address_country"`
-	CreatedAt             time.Time      `json:"created_at"`
-	UpdatedAt             time.Time      `json:"updated_at"`
+	EmergencyContactName  string           `json:"emergency_contact_name"`
+	EmergencyContactPhone string           `json:"emergency_contact_phone"`
+	AddressStreet         string           `json:"address_street"`
+	AddressCity           string           `json:"address_city"`
+	AddressPostalCode     string           `json:"address_postal_code"`
+	AddressCountry        string           `json:"address_country"`
+	HourlyRate            *decimal.Decimal `json:"hourly_rate,omitempty"`
+	CreatedAt             time.Time        `json:"created_at"`
+	UpdatedAt             time.Time        `json:"updated_at"`
 
 	// Denormalized fields (populated by queries, not stored)
 	UserName     string `json:"user_name,omitempty"`

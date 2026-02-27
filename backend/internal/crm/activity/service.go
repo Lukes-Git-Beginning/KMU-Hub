@@ -399,6 +399,41 @@ func (s *Service) Uncomplete(ctx context.Context, id uuid.UUID) (*models.Activit
 	return s.getWithRelations(ctx, activity)
 }
 
+// TimelineEvent represents a single event in a contact's activity timeline.
+type TimelineEvent struct {
+	ID            uuid.UUID      `json:"id"`
+	EventType     string         `json:"event_type"`     // "activity", "deal_linked"
+	OccurredAt    time.Time      `json:"occurred_at"`
+	Title         string         `json:"title"`
+	Description   *string        `json:"description,omitempty"`
+	CreatedByName string         `json:"created_by_name,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+}
+
+// TimelineResult holds paginated timeline events.
+type TimelineResult struct {
+	Events []*TimelineEvent `json:"events"`
+	Total  int              `json:"total"`
+}
+
+// GetContactTimeline returns a paginated timeline of events for a contact.
+func (s *Service) GetContactTimeline(ctx context.Context, contactID uuid.UUID, page, pageSize int) (*TimelineResult, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+
+	events, total, err := s.repo.GetContactTimeline(ctx, contactID, offset, pageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TimelineResult{Events: events, Total: total}, nil
+}
+
 // AddTags adds tags to an activity
 func (s *Service) AddTags(ctx context.Context, activityID uuid.UUID, tagIDs []uuid.UUID) (*models.ActivityWithRelations, error) {
 	activity, err := s.repo.GetByID(ctx, activityID)

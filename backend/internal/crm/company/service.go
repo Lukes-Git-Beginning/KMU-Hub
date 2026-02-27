@@ -312,6 +312,68 @@ func (s *Service) getWithRelations(ctx context.Context, company *models.Company)
 	return result, nil
 }
 
+// DuplicateCandidate represents a potential duplicate company with similarity scoring.
+type DuplicateCandidate struct {
+	Company    *models.CompanyWithRelations `json:"company"`
+	Similarity float64                      `json:"similarity"`
+	MatchType  string                       `json:"match_type"` // "domain_exact", "name_fuzzy"
+}
+
+// FindDuplicates returns potential duplicate companies for the given company ID.
+func (s *Service) FindDuplicates(ctx context.Context, companyID uuid.UUID) ([]*DuplicateCandidate, error) {
+	if _, err := s.repo.GetByID(ctx, companyID); err != nil {
+		return nil, ErrCompanyNotFound
+	}
+
+	candidates, err := s.repo.FindDuplicateCandidates(ctx, companyID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, c := range candidates {
+		withRel, relErr := s.getWithRelations(ctx, &c.Company.Company)
+		if relErr == nil {
+			c.Company = withRel
+		}
+	}
+
+	return candidates, nil
+}
+
+// MergeCompanies merges a duplicate company into a primary company.
+func (s *Service) MergeCompanies(ctx context.Context, primaryID, duplicateID uuid.UUID) (*models.CompanyWithRelations, error) {
+	if primaryID == duplicateID {
+		return nil, ErrCannotMergeSelf
+	}
+
+	primary, err := s.repo.GetByID(ctx, primaryID)
+	if err != nil {
+		return nil, ErrCompanyNotFound
+	}
+	if primary.MergedIntoID != nil {
+		return nil, ErrAlreadyMerged
+	}
+
+	dup, err := s.repo.GetByID(ctx, duplicateID)
+	if err != nil {
+		return nil, ErrCompanyNotFound
+	}
+	if dup.MergedIntoID != nil {
+		return nil, ErrAlreadyMerged
+	}
+
+	if err := s.repo.MergeInto(ctx, primaryID, duplicateID); err != nil {
+		return nil, err
+	}
+
+	slog.Info("companies merged",
+		"primary_id", primaryID,
+		"duplicate_id", duplicateID,
+	)
+
+	return s.getWithRelations(ctx, primary)
+}
+
 // Helper to trim and nil empty strings
 func trimStringPtr(s *string) *string {
 	if s == nil {

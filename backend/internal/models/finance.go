@@ -203,6 +203,8 @@ type Invoice struct {
 	SnapshotData      json.RawMessage `json:"snapshot_data"`
 	SourceQuoteID     *uuid.UUID      `json:"source_quote_id,omitempty"`
 	Notes             string          `json:"notes"`
+	ZUGFeRDProfile    *string         `json:"zugferd_profile,omitempty"`
+	TimeTrackingSource json.RawMessage `json:"time_tracking_source,omitempty"`
 	CreatedBy         uuid.UUID       `json:"created_by"`
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`

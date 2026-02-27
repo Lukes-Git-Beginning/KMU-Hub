@@ -135,6 +135,12 @@ func main() {
 	dashboardRepo := gateway.NewPostgresDashboardRepository(pool)
 	dashboardService := gateway.NewDashboardService(dashboardRepo)
 
+	// CRM extension services (direct DB access: duplicates, timeline, consent)
+	crmExt := gateway.NewCRMExtRoutes(pool)
+
+	// Biz extension services (direct DB access: time-to-invoice)
+	bizExt := gateway.NewBizExtRoutes(pool)
+
 	// WOPI handler for OnlyOffice collaborative editing
 	wopiTokenService := wopi.NewTokenService(cfg.WOPIJWTSecret)
 	wopiLockService := wopi.NewLockService(pool)
@@ -143,7 +149,7 @@ func main() {
 
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
-		gateway.NewCRMRoutes(registry),
+		gateway.NewCRMRoutes(registry, crmExt),
 		gateway.NewChatRoutes(registry),
 		gateway.NewNotificationRoutes(registry),
 		gateway.NewWorkRoutes(registry),
@@ -154,7 +160,7 @@ func main() {
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
 		gateway.NewBexioRoutes(registry),
-		gateway.NewHRRoutes(registry),
+		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),
 		gateway.NewAutomationRoutes(registry),
 		gateway.NewPluginRoutes(registry),
