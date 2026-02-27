@@ -38,7 +38,7 @@ export function Header() {
   return (
     <header data-tour="header" className="relative z-20 flex h-[64px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
       {/* Left: mobile menu + compact search + clock */}
-      <div className="flex items-center gap-[12px] md:gap-[16px]">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {navLayout === 'sidebar' && (
           <button
             onClick={() => setSidebarMobileOpen(true)}
@@ -49,28 +49,29 @@ export function Header() {
           </button>
         )}
 
-        <SearchBar />
+        <div className="min-w-0 w-72 lg:w-80 xl:w-[26rem] shrink-1">
+          <SearchBar />
+        </div>
 
-        <div className="hidden sm:block">
+        <div className="hidden md:block shrink-0">
           <HeaderClock />
         </div>
 
-        {/* Configurable header widget slots */}
-        <HeaderWidgetSlots />
+        {/* Configurable header widget slots — only on wide screens */}
+        <div className="hidden xl:block shrink-0">
+          <HeaderWidgetSlots />
+        </div>
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
       {/* Right: controls */}
-      <div className="flex min-w-0 items-center gap-[4px] md:gap-[8px]">
+      <div className="flex shrink-0 items-center gap-1 md:gap-2">
         {/* Daily Planner */}
-        <div className="hidden sm:block">
+        <div className="hidden lg:block">
           <DailyPlannerWidget />
         </div>
 
         {/* Unified Time Tracker (clock-in + task tracking) */}
-        <div className="hidden sm:block">
+        <div className="hidden lg:block">
           <TimeTrackerWidget />
         </div>
 

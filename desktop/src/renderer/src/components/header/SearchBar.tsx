@@ -267,7 +267,7 @@ export function SearchBar() {
       {/* Compact trigger */}
       <button
         onClick={() => setIsOpen(true)}
-        className="flex w-64 md:w-96 items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Suchen...</span>
@@ -286,7 +286,7 @@ export function SearchBar() {
           />
 
           {/* Search dropdown */}
-          <div className="absolute top-full left-0 z-50 mt-2 w-[32rem] rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
+          <div className="absolute top-full left-0 z-50 mt-1 w-full min-w-[24rem] rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
             {/* Search input */}
             <div className="flex items-center gap-3 border-b border-border px-4 py-3">
               <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
