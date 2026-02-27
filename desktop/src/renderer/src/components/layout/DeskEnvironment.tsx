@@ -105,7 +105,7 @@ export function DeskEnvironment() {
           style={{ background: bgCss }}
         />
       )}
-      <div className={`relative z-10 ${isBubble ? 'h-full w-full overflow-hidden rounded-2xl bg-background shadow-2xl' : 'h-full w-full'}`}>
+      <div className={`relative z-10 ${isBubble ? 'h-full w-full overflow-hidden rounded-2xl shadow-2xl' : 'h-full w-full'}`}>
         <AppShell />
       </div>
     </div>

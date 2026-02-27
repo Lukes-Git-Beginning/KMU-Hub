@@ -58,10 +58,10 @@ html.ui-glass {
 
 /* Module content area — more transparent so desk background shines through */
 .ui-glass #main-content {
-  --background: rgba(var(--_rgb-bg), 0.45);
+  --background: rgba(var(--_rgb-bg), 0.35);
 }
 .dark.ui-glass #main-content {
-  --background: rgba(var(--_rgb-bg), 0.40);
+  --background: rgba(var(--_rgb-bg), 0.30);
 }
 
 html.dark.ui-glass {
