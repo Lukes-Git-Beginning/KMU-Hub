@@ -356,7 +356,7 @@ func (pr *PluginRoutes) HandleGetSettings(w http.ResponseWriter, r *http.Request
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(resp.GetSettings()))
+	_, _ = w.Write([]byte(resp.GetSettings()))
 }
 
 func (pr *PluginRoutes) HandleUpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -399,7 +399,7 @@ func (pr *PluginRoutes) HandleGetSettingsSchema(w http.ResponseWriter, r *http.R
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(resp.GetSchema()))
+	_, _ = w.Write([]byte(resp.GetSchema()))
 }
 
 // ============================================================================

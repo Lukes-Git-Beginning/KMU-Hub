@@ -128,7 +128,7 @@ func (sr *SecurityRoutes) HandleExportAuditLog(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", resp.ContentType)
 	w.Header().Set("Content-Disposition", "attachment; filename="+resp.Filename)
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp.Data)
+	_, _ = w.Write(resp.Data)
 }
 
 func (sr *SecurityRoutes) HandleVerifyAuditChain(w http.ResponseWriter, r *http.Request) {
@@ -407,7 +407,7 @@ func (sr *SecurityRoutes) HandleGetExportDownload(w http.ResponseWriter, r *http
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename="+resp.Filename)
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp.Data)
+	_, _ = w.Write(resp.Data)
 }
 
 type previewErasureRequest struct {
