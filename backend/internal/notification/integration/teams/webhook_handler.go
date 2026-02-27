@@ -95,7 +95,7 @@ func (h *WebhookHandler) handleInvoke(ctx context.Context, w http.ResponseWriter
 	// The updated card will be sent asynchronously if needed
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"statusCode": 200,
 		"type":       "application/vnd.microsoft.activity.message",
 		"value":      "Aktion verarbeitet",
@@ -114,7 +114,7 @@ func (h *WebhookHandler) handleMessage(ctx context.Context, w http.ResponseWrite
 	// Default: respond with help text
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"type": "message",
 		"text": "Verfuegbare Befehle:\n- `/kmuhub link` - Konto verknuepfen\n",
 	})
