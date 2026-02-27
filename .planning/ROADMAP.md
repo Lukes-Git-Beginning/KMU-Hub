@@ -1,470 +1,176 @@
-# Roadmap: KMU Hub
+# Roadmap: KMU Hub — Beta Preparation
 
-## Overview
+## Status
 
-KMU Hub expands from its completed foundation (Auth, CRM, Chat) into a comprehensive workplace platform across 17 additional phases (20 total). The journey continues with Project Management (including Gantt and time tracking), then Calendar and an expanded Video/Voice/Meetings phase. Security & Compliance gates the Beta release with 2FA, audit logging, DSGVO compliance, and i18n. Email and Documents round out the communication layer with global search. Finance ("Rechnungen & Finanzen", NOT full accounting) and HR deliver the Business Suite. Event Infrastructure and Unified Inbox aggregate all communication channels. CalDAV/CardDAV provides external calendar/contact sync. Automation Engine (vorgezogen as killer feature) enables cross-module workflows. Integration mini-phases (Teams/Slack, Bexio, DATEV API + Lexware Office) connect to the DACH ecosystem. Finally, Plugins provide the extensibility layer with industry templates. The architecture consolidates new modules into 3 backend services (Work, Biz, Automation) to keep operational complexity manageable for a solo developer.
+Alle 20 Entwicklungsphasen (103/103 Pläne) abgeschlossen am 2026-02-26.
+Das Projekt wechselt von **Feature Development** → **Beta Preparation**.
+Beta-Ziel: **Ende April / Mai 2026** (ca. 2-3 Monate).
 
-## Milestones
+## Tracks
 
-- ✅ **Foundation** - Phases 1-3 (Auth/Infra, CRM Core, Chat & Messaging)
-- ✅ **Pilot MVP** - Phases 4-8 (Notifications, Desktop, PM, Calendar, Video/Meetings -- daily-driver for pilot customer)
-- ✅ **Compliance & Comms** - Phases 9-11 (Security & Compliance, Email, Documents & Files + WOPI/OnlyOffice -- enterprise-ready communication)
-- ✅ **Business Suite** - Phases 12-13 (Rechnungen & Finanzen, HR & Zeiterfassung -- operational and revenue tools)
-- ✅ **Aggregation & Automation** - Phases 14-16 (Event Infra + Unified Inbox, CalDAV/CardDAV, Automation Engine -- cross-module intelligence)
-- ✅ **Integrations** - Phases 17-19 (Teams/Slack, Bexio, DATEV API + Lexware Office -- external DACH connectivity)
-- 📋 **Extensibility** - Phase 20 (Plugin System + Industry Templates -- customization layer)
+Drei parallele Tracks laufen durch alle Beta-Phasen:
 
-## Phases
-
-<details>
-<summary>✅ Foundation (Phases 1-3) - COMPLETE</summary>
-
-- [x] **Phase 1: Auth & Infrastructure** - JWT auth, API gateway, PostgreSQL/Redis, CI/CD, user management
-- [x] **Phase 2: CRM Core** - Contacts, companies, deals pipeline, activities, filters, reports
-- [x] **Phase 3: Chat & Messaging** - Channels, DMs, threads, mentions, read receipts, file sharing, search
-
-</details>
-
-### Pilot MVP (Phases 4-8)
-
-- [x] **Phase 4: Notifications + Gateway Modernization** - Centralized notification system and gateway refactoring for multi-service scale
-- [x] **Phase 5: Desktop App Shell** - Electron workspace with module loading, personalization, and role-based dashboards
-- [x] **Phase 6: Project Management** - Tasks, projects, Kanban boards, Gantt chart, task timer, subtasks, dependencies, templates, CRM integration, custom fields
-- [x] **Phase 7: Calendar & Scheduling** - Personal/shared calendars, recurring events, room booking, DACH holidays
-- [x] **Phase 8: Video, Voice & Meetings** - LiveKit-powered calls, screen sharing, recording, meeting management, emoji reactions, presence/online status
-
-### Compliance & Comms (Phases 9-11)
-
-- [x] **Phase 9: Security & Compliance** - 2FA, audit log, DSGVO export/deletion, session management, secret vault, i18n (DE/FR/IT/EN)
-- [x] **Phase 10: Email Integration** - Design integration, full IMAP/SMTP email, CRM auto-linking, threading, contact import/export (completed 2026-02-17)
-- [x] **Phase 11: Documents & Files + WOPI** - File browser, upload, preview, versioning, sharing, full-text search, tags, global search, WOPI endpoints for OnlyOffice (completed 2026-02-17)
-
-### Business Suite (Phases 12-13)
-
-- [x] **Phase 12: Rechnungen & Finanzen** - GoBD-compliant quotes and invoices, tax calculation, DATEV export, 3-level dunning (NO full accounting, NO payroll) (completed 2026-02-18)
-- [x] **Phase 13: HR & Zeiterfassung** - Leave management, time tracking, employee profiles, ArbZG/BUrlG compliance (completed 2026-02-19)
-
-### Aggregation & Automation (Phases 14-16)
-
-- [x] **Phase 14: Event Infrastructure + Unified Inbox** - PostgreSQL LISTEN/NOTIFY event system, channel adapters (Email/Chat/Notifications), materialized inbox, routing engine (completed 2026-02-20)
-- [x] **Phase 15: CalDAV/CardDAV Integration** - Bidirectional calendar and contact sync with Outlook, Thunderbird, macOS (completed 2026-02-20)
-- [x] **Phase 16: Automation Engine** - Trigger-condition-action workflows across all modules, pre-built automations (completed 2026-02-20)
-
-### Integrations (Phases 17-19)
-
-- [x] **Phase 17: Integration - Teams & Slack** - Notification forwarding and basic bidirectional interaction
-- [x] **Phase 18: Integration - Bexio** - Contact and invoice sync with Bexio accounting
-- [x] **Phase 19: Integration - DATEV API + Lexware Office** - Lexware Office contact/invoice sync (API key auth, webhooks) and DATEV Buchungsdatenservice upload (OAuth2)
-
-### Extensibility (Phase 20)
-
-- [ ] **Phase 20: Plugin System + Industry Templates** - Config-based customization, WASM runtime, extension points, industry templates (Branchenvorlagen)
-
-## Phase Details
-
-### Phase 4: Notifications + Gateway Modernization
-**Goal**: Every module can notify users in real time, and the gateway architecture scales to support 7+ backend services
-**Depends on**: Phase 3 (Chat -- WebSocket hub, notification patterns from mentions)
-**Requirements**: NOTF-01, NOTF-02, NOTF-03
-**Success Criteria** (what must be TRUE):
-  1. User sees a notification bell with unread count that updates in real time when events occur across any module
-  2. User receives desktop push notifications (Electron system tray) when the Hub is minimized or in background
-  3. User can configure per-event-type and per-channel notification preferences (mute, desktop only, all, etc.)
-  4. Gateway connects to backend services lazily and returns 503 for unavailable routes instead of crashing on startup
-  5. Adding a new backend service to the gateway requires only registering a route handler (no monolithic handler changes)
-**Plans**: 3 plans
-
-Plans:
-- [x] 04-01-PLAN.md -- Gateway modernization (ServiceRegistry with lazy gRPC, per-service route handlers, graceful degradation)
-- [x] 04-02-PLAN.md -- Notification service backend (proto, migrations, event bus, notification + preference services, gRPC server)
-- [x] 04-03-PLAN.md -- Notification delivery + integration (gateway HTTP routes, WebSocket push, event emission from CRM/Chat, Docker Compose)
-
-### Phase 5: Desktop App Shell
-**Goal**: Users have a functional Electron desktop application that serves as the single window for their workday, with CRM and Chat modules already usable
-**Depends on**: Phase 4 (Notifications -- desktop push integration, gateway modernization)
-**Requirements**: DESK-01, DESK-02, DESK-03, DESK-04
-**Success Criteria** (what must be TRUE):
-  1. User launches the Electron app and navigates between CRM, Chat, and future modules via a persistent sidebar
-  2. User can add, remove, and rearrange dashboard widgets to personalize their workspace
-  3. Admin can configure role-based default dashboards so a CEO sees different defaults than an office worker
-  4. User can view recently accessed contacts, deals, and messages when briefly offline (local cache)
-  5. Each module loads independently (lazy loading) and the app stays under 300MB RAM with 2-3 active modules
-**Plans**: 7 plans
-
-Plans:
-- [x] 05-01-PLAN.md -- Electron shell foundation (electron-vite config, secure IPC bridge, safeStorage auth, Tailwind v4, all deps installed)
-- [x] 05-02-PLAN.md -- App shell + auth flow (API client, WebSocket manager, Zustand stores, sidebar navigation, login page, routing)
-- [x] 05-03-PLAN.md -- CRM module UI (contacts, companies, deals list + pipeline, activities, search with TanStack Query hooks)
-- [x] 05-04-PLAN.md -- Chat module + notifications (channels, real-time messaging, typing indicators, threads, notification bell, desktop push)
-- [x] 05-05-PLAN.md -- Dashboard + widget system (react-grid-layout grid, 6 widgets, drag-and-drop, widget picker, layout persistence)
-- [x] 05-06-PLAN.md -- Role-based dashboards + backend (dashboard_layouts migration, API endpoints, admin settings, server sync)
-- [x] 05-07-PLAN.md -- Offline caching + final verification (TanStack Query persistence, offline banner, CORS update, memory check, human verify)
-
-### Phase 6: Project Management
-**Goal**: Users can manage their daily work through tasks and projects without leaving the Hub, with visual timeline planning and time tracking
-**Depends on**: Phase 5 (Desktop shell -- UI for task views), Phase 4 (Notifications -- task assignment alerts)
-**Requirements**: PM-01, PM-02, PM-03, PM-04, PM-05, PM-06, PM-07, PM-08, PM-09, PM-10, PM-11, PM-15, PM-16, PM-17
-**Success Criteria** (what must be TRUE):
-  1. User can create a task with an assignee, due date, priority, and custom status, and the assignee is notified
-  2. User can organize tasks into projects with shared settings and control which team members have access
-  3. User can switch between a sortable/filterable list view and a drag-and-drop Kanban board for the same project
-  4. User can comment on a task with @mentions (reusing chat infrastructure) and attach files (reusing MinIO)
-  5. User can search across all projects and filter by assignee, status, priority, due date, and custom fields
-  6. User can link a task to a CRM deal or contact (e.g., "Follow up on Acme deal") and navigate between them
-  7. User can view a project timeline as a Gantt chart showing task bars with dependency arrows and date range navigation
-  8. User can start/stop a timer on a task to track time spent, with manual time entry and per-task time summaries
-**Plans**: 10 plans
-
-Plans:
-- [x] 06-01-PLAN.md -- Proto + migrations + models + config (Work service data foundation)
-- [x] 06-02-PLAN.md -- Project + status service packages (CRUD, membership, templates, preferences)
-- [x] 06-03-PLAN.md -- Task + comment service packages (CRUD, nesting, dependencies, events, comments)
-- [x] 06-04-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (connection layer)
-- [x] 06-05-PLAN.md -- Frontend module shell + API hooks + project pages (frontend foundation)
-- [x] 06-06-PLAN.md -- Task list view + Kanban board with @dnd-kit DnD (core views)
-- [x] 06-07-PLAN.md -- Task detail panel + comments + files + activity log (collaboration)
-- [x] 06-08-PLAN.md -- CRM linking + search + filters + My Tasks + templates (integration)
-- [x] 06-09-PLAN.md -- Gantt chart view (read-only timeline with task bars, dependency arrows, date range scrolling, critical path)
-- [x] 06-10-PLAN.md -- Task timer + time tracking (start/stop timer, manual time entry, time logs per task, summary views)
-
-### Phase 7: Calendar & Scheduling
-**Goal**: Users can manage their schedules, book meetings, and coordinate team availability entirely within the Hub
-**Depends on**: Phase 6 (PM -- Work service exists, task deadlines on calendar), Phase 4 (Notifications -- event reminders)
-**Requirements**: CAL-01, CAL-02, CAL-03, CAL-04, CAL-05, CAL-06, CAL-07
-**Success Criteria** (what must be TRUE):
-  1. User has a personal calendar with day, week, and month views displaying their events
-  2. Teams have shared calendars visible to all members, and users can overlay multiple calendars
-  3. User can create recurring events (daily standup, weekly meeting) using standard recurrence rules
-  4. User can invite colleagues to events, and invitees can accept, decline, or mark as tentative
-  5. User can book a meeting room or resource via dedicated resource calendars that show availability
-  6. Creating a calendar event with a video call option auto-generates a LiveKit room link in the event details
-  7. Calendar displays DACH public holidays for the user's configured Bundesland/Kanton, with weeks starting Monday
-**Plans**: 9 plans
-
-Plans:
-- [x] 07-01-PLAN.md -- Proto + migrations + models + Go deps (CalendarService proto, 4 migrations for 12 tables, Go models, rrule-go + LiveKit SDK)
-- [x] 07-02-PLAN.md -- Frontend module shell + API hooks + stores (rrule npm, TypeScript types, TanStack Query hooks, Zustand calendar store, CalendarLayout)
-- [x] 07-03-PLAN.md -- Calendar + Event service packages (CRUD, permissions, RRULE expansion, three-way recurring edit, RSVP, reminders, event emitter)
-- [x] 07-04-PLAN.md -- Resource + Holiday + LiveKit service packages (booking with exclusion constraints, Nager.Date holiday seeding, LiveKit token generation)
-- [x] 07-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (CalendarService gRPC, ~30 HTTP endpoints, Work service dual registration)
-- [x] 07-06-PLAN.md -- Design integration: KalenderPage.tsx + adapters from design/brainstorm (replaced 07-06 to 07-09)
-- [x] 07-07-PLAN.md -- Design integration: CalendarBrowseDialog, CategoryManagerDialog, RoomBookingView
-- [x] 07-08-PLAN.md -- Design integration: D2 color system, globals.css merge
-- [x] 07-09-PLAN.md -- Design integration: Sonner toasts, Radix UI components
-
-### Phase 8: Video, Voice & Meetings
-**Goal**: Users can make video/voice calls, manage meetings end-to-end, see colleague presence, and react to messages -- replacing Zoom/Teams
-**Depends on**: Phase 7 (Calendar -- video call links in events), Phase 3 (Chat -- call-from-chat, emoji infrastructure)
-**Requirements**: VID-01, VID-02, VID-03, VID-04, VID-05, VID-06, VID-07, MEET-01, MEET-02, MEET-03, MEET-04, MEET-05, CHAT-01, CHAT-02
-**Success Criteria** (what must be TRUE):
-  1. User can make a 1:1 video call to a colleague and both see each other's video and hear audio
-  2. User can join a group video call with up to 25 participants with a gallery view
-  3. User can toggle camera off for audio-only calling and mute/unmute microphone during any call
-  4. User can share their entire screen or a specific application window during a call
-  5. User can start a call directly from a chat channel or DM conversation with one click
-  6. User can record a call after all participants give DSGVO-compliant consent, and the recording is stored in MinIO
-  7. User can schedule a meeting with agenda, attendees, and see a pre-meeting lobby with shared documents
-  8. After a meeting, a summary record is created with notes and action items linkable as tasks
-  9. Users can react to chat messages with emoji reactions (add, remove, reaction counts)
-  10. Users see presence indicators (online/away/offline/in a call) for colleagues across the app
-**Plans**: 9 plans
-
-Plans:
-- [x] 08-01-PLAN.md -- Proto + migrations + models + Go deps (Video proto, Chat proto reaction extension, 3 migrations for 9 tables, Go models, LiveKit SDK)
-- [x] 08-02-PLAN.md -- Chat reaction service (reaction repository + service with toggle semantics, batch summaries, unit tests)
-- [x] 08-03-PLAN.md -- Room + recording services (LiveKit room management, token generation, call lifecycle, Egress recording, DSGVO consent state machine)
-- [x] 08-04-PLAN.md -- Meeting + presence services (meeting lifecycle with notes/action items, Redis presence with heartbeat/bulk queries)
-- [x] 08-05-PLAN.md -- gRPC server + gateway routes + Docker + OpenAPI (Video gRPC, Chat reaction gRPC, ~30 HTTP routes, WebSocket extensions, LiveKit + Egress Docker)
-- [x] 08-06-PLAN.md -- Frontend foundation + API hooks + stores (LiveKit SDK install, TypeScript types, 5 TanStack Query hook files, 2 Zustand stores)
-- [x] 08-07-PLAN.md -- Call UI + screen share (VideoCallView with LiveKit, PreJoin, CallControls, Electron desktopCapturer, incoming call notification, floating bar, recording consent)
-- [x] 08-08-PLAN.md -- Meeting UI (MeetingListPage, MeetingScheduleForm, MeetingLobby, MeetingNotesEditor, MeetingActionItems, MeetingSummary)
-- [x] 08-09-PLAN.md -- Reactions UI + presence + chat integration (ReactionPicker/Bar, PresenceIndicator/Provider, call-from-chat button, sidebar navigation, AppShell integration)
-
-### Phase 9: Security & Compliance
-**Goal**: The Hub meets enterprise security requirements and DSGVO compliance obligations, with multi-language support for the Swiss market
-**Depends on**: Phase 8 (all user-facing modules exist for audit coverage), Phase 1 (Auth -- extend with 2FA)
-**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06, SEC-07, SEC-08, SEC-09, SEC-10, SEC-11
-**Success Criteria** (what must be TRUE):
-  1. User can enable TOTP-based 2FA and admin can enforce it for all users or specific roles
-  2. All security-relevant actions are logged in a tamper-evident audit log searchable by admin
-  3. User can request DSGVO data export containing all their personal data in machine-readable format
-  4. Admin can execute right-to-erasure with cascading anonymization across all modules
-  5. Admin can view and terminate active sessions with device/IP information
-  6. Sensitive configuration (API keys, SMTP passwords) is stored encrypted at rest in a vault
-  7. User can switch the UI between DE, FR, IT, and EN languages at runtime
-**Plans**: 9 plans
-
-Plans:
-- [x] 09-01-PLAN.md -- Proto + migrations + models + Go deps (security.proto, auth.proto 2FA extension, 2 migrations for 10 tables + user columns, Go models, pquerna/otp + go-password-validator)
-- [x] 09-02-PLAN.md -- Vault encryption + password policy services (AES-256-GCM with HKDF key derivation, entropy-based password validation, history checking)
-- [x] 09-03-PLAN.md -- Audit log + session management backend (hash-chained tamper-evident log, CSV/JSON export, session tracking with device/IP)
-- [x] 09-04-PLAN.md -- 2FA service (TOTP setup/verify with pquerna/otp, recovery codes, login pending token, per-role enforcement, admin reset)
-- [x] 09-05-PLAN.md -- DSGVO compliance service (data export pipeline with per-module handlers, right-to-erasure with cascading anonymization)
-- [x] 09-06-PLAN.md -- gRPC server + gateway routes + IP filter (SecurityService gRPC, ~32 HTTP endpoints, IP allowlist/blocklist middleware)
-- [x] 09-07-PLAN.md -- i18n framework (react-intl with ICU format, 4-language translations, Zustand locale store, browser detection, App.tsx integration)
-- [x] 09-08-PLAN.md -- Security UI (2FA setup wizard, TOTP login flow, audit log viewer, session management, vault admin page)
-- [x] 09-09-PLAN.md -- Settings + admin pages (password policy, IP access, DSGVO export/erasure UI, settings tabs, sidebar navigation, routing)
-
-### Phase 10: Email Integration
-**Goal**: Users can send and receive email within the Hub without switching to an external email client, with automatic CRM context, contact import/export, and two-level contact visibility
-**Depends on**: Phase 6 (PM -- Work service exists for email sub-domain), Phase 4 (Notifications -- new email alerts)
-**Requirements**: MAIL-01, MAIL-02, MAIL-03, MAIL-04, MAIL-05, MAIL-06, MAIL-07, MAIL-08, MAIL-09, CRM-01, CRM-02, CRM-03
-**Success Criteria** (what must be TRUE):
-  1. User can compose and send an email via their configured SMTP server from within the Hub
-  2. User can receive and read emails synced from their IMAP server, with read/unread status synced bidirectionally
-  3. Emails are automatically linked to matching CRM contacts by email address, showing email history on contact profiles
-  4. Related emails are grouped into threaded conversations based on References/In-Reply-To headers
-  5. User can send and receive email attachments, with files stored in MinIO
-  6. User can manage their HTML email signature including Impressum (legally required in DACH business email)
-  7. User can reply, reply-all, and forward emails with proper thread preservation
-  8. User can navigate IMAP folder structure (Inbox, Sent, Drafts, custom folders) within the Hub
-  9. User can import contacts from CSV/vCard and export contacts to CSV/vCard with field selection
-  10. Contacts support company-shared and personal visibility levels with admin override
-**Plans**: 7 plans
-
-Plans:
-- [x] 10-01: Design foundation + layout overhaul (config, types, hooks, globals.css, desk assets, sidebar, header, DeskEnvironment, AppShell, ui.ts)
-- [x] 10-02: New module pages + stores + routing (25 module pages, 21 Zustand stores, App.tsx routing, SettingsPage merge with 8 tabs)
-- [x] 10-03: Existing module visual upgrades (umlaut normalization, unused import cleanup across CRM, Chat, Work, Calendar, Notifications)
-- [ ] 10-04-PLAN.md -- Email service data foundation (email.proto ~35 RPCs, 2 migrations for 8 tables + contact visibility, Go models, 7 Go deps, cmd/email scaffold on :50056)
-- [ ] 10-05-PLAN.md -- IMAP sync + SMTP send + core services (account service with vault encryption, IMAP sync engine with IDLE/polling, message service with JWZ threading + full-text search, SMTP send with MIME builder, signature CRUD, MinIO attachment streaming)
-- [ ] 10-06-PLAN.md -- Email UI + gRPC + gateway + CRM integration (gRPC server ~35 RPCs, ~40 HTTP routes, Docker, TipTap v3 compose editor, three-column inbox UI, threaded conversations, signature builder with Impressum, CRM badge + auto-link)
-- [ ] 10-07-PLAN.md -- Contact import/export + two-level visibility (CSV/vCard import with field mapping + auto-merge, CSV/vCard export with field selection, shared/personal contact visibility with admin override, 5-step import wizard UI)
-
-### Phase 11: Documents & Files + WOPI/OnlyOffice
-**Goal**: Users can manage, share, and find documents and files across the entire Hub from a central file manager, with a global search spanning all modules and collaborative document editing via OnlyOffice
-**Depends on**: Phase 3 (Chat -- MinIO file infrastructure), Phase 6 (PM -- task file attachments)
-**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, DOC-07, DOC-08, DOC-09, DOC-10
-**Success Criteria** (what must be TRUE):
-  1. User can browse files in a folder hierarchy with breadcrumb navigation
-  2. User can upload files via drag-and-drop with progress indication and multi-file support
-  3. User can preview PDF, images, and text files inline without downloading
-  4. User can upload new file versions and revert to previous versions
-  5. User can share files/folders with specific team members with read/write permissions
-  6. User can search files by name, content, and tags across the entire file store
-  7. User can search across ALL modules (CRM, PM, Chat, Email, Files) from a single global search bar with unified ranked results
-  8. Chat file attachments are accessible through the central file manager and subject to per-user/per-role access controls
-  9. User can open .docx/.xlsx/.pptx files in OnlyOffice for collaborative editing via WOPI protocol
-**Plans**: 6 plans
-
-Plans:
-- [ ] 11-01-PLAN.md -- Proto + migrations + models + Go deps (DocumentService proto ~35 RPCs, 9 tables, Go models, cmd/document scaffold on :50057)
-- [ ] 11-02-PLAN.md -- Folder + file + share services (folder CRUD with 3-level spaces, file CRUD with versioning, share ACL, entity linking)
-- [ ] 11-03-PLAN.md -- Search + tag + text extraction + virtual folders (docconv text extraction, tsvector search, tag CRUD, cross-module virtual folders)
-- [ ] 11-04-PLAN.md -- gRPC server + gateway routes + WOPI + Docker (gRPC server, ~30 HTTP routes, WOPI endpoints, global search fan-out, OnlyOffice Docker)
-- [ ] 11-05-PLAN.md -- File UI + preview + versioning (TanStack Query migration, 3-level spaces, grid/list, breadcrumbs, context menu, drag-drop, preview, version history, share dialog)
-- [ ] 11-06-PLAN.md -- Global search UI + OnlyOffice editor (SearchBar refactor to real API, grouped results with snippets, OnlyOffice iframe editor)
-
-### Phase 12: Rechnungen & Finanzen
-**Goal**: Users can create legally compliant quotes and invoices, track payments, manage dunning, and export to their Steuerberater -- replacing standalone invoicing tools. This is NOT full accounting (Buchhaltung/FiBu) -- no double-entry bookkeeping, no payroll.
-**Depends on**: Phase 2 (CRM -- deal-to-quote flow), Phase 4 (Notifications -- overdue invoice alerts)
-**Requirements**: FIN-01, FIN-02, FIN-03, FIN-04, FIN-05, FIN-06, FIN-07
-**Anti-Features**: No payroll/Lohnabrechnung (integration only via Bexio/Abacus/RmA), no doppelte Buchfuehrung
-**Success Criteria** (what must be TRUE):
-  1. User can create a quote (Angebot) with line items and tax calculation, and generate a PDF
-  2. User can create an invoice (Rechnung) that is GoBD-compliant: immutable once sent, sequentially numbered, containing all legally required fields (Pflichtangaben)
-  3. System correctly calculates MwSt/USt at 19% standard, 7% reduced, 0% for EU B2B Reverse Charge, and supports Kleinunternehmerregelung
-  4. User can track payment status per invoice (draft, sent, overdue, paid, cancelled) and see a dashboard overview
-  5. User can convert a CRM deal to a quote and then to an invoice in a seamless multi-step flow
-  6. User can export a Buchungsstapel in DATEV-compatible CSV format (SKR03) for their Steuerberater
-  7. User can create credit notes (Gutschriften) that properly reference the original invoice
-  8. User can manage 3-level dunning (Mahnwesen) with automatic overdue detection and escalation
-**Plans**: 7 plans
-
-Plans:
-- [ ] 12-01-PLAN.md -- Biz service data foundation (proto, migrations, models, config, biz binary scaffold, tax calculator TDD)
-- [ ] 12-02-PLAN.md -- Quote + invoice services (GoBD-critical: immutability, sequential numbering, deal value auto-sync)
-- [ ] 12-03-PLAN.md -- Supporting services (credit note, payment, dunning, dashboard, PDF generator)
-- [ ] 12-04-PLAN.md -- Connection layer (gRPC server, gateway routes, Docker, DATEV export, CRM deal integration, DealValueUpdater)
-- [ ] 12-05-PLAN.md -- Frontend rewrite (TypeScript types, TanStack Query hooks, FinanzenPage + all components, EUR/de-DE)
-- [ ] 12-06-PLAN.md -- Gap closure: PDF binary streaming (proto PDF RPCs, gRPC server impl, gateway HTTP wiring)
-- [ ] 12-07-PLAN.md -- Gap closure: Deal-to-quote route + DealDetailPage UI trigger
-
-### Phase 13: HR & Zeiterfassung
-**Goal**: Employees can manage leave, track time, and access HR documents within the Hub, fully compliant with German/Swiss labor law. NO payroll -- salary/Lohn is handled by external integrations (Bexio, Abacus, RmA).
-**Depends on**: Phase 7 (Calendar -- absence calendar integration), Phase 12 (Finance -- Biz service exists for HR sub-domain)
-**Requirements**: HR-01, HR-02, HR-03, HR-04, HR-05, HR-06, HR-07
-**Anti-Features**: No payroll/Lohnabrechnung (integration only), no CH social security calculations (AHV/IV/EO, BVG)
-**Success Criteria** (what must be TRUE):
-  1. Employee can submit a leave request and their manager receives it for approval, with the full request/approve/reject workflow
-  2. System correctly calculates leave balance per BUrlG (20-30 days based on contract, part-time pro-rata, carryover to March 31)
-  3. Team absence calendar shows who is out when, integrated with the main calendar module
-  4. Employee can clock in and out for time tracking, with daily and weekly hour summaries
-  5. Time tracking enforces ArbZG rules: warns at 8h, blocks at 10h daily, enforces 11h rest between shifts, and requires breaks
-  6. Employee profiles include department, position, and contract type, with access-controlled document storage (contracts, Zeugnisse)
-  7. Sick leave can be recorded with AU (doctor's note) upload required after 3 consecutive days
-**Plans**: 4 plans
-
-Plans:
-- [ ] 13-01-PLAN.md -- HR data foundation (hr.proto ~30 RPCs, migration 000046 with 9 tables, Go models, BUrlG/ArbZG compliance TDD)
-- [ ] 13-02-PLAN.md -- Leave + absence + employee services (leave workflow, BUrlG balance, absence calendar, employee profiles, document management)
-- [ ] 13-03-PLAN.md -- Time tracking + gRPC + gateway (clock in/out with ArbZG enforcement, HRService gRPC server, ~30 HTTP routes, biz binary extension)
-- [ ] 13-04-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, UI wiring, header clock-in button, absence calendar, leave forms)
-
-### Phase 14: Event Infrastructure + Unified Inbox
-**Goal**: All modules emit structured events via PostgreSQL LISTEN/NOTIFY, and users get a single aggregated inbox across Email, Chat, and Notifications -- the foundation for Automation Engine
-**Depends on**: Phase 10 (Email -- email channel), Phase 3 (Chat -- chat channel), Phase 4 (Notifications -- notification channel)
-**Requirements**: INBOX-01, INBOX-02, INBOX-03, EVENT-01
-**Success Criteria** (what must be TRUE):
-  1. All existing services emit structured events via PostgreSQL events table + pg_notify
-  2. User sees a unified inbox aggregating Email, Chat DMs/@mentions, and Notifications in a single view
-  3. User can reply, mark-read, and triage items from the unified inbox without switching modules
-  4. Team inboxes allow shared mailbox concepts with assignment and routing rules
-  5. Channel adapters normalize messages from different sources into a unified format
-**Plans**: 4 plans
-
-Plans:
-- [x] 14-01-PLAN.md -- Event infrastructure data foundation (inbox.proto ~27 RPCs, migrations for 4 tables, Go models, event type constants, PGEventEmitter retrofit for Email/Document/Biz/HR)
-- [x] 14-02-PLAN.md -- Inbox service packages (channel adapters, message service with snooze worker, team inbox service with claim/assign, routing engine with AND/OR condition evaluator)
-- [x] 14-03-PLAN.md -- Connection layer (InboxService gRPC server, gateway HTTP routes ~25 endpoints, inbox event consumer on EventBus, notification binary co-hosting)
-- [x] 14-04-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, KommunikationPage three-column layout, inline reply, snooze, team inbox settings, routing rules editor)
-
-### Phase 15: CalDAV/CardDAV Integration
-**Goal**: External calendar and contact clients (Outlook, Thunderbird, macOS) can sync bidirectionally with KMU Hub
-**Depends on**: Phase 7 (Calendar -- calendar data model), Phase 2 (CRM -- contact data model)
-**Requirements**: INT-01, INT-02, INT-03
-**Success Criteria** (what must be TRUE):
-  1. User can add their KMU Hub calendar to Outlook/Thunderbird via CalDAV URL and see events sync bidirectionally
-  2. User can add their KMU Hub contacts to an external client via CardDAV URL
-  3. Sync is authenticated per user with proper access control
-**Plans**: 3 plans
-
-Plans:
-- [x] 15-01-PLAN.md -- Data foundation (migrations for app_passwords + caldav_sync, Go models, app-specific password service, sync token service, go-webdav + go-ical deps)
-- [x] 15-02-PLAN.md -- CalDAV/CardDAV Backend adapters (caldav.Backend + carddav.Backend implementations, iCal/vCard converters, VTIMEZONE generator, ETag utility)
-- [x] 15-03-PLAN.md -- Gateway integration + frontend (CalDAV/CardDAV gateway routes with Basic Auth, .well-known discovery, app password API, settings wizard, admin page, WebDAV-Push)
-
-### Phase 16: Automation Engine
-**Goal**: Users can automate repetitive workflows across all Hub modules using simple trigger-action rules -- the "killer feature" of an all-in-one platform
-**Depends on**: Phase 14 (Event Infrastructure -- event consumer framework), all prior modules (stable APIs)
-**Requirements**: AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05, AUTO-06
-**Success Criteria** (what must be TRUE):
-  1. User can create an automation rule like "When a deal moves to Won stage, create an invoice draft" using a trigger-action model
-  2. System offers 10-15 pre-built triggers across modules (deal stage change, task completed, invoice overdue, leave approved, new email from CRM contact, etc.)
-  3. System offers 8-10 pre-built actions across modules (send notification, create task, send email, update CRM field, create calendar event, etc.)
-  4. User can add conditional logic with if/else branching and AND/OR operators (e.g., "only if deal value > 10000")
-  5. User can view execution logs showing when each automation ran, what triggered it, what it did, and whether it succeeded or failed
-  6. User can enable/disable automations without deleting them (pause and resume)
-**Plans**: 3 plans
-
-Plans:
-- [x] 16-01-PLAN.md -- Automation service data foundation (proto ~18 RPCs, migration 000052 with 3 tables, Go models, dual condition evaluator with expr-lang TDD, workflow repository, binary scaffold on :50059)
-- [x] 16-02-PLAN.md -- Workflow engine + triggers + actions + connection layer (14 triggers, 8 action executors via gRPC, EventBus consumer, time-based poller, 12 pre-built templates, gRPC server, 16 gateway routes, Docker)
-- [x] 16-03-PLAN.md -- Frontend (TypeScript types, TanStack Query hooks, 4-step wizard, react-flow visual editor, template gallery, condition builder, execution log viewer)
-
-### Phase 17: Integration - Teams & Slack
-**Goal**: KMU Hub notifications and basic interactions flow to/from Microsoft Teams and Slack
-**Depends on**: Phase 4 (Notifications -- notification infrastructure), Phase 9 (Security -- webhook secret management)
-**Requirements**: INT-04, INT-05, INT-06
-**Success Criteria** (what must be TRUE):
-  1. Admin can configure Teams/Slack webhook and KMU Hub notifications appear in the configured channel
-  2. Users can perform basic interactions (acknowledge, respond) from Teams/Slack back to KMU Hub
-**Plans**: 3 plans
-
-Plans:
-- [x] 17-01-PLAN.md -- Data foundation (migration 000053 with 5 integration tables, Go domain models, repository layer, proto extension with 13 RPCs, Go deps for Teams Bot Framework + Slack API + Adaptive Cards)
-- [x] 17-02-PLAN.md -- Forwarder engine + platform adapters + connection layer (notification forwarder as DeliveryCallback, Teams Bot Framework client + Adaptive Cards, Slack API client + Block Kit, account linking service, rate limiter, inbound webhook handlers, gRPC server extension, 18 gateway HTTP routes, notification binary integration, Docker env vars)
-- [x] 17-03-PLAN.md -- Frontend (TypeScript types, 14 TanStack Query hooks, Integrations settings tab, IntegrationCard reusable component, 4-step TeamsSetupWizard + SlackSetupWizard, ChannelMappingEditor, AccountLinkDialog, SettingsPage integration)
-
-### Phase 17.5: Guest Chat / Kundenportal
-**Goal**: External visitors can chat with KMU Hub agents via a shareable link, with messages flowing into the existing chat infrastructure and Unified Inbox
-**Depends on**: Phase 3 (Chat -- chat infrastructure), Phase 14 (Unified Inbox -- channel adapters), Phase 17 (Integration framework)
-**Requirements**: None (new feature, no pre-existing requirements)
-**Success Criteria** (what must be TRUE):
-  1. Guest opens /guest/:token link in browser, enters name, and can chat with agents in real-time
-  2. Guest messages stored in chat_messages with guest_session_id, threads work across guest/agent messages
-  3. Agents see guest conversations in Unified Inbox as new "guest" channel type
-  4. Guest rate limited to 30 messages/minute, file uploads restricted to images+PDF max 10MB
-  5. Token expiry configurable per channel, sessions deactivatable by agents
-**Plans**: 3 plans
-
-Plans:
-- [x] 17.5-01-PLAN.md -- Data foundation (migration 000054 with guest_sessions + guest_channel_config tables, channel/message alterations, Go models, repository, session service, rate limiter)
-- [x] 17.5-02-PLAN.md -- WebSocket hub extension + services + gateway routes + inbox adapter (guest connections, message service extension, 6 public HTTP endpoints, guest inbox adapter, CHANNEL_GUEST proto)
-- [x] 17.5-03-PLAN.md -- Guest web frontend (standalone Vite+React SPA, pre-chat form, chat window, file upload, typing indicators, gateway static serving)
-
-### Phase 18: Integration - Bexio
-**Goal**: Swiss SMBs can sync their CRM contacts and invoices with Bexio accounting software
-**Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices)
-**Requirements**: INT-07, INT-08, INT-09
-**Success Criteria** (what must be TRUE):
-  1. Admin can authenticate with Bexio via OAuth2
-  2. Contacts sync bidirectionally between KMU Hub CRM and Bexio
-  3. Invoices created in KMU Hub are pushed to Bexio
-**Plans**: 4 plans
-
-Plans:
-- [x] 18-01: Bexio data foundation (OAuth2, API client, rate limiter, repository, domain models)
-- [x] 18-02: Sync engine (contact sync, invoice push, quote push, scheduler, event emitter)
-- [x] 18-03: gRPC server + gateway routes (BexioGRPCServer, OAuth callback, admin routes, biz binary wiring)
-- [x] 18-04: Frontend (TypeScript types, API client, React Query hooks, 4-step setup wizard, sync dashboard, field mapping editor)
-
-### Phase 19: Integration - DATEV API + Lexware Office
-**Goal**: German SMBs can sync contacts and invoices with Lexware Office (300k+ customers) and upload Buchungsstapel/Belege to DATEV via API (2.5M+ companies via Steuerberater) -- completing full DACH accounting coverage (Bexio CH + Lexware DE + DATEV DE/AT)
-**Depends on**: Phase 2 (CRM -- contacts), Phase 12 (Finance -- invoices, DATEV CSV export)
-**Requirements**: INT-10, INT-11, INT-12, INT-13, INT-14, INT-15
-**Success Criteria** (what must be TRUE):
-  1. Admin can connect to Lexware Office via API key authentication
-  2. Contacts sync bidirectionally between KMU Hub CRM and Lexware Office
-  3. Invoices and quotes created in KMU Hub are pushed to Lexware Office
-  4. Lexware webhooks trigger real-time sync updates
-  5. Admin can connect to DATEV via OAuth2 authentication
-  6. User can upload Buchungsstapel (CSV) and Belegbilder (PDF) to DATEV API
-  7. DATEV integration gracefully falls back to manual CSV export when no API credentials configured
-**Plans**: 2 plans
-
-Plans:
-- [x] 19-01: Data foundation + Lexware Office + DATEV upload backend (migration, models, Lexware package with API key auth + webhooks + contact sync + invoice/quote push, DATEV upload extension with OAuth2 + Buchungsdatenservice, proto, gRPC, gateway, biz binary wiring)
-- [x] 19-02: Frontend + integration wiring (TypeScript types, API clients, React Query hooks, LexwareSetupWizard, LexwareSyncDashboard, DatevSettingsPanel, IntegrationsSettingsTab update, Docker Compose)
-
-### Phase 20: Plugin System + Industry Templates
-**Goal**: Admins can customize the Hub for their company's specific processes without modifying source code, and developers can extend it via sandboxed WASM plugins. Industry modules (Fuhrpark, Produktion, Rapporte, etc.) are implemented as plugin templates, NOT as core backend endpoints.
-**Depends on**: Phase 16 (Automation -- plugin triggers via workflow engine), all modules (stable extension points)
-**Requirements**: PLUG-01, PLUG-02, PLUG-03, PLUG-04, PLUG-05, PLUG-06, PLUG-07
-**Success Criteria** (what must be TRUE):
-  1. Admin can customize the Hub via config-based settings (custom fields, validation rules, workflow rules) without writing any code
-  2. System runs WASM plugins in a sandboxed wazero runtime with enforced memory limits, execution time limits, and no direct host access
-  3. Admin can install and remove plugins, with each plugin declaring required permissions that need explicit admin approval
-  4. Installed plugins show a configuration UI auto-rendered from their declared settings schema (JSON Schema-based)
-  5. Each module provides defined extension points (before/after hooks on CRUD operations) that plugins can register for
-  6. Plugins access Hub data through a versioned, rate-limited API -- never through direct database access
-  7. Industry-specific configuration templates (Branchenvorlagen) are available for at least 3 common DACH industries (e.g., Handwerk, Beratung, Handel)
-**Plans**: 4 plans (estimated)
-
-Plans:
-- [ ] 20-01: Config-based customization framework (extend existing custom fields, add workflow rules, validation rules, UI for admin configuration)
-- [ ] 20-02: WASM plugin runtime (wazero sandbox, host function API, plugin lifecycle management, permission model)
-- [ ] 20-03: Extension points + plugin API (before/after hooks in all modules, versioned plugin API, rate limiting, SDK)
-- [ ] 20-04: Industry templates (3+ Branchenvorlagen as config packages, example WASM plugins, documentation)
-
-## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19 -> 20
-Decimal phases (if inserted) execute between their surrounding integers.
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 4. Notifications + Gateway | 3/3 | Complete | 2026-02-07 |
-| 5. Desktop App Shell | 7/7 | Complete | 2026-02-08 |
-| 6. Project Management | 10/10 | Complete | 2026-02-08 |
-| 7. Calendar & Scheduling | 9/9 | Complete | 2026-02-11 |
-| 8. Video, Voice & Meetings | 9/9 | Complete | 2026-02-11 |
-| 9. Security & Compliance | 9/9 | Complete | 2026-02-11 |
-| 10. Email Integration | 7/7 | Complete | 2026-02-14 |
-| 11. Documents & Files + WOPI | 6/6 | Complete | 2026-02-17 |
-| 12. Rechnungen & Finanzen | 7/7 | Complete | 2026-02-18 |
-| 13. HR & Zeiterfassung | 4/4 | Complete | 2026-02-19 |
-| 14. Event Infra + Unified Inbox | 4/4 | Complete | 2026-02-20 |
-| 15. CalDAV/CardDAV | 3/3 | Complete | 2026-02-20 |
-| 16. Automation Engine | 3/3 | Complete | 2026-02-20 |
-| 17. Integration: Teams & Slack | 3/3 | Complete | 2026-02-25 |
-| 17.5. Guest Chat | 3/3 | Complete | 2026-02-25 |
-| 18. Integration: Bexio | 4/4 | Complete | 2026-02-26 |
-| 19. Integration: DATEV + Lexware | 2/2 | Complete | 2026-02-26 |
-| 20. Plugin System + Templates | 4/4 | Complete | 2026-02-26 |
+| Track | Fokus |
+|-------|-------|
+| **Track 1 — Technisch** | Frontend API-Wiring + QA |
+| **Track 2 — Legal** | DSGVO, AVV, AGB, GoBD |
+| **Track 3 — Business** | Go-to-Market, Pilot, Infrastruktur |
 
 ---
-*Roadmap created: 2026-02-07*
-*Phases 1-3 completed prior to GSD adoption*
-*Last updated: 2026-02-26 after all 20 phases completed (103/103 plans)*
+
+## Phase A — März 2026: "Core Wiring"
+
+### Track 1 — Technisch
+
+- [x] **KontaktePage** → echtes Backend via React Query (erledigt 2026-02-27)
+- [ ] **FirmenPage** → useCompanies hooks (stores/crm.ts Mock entfernen)
+- [ ] **DealsPage** → useDeals hooks (Pipeline-View anbinden)
+- [ ] **WorkPage** → useTasks, useProjects hooks (stores/work.ts entrümpeln)
+- [ ] **KalenderPage** → useEvents, useCalendar hooks (Mock bleibt für Feiertage)
+- [ ] **FinanzenPage** → bereits TanStack Query, Rechnungen/Angebote finalisieren
+- [ ] **Dashboard-Widgets** → echte Daten (KPI-Widgets: Finance-API, Tasks-API)
+
+### Track 2 — Legal
+
+- [ ] Steuerberater / Rechtsanwalt beauftragen
+- [ ] Unternehmensform klären (UG/GmbH DE oder GmbH CH)
+- [ ] DSGVO-Prüfung: Welche Daten verarbeiten wir, wo liegen sie?
+
+### Track 3 — Business
+
+- [ ] Zentrum für finanzielle Aufklärung: Konkretes Gespräch ansetzen
+- [ ] Hetzner-Produktionsserver aufsetzen (Docker Compose + SSL + Domain)
+
+---
+
+## Phase B — April 2026: "Beta Hardening"
+
+### Track 1 — Technisch
+
+- [ ] **TeamPage** → useTeam hooks (stores/team.ts Mock entfernen)
+- [ ] **Chat-Module** → echt (stores/kommunikation.ts + meetings.ts)
+- [ ] **DokumentePage** → useDocuments hooks
+- [ ] **D9 Design-Merge** → Visual Polish + Accessibility von design/brainstorm cherry-picken
+- [ ] E2E-Tests für kritische Pfade (Auth, Kontakt CRUD, Rechnung erstellen)
+- [ ] Fehler-Monitoring einrichten (Sentry oder äquivalent)
+- [ ] Backup-Strategie Produktion (automatisch via Cron)
+
+### Track 2 — Legal
+
+- [ ] **AGB** — Anwalt ausarbeiten lassen
+- [ ] **Datenschutzerklärung** (DSGVO Art. 13/14) — für App + Website
+- [ ] **AVV / DPA** — Template für Pilot-Kunden (Auftragsverarbeitungsvertrag)
+- [ ] GoBD-Dokumentation (Finanzmodul — interne Verfahrensdokumentation)
+
+### Track 3 — Business
+
+- [ ] Marketing-Website / Landing Page aufbauen
+- [ ] Preisliste finalisieren (SaaS-Tiers + Self-Hosted-Lizenz)
+- [ ] Onboarding-Prozess dokumentieren (1-Woche-Onsite-Analyse Ablauf)
+- [ ] Support-Konzept (wie werden Pilot-Kunden betreut?)
+
+---
+
+## Phase C — Mai 2026: "Beta Launch"
+
+### Track 1 — Technisch
+
+- [ ] Industry-spezifische Module bleiben für v1 auf Demo-Daten (Plugin-Roadmap)
+- [ ] Performance-Audit + Optimierung (Query-N+1, Bundle Size)
+- [ ] Self-Hosted Docker-Compose-Paket polieren (Update-Mechanismus)
+- [ ] Beta-Deployment auf Produktionsserver
+
+### Track 2 — Legal
+
+- [ ] Alle Rechtstexte reviewed + live auf Website/App
+- [ ] Hetzner-AVV / Cloud-Provider-DPAs abschließen
+- [ ] Impressum (Pflicht für Website)
+
+### Track 3 — Business
+
+- [ ] **Pilot-Onboarding:** Erster Kunde live schalten
+- [ ] Feedback-Loop einrichten (Beta-Feedback sammeln)
+- [ ] Investoren-/Partner-Deck falls relevant
+
+---
+
+## Scope: Mock bis v2
+
+Diese Stores werden für den Beta-Launch **nicht verdrahtet** (bleiben Demo-Daten):
+
+| Store | Modul | Begründung |
+|-------|-------|------------|
+| `einkauf.ts` | Einkauf/Beschaffung | Industry-Template (Phase 20 Plugin) |
+| `inventar.ts` | Inventar | Industry-Template |
+| `produktion.ts` | Produktion | Industry-Template |
+| `vermietung.ts` | Vermietung | Industry-Template |
+| `fuhrpark.ts` | Fuhrpark | Industry-Template (Referenz-Plugin vorhanden) |
+| `rapporte.ts` | Rapporte | Industry-Template |
+| `schichten.ts` | Schichten | Erst bei konkretem Kundenbedarf |
+| `vertraege.ts` | Verträge | Erst bei konkretem Kundenbedarf |
+| `wiki.ts` | Wiki | Erst bei konkretem Kundenbedarf |
+| `formulare.ts` | Formulare | Erst bei konkretem Kundenbedarf |
+| `berichte.ts` | Berichte | Erst bei konkretem Kundenbedarf |
+
+**Strategie:** Erst wenn ein realer Pilot-Kunde ein Modul konkret braucht,
+wird es vollständig verdrahtet. Qualität vor Quantität.
+
+---
+
+## Kritische Blocker
+
+1. **Legal ist Blocker für Pilot-Onboarding** — ohne AVV/DPA dürfen keine echten
+   Kundendaten verarbeitet werden → **sofort starten**
+2. **Produktionsserver** muss vor Beta-Deployment stehen (Hetzner aufsetzen)
+3. **D9 Design-Merge** bevor Pilot-Kunde die App sieht
+
+---
+
+## Frontend Wiring Progress
+
+| Modul | Store/Quelle | Status |
+|-------|-------------|--------|
+| KontaktePage | contacts.ts | ✅ Verdrahtet (2026-02-27) |
+| FirmenPage | crm.ts | ⏳ Phase A |
+| DealsPage | crm.ts | ⏳ Phase A |
+| WorkPage | work.ts | ⏳ Phase A |
+| KalenderPage | calendar.ts | ⏳ Phase A |
+| FinanzenPage | finance.ts | ⏳ Phase A (fast fertig) |
+| Dashboard-Widgets | finance + work API | ⏳ Phase A |
+| TeamPage | team.ts | ⏳ Phase B |
+| Chat-Module | kommunikation.ts | ⏳ Phase B |
+| DokumentePage | dokumente.ts | ⏳ Phase B |
+| Einkauf | einkauf.ts | 🔒 v2 (Mock/Plugin) |
+| Inventar | inventar.ts | 🔒 v2 (Mock/Plugin) |
+| Produktion | produktion.ts | 🔒 v2 (Mock/Plugin) |
+| Vermietung | vermietung.ts | 🔒 v2 (Mock/Plugin) |
+| Fuhrpark | fuhrpark.ts | 🔒 v2 (Mock/Plugin) |
+| Rapporte | rapporte.ts | 🔒 v2 (Mock/Plugin) |
+| Schichten | schichten.ts | 🔒 v2 (on demand) |
+| Verträge | vertraege.ts | 🔒 v2 (on demand) |
+| Wiki | wiki.ts | 🔒 v2 (on demand) |
+| Formulare | formulare.ts | 🔒 v2 (on demand) |
+| Berichte | berichte.ts | 🔒 v2 (on demand) |
+
+---
+
+## Archiv: Feature Development (Phasen 1-20)
+
+Alle 20 Entwicklungsphasen abgeschlossen. Details in der Git-Historie und
+unter `.planning/milestones/`.
+
+| Meilenstein | Phasen | Abgeschlossen |
+|------------|--------|--------------|
+| Foundation | 1-3 | vor GSD-Adoption |
+| Pilot MVP | 4-8 | 2026-02-11 |
+| Compliance & Comms | 9-11 | 2026-02-17 |
+| Business Suite | 12-13 | 2026-02-19 |
+| Aggregation & Automation | 14-16 | 2026-02-20 |
+| Integrations | 17-19 | 2026-02-26 |
+| Extensibility | 20 | 2026-02-26 |
+
+---
+
+*Phase 1-20 (Feature Development) abgeschlossen: 2026-02-26*
+*Beta Preparation gestartet: 2026-02-27*
+*Letztes Update: 2026-02-27*

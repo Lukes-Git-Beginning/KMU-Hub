@@ -2,21 +2,44 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-08)
+See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 20 (Plugin System + Industry Templates) -- COMPLETE
-**Recent strategy changes:** Phase 19 pivoted from Abacus+RmA to DATEV API + Lexware Office (full DACH coverage: Bexio CH + Lexware DE + DATEV DE/AT)
+**Current focus:** Beta Preparation — Frontend API-Wiring + Legal + Business
+**Recent strategy changes:** Alle 20 Feature-Phasen abgeschlossen. Scope-Entscheidung: 11 industry-spezifische Stores bleiben Demo-Daten für v1 (Plugin-Roadmap).
 
 ## Current Position
 
-Phase: 20 of 20 (Plugin System + Industry Templates) -- COMPLETE
-Plan: 4 of 4 complete
-Status: Phase 20 COMPLETE. All plans implemented.
-Last activity: 2026-02-26 -- Phase 20 complete (all 20 phases done!)
-Next: Beta release preparation
+Mode: Beta Preparation
+Status: Phase A (Core Wiring) — KontaktePage verdrahtet, Rest ausstehend
+Last activity: 2026-02-27 -- KontaktePage auf echtes Backend migriert (React Query)
+Next: FirmenPage + DealsPage verdrahten (stores/crm.ts Mock entfernen)
 
-Progress: [████████████████████████████████████] 100% (103/103 plans across phases 4-20)
+Feature Development: [████████████████████████████████████] 100% (103/103 plans across phases 4-20)
+Beta Preparation:    [██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] ~5% (1/21 technische Items, Legal/Business 0%)
+
+## Beta Roadmap
+
+Drei Phasen, drei parallele Tracks. Details: .planning/ROADMAP.md
+
+| Phase | Zeitraum | Technisch | Legal | Business |
+|-------|----------|-----------|-------|----------|
+| A — Core Wiring | März 2026 | CRM+Work+Kalender+Finanzen verdrahten | Anwalt, Unternehmensform | Kundengespräch, Hetzner |
+| B — Beta Hardening | April 2026 | Team+Chat+Dokumente, D9 Design, E2E | AGB, DSGVO, AVV/DPA | Website, Preisliste |
+| C — Beta Launch | Mai 2026 | Performance, Self-Hosted-Paket | Rechtstexte live, Impressum | Pilot-Onboarding |
+
+## Scope-Entscheidungen (2026-02-27)
+
+**Mock bis v2 (nicht verdrahtet für Beta):**
+einkauf.ts, inventar.ts, produktion.ts, vermietung.ts, fuhrpark.ts,
+rapporte.ts, schichten.ts, vertraege.ts, wiki.ts, formulare.ts, berichte.ts
+
+**Begründung:** Industry-Templates (Phase 20 Plugins), erst bei realem Kundenbedarf verdrahten.
+
+**Kritische Blocker:**
+1. Legal (AVV/DPA) → Blocker für Pilot-Onboarding mit echten Kundendaten
+2. Produktionsserver (Hetzner) → Blocker für Beta-Deployment
+3. D9 Design-Merge → vor erstem Pilot-Kunden-Demo
 
 ## Performance Metrics
 
@@ -480,7 +503,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-26
-Stopped at: Phase 20 (Plugin System + Industry Templates) -- COMPLETE (committed 5827ec4)
+Last session: 2026-02-27
+Stopped at: Beta Preparation gestartet -- KontaktePage verdrahtet (commit be1f0b3), Roadmap überarbeitet
 Resume file: N/A
-Next: Beta release preparation (all 20 phases complete)
+Next: FirmenPage + DealsPage verdrahten (stores/crm.ts Mock-Daten entfernen, useCompanies/useDeals hooks)

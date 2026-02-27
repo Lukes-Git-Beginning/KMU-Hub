@@ -24,22 +24,31 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 - ✓ **Chat: Mentions, Read Receipts, Typing** — @mentions with notifications, per-channel read tracking, typing indicators — *Phase 3*
 - ✓ **Chat: File Sharing & Search** — MinIO file store, upload/download/thumbnails, multi-language full-text search (DE/EN/FR/IT/ES) — *Phase 3*
 
-### Active
+### Completed (Feature Development — Phasen 1-20)
 
-- [ ] Project management (tasks, boards, Gantt chart, timer, subtasks, dependencies, templates, CRM linking)
-- [ ] Calendar & scheduling (shared calendars, availability, event management)
-- [ ] Video, voice calls & meetings (LiveKit, screen sharing, meeting management, emoji reactions, presence)
-- [ ] Security & compliance (2FA, audit log, DSGVO export/deletion, session management, vault, i18n)
-- [ ] Email integration (send/receive within Hub, CRM auto-linking, contact import/export, two-level contacts)
-- [ ] Documents & files (file browser, upload, preview, versioning, sharing, search, tags, global search)
-- [ ] Rechnungen & Finanzen (quotes, invoices, GoBD compliance, DATEV export, dunning — NO full accounting, NO payroll)
-- [ ] HR & Zeiterfassung (leave requests, time tracking, employee profiles, ArbZG/BUrlG compliance — payroll via integration only)
-- [ ] Event infrastructure + Unified Inbox (aggregated view across Email/Chat/Notifications)
-- [ ] External integrations (CalDAV/CardDAV sync, Teams/Slack notifications, Bexio/Abacus/RmA accounting sync)
-- [ ] Automation engine (workflows, triggers, automatic actions — killer feature of all-in-one)
-- [ ] Desktop app (Electron + React, personalizable workspace, role-based dashboards)
-- [ ] Plugin system (Config-based modules, WASM for complex extensions, eventually marketplace)
-- [ ] Onsite configuration tooling (process analysis → Hub configuration mapping)
+- ✓ **Project management** (tasks, boards, Gantt chart, timer, subtasks, dependencies, templates, CRM linking) — *Phase 6*
+- ✓ **Calendar & scheduling** (shared calendars, availability, event management, DACH holidays) — *Phase 7*
+- ✓ **Video, voice calls & meetings** (LiveKit, screen sharing, meeting management, emoji reactions, presence) — *Phase 8*
+- ✓ **Security & compliance** (2FA, audit log, DSGVO export/deletion, session management, vault, i18n) — *Phase 9*
+- ✓ **Email integration** (send/receive within Hub, CRM auto-linking, contact import/export, two-level contacts) — *Phase 10*
+- ✓ **Documents & files** (file browser, upload, preview, versioning, sharing, search, tags, global search, OnlyOffice WOPI) — *Phase 11*
+- ✓ **Rechnungen & Finanzen** (quotes, invoices, GoBD compliance, DATEV export, dunning — NO full accounting, NO payroll) — *Phase 12*
+- ✓ **HR & Zeiterfassung** (leave requests, time tracking, employee profiles, ArbZG/BUrlG compliance — payroll via integration only) — *Phase 13*
+- ✓ **Event infrastructure + Unified Inbox** (aggregated view across Email/Chat/Notifications) — *Phase 14*
+- ✓ **CalDAV/CardDAV sync** (bidirectional calendar and contact sync with Outlook/Thunderbird/macOS) — *Phase 15*
+- ✓ **Automation engine** (workflows, triggers, automatic actions — killer feature of all-in-one) — *Phase 16*
+- ✓ **External integrations** (Teams/Slack notifications, Bexio CH sync, DATEV API + Lexware Office DE) — *Phases 17-19*
+- ✓ **Plugin system** (Config-based modules, WASM wazero runtime, extension points, industry templates) — *Phase 20*
+- ✓ **Desktop app** (Electron + React, personalizable workspace, role-based dashboards) — *Phase 5*
+- ✓ **Guest Chat / Kundenportal** (external visitor chat, unified inbox integration) — *Phase 17.5*
+
+### Active — Beta Preparation
+
+- [ ] **Frontend API-Wiring** (18 Stores auf Mock-Daten → echtes Backend, Phasen A-B)
+- [ ] **Legal & Compliance** (Anwalt, AGB, AVV/DPA, DSGVO-Prüfung)
+- [ ] **Production Infrastructure** (Hetzner Server, Docker Compose, SSL, Domain)
+- [ ] **QA & E2E-Tests** (kritische Pfade, Fehler-Monitoring, Backup-Strategie)
+- [ ] **Pilot-Onboarding** (Zentrum für finanzielle Aufklärung, erster Kunde)
 
 ### Out of Scope
 
@@ -57,7 +66,7 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 
 **Market position:** DACH SMBs underserved by enterprise tools (too complex, too expensive, US-hosted) and consumer tools (too simple, no customization). KMU Hub fills the gap with EU-sovereign, tailored, affordable all-in-one.
 
-**Existing codebase:** Go microservices backend (gateway + auth + CRM + chat + notification + work), Electron + React + TypeScript desktop shell, PostgreSQL + Redis + MinIO, 25+ database migrations, comprehensive CI/CD pipeline. Phases 1-5 complete (Auth/Infra, CRM, Chat, Notifications, Desktop Shell). Phase 6 (Project Management) in progress.
+**Existing codebase:** Go microservices backend (12 services: gateway + auth + CRM + chat + notification + work + document + biz + automation + caldav + plugin + email), Electron + React + TypeScript desktop shell, PostgreSQL + Redis + MinIO, 61 Migrationen, comprehensive CI/CD pipeline. Alle 20 Feature-Phasen abgeschlossen (2026-02-26). Jetzt: Beta Preparation.
 
 **Business model:** Onsite 1-week process analysis → custom Hub configuration → ongoing support. Pricing sensitive to SMB budgets (SaaS subscription + self-hosted license option).
 
@@ -87,6 +96,8 @@ An all-in-one desktop-first workplace platform for DACH SMBs (5-200 employees) t
 | Buchhaltung → Finanzen rename | "Rechnungen & Finanzen" (invoices + finance), NOT full accounting. No doppelte Buchfuehrung, no payroll. | ✓ Applied |
 | Payroll as anti-feature | Lohnabrechnung NEVER built in-house. Integration only via Bexio/Abacus/RmA. 8 planned endpoints struck. | ✓ Applied |
 | Phase reorder (strategy session) | Unified Inbox as Phase 14, Automation vorgezogen to 16, Abacus+RmA merged into 19. Industry modules as Phase 20 plugins. | ✓ Applied |
+| Beta scope: Mock-vs-Real | Industry-specific modules (Fuhrpark, Inventar, Produktion etc.) bleiben Demo-Daten für v1. Erst bei realem Kundenbedarf verdrahten. Qualität vor Quantität. | ✓ Entschieden 2026-02-27 |
+| Frontend API-Wiring strategy | Stores nach Priorität verdrahten: CRM (Kontakte ✅, Firmen, Deals) → Work → Kalender → Finanzen → Dashboard → Team → Chat → Dokumente. | ✓ Entschieden 2026-02-27 |
 
 ---
-*Last updated: 2026-02-26 after all 20 phases completed (103/103 plans)*
+*Last updated: 2026-02-27 — Beta Preparation started (all 20 phases complete)*
