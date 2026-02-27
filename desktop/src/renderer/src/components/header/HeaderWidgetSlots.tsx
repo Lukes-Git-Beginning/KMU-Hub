@@ -13,7 +13,7 @@ export function HeaderWidgetSlots() {
   if (!headerWidgets || headerWidgets.length === 0) return null
 
   return (
-    <div className="hidden md:flex items-center gap-0.5 rounded-lg border border-border/50 bg-secondary/30 px-1 py-0.5">
+    <div className="flex items-center gap-0.5 rounded-lg border border-border/50 bg-secondary/30 px-1 py-0.5">
       {headerWidgets.map((widgetId) => {
         const def = headerWidgetRegistry[widgetId]
         if (!def) return null
