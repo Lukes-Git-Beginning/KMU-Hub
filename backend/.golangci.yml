@@ -52,9 +52,10 @@ formatters:
     - goimports
   exclusions:
     paths:
-      - internal/models    # struct field alignment managed manually
-      - internal/config    # struct field spacing differs from gofmt default
-      - internal/security  # struct literal alignment differs from gofmt default
+      - internal/models      # struct field alignment managed manually
+      - internal/config      # struct field spacing differs from gofmt default
+      - internal/security    # struct literal alignment differs from gofmt default
+      - internal/automation  # import/func-signature formatting differs from gofmt default
   settings:
     goimports:
       local-prefixes:

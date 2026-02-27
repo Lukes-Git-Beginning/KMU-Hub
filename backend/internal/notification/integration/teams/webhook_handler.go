@@ -126,7 +126,7 @@ func (h *WebhookHandler) handleLinkCommand(ctx context.Context, w http.ResponseW
 	if err != nil {
 		slog.Error("teams webhook: failed to generate link token", "error", err)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"type": "message",
 			"text": "Fehler beim Erstellen des Verknuepfungstokens. Bitte versuchen Sie es erneut.",
 		})
@@ -135,7 +135,7 @@ func (h *WebhookHandler) handleLinkCommand(ctx context.Context, w http.ResponseW
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"type": "message",
 		"text": "Ihr Verknuepfungstoken (gueltig fuer 5 Minuten):\n\n`" + token + "`\n\nBitte fuegen Sie diesen Token in KMU Hub unter Einstellungen > Integrationen > Konto verknuepfen ein.",
 	})
@@ -160,7 +160,7 @@ func (h *WebhookHandler) handleAcknowledge(ctx context.Context, link *integratio
 func respondWithLinkPrompt(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"statusCode": 200,
 		"type":       "application/vnd.microsoft.activity.message",
 		"value":      "Bitte verknuepfen Sie Ihr Konto mit dem Befehl: /kmuhub link",
