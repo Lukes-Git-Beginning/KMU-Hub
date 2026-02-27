@@ -22,7 +22,8 @@ import {
 } from '@/components/ui/dialog'
 import { useSearchStore, QUICK_ACTIONS } from '@/stores/search'
 import type { SearchResultType, QuickAction } from '@/stores/search'
-import { useContactStore } from '@/stores/contacts'
+import { useContacts } from '@/api/hooks/useContacts'
+import { backendContactToUI } from '@/modules/kontakte/adapters'
 import { SearchInput } from './SearchInput'
 import { SearchResultGroup } from './SearchResultGroup'
 import type { GroupedResult } from './SearchResultGroup'
@@ -65,7 +66,8 @@ const typeLabels: Record<SearchResultType, string> = {
 // ---------------------------------------------------------------------------
 
 function useMockSearch(query: string): GroupedResult[] {
-  const contacts = useContactStore((s) => s.contacts)
+  const { data } = useContacts()
+  const contacts = (data?.contacts ?? []).map(backendContactToUI)
 
   return useMemo(() => {
     if (!query.trim()) return []
@@ -76,15 +78,15 @@ function useMockSearch(query: string): GroupedResult[] {
     const matchedContacts = contacts
       .filter(
         (c) =>
-          c.name.toLowerCase().includes(q) ||
+          `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
           c.email.toLowerCase().includes(q) ||
-          c.company?.toLowerCase().includes(q),
+          c.company.toLowerCase().includes(q),
       )
       .slice(0, 5)
       .map((c) => ({
         id: c.id,
         icon: typeIcons.contact,
-        title: c.name,
+        title: `${c.firstName} ${c.lastName}`.trim(),
         subtitle: [c.company, c.email].filter(Boolean).join(' · '),
         route: '/kontakte',
       }))

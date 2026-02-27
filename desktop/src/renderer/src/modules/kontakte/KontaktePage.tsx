@@ -19,8 +19,10 @@ import {
   Upload,
   FolderOpen,
   Settings2,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/api/hooks/useContacts'
 import { useContactsStore, type Contact } from '@/stores/contacts'
 import { useNavigationStore } from '@/stores/navigation'
 import { useMeetingsStore } from '@/stores/meetings'
@@ -30,6 +32,7 @@ import { ContactDetailPanel } from './ContactDetailPanel'
 import { ImportContactsDialog } from './ImportContactsDialog'
 import { GroupManagerDialog } from './GroupManagerDialog'
 import { CallOverlay } from '@/modules/meetings/CallOverlay'
+import { backendContactToUI, uiFormToCreateRequest, uiFormToUpdateRequest } from './adapters'
 
 type CategoryFilter = 'all' | 'employee' | 'customer' | 'partner' | `group:${string}`
 type SortField = 'name' | 'company' | 'lastContact'
@@ -53,11 +56,22 @@ const statusLabels: Record<string, string> = {
 }
 
 export default function KontaktePage() {
-  const { contacts, groups, addContact, bulkAddContacts, updateContact, deleteContact, toggleFavorite, duplicateContact } =
+  const { groups, favoriteIds, toggleFavorite, addContactToGroup, removeContactFromGroup } =
     useContactsStore()
   const { startCall, endCall, activeCallContactId, activeCallContactName } = useMeetingsStore()
   const navigate = useNavigate()
   const setIntent = useNavigationStore((s) => s.setIntent)
+
+  // React Query
+  const { data: contactsData, isLoading, isError } = useContacts()
+  const createContactMutation = useCreateContact()
+  const updateContactMutation = useUpdateContact()
+  const deleteContactMutation = useDeleteContact()
+
+  // Map backend contacts to UI contacts, overlaying local favoriteIds
+  const contacts: Contact[] = (contactsData?.contacts ?? [])
+    .map(backendContactToUI)
+    .map((c) => ({ ...c, isFavorite: favoriteIds.includes(c.id) }))
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
@@ -108,20 +122,23 @@ export default function KontaktePage() {
     { key: 'partner', label: 'Partner', icon: Building2, count: contacts.filter((c) => c.category === 'partner').length },
   ]
 
-  const handleCreateSubmit = (data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>) => {
+  const handleCreateSubmit = async (data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>) => {
     if (editContact) {
-      updateContact(editContact.id, data)
+      await updateContactMutation.mutateAsync({
+        id: editContact.id,
+        ...uiFormToUpdateRequest(data),
+      })
       toast.success('Kontakt aktualisiert')
     } else {
-      addContact(data)
+      await createContactMutation.mutateAsync(uiFormToCreateRequest(data))
       toast.success('Kontakt erstellt')
     }
     setEditContact(null)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteConfirmId) {
-      deleteContact(deleteConfirmId)
+      await deleteContactMutation.mutateAsync(deleteConfirmId)
       toast.success('Kontakt gelöscht')
       if (selectedContactId === deleteConfirmId) setSelectedContactId(null)
       setDeleteConfirmId(null)
@@ -155,6 +172,13 @@ export default function KontaktePage() {
     toast.success(`vCard für ${contact.firstName} ${contact.lastName} exportiert`)
   }
 
+  const handleDuplicate = async (contact: Contact) => {
+    await createContactMutation.mutateAsync(
+      uiFormToCreateRequest({ ...contact, firstName: `${contact.firstName} (Kopie)`, isFavorite: false })
+    )
+    toast.success('Kontakt dupliziert')
+  }
+
   const getContactActions = (c: Contact): ActionItem[] => [
     {
       label: 'Bearbeiten',
@@ -167,10 +191,7 @@ export default function KontaktePage() {
     {
       label: 'Duplizieren',
       icon: Copy,
-      onClick: () => {
-        duplicateContact(c.id)
-        toast.success('Kontakt dupliziert')
-      },
+      onClick: () => handleDuplicate(c),
     },
     {
       label: c.isFavorite ? 'Aus Favoriten' : 'Favorisieren',
@@ -353,7 +374,7 @@ export default function KontaktePage() {
 
         {/* Sort indicator */}
         <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border-muted text-xs text-muted-foreground">
-          <span>{filtered.length} Kontakte</span>
+          <span>{isLoading ? '…' : filtered.length} Kontakte</span>
           <span>·</span>
           <span>
             Sortiert nach {sortField === 'name' ? 'Name' : sortField === 'company' ? 'Firma' : 'Letzter Kontakt'}
@@ -362,7 +383,21 @@ export default function KontaktePage() {
 
         {/* List */}
         <div className="flex-1 overflow-y-auto">
-          {filtered.map((contact) => (
+          {isLoading && (
+            <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Kontakte werden geladen…</span>
+            </div>
+          )}
+
+          {isError && !isLoading && (
+            <div className="flex flex-col items-center justify-center py-16 gap-2">
+              <p className="text-sm text-destructive">Backend nicht erreichbar.</p>
+              <p className="text-xs text-muted-foreground">Bitte Gateway starten: <code>make run-gateway</code></p>
+            </div>
+          )}
+
+          {!isLoading && !isError && filtered.map((contact) => (
             <div
               key={contact.id}
               className={`group flex w-full items-center gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer ${
@@ -395,7 +430,7 @@ export default function KontaktePage() {
             </div>
           ))}
 
-          {filtered.length === 0 && (
+          {!isLoading && !isError && filtered.length === 0 && (
             <EmptyState
               icon={Users}
               title="Keine Kontakte gefunden"
@@ -475,10 +510,13 @@ export default function KontaktePage() {
       <ImportContactsDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        onImport={(data) => {
-          const count = bulkAddContacts(data)
-          toast.success(`${count} Kontakte importiert`)
-          return count
+        onImport={async (data) => {
+          const results = await Promise.allSettled(
+            data.map((c) => createContactMutation.mutateAsync(uiFormToCreateRequest(c as Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>)))
+          )
+          const succeeded = results.filter((r) => r.status === 'fulfilled').length
+          toast.success(`${succeeded} Kontakte importiert`)
+          return succeeded
         }}
       />
 

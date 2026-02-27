@@ -14,7 +14,9 @@ import {
   Search,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useContactsStore, type Contact } from '@/stores/contacts'
+import type { Contact } from '@/stores/contacts'
+import { useContacts } from '@/api/hooks/useContacts'
+import { backendContactToUI } from './adapters'
 import {
   Dialog,
   DialogContent,
@@ -98,7 +100,8 @@ export function DuplicateDetectionDialog({
   onOpenChange,
   targetContact,
 }: DuplicateDetectionDialogProps) {
-  const contacts = useContactsStore((s) => s.contacts)
+  const { data } = useContacts()
+  const contacts = (data?.contacts ?? []).map(backendContactToUI)
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
   const [mergeSelections, setMergeSelections] = useState<MergeSelections>({})
   const [step, setStep] = useState<'list' | 'merge'>('list')

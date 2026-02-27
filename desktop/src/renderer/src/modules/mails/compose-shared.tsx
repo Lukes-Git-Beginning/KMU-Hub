@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { X } from 'lucide-react'
-import { useContactsStore } from '@/stores/contacts'
+import { useContacts } from '@/api/hooks/useContacts'
+import { backendContactToUI } from '@/modules/kontakte/adapters'
 import { useSettingsStore } from '@/stores/settings'
 
 // ---------------------------------------------------------------------------
@@ -21,9 +22,10 @@ export function useEmailSignature(): string {
   return sig || FALLBACK_SIGNATURE
 }
 
-/** Contact suggestions from CRM contacts store */
+/** Contact suggestions from CRM backend via React Query */
 export function useContactSuggestions(): ContactSuggestion[] {
-  const contacts = useContactsStore((s) => s.contacts)
+  const { data } = useContacts()
+  const contacts = useMemo(() => (data?.contacts ?? []).map(backendContactToUI), [data])
   return useMemo(
     () =>
       contacts

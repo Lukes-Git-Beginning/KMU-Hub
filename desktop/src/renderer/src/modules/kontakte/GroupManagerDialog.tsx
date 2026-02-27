@@ -21,7 +21,7 @@ const GROUP_COLORS = [
 ]
 
 export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogProps) {
-  const { groups, contacts, addGroup, updateGroup, deleteGroup } = useContactsStore()
+  const { groups, addGroup, updateGroup, deleteGroup } = useContactsStore()
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -69,9 +69,7 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
         <div className="space-y-3 py-2">
           {/* Existing groups */}
           {groups.map((group) => {
-            const memberCount = group.contactIds.filter((id) =>
-              contacts.some((c) => c.id === id)
-            ).length
+            const memberCount = group.contactIds.length
 
             if (editingId === group.id) {
               return (
