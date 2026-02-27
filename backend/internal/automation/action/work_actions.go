@@ -33,7 +33,7 @@ type createTaskConfig struct {
 
 func (a *CreateTaskAction) Execute(ctx context.Context, config json.RawMessage, env map[string]any) (ActionResult, error) {
 	if a.client == nil {
-		return ActionResult{Success: false, Error: "Work service unavailable"}, fmt.Errorf("Work gRPC client is nil")
+		return ActionResult{Success: false, Error: "work service unavailable"}, fmt.Errorf("work gRPC client is nil")
 	}
 
 	var cfg createTaskConfig

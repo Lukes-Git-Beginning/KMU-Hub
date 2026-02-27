@@ -686,7 +686,7 @@ func automationStructToJSON(s *structpb.Struct) json.RawMessage {
 }
 
 func automationJSONToStruct(data json.RawMessage) *structpb.Struct {
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return nil
 	}
 	s := &structpb.Struct{}

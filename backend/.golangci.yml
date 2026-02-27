@@ -19,6 +19,7 @@ linters:
         - (io.Closer).Close
         - (net/http.ResponseWriter).Write
         - (*encoding/json.Encoder).Encode
+        - fmt.Fprintf
     gosec:
       excludes:
         - G404
@@ -42,10 +43,16 @@ linters:
       - linters:
           - staticcheck
         text: "QF1003"   # tagged switch suggestion — style only
+      - linters:
+          - errcheck
+        source: "^\\s+defer\\s"   # deferred close/rollback errors intentionally ignored
 
 formatters:
   enable:
     - goimports
+  exclusions:
+    paths:
+      - internal/models   # struct field alignment managed manually
   settings:
     goimports:
       local-prefixes:

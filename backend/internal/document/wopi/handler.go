@@ -95,7 +95,7 @@ func (h *Handler) CheckFileInfo(w http.ResponseWriter, r *http.Request, fileIDSt
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-WOPI-ServerVersion", WOPIServerVersion)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(info)
+	_ = json.NewEncoder(w).Encode(info)
 }
 
 // GetFile handles GET /wopi/files/{file_id}/contents

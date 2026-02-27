@@ -28,7 +28,7 @@ func NewRuntime(ctx context.Context) (*Runtime, error) {
 
 	// Instantiate WASI for basic I/O
 	if _, err := wasi_snapshot_preview1.Instantiate(ctx, engine); err != nil {
-		engine.Close(ctx)
+		_ = engine.Close(ctx)
 		return nil, fmt.Errorf("instantiate wasi: %w", err)
 	}
 
