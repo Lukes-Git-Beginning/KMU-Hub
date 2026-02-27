@@ -173,15 +173,6 @@ type updatePresenceConfigHTTPRequest struct {
 	AwayTimeoutSeconds int32 `json:"away_timeout_seconds"`
 }
 
-type toggleReactionRequest struct {
-	MessageID string `json:"message_id"`
-	Emoji     string `json:"emoji"`
-}
-
-type reactionSummaryRequest struct {
-	MessageIDs []string `json:"message_ids"`
-}
-
 // ============================================================================
 // Call Handlers
 // ============================================================================

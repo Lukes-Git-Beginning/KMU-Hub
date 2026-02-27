@@ -675,7 +675,7 @@ func parseExecutionStatus(s string) automationv1.ExecutionStatus {
 }
 
 func rawJSONToAutomationStruct(data json.RawMessage) (*structpb.Struct, error) {
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return nil, nil
 	}
 	s := &structpb.Struct{}

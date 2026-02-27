@@ -9176,6 +9176,23 @@ components:
         type: string
         format: uuid
 
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    page_size:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
   schemas:
     UserInfo:
       type: object

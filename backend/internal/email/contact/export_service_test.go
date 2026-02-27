@@ -160,7 +160,6 @@ func TestExportVCard_RoundTrip(t *testing.T) {
 	provider.contacts[email] = c
 
 	exportSvc := NewExportService(provider, nil)
-	importSvc := NewImportService(newMockProvider(), nil)
 
 	// Export
 	data, err := exportSvc.ExportVCard(context.Background(), []uuid.UUID{c.ID})
@@ -170,7 +169,7 @@ func TestExportVCard_RoundTrip(t *testing.T) {
 
 	// Import
 	importProvider := newMockProvider()
-	importSvc = NewImportService(importProvider, nil)
+	importSvc := NewImportService(importProvider, nil)
 
 	result, err := importSvc.ImportVCard(context.Background(), strings.NewReader(string(data)), VisibilityShared, uuid.New(), false)
 	if err != nil {

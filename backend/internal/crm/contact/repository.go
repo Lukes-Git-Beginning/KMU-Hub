@@ -35,6 +35,10 @@ type Repository interface {
 	IsInUse(ctx context.Context, id uuid.UUID) (bool, error)
 	CompanyExists(ctx context.Context, companyID uuid.UUID) (bool, error)
 	TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error)
+
+	// Duplicate detection
+	FindDuplicateCandidates(ctx context.Context, contactID uuid.UUID) ([]*DuplicateCandidate, error)
+	MergeInto(ctx context.Context, primaryID, duplicateID uuid.UUID) error
 }
 
 // ListFilter contains filtering options for listing contacts

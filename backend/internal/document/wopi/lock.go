@@ -3,13 +3,9 @@ package wopi
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// Lock expiry duration (30 minutes per WOPI spec).
-const lockExpiry = 30 * time.Minute
 
 // Errors for WOPI lock operations.
 var (

@@ -39,6 +39,9 @@ const SecurityAdminPage = lazy(() => import('@/modules/security/SecurityAdminPag
 // CalDAV admin page
 const CalDAVAdminPage = lazy(() => import('@/modules/admin/CalDAVAdminPage'))
 
+// Plugin admin page
+const PluginListPage = lazy(() => import('@/modules/admin/plugins/PluginListPage'))
+
 // New module pages from design integration (mock data, Zustand stores)
 const KontaktePage = lazy(() => import('@/modules/kontakte/KontaktePage'))
 const DokumentePage = lazy(() => import('@/modules/dokumente/DokumentePage'))
@@ -198,6 +201,9 @@ const router = createHashRouter([
 
       // CalDAV admin
       { path: 'admin/caldav', element: lazyRoute(CalDAVAdminPage) },
+
+      // Plugin admin
+      { path: 'admin/plugins', element: lazyRoute(PluginListPage) },
 
       // New modules from design integration
       { path: 'kontakte', element: lazyRoute(KontaktePage) },

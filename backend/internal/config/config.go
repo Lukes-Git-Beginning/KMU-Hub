@@ -33,6 +33,8 @@ type Config struct {
 	BizGRPCAddress          string `env:"BIZ_GRPC_ADDRESS,default=localhost:50058"`
 	AutomationGRPCPort      string `env:"AUTOMATION_GRPC_PORT,default=:50059"`
 	AutomationGRPCAddress   string `env:"AUTOMATION_GRPC_ADDRESS,default=localhost:50059"`
+	PluginGRPCPort          string `env:"PLUGIN_GRPC_PORT,default=:50060"`
+	PluginGRPCAddress       string `env:"PLUGIN_GRPC_ADDRESS,default=localhost:50060"`
 	GatewayHTTPPort          string `env:"GATEWAY_HTTP_PORT,default=:8080"`
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
@@ -49,6 +51,7 @@ type Config struct {
 	DocumentHealthPort     string `env:"DOCUMENT_HEALTH_PORT,default=:9097"`
 	BizHealthPort          string `env:"BIZ_HEALTH_PORT,default=:9098"`
 	AutomationHealthPort   string `env:"AUTOMATION_HEALTH_PORT,default=:9099"`
+	PluginHealthPort       string `env:"PLUGIN_HEALTH_PORT,default=:9100"`
 
 	// LiveKit (Video calls -- optional, feature-flagged)
 	LiveKitAPIKey    string `env:"LIVEKIT_API_KEY,default="`
@@ -69,6 +72,21 @@ type Config struct {
 
 	// CalDAV/CardDAV (external client sync)
 	CalDAVEnabled bool `env:"CALDAV_ENABLED,default=false"`
+
+	// Bexio Integration (optional)
+	BexioClientID     string `env:"BEXIO_CLIENT_ID,default="`
+	BexioClientSecret string `env:"BEXIO_CLIENT_SECRET,default="`
+	BexioRedirectURL  string `env:"BEXIO_REDIRECT_URL,default="`
+
+	// Lexware Office Integration (optional)
+	LexwareAPIBaseURL string `env:"LEXWARE_API_BASE_URL,default=https://api.lexware.io"`
+
+	// DATEV API Integration (optional)
+	DatevClientID     string `env:"DATEV_CLIENT_ID,default="`
+	DatevClientSecret string `env:"DATEV_CLIENT_SECRET,default="`
+	DatevTokenURL     string `env:"DATEV_TOKEN_URL,default=https://login.datev.de/openidconnect/token"`
+	DatevAuthURL      string `env:"DATEV_AUTH_URL,default=https://login.datev.de/openidconnect/authorize"`
+	DatevAPIBaseURL   string `env:"DATEV_API_BASE_URL,default=https://accounting-documents.api.datev.de"`
 
 	// MinIO (S3-compatible file storage)
 	MinIOEndpoint   string `env:"MINIO_ENDPOINT,default=localhost:9000"`

@@ -1682,17 +1682,6 @@ func invoiceStatusToProto(s string) bizv1.InvoiceStatus {
 	}
 }
 
-func creditNoteStatusFromProto(s bizv1.CreditNoteStatus) string {
-	switch s {
-	case bizv1.CreditNoteStatus_CREDIT_DRAFT:
-		return models.CreditNoteStatusDraft
-	case bizv1.CreditNoteStatus_CREDIT_SENT:
-		return models.CreditNoteStatusSent
-	default:
-		return ""
-	}
-}
-
 func creditNoteStatusToProto(s string) bizv1.CreditNoteStatus {
 	switch s {
 	case models.CreditNoteStatusDraft:

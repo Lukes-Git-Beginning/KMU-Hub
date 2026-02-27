@@ -1201,7 +1201,7 @@ func parseTeamMemberRole(role string) inboxv1.TeamMemberRole {
 
 // rawJSONToStruct converts raw JSON bytes into a protobuf Struct.
 func rawJSONToStruct(data json.RawMessage) (*structpb.Struct, error) {
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		return nil, nil
 	}
 	s := &structpb.Struct{}

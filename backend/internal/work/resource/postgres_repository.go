@@ -94,7 +94,6 @@ func (r *PostgresRepository) List(ctx context.Context, filters ResourceFilters) 
 	if len(filters.Tags) > 0 {
 		conditions = append(conditions, fmt.Sprintf("r.id IN (SELECT resource_id FROM resource_tags WHERE tag = ANY($%d))", argN))
 		args = append(args, filters.Tags)
-		argN++
 	}
 
 	where := ""
@@ -325,7 +324,6 @@ func (r *PostgresRepository) FindAvailableResources(ctx context.Context, start, 
 	if len(filters.Tags) > 0 {
 		conditions = append(conditions, fmt.Sprintf("r.id IN (SELECT resource_id FROM resource_tags WHERE tag = ANY($%d))", argN))
 		args = append(args, filters.Tags)
-		argN++
 	}
 
 	where := "WHERE " + strings.Join(conditions, " AND ")

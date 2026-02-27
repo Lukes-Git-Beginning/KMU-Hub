@@ -64,12 +64,6 @@ func (m *mockContactProvider) ListVisible(_ context.Context, _ uuid.UUID, _ bool
 	return result, nil
 }
 
-func testLogger() *testLogHandler {
-	return &testLogHandler{}
-}
-
-type testLogHandler struct{}
-
 func TestPreviewCSV_CommaDelimiter(t *testing.T) {
 	csv := "Vorname,Nachname,E-Mail,Telefon\nMax,Mustermann,max@example.com,+49123\nErika,Muster,erika@example.com,+49456\n"
 	svc := NewImportService(newMockProvider(), nil)

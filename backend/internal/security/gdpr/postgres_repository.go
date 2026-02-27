@@ -72,7 +72,6 @@ func (r *PostgresRepository) ListExportRequests(ctx context.Context, userID uuid
 	if status != "" {
 		query += fmt.Sprintf(" AND status = $%d", argIdx)
 		args = append(args, status)
-		argIdx++
 	}
 
 	query += " ORDER BY requested_at DESC"

@@ -43,7 +43,6 @@ func (r *PostgresAbsenceRepo) GetAbsenceCalendar(ctx context.Context, filter Abs
 	if filter.Department != "" {
 		conditions = append(conditions, fmt.Sprintf("ep.department = $%d", argNum))
 		args = append(args, filter.Department)
-		argNum++
 	}
 
 	whereClause := "WHERE " + strings.Join(conditions, " AND ")

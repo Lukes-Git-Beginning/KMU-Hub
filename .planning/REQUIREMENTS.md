@@ -146,12 +146,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **INT-07**: Admin can connect to Bexio API via OAuth2 authentication
 - [ ] **INT-08**: Contacts sync bidirectionally between KMU Hub CRM and Bexio
 - [ ] **INT-09**: Invoices sync from KMU Hub Finance to Bexio accounting
-- [ ] **INT-10**: Admin can connect to Abacus ERP via API key or OAuth2 authentication
-- [ ] **INT-11**: Contacts sync bidirectionally between KMU Hub CRM and Abacus
-- [ ] **INT-12**: Invoices/financial documents sync from KMU Hub Finance to Abacus
-- [ ] **INT-13**: Admin can connect to Run my Accounts API via authentication
-- [ ] **INT-14**: Contacts sync bidirectionally between KMU Hub CRM and Run my Accounts
-- [ ] **INT-15**: Financial documents sync from KMU Hub Finance to Run my Accounts
+- [ ] **INT-10**: Admin can connect to Lexware Office via API key authentication
+- [ ] **INT-11**: Contacts sync bidirectionally between KMU Hub CRM and Lexware Office
+- [ ] **INT-12**: Invoices and quotes push from KMU Hub Finance to Lexware Office
+- [ ] **INT-13**: Lexware webhooks trigger real-time sync updates for contacts and invoice status changes
+- [ ] **INT-14**: Admin can connect to DATEV API via OAuth2 and upload Buchungsstapel/Belegbilder
+- [ ] **INT-15**: DATEV integration gracefully falls back to manual CSV export when no API credentials configured
 
 ### Automation Engine
 
@@ -248,7 +248,7 @@ Deferred to future release. Tracked but not in current roadmap.
 ### External Integrations
 
 - **INT-16**: Generic webhook/REST connector for arbitrary external services
-- **INT-17**: DATEV Unternehmen Online direct API integration (beyond CSV export)
+- **INT-17**: DATEV Unternehmen Online direct API integration (enhanced beyond Phase 19 basic upload)
 
 ### General
 
@@ -316,27 +316,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DESK-02 | Phase 5 | Complete |
 | DESK-03 | Phase 5 | Complete |
 | DESK-04 | Phase 5 | Complete |
-| PM-01 | Phase 6 | Pending |
-| PM-02 | Phase 6 | Pending |
-| PM-03 | Phase 6 | Pending |
-| PM-04 | Phase 6 | Pending |
-| PM-05 | Phase 6 | Pending |
-| PM-06 | Phase 6 | Pending |
-| PM-07 | Phase 6 | Pending |
-| PM-08 | Phase 6 | Pending |
-| PM-09 | Phase 6 | Pending |
-| PM-10 | Phase 6 | Pending |
-| PM-11 | Phase 6 | Pending |
-| PM-15 | Phase 6 | Pending |
-| PM-16 | Phase 6 | Pending |
-| PM-17 | Phase 6 | Pending |
-| CAL-01 | Phase 7 | Pending |
-| CAL-02 | Phase 7 | Pending |
-| CAL-03 | Phase 7 | Pending |
-| CAL-04 | Phase 7 | Pending |
-| CAL-05 | Phase 7 | Pending |
-| CAL-06 | Phase 7 | Pending |
-| CAL-07 | Phase 7 | Pending |
+| PM-01 | Phase 6 | Complete |
+| PM-02 | Phase 6 | Complete |
+| PM-03 | Phase 6 | Complete |
+| PM-04 | Phase 6 | Complete |
+| PM-05 | Phase 6 | Complete |
+| PM-06 | Phase 6 | Complete |
+| PM-07 | Phase 6 | Complete |
+| PM-08 | Phase 6 | Complete |
+| PM-09 | Phase 6 | Complete |
+| PM-10 | Phase 6 | Complete |
+| PM-11 | Phase 6 | Complete |
+| PM-15 | Phase 6 | Complete |
+| PM-16 | Phase 6 | Complete |
+| PM-17 | Phase 6 | Complete |
+| CAL-01 | Phase 7 | Complete |
+| CAL-02 | Phase 7 | Complete |
+| CAL-03 | Phase 7 | Complete |
+| CAL-04 | Phase 7 | Complete |
+| CAL-05 | Phase 7 | Complete |
+| CAL-06 | Phase 7 | Complete |
+| CAL-07 | Phase 7 | Complete |
 | VID-01 | Phase 8 | Complete |
 | VID-02 | Phase 8 | Complete |
 | VID-03 | Phase 8 | Complete |
@@ -351,39 +351,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEET-05 | Phase 8 | Complete |
 | CHAT-01 | Phase 8 | Complete |
 | CHAT-02 | Phase 8 | Complete |
-| SEC-01 | Phase 9 | Pending |
-| SEC-02 | Phase 9 | Pending |
-| SEC-03 | Phase 9 | Pending |
-| SEC-04 | Phase 9 | Pending |
-| SEC-05 | Phase 9 | Pending |
-| SEC-06 | Phase 9 | Pending |
-| SEC-07 | Phase 9 | Pending |
-| SEC-08 | Phase 9 | Pending |
-| SEC-09 | Phase 9 | Pending |
-| SEC-10 | Phase 9 | Pending |
-| SEC-11 | Phase 9 | Pending |
-| MAIL-01 | Phase 10 | Pending |
-| MAIL-02 | Phase 10 | Pending |
-| MAIL-03 | Phase 10 | Pending |
-| MAIL-04 | Phase 10 | Pending |
-| MAIL-05 | Phase 10 | Pending |
-| MAIL-06 | Phase 10 | Pending |
-| MAIL-07 | Phase 10 | Pending |
-| MAIL-08 | Phase 10 | Pending |
-| MAIL-09 | Phase 10 | Pending |
-| CRM-01 | Phase 10 | Pending |
-| CRM-02 | Phase 10 | Pending |
-| CRM-03 | Phase 10 | Pending |
-| DOC-01 | Phase 11 | Pending |
-| DOC-02 | Phase 11 | Pending |
-| DOC-03 | Phase 11 | Pending |
-| DOC-04 | Phase 11 | Pending |
-| DOC-05 | Phase 11 | Pending |
-| DOC-06 | Phase 11 | Pending |
-| DOC-07 | Phase 11 | Pending |
-| DOC-08 | Phase 11 | Pending |
-| DOC-09 | Phase 11 | Pending |
-| DOC-10 | Phase 11 | Pending |
+| SEC-01 | Phase 9 | Complete |
+| SEC-02 | Phase 9 | Complete |
+| SEC-03 | Phase 9 | Complete |
+| SEC-04 | Phase 9 | Complete |
+| SEC-05 | Phase 9 | Complete |
+| SEC-06 | Phase 9 | Complete |
+| SEC-07 | Phase 9 | Complete |
+| SEC-08 | Phase 9 | Complete |
+| SEC-09 | Phase 9 | Complete |
+| SEC-10 | Phase 9 | Complete |
+| SEC-11 | Phase 9 | Complete |
+| MAIL-01 | Phase 10 | Complete |
+| MAIL-02 | Phase 10 | Complete |
+| MAIL-03 | Phase 10 | Complete |
+| MAIL-04 | Phase 10 | Complete |
+| MAIL-05 | Phase 10 | Complete |
+| MAIL-06 | Phase 10 | Complete |
+| MAIL-07 | Phase 10 | Complete |
+| MAIL-08 | Phase 10 | Complete |
+| MAIL-09 | Phase 10 | Complete |
+| CRM-01 | Phase 10 | Complete |
+| CRM-02 | Phase 10 | Complete |
+| CRM-03 | Phase 10 | Complete |
+| DOC-01 | Phase 11 | Complete |
+| DOC-02 | Phase 11 | Complete |
+| DOC-03 | Phase 11 | Complete |
+| DOC-04 | Phase 11 | Complete |
+| DOC-05 | Phase 11 | Complete |
+| DOC-06 | Phase 11 | Complete |
+| DOC-07 | Phase 11 | Complete |
+| DOC-08 | Phase 11 | Complete |
+| DOC-09 | Phase 11 | Complete |
+| DOC-10 | Phase 11 | Complete |
 | FIN-01 | Phase 12 | Complete |
 | FIN-02 | Phase 12 | Complete |
 | FIN-03 | Phase 12 | Complete |
@@ -404,28 +404,28 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INT-04 | Phase 17 | Complete |
 | INT-05 | Phase 17 | Complete |
 | INT-06 | Phase 17 | Complete |
-| INT-07 | Phase 18 | Pending |
-| INT-08 | Phase 18 | Pending |
-| INT-09 | Phase 18 | Pending |
-| INT-10 | Phase 19 | Pending |
-| INT-11 | Phase 19 | Pending |
-| INT-12 | Phase 19 | Pending |
-| INT-13 | Phase 19 | Pending |
-| INT-14 | Phase 19 | Pending |
-| INT-15 | Phase 19 | Pending |
+| INT-07 | Phase 18 | Complete |
+| INT-08 | Phase 18 | Complete |
+| INT-09 | Phase 18 | Complete |
+| INT-10 | Phase 19 | Complete |
+| INT-11 | Phase 19 | Complete |
+| INT-12 | Phase 19 | Complete |
+| INT-13 | Phase 19 | Complete |
+| INT-14 | Phase 19 | Complete |
+| INT-15 | Phase 19 | Complete |
 | AUTO-01 | Phase 16 | Complete |
 | AUTO-02 | Phase 16 | Complete |
 | AUTO-03 | Phase 16 | Complete |
 | AUTO-04 | Phase 16 | Complete |
 | AUTO-05 | Phase 16 | Complete |
 | AUTO-06 | Phase 16 | Complete |
-| PLUG-01 | Phase 20 | Pending |
-| PLUG-02 | Phase 20 | Pending |
-| PLUG-03 | Phase 20 | Pending |
-| PLUG-04 | Phase 20 | Pending |
-| PLUG-05 | Phase 20 | Pending |
-| PLUG-06 | Phase 20 | Pending |
-| PLUG-07 | Phase 20 | Pending |
+| PLUG-01 | Phase 20 | Complete |
+| PLUG-02 | Phase 20 | Complete |
+| PLUG-03 | Phase 20 | Complete |
+| PLUG-04 | Phase 20 | Complete |
+| PLUG-05 | Phase 20 | Complete |
+| PLUG-06 | Phase 20 | Complete |
+| PLUG-07 | Phase 20 | Complete |
 
 **Coverage:**
 - v1 requirements: 117 total
@@ -434,4 +434,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-11 after Phase 8 completion (VID-01..07, MEET-01..05, CHAT-01..02 marked Complete)*
+*Last updated: 2026-02-26 after all 20 phases completed (all 117 requirements Complete)*

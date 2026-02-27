@@ -138,8 +138,6 @@ func sampleDEHolidays() []NagerHoliday {
 	}
 }
 
-func ptrStr(s string) *string { return &s }
-
 // --- Tests ---
 
 func TestSeedHolidays(t *testing.T) {

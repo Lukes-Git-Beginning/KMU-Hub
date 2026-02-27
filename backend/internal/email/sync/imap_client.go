@@ -136,7 +136,7 @@ func (c *IMAPClient) FetchHeaders(uidSet imap.UIDSet) ([]*MessageEnvelope, error
 		env := &MessageEnvelope{
 			UID:   uint32(msg.UID),
 			Flags: msg.Flags,
-			Size:  int64(msg.RFC822Size),
+			Size:  msg.RFC822Size,
 		}
 
 		if msg.Envelope != nil {

@@ -67,6 +67,7 @@ func main() {
 	registry.Register("document", cfg.DocumentGRPCAddress)
 	registry.Register("biz", cfg.BizGRPCAddress)
 	registry.Register("automation", cfg.AutomationGRPCAddress)
+	registry.Register("plugin", cfg.PluginGRPCAddress)
 	defer registry.Close()
 
 	// Database for file upload handler (direct access, not via gRPC)
@@ -77,8 +78,9 @@ func main() {
 	}
 	defer pool.Close()
 
-	// Initialize MinIO file store for upload handler
-	fileStore, err := file.NewMinIOStore(
+	// Initialize MinIO file store for upload handler (best-effort)
+	var fileStore file.FileStore
+	minioStore, err := file.NewMinIOStore(
 		cfg.MinIOEndpoint,
 		cfg.MinIOAccessKey,
 		cfg.MinIOSecretKey,
@@ -86,8 +88,10 @@ func main() {
 		cfg.MinIOUseSSL,
 	)
 	if err != nil {
-		slog.Error("failed to connect to minio", "error", err)
-		os.Exit(1)
+		slog.Warn("minio unavailable, file upload and WOPI disabled", "error", err)
+		fileStore = file.NewUnavailableStore()
+	} else {
+		fileStore = minioStore
 	}
 
 	fileRepo := file.NewPostgresRepository(pool)
@@ -131,6 +135,12 @@ func main() {
 	dashboardRepo := gateway.NewPostgresDashboardRepository(pool)
 	dashboardService := gateway.NewDashboardService(dashboardRepo)
 
+	// CRM extension services (direct DB access: duplicates, timeline, consent)
+	crmExt := gateway.NewCRMExtRoutes(pool)
+
+	// Biz extension services (direct DB access: time-to-invoice)
+	bizExt := gateway.NewBizExtRoutes(pool)
+
 	// WOPI handler for OnlyOffice collaborative editing
 	wopiTokenService := wopi.NewTokenService(cfg.WOPIJWTSecret)
 	wopiLockService := wopi.NewLockService(pool)
@@ -139,7 +149,7 @@ func main() {
 
 	registrars := []gateway.RouteRegistrar{
 		gateway.NewAuthRoutes(registry),
-		gateway.NewCRMRoutes(registry),
+		gateway.NewCRMRoutes(registry, crmExt),
 		gateway.NewChatRoutes(registry),
 		gateway.NewNotificationRoutes(registry),
 		gateway.NewWorkRoutes(registry),
@@ -149,9 +159,11 @@ func main() {
 		gateway.NewEmailRoutes(registry),
 		gateway.NewDocumentRoutes(registry),
 		gateway.NewBizRoutes(registry),
-		gateway.NewHRRoutes(registry),
+		gateway.NewBexioRoutes(registry),
+		gateway.NewHRRoutes(registry, bizExt),
 		gateway.NewInboxRoutes(registry),
 		gateway.NewAutomationRoutes(registry),
+		gateway.NewPluginRoutes(registry),
 		gateway.NewGlobalSearchRoutes(registry),
 		gateway.NewDashboardRoutes(dashboardService),
 		gateway.NewHealthRoutes(healthCheckers, registry),

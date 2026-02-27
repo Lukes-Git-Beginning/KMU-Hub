@@ -62,8 +62,7 @@ CREATE TABLE integration_delivery_log (
 );
 
 CREATE INDEX idx_delivery_log_notification ON integration_delivery_log(notification_id);
-CREATE INDEX idx_delivery_log_cleanup ON integration_delivery_log(created_at)
-    WHERE created_at < NOW() - INTERVAL '30 days';
+CREATE INDEX idx_delivery_log_cleanup ON integration_delivery_log(created_at);
 
 -- Link tokens for account linking flow
 CREATE TABLE integration_link_tokens (

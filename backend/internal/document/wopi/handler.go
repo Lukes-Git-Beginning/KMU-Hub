@@ -95,7 +95,7 @@ func (h *Handler) CheckFileInfo(w http.ResponseWriter, r *http.Request, fileIDSt
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-WOPI-ServerVersion", WOPIServerVersion)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(info)
+	_ = json.NewEncoder(w).Encode(info)
 }
 
 // GetFile handles GET /wopi/files/{file_id}/contents
@@ -135,7 +135,7 @@ func (h *Handler) GetFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 	w.Header().Set("X-WOPI-ItemVersion", string(rune(file.CurrentVersion+'0')))
 	w.Header().Set("X-WOPI-ServerVersion", WOPIServerVersion)
 	w.WriteHeader(http.StatusOK)
-	io.Copy(w, reader)
+	_, _ = io.Copy(w, reader)
 }
 
 // PutFile handles POST /wopi/files/{file_id}/contents

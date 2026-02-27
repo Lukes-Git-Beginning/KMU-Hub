@@ -29,7 +29,7 @@ type sendEmailConfig struct {
 
 func (a *SendEmailAction) Execute(ctx context.Context, config json.RawMessage, env map[string]any) (ActionResult, error) {
 	if a.client == nil {
-		return ActionResult{Success: false, Error: "Email service unavailable"}, fmt.Errorf("Email gRPC client is nil")
+		return ActionResult{Success: false, Error: "email service unavailable"}, fmt.Errorf("email gRPC client is nil")
 	}
 
 	var cfg sendEmailConfig

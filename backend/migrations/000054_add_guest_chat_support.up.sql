@@ -17,7 +17,7 @@ CREATE TABLE guest_sessions (
 
 CREATE INDEX idx_guest_sessions_token_hash ON guest_sessions(token_hash);
 CREATE INDEX idx_guest_sessions_channel ON guest_sessions(channel_id);
-CREATE INDEX idx_guest_sessions_active ON guest_sessions(channel_id) WHERE is_active = true AND expires_at > NOW();
+CREATE INDEX idx_guest_sessions_active ON guest_sessions(channel_id) WHERE is_active = true;
 CREATE INDEX idx_guest_sessions_cleanup ON guest_sessions(expires_at) WHERE is_active = true;
 
 -- Per-channel guest chat settings

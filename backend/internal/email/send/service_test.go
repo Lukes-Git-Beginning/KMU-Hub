@@ -13,16 +13,6 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
-// --- Mock AccountProvider ---
-
-type mockAccountProvider struct {
-	creds *Credentials
-}
-
-func (m *mockAccountProvider) GetDecryptedCredentials(_ context.Context, _ uuid.UUID) (*Credentials, error) {
-	return m.creds, nil
-}
-
 // --- Mock MessageCreator ---
 
 type mockMessageCreator struct {
@@ -32,24 +22,6 @@ type mockMessageCreator struct {
 func (m *mockMessageCreator) Create(_ context.Context, msg *models.EmailMessage) error {
 	m.messages = append(m.messages, msg)
 	return nil
-}
-
-// --- Mock SignatureProvider ---
-
-type mockSignatureProvider struct {
-	sigs map[uuid.UUID]*models.EmailSignature
-}
-
-func (m *mockSignatureProvider) GetByID(_ context.Context, id uuid.UUID) (*models.EmailSignature, error) {
-	sig, ok := m.sigs[id]
-	if !ok {
-		return nil, nil
-	}
-	return sig, nil
-}
-
-func (m *mockSignatureProvider) GetDefault(_ context.Context, _ uuid.UUID) (*models.EmailSignature, error) {
-	return nil, nil
 }
 
 // --- Tests ---

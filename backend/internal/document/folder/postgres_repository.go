@@ -69,7 +69,6 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	if filter.SpaceID != nil {
 		conditions = append(conditions, fmt.Sprintf("f.space_id = $%d", argNum))
 		args = append(args, *filter.SpaceID)
-		argNum++
 	}
 
 	whereClause := ""

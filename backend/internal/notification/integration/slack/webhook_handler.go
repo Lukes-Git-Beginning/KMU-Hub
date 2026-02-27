@@ -295,5 +295,5 @@ func buildResolvedBlocks(originalText, actionTaken, actorName string) []slackapi
 func respondSlashJSON(w http.ResponseWriter, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(payload)
+	_ = json.NewEncoder(w).Encode(payload)
 }

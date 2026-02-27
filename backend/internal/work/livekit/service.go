@@ -65,7 +65,7 @@ func (s *Service) GenerateJoinToken(roomName, userID, displayName string) (strin
 		RoomJoin: true,
 		Room:     roomName,
 	}
-	at.AddGrant(grant).
+	at.SetVideoGrant(grant).
 		SetIdentity(userID).
 		SetName(displayName).
 		SetValidFor(24 * time.Hour)

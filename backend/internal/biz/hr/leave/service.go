@@ -468,10 +468,8 @@ func calculateTotalDays(startDate, endDate time.Time, isHalfDayStart, isHalfDayE
 		// Only subtract for end if it's a different day than start
 		total = total.Sub(decimal.NewFromFloat(0.5))
 	}
-	if isHalfDayStart && isHalfDayEnd && startDate.Equal(endDate) {
-		// Same day: both half-day flags means no additional subtraction beyond the one already done
-		// e.g., a single day with half-day start = 0.5 days (already handled above)
-	}
+	// Same day with both half-day flags: no additional subtraction needed
+	// (already handled by the isHalfDayStart block above, which yields 0.5 days)
 
 	// Ensure minimum 0.5
 	halfDay := decimal.NewFromFloat(0.5)

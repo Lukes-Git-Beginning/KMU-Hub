@@ -155,7 +155,7 @@ func (b *MIMEBuilder) buildWithAttachments(buf *bytes.Buffer, input MIMEInput, h
 				}
 			}
 		}
-		innerRelated.Close()
+		_ = innerRelated.Close()
 	} else {
 		altWriter := multipart.NewWriter(nil) // just for boundary
 		bodyHeader.Set("Content-Type", fmt.Sprintf("multipart/alternative; boundary=%s", altWriter.Boundary()))
@@ -171,7 +171,7 @@ func (b *MIMEBuilder) buildWithAttachments(buf *bytes.Buffer, input MIMEInput, h
 		if err := writeHTMLPart(innerAlt, input.BodyHTML); err != nil {
 			return nil, err
 		}
-		innerAlt.Close()
+		_ = innerAlt.Close()
 	}
 
 	// Attachment parts

@@ -349,6 +349,15 @@ services:
       BIZ_GRPC_PORT: ":50058"
       BIZ_HEALTH_PORT: ":9098"
       CRM_GRPC_ADDRESS: crm:50052
+      VAULT_MASTER_SECRET: docker-dev-vault-secret-minimum-32-characters-long
+      # Lexware Office (optional -- integration disabled when not set)
+      LEXWARE_API_BASE_URL: "https://api.lexoffice.io"
+      # DATEV API (optional -- requires partner registration, integration disabled when not set)
+      DATEV_CLIENT_ID: ""
+      DATEV_CLIENT_SECRET: ""
+      DATEV_TOKEN_URL: "https://login.datev.de/openidconnect/token"
+      DATEV_AUTH_URL: "https://login.datev.de/openidconnect/authorize"
+      DATEV_API_BASE_URL: "https://accounting-documents.api.datev.de"
     ports:
       - "50058:50058"
       - "9098:9098"
@@ -386,6 +395,31 @@ services:
       - "9099:9099"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9099/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  plugin:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.plugin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://kmuhub:kmuhub_dev@postgres:5432/kmuhub?sslmode=disable
+      JWT_SECRET: docker-dev-secret-minimum-32-characters
+      PLUGIN_GRPC_PORT: ":50060"
+      PLUGIN_HEALTH_PORT: ":9100"
+    ports:
+      - "50060:50060"
+      - "9100:9100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider --tries=1 http://localhost:9100/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 15
@@ -433,6 +467,8 @@ services:
         condition: service_started
       automation:
         condition: service_started
+      plugin:
+        condition: service_started
       livekit:
         condition: service_healthy
       minio:
@@ -465,6 +501,8 @@ services:
       BIZ_GRPC_PORT: ":50058"
       AUTOMATION_GRPC_ADDRESS: automation:50059
       AUTOMATION_GRPC_PORT: ":50059"
+      PLUGIN_GRPC_ADDRESS: plugin:50060
+      PLUGIN_GRPC_PORT: ":50060"
       WOPI_JWT_SECRET: docker-dev-wopi-secret-minimum-32-characters
       GATEWAY_HTTP_PORT: ":8080"
       METRICS_PORT: ":9090"

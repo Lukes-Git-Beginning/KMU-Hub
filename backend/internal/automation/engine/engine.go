@@ -119,7 +119,7 @@ func (we *WorkflowEngine) Execute(ctx context.Context, auto models.Automation, e
 
 	// Parse conditions
 	var condConfig models.ConditionConfig
-	if auto.Conditions != nil && len(auto.Conditions) > 0 {
+	if len(auto.Conditions) > 0 {
 		if err := json.Unmarshal(auto.Conditions, &condConfig); err != nil {
 			we.logger.LogConditionError(ctx, executionID, err)
 			return fmt.Errorf("unmarshal conditions: %w", err)

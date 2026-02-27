@@ -5,24 +5,25 @@
 See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Every employee completes their entire workday without opening another program
-**Current focus:** Phase 17.5 (Gast-Chat / Kundenportal) -- COMPLETE
-**Recent strategy changes:** Phases 11-20 reordered, buchhaltung→finanzen rename, payroll anti-feature confirmed, Collabora replaces OnlyOffice, Deutschland-First (EUR, de-DE)
+**Current focus:** Phase 20 (Plugin System + Industry Templates) -- COMPLETE
+**Recent strategy changes:** Phase 19 pivoted from Abacus+RmA to DATEV API + Lexware Office (full DACH coverage: Bexio CH + Lexware DE + DATEV DE/AT)
 
 ## Current Position
 
-Phase: 17.5 of 20 (Gast-Chat / Kundenportal) -- COMPLETE
-Plan: 3 of 3 complete
-Status: All plans complete. Phase 17.5 DONE.
-Last activity: 2026-02-25 -- Phase 17.5-03 executed
+Phase: 20 of 20 (Plugin System + Industry Templates) -- COMPLETE
+Plan: 4 of 4 complete
+Status: Phase 20 COMPLETE. All plans implemented.
+Last activity: 2026-02-26 -- Phase 20 complete (all 20 phases done!)
+Next: Beta release preparation
 
-Progress: [█████████████████████████████████] 100% (93/93 plans across phases 4-17.5)
+Progress: [████████████████████████████████████] 100% (103/103 plans across phases 4-20)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 71
+- Total plans completed: 103
 - Average duration: ~7 minutes
-- Total execution time: ~7h 35min
+- Total execution time: ~11h 30min
 
 **By Phase:**
 
@@ -46,6 +47,9 @@ Progress: [███████████████████████
 | 16 | 3/3 | ~48min | ~16min |
 | 17 | 3/3 | ~16min | ~5min |
 | 17.5 | 3/3 | ~32min | ~11min |
+| 18 | 4/4 | ~65min | ~16min |
+| 19 | 2/2 | ~50min | ~25min |
+| 20 | 4/4 | ~45min | ~11min |
 
 **Recent Trend:**
 - Phases 9-11 (Compliance & Comms milestone) all complete
@@ -56,7 +60,10 @@ Progress: [███████████████████████
 - Phase 16 (Automation Engine) COMPLETE -- all 3 plans done (data foundation + workflow engine + frontend)
 - Phase 17 (Teams & Slack Integration) COMPLETE -- all 3 plans done (data foundation, forwarder + adapters, frontend)
 - Phase 17.5 (Gast-Chat) COMPLETE -- all 3 plans done (data foundation, services+gateway, frontend SPA)
-- 93/93 plans done across Phases 4-17.5
+- Phase 18 (Bexio Integration) COMPLETE -- all 4 plans done (data foundation + sync engine + gRPC/gateway + frontend)
+- Phase 19 (DATEV API + Lexware Office) COMPLETE -- all 2 plans done (backend + frontend, 54 files, 8338 insertions)
+- Phase 20 (Plugin System + Industry Templates) COMPLETE -- all 4 plans done (data foundation, WASM runtime, extension points + gRPC, industry templates)
+- 103/103 plans done across Phases 4-20. ALL PHASES COMPLETE.
 
 *Updated after each plan completion*
 
@@ -433,6 +440,34 @@ Recent decisions affecting current work:
 - [17.5-03]: Graceful degradation: if guest-chat/dist/ doesn't exist, guest chat is simply disabled
 - [17.5-03]: useRef<T | null>(null) pattern for React 19 strict mode compatibility
 
+- [18-01]: VaultService interface in types.go matches vault.Service signature (ctx + createdBy uuid) for direct implementation
+- [18-01]: Token cache uses 30s safety margin before expiry to prevent edge-case token usage during refresh
+- [18-01]: Rate limiter adaptive: starts with defaults (50/10s), adjusts from X-RateLimit-* response headers
+- [18-01]: Client.do() handles 429 with exponential backoff (1s, 2s, 4s) and 401 with single token refresh retry
+- [18-01]: Bexio API quirks: POST for updates (not PATCH), Content-Length:0 for GET, salutation_id 0 = none
+- [18-01]: GetFieldMappings returns nil (not error) when no mapping exists
+- [18-01]: UpdateLastSyncTime uses column name switch (not dynamic SQL) for safety
+- [18-02]: ContactService/InvoiceReader/QuoteReader interfaces in bexio package to avoid circular imports
+- [18-02]: ContactSyncData intermediate struct decouples Bexio API from CRM service
+- [18-02]: Last-write-wins uses bexio_updated_at vs kmuhub_updated_at from entity mapping
+- [18-02]: IntegrationConfigRepo interface for shared integration_configs table (same as Teams/Slack)
+- [18-02]: Scheduler per-tenant goroutines with context cancellation for graceful shutdown
+- [18-02]: Payment poller skips already-paid invoices for efficiency
+- [18-02]: noopEmitter default for EventEmitter (same pattern as invoice/quote services)
+- [18-03]: BexioGRPCServer in internal/server/ (not internal/biz/server/) following existing BizGRPCServer pattern
+- [18-03]: BexioRoutes ServiceName returns "biz" to reuse existing gRPC connection (co-hosted service)
+- [18-03]: OAuth callback route public (no auth middleware), all admin routes use RequireRole("admin")
+- [18-03]: Bexio service optional: only initialized when BEXIO_CLIENT_ID env var is set
+- [18-03]: PostgresIntegrationConfigRepo in bexio package (same table as notification, avoids import cycle)
+- [18-03]: Vault initialized per biz binary for OAuth token storage when VAULT_MASTER_SECRET set
+- [18-03]: Bexio scheduler shutdown before gRPC graceful stop in shutdown sequence
+- [18-04]: bexio-client.ts follows integration-client.ts fetch wrapper pattern (typed fetch + auth + 401 retry)
+- [18-04]: Separate useBexio.ts hooks (not merged into useIntegration.ts) for clean separation
+- [18-04]: BexioSetupWizard 4 steps: OAuth → Sync Config → Field Mapping → Initial Sync
+- [18-04]: BexioSyncDashboard as Dialog (same pattern as Teams/Slack wizards)
+- [18-04]: Field mapping editor compact prop for wizard-embedded vs standalone mode
+- [18-04]: Components in modules/settings/integrations/ with re-exports in components/settings/
+
 ### Pending Todos
 
 - CRUD action buttons are placeholder only -- need proper create/edit/delete dialogs in future plan
@@ -445,7 +480,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-02-25
-Stopped at: Phase 17.5 COMPLETE (all 3 plans done)
+Last session: 2026-02-26
+Stopped at: Phase 20 (Plugin System + Industry Templates) -- COMPLETE (committed 5827ec4)
 Resume file: N/A
-Next: Phase 18 (Bexio Integration) -- needs planning
+Next: Beta release preparation (all 20 phases complete)

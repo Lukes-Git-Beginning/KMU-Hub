@@ -61,7 +61,7 @@ func (rm *RoomManager) GenerateToken(roomName, userID, displayName string) (stri
 		RoomJoin: true,
 		Room:     roomName,
 	}
-	at.AddGrant(grant).
+	at.SetVideoGrant(grant).
 		SetIdentity(userID).
 		SetName(displayName)
 

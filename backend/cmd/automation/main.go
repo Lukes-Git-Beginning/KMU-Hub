@@ -296,7 +296,7 @@ func main() {
 	// Close gRPC client connections
 	for _, conn := range []*grpc.ClientConn{crmConn, workConn, emailConn, bizConn} {
 		if conn != nil {
-			conn.Close()
+			_ = conn.Close()
 		}
 	}
 

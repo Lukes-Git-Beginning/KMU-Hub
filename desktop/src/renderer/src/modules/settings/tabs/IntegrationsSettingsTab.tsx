@@ -1,9 +1,8 @@
 /**
  * Admin Integrations settings tab.
  *
- * Displays platform cards for Teams and Slack (with future placeholders
- * for Bexio and Abacus), setup wizard dialogs, and an account linking
- * section for the current user.
+ * Displays platform cards for Teams, Slack, Bexio, Lexware Office, and DATEV,
+ * setup wizard dialogs, and an account linking section for the current user.
  *
  * All labels in German (Deutschland-First).
  */
@@ -27,7 +26,23 @@ import {
 } from '../integrations/IntegrationCard'
 import { TeamsSetupWizard } from '../integrations/TeamsSetupWizard'
 import { SlackSetupWizard } from '../integrations/SlackSetupWizard'
+import { BexioSetupWizard } from '../integrations/BexioSetupWizard'
+import { BexioSyncDashboard } from '../integrations/BexioSyncDashboard'
+import { LexwareSetupWizard } from '../integrations/LexwareSetupWizard'
+import { LexwareSyncDashboard } from '../integrations/LexwareSyncDashboard'
+import { DatevSettingsPanel } from '../integrations/DatevSettingsPanel'
 import { AccountLinkDialog } from '../integrations/AccountLinkDialog'
+import {
+  useBexioConnectionStatus,
+  useBexioDisconnect,
+} from '@/api/hooks/useBexio'
+import {
+  useLexwareConnectionStatus,
+  useLexwareDisconnect,
+} from '@/api/hooks/useLexware'
+import {
+  useDatevConnectionStatus,
+} from '@/api/hooks/useDatevUpload'
 
 // ---------------------------------------------------------------------------
 // SVG icons for platform logos (inline to avoid external deps)
@@ -70,9 +85,25 @@ export function IntegrationsSettingsTab() {
   const updateTeams = useUpdateIntegrationConfig('teams')
   const updateSlack = useUpdateIntegrationConfig('slack')
 
+  // Bexio connection
+  const { data: bexioConnection } = useBexioConnectionStatus()
+  const bexioDisconnect = useBexioDisconnect()
+
+  // Lexware connection
+  const { data: lexwareConnection } = useLexwareConnectionStatus()
+  const lexwareDisconnect = useLexwareDisconnect()
+
+  // DATEV connection
+  const { data: datevConnection } = useDatevConnectionStatus()
+
   // Wizard state
   const [teamsWizardOpen, setTeamsWizardOpen] = useState(false)
   const [slackWizardOpen, setSlackWizardOpen] = useState(false)
+  const [bexioWizardOpen, setBexioWizardOpen] = useState(false)
+  const [bexioDashboardOpen, setBexioDashboardOpen] = useState(false)
+  const [lexwareWizardOpen, setLexwareWizardOpen] = useState(false)
+  const [lexwareDashboardOpen, setLexwareDashboardOpen] = useState(false)
+  const [datevPanelOpen, setDatevPanelOpen] = useState(false)
 
   // Account link dialog state
   const [linkPlatform, setLinkPlatform] = useState<Platform | null>(null)
@@ -143,34 +174,83 @@ export function IntegrationsSettingsTab() {
             isToggling={updateSlack.isPending}
           />
 
-          {/* Future platform placeholders */}
+          {/* Bexio integration */}
           <IntegrationCard
             name="Bexio"
             description="Buchhaltung & Rechnungen synchronisieren"
             icon={
-              <span className="text-sm font-bold text-muted-foreground">
+              <span className="text-sm font-bold text-foreground">
                 Bx
               </span>
             }
-            status="disconnected"
-            isActive={false}
-            onConfigure={() => {}}
-            onToggle={() => {}}
-            comingSoon
+            status={
+              bexioConnection?.connected
+                ? 'connected'
+                : 'disconnected'
+            }
+            isActive={bexioConnection?.connected ?? false}
+            onConfigure={() =>
+              bexioConnection?.connected
+                ? setBexioDashboardOpen(true)
+                : setBexioWizardOpen(true)
+            }
+            onToggle={() => {
+              if (bexioConnection?.connected) {
+                if (confirm('Bexio-Verbindung trennen?')) {
+                  bexioDisconnect.mutate()
+                }
+              }
+            }}
+            isToggling={bexioDisconnect.isPending}
           />
+          {/* Lexware Office integration */}
           <IntegrationCard
-            name="Abacus"
-            description="ERP-Daten bidirektional synchronisieren"
+            name="Lexware Office"
+            description="Kontakte, Rechnungen & Angebote synchronisieren"
             icon={
-              <span className="text-sm font-bold text-muted-foreground">
-                Ab
+              <span className="text-sm font-bold text-foreground">
+                Lx
               </span>
             }
-            status="disconnected"
-            isActive={false}
-            onConfigure={() => {}}
+            status={
+              lexwareConnection?.connected
+                ? 'connected'
+                : 'disconnected'
+            }
+            isActive={lexwareConnection?.connected ?? false}
+            onConfigure={() =>
+              lexwareConnection?.connected
+                ? setLexwareDashboardOpen(true)
+                : setLexwareWizardOpen(true)
+            }
+            onToggle={() => {
+              if (lexwareConnection?.connected) {
+                if (confirm('Lexware-Verbindung trennen?')) {
+                  lexwareDisconnect.mutate()
+                }
+              }
+            }}
+            isToggling={lexwareDisconnect.isPending}
+          />
+
+          {/* DATEV API integration */}
+          <IntegrationCard
+            name="DATEV"
+            description="Buchungsdaten & Belege hochladen"
+            icon={
+              <span className="text-sm font-bold text-foreground">
+                Dv
+              </span>
+            }
+            status={
+              datevConnection?.connected
+                ? 'connected'
+                : 'disconnected'
+            }
+            isActive={datevConnection?.connected ?? false}
+            onConfigure={() => setDatevPanelOpen(true)}
             onToggle={() => {}}
-            comingSoon
+            isToggling={false}
           />
         </div>
       </section>
@@ -212,6 +292,38 @@ export function IntegrationsSettingsTab() {
         onClose={() => setSlackWizardOpen(false)}
         existingConfig={slackConfig}
       />
+
+      {/* Bexio wizard and dashboard */}
+      <BexioSetupWizard
+        isOpen={bexioWizardOpen}
+        onClose={() => setBexioWizardOpen(false)}
+      />
+      {bexioDashboardOpen && (
+        <BexioSyncDashboard
+          isOpen={bexioDashboardOpen}
+          onClose={() => setBexioDashboardOpen(false)}
+        />
+      )}
+
+      {/* Lexware wizard and dashboard */}
+      <LexwareSetupWizard
+        isOpen={lexwareWizardOpen}
+        onClose={() => setLexwareWizardOpen(false)}
+      />
+      {lexwareDashboardOpen && (
+        <LexwareSyncDashboard
+          isOpen={lexwareDashboardOpen}
+          onClose={() => setLexwareDashboardOpen(false)}
+        />
+      )}
+
+      {/* DATEV settings panel */}
+      {datevPanelOpen && (
+        <DatevSettingsPanel
+          isOpen={datevPanelOpen}
+          onClose={() => setDatevPanelOpen(false)}
+        />
+      )}
 
       {/* Account link dialog */}
       {linkPlatform && (

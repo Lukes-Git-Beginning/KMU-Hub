@@ -1,0 +1,166 @@
+{
+  "slug": "fuhrpark",
+  "name": "Fuhrpark-Management",
+  "description": "Fahrzeugverwaltung für KMUs: Fahrzeuge als Contacts mit Custom Fields, automatische Wartungserinnerungen, TÜV-Überwachung und Kraftstoffkosten-Tracking.",
+  "version": "1.0.0",
+  "author": "KMU Hub",
+  "plugin_type": "wasm",
+  "permissions": [
+    "crm:read",
+    "crm:write",
+    "work:write",
+    "biz:read"
+  ],
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "maintenance_interval_km": {
+        "type": "number",
+        "description": "Wartungsintervall in Kilometern",
+        "default": 15000,
+        "minimum": 1000,
+        "maximum": 100000
+      },
+      "tuev_warning_days": {
+        "type": "number",
+        "description": "Tage vor TÜV-Ablauf für Warnung",
+        "default": 30,
+        "minimum": 7,
+        "maximum": 180
+      },
+      "insurance_warning_days": {
+        "type": "number",
+        "description": "Tage vor Versicherungsablauf für Warnung",
+        "default": 30,
+        "minimum": 7,
+        "maximum": 180
+      },
+      "fuel_currency": {
+        "type": "string",
+        "description": "Währung für Kraftstoffkosten",
+        "default": "EUR",
+        "enum": ["EUR", "CHF"]
+      },
+      "country": {
+        "type": "string",
+        "description": "Land für Kennzeichen-Validierung",
+        "default": "DE",
+        "enum": ["DE", "AT", "CH"]
+      }
+    },
+    "required": ["maintenance_interval_km", "tuev_warning_days", "country"]
+  },
+  "hook_registrations": [
+    {
+      "hook_type": "after_create",
+      "module": "crm",
+      "entity_type": "contact",
+      "priority": 10
+    },
+    {
+      "hook_type": "after_update",
+      "module": "crm",
+      "entity_type": "contact",
+      "priority": 10
+    },
+    {
+      "hook_type": "before_create",
+      "module": "work",
+      "entity_type": "task",
+      "priority": 10
+    }
+  ],
+  "custom_fields": [
+    {
+      "name": "vehicle_type",
+      "label": "Fahrzeugtyp",
+      "type": "select",
+      "options": ["PKW", "LKW", "Transporter", "Anhänger", "Sonstige"]
+    },
+    {
+      "name": "license_plate",
+      "label": "Kennzeichen",
+      "type": "text"
+    },
+    {
+      "name": "mileage",
+      "label": "Kilometerstand",
+      "type": "number"
+    },
+    {
+      "name": "next_inspection",
+      "label": "Nächste HU/TÜV",
+      "type": "date"
+    },
+    {
+      "name": "insurance_expiry",
+      "label": "Versicherung bis",
+      "type": "date"
+    },
+    {
+      "name": "current_driver",
+      "label": "Aktueller Fahrer",
+      "type": "text"
+    }
+  ],
+  "validation_rules": [
+    {
+      "name": "Kennzeichen-Format DE",
+      "entity_type": "contact",
+      "field_name": "license_plate",
+      "rule_type": "regex",
+      "rule_config": {
+        "pattern": "^[A-ZÄÖÜ]{1,3}-[A-Z]{1,2}\\s?\\d{1,4}[EH]?$",
+        "required": false
+      },
+      "error_message": "Ungültiges deutsches Kennzeichen (Format: M-AB 1234)"
+    },
+    {
+      "name": "Kilometerstand positiv",
+      "entity_type": "contact",
+      "field_name": "mileage",
+      "rule_type": "range",
+      "rule_config": {
+        "min": 0,
+        "max": 9999999,
+        "required": false
+      },
+      "error_message": "Kilometerstand muss zwischen 0 und 9.999.999 liegen"
+    }
+  ],
+  "workflow_rules": [
+    {
+      "name": "Wartung fällig",
+      "trigger_event": "after_update_contact",
+      "conditions": [
+        {"field": "mileage", "operator": "gte", "value": 15000}
+      ],
+      "actions": [
+        {
+          "type": "create_task",
+          "config": {
+            "title": "Wartung fällig: {{license_plate}}",
+            "description": "Kilometerstand hat Wartungsintervall erreicht",
+            "priority": "high"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TÜV ablaufend",
+      "trigger_event": "after_update_contact",
+      "conditions": [
+        {"field": "next_inspection", "operator": "exists"}
+      ],
+      "actions": [
+        {
+          "type": "send_notification",
+          "config": {
+            "message": "TÜV/HU läuft bald ab: {{license_plate}}",
+            "channel": "admin"
+          }
+        }
+      ]
+    }
+  ]
+}

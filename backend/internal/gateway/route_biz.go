@@ -3,13 +3,18 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/shopspring/decimal"
 
+	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
@@ -746,6 +751,12 @@ func (b *BizRoutes) HandleGenerateInvoicePDF(w http.ResponseWriter, r *http.Requ
 	tenantID := getTenantID(r)
 	id := chi.URLParam(r, "id")
 
+	// ZUGFeRD format: embed Factur-X XML into the PDF
+	if r.URL.Query().Get("format") == "zugferd" {
+		b.handleZUGFeRDInvoicePDF(w, r, client, tenantID, id)
+		return
+	}
+
 	resp, err := client.GenerateInvoicePDF(r.Context(), &bizv1.GenerateInvoicePDFRequest{
 		Id:       id,
 		TenantId: tenantID,
@@ -756,6 +767,135 @@ func (b *BizRoutes) HandleGenerateInvoicePDF(w http.ResponseWriter, r *http.Requ
 	}
 
 	respondPDF(w, resp.PdfData, resp.Filename)
+}
+
+// handleZUGFeRDInvoicePDF generates an invoice PDF with an embedded Factur-X/ZUGFeRD 2.1 XML.
+func (b *BizRoutes) handleZUGFeRDInvoicePDF(w http.ResponseWriter, r *http.Request, client bizv1.FinanceServiceClient, tenantID, id string) {
+	// Fetch invoice data
+	invResp, err := client.GetInvoice(r.Context(), &bizv1.GetInvoiceRequest{
+		Id:       id,
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	protoInv := invResp.Invoice
+
+	// Fetch company settings
+	settingsResp, err := client.GetCompanySettings(r.Context(), &bizv1.GetCompanySettingsRequest{
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	protoSettings := settingsResp.Settings
+
+	// Generate plain PDF
+	pdfResp, err := client.GenerateInvoicePDF(r.Context(), &bizv1.GenerateInvoicePDFRequest{
+		Id:       id,
+		TenantId: tenantID,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// Map proto Invoice → models.Invoice for ZUGFeRD XML generation
+	inv := protoInvoiceToModel(protoInv)
+	settings := protoSettingsToModel(protoSettings)
+
+	xmlBytes, err := pdf.GenerateZUGFeRDXML(inv, settings)
+	if err != nil {
+		slog.Error("zugferd xml generation failed", "invoice_id", id, "error", err)
+		// Graceful degradation: return plain PDF
+		respondPDF(w, pdfResp.PdfData, pdfResp.Filename)
+		return
+	}
+
+	zugferdPDF, err := pdf.EmbedZUGFeRDXML(pdfResp.PdfData, xmlBytes, inv.InvoiceNumber)
+	if err != nil {
+		slog.Error("zugferd embed failed", "invoice_id", id, "error", err)
+		respondPDF(w, pdfResp.PdfData, pdfResp.Filename)
+		return
+	}
+
+	filename := fmt.Sprintf("factur-x_%s.pdf", inv.InvoiceNumber)
+	respondPDF(w, zugferdPDF, filename)
+}
+
+// protoInvoiceToModel converts a proto Invoice to a models.Invoice for ZUGFeRD generation.
+// Only fields required by GenerateZUGFeRDXML are populated.
+func protoInvoiceToModel(inv *bizv1.Invoice) models.Invoice {
+	if inv == nil {
+		return models.Invoice{}
+	}
+
+	invoiceDate, _ := time.Parse("2006-01-02", inv.InvoiceDate)
+	dueDate, _ := time.Parse("2006-01-02", inv.DueDate)
+
+	var subtotal, totalTax, grossTotal decimal.Decimal
+	if inv.TaxBreakdown != nil {
+		subtotal, _ = decimal.NewFromString(inv.TaxBreakdown.Subtotal)
+		totalTax, _ = decimal.NewFromString(inv.TaxBreakdown.TotalTax)
+		grossTotal, _ = decimal.NewFromString(inv.TaxBreakdown.GrossTotal)
+	}
+
+	var customerName string
+	if inv.Customer != nil {
+		customerName = inv.Customer.Name
+	}
+
+	// Serialize line items as JSON for parseLineItems in the XML generator
+	type lineItemJSON struct {
+		ID          string `json:"id"`
+		Position    int32  `json:"position"`
+		Description string `json:"description"`
+		Quantity    string `json:"quantity"`
+		UnitPrice   string `json:"unit_price"`
+		TaxRate     string `json:"tax_rate"`
+		LineTotal   string `json:"line_total"`
+	}
+	var lineItems []lineItemJSON
+	for _, li := range inv.LineItems {
+		lineItems = append(lineItems, lineItemJSON{
+			ID:          li.Id,
+			Position:    li.Position,
+			Description: li.Description,
+			Quantity:    li.Quantity,
+			UnitPrice:   li.UnitPrice,
+			TaxRate:     li.TaxRate,
+			LineTotal:   li.LineTotal,
+		})
+	}
+	lineItemsJSON, _ := json.Marshal(lineItems)
+
+	return models.Invoice{
+		InvoiceNumber: inv.InvoiceNumber,
+		CustomerName:  customerName,
+		InvoiceDate:   invoiceDate,
+		DueDate:       dueDate,
+		Subtotal:      subtotal,
+		TotalTax:      totalTax,
+		GrossTotal:    grossTotal,
+		LineItems:     lineItemsJSON,
+	}
+}
+
+// protoSettingsToModel converts proto CompanySettings to models.CompanySettings for ZUGFeRD.
+func protoSettingsToModel(s *bizv1.CompanySettings) models.CompanySettings {
+	if s == nil {
+		return models.CompanySettings{}
+	}
+	return models.CompanySettings{
+		Name:    s.Name,
+		Street:  s.Street,
+		PLZ:     s.Plz,
+		City:    s.City,
+		Country: s.Country,
+		UStIDNr: s.UstIdNr,
+	}
 }
 
 // ============================================================================
@@ -1268,7 +1408,7 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", resp.Filename))
 	w.WriteHeader(http.StatusOK)
-	w.Write(resp.CsvData)
+	_, _ = w.Write(resp.CsvData)
 }
 
 // ============================================================================
@@ -1462,5 +1602,5 @@ func respondPDF(w http.ResponseWriter, pdfData []byte, filename string) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.Header().Set("Content-Length", strconv.Itoa(len(pdfData)))
 	w.WriteHeader(http.StatusOK)
-	w.Write(pdfData)
+	_, _ = w.Write(pdfData)
 }

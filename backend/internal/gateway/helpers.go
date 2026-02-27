@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -65,18 +63,6 @@ func grpcStatusToHTTP(code codes.Code) int {
 func respondServiceUnavailable(w http.ResponseWriter, serviceName string) {
 	slog.Warn("service unavailable", "service", serviceName)
 	response.Error(w, http.StatusServiceUnavailable, serviceName+" service unavailable")
-}
-
-// parseUUIDParam parses a UUID from a chi URL parameter.
-// Returns the parsed UUID or writes a 400 error and returns false.
-func parseUUIDParam(w http.ResponseWriter, r *http.Request, param string) (uuid.UUID, bool) {
-	raw := chi.URLParam(r, param)
-	id, err := uuid.Parse(raw)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid "+param)
-		return uuid.Nil, false
-	}
-	return id, true
 }
 
 // parsePagination extracts page and page_size from query parameters with defaults.

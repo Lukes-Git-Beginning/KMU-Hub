@@ -1,3 +1,10 @@
+// TODO (Phase 20): Replace useFuhrparkStore with Plugin API
+// When the Plugin Service is running, vehicle data should come from:
+// - CRM Contacts with custom fields (via Plugin API)
+// - Fuel records from Plugin KV Store
+// - Maintenance records from Work Tasks (filtered by plugin tag)
+// See: docs/PLUGIN_DEVELOPMENT.md (Fuhrpark Walkthrough)
+
 import { useState, useMemo, useCallback } from 'react'
 import {
   Search,

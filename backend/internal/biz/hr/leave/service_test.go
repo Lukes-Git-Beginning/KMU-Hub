@@ -171,7 +171,6 @@ var (
 	testTenantID   = uuid.MustParse("10000000-0000-0000-0000-000000000001")
 	testEmployeeID = uuid.MustParse("20000000-0000-0000-0000-000000000001")
 	testManagerID  = uuid.MustParse("30000000-0000-0000-0000-000000000001")
-	testHRUserID   = uuid.MustParse("40000000-0000-0000-0000-000000000001")
 )
 
 func setupTestService() (*Service, *mockLeaveRequestRepo, *mockLeaveBalanceRepo, *mockLeaveTypeRepo, *mockHRSettingsRepo, *mockEmployeeRepo) {
