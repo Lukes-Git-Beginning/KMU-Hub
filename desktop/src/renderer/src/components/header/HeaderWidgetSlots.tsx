@@ -18,7 +18,7 @@ export function HeaderWidgetSlots() {
   ]
 
   return (
-    <div className="hidden md:grid grid-cols-3 gap-2 w-full max-w-[30rem]">
+    <div className="hidden md:grid grid-cols-3 gap-2 w-full">
       {slots.map((widgetId, i) => {
         const def = widgetId ? headerWidgetRegistry[widgetId] : null
         if (!def) {
