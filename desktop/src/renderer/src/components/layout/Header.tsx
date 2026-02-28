@@ -58,7 +58,7 @@ export function Header() {
       </div>
 
       {/* Center: 3 fixed widget slots — fills the gap */}
-      <div className="flex-1 px-4">
+      <div className="flex flex-1 items-center justify-center px-4">
         <HeaderWidgetSlots />
       </div>
 
