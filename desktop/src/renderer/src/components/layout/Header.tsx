@@ -8,7 +8,7 @@
 import { Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
-import type { NavLayout } from '@/stores/ui'
+
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { PresenceStatusPicker } from '@/features/presence'
@@ -20,7 +20,6 @@ import {
 import {
   SearchBar,
   HeaderClock,
-  DailyPlannerWidget,
   TimeTrackerWidget,
   ProfileSwitcher,
   ProfileMenu,
@@ -37,8 +36,8 @@ export function Header() {
 
   return (
     <header data-tour="header" className="relative z-20 flex h-[64px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
-      {/* Left: mobile menu + compact search + clock */}
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      {/* Left: mobile menu + search + clock */}
+      <div className="flex shrink-0 items-center gap-3">
         {navLayout === 'sidebar' && (
           <button
             onClick={() => setSidebarMobileOpen(true)}
@@ -49,27 +48,22 @@ export function Header() {
           </button>
         )}
 
-        <div className="min-w-0 w-72 lg:w-80 xl:w-[26rem] shrink-1">
+        <div className="w-48 lg:w-64 xl:w-80">
           <SearchBar />
         </div>
 
         <div className="hidden md:block shrink-0">
           <HeaderClock />
         </div>
+      </div>
 
-        {/* Configurable header widget slots — only on wide screens */}
-        <div className="hidden xl:block shrink-0">
-          <HeaderWidgetSlots />
-        </div>
+      {/* Center: 3 fixed widget slots — fills the gap */}
+      <div className="flex-1 px-4">
+        <HeaderWidgetSlots />
       </div>
 
       {/* Right: controls */}
       <div className="flex shrink-0 items-center gap-1 md:gap-2">
-        {/* Daily Planner */}
-        <div className="hidden lg:block">
-          <DailyPlannerWidget />
-        </div>
-
         {/* Unified Time Tracker (clock-in + task tracking) */}
         <div className="hidden lg:block">
           <TimeTrackerWidget />
