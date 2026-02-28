@@ -93,8 +93,7 @@ export function AppShell() {
         <main className="flex flex-1 flex-col overflow-hidden">
           {/* Top chrome */}
           <OfflineBanner />
-          {isDock && <DockHeader />}
-          {(isSidebar || isClassic || isTopNav) && <Header />}
+          <Header />
           {isTopNav && <TopNavBar />}
 
           {/* Content — stable position, never unmounts */}
