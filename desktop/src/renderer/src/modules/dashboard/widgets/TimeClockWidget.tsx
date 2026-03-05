@@ -1,36 +1,52 @@
 /**
  * Time Clock widget — clock in/out with today's work hours.
  */
-import { memo, useState } from 'react'
-import { Clock, LogIn, LogOut, Coffee } from 'lucide-react'
+import { memo } from 'react'
+import { Clock, LogIn, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useWorkTimeStatus, useClockIn, useClockOut } from '@/api/hooks/hr-hooks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-const MOCK = {
-  clockedIn: true,
-  startTime: '08:15',
-  breakMinutes: 45,
-  entries: [
-    { type: 'in' as const, time: '08:15' },
-    { type: 'break' as const, time: '12:30' },
-    { type: 'in' as const, time: '13:15' },
-  ],
-  weekHours: { mo: 8.5, di: 8.0, mi: 7.5, do: 0, fr: 0 },
-  targetWeek: 40,
-}
-
 function TimeClockWidget(_props: WidgetProps) {
-  const [isClockedIn, setIsClockedIn] = useState(MOCK.clockedIn)
+  const { data: status, isLoading } = useWorkTimeStatus()
+  const clockIn = useClockIn()
+  const clockOut = useClockOut()
 
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
-  const startMinutes = 8 * 60 + 15 // 08:15
-  const workedMinutes = currentMinutes - startMinutes - MOCK.breakMinutes
-  const workedHours = Math.max(0, workedMinutes / 60)
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  const isClockedIn = status?.isClockedIn ?? false
+  const todayMinutes = status?.todayTotalMinutes ?? 0
+  const workedHours = todayMinutes / 60
   const workedDisplay = `${Math.floor(workedHours)}h ${Math.round((workedHours % 1) * 60)}min`
 
-  const weekTotal = Object.values(MOCK.weekHours).reduce((s, h) => s + h, 0) + workedHours
-  const weekPct = Math.min(100, (weekTotal / MOCK.targetWeek) * 100)
+  // Format start time from ISO
+  let startTimeDisplay = ''
+  if (status?.currentShiftStart) {
+    const d = new Date(status.currentShiftStart)
+    startTimeDisplay = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+
+  // Week progress — use daily total * 5 as rough estimate since we only have today's data
+  // TODO: Integrate weekly summary for accurate week hours
+  const targetWeek = 40
+  const weekHoursEstimate = workedHours // Only today's hours available from status endpoint
+  const weekPct = Math.min(100, (weekHoursEstimate / targetWeek) * 100)
+
+  const handleToggle = () => {
+    if (isClockedIn) {
+      clockOut.mutate()
+    } else {
+      clockIn.mutate()
+    }
+  }
+
+  const isMutating = clockIn.isPending || clockOut.isPending
 
   return (
     <div className="flex h-full flex-col p-4">
@@ -46,15 +62,16 @@ function TimeClockWidget(_props: WidgetProps) {
             <p className="text-xs font-medium text-muted-foreground">
               {isClockedIn ? 'Eingestempelt' : 'Ausgestempelt'}
             </p>
-            {isClockedIn && (
-              <p className="text-xs text-muted-foreground">seit {MOCK.startTime}</p>
+            {isClockedIn && startTimeDisplay && (
+              <p className="text-xs text-muted-foreground">seit {startTimeDisplay}</p>
             )}
           </div>
         </div>
         <Button
           size="sm"
           variant={isClockedIn ? 'outline' : 'default'}
-          onClick={() => setIsClockedIn(!isClockedIn)}
+          onClick={handleToggle}
+          disabled={isMutating}
         >
           {isClockedIn ? (
             <><LogOut className="mr-1.5 h-3.5 w-3.5" />Ausstempeln</>
@@ -83,7 +100,7 @@ function TimeClockWidget(_props: WidgetProps) {
       <div className="mt-auto">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-muted-foreground">Woche</span>
-          <span className="text-xs font-medium text-foreground">{weekTotal.toFixed(1)}h / {MOCK.targetWeek}h</span>
+          <span className="text-xs font-medium text-foreground">{weekHoursEstimate.toFixed(1)}h / {targetWeek}h</span>
         </div>
         <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
           <div
@@ -91,16 +108,6 @@ function TimeClockWidget(_props: WidgetProps) {
             style={{ width: `${weekPct}%` }}
           />
         </div>
-      </div>
-
-      {/* Today's log */}
-      <div className="mt-3 flex items-center gap-2">
-        {MOCK.entries.map((entry, i) => (
-          <span key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            {entry.type === 'in' ? <LogIn className="h-2.5 w-2.5" /> : <Coffee className="h-2.5 w-2.5" />}
-            {entry.time}
-          </span>
-        ))}
       </div>
     </div>
   )

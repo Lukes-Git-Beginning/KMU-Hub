@@ -39,6 +39,9 @@ interface TimeEntry {
 // Mock data
 // ---------------------------------------------------------------------------
 
+// TODO: Replace with useProjectTimeEntries(projectId, { billed: false }) hook
+// Current API only supports useTimeEntries(taskId) — need project-level endpoint
+// Backend ticket needed: GET /api/v1/projects/{id}/time-entries?billed=false
 const MOCK_TIME_ENTRIES: TimeEntry[] = [
   { id: 'te-w1', date: '2026-02-20', task: 'Frontend-Entwicklung', person: 'Anna Mueller', hours: 6.0, description: 'React-Komponenten implementiert' },
   { id: 'te-w2', date: '2026-02-20', task: 'Design-Review', person: 'Anna Mueller', hours: 1.5, description: 'Figma-Prototyp reviewt' },

@@ -1,14 +1,54 @@
 /**
  * KPI Tasks widget — task completion progress with breakdown.
  */
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { CheckCircle2, Circle, AlertTriangle } from 'lucide-react'
-import { KPI } from '@/mocks/mock-db'
+import { useMyTasks } from '@/api/hooks/useTasks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function KpiTasks(_props: WidgetProps) {
-  const { total, done, inProgress, overdue } = KPI.tasks
-  const pct = Math.round((done / total) * 100)
+  const { data, isLoading } = useMyTasks({ include_completed: true })
+
+  const stats = useMemo(() => {
+    const tasks = (data as { tasks?: Array<Record<string, unknown>>; total?: number })?.tasks ?? []
+    const total = (data as { total?: number })?.total ?? tasks.length
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+    let done = 0
+    let inProgress = 0
+    let overdue = 0
+
+    for (const t of tasks) {
+      const status = (t.status as string) ?? ''
+      const statusId = (t.status_id as string) ?? ''
+      const dueDate = (t.due_date as string) ?? ''
+
+      // Determine if task is done — check common status patterns
+      const isDone = status === 'done' || status === 'completed' || statusId === 'done'
+
+      if (isDone) {
+        done++
+      } else if (dueDate && dueDate < todayStr) {
+        overdue++
+      } else {
+        inProgress++
+      }
+    }
+
+    return { total, done, inProgress, overdue }
+  }, [data])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  const { total, done, inProgress, overdue } = stats
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
   const segments = [
     { label: 'Erledigt', count: done, color: 'bg-emerald-500', textColor: 'text-emerald-600', icon: CheckCircle2 },
@@ -29,15 +69,15 @@ function KpiTasks(_props: WidgetProps) {
         <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden flex">
           <div
             className="h-full bg-emerald-500 transition-all"
-            style={{ width: `${(done / total) * 100}%` }}
+            style={{ width: total > 0 ? `${(done / total) * 100}%` : '0%' }}
           />
           <div
             className="h-full bg-blue-500 transition-all"
-            style={{ width: `${(inProgress / total) * 100}%` }}
+            style={{ width: total > 0 ? `${(inProgress / total) * 100}%` : '0%' }}
           />
           <div
             className="h-full bg-red-500 transition-all"
-            style={{ width: `${(overdue / total) * 100}%` }}
+            style={{ width: total > 0 ? `${(overdue / total) * 100}%` : '0%' }}
           />
         </div>
 

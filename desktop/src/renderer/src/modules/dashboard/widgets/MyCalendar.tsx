@@ -1,9 +1,11 @@
 /**
  * My Calendar widget — personal schedule for today.
  */
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Video, MapPin, Users } from 'lucide-react'
-import { TODAY_EVENTS } from '@/mocks/mock-db'
+import { useCalendars } from '@/api/hooks/useCalendars'
+import { useEventsInRange } from '@/api/hooks/useEvents'
+import { expandedEventToUI } from '@/modules/kalender/adapters'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 const TYPE_STYLE: Record<string, { color: string; label: string }> = {
@@ -14,24 +16,66 @@ const TYPE_STYLE: Record<string, { color: string; label: string }> = {
   workshop: { color: 'bg-teal-500', label: 'Workshop' },
 }
 
-/** Map TODAY_EVENTS to timeline format with endTime calculation. */
-const SCHEDULE = TODAY_EVENTS.map((ev) => {
-  const durMatch = ev.duration.match(/(\d+)\s*(Std|Min)/)
-  let endTime = ev.time
-  if (durMatch) {
-    const [h, m] = ev.time.split(':').map(Number)
-    const addMin = durMatch[2] === 'Std' ? Number(durMatch[1]) * 60 : Number(durMatch[1])
-    const total = h * 60 + m + addMin
-    endTime = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
-  }
-  return { ...ev, endTime, attendeeCount: ev.attendeeIds.length }
-})
-
 function MyCalendar(_props: WidgetProps) {
   const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const todayStart = `${todayStr}T00:00:00Z`
+  const todayEnd = `${todayStr}T23:59:59Z`
+
+  const { data: calData } = useCalendars()
+  const calendarIds = useMemo(() => {
+    const calendars = (calData as { calendars?: Array<{ id: string }> })?.calendars ?? []
+    return calendars.map((c) => c.id)
+  }, [calData])
+
+  const { data: eventData, isLoading } = useEventsInRange(calendarIds, todayStart, todayEnd)
+
+  const schedule = useMemo(() => {
+    const events = (eventData as { events?: Array<Record<string, unknown>> })?.events ?? []
+    return events
+      .map((ev) => {
+        const uiEvent = expandedEventToUI(ev as Parameters<typeof expandedEventToUI>[0])
+        return {
+          id: uiEvent.id,
+          title: uiEvent.title,
+          time: uiEvent.startTime,
+          endTime: uiEvent.endTime,
+          type: 'meeting' as string,
+          location: uiEvent.location,
+          color: uiEvent.color,
+          attendeeCount: uiEvent.participants?.length ?? 0,
+        }
+      })
+      .sort((a, b) => a.time.localeCompare(b.time))
+  }, [eventData])
+
   const currentHour = now.getHours()
   const currentMin = now.getMinutes()
   const currentTimeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (!schedule.length) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            {now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </span>
+          <span className="text-xs font-mono text-primary font-semibold">{currentTimeStr}</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <p className="text-sm text-muted-foreground">Keine Termine heute</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -45,7 +89,7 @@ function MyCalendar(_props: WidgetProps) {
 
       {/* Timeline */}
       <div className="flex-1 overflow-auto">
-        {SCHEDULE.map((slot) => {
+        {schedule.map((slot) => {
           const isPast = slot.endTime < currentTimeStr
           const isCurrent = slot.time <= currentTimeStr && slot.endTime > currentTimeStr
           const style = TYPE_STYLE[slot.type] ?? TYPE_STYLE.meeting

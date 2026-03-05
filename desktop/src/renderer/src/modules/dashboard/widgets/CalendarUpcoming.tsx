@@ -1,15 +1,68 @@
 /**
- * Calendar Upcoming widget — today's events from central mock-db.
+ * Calendar Upcoming widget — today's events from real API.
  */
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Clock, MapPin } from 'lucide-react'
-import { TODAY_EVENTS } from '@/mocks/mock-db'
+import { useCalendars } from '@/api/hooks/useCalendars'
+import { useEventsInRange } from '@/api/hooks/useEvents'
+import { expandedEventToUI } from '@/modules/kalender/adapters'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-const today = new Date()
-const dd = String(today.getDate()).padStart(2, '0')
-
 function CalendarUpcoming(_props: WidgetProps) {
+  const today = new Date()
+  const dd = String(today.getDate()).padStart(2, '0')
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${dd}`
+  const todayStart = `${todayStr}T00:00:00Z`
+  const todayEnd = `${todayStr}T23:59:59Z`
+
+  const { data: calData } = useCalendars()
+  const calendarIds = useMemo(() => {
+    const calendars = (calData as { calendars?: Array<{ id: string }> })?.calendars ?? []
+    return calendars.map((c) => c.id)
+  }, [calData])
+
+  const { data: eventData, isLoading } = useEventsInRange(calendarIds, todayStart, todayEnd)
+
+  const events = useMemo(() => {
+    const rawEvents = (eventData as { events?: Array<Record<string, unknown>> })?.events ?? []
+    return rawEvents
+      .map((ev) => {
+        const uiEvent = expandedEventToUI(ev as Parameters<typeof expandedEventToUI>[0])
+        // Compute duration string
+        const [sh, sm] = uiEvent.startTime.split(':').map(Number)
+        const [eh, em] = uiEvent.endTime.split(':').map(Number)
+        const diffMin = (eh * 60 + em) - (sh * 60 + sm)
+        let duration = ''
+        if (uiEvent.isAllDay) {
+          duration = 'Ganztaegig'
+        } else if (diffMin >= 60) {
+          const hours = Math.floor(diffMin / 60)
+          const mins = diffMin % 60
+          duration = mins > 0 ? `${hours} Std ${mins} Min` : `${hours} Std`
+        } else {
+          duration = `${diffMin} Min`
+        }
+
+        return {
+          id: uiEvent.id,
+          title: uiEvent.title,
+          time: uiEvent.startTime,
+          duration,
+          location: uiEvent.location,
+          color: uiEvent.color ?? '#3b82f6',
+        }
+      })
+      .sort((a, b) => a.time.localeCompare(b.time))
+  }, [eventData])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Date header */}
@@ -24,34 +77,40 @@ function CalendarUpcoming(_props: WidgetProps) {
           <p className="text-sm font-medium text-foreground">
             {today.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
-          <p className="text-xs text-muted-foreground">{TODAY_EVENTS.length} Termine heute</p>
+          <p className="text-xs text-muted-foreground">{events.length} Termine heute</p>
         </div>
       </div>
 
       {/* Events list */}
-      <div className="flex-1 overflow-auto divide-y divide-border">
-        {TODAY_EVENTS.map((event) => (
-          <div
-            key={event.id}
-            className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
-          >
-            <div className={`mt-1 h-2 w-2 shrink-0 rounded-full`} style={{ backgroundColor: event.color }} />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <Clock className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{event.time} · {event.duration}</span>
-                {event.location && (
-                  <>
-                    <MapPin className="h-3 w-3 text-muted-foreground ml-1" />
-                    <span className="text-xs text-muted-foreground truncate">{event.location}</span>
-                  </>
-                )}
+      {events.length > 0 ? (
+        <div className="flex-1 overflow-auto divide-y divide-border">
+          {events.map((event) => (
+            <div
+              key={event.id}
+              className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
+            >
+              <div className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: event.color }} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">{event.title}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{event.time} · {event.duration}</span>
+                  {event.location && (
+                    <>
+                      <MapPin className="h-3 w-3 text-muted-foreground ml-1" />
+                      <span className="text-xs text-muted-foreground truncate">{event.location}</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center p-4">
+          <p className="text-sm text-muted-foreground">Keine Termine heute</p>
+        </div>
+      )}
     </div>
   )
 }

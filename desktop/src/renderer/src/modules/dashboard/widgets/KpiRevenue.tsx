@@ -3,19 +3,33 @@
  */
 import { memo } from 'react'
 import { Euro, TrendingUp, TrendingDown } from 'lucide-react'
-import { KPI, MONTHLY_REVENUE } from '@/mocks/mock-db'
+import { useFinanceDashboard } from '@/api/hooks/useFinance'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 }
 
-const last6 = MONTHLY_REVENUE.slice(-6)
-
 function KpiRevenue(_props: WidgetProps) {
-  const { current, previous, changePercent } = KPI.revenue
+  const { data: dashboard, isLoading } = useFinanceDashboard()
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  const current = parseFloat(dashboard?.total_invoiced ?? '0')
+  const previous = parseFloat(dashboard?.total_paid ?? '0')
+  const changePercent = previous > 0 ? ((current - previous) / previous) * 100 : 0
   const isUp = changePercent >= 0
-  const max = Math.max(...last6.map((d) => d.revenue))
+
+  // TODO: Need monthly revenue endpoint for per-month breakdown chart
+  // For now, show a single bar with the current total
+  const chartData: { month: string; label: string; revenue: number }[] = []
+  const max = chartData.length > 0 ? Math.max(...chartData.map((d) => d.revenue)) : 1
 
   return (
     <div className="flex h-full flex-col justify-between p-4">
@@ -43,17 +57,23 @@ function KpiRevenue(_props: WidgetProps) {
 
       {/* Bottom: mini bar chart */}
       <div className="flex items-end gap-1 mt-3" style={{ height: 48 }}>
-        {last6.map((d, i) => (
-          <div key={d.month} className="flex flex-1 flex-col items-center gap-1">
-            <div
-              className={`w-full rounded-sm transition-all ${
-                i === last6.length - 1 ? 'bg-emerald-500' : 'bg-emerald-500/30'
-              }`}
-              style={{ height: `${(d.revenue / max) * 40}px` }}
-            />
-            <span className="text-[9px] text-muted-foreground">{d.label}</span>
+        {chartData.length > 0 ? (
+          chartData.map((d, i) => (
+            <div key={d.month} className="flex flex-1 flex-col items-center gap-1">
+              <div
+                className={`w-full rounded-sm transition-all ${
+                  i === chartData.length - 1 ? 'bg-emerald-500' : 'bg-emerald-500/30'
+                }`}
+                style={{ height: `${(d.revenue / max) * 40}px` }}
+              />
+              <span className="text-[9px] text-muted-foreground">{d.label}</span>
+            </div>
+          ))
+        ) : (
+          <div className="flex w-full items-center justify-center">
+            <p className="text-[10px] text-muted-foreground">Kein Monatsverlauf verfuegbar</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   )

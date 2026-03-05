@@ -1,9 +1,9 @@
 /**
  * KPI Deals widget — open deals count, pipeline value, and win rate.
  */
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Handshake, TrendingUp, Target } from 'lucide-react'
-import { KPI } from '@/mocks/mock-db'
+import { useDeals } from '@/api/hooks/useDeals'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function fmt(n: number) {
@@ -11,8 +11,30 @@ function fmt(n: number) {
 }
 
 function KpiDeals(_props: WidgetProps) {
-  const { pipelineValue, activeDeals, wonThisMonth, winRate } = KPI.deals
-  const lostThisMonth = 1
+  const { data, isLoading } = useDeals()
+
+  const stats = useMemo(() => {
+    const deals = (data as { deals?: Array<Record<string, unknown>>; total?: number })?.deals ?? []
+    const activeDeals = (data as { total?: number })?.total ?? deals.length
+    const pipelineValue = deals.reduce((sum, d) => sum + (Number(d.value) || 0), 0)
+
+    // TODO: Need stage info to determine won/lost deals and win rate
+    const wonThisMonth = 0
+    const lostThisMonth = 0
+    const winRate = 0
+
+    return { pipelineValue, activeDeals, wonThisMonth, lostThisMonth, winRate }
+  }, [data])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  const { pipelineValue, activeDeals, wonThisMonth, lostThisMonth, winRate } = stats
 
   return (
     <div className="flex h-full flex-col p-4">

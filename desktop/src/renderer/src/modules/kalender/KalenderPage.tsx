@@ -1,4 +1,15 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useCalendars, useEventCategories, useCreateEventCategory, useDeleteEventCategory } from '@/api/hooks/useCalendars'
+import { useEventsInRange, useCreateEvent, useUpdateEvent, useDeleteEvent, useTaskDeadlines } from '@/api/hooks/useEvents'
+import { useAuthStore } from '@/stores/auth'
+import {
+  expandedEventToUI, calendarToUI, categoryToUI, deadlineToUI,
+  uiEventToCreateRequest, uiEventToUpdateRequest,
+  HOLIDAY_CALENDAR, DEADLINE_CALENDAR,
+  type CalendarEvent as AdapterCalendarEvent,
+  type CalendarSource as AdapterCalendarSource,
+  type UIEventCategory,
+} from './adapters'
 import {
   ChevronLeft,
   ChevronRight,
@@ -36,52 +47,17 @@ import { CategoryManagerDialog } from './CategoryManagerDialog'
 import { CalendarBrowseDialog } from './CalendarBrowseDialog'
 
 // ============================================================
-// Types
+// Types (re-export from adapters)
 // ============================================================
 
 type TopTab = 'kalender' | 'terminbuchung'
+
+// Re-use adapter types
+type CalendarEvent = AdapterCalendarEvent
+type CalendarSource = AdapterCalendarSource
+type EventCategory = UIEventCategory
 type ViewMode = 'week' | 'day' | 'month'
 type RSVPStatus = 'accepted' | 'declined' | 'maybe' | 'pending'
-
-interface EventCategory {
-  id: string
-  name: string
-  color: string
-}
-
-interface CalendarSource {
-  id: string
-  name: string
-  group: 'mine' | 'shared' | 'other'
-  color: string
-  visible: boolean
-}
-
-interface Participant {
-  name: string
-  initials: string
-  rsvp: RSVPStatus
-}
-
-interface CalendarEvent {
-  id: string
-  title: string
-  date: string
-  startTime: string
-  endTime: string
-  isAllDay: boolean
-  categoryId: string
-  calendarId: string
-  location?: string
-  room?: string
-  description?: string
-  recurrence?: string
-  reminder?: string
-  videoCall?: boolean
-  participants?: Participant[]
-  isTaskDeadline?: boolean
-  isHoliday?: boolean
-}
 
 interface EventLayout {
   event: CalendarEvent
@@ -113,22 +89,7 @@ interface DragState {
 // Constants
 // ============================================================
 
-const CATEGORIES: EventCategory[] = [
-  { id: 'meeting', name: 'Meeting', color: '#3d5c7d' },
-  { id: 'focus', name: 'Fokuszeit', color: '#4a7c6a' },
-  { id: 'client', name: 'Kundentermin', color: '#c4873a' },
-  { id: 'private', name: 'Privat', color: '#7c5a8a' },
-  { id: 'travel', name: 'Reise', color: '#8a6b3d' },
-]
-
-const INITIAL_CALENDARS: CalendarSource[] = [
-  { id: 'personal', name: 'Mein Kalender', group: 'mine', color: '#1e7e74', visible: true },
-  { id: 'work', name: 'Arbeit', group: 'mine', color: '#3d5c7d', visible: true },
-  { id: 'team', name: 'Team-Kalender', group: 'shared', color: '#c4873a', visible: true },
-  { id: 'dev', name: 'Entwickler Team', group: 'shared', color: '#4a7c6a', visible: true },
-  { id: 'holidays', name: 'Feiertage DE (Bayern)', group: 'other', color: '#9d8f85', visible: true },
-  { id: 'deadlines', name: 'Task-Deadlines', group: 'other', color: '#a13f3f', visible: true },
-]
+// (Calendar and category constants removed — now fetched from API)
 
 const ROOMS = [
   { id: 'r1', name: 'Raum Alpen — Besprechung', capacity: 10, tags: ['Beamer', 'Whiteboard'] },
@@ -160,43 +121,7 @@ const START_HOUR = 7
 const END_HOUR = 20
 const HOURS = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => i + START_HOUR)
 
-// ============================================================
-// Mock Events
-// ============================================================
-
-const MOCK_EVENTS: CalendarEvent[] = [
-  // Monday Feb 9
-  { id: 'e1', title: 'Daily Standup', date: '2026-02-09', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich', participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }] },
-  { id: 'e2', title: 'Sprint Planning', date: '2026-02-09', startTime: '10:00', endTime: '11:30', isAllDay: false, categoryId: 'meeting', calendarId: 'team', location: 'Meeting Room A', room: 'Raum A — Besprechung', participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'maybe' }, { name: 'Jonas Diaz', initials: 'JD', rsvp: 'accepted' }] },
-  { id: 'e3', title: 'Fokuszeit: API Design', date: '2026-02-09', startTime: '13:00', endTime: '15:00', isAllDay: false, categoryId: 'focus', calendarId: 'personal' },
-  { id: 'e4', title: 'Design Review', date: '2026-02-09', startTime: '15:30', endTime: '16:30', isAllDay: false, categoryId: 'meeting', calendarId: 'work', videoCall: true, participants: [{ name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }, { name: 'Jonas Diaz', initials: 'JD', rsvp: 'accepted' }] },
-  // Tuesday Feb 10
-  { id: 'e5', title: 'Daily Standup', date: '2026-02-10', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich' },
-  { id: 'e6', title: 'Kundentermin Meier AG', date: '2026-02-10', startTime: '10:30', endTime: '11:30', isAllDay: false, categoryId: 'client', calendarId: 'personal', location: 'Büro Zürich', participants: [{ name: 'Peter Keller', initials: 'PK', rsvp: 'accepted' }, { name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }] },
-  { id: 'e7', title: '1:1 mit Sarah', date: '2026-02-10', startTime: '14:00', endTime: '15:00', isAllDay: false, categoryId: 'meeting', calendarId: 'work', videoCall: true, participants: [{ name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }] },
-  { id: 'e8', title: 'Product Roadmap', date: '2026-02-10', startTime: '16:00', endTime: '17:00', isAllDay: false, categoryId: 'meeting', calendarId: 'team', room: 'Raum B — Klein', videoCall: true, participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'declined' }] },
-  // Wednesday Feb 11
-  { id: 'e9', title: 'Daily Standup', date: '2026-02-11', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich' },
-  { id: 'e10', title: 'HR Quartalsgespreach', date: '2026-02-11', startTime: '10:00', endTime: '11:00', isAllDay: false, categoryId: 'meeting', calendarId: 'work', location: 'HR Büro' },
-  { id: 'e11', title: 'Lunch & Learn: TypeScript', date: '2026-02-11', startTime: '12:30', endTime: '13:30', isAllDay: false, categoryId: 'meeting', calendarId: 'team', room: 'Raum A — Besprechung', participants: [{ name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Tom Brunner', initials: 'TB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'maybe' }] },
-  { id: 'e12', title: 'Fokuszeit: Frontend', date: '2026-02-11', startTime: '14:00', endTime: '17:00', isAllDay: false, categoryId: 'focus', calendarId: 'personal' },
-  { id: 'td1', title: 'Homepage Design abschliessen', date: '2026-02-11', startTime: '18:00', endTime: '18:30', isAllDay: false, categoryId: 'meeting', calendarId: 'deadlines', isTaskDeadline: true },
-  // Thursday Feb 12
-  { id: 'e13', title: 'Daily Standup', date: '2026-02-12', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich' },
-  { id: 'e14', title: 'Code Review', date: '2026-02-12', startTime: '10:00', endTime: '11:00', isAllDay: false, categoryId: 'meeting', calendarId: 'work', videoCall: true, participants: [{ name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Tom Brunner', initials: 'TB', rsvp: 'accepted' }] },
-  { id: 'e15', title: 'Quick Sync Marketing', date: '2026-02-12', startTime: '11:00', endTime: '11:30', isAllDay: false, categoryId: 'meeting', calendarId: 'team', videoCall: true },
-  { id: 'e16', title: 'Zahnarzt', date: '2026-02-12', startTime: '14:00', endTime: '14:30', isAllDay: false, categoryId: 'private', calendarId: 'personal', location: 'Praxis Dr. Mueller' },
-  // Friday Feb 13
-  { id: 'e17', title: 'Daily Standup', date: '2026-02-13', startTime: '09:00', endTime: '09:15', isAllDay: false, categoryId: 'meeting', calendarId: 'work', recurrence: 'Wöchentlich' },
-  { id: 'e18', title: 'Sprint Demo', date: '2026-02-13', startTime: '10:00', endTime: '11:00', isAllDay: false, categoryId: 'meeting', calendarId: 'team', room: 'Raum A — Besprechung', participants: [{ name: 'Anna Mueller', initials: 'AM', rsvp: 'accepted' }, { name: 'Max Berg', initials: 'MB', rsvp: 'accepted' }, { name: 'Sarah Klein', initials: 'SK', rsvp: 'accepted' }, { name: 'Jonas Diaz', initials: 'JD', rsvp: 'accepted' }, { name: 'Peter Keller', initials: 'PK', rsvp: 'maybe' }] },
-  { id: 'e19', title: 'Team Lunch', date: '2026-02-13', startTime: '12:00', endTime: '13:00', isAllDay: false, categoryId: 'private', calendarId: 'team', location: 'Restaurant Bellevue' },
-  { id: 'e20', title: 'Sprint Retro', date: '2026-02-13', startTime: '15:00', endTime: '16:00', isAllDay: false, categoryId: 'meeting', calendarId: 'team', room: 'Raum B — Klein' },
-  { id: 'e21', title: 'Feierabend-Bier', date: '2026-02-13', startTime: '17:00', endTime: '19:00', isAllDay: false, categoryId: 'private', calendarId: 'personal', location: 'Biergarten' },
-  // All-day / Holiday
-  { id: 'h1', title: 'Fasnacht (Luzern)', date: '2026-02-16', startTime: '00:00', endTime: '23:59', isAllDay: true, categoryId: 'meeting', calendarId: 'holidays', isHoliday: true },
-  // Saturday
-  { id: 'e22', title: 'Brunch mit Freunden', date: '2026-02-14', startTime: '10:00', endTime: '12:00', isAllDay: false, categoryId: 'private', calendarId: 'personal', location: 'Cafe am See' },
-]
+// (Mock events removed — now fetched from API)
 
 // ============================================================
 // Terminbuchung Types & Mock Data
@@ -316,12 +241,11 @@ function getMonthDays(year: number, month: number) {
 }
 
 function getCategoryColor(event: CalendarEvent, calendars: CalendarSource[]): string {
+  if (event.color) return event.color
   if (event.isHoliday) return '#9d8f85'
   if (event.isTaskDeadline) return '#a13f3f'
   const cal = calendars.find((c) => c.id === event.calendarId)
-  if (cal) return cal.color
-  const cat = CATEGORIES.find((c) => c.id === event.categoryId)
-  return cat?.color ?? '#6b6159'
+  return cal?.color ?? '#6b6159'
 }
 
 function layoutOverlappingEvents(events: CalendarEvent[]): EventLayout[] {
@@ -387,9 +311,8 @@ function minutesToTime(totalMinutes: number): string {
 export default function KalenderPage() {
   const [topTab, setTopTab] = useState<TopTab>('kalender')
   const [view, setView] = useState<ViewMode>('week')
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 1, 9))
-  const [selectedDate, setSelectedDate] = useState(new Date(2026, 1, 9))
-  const [calendars, setCalendars] = useState(INITIAL_CALENDARS)
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [quickCreate, setQuickCreate] = useState<QuickCreateState | null>(null)
   const [showEventForm, setShowEventForm] = useState(false)
@@ -397,8 +320,90 @@ export default function KalenderPage() {
   const [showRoomBooking, setShowRoomBooking] = useState(false)
   const [showCategoryManager, setShowCategoryManager] = useState(false)
   const [showCalendarBrowse, setShowCalendarBrowse] = useState(false)
-  const [categories, setCategories] = useState(CATEGORIES)
-  const [events, setEvents] = useState<CalendarEvent[]>(MOCK_EVENTS)
+
+  // Auth
+  const currentUserId = useAuthStore((s) => s.user?.id ?? '')
+
+  // Calendar visibility (local UI state)
+  const [visibleCalendarIds, setVisibleCalendarIds] = useState<Set<string>>(new Set())
+  const [visibilityInitialized, setVisibilityInitialized] = useState(false)
+
+  // ---- API: Calendars ----
+  const { data: calendarsData } = useCalendars()
+  const calendars = useMemo<CalendarSource[]>(() => {
+    const apiCals = (calendarsData?.calendars ?? []).map((c) =>
+      calendarToUI(c, currentUserId, visibleCalendarIds),
+    )
+    const holidayCal: CalendarSource = { ...HOLIDAY_CALENDAR, visible: visibleCalendarIds.has('holidays') }
+    const deadlineCal: CalendarSource = { ...DEADLINE_CALENDAR, visible: visibleCalendarIds.has('deadlines') }
+    return [...apiCals, holidayCal, deadlineCal]
+  }, [calendarsData, currentUserId, visibleCalendarIds])
+
+  // Initialize visibility once calendars load
+  useEffect(() => {
+    if (visibilityInitialized || !calendarsData?.calendars?.length) return
+    const ids = new Set<string>(calendarsData.calendars.map((c) => c.id))
+    ids.add('holidays')
+    ids.add('deadlines')
+    setVisibleCalendarIds(ids)
+    setVisibilityInitialized(true)
+  }, [calendarsData, visibilityInitialized])
+
+  // ---- API: Categories ----
+  const { data: categoriesData } = useEventCategories()
+  const categories = useMemo<EventCategory[]>(
+    () => (categoriesData?.categories ?? []).map(categoryToUI),
+    [categoriesData],
+  )
+
+  // ---- API: Events ----
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    const d = new Date(currentDate)
+    let start: Date
+    let end: Date
+    if (view === 'month') {
+      start = new Date(d.getFullYear(), d.getMonth(), 1)
+      end = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+      // Extend to full calendar grid (prev/next month padding)
+      start.setDate(start.getDate() - 7)
+      end.setDate(end.getDate() + 7)
+    } else if (view === 'week') {
+      const day = d.getDay()
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+      start = new Date(d.getFullYear(), d.getMonth(), diff)
+      end = new Date(start)
+      end.setDate(start.getDate() + 6)
+    } else {
+      start = new Date(d)
+      end = new Date(d)
+    }
+    return {
+      rangeStart: formatDateKey(start),
+      rangeEnd: formatDateKey(end),
+    }
+  }, [currentDate, view])
+
+  const apiCalendarIds = useMemo(
+    () => calendars.filter((c) => c.visible && c.id !== 'holidays' && c.id !== 'deadlines').map((c) => c.id),
+    [calendars],
+  )
+
+  const { data: eventsData, isLoading: eventsLoading } = useEventsInRange(apiCalendarIds, rangeStart, rangeEnd)
+  const deadlinesVisible = calendars.find((c) => c.id === 'deadlines')?.visible ?? false
+  const { data: deadlinesData } = useTaskDeadlines(rangeStart, rangeEnd)
+
+  const events = useMemo<CalendarEvent[]>(() => {
+    const apiEvents = (eventsData?.events ?? []).map(expandedEventToUI)
+    const deadlines = deadlinesVisible ? (deadlinesData?.deadlines ?? []).map(deadlineToUI) : []
+    return [...apiEvents, ...deadlines]
+  }, [eventsData, deadlinesData, deadlinesVisible])
+
+  // ---- Mutations ----
+  const createEventMutation = useCreateEvent()
+  const updateEventMutation = useUpdateEvent()
+  const deleteEventMutation = useDeleteEvent()
+  const createCategoryMutation = useCreateEventCategory()
+  const deleteCategoryMutation = useDeleteEventCategory()
 
   // 10.13: Push-Erinnerungen — track which events already notified
   const notifiedEventsRef = useRef<Set<string>>(new Set())
@@ -436,10 +441,61 @@ export default function KalenderPage() {
 
   // Event update handler for drag-and-drop
   const handleUpdateEvent = useCallback((eventId: string, updates: Partial<CalendarEvent>) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, ...updates } : e)),
+    // Skip synthetic events (deadlines, holidays)
+    if (eventId.startsWith('deadline-') || eventId.startsWith('holiday-')) return
+    updateEventMutation.mutate({
+      id: eventId,
+      ...uiEventToUpdateRequest(updates),
+    })
+  }, [updateEventMutation])
+
+  // Quick create handler
+  const handleQuickCreate = useCallback((eventData: Partial<CalendarEvent>) => {
+    const calId = eventData.calendarId || calendars.find((c) => c.group === 'mine')?.id || ''
+    if (!calId) return
+    createEventMutation.mutate(
+      uiEventToCreateRequest(eventData, calId),
+      {
+        onSuccess: () => toast.success('Event erstellt'),
+        onError: () => toast.error('Event konnte nicht erstellt werden'),
+      },
     )
-  }, [])
+  }, [createEventMutation, calendars])
+
+  // Save event (create or update)
+  const handleSaveEvent = useCallback((eventData: Partial<CalendarEvent>) => {
+    if (eventData.id) {
+      updateEventMutation.mutate(
+        { id: eventData.id, ...uiEventToUpdateRequest(eventData) },
+        {
+          onSuccess: () => toast.success('Event aktualisiert'),
+          onError: () => toast.error('Event konnte nicht aktualisiert werden'),
+        },
+      )
+    } else {
+      const calId = eventData.calendarId || calendars.find((c) => c.group === 'mine')?.id || ''
+      if (!calId) return
+      createEventMutation.mutate(
+        uiEventToCreateRequest(eventData, calId),
+        {
+          onSuccess: () => toast.success('Event erstellt'),
+          onError: () => toast.error('Event konnte nicht erstellt werden'),
+        },
+      )
+    }
+  }, [createEventMutation, updateEventMutation, calendars])
+
+  // Delete event handler
+  const handleDeleteEvent = useCallback((eventId: string) => {
+    if (eventId.startsWith('deadline-') || eventId.startsWith('holiday-')) return
+    deleteEventMutation.mutate(eventId, {
+      onSuccess: () => {
+        toast.success('Event gelöscht')
+        setSelectedEvent(null)
+      },
+      onError: () => toast.error('Event konnte nicht gelöscht werden'),
+    })
+  }, [deleteEventMutation])
 
   const visibleEvents = useMemo(
     () => events.filter((e) => calendars.find((c) => c.id === e.calendarId)?.visible),
@@ -458,15 +514,18 @@ export default function KalenderPage() {
   }
 
   const goToToday = () => {
-    const today = new Date(2026, 1, 9) // mock "today"
+    const today = new Date()
     setCurrentDate(today)
     setSelectedDate(today)
   }
 
   const toggleCalendar = (id: string) => {
-    setCalendars((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, visible: !c.visible } : c)),
-    )
+    setVisibleCalendarIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   const handleSlotClick = (date: string, hour: number, minute: number, e: React.MouseEvent) => {
@@ -536,35 +595,46 @@ export default function KalenderPage() {
             />
 
             <div className="flex-1 overflow-auto bg-card">
-              {view === 'week' && (
-                <WeekView
-                  currentDate={currentDate}
-                  getEventsForDate={getEventsForDate}
-                  calendars={calendars}
-                  onSelectEvent={setSelectedEvent}
-                  onSlotClick={handleSlotClick}
-                  onDateClick={handleDateClick}
-                  onUpdateEvent={handleUpdateEvent}
-                />
-              )}
-              {view === 'day' && (
-                <DayView
-                  currentDate={currentDate}
-                  events={getEventsForDate(currentDate)}
-                  calendars={calendars}
-                  onSelectEvent={setSelectedEvent}
-                  onSlotClick={handleSlotClick}
-                  onUpdateEvent={handleUpdateEvent}
-                />
-              )}
-              {view === 'month' && (
-                <MonthView
-                  currentDate={currentDate}
-                  getEventsForDate={getEventsForDate}
-                  calendars={calendars}
-                  onSelectEvent={setSelectedEvent}
-                  onDateClick={handleDateClick}
-                />
+              {eventsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <span className="text-xs">Kalender wird geladen...</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {view === 'week' && (
+                    <WeekView
+                      currentDate={currentDate}
+                      getEventsForDate={getEventsForDate}
+                      calendars={calendars}
+                      onSelectEvent={setSelectedEvent}
+                      onSlotClick={handleSlotClick}
+                      onDateClick={handleDateClick}
+                      onUpdateEvent={handleUpdateEvent}
+                    />
+                  )}
+                  {view === 'day' && (
+                    <DayView
+                      currentDate={currentDate}
+                      events={getEventsForDate(currentDate)}
+                      calendars={calendars}
+                      onSelectEvent={setSelectedEvent}
+                      onSlotClick={handleSlotClick}
+                      onUpdateEvent={handleUpdateEvent}
+                    />
+                  )}
+                  {view === 'month' && (
+                    <MonthView
+                      currentDate={currentDate}
+                      getEventsForDate={getEventsForDate}
+                      calendars={calendars}
+                      onSelectEvent={setSelectedEvent}
+                      onDateClick={handleDateClick}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -573,7 +643,12 @@ export default function KalenderPage() {
           {quickCreate && (
             <QuickCreatePopover
               state={quickCreate}
+              categories={categories}
               onClose={() => setQuickCreate(null)}
+              onSave={(eventData) => {
+                handleQuickCreate(eventData)
+                setQuickCreate(null)
+              }}
               onMoreOptions={() =>
                 handleOpenFullForm({
                   date: quickCreate.date,
@@ -588,6 +663,13 @@ export default function KalenderPage() {
           {showEventForm && (
             <EventFormModal
               defaults={eventFormDefaults}
+              categories={categories}
+              calendars={calendars}
+              isSaving={createEventMutation.isPending || updateEventMutation.isPending}
+              onSave={(eventData) => {
+                handleSaveEvent(eventData)
+                setShowEventForm(false)
+              }}
               onClose={() => setShowEventForm(false)}
             />
           )}
@@ -597,12 +679,14 @@ export default function KalenderPage() {
             <EventDetailPanel
               event={selectedEvent}
               calendars={calendars}
+              categories={categories}
               onClose={() => setSelectedEvent(null)}
               onEdit={() => {
                 setEventFormDefaults(selectedEvent)
                 setSelectedEvent(null)
                 setShowEventForm(true)
               }}
+              onDelete={() => handleDeleteEvent(selectedEvent.id)}
             />
           )}
 
@@ -616,7 +700,8 @@ export default function KalenderPage() {
             open={showCategoryManager}
             onOpenChange={setShowCategoryManager}
             categories={categories}
-            onCategoriesChange={setCategories}
+            onCreateCategory={(name, color) => createCategoryMutation.mutate({ name, color })}
+            onDeleteCategory={(id) => deleteCategoryMutation.mutate(id)}
           />
 
           {/* Calendar browse */}
@@ -2360,20 +2445,38 @@ function MonthView({
 
 function QuickCreatePopover({
   state,
+  categories,
   onClose,
+  onSave,
   onMoreOptions,
 }: {
   state: QuickCreateState
+  categories: EventCategory[]
   onClose: () => void
+  onSave: (event: Partial<CalendarEvent>) => void
   onMoreOptions: () => void
 }) {
   const [title, setTitle] = useState('')
-  const [categoryId, setCategoryId] = useState('meeting')
-  const timeLabel = `${String(state.hour).padStart(2, '0')}:${String(state.minute).padStart(2, '0')} – ${String(state.hour + 1).padStart(2, '0')}:${String(state.minute).padStart(2, '0')}`
+  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '')
+  const startTime = `${String(state.hour).padStart(2, '0')}:${String(state.minute).padStart(2, '0')}`
+  const endTime = `${String(state.hour + 1).padStart(2, '0')}:${String(state.minute).padStart(2, '0')}`
+  const timeLabel = `${startTime} – ${endTime}`
 
   // Position near click, clamped to viewport
   const top = Math.min(state.y, window.innerHeight - 280)
   const left = Math.min(state.x, window.innerWidth - 320)
+
+  const handleSave = () => {
+    if (!title.trim()) return
+    onSave({
+      title: title.trim(),
+      date: state.date,
+      startTime,
+      endTime,
+      categoryId,
+      isAllDay: false,
+    })
+  }
 
   return (
     <>
@@ -2389,6 +2492,7 @@ function QuickCreatePopover({
             placeholder="Titel hinzufügen..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
             className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none border-b border-border-muted pb-2"
           />
 
@@ -2400,7 +2504,7 @@ function QuickCreatePopover({
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground">Kategorie:</span>
             <div className="flex gap-1">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setCategoryId(cat.id)}
@@ -2418,8 +2522,9 @@ function QuickCreatePopover({
 
           <div className="flex items-center gap-2 pt-1">
             <button
-              onClick={onClose}
-              className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+              onClick={handleSave}
+              disabled={!title.trim()}
+              className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
             >
               Speichern
             </button>
@@ -2442,23 +2547,32 @@ function QuickCreatePopover({
 
 function EventFormModal({
   defaults,
+  categories,
+  calendars,
+  isSaving,
+  onSave,
   onClose,
 }: {
   defaults: Partial<CalendarEvent>
+  categories: EventCategory[]
+  calendars: CalendarSource[]
+  isSaving: boolean
+  onSave: (event: Partial<CalendarEvent>) => void
   onClose: () => void
 }) {
+  const defaultCalendar = defaults.calendarId || calendars.find((c) => c.group === 'mine')?.id || ''
   const [title, setTitle] = useState(defaults.title ?? '')
-  const [date, setDate] = useState(defaults.date ?? '2026-02-09')
+  const [date, setDate] = useState(defaults.date ?? formatDateKey(new Date()))
   const [startTime, setStartTime] = useState(defaults.startTime ?? '09:00')
   const [endTime, setEndTime] = useState(defaults.endTime ?? '10:00')
   const [isAllDay, setIsAllDay] = useState(defaults.isAllDay ?? false)
-  const [categoryId, setCategoryId] = useState(defaults.categoryId ?? 'meeting')
+  const [categoryId, setCategoryId] = useState(defaults.categoryId ?? categories[0]?.id ?? '')
   const [location, setLocation] = useState(defaults.location ?? '')
   const [room, setRoom] = useState(defaults.room ?? '')
   const [description, setDescription] = useState(defaults.description ?? '')
   const [recurrence, setRecurrence] = useState(defaults.recurrence ?? 'Keine')
   const [reminder, setReminder] = useState(defaults.reminder ?? '15 Minuten')
-  const [calendarId, setCalendarId] = useState(defaults.calendarId ?? 'personal')
+  const [calendarId, setCalendarId] = useState(defaultCalendar)
   const [videoCall, setVideoCall] = useState(defaults.videoCall ?? false)
   const [participantSearch, setParticipantSearch] = useState('')
 
@@ -2550,7 +2664,7 @@ function EventFormModal({
           <div>
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">Kategorie</label>
             <div className="flex flex-wrap gap-1.5">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setCategoryId(cat.id)}
@@ -2660,7 +2774,7 @@ function EventFormModal({
               onChange={(e) => setCalendarId(e.target.value)}
               className="w-full rounded-lg border border-input-border bg-input-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary"
             >
-              {INITIAL_CALENDARS.filter((c) => c.group !== 'other').map((c) => (
+              {calendars.filter((c) => c.group !== 'other').map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -2731,10 +2845,26 @@ function EventFormModal({
             Abbrechen
           </button>
           <button
-            onClick={onClose}
-            className="rounded-lg bg-primary px-4 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
+            disabled={isSaving || !title.trim()}
+            onClick={() => onSave({
+              ...(defaults.id ? { id: defaults.id } : {}),
+              title,
+              date,
+              startTime,
+              endTime,
+              isAllDay,
+              categoryId,
+              calendarId,
+              location: location || undefined,
+              room: room || undefined,
+              description: description || undefined,
+              recurrence,
+              reminder,
+              videoCall,
+            })}
+            className="rounded-lg bg-primary px-4 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
           >
-            Speichern
+            {isSaving ? 'Wird gespeichert...' : 'Speichern'}
           </button>
         </div>
       </div>
@@ -2749,17 +2879,21 @@ function EventFormModal({
 function EventDetailPanel({
   event,
   calendars,
+  categories,
   onClose,
   onEdit,
+  onDelete,
 }: {
   event: CalendarEvent
   calendars: CalendarSource[]
+  categories: EventCategory[]
   onClose: () => void
   onEdit: () => void
+  onDelete: () => void
 }) {
   const color = getCategoryColor(event, calendars)
-  const category = CATEGORIES.find((c) => c.id === event.categoryId)
-  const calendar = INITIAL_CALENDARS.find((c) => c.id === event.calendarId)
+  const category = categories.find((c) => c.id === event.categoryId)
+  const calendar = calendars.find((c) => c.id === event.calendarId)
 
   const rsvpIcon = (status: RSVPStatus) => {
     switch (status) {
@@ -2789,9 +2923,16 @@ function EventDetailPanel({
               )}
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={onEdit} className="rounded-md p-1 text-muted-foreground hover:bg-secondary text-xs">
-                Bearbeiten
-              </button>
+              {!event.isHoliday && !event.isTaskDeadline && (
+                <>
+                  <button onClick={onEdit} className="rounded-md p-1 text-muted-foreground hover:bg-secondary text-xs">
+                    Bearbeiten
+                  </button>
+                  <button onClick={onDelete} className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-error text-xs">
+                    Löschen
+                  </button>
+                </>
+              )}
               <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-secondary">
                 <X className="h-4 w-4" />
               </button>

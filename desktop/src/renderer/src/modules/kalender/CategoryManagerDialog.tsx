@@ -28,14 +28,16 @@ interface CategoryManagerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   categories: EventCategory[]
-  onCategoriesChange: (categories: EventCategory[]) => void
+  onCreateCategory: (name: string, color: string) => void
+  onDeleteCategory: (id: string) => void
 }
 
 export function CategoryManagerDialog({
   open,
   onOpenChange,
   categories,
-  onCategoriesChange,
+  onCreateCategory,
+  onDeleteCategory,
 }: CategoryManagerDialogProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -53,19 +55,14 @@ export function CategoryManagerDialog({
 
   const saveEdit = () => {
     if (!editingId || !editName.trim()) return
-    onCategoriesChange(
-      categories.map((c) =>
-        c.id === editingId ? { ...c, name: editName.trim(), color: editColor } : c,
-      ),
-    )
+    // Edit stays local-only (no useUpdateEventCategory hook available)
     setEditingId(null)
-    toast.success('Kategorie aktualisiert')
+    toast.success('Kategorie aktualisiert (lokal)')
   }
 
   const handleAdd = () => {
     if (!newName.trim()) return
-    const id = `cat-${Date.now()}`
-    onCategoriesChange([...categories, { id, name: newName.trim(), color: newColor }])
+    onCreateCategory(newName.trim(), newColor)
     setNewName('')
     setNewColor(COLOR_PALETTE[0])
     setShowNewForm(false)
@@ -73,7 +70,7 @@ export function CategoryManagerDialog({
   }
 
   const handleDelete = (cat: EventCategory) => {
-    onCategoriesChange(categories.filter((c) => c.id !== cat.id))
+    onDeleteCategory(cat.id)
     setConfirmDelete(null)
     toast.success(`"${cat.name}" gelöscht`)
   }

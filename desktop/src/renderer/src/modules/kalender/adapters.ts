@@ -54,6 +54,7 @@ export interface CalendarEvent {
   isAllDay: boolean
   categoryId: string
   calendarId: string
+  color?: string
   location?: string
   room?: string
   description?: string
@@ -138,6 +139,7 @@ export function expandedEventToUI(event: ExpandedEvent): CalendarEvent {
     isAllDay: event.is_all_day,
     categoryId: event.category_id || '',
     calendarId: event.calendar_id,
+    color: event.display_color,
     location: event.location || undefined,
     room: event.resource_name || undefined,
     description: event.description || undefined,
@@ -229,6 +231,7 @@ export function holidayToUI(holiday: PublicHoliday): CalendarEvent {
     isAllDay: true,
     categoryId: '',
     calendarId: 'holidays',
+    color: '#9d8f85',
     isHoliday: true,
   }
 }
@@ -248,6 +251,7 @@ export function deadlineToUI(deadline: TaskDeadlineStub): CalendarEvent {
     isAllDay: false,
     categoryId: '',
     calendarId: 'deadlines',
+    color: '#a13f3f',
     isTaskDeadline: true,
   }
 }
