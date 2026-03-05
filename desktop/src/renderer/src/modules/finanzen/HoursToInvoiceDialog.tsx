@@ -42,6 +42,8 @@ interface TimeEntry {
 // Mock data
 // ---------------------------------------------------------------------------
 
+// TODO: Replace mock data with API call — Backend needed: GET /api/v1/time-entries?billed=false
+// Fetch unbilled time entries from Zeiterfassung service, with project/employee filtering
 const mockTimeEntries: TimeEntry[] = [
   { id: 'te1', date: '2026-02-18', project: 'Website Redesign', task: 'Frontend-Entwicklung', employee: 'Anna Mueller', hours: 4.5, description: 'React-Komponenten implementiert', billed: false },
   { id: 'te2', date: '2026-02-18', project: 'Website Redesign', task: 'Design-Review', employee: 'Anna Mueller', hours: 1.5, description: 'Figma-Prototyp reviewt', billed: false },

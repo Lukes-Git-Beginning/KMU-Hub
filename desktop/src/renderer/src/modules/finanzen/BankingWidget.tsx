@@ -55,6 +55,8 @@ interface BankTransaction {
 // Mock data
 // ---------------------------------------------------------------------------
 
+// TODO: Replace mock data with API call — Backend needed: FinAPI integration endpoints
+// GET /api/v1/finance/bank-accounts, GET /api/v1/finance/bank-transactions
 const mockAccounts: BankAccount[] = [
   {
     id: 'ba1',
@@ -78,6 +80,8 @@ const mockAccounts: BankAccount[] = [
   },
 ]
 
+// TODO: Replace mock data with API call — Backend needed: FinAPI integration endpoints
+// GET /api/v1/finance/bank-transactions (with filtering, pagination, match status)
 const mockTransactions: BankTransaction[] = [
   { id: 'bt1', date: '2026-02-24', description: 'Eingang Gruber Maschinenbau — Abschlag 3', amount: 16000.00, type: 'credit', counterpart: 'Gruber Maschinenbau GmbH', matchStatus: 'matched', matchedInvoice: 'RE-2026-003' },
   { id: 'bt2', date: '2026-02-22', description: 'Eingang DataFlow — Analytics Dashboard', amount: 14000.00, type: 'credit', counterpart: 'DataFlow GmbH', matchStatus: 'matched', matchedInvoice: 'RE-2026-011' },

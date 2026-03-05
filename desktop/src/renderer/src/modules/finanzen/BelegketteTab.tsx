@@ -69,6 +69,8 @@ const statusConfig: Record<DocStatus, { label: string; bg: string; text: string 
 // Mock data
 // ---------------------------------------------------------------------------
 
+// TODO: Replace mock data with API call — Backend needed: GET /api/v1/finance/document-chains
+// This aggregation endpoint needs to link invoices, payments, and receipts into chains.
 const mockChains: DocumentChain[] = [
   {
     id: 'chain-1',
