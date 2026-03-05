@@ -1,34 +1,26 @@
 import { useState, useMemo } from 'react'
-import { Search, Plus, MessageSquareText } from 'lucide-react'
+import { Search, Plus, MessageSquareText, Loader2 } from 'lucide-react'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { useKommunikationStore } from '@/stores/kommunikation'
-import type { CommunicationChannel, ConversationStatus } from '@/types/communication'
+import type { CommunicationChannel } from '@/types/communication'
+import type { InboxMessage } from '@/api/inbox-types'
+import { useUnreadCount } from '@/api/hooks/useInbox'
 import { ChannelTabs } from './ChannelTabs'
 import { ConversationListFilters, type ConversationSort } from './ConversationListFilters'
 import { ConversationListItem } from './ConversationListItem'
 import { EmptyState } from '@/components/shared'
 
 // ---------------------------------------------------------------------------
-// Priority weight for sorting
-// ---------------------------------------------------------------------------
-
-const priorityWeight: Record<string, number> = {
-  urgent: 0,
-  high: 1,
-  normal: 2,
-  low: 3,
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 interface ConversationListProps {
+  messages: InboxMessage[]
+  isLoading: boolean
   onNewConversation: () => void
 }
 
-export function ConversationList({ onNewConversation }: ConversationListProps) {
-  const conversations = useKommunikationStore((s) => s.conversations)
+export function ConversationList({ messages, isLoading, onNewConversation }: ConversationListProps) {
   const activeChannel = useKommunikationStore((s) => s.activeChannel)
   const setActiveChannel = useKommunikationStore((s) => s.setActiveChannel)
   const searchQuery = useKommunikationStore((s) => s.searchQuery)
@@ -36,67 +28,42 @@ export function ConversationList({ onNewConversation }: ConversationListProps) {
   const selectedConversationId = useKommunikationStore((s) => s.selectedConversationId)
   const setSelectedConversation = useKommunikationStore((s) => s.setSelectedConversation)
 
-  const [statusFilter, setStatusFilter] = useState<ConversationStatus | 'all'>('all')
+  // TODO: statusFilter not supported by InboxMessage — keep UI but filter client-side is no longer possible
   const [sort, setSort] = useState<ConversationSort>('newest')
 
-  // Unread counts per channel
+  // Unread counts per channel from API
+  const { data: unreadData } = useUnreadCount()
   const unreadCounts = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const c of conversations) {
-      if (c.unreadCount > 0) {
-        counts[c.channel] = (counts[c.channel] ?? 0) + c.unreadCount
+    if (unreadData?.counts) {
+      for (const c of unreadData.counts) {
+        counts[c.channel] = c.count
       }
     }
     return counts
-  }, [conversations])
+  }, [unreadData])
 
-  // Filter + sort conversations
-  const filtered = useMemo(() => {
-    let result = conversations
+  // Sort messages client-side (filtering is done via API filter in KommunikationPage)
+  const sorted = useMemo(() => {
+    let result = [...messages]
 
-    // Channel filter
-    if (activeChannel !== 'all') {
-      result = result.filter((c) => c.channel === activeChannel)
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      result = result.filter((c) => c.status === statusFilter)
-    }
-
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter(
-        (c) =>
-          c.subject.toLowerCase().includes(q) ||
-          c.contactName.toLowerCase().includes(q) ||
-          c.contactCompany?.toLowerCase().includes(q) ||
-          c.lastMessage.toLowerCase().includes(q) ||
-          c.tags.some((t) => t.toLowerCase().includes(q)),
-      )
-    }
-
-    // Sort
     switch (sort) {
       case 'newest':
-        result = [...result].sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
+        result.sort((a, b) => b.received_at.localeCompare(a.received_at))
         break
       case 'oldest':
-        result = [...result].sort((a, b) => a.lastMessageAt.localeCompare(b.lastMessageAt))
+        result.sort((a, b) => a.received_at.localeCompare(b.received_at))
         break
       case 'priority':
-        result = [...result].sort(
-          (a, b) => (priorityWeight[a.priority] ?? 2) - (priorityWeight[b.priority] ?? 2),
-        )
+        // TODO: InboxMessage has no priority field — keep default sort
         break
       case 'unread':
-        result = [...result].sort((a, b) => b.unreadCount - a.unreadCount)
+        result.sort((a, b) => (a.is_read === b.is_read ? 0 : a.is_read ? 1 : -1))
         break
     }
 
     return result
-  }, [conversations, activeChannel, statusFilter, searchQuery, sort])
+  }, [messages, sort])
 
   return (
     <div className="flex w-80 shrink-0 flex-col border-r border-border bg-card/50">
@@ -143,16 +110,20 @@ export function ConversationList({ onNewConversation }: ConversationListProps) {
 
       {/* Status filters + sort */}
       <ConversationListFilters
-        statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
+        statusFilter="all"
+        onStatusChange={() => {/* TODO: Status filter not available in InboxMessage API */}}
         sort={sort}
         onSortChange={setSort}
-        totalCount={filtered.length}
+        totalCount={sorted.length}
       />
 
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : sorted.length === 0 ? (
           <EmptyState
             icon={MessageSquareText}
             title="Keine Konversationen"
@@ -163,11 +134,11 @@ export function ConversationList({ onNewConversation }: ConversationListProps) {
             }
           />
         ) : (
-          filtered.map((conv) => (
+          sorted.map((msg) => (
             <ConversationListItem
-              key={conv.id}
-              conversation={conv}
-              isSelected={selectedConversationId === conv.id}
+              key={msg.id}
+              message={msg}
+              isSelected={selectedConversationId === msg.id}
               onSelect={setSelectedConversation}
             />
           ))

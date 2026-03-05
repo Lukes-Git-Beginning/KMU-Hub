@@ -1,17 +1,10 @@
 import { useState } from 'react'
 import {
   Mail,
-  MessageCircle,
-  Globe,
-  Headphones,
-  Users,
-  ArrowUp,
-  AlertTriangle,
+  MessageSquare,
+  Bell,
   MoreHorizontal,
   UserPlus,
-  CheckCircle2,
-  Clock,
-  XCircle,
   Tag,
   Archive,
   Trash2,
@@ -20,9 +13,17 @@ import {
   Forward,
   ListTodo,
   StickyNote,
+  Star,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Conversation, CommunicationChannel, ConversationStatus } from '@/types/communication'
+import type { InboxMessage, InboxChannel } from '@/api/inbox-types'
+import {
+  useMarkRead,
+  useMarkUnread,
+  useToggleStar,
+  useArchiveMessage,
+  useAssignMessage,
+} from '@/api/hooks/useInbox'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import {
   Popover,
@@ -34,26 +35,10 @@ import {
 // Config
 // ---------------------------------------------------------------------------
 
-const channelConfig: Record<CommunicationChannel, { icon: typeof Mail; color: string; bg: string; label: string }> = {
+const channelConfig: Record<InboxChannel, { icon: typeof Mail; color: string; bg: string; label: string }> = {
   email: { icon: Mail, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-950/30', label: 'E-Mail' },
-  teams: { icon: Users, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-950/30', label: 'Teams' },
-  whatsapp: { icon: MessageCircle, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-950/30', label: 'WhatsApp' },
-  widget: { icon: Globe, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-950/30', label: 'Widget' },
-  portal: { icon: Headphones, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-950/30', label: 'Portal' },
-}
-
-const statusOptions: { id: ConversationStatus; label: string; icon: typeof CheckCircle2; color: string }[] = [
-  { id: 'open', label: 'Offen', icon: Clock, color: 'text-success' },
-  { id: 'pending', label: 'Wartend', icon: Clock, color: 'text-warning' },
-  { id: 'resolved', label: 'Geloest', icon: CheckCircle2, color: 'text-blue-500' },
-  { id: 'closed', label: 'Geschlossen', icon: XCircle, color: 'text-muted-foreground' },
-]
-
-const priorityLabels: Record<string, { icon?: typeof ArrowUp; color: string; label: string }> = {
-  urgent: { icon: AlertTriangle, color: 'text-destructive', label: 'Dringend' },
-  high: { icon: ArrowUp, color: 'text-warning', label: 'Hoch' },
-  normal: { color: '', label: 'Normal' },
-  low: { color: '', label: 'Niedrig' },
+  chat: { icon: MessageSquare, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-950/30', label: 'Chat' },
+  notification: { icon: Bell, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-950/30', label: 'Benachrichtigung' },
 }
 
 // ---------------------------------------------------------------------------
@@ -61,37 +46,38 @@ const priorityLabels: Record<string, { icon?: typeof ArrowUp; color: string; lab
 // ---------------------------------------------------------------------------
 
 interface ConversationThreadHeaderProps {
-  conversation: Conversation
+  message: InboxMessage
 }
 
-export function ConversationThreadHeader({ conversation: conv }: ConversationThreadHeaderProps) {
-  const updateStatus = useKommunikationStore((s) => s.updateStatus)
-  const addTag = useKommunikationStore((s) => s.addTag)
-  const removeTag = useKommunikationStore((s) => s.removeTag)
-  const toggleRead = useKommunikationStore((s) => s.toggleRead)
-  const archiveConversation = useKommunikationStore((s) => s.archiveConversation)
-  const deleteConversation = useKommunikationStore((s) => s.deleteConversation)
-  const addMessage = useKommunikationStore((s) => s.addMessage)
-  const [tagInput, setTagInput] = useState('')
-  const [statusOpen, setStatusOpen] = useState(false)
+export function ConversationThreadHeader({ message: msg }: ConversationThreadHeaderProps) {
+  const setSelectedConversation = useKommunikationStore((s) => s.setSelectedConversation)
+  const markRead = useMarkRead()
+  const markUnread = useMarkUnread()
+  const toggleStar = useToggleStar()
+  const archiveMsg = useArchiveMessage()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const assignMsg = useAssignMessage()
+
   const [actionsOpen, setActionsOpen] = useState(false)
 
-  const ch = channelConfig[conv.channel]
+  const ch = channelConfig[msg.channel]
   const ChannelIcon = ch.icon
-  const prio = priorityLabels[conv.priority]
-  const PrioIcon = prio?.icon
 
-  const handleStatusChange = (status: ConversationStatus) => {
-    updateStatus(conv.id, status)
-    setStatusOpen(false)
-    toast.success(`Status: ${statusOptions.find((s) => s.id === status)?.label}`)
+  const handleToggleRead = () => {
+    if (msg.is_read) {
+      markUnread.mutate(msg.id)
+      toast.success('Als ungelesen markiert')
+    } else {
+      markRead.mutate(msg.id)
+      toast.success('Als gelesen markiert')
+    }
+    setActionsOpen(false)
   }
 
-  const handleAddTag = () => {
-    const tag = tagInput.trim().toLowerCase()
-    if (!tag) return
-    addTag(conv.id, tag)
-    setTagInput('')
+  const handleArchive = () => {
+    archiveMsg.mutate(msg.id)
+    setSelectedConversation(null)
+    setActionsOpen(false)
   }
 
   return (
@@ -105,47 +91,17 @@ export function ConversationThreadHeader({ conversation: conv }: ConversationThr
 
         {/* Subject */}
         <h2 className="text-sm font-semibold text-foreground truncate flex-1">
-          {conv.subject}
+          {msg.subject}
         </h2>
 
-        {/* Priority badge */}
-        {PrioIcon && (
-          <span className={`flex items-center gap-1 text-[11px] font-medium ${prio.color}`}>
-            <PrioIcon className="h-3.5 w-3.5" />
-            {prio.label}
-          </span>
-        )}
-
-        {/* Status dropdown */}
-        <Popover open={statusOpen} onOpenChange={setStatusOpen}>
-          <PopoverTrigger asChild>
-            <button className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors hover:opacity-80 ${
-              conv.status === 'open' ? 'bg-success/15 text-success' :
-              conv.status === 'pending' ? 'bg-warning/15 text-warning' :
-              conv.status === 'resolved' ? 'bg-blue-500/15 text-blue-500' :
-              'bg-muted text-muted-foreground'
-            }`}>
-              {statusOptions.find((s) => s.id === conv.status)?.label ?? conv.status}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-40 p-1" align="end" sideOffset={4}>
-            {statusOptions.map((opt) => {
-              const Icon = opt.icon
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => handleStatusChange(opt.id)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent ${
-                    conv.status === opt.id ? 'bg-accent font-medium' : ''
-                  }`}
-                >
-                  <Icon className={`h-3.5 w-3.5 ${opt.color}`} />
-                  {opt.label}
-                </button>
-              )
-            })}
-          </PopoverContent>
-        </Popover>
+        {/* Star toggle */}
+        <button
+          onClick={() => toggleStar.mutate(msg.id)}
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          title={msg.is_starred ? 'Stern entfernen' : 'Stern vergeben'}
+        >
+          <Star className={`h-4 w-4 ${msg.is_starred ? 'fill-warning text-warning' : ''}`} />
+        </button>
 
         {/* Actions menu */}
         <Popover open={actionsOpen} onOpenChange={setActionsOpen}>
@@ -156,11 +112,11 @@ export function ConversationThreadHeader({ conversation: conv }: ConversationThr
           </PopoverTrigger>
           <PopoverContent className="w-48 p-1" align="end" sideOffset={4}>
             <button
-              onClick={() => { toggleRead(conv.id); setActionsOpen(false); toast.success(conv.unreadCount === 0 ? 'Als ungelesen markiert' : 'Als gelesen markiert') }}
+              onClick={handleToggleRead}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
-              {conv.unreadCount === 0 ? <MailOpen className="h-3.5 w-3.5" /> : <MailCheck className="h-3.5 w-3.5" />}
-              {conv.unreadCount === 0 ? 'Als ungelesen markieren' : 'Als gelesen markieren'}
+              {msg.is_read ? <MailOpen className="h-3.5 w-3.5" /> : <MailCheck className="h-3.5 w-3.5" />}
+              {msg.is_read ? 'Als ungelesen markieren' : 'Als gelesen markieren'}
             </button>
             <button
               onClick={() => { toast.info('Weiterleitung geoeffnet'); setActionsOpen(false) }}
@@ -171,9 +127,9 @@ export function ConversationThreadHeader({ conversation: conv }: ConversationThr
             </button>
             <button
               onClick={() => {
-                addMessage(conv.id, { conversationId: conv.id, direction: 'internal', senderName: 'Du', senderId: 'self', content: '(Notiz hinzugefuegt)', attachments: [] })
+                // TODO: No internal note API exists yet
+                toast.info('Interne Notizen sind noch nicht per API verfuegbar')
                 setActionsOpen(false)
-                toast.success('Interne Notiz erstellt')
               }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
@@ -189,14 +145,20 @@ export function ConversationThreadHeader({ conversation: conv }: ConversationThr
             </button>
             <div className="my-1 border-t border-border" />
             <button
-              onClick={() => { archiveConversation(conv.id); setActionsOpen(false); toast.success('Konversation archiviert') }}
+              onClick={handleArchive}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               <Archive className="h-3.5 w-3.5" />
               Archivieren
             </button>
             <button
-              onClick={() => { deleteConversation(conv.id); setActionsOpen(false); toast.success('Konversation geloescht') }}
+              onClick={() => {
+                // TODO: No delete API for messages — archive instead
+                archiveMsg.mutate(msg.id)
+                setSelectedConversation(null)
+                setActionsOpen(false)
+                toast.success('Nachricht archiviert')
+              }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-error transition-colors hover:bg-error/10"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -206,47 +168,38 @@ export function ConversationThreadHeader({ conversation: conv }: ConversationThr
         </Popover>
       </div>
 
-      {/* Row 2: Contact info + assigned + tags */}
+      {/* Row 2: Sender info + assigned + tags */}
       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
         <span className="text-xs text-muted-foreground">
-          {conv.contactName}
-          {conv.contactCompany && <span className="text-muted-foreground/60"> · {conv.contactCompany}</span>}
+          {msg.sender_name}
+          {msg.sender_email && <span className="text-muted-foreground/60"> · {msg.sender_email}</span>}
         </span>
 
-        {conv.assignedTo && (
+        {msg.assigned_to && (
           <span className="flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
             <UserPlus className="h-2.5 w-2.5" />
-            {conv.assignedTo}
+            {msg.assigned_to}
           </span>
         )}
 
         {/* Tags */}
-        {conv.tags.map((tag) => (
+        {msg.tags.map((tag) => (
           <span
             key={tag}
-            className="group flex items-center gap-0.5 rounded bg-secondary/70 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            className="flex items-center gap-0.5 rounded bg-secondary/70 px-1.5 py-0.5 text-[10px] text-muted-foreground"
           >
             {tag}
-            <button
-              onClick={() => removeTag(conv.id, tag)}
-              className="hidden group-hover:inline-flex h-3 w-3 items-center justify-center rounded-full hover:bg-destructive/20 hover:text-destructive transition-colors"
-            >
-              ×
-            </button>
+            {/* TODO: No tag remove API exists yet */}
           </span>
         ))}
 
-        {/* Add tag */}
+        {/* Add tag placeholder */}
         <div className="flex items-center gap-0.5">
           <Tag className="h-2.5 w-2.5 text-muted-foreground/50" />
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag() }}
-            placeholder="+Tag"
-            className="w-12 bg-transparent text-[10px] text-muted-foreground outline-none placeholder:text-muted-foreground/40 focus:w-20 transition-all"
-          />
+          <span className="text-[10px] text-muted-foreground/40">
+            {/* TODO: No tag add API exists yet */}
+            +Tag
+          </span>
         </div>
       </div>
     </div>

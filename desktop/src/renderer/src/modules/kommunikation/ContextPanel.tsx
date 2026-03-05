@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
-import { X, PanelRightClose } from 'lucide-react'
+import { X, PanelRightClose, Loader2 } from 'lucide-react'
 import { useKommunikationStore } from '@/stores/kommunikation'
+import { useInboxMessage } from '@/api/hooks/useInbox'
 import { ContactCard } from './ContactCard'
 import { OpenDeals } from './OpenDeals'
 import { OpenTickets } from './OpenTickets'
 import { ActivityTimeline } from './ActivityTimeline'
+import type { Conversation } from '@/types/communication'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -12,19 +13,15 @@ import { ActivityTimeline } from './ActivityTimeline'
 
 export function ContextPanel() {
   const selectedId = useKommunikationStore((s) => s.selectedConversationId)
-  const conversations = useKommunikationStore((s) => s.conversations)
   const detailPaneOpen = useKommunikationStore((s) => s.detailPaneOpen)
   const toggleDetailPane = useKommunikationStore((s) => s.toggleDetailPane)
 
-  const conv = useMemo(
-    () => conversations.find((c) => c.id === selectedId) ?? null,
-    [conversations, selectedId],
-  )
+  const { data: message, isLoading } = useInboxMessage(selectedId ?? '')
 
-  // No conversation selected → no panel
-  if (!conv) return null
+  // No message selected -> no panel
+  if (!selectedId) return null
 
-  // Panel collapsed → show toggle button
+  // Panel collapsed -> show toggle button
   if (!detailPaneOpen) {
     return (
       <div className="flex shrink-0 flex-col items-center border-l border-border bg-card/30 px-1.5 py-2">
@@ -37,6 +34,41 @@ export function ContextPanel() {
         </button>
       </div>
     )
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex w-72 shrink-0 flex-col border-l border-border bg-card/30 items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!message) return null
+
+  // Adapt InboxMessage to Conversation shape for ContactCard (which expects Conversation)
+  // This is a temporary adapter until ContactCard is updated to accept InboxMessage
+  const conversationAdapter: Conversation = {
+    id: message.id,
+    channel: message.channel === 'email' ? 'email' : 'teams',
+    subject: message.subject,
+    status: 'open',
+    priority: 'normal',
+    assignedTo: message.assigned_to,
+    contactId: message.crm_contact_id,
+    contactName: message.sender_name,
+    contactEmail: message.sender_email,
+    lastMessage: message.preview,
+    lastMessageAt: message.received_at,
+    unreadCount: message.is_read ? 0 : 1,
+    tags: message.tags,
+    messages: [],
+    participants: [],
+    crmDealIds: [],
+    crmTicketIds: [],
+    createdAt: message.created_at,
+    updatedAt: message.updated_at,
   }
 
   return (
@@ -56,41 +88,37 @@ export function ContextPanel() {
       </div>
 
       {/* Contact card */}
-      <ContactCard conversation={conv} />
+      <ContactCard conversation={conversationAdapter} />
 
       {/* Open deals */}
-      <OpenDeals dealIds={conv.crmDealIds ?? []} />
+      {/* TODO: InboxMessage has no crmDealIds — would need a CRM lookup by crm_contact_id */}
+      <OpenDeals dealIds={[]} />
 
       {/* Open tickets */}
-      <OpenTickets ticketIds={conv.crmTicketIds ?? []} />
+      {/* TODO: InboxMessage has no crmTicketIds — would need a CRM lookup by crm_contact_id */}
+      <OpenTickets ticketIds={[]} />
 
       {/* Activity timeline */}
-      <ActivityTimeline contactName={conv.contactName} />
+      <ActivityTimeline contactName={message.sender_name} />
 
       {/* Participants */}
+      {/* TODO: InboxMessage has no participants array — thread/participants API needed */}
       <div className="p-3">
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-          Teilnehmer ({conv.participants.length})
+          Teilnehmer
         </h4>
         <div className="space-y-1.5">
-          {conv.participants.map((p) => (
-            <div key={p.id} className="flex items-center gap-2 text-xs">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[9px] font-medium text-muted-foreground">
-                {p.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .toUpperCase()
-                  .slice(0, 2)}
-              </div>
-              <span className="text-foreground/90 truncate">{p.name}</span>
-              {p.isInternal && (
-                <span className="shrink-0 rounded bg-primary/10 px-1 py-0.5 text-[9px] text-primary">
-                  Intern
-                </span>
-              )}
+          <div className="flex items-center gap-2 text-xs">
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[9px] font-medium text-muted-foreground">
+              {message.sender_name
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2)}
             </div>
-          ))}
+            <span className="text-foreground/90 truncate">{message.sender_name}</span>
+          </div>
         </div>
       </div>
     </div>

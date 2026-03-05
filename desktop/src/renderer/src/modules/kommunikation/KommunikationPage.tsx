@@ -6,14 +6,14 @@
  *   Center (flex-1):  ConversationThread — message timeline + reply composer
  *   Right  (w-72):    ContextPanel — CRM contact, deals, tickets, activity
  *
- * All data from useKommunikationStore (mock). Backend swap: replace store
- * reads with TanStack Query hooks, keep components identical.
+ * Data from useInboxMessages (TanStack Query). UI state from useKommunikationStore.
  *
  * Keyboard shortcuts: j/k nav, Escape deselect.
  */
-import { useEffect, useCallback, useState } from 'react'
-import { Settings } from 'lucide-react'
+import { useEffect, useCallback, useMemo, useState } from 'react'
 import { useKommunikationStore } from '@/stores/kommunikation'
+import { useInboxMessages } from '@/api/hooks/useInbox'
+import type { InboxListFilter, InboxChannel } from '@/api/inbox-types'
 import { ConversationList } from './ConversationList'
 import { ConversationThread } from './ConversationThread'
 import { ContextPanel } from './ContextPanel'
@@ -25,11 +25,35 @@ import { ChannelSettingsDialog } from './ChannelSettingsDialog'
 // ---------------------------------------------------------------------------
 
 export default function KommunikationPage() {
-  const conversations = useKommunikationStore((s) => s.conversations)
+  const activeChannel = useKommunikationStore((s) => s.activeChannel)
+  const searchQuery = useKommunikationStore((s) => s.searchQuery)
   const selectedId = useKommunikationStore((s) => s.selectedConversationId)
   const setSelectedConversation = useKommunikationStore((s) => s.setSelectedConversation)
   const [showNewConversation, setShowNewConversation] = useState(false)
   const [showChannelSettings, setShowChannelSettings] = useState(false)
+
+  // Build filter from UI state
+  const filter = useMemo<InboxListFilter>(() => {
+    const f: InboxListFilter = {}
+    if (activeChannel !== 'all') {
+      // Map old CommunicationChannel values to InboxChannel
+      const channelMap: Record<string, InboxChannel> = {
+        email: 'email',
+        whatsapp: 'chat',
+        teams: 'chat',
+        widget: 'chat',
+        portal: 'chat',
+      }
+      f.channel = channelMap[activeChannel] ?? (activeChannel as InboxChannel)
+    }
+    if (searchQuery.trim()) {
+      f.search = searchQuery.trim()
+    }
+    return f
+  }, [activeChannel, searchQuery])
+
+  const { data, isLoading } = useInboxMessages(filter)
+  const messages = data?.messages ?? []
 
   // Keyboard shortcuts: j/k to navigate, Escape to deselect
   const handleKeyDown = useCallback(
@@ -44,20 +68,20 @@ export default function KommunikationPage() {
         return
       }
 
-      const currentIdx = conversations.findIndex((c) => c.id === selectedId)
+      const currentIdx = messages.findIndex((m) => m.id === selectedId)
 
       switch (e.key) {
         case 'j': {
-          const nextIdx = currentIdx < conversations.length - 1 ? currentIdx + 1 : currentIdx
-          if (conversations[nextIdx]) {
-            setSelectedConversation(conversations[nextIdx].id)
+          const nextIdx = currentIdx < messages.length - 1 ? currentIdx + 1 : currentIdx
+          if (messages[nextIdx]) {
+            setSelectedConversation(messages[nextIdx].id)
           }
           break
         }
         case 'k': {
           const prevIdx = currentIdx > 0 ? currentIdx - 1 : 0
-          if (conversations[prevIdx]) {
-            setSelectedConversation(conversations[prevIdx].id)
+          if (messages[prevIdx]) {
+            setSelectedConversation(messages[prevIdx].id)
           }
           break
         }
@@ -67,7 +91,7 @@ export default function KommunikationPage() {
         }
       }
     },
-    [conversations, selectedId, setSelectedConversation],
+    [messages, selectedId, setSelectedConversation],
   )
 
   useEffect(() => {
@@ -80,6 +104,8 @@ export default function KommunikationPage() {
       <div className="flex h-full overflow-hidden animate-fade-in">
         {/* Left: Conversation list */}
         <ConversationList
+          messages={messages}
+          isLoading={isLoading}
           onNewConversation={() => setShowNewConversation(true)}
         />
 

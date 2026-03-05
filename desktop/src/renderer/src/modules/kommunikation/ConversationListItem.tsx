@@ -1,39 +1,19 @@
 import {
   Mail,
   MessageCircle,
-  Globe,
-  Headphones,
-  Users,
-  Paperclip,
-  AlertTriangle,
-  ArrowUp,
+  Bell,
+  Star,
 } from 'lucide-react'
-import type { Conversation, CommunicationChannel, ConversationPriority } from '@/types/communication'
+import type { InboxMessage, InboxChannel } from '@/api/inbox-types'
 
 // ---------------------------------------------------------------------------
 // Channel config
 // ---------------------------------------------------------------------------
 
-const channelIcon: Record<CommunicationChannel, { icon: typeof Mail; color: string }> = {
+const channelIcon: Record<InboxChannel, { icon: typeof Mail; color: string }> = {
   email: { icon: Mail, color: 'text-blue-500' },
-  teams: { icon: Users, color: 'text-violet-500' },
-  whatsapp: { icon: MessageCircle, color: 'text-green-500' },
-  widget: { icon: Globe, color: 'text-orange-500' },
-  portal: { icon: Headphones, color: 'text-teal-500' },
-}
-
-const priorityConfig: Record<ConversationPriority, { icon?: typeof ArrowUp; color: string; label: string }> = {
-  low: { color: '', label: '' },
-  normal: { color: '', label: '' },
-  high: { icon: ArrowUp, color: 'text-warning', label: 'Hoch' },
-  urgent: { icon: AlertTriangle, color: 'text-destructive', label: 'Dringend' },
-}
-
-const statusDot: Record<string, string> = {
-  open: 'bg-success',
-  pending: 'bg-warning',
-  resolved: 'bg-blue-500',
-  closed: 'bg-muted-foreground',
+  chat: { icon: MessageCircle, color: 'text-green-500' },
+  notification: { icon: Bell, color: 'text-orange-500' },
 }
 
 // ---------------------------------------------------------------------------
@@ -73,26 +53,23 @@ function getInitials(name: string): string {
 // ---------------------------------------------------------------------------
 
 interface ConversationListItemProps {
-  conversation: Conversation
+  message: InboxMessage
   isSelected: boolean
   onSelect: (id: string) => void
 }
 
 export function ConversationListItem({
-  conversation: conv,
+  message: msg,
   isSelected,
   onSelect,
 }: ConversationListItemProps) {
-  const ch = channelIcon[conv.channel]
+  const ch = channelIcon[msg.channel]
   const ChannelIcon = ch.icon
-  const prio = priorityConfig[conv.priority]
-  const PrioIcon = prio.icon
-  const hasAttachments = conv.messages.some((m) => m.attachments.length > 0)
-  const isUnread = conv.unreadCount > 0
+  const isUnread = !msg.is_read
 
   return (
     <button
-      onClick={() => onSelect(conv.id)}
+      onClick={() => onSelect(msg.id)}
       className={`flex w-full items-start gap-3 px-3 py-3 text-left transition-colors border-b border-border/50 ${
         isSelected
           ? 'bg-primary/5'
@@ -104,7 +81,7 @@ export function ConversationListItem({
       {/* Avatar */}
       <div className="relative shrink-0">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary">
-          {getInitials(conv.contactName)}
+          {getInitials(msg.sender_name)}
         </div>
         {/* Channel badge */}
         <div className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-background border border-border">
@@ -117,63 +94,48 @@ export function ConversationListItem({
         {/* Row 1: Name + time */}
         <div className="flex items-center justify-between gap-2">
           <span className={`text-sm truncate ${isUnread ? 'font-semibold text-foreground' : 'text-foreground/90'}`}>
-            {conv.contactName}
+            {msg.sender_name}
           </span>
           <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-            {formatRelativeTime(conv.lastMessageAt)}
+            {formatRelativeTime(msg.received_at)}
           </span>
         </div>
 
         {/* Row 2: Subject */}
         <p className={`text-[13px] truncate ${isUnread ? 'font-medium text-foreground' : 'text-foreground/80'}`}>
-          {conv.subject}
+          {msg.subject}
         </p>
 
         {/* Row 3: Preview */}
         <p className="text-xs text-muted-foreground truncate mt-0.5">
-          {conv.lastMessage}
+          {msg.preview}
         </p>
 
         {/* Row 4: Indicators */}
         <div className="flex items-center gap-1.5 mt-1.5">
-          {/* Status dot */}
-          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusDot[conv.status] ?? ''}`} />
-
-          {/* Priority */}
-          {PrioIcon && (
-            <PrioIcon className={`h-3 w-3 shrink-0 ${prio.color}`} />
+          {/* Star indicator */}
+          {msg.is_starred && (
+            <Star className="h-3 w-3 shrink-0 text-warning fill-warning" />
           )}
 
           {/* Assigned */}
-          {conv.assignedTo && (
+          {msg.assigned_to && (
             <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground truncate max-w-[80px]">
-              {conv.assignedTo}
+              {msg.assigned_to}
             </span>
           )}
 
           {/* Tags (first 2) */}
-          {conv.tags.slice(0, 2).map((tag) => (
+          {msg.tags.slice(0, 2).map((tag) => (
             <span key={tag} className="rounded bg-secondary/70 px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {tag}
             </span>
           ))}
 
-          {/* Attachment indicator */}
-          {hasAttachments && (
-            <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
-          )}
-
-          {/* Unread badge */}
+          {/* Unread indicator */}
           {isUnread && (
             <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-              {conv.unreadCount}
-            </span>
-          )}
-
-          {/* Company */}
-          {conv.contactCompany && (
-            <span className="ml-auto text-[10px] text-muted-foreground truncate max-w-[100px]">
-              {conv.contactCompany}
+              !
             </span>
           )}
         </div>

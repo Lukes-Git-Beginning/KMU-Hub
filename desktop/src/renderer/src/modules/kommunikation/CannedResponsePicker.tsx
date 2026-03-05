@@ -1,3 +1,4 @@
+// TODO: Wire to backend — no canned response API exists yet. Currently uses mock store data.
 import { useState, useMemo } from 'react'
 import { Zap, Search, Hash } from 'lucide-react'
 import { useKommunikationStore } from '@/stores/kommunikation'
