@@ -28,6 +28,8 @@ interface MockTimeData {
   rate: number
 }
 
+// TODO: Replace MOCK_TIME_DATA with API call — Backend needed: GET /api/v1/projects/{id}/time-entries?grouped_by=person
+// This mock provides per-person time entry data for the budget/hours breakdown.
 const MOCK_TIME_DATA: MockTimeData[] = [
   { person: 'Anna Mueller', hours: 64, rate: 150 },
   { person: 'Thomas Fischer', hours: 48, rate: 140 },
