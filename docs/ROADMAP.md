@@ -1,317 +1,77 @@
 # Roadmap KMU Hub
 
-## Phase 1: Foundation (Monat 1-2)
-
-**Ziel:** Solides technisches Fundament
-
-- [x] Auth Service (JWT, Refresh Tokens, RBAC)
-- [x] User Management (CRUD, Rollen, Einladungen)
-- [x] API Gateway (Routing, Rate Limiting, CORS)
-- [x] PostgreSQL Schema Design + Migrations (7 Migrations)
-- [x] Redis Setup (Sessions, Cache, Rate-Limit Fallback)
-- [x] CI/CD Pipeline (GitHub Actions: lint, test, build, openapi-validate, e2e)
-- [x] Docker-Compose fuer lokale Entwicklung (Full-Stack: postgres->redis->migrate->auth->gateway)
-- [x] OpenAPI Spec v1
-- [x] Logging + Monitoring Setup (slog + Prometheus Metrics + Health Checks)
-- [x] E2E Test-Framework (Go E2E Tests + CI Job)
-
-## Phase 2: CRM Core (Monat 2-4)
-
-**Ziel:** Funktionierendes CRM-Backend
-
-### Sprint 1: Foundation (complete)
-- [x] Custom Fields Engine (Definitions CRUD + Validator)
-- [x] Tags System (CRUD + Junction Tables)
-
-### Sprint 2: Core Entities (complete)
-- [x] Kontakte (CRUD, Custom Fields, Tags, Search)
-- [x] Unternehmen (CRUD, Kontakt-Verknuepfung)
-
-### Sprint 3: Deals Pipeline (complete)
-- [x] Pipeline Stages (CRUD, Reorder, Defaults)
-- [x] Deals (CRUD, Stage Transitions)
-
-### Sprint 4: Activities & Search (complete)
-- [x] Aktivitaeten (Calls, Meetings, Notizen, E-Mails, Tasks)
-- [x] Such-Engine (PostgreSQL Full-Text Search)
-
-### Sprint 5: Filters & Reporting (complete)
-- [x] Filter + Views (gespeicherte Filter)
-- [x] Basis-Reporting (Pipeline Value, Conversion Rates)
-
-## Phase 3: Chat & Messaging (Monat 4-5)
-
-**Ziel:** Internes Kommunikations-Tool
-
-### Sprint 1: Foundation + Channels + Messages (in progress)
-
-- [x] Chat Microservice Grundstruktur (cmd/chat, internal/chat)
-- [x] Proto Definition (chat.proto mit 14 RPCs)
-- [x] Migrations 000014-000015 (channels, channel_memberships, messages)
-- [x] Channel Service (CRUD, Join, Leave, Archive, Memberships)
-- [x] Message Service (CRUD, Soft-Delete)
-- [x] gRPC Server (chat_grpc.go)
-- [x] Docker-Compose + Dockerfile.chat
-- [x] Unit Tests (100% Service Layer Coverage)
-- [ ] Gateway HTTP Routes fuer Chat Endpoints
-- [ ] WebSocket Handler
-
-### Sprint 2: Direct Messages + Threads
-
-- [ ] DM Support (private Channels mit 2 Members)
-- [ ] Thread Replies (parent_message_id)
-- [ ] GetOrCreateDM, ListDMs, GetThreadReplies
-
-### Sprint 3: Mentions + Read Receipts + Typing
-
-- [ ] @Mentions (user, channel, everyone)
-- [ ] Read Receipts (last_read_at tracking)
-- [ ] Typing Indicators (ephemeral via WebSocket)
-
-### Sprint 4: File Sharing + Search
-
-- [ ] File Uploads (chat_files table)
-- [ ] Full-Text Search (TSVECTOR auf messages)
-
-### Sprint 5: Notifications
-
-- [ ] In-App Notifications
-- [ ] Notification Preferences
-
-## Phase 4: Desktop App (Monat 5-7)
-
-**Ziel:** Electron Desktop Client
-
-- [ ] Electron Shell + Auto-Update
-- [ ] React Component Library (DaisyUI/Tailwind)
-- [ ] CRM UI (Kontakte, Deals, Pipeline, Aktivitaeten)
-- [ ] Chat UI (Channels, DMs, Threads)
-- [ ] System Tray Integration
-- [ ] Native Notifications
-- [ ] Keyboard Shortcuts
-- [ ] Offline-Support (lokaler Cache)
-- [ ] Multi-Window Support
-
-## Phase 5: Mobile App (Monat 7-8)
-
-**Ziel:** React Native Mobile Client
-
-- [ ] React Native Projekt-Setup
-- [ ] CRM Core Features (read/create Kontakte, Deals)
-- [ ] Chat (Channels, DMs)
-- [ ] Push Notifications
-- [ ] Kamera fuer Visitenkarten-Scan
-
-## Phase 6: Video + Beta (Monat 8-10)
-
-**Ziel:** Video-Integration und Beta-Launch
-
-- [ ] LiveKit Integration
-- [ ] 1:1 Video Calls
-- [ ] Gruppen-Calls
-- [ ] Screen Sharing
-- [ ] Call Recording
-- [ ] WASM Plugin System (SDK + Dokumentation)
-- [ ] Self-Hosted Deployment Package (Docker-Compose)
-- [ ] Beta-Kunden Onboarding (3-5 Kunden)
-- [ ] Feedback-Loop + Iteration
-
-## Meilensteine
-
-| Monat | Meilenstein |
-|-------|------------|
-| 2 | Foundation complete, API laeuft |
-| 4 | CRM-Backend feature-complete |
-| 5 | Chat funktioniert E2E |
-| 7 | Desktop App Alpha |
-| 8 | Mobile App Alpha |
-| 10 | Beta Launch mit ersten Kunden |
-
-> **Anmerkung:** Urspruengliche Schaetzung war 18-20 Monate (1 Dev, ohne AI).
-> Durch AI-gestuetzte Entwicklung (1 Dev + AI-Coder) wurde die Timeline auf 8-10 Monate komprimiert.
-> Phase 1 wurde groesstenteils in wenigen Abend-Sessions fertiggestellt.
+> **Aktuelle Roadmap:** [`.planning/ROADMAP.md`](../.planning/ROADMAP.md)
+>
+> Diese Datei ist eine kompakte Zusammenfassung. Fuer Details, Checklisten
+> und den aktuellen Fortschritt siehe die Planning-Roadmap.
 
 ---
 
-## Fortschritts-Log
+## Ueberblick
 
-### 05.02.2026 — Phase 2 Sprint 5 Complete (1 Dev + AI-Coder)
+KMU Hub durchlief zwei Entwicklungsphasen:
 
-**Fokus:** CRM Core — Filters & Reporting (Sprint 5)
+1. **Feature Development** (Phasen 1-20) — abgeschlossen am 2026-02-26
+2. **Beta Preparation** (Phasen A-C) — aktiv seit 2026-02-27
 
-- Saved Filters vollstaendig implementiert:
-  - Migration 000012 (saved_filters Tabelle mit Permissions)
-  - `internal/crm/savedfilter/` Package (service, repository, postgres_repository, errors)
-  - `internal/models/saved_filter.go` — SavedFilter Model
-  - gRPC Server Methoden (Create, Get, List, Update, Delete)
-  - HTTP Gateway Endpoints: `/api/v1/saved-filters`
-  - 24 Unit Tests (100% Coverage fuer Service Layer)
-- Reports vollstaendig implementiert:
-  - Migration 000013 (deal_stage_history Tabelle + Trigger)
-  - `internal/crm/report/` Package (service, repository, postgres_repository, errors)
-  - `internal/models/report.go` — Report Models (Pipeline, Conversion, Activity)
-  - gRPC Server Methoden (GetPipelineReport, GetConversionReport, GetActivityReport)
-  - HTTP Gateway Endpoints: `/api/v1/reports/pipeline`, `/api/v1/reports/conversion`, `/api/v1/reports/activities`
-  - 19 Unit Tests (95%+ Coverage fuer Service Layer)
-- Features:
-  - Saved Filters per Entity Type (contact, company, deal, activity)
-  - Default Filter pro User + Entity Type (Unique Constraint)
-  - Filter Ownership Validation
-  - Pipeline Report: Deals per Stage mit total/weighted Value
-  - Conversion Report: Stage Transitions mit Conversion Rates + avg Days
-  - Activity Report: Activities per Typ mit Completion Rate
-  - Automatic Deal Stage History via PostgreSQL Trigger
-- OpenAPI Spec aktualisiert mit allen Filter + Report Endpoints
-- **Sprint 5 Filters & Reporting ist damit abgeschlossen**
-- **Phase 2 CRM Core ist damit vollstaendig abgeschlossen**
+### Feature Development (abgeschlossen)
 
----
+20 Entwicklungsphasen mit 103 Plaenen, ausgefuehrt in ~11.5 Stunden.
 
-### 05.02.2026 — Phase 2 Sprint 4 Complete (1 Dev + AI-Coder)
+| Meilenstein | Phasen | Abgeschlossen |
+|------------|--------|--------------|
+| Foundation (Auth, CRM, Chat) | 1-3 | vor GSD-Adoption |
+| Pilot MVP (Gateway, Desktop, Work, Kalender, Video) | 4-8 | 2026-02-11 |
+| Compliance & Comms (Security, Design, Documents) | 9-11 | 2026-02-17 |
+| Business Suite (Finanzen, HR) | 12-13 | 2026-02-19 |
+| Aggregation & Automation (Inbox, CalDAV, Workflows) | 14-16 | 2026-02-20 |
+| Integrations (Teams/Slack, Gast-Chat, Bexio, DATEV) | 17-19 | 2026-02-26 |
+| Extensibility (WASM Plugins, Industry Templates) | 20 | 2026-02-26 |
 
-**Fokus:** CRM Core — Activities & Search (Sprint 4)
+### Beta Preparation (aktiv)
 
-- Activities vollstaendig implementiert:
-  - Migration 000010 (activities Tabelle mit Permissions)
-  - `internal/crm/activity/` Package (service, repository, postgres_repository, errors)
-  - `internal/models/activity.go` — Activity Model mit 5 Typen
-  - gRPC Server Methoden (CRUD + Complete/Uncomplete)
-  - HTTP Gateway Endpoints: `/api/v1/activities`
-  - Unit Tests (100% Coverage fuer Service Layer)
-- Full-Text Search implementiert:
-  - Migration 000011 (search_vector Spalten + GIN Indexes)
-  - `internal/crm/search/` Package (service, repository, postgres_repository)
-  - PostgreSQL TSVECTOR mit German Config
-  - Unified Search ueber Contacts, Companies, Deals
-  - gRPC Server Methode (Search)
-  - HTTP Gateway Endpoint: `/api/v1/search`
-- **Sprint 4 Activities & Search ist damit abgeschlossen**
+Drei parallele Tracks ueber drei Phasen:
+
+| Phase | Zeitraum | Technisch | Legal | Business |
+|-------|----------|-----------|-------|----------|
+| **A — Core Wiring** | Maerz 2026 | ✅ 9 Module verdrahtet | Anwalt, Unternehmensform | Kundengespraech, Hetzner |
+| **B — Beta Hardening** | April 2026 | DokumentePage, D9 Design, E2E | AGB, DSGVO, AVV/DPA | Website, Preisliste |
+| **C — Beta Launch** | Mai 2026 | Performance, Self-Hosted | Rechtstexte live | Pilot-Onboarding |
+
+### Aktueller Stand (2026-03-05)
+
+- **Phase A Track 1 (Technisch):** Abgeschlossen — alle Core-Module auf echte API-Hooks migriert
+- **Phase A Track 2+3 (Legal/Business):** Noch nicht gestartet
+- **Naechster Schritt:** Phase B — DokumentePage verdrahten oder D9 Design-Merge
+
+### Scope-Entscheidung
+
+11 Industry-Module (Einkauf, Inventar, Produktion, Vermietung, Fuhrpark, Rapporte,
+Schichten, Vertraege, Wiki, Formulare, Berichte) bleiben fuer Beta auf Demo-Daten.
+Diese werden erst bei konkretem Pilot-Kundenbedarf verdrahtet (Plugin-System aus Phase 20).
 
 ---
 
-### 05.02.2026 — Phase 2 Sprint 3 Complete (1 Dev + AI-Coder)
+## Tech-Stack
 
-**Fokus:** CRM Core — Deals Pipeline (Sprint 3)
-
-- Pipeline Stages vollstaendig implementiert:
-  - Migration 000008 (pipeline_stages Tabelle mit Default-Stages)
-  - `internal/crm/pipelinestage/` Package (service, repository, postgres_repository, errors)
-  - `internal/models/pipeline_stage.go` — PipelineStage + WithStats Variant
-  - gRPC Server Methoden (CRUD + Reorder)
-  - HTTP Gateway Endpoints: `/api/v1/pipeline-stages`, `/api/v1/pipeline-stages/reorder`
-  - 32 Unit Tests (100% Coverage fuer Service Layer)
-- Deals vollstaendig implementiert:
-  - Migration 000009 (deals + deal_custom_field_values Tabellen)
-  - `internal/crm/deal/` Package (service, repository, postgres_repository, errors)
-  - `internal/models/deal.go` — Deal + DealWithRelations Models
-  - gRPC Server Methoden (CRUD + MoveToStage + AddTags + RemoveTags)
-  - HTTP Gateway Endpoints: `/api/v1/deals`, `/api/v1/deals/{id}/stage`, `/api/v1/deals/{id}/tags`
-  - 27 Unit Tests (100% Coverage fuer Service Layer)
-- Features:
-  - Default Pipeline Stages (Lead, Qualified, Proposal, Negotiation, Won, Lost)
-  - Stage Reordering via ID-Liste
-  - Unique is_won/is_lost Constraints
-  - Deal Value mit shopspring/decimal (Praezision)
-  - ISO 4217 Currency Validation
-  - Automatic closed_at bei Won/Lost Stage Transitions
-  - Contact, Company, Owner Relations (SET NULL on delete)
-  - Tags + Custom Fields per Deal
-- OpenAPI Spec aktualisiert mit allen CRM Endpoints
-- **Sprint 3 Deals Pipeline ist damit abgeschlossen**
+| Komponente | Technologie |
+|-----------|-------------|
+| Backend | Go Microservices (5 Binaerdateien: Gateway, Auth, CRM, Chat, Notification) + Work/Biz/Automation |
+| Desktop | Electron + React + TypeScript + TanStack Query |
+| Datenbank | PostgreSQL (34+ Migrations) + Redis |
+| Video | LiveKit (self-hostable) |
+| Plugins | Config-basiert + WASM (komplexe Erweiterungen) |
+| Hosting | EU-only (Hetzner), SaaS + Self-Hosted |
 
 ---
 
-### 05.02.2026 — Phase 2 Sprint 2 Complete (1 Dev + AI-Coder)
+## Kritische Blocker fuer Beta
 
-**Fokus:** CRM Core — Contacts & Companies (Sprint 2)
-
-- Contacts vollstaendig implementiert:
-  - Migration 000007 (contacts, companies, custom_field_values, FK constraints)
-  - `internal/crm/contact/` Package (service, repository, postgres_repository, errors)
-  - `internal/models/contact.go` — Contact + ContactWithRelations Models
-  - gRPC Server Methoden (CRUD + AddTags, RemoveTags)
-  - HTTP Gateway Endpoints: `/api/v1/contacts`, `/api/v1/contacts/{id}/tags`
-  - 33 Unit Tests (100% Coverage fuer Service Layer)
-- Companies vollstaendig implementiert:
-  - `internal/crm/company/` Package (service, repository, postgres_repository, errors)
-  - `internal/models/company.go` — Company + CompanyWithRelations Models
-  - gRPC Server Methoden (CRUD + GetCompanyContacts)
-  - HTTP Gateway Endpoints: `/api/v1/companies`, `/api/v1/companies/{id}/contacts`
-  - 26 Unit Tests (100% Coverage fuer Service Layer)
-- Features:
-  - Email Uniqueness (case-insensitive, optional)
-  - Company-Contact Linking (SET NULL on delete)
-  - Tags per Entity (via junction tables)
-  - Custom Fields Storage (JSONB)
-  - Search by name/email
-- **Sprint 2 Core Entities ist damit abgeschlossen**
+1. **Legal (AVV/DPA)** — ohne Auftragsverarbeitungsvertrag keine echten Kundendaten
+2. **Produktionsserver (Hetzner)** — muss vor Deployment stehen
+3. **D9 Design-Merge** — Visual Polish vor erster Pilot-Demo
 
 ---
 
-### 05.02.2026 — Phase 2 Sprint 1 Complete (1 Dev + AI-Coder)
-
-**Fokus:** CRM Core — Tags System (Sprint 1 Task 2)
-
-- Tags System vollstaendig implementiert:
-  - Migration 000006 (tags Tabelle + 4 Junction Tables + Permissions)
-  - `internal/crm/tag/` Package (service, repository, postgres_repository, errors)
-  - `internal/models/tag.go` — Tag Model mit Hex-Color-Validation
-  - gRPC Server Methoden (Create, Get, List, Update, Delete)
-  - HTTP Gateway Endpoints: `/api/v1/tags`
-  - 31 Unit Tests (100% Coverage fuer Service Layer)
-- Tags Features:
-  - Scoped per Entity Type (contact, company, deal, activity)
-  - Hex Color Validation (#rrggbb Format)
-  - Duplicate Name Detection per Entity Type
-  - In-Use Check vor Loeschung
-- **Sprint 1 Foundation ist damit abgeschlossen**
-
----
-
-### 05.02.2026 — Phase 2 Start (1 Dev + AI-Coder)
-
-**Fokus:** CRM Core — Custom Fields Engine (Sprint 1 Task 1)
-
-- CRM Microservice Grundstruktur aufgesetzt:
-  - `cmd/crm/main.go` — CRM Service Entry Point
-  - `internal/crm/customfield/` — Custom Fields Domain Package
-  - `proto/crm/v1/crm.proto` — gRPC Service Definition (alle CRM RPCs)
-- Custom Field Definitions implementiert:
-  - Migration 000005 (custom_field_definitions Tabelle + Permissions)
-  - Service Layer mit Validation (Entity Type, Field Type, Options fuer Select/Multiselect)
-  - Repository Interface + PostgreSQL Implementation
-  - gRPC Server + HTTP Gateway Endpoints
-  - Unit Tests (100% Coverage fuer Service Layer)
-- Gateway erweitert: CRM gRPC Client + Custom Fields HTTP Handlers
-- Docker-Compose aktualisiert: CRM Service Container
-- Dockerfile.crm erstellt
-
----
-
-### 05.02.2026 — Session 1 (1 Dev + AI-Coder)
-
-**Fokus:** Phase 1 abgeschlossen — User Management komplett
-
-- User Management Feature vollstaendig implementiert:
-  - GET /auth/me — Profil abrufen
-  - POST /auth/change-password — Passwort aendern
-  - POST/GET/DELETE /invitations — Einladungssystem (erstellen, auflisten, stornieren)
-  - POST /invitations/{token}/accept — Einladung annehmen
-- Database Migration 000004 (invitations Tabelle)
-- gRPC Service + HTTP Gateway erweitert
-- Unit Tests + E2E Tests hinzugefuegt
-- CI Pipeline gruen (alle 5 Jobs: lint, test, build, openapi-validate, e2e)
-- **Phase 1 ist damit vollstaendig abgeschlossen**
-
----
-
-### 04.02.2026 — Abend-Session (1 Dev + AI-Coder)
-
-**Fokus:** CI/CD Stabilisierung und E2E-Pipeline
-
-- E2E CI Job analysiert und gefixt (Auth-Container Healthcheck schlug in CI fehl)
-- `MinConns` von 5 auf 2 reduziert fuer stabilere Pool-Initialisierung in CI
-- Explizites `ConnectTimeout` (10s) fuer Postgres-Verbindungen hinzugefuegt
-- Auth-Container `start_period` auf 30s erhoeht
-- Redis als explizite Dependency fuer Auth-Service hinzugefuegt
-- Phase 1 steht nun fast vollstaendig — nur User Management (CRUD, Einladungen) fehlt noch
+*Letztes Update: 2026-03-05*
+*Detaillierte Roadmap: `.planning/ROADMAP.md`*
