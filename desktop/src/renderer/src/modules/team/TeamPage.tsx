@@ -164,7 +164,7 @@ export default function TeamPage() {
   const [selectedMemberInitials, setSelectedMemberInitials] = useState<string>('')
   const [showInvite, setShowInvite] = useState(false)
   const [showCreateWizard, setShowCreateWizard] = useState(false)
-  const [editMember, setEditMember] = useState<TeamMember | null>(null)
+  const [editMember, setEditMember] = useState<EmployeeProfile | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [approvalRequest, setApprovalRequest] = useState<LeaveRequest | null>(null)
   const [confirmDeactivate, setConfirmDeactivate] = useState<TeamMember | null>(null)

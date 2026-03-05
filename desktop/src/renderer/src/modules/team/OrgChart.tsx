@@ -11,8 +11,12 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useEmployees } from '@/api/hooks/hr-hooks'
+import type { EmployeeProfile } from '@/api/hr-types'
+import { EmptyState } from '@/components/shared'
 
 // ============================================================
 // Types
@@ -30,79 +34,49 @@ interface OrgNode {
 }
 
 // ============================================================
-// Mock Org Tree
+// Build tree from EmployeeProfile[]
 // ============================================================
 
-const ORG_TREE: OrgNode = {
-  id: 'ceo',
-  name: 'Anna Mueller',
-  initials: 'AM',
-  role: 'Geschaeftsfuehrerin',
-  department: 'Management',
-  email: 'anna.mueller@kmuhub.ch',
-  isManager: true,
-  children: [
-    {
-      id: 'dev-head',
-      name: 'Michael Berg',
-      initials: 'MB',
-      role: 'Head of Engineering',
-      department: 'Entwicklung',
-      email: 'michael.berg@kmuhub.ch',
-      isManager: true,
-      children: [
-        { id: 'm4', name: 'Jonas Diaz', initials: 'JD', role: 'Full-Stack Developer', department: 'Entwicklung', email: 'jonas.diaz@kmuhub.ch', children: [] },
-        { id: 'm6', name: 'Peter Koch', initials: 'PK', role: 'Security Engineer', department: 'Entwicklung', email: 'peter.koch@kmuhub.ch', children: [] },
-        { id: 'm8', name: 'Tom Brunner', initials: 'TB', role: 'Junior Developer', department: 'Entwicklung', email: 'tom.brunner@kmuhub.ch', children: [] },
-        { id: 'm12', name: 'Nils Hofer', initials: 'NH', role: 'DevOps Engineer', department: 'Entwicklung', email: 'nils.hofer@kmuhub.ch', children: [] },
-      ],
-    },
-    {
-      id: 'design-head',
-      name: 'Sarah Klein',
-      initials: 'SK',
-      role: 'Head of Design',
-      department: 'Design',
-      email: 'sarah.klein@kmuhub.ch',
-      isManager: true,
-      children: [
-        { id: 'm9', name: 'Claudia Frei', initials: 'CF', role: 'Grafikdesignerin', department: 'Design', email: 'claudia.frei@kmuhub.ch', children: [] },
-      ],
-    },
-    {
-      id: 'marketing-head',
-      name: 'Lisa Schmidt',
-      initials: 'LS',
-      role: 'Marketing Managerin',
-      department: 'Marketing',
-      email: 'lisa.schmidt@kmuhub.ch',
-      isManager: true,
-      children: [
-        { id: 'm7', name: 'Eva Brunner', initials: 'EB', role: 'Content Creator', department: 'Marketing', email: 'eva.brunner@kmuhub.ch', children: [] },
-      ],
-    },
-    {
-      id: 'sales-head',
-      name: 'Markus Steiner',
-      initials: 'MS',
-      role: 'Sales Manager',
-      department: 'Vertrieb',
-      email: 'markus.steiner@kmuhub.ch',
-      isManager: true,
+function buildOrgTree(employees: EmployeeProfile[]): OrgNode[] {
+  // Build a map of userId -> OrgNode
+  const nodeMap = new Map<string, OrgNode>()
+  for (const emp of employees) {
+    const name = emp.userName ?? 'Unbekannt'
+    const parts = name.split(' ')
+    const initials = parts.map((p) => p[0]).join('').slice(0, 2).toUpperCase()
+    nodeMap.set(emp.userId, {
+      id: emp.id,
+      name,
+      initials,
+      role: emp.positionTitle ?? '',
+      department: emp.department ?? 'Sonstige',
+      email: emp.userEmail ?? '',
       children: [],
-    },
-    {
-      id: 'hr-head',
-      name: 'Laura Weber',
-      initials: 'LW',
-      role: 'HR Managerin',
-      department: 'Human Resources',
-      email: 'laura.weber@kmuhub.ch',
-      isManager: true,
-      children: [],
-    },
-  ],
+      isManager: false,
+    })
+  }
+
+  // Build parent-child relationships
+  const rootNodes: OrgNode[] = []
+  for (const emp of employees) {
+    const node = nodeMap.get(emp.userId)
+    if (!node) continue
+
+    if (emp.managerUserId && nodeMap.has(emp.managerUserId)) {
+      const parent = nodeMap.get(emp.managerUserId)!
+      parent.children.push(node)
+      parent.isManager = true
+    } else {
+      rootNodes.push(node)
+    }
+  }
+
+  return rootNodes
 }
+
+// ============================================================
+// Helpers
+// ============================================================
 
 const DEPT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   Management: { bg: 'bg-primary-light', text: 'text-primary', border: 'border-primary/30' },
@@ -113,12 +87,19 @@ const DEPT_COLORS: Record<string, { bg: string; text: string; border: string }> 
   'Human Resources': { bg: 'bg-secondary', text: 'text-foreground', border: 'border-border' },
 }
 
-function countNodes(node: OrgNode): number {
-  return 1 + node.children.reduce((s, c) => s + countNodes(c), 0)
+const DEFAULT_DEPT_COLOR = { bg: 'bg-secondary', text: 'text-foreground', border: 'border-border' }
+
+function countNodes(nodes: OrgNode[]): number {
+  return nodes.reduce((s, n) => s + 1 + countNodes(n.children), 0)
 }
 
-function flattenNodes(node: OrgNode): OrgNode[] {
-  return [node, ...node.children.flatMap(flattenNodes)]
+function flattenNodes(nodes: OrgNode[]): OrgNode[] {
+  return nodes.flatMap((n) => [n, ...flattenNodes(n.children)])
+}
+
+function getMaxDepth(nodes: OrgNode[], depth = 1): number {
+  if (nodes.length === 0) return depth
+  return Math.max(...nodes.map((n) => getMaxDepth(n.children, depth + 1)))
 }
 
 // ============================================================
@@ -142,7 +123,7 @@ function OrgNodeCard({
 }) {
   const isCollapsed = collapsedIds.has(node.id)
   const hasChildren = node.children.length > 0
-  const colors = DEPT_COLORS[node.department] ?? DEPT_COLORS.Management
+  const colors = DEPT_COLORS[node.department] ?? DEFAULT_DEPT_COLOR
   const isHighlighted = searchHighlight && node.name.toLowerCase().includes(searchHighlight.toLowerCase())
 
   return (
@@ -216,15 +197,20 @@ function OrgNodeCard({
 // ============================================================
 
 export function OrgChart() {
+  const { data: employeesData, isLoading } = useEmployees()
+  const employees = employeesData?.employees ?? []
+
+  const rootNodes = useMemo(() => buildOrgTree(employees), [employees])
+  const allNodes = useMemo(() => flattenNodes(rootNodes), [rootNodes])
+  const totalEmployees = useMemo(() => countNodes(rootNodes), [rootNodes])
+  const departments = useMemo(() => [...new Set(allNodes.map((n) => n.department))], [allNodes])
+  const managers = useMemo(() => allNodes.filter((n) => n.isManager), [allNodes])
+  const hierarchyLevels = useMemo(() => rootNodes.length > 0 ? getMaxDepth(rootNodes) : 0, [rootNodes])
+
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
   const [selectedNode, setSelectedNode] = useState<OrgNode | null>(null)
   const [search, setSearch] = useState('')
   const [zoom, setZoom] = useState(100)
-
-  const totalEmployees = useMemo(() => countNodes(ORG_TREE), [])
-  const allNodes = useMemo(() => flattenNodes(ORG_TREE), [])
-  const departments = useMemo(() => [...new Set(allNodes.map((n) => n.department))], [allNodes])
-  const managers = useMemo(() => allNodes.filter((n) => n.isManager), [allNodes])
 
   const toggleNode = (id: string) => {
     setCollapsedIds((prev) => {
@@ -239,6 +225,24 @@ export function OrgChart() {
   const collapseAll = () => {
     const ids = allNodes.filter((n) => n.children.length > 0).map((n) => n.id)
     setCollapsedIds(new Set(ids))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (employees.length === 0) {
+    return (
+      <EmptyState
+        icon={Users}
+        title="Keine Mitarbeiter"
+        description="Erstelle Mitarbeiter, um das Organigramm zu sehen"
+      />
+    )
   }
 
   return (
@@ -259,7 +263,7 @@ export function OrgChart() {
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground mb-1">Hierarchieebenen</p>
-          <p className="text-lg font-semibold text-foreground">3</p>
+          <p className="text-lg font-semibold text-foreground">{hierarchyLevels}</p>
         </div>
       </div>
 
@@ -320,14 +324,17 @@ export function OrgChart() {
           className="flex-1 rounded-lg border border-border bg-card p-6 overflow-auto min-h-[400px]"
           style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left' }}
         >
-          <OrgNodeCard
-            node={ORG_TREE}
-            level={0}
-            collapsedIds={collapsedIds}
-            onToggle={toggleNode}
-            onSelect={setSelectedNode}
-            searchHighlight={search}
-          />
+          {rootNodes.map((node) => (
+            <OrgNodeCard
+              key={node.id}
+              node={node}
+              level={0}
+              collapsedIds={collapsedIds}
+              onToggle={toggleNode}
+              onSelect={setSelectedNode}
+              searchHighlight={search}
+            />
+          ))}
         </div>
 
         {/* Detail Panel */}
@@ -335,8 +342,8 @@ export function OrgChart() {
           <div className="w-72 flex-shrink-0 rounded-lg border border-border bg-card p-4 self-start">
             <div className="flex items-center gap-3 mb-4">
               <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                DEPT_COLORS[selectedNode.department]?.bg ?? 'bg-secondary'
-              } text-sm font-bold ${DEPT_COLORS[selectedNode.department]?.text ?? 'text-foreground'}`}>
+                (DEPT_COLORS[selectedNode.department] ?? DEFAULT_DEPT_COLOR).bg
+              } text-sm font-bold ${(DEPT_COLORS[selectedNode.department] ?? DEFAULT_DEPT_COLOR).text}`}>
                 {selectedNode.initials}
               </div>
               <div>
@@ -408,12 +415,15 @@ export function OrgChart() {
       {/* Department Legend */}
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-xs font-medium text-muted-foreground">Abteilungen:</span>
-        {Object.entries(DEPT_COLORS).map(([dept, colors]) => (
-          <div key={dept} className="flex items-center gap-1.5">
-            <div className={`h-3 w-3 rounded-full ${colors.bg} border ${colors.border}`} />
-            <span className="text-xs text-muted-foreground">{dept}</span>
-          </div>
-        ))}
+        {departments.map((dept) => {
+          const colors = DEPT_COLORS[dept] ?? DEFAULT_DEPT_COLOR
+          return (
+            <div key={dept} className="flex items-center gap-1.5">
+              <div className={`h-3 w-3 rounded-full ${colors.bg} border ${colors.border}`} />
+              <span className="text-xs text-muted-foreground">{dept}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

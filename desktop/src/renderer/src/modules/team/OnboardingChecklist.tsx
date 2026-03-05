@@ -1,3 +1,4 @@
+// TODO: Wire to backend — no onboarding API exists yet. Currently uses mock data.
 import { useState, useMemo } from 'react'
 import {
   CheckCircle2,

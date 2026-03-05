@@ -1,3 +1,4 @@
+// TODO: Wire to backend — no HR integration API exists yet. Currently uses mock data.
 import { useState } from 'react'
 import {
   Link2,

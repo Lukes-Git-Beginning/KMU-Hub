@@ -44,8 +44,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { useCreateEmployee } from '@/api/hooks/hr-hooks'
-import { useTeamStore } from '@/stores/team'
+import { useCreateEmployee, useEmployees } from '@/api/hooks/hr-hooks'
 import type { ContractType } from '@/api/hr-types'
 
 // ---------------------------------------------------------------------------
@@ -173,7 +172,12 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<EmployeeFormData>(initialData ?? { ...INITIAL_FORM })
   const createEmployee = useCreateEmployee()
-  const { departments } = useTeamStore()
+  const { data: employeesData } = useEmployees()
+  const departments = useMemo(() => {
+    const employees = employeesData?.employees ?? []
+    const deptNames = [...new Set(employees.map((e) => e.department).filter(Boolean))] as string[]
+    return deptNames.map((name) => ({ id: name, name }))
+  }, [employeesData])
 
   const update = useCallback(
     <K extends keyof EmployeeFormData>(key: K, value: EmployeeFormData[K]) => {

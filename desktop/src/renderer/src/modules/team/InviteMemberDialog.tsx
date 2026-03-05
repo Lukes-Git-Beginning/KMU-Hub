@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,15 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { useTeamStore } from '@/stores/team'
+import { useCreateEmployee, useEmployees } from '@/api/hooks/hr-hooks'
+import type { ContractType } from '@/api/hr-types'
+
+const contractTypeMap: Record<string, ContractType> = {
+  Vollzeit: 'full_time',
+  Teilzeit: 'part_time',
+  Praktikum: 'praktikum',
+  Freelance: 'freelance',
+}
 
 interface InviteMemberDialogProps {
   open: boolean
@@ -26,7 +34,13 @@ interface InviteMemberDialogProps {
 }
 
 export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogProps) {
-  const { addMember, departments } = useTeamStore()
+  const createEmployee = useCreateEmployee()
+  const { data: employeesData } = useEmployees()
+
+  const departments = useMemo(() => {
+    const employees = employeesData?.employees ?? []
+    return [...new Set(employees.map((e) => e.department).filter(Boolean))] as string[]
+  }, [employeesData])
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -36,7 +50,8 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
   const [department, setDepartment] = useState('')
   const [contractType, setContractType] = useState<'Vollzeit' | 'Teilzeit' | 'Praktikum' | 'Freelance'>('Vollzeit')
   const [workload, setWorkload] = useState(100)
-  const [location, setLocation] = useState('Zürich')
+  // TODO: location is not in EmployeeProfile — kept for UI but not sent to API
+  const [location, setLocation] = useState('Zuerich')
   const [welcomeMessage, setWelcomeMessage] = useState('')
 
   const reset = () => {
@@ -48,32 +63,39 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
     setDepartment('')
     setContractType('Vollzeit')
     setWorkload(100)
-    setLocation('Zürich')
+    setLocation('Zuerich')
     setWelcomeMessage('')
   }
 
   const handleInvite = () => {
     if (!firstName.trim() || !lastName.trim() || !email.trim()) return
 
-    addMember({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      role: role.trim() || 'Mitarbeiter',
-      department: department || departments[0]?.name || 'Allgemein',
-      status: 'offline',
-      contractType,
-      workload,
-      joinDate: new Date().toISOString().split('T')[0],
-      location: location.trim(),
-      projects: [],
-      skills: [],
-    })
-
-    toast.success(`Einladung an ${firstName} ${lastName} gesendet`)
-    reset()
-    onOpenChange(false)
+    createEmployee.mutate(
+      {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        temporaryPassword: crypto.randomUUID().slice(0, 12),
+        roles: ['member'],
+        department: department || undefined,
+        positionTitle: role.trim() || undefined,
+        contractType: contractTypeMap[contractType],
+        workDaysPerWeek: 5,
+        annualLeaveDays: 25,
+        workloadPercent: workload,
+        startDate: new Date().toISOString().split('T')[0],
+        addressCountry: 'CH',
+        sendInviteEmail: true,
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Einladung an ${firstName} ${lastName} gesendet`)
+          reset()
+          onOpenChange(false)
+        },
+      },
+    )
   }
 
   return (
@@ -140,11 +162,11 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
               <Label>Abteilung</Label>
               <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Wählen..." />
+                  <SelectValue placeholder="Waehlen..." />
                 </SelectTrigger>
                 <SelectContent>
                   {departments.map((d) => (
-                    <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -184,7 +206,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           <div className="space-y-1.5">
             <Label>Standort</Label>
             <Input
-              placeholder="Zürich"
+              placeholder="Zuerich"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />
@@ -194,7 +216,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           <div className="space-y-1.5">
             <Label>Willkommensnachricht (optional)</Label>
             <Textarea
-              placeholder="Schreibe eine persönliche Nachricht..."
+              placeholder="Schreibe eine persoenliche Nachricht..."
               value={welcomeMessage}
               onChange={(e) => setWelcomeMessage(e.target.value)}
               rows={3}
@@ -206,8 +228,8 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           <Button variant="outline" onClick={() => { reset(); onOpenChange(false) }}>
             Abbrechen
           </Button>
-          <Button onClick={handleInvite} disabled={!firstName.trim() || !lastName.trim() || !email.trim()}>
-            Einladung senden
+          <Button onClick={handleInvite} disabled={!firstName.trim() || !lastName.trim() || !email.trim() || createEmployee.isPending}>
+            {createEmployee.isPending ? 'Sendet...' : 'Einladung senden'}
           </Button>
         </DialogFooter>
       </DialogContent>
