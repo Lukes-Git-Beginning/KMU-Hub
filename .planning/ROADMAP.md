@@ -2,7 +2,7 @@
 
 ## Status
 
-Alle 20 Entwicklungsphasen (103/103 Pläne) abgeschlossen am 2026-02-26.
+Alle 20 Entwicklungsphasen (103/103 Plaene) abgeschlossen am 2026-02-26.
 Das Projekt wechselt von **Feature Development** → **Beta Preparation**.
 Beta-Ziel: **Ende April / Mai 2026** (ca. 2-3 Monate).
 
@@ -18,27 +18,32 @@ Drei parallele Tracks laufen durch alle Beta-Phasen:
 
 ---
 
-## Phase A — März 2026: "Core Wiring"
+## Phase A — Maerz 2026: "Core Wiring"
 
 ### Track 1 — Technisch
 
 - [x] **KontaktePage** → echtes Backend via React Query (erledigt 2026-02-27)
-- [ ] **FirmenPage** → useCompanies hooks (stores/crm.ts Mock entfernen)
-- [ ] **DealsPage** → useDeals hooks (Pipeline-View anbinden)
-- [ ] **WorkPage** → useTasks, useProjects hooks (stores/work.ts entrümpeln)
-- [ ] **KalenderPage** → useEvents, useCalendar hooks (Mock bleibt für Feiertage)
-- [ ] **FinanzenPage** → bereits TanStack Query, Rechnungen/Angebote finalisieren
-- [ ] **Dashboard-Widgets** → echte Daten (KPI-Widgets: Finance-API, Tasks-API)
+- [x] **FirmenPage** → useCompanies hooks (erledigt 2026-02-27)
+- [x] **DealsPage** → useDeals hooks, Pipeline-View (erledigt 2026-02-27)
+- [x] **WorkPage** → useTasks, useProjects hooks (erledigt 2026-02-27)
+- [x] **KalenderPage** → useEvents, useCalendar hooks (erledigt 2026-02-27)
+- [x] **FinanzenPage** → TanStack Query finalisiert (erledigt 2026-02-27)
+- [x] **Dashboard-Widgets** → echte Daten (erledigt 2026-02-27)
+- [x] **TeamPage** → useEmployees/useUpdateEmployee/useCreateEmployee hooks (vorgezogen aus Phase B, erledigt 2026-03-04)
+- [x] **Chat-Module (Kommunikation)** → useInboxMessages/useInboxMessage hooks (vorgezogen aus Phase B, erledigt 2026-03-04)
+- [x] **Work TODOs** — mock components annotated with backend endpoint TODOs (erledigt 2026-03-05)
+- [x] **Finance TODOs** — mock components annotated with backend endpoint TODOs (erledigt 2026-03-05)
+- [x] **Store Cleanup** — kommunikation.ts dead code removed (537 lines mock data + 9 unused mutations) (erledigt 2026-03-05)
 
 ### Track 2 — Legal
 
 - [ ] Steuerberater / Rechtsanwalt beauftragen
-- [ ] Unternehmensform klären (UG/GmbH DE oder GmbH CH)
-- [ ] DSGVO-Prüfung: Welche Daten verarbeiten wir, wo liegen sie?
+- [ ] Unternehmensform klaeren (UG/GmbH DE oder GmbH CH)
+- [ ] DSGVO-Pruefung: Welche Daten verarbeiten wir, wo liegen sie?
 
 ### Track 3 — Business
 
-- [ ] Zentrum für finanzielle Aufklärung: Konkretes Gespräch ansetzen
+- [ ] Zentrum fuer finanzielle Aufklaerung: Konkretes Gespraech ansetzen
 - [ ] Hetzner-Produktionsserver aufsetzen (Docker Compose + SSL + Domain)
 
 ---
@@ -47,19 +52,28 @@ Drei parallele Tracks laufen durch alle Beta-Phasen:
 
 ### Track 1 — Technisch
 
-- [ ] **TeamPage** → useTeam hooks (stores/team.ts Mock entfernen)
-- [ ] **Chat-Module** → echt (stores/kommunikation.ts + meetings.ts)
 - [ ] **DokumentePage** → useDocuments hooks
 - [ ] **D9 Design-Merge** → Visual Polish + Accessibility von design/brainstorm cherry-picken
-- [ ] E2E-Tests für kritische Pfade (Auth, Kontakt CRUD, Rechnung erstellen)
-- [ ] Fehler-Monitoring einrichten (Sentry oder äquivalent)
+- [ ] E2E-Tests fuer kritische Pfade (Auth, Kontakt CRUD, Rechnung erstellen)
+- [ ] Fehler-Monitoring einrichten (Sentry oder aequivalent)
 - [ ] Backup-Strategie Produktion (automatisch via Cron)
+
+**Remaining mock data (blocked on backend endpoints — TODOs already in code):**
+
+| Component | Backend Needed |
+|-----------|---------------|
+| `work/BudgetSection.tsx` | `GET /projects/{id}/time-entries?grouped_by=person` |
+| `work/AuslastungReport.tsx` | `GET /projects/{id}/team-utilization` |
+| `finanzen/BankingWidget.tsx` | FinAPI integration |
+| `finanzen/BelegketteTab.tsx` | `GET /finance/document-chains` |
+| `finanzen/HoursToInvoiceDialog.tsx` | `GET /time-entries?billed=false` |
+| `kommunikation/CannedResponsePicker.tsx` | Canned response CRUD API |
 
 ### Track 2 — Legal
 
 - [ ] **AGB** — Anwalt ausarbeiten lassen
-- [ ] **Datenschutzerklärung** (DSGVO Art. 13/14) — für App + Website
-- [ ] **AVV / DPA** — Template für Pilot-Kunden (Auftragsverarbeitungsvertrag)
+- [ ] **Datenschutzerklaerung** (DSGVO Art. 13/14) — fuer App + Website
+- [ ] **AVV / DPA** — Template fuer Pilot-Kunden (Auftragsverarbeitungsvertrag)
 - [ ] GoBD-Dokumentation (Finanzmodul — interne Verfahrensdokumentation)
 
 ### Track 3 — Business
@@ -75,7 +89,7 @@ Drei parallele Tracks laufen durch alle Beta-Phasen:
 
 ### Track 1 — Technisch
 
-- [ ] Industry-spezifische Module bleiben für v1 auf Demo-Daten (Plugin-Roadmap)
+- [ ] Industry-spezifische Module bleiben fuer v1 auf Demo-Daten (Plugin-Roadmap)
 - [ ] Performance-Audit + Optimierung (Query-N+1, Bundle Size)
 - [ ] Self-Hosted Docker-Compose-Paket polieren (Update-Mechanismus)
 - [ ] Beta-Deployment auf Produktionsserver
@@ -83,8 +97,8 @@ Drei parallele Tracks laufen durch alle Beta-Phasen:
 ### Track 2 — Legal
 
 - [ ] Alle Rechtstexte reviewed + live auf Website/App
-- [ ] Hetzner-AVV / Cloud-Provider-DPAs abschließen
-- [ ] Impressum (Pflicht für Website)
+- [ ] Hetzner-AVV / Cloud-Provider-DPAs abschliessen
+- [ ] Impressum (Pflicht fuer Website)
 
 ### Track 3 — Business
 
@@ -96,9 +110,9 @@ Drei parallele Tracks laufen durch alle Beta-Phasen:
 
 ## Scope: Mock bis v2
 
-Diese Stores werden für den Beta-Launch **nicht verdrahtet** (bleiben Demo-Daten):
+Diese Stores werden fuer den Beta-Launch **nicht verdrahtet** (bleiben Demo-Daten):
 
-| Store | Modul | Begründung |
+| Store | Modul | Begruendung |
 |-------|-------|------------|
 | `einkauf.ts` | Einkauf/Beschaffung | Industry-Template (Phase 20 Plugin) |
 | `inventar.ts` | Inventar | Industry-Template |
@@ -107,19 +121,19 @@ Diese Stores werden für den Beta-Launch **nicht verdrahtet** (bleiben Demo-Date
 | `fuhrpark.ts` | Fuhrpark | Industry-Template (Referenz-Plugin vorhanden) |
 | `rapporte.ts` | Rapporte | Industry-Template |
 | `schichten.ts` | Schichten | Erst bei konkretem Kundenbedarf |
-| `vertraege.ts` | Verträge | Erst bei konkretem Kundenbedarf |
+| `vertraege.ts` | Vertraege | Erst bei konkretem Kundenbedarf |
 | `wiki.ts` | Wiki | Erst bei konkretem Kundenbedarf |
 | `formulare.ts` | Formulare | Erst bei konkretem Kundenbedarf |
 | `berichte.ts` | Berichte | Erst bei konkretem Kundenbedarf |
 
 **Strategie:** Erst wenn ein realer Pilot-Kunde ein Modul konkret braucht,
-wird es vollständig verdrahtet. Qualität vor Quantität.
+wird es vollstaendig verdrahtet. Qualitaet vor Quantitaet.
 
 ---
 
 ## Kritische Blocker
 
-1. **Legal ist Blocker für Pilot-Onboarding** — ohne AVV/DPA dürfen keine echten
+1. **Legal ist Blocker fuer Pilot-Onboarding** — ohne AVV/DPA duerfen keine echten
    Kundendaten verarbeitet werden → **sofort starten**
 2. **Produktionsserver** muss vor Beta-Deployment stehen (Hetzner aufsetzen)
 3. **D9 Design-Merge** bevor Pilot-Kunde die App sieht
@@ -131,14 +145,14 @@ wird es vollständig verdrahtet. Qualität vor Quantität.
 | Modul | Store/Quelle | Status |
 |-------|-------------|--------|
 | KontaktePage | contacts.ts | ✅ Verdrahtet (2026-02-27) |
-| FirmenPage | crm.ts | ⏳ Phase A |
-| DealsPage | crm.ts | ⏳ Phase A |
-| WorkPage | work.ts | ⏳ Phase A |
-| KalenderPage | calendar.ts | ⏳ Phase A |
-| FinanzenPage | finance.ts | ⏳ Phase A (fast fertig) |
-| Dashboard-Widgets | finance + work API | ⏳ Phase A |
-| TeamPage | team.ts | ⏳ Phase B |
-| Chat-Module | kommunikation.ts | ⏳ Phase B |
+| FirmenPage | crm.ts | ✅ Verdrahtet (2026-02-27) |
+| DealsPage | crm.ts | ✅ Verdrahtet (2026-02-27) |
+| WorkPage | work.ts | ✅ Verdrahtet (2026-02-27) |
+| KalenderPage | calendar.ts | ✅ Verdrahtet (2026-02-27) |
+| FinanzenPage | finance.ts | ✅ Verdrahtet (2026-02-27) |
+| Dashboard-Widgets | finance + work API | ✅ Verdrahtet (2026-02-27) |
+| TeamPage | team.ts → hr-hooks.ts | ✅ Verdrahtet (2026-03-04) |
+| Chat-Module | kommunikation.ts → inbox API | ✅ Verdrahtet (2026-03-04) |
 | DokumentePage | dokumente.ts | ⏳ Phase B |
 | Einkauf | einkauf.ts | 🔒 v2 (Mock/Plugin) |
 | Inventar | inventar.ts | 🔒 v2 (Mock/Plugin) |
@@ -147,7 +161,7 @@ wird es vollständig verdrahtet. Qualität vor Quantität.
 | Fuhrpark | fuhrpark.ts | 🔒 v2 (Mock/Plugin) |
 | Rapporte | rapporte.ts | 🔒 v2 (Mock/Plugin) |
 | Schichten | schichten.ts | 🔒 v2 (on demand) |
-| Verträge | vertraege.ts | 🔒 v2 (on demand) |
+| Vertraege | vertraege.ts | 🔒 v2 (on demand) |
 | Wiki | wiki.ts | 🔒 v2 (on demand) |
 | Formulare | formulare.ts | 🔒 v2 (on demand) |
 | Berichte | berichte.ts | 🔒 v2 (on demand) |
@@ -173,4 +187,4 @@ unter `.planning/milestones/`.
 
 *Phase 1-20 (Feature Development) abgeschlossen: 2026-02-26*
 *Beta Preparation gestartet: 2026-02-27*
-*Letztes Update: 2026-02-27*
+*Letztes Update: 2026-03-05*
