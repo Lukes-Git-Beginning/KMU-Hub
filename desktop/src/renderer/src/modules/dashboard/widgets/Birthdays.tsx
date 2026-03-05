@@ -1,5 +1,11 @@
 /**
  * Birthdays widget — upcoming team birthdays.
+ *
+ * TODO: Still uses mock data. EmployeeProfile has no `birthday` field yet.
+ * Backend work needed:
+ *   1. Add `birthday` (date) column to `employee_profiles` table + migration
+ *   2. Expose birthday in EmployeeProfile API response
+ *   3. Replace getUpcomingBirthdays() with useEmployees() + birthday filtering
  */
 import { memo } from 'react'
 import { Cake, Gift, PartyPopper } from 'lucide-react'

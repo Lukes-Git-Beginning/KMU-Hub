@@ -1,38 +1,96 @@
 /**
  * Team Status widget — shows who is online, away, or offline.
+ *
+ * Wired to useEmployees() for the team list and useBulkPresence()
+ * for real-time presence status.
  */
-import { memo } from 'react'
-import { EMPLOYEES } from '@/mocks/mock-db'
+import { memo, useMemo } from 'react'
+import { Loader2 } from 'lucide-react'
+import { useEmployees } from '@/api/hooks/hr-hooks'
+import { useBulkPresence } from '@/api/hooks/usePresence'
+import type { PresenceLevel } from '@/api/video-types'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-type Status = 'online' | 'away' | 'busy' | 'offline'
+type UIStatus = 'online' | 'away' | 'busy' | 'offline'
 
-const STATUS_CONFIG: Record<Status, { color: string; label: string }> = {
+const STATUS_CONFIG: Record<UIStatus, { color: string; label: string }> = {
   online: { color: 'bg-emerald-500', label: 'Online' },
   away: { color: 'bg-amber-500', label: 'Abwesend' },
   busy: { color: 'bg-red-500', label: 'Beschaeftigt' },
   offline: { color: 'bg-gray-400', label: 'Offline' },
 }
 
-const STATUS_ORDER: Status[] = ['online', 'busy', 'away', 'offline']
+const STATUS_ORDER: UIStatus[] = ['online', 'busy', 'away', 'offline']
 
-const TEAM = EMPLOYEES.map((e) => ({
-  id: e.id,
-  name: `${e.firstName} ${e.lastName}`,
-  role: e.jobTitle,
-  status: e.status,
-  avatar: e.initials,
-}))
+/** Map backend PresenceLevel to widget UI status. */
+function mapPresence(level: PresenceLevel | undefined): UIStatus {
+  switch (level) {
+    case 'online':
+      return 'online'
+    case 'away':
+      return 'away'
+    case 'dnd':
+    case 'in_call':
+      return 'busy'
+    default:
+      return 'offline'
+  }
+}
+
+/** Build initials from a full name string (e.g. "Max Mustermann" -> "MM"). */
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return (parts[0]?.[0] ?? '?').toUpperCase()
+}
 
 function TeamStatus(_props: WidgetProps) {
-  const sorted = [...TEAM].sort(
-    (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
+  const { data: employeeData, isLoading: loadingEmployees } = useEmployees()
+  const employees = employeeData?.employees ?? []
+
+  const userIds = useMemo(
+    () => employees.map((e) => e.userId).filter(Boolean),
+    [employees],
   )
 
-  const counts = TEAM.reduce<Record<Status, number>>(
-    (acc, m) => { acc[m.status]++; return acc },
-    { online: 0, away: 0, busy: 0, offline: 0 }
+  const { data: presenceMap } = useBulkPresence(userIds)
+
+  const team = useMemo(() => {
+    return employees.map((e) => ({
+      id: e.id,
+      name: e.userName ?? `${e.department ?? 'Mitarbeiter'}`,
+      role: e.positionTitle ?? e.department ?? '',
+      status: mapPresence(presenceMap?.[e.userId]?.status),
+      avatar: getInitials(e.userName ?? '?'),
+    }))
+  }, [employees, presenceMap])
+
+  const sorted = useMemo(
+    () => [...team].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)),
+    [team],
   )
+
+  const counts = useMemo(() => {
+    const c: Record<UIStatus, number> = { online: 0, away: 0, busy: 0, offline: 0 }
+    for (const m of team) c[m.status]++
+    return c
+  }, [team])
+
+  if (loadingEmployees) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (team.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center px-4">
+        <p className="text-xs text-muted-foreground">Keine Teammitglieder gefunden</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">
