@@ -73,3 +73,12 @@ ehthumbs.db
 tmp/
 temp/
 *.tmp
+
+# === GSD / Planning ===
+.planning/agent-history.json
+
+# === MCP (local server config) ===
+.mcp.json
+
+# === Knowledge Base (Obsidian Vault, local only) ===
+.knowledge/

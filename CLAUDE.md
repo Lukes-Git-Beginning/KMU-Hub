@@ -184,6 +184,15 @@ Nie hardcoded. `.env` Datei NIE committen.
 
 Alle API-Calls muessen sicher wiederholbar sein. Idempotency-Keys fuer POST-Requests.
 
+### Knowledge Base (.knowledge/)
+
+- Projektspezifisches Wissen liegt in `.knowledge/` (Obsidian Vault)
+- Claude nutzt MCP Filesystem-Tools zum Lesen/Schreiben von Notes
+- Neue Erkenntnisse in passende `.knowledge/*.md` Note schreiben
+- Jede Note hat YAML Frontmatter: `tags`, `updated`
+- Notes untereinander verlinken mit `[[note-name]]`
+- User kann den Vault in Obsidian oeffnen (Graph-View, eigene Notes)
+
 ---
 
 ## Haeufige Fehler (VERMEIDEN!)
