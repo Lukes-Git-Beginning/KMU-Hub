@@ -19,7 +19,8 @@ import {
   Lock,
   Contact,
 } from 'lucide-react'
-import { useContacts } from '@/api/hooks/useContacts'
+import { toast } from 'sonner'
+import { useContacts, useCreateContact } from '@/api/hooks/useContacts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +43,7 @@ import {
 import ImportWizard from '@/modules/mails/ImportWizard'
 import ExportDialog from '@/modules/mails/ExportDialog'
 import { PageHeader } from '@/components/shared'
+import { ContactFormDialog, type ContactFormData } from './ContactFormDialog'
 
 const PAGE_SIZE = 20
 
@@ -55,6 +57,8 @@ export default function ContactsListPage() {
   const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all')
   const [importOpen, setImportOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const createContact = useCreateContact()
 
   // Debounce search input (300ms)
   useEffect(() => {
@@ -84,9 +88,37 @@ export default function ContactsListPage() {
             (c as unknown as { visibility?: string }).visibility === visibilityFilter,
         )
 
-  function showComingSoon() {
-    // Placeholder for toast notification
-    alert('Kommt bald')
+  async function handleCreate(form: ContactFormData) {
+    try {
+      await createContact.mutateAsync({
+        first_name: form.firstName,
+        last_name: form.lastName,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        title: form.title || undefined,
+        notes: form.notes || undefined,
+        custom_fields: {
+          ...(form.salutation ? { _salutation: form.salutation } : {}),
+          ...(form.mobile ? { _mobile: form.mobile } : {}),
+          ...(form.company ? { _company: form.company } : {}),
+          ...(form.jobTitle ? { _jobTitle: form.jobTitle } : {}),
+          ...(form.department ? { _department: form.department } : {}),
+          ...(form.category !== 'customer' ? { _category: form.category } : {}),
+          ...(form.status !== 'active' ? { _status: form.status } : {}),
+          ...((form.street || form.zip || form.city) ? {
+            _address: { street: form.street, zip: form.zip, city: form.city, country: form.country },
+          } : {}),
+          ...(form.website ? { _website: form.website } : {}),
+          ...((form.linkedin || form.xing) ? {
+            _socialMedia: { linkedin: form.linkedin, xing: form.xing },
+          } : {}),
+          ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
+        },
+      })
+      toast.success('Kontakt erstellt')
+    } catch {
+      toast.error('Fehler beim Erstellen des Kontakts')
+    }
   }
 
   if (error) {
@@ -129,7 +161,7 @@ export default function ContactsListPage() {
               <Download className="h-4 w-4" />
               Exportieren
             </Button>
-            <Button onClick={showComingSoon} className="gap-2">
+            <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               Neuer Kontakt
             </Button>
@@ -186,7 +218,7 @@ export default function ContactsListPage() {
           </p>
           {!debouncedSearch && (
             <div className="mt-4 flex gap-2">
-              <Button className="gap-2" onClick={showComingSoon}>
+              <Button className="gap-2" onClick={() => setShowCreateDialog(true)}>
                 <Plus className="h-4 w-4" />
                 Ersten Kontakt erstellen
               </Button>
@@ -319,6 +351,12 @@ export default function ContactsListPage() {
         open={exportOpen}
         onOpenChange={setExportOpen}
         contactIds={contacts.map((c) => c.id).filter(Boolean) as string[]}
+      />
+
+      <ContactFormDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSubmit={handleCreate}
       />
     </div>
   )

@@ -7,8 +7,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared'
-import { useCompanies } from '@/api/hooks/useCompanies'
+import { useCompanies, useCreateCompany } from '@/api/hooks/useCompanies'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { CompanyFormDialog, type CompanyFormData } from './CompanyFormDialog'
 
 const PAGE_SIZE = 20
 
@@ -29,6 +31,8 @@ export default function CompaniesListPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const createCompany = useCreateCompany()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -48,8 +52,26 @@ export default function CompaniesListPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  function showComingSoon() {
-    alert('Kommt bald')
+  async function handleCreate(form: CompanyFormData) {
+    const addressParts = [form.street, [form.zip, form.city].filter(Boolean).join(' '), form.country].filter(Boolean)
+    try {
+      await createCompany.mutateAsync({
+        name: form.name,
+        website: form.website || undefined,
+        industry: form.industry || undefined,
+        address: addressParts.join(', ') || undefined,
+        notes: form.notes || undefined,
+        custom_fields: {
+          ...(form.phone ? { _phone: form.phone } : {}),
+          ...(form.email ? { _email: form.email } : {}),
+          ...(form.size ? { _size: form.size } : {}),
+          ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
+        },
+      })
+      toast.success('Unternehmen erstellt')
+    } catch {
+      toast.error('Fehler beim Erstellen des Unternehmens')
+    }
   }
 
   if (error) {
@@ -78,7 +100,7 @@ export default function CompaniesListPage() {
         icon={Building2}
         moduleId="contacts"
         actions={
-          <Button onClick={showComingSoon} className="gap-2">
+          <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             Neues Unternehmen
           </Button>
@@ -113,7 +135,7 @@ export default function CompaniesListPage() {
               : 'Erstelle dein erstes Unternehmen, um loszulegen.'}
           </p>
           {!debouncedSearch && (
-            <Button className="mt-4 gap-2" onClick={showComingSoon}>
+            <Button className="mt-4 gap-2" onClick={() => setShowCreateDialog(true)}>
               <Plus className="h-4 w-4" />
               Erstes Unternehmen erstellen
             </Button>
@@ -214,6 +236,12 @@ export default function CompaniesListPage() {
           </div>
         </>
       )}
+
+      <CompanyFormDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSubmit={handleCreate}
+      />
     </div>
   )
 }

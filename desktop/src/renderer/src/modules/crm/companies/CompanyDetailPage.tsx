@@ -4,6 +4,7 @@
  * Accessed via /crm/companies/:id. Shows company details with
  * clickable linked contacts list and related activities.
  */
+import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -13,14 +14,17 @@ import {
   MapPin,
   Factory,
 } from 'lucide-react'
-import { useCompany, useCompanyContacts } from '@/api/hooks/useCompanies'
+import { toast } from 'sonner'
+import { useCompany, useCompanyContacts, useUpdateCompany, useDeleteCompany } from '@/api/hooks/useCompanies'
 import { useActivities } from '@/api/hooks/useActivities'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { ConfirmDialog } from '@/components/shared'
 import { activityTypeLabel, activityTypeIcon } from '../activities/activityUtils'
+import { CompanyFormDialog, type CompanyFormData } from './CompanyFormDialog'
 
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -32,12 +36,68 @@ export default function CompanyDetailPage() {
     page_size: 10,
   })
 
+  const updateCompany = useUpdateCompany()
+  const deleteCompany = useDeleteCompany()
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
   const company = data?.company
   const contacts = contactsData?.contacts ?? []
   const activities = activitiesData?.activities ?? []
 
-  function showComingSoon() {
-    alert('Kommt bald')
+  function companyToFormData(): Partial<CompanyFormData> {
+    if (!company) return {}
+    const cf = (company.customFields ?? {}) as Record<string, unknown>
+    const addressParts = (company.address ?? '').split(',').map((s: string) => s.trim())
+    return {
+      name: company.name ?? '',
+      industry: company.industry ?? '',
+      website: company.website ?? '',
+      phone: (cf._phone as string) ?? '',
+      email: (cf._email as string) ?? '',
+      street: addressParts[0] ?? '',
+      zip: addressParts[1]?.split(' ')[0] ?? '',
+      city: addressParts[1]?.split(' ').slice(1).join(' ') ?? '',
+      country: addressParts[2] ?? 'Schweiz',
+      size: (cf._size as string) ?? '',
+      notes: company.notes ?? '',
+      tags: (cf._tags as string[]) ?? [],
+    }
+  }
+
+  async function handleUpdate(form: CompanyFormData) {
+    if (!id) return
+    const addressParts = [form.street, [form.zip, form.city].filter(Boolean).join(' '), form.country].filter(Boolean)
+    try {
+      await updateCompany.mutateAsync({
+        id,
+        name: form.name,
+        website: form.website || undefined,
+        industry: form.industry || undefined,
+        address: addressParts.join(', ') || undefined,
+        notes: form.notes || undefined,
+        custom_fields: {
+          ...(form.phone ? { _phone: form.phone } : {}),
+          ...(form.email ? { _email: form.email } : {}),
+          ...(form.size ? { _size: form.size } : {}),
+          ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
+        },
+      })
+      toast.success('Unternehmen aktualisiert')
+    } catch {
+      toast.error('Fehler beim Aktualisieren des Unternehmens')
+    }
+  }
+
+  async function handleDelete() {
+    if (!id) return
+    try {
+      await deleteCompany.mutateAsync(id)
+      toast.success('Unternehmen geloescht')
+      navigate('/crm/companies')
+    } catch {
+      toast.error('Fehler beim Loeschen des Unternehmens')
+    }
   }
 
   if (error) {
@@ -105,7 +165,7 @@ export default function CompanyDetailPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={showComingSoon}>
+          <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-1" />
             Bearbeiten
           </Button>
@@ -113,7 +173,7 @@ export default function CompanyDetailPage() {
             variant="outline"
             size="sm"
             className="text-destructive"
-            onClick={showComingSoon}
+            onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
             Löschen
@@ -320,6 +380,24 @@ export default function CompanyDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <CompanyFormDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        initialData={companyToFormData()}
+        onSubmit={handleUpdate}
+        isEdit
+      />
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Unternehmen loeschen"
+        description={`Moechtest du "${company.name}" wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.`}
+        confirmLabel="Loeschen"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

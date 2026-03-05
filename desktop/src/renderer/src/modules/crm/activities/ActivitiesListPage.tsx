@@ -5,10 +5,14 @@
  * activity type (call, meeting, note, email, task) and toggling completion.
  */
 import { useState, useEffect } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Activity } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Activity, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared'
 import {
   useActivities,
+  useCreateActivity,
+  useUpdateActivity,
+  useDeleteActivity,
   useCompleteActivity,
 } from '@/api/hooks/useActivities'
 import { Button } from '@/components/ui/button'
@@ -16,6 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ACTIVITY_TYPES, activityTypeLabel, activityTypeIcon } from './activityUtils'
+import { ActivityFormDialog, type ActivityFormData } from './ActivityFormDialog'
 
 const PAGE_SIZE = 20
 
@@ -24,6 +29,15 @@ type ActivityTypeFilter = 'all' | 'call' | 'meeting' | 'note' | 'email' | 'task'
 export default function ActivitiesListPage() {
   const [typeFilter, setTypeFilter] = useState<ActivityTypeFilter>('all')
   const [page, setPage] = useState(1)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [editingActivity, setEditingActivity] = useState<{
+    id: string
+    data: Partial<ActivityFormData>
+  } | null>(null)
+
+  const createActivity = useCreateActivity()
+  const updateActivity = useUpdateActivity()
+  const deleteActivity = useDeleteActivity()
   const completeActivity = useCompleteActivity()
 
   // Reset page when filter changes
@@ -46,8 +60,42 @@ export default function ActivitiesListPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  function showComingSoon() {
-    alert('Kommt bald')
+  async function handleCreate(form: ActivityFormData) {
+    try {
+      await createActivity.mutateAsync({
+        activity_type: form.activity_type,
+        subject: form.subject,
+        description: form.description || undefined,
+        due_date: form.due_date || undefined,
+      })
+      toast.success('Aktivitaet erstellt')
+    } catch {
+      toast.error('Fehler beim Erstellen')
+    }
+  }
+
+  async function handleUpdate(form: ActivityFormData) {
+    if (!editingActivity) return
+    try {
+      await updateActivity.mutateAsync({
+        id: editingActivity.id,
+        subject: form.subject,
+        description: form.description || undefined,
+        due_date: form.due_date || undefined,
+      })
+      toast.success('Aktivitaet aktualisiert')
+    } catch {
+      toast.error('Fehler beim Aktualisieren')
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteActivity.mutateAsync(id)
+      toast.success('Aktivitaet geloescht')
+    } catch {
+      toast.error('Fehler beim Loeschen')
+    }
   }
 
   if (error) {
@@ -75,7 +123,7 @@ export default function ActivitiesListPage() {
         icon={Activity}
         moduleId="contacts"
         actions={
-          <Button onClick={showComingSoon} className="gap-2">
+          <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             Neue Aktivitaet
           </Button>
@@ -123,7 +171,21 @@ export default function ActivitiesListPage() {
               return (
                 <div
                   key={activity.id}
-                  className="flex items-start gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
+                  className="flex items-start gap-4 rounded-lg border border-border p-4 transition-colors hover:bg-accent/30 cursor-pointer"
+                  onClick={() =>
+                    activity.id &&
+                    setEditingActivity({
+                      id: activity.id,
+                      data: {
+                        activity_type: activity.activity_type as ActivityFormData['activity_type'],
+                        subject: activity.subject ?? '',
+                        description: activity.description ?? '',
+                        due_date: activity.due_date
+                          ? activity.due_date.slice(0, 10)
+                          : '',
+                      },
+                    })
+                  }
                 >
                   <div
                     className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
@@ -182,13 +244,14 @@ export default function ActivitiesListPage() {
                       )}
                     </div>
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex items-center gap-1">
                     {!activity.is_completed && (
                       <Button
                         variant="outline"
                         size="sm"
                         disabled={completeActivity.isPending}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           if (activity.id) {
                             completeActivity.mutate(activity.id)
                           }
@@ -197,6 +260,17 @@ export default function ActivitiesListPage() {
                         Erledigen
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (activity.id) handleDelete(activity.id)
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               )
@@ -231,6 +305,21 @@ export default function ActivitiesListPage() {
           </div>
         </>
       )}
+      <ActivityFormDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSubmit={handleCreate}
+      />
+
+      <ActivityFormDialog
+        open={editingActivity !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingActivity(null)
+        }}
+        initialData={editingActivity?.data}
+        onSubmit={handleUpdate}
+        isEdit
+      />
     </div>
   )
 }

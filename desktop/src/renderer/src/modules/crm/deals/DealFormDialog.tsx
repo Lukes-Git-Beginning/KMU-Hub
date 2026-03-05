@@ -68,12 +68,20 @@ export interface DealFormData {
   tags: string[]
 }
 
+export interface PipelineStageOption {
+  id: string
+  name: string
+  color: string
+  probability?: number
+}
+
 interface DealFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData?: Partial<DealFormData>
   onSubmit: (data: DealFormData) => void
   isEdit?: boolean
+  stages?: PipelineStageOption[]
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +94,7 @@ export function DealFormDialog({
   initialData,
   onSubmit,
   isEdit = false,
+  stages: stagesProp,
 }: DealFormDialogProps) {
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
@@ -117,9 +126,9 @@ export function DealFormDialog({
       setName('')
       setValue('')
       setCurrency('CHF')
-      setStage('lead')
+      setStage(stagesProp?.[0]?.id ?? 'lead')
       setPriority('normal')
-      setProbability('50')
+      setProbability(stagesProp?.[0]?.probability != null ? String(stagesProp[0].probability) : '50')
       setContactName('')
       setCompanyName('')
       setExpectedCloseDate('')
@@ -154,21 +163,31 @@ export function DealFormDialog({
     }
   }
 
+  // Resolve which stages to render: API stages (prop) or hardcoded fallback
+  const resolvedStages = stagesProp
+    ? stagesProp.map((s) => ({ value: s.id, label: s.name, color: s.color, probability: s.probability }))
+    : pipelineStages.map((s) => ({ value: s.value, label: s.label, color: s.color, probability: undefined }))
+
   // Auto-update probability based on stage
   const handleStageChange = (newStage: string) => {
     setStage(newStage)
-    const stageProbabilities: Record<string, string> = {
-      lead: '10',
-      qualified: '25',
-      proposal: '50',
-      negotiation: '75',
-      won: '100',
-      lost: '0',
+    if (stagesProp) {
+      const found = stagesProp.find((s) => s.id === newStage)
+      setProbability(found?.probability != null ? String(found.probability) : '50')
+    } else {
+      const stageProbabilities: Record<string, string> = {
+        lead: '10',
+        qualified: '25',
+        proposal: '50',
+        negotiation: '75',
+        won: '100',
+        lost: '0',
+      }
+      setProbability(stageProbabilities[newStage] ?? '50')
     }
-    setProbability(stageProbabilities[newStage] ?? '50')
   }
 
-  const selectedStageColor = pipelineStages.find((s) => s.value === stage)?.color ?? '#94a3b8'
+  const selectedStageColor = resolvedStages.find((s) => s.value === stage)?.color ?? '#94a3b8'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -236,7 +255,7 @@ export function DealFormDialog({
                 Phase
               </label>
               <div className="grid grid-cols-3 gap-1">
-                {pipelineStages.map((s) => (
+                {resolvedStages.map((s) => (
                   <button
                     key={s.value}
                     type="button"

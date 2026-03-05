@@ -16,7 +16,9 @@ import {
   Columns3,
   TrendingUp,
 } from 'lucide-react'
-import { useDeals } from '@/api/hooks/useDeals'
+import { toast } from 'sonner'
+import { useDeals, useCreateDeal } from '@/api/hooks/useDeals'
+import { usePipelineStages } from '@/api/hooks/usePipelineStages'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +33,7 @@ import {
 } from '@/components/ui/table'
 import DealPipelineView from './DealPipelineView'
 import { PageHeader } from '@/components/shared'
+import { DealFormDialog, type DealFormData } from './DealFormDialog'
 
 const PAGE_SIZE = 20
 
@@ -50,6 +53,10 @@ export default function DealsListPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const createDeal = useCreateDeal()
+  const { data: stagesData } = usePipelineStages()
+  const stages = stagesData?.stages ?? []
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -69,8 +76,27 @@ export default function DealsListPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  function showComingSoon() {
-    alert('Kommt bald')
+  async function handleCreate(form: DealFormData) {
+    try {
+      await createDeal.mutateAsync({
+        name: form.name,
+        value: form.value,
+        currency: form.currency,
+        stage_id: form.stage,
+        expected_close_date: form.expectedCloseDate || undefined,
+        notes: form.notes || undefined,
+        custom_fields: {
+          ...(form.contactName ? { _contactName: form.contactName } : {}),
+          ...(form.companyName ? { _companyName: form.companyName } : {}),
+          ...(form.priority !== 'normal' ? { _priority: form.priority } : {}),
+          ...(form.probability !== 50 ? { _probability: form.probability } : {}),
+          ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
+        },
+      })
+      toast.success('Deal erstellt')
+    } catch {
+      toast.error('Fehler beim Erstellen des Deals')
+    }
   }
 
   if (error) {
@@ -119,7 +145,7 @@ export default function DealsListPage() {
                 <Columns3 className="h-4 w-4" />
               </Button>
             </div>
-            <Button onClick={showComingSoon} className="gap-2">
+            <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
               <Plus className="h-4 w-4" />
               Neuer Deal
             </Button>
@@ -160,7 +186,7 @@ export default function DealsListPage() {
                   : 'Erstelle deinen ersten Deal, um loszulegen.'}
               </p>
               {!debouncedSearch && (
-                <Button className="mt-4 gap-2" onClick={showComingSoon}>
+                <Button className="mt-4 gap-2" onClick={() => setShowCreateDialog(true)}>
                   <Plus className="h-4 w-4" />
                   Ersten Deal erstellen
                 </Button>
@@ -262,6 +288,13 @@ export default function DealsListPage() {
           )}
         </>
       )}
+
+      <DealFormDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSubmit={handleCreate}
+        stages={stages}
+      />
     </div>
   )
 }

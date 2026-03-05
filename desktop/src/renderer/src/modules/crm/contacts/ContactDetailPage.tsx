@@ -20,8 +20,9 @@ import {
   Calendar,
   User,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib'
-import { useContact } from '@/api/hooks/useContacts'
+import { useContact, useUpdateContact, useDeleteContact } from '@/api/hooks/useContacts'
 import { useActivities } from '@/api/hooks/useActivities'
 import { useEntityTasks } from '@/api/hooks/useTasks'
 import { Button } from '@/components/ui/button'
@@ -29,7 +30,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { ConfirmDialog } from '@/components/shared'
 import { activityTypeLabel, activityTypeIcon } from '../activities/activityUtils'
+import { ContactFormDialog, type ContactFormData } from './ContactFormDialog'
 
 const PRIORITY_LABELS: Record<string, string> = {
   urgent: 'Dringend',
@@ -57,12 +60,89 @@ export default function ContactDetailPage() {
   })
   const { data: tasksData } = useEntityTasks('contact', id ?? '')
 
+  const updateContact = useUpdateContact()
+  const deleteContact = useDeleteContact()
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
   const contact = data?.contact
   const activities = activitiesData?.activities ?? []
   const linkedTasks = tasksData?.tasks ?? []
 
-  function showComingSoon() {
-    alert('Kommt bald')
+  function contactToFormData(): Partial<ContactFormData> {
+    if (!contact) return {}
+    const cf = (contact.customFields ?? {}) as Record<string, unknown>
+    const addr = (cf._address as { street?: string; zip?: string; city?: string; country?: string }) ?? {}
+    const social = (cf._socialMedia as { linkedin?: string; xing?: string }) ?? {}
+    return {
+      salutation: (cf._salutation as string) ?? '',
+      title: contact.title ?? '',
+      firstName: contact.firstName ?? '',
+      lastName: contact.lastName ?? '',
+      email: contact.email ?? '',
+      phone: contact.phone ?? '',
+      mobile: (cf._mobile as string) ?? '',
+      company: contact.companyName ?? (cf._company as string) ?? '',
+      jobTitle: (cf._jobTitle as string) ?? '',
+      department: (cf._department as string) ?? '',
+      category: (cf._category as string) ?? 'customer',
+      status: (cf._status as string) ?? 'active',
+      street: addr.street ?? '',
+      zip: addr.zip ?? '',
+      city: addr.city ?? '',
+      country: addr.country ?? 'Schweiz',
+      website: (cf._website as string) ?? '',
+      linkedin: social.linkedin ?? '',
+      xing: social.xing ?? '',
+      notes: contact.notes ?? '',
+      tags: (cf._tags as string[]) ?? [],
+    }
+  }
+
+  async function handleUpdate(form: ContactFormData) {
+    if (!id) return
+    try {
+      await updateContact.mutateAsync({
+        id,
+        first_name: form.firstName,
+        last_name: form.lastName,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        title: form.title || undefined,
+        notes: form.notes || undefined,
+        custom_fields: {
+          ...(form.salutation ? { _salutation: form.salutation } : {}),
+          ...(form.mobile ? { _mobile: form.mobile } : {}),
+          ...(form.company ? { _company: form.company } : {}),
+          ...(form.jobTitle ? { _jobTitle: form.jobTitle } : {}),
+          ...(form.department ? { _department: form.department } : {}),
+          ...(form.category !== 'customer' ? { _category: form.category } : {}),
+          ...(form.status !== 'active' ? { _status: form.status } : {}),
+          ...((form.street || form.zip || form.city) ? {
+            _address: { street: form.street, zip: form.zip, city: form.city, country: form.country },
+          } : {}),
+          ...(form.website ? { _website: form.website } : {}),
+          ...((form.linkedin || form.xing) ? {
+            _socialMedia: { linkedin: form.linkedin, xing: form.xing },
+          } : {}),
+          ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
+        },
+      })
+      toast.success('Kontakt aktualisiert')
+    } catch {
+      toast.error('Fehler beim Aktualisieren des Kontakts')
+    }
+  }
+
+  async function handleDelete() {
+    if (!id) return
+    try {
+      await deleteContact.mutateAsync(id)
+      toast.success('Kontakt geloescht')
+      navigate('/crm/contacts')
+    } catch {
+      toast.error('Fehler beim Loeschen des Kontakts')
+    }
   }
 
   if (error) {
@@ -130,7 +210,7 @@ export default function ContactDetailPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={showComingSoon}>
+          <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-1" />
             Bearbeiten
           </Button>
@@ -138,10 +218,10 @@ export default function ContactDetailPage() {
             variant="outline"
             size="sm"
             className="text-destructive"
-            onClick={showComingSoon}
+            onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Löschen
+            Loeschen
           </Button>
         </div>
       </div>
@@ -467,6 +547,24 @@ export default function ContactDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <ContactFormDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        initialData={contactToFormData()}
+        onSubmit={handleUpdate}
+        isEdit
+      />
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Kontakt loeschen"
+        description={`Moechtest du "${contact.firstName} ${contact.lastName}" wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.`}
+        confirmLabel="Loeschen"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

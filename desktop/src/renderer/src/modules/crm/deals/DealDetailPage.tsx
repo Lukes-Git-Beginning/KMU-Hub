@@ -20,8 +20,10 @@ import {
   Calendar,
   FileText,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib'
-import { useDeal } from '@/api/hooks/useDeals'
+import { useDeal, useUpdateDeal, useDeleteDeal } from '@/api/hooks/useDeals'
+import { usePipelineStages } from '@/api/hooks/usePipelineStages'
 import { useCreateQuoteFromDeal } from '@/api/hooks/useFinance'
 import { useActivities } from '@/api/hooks/useActivities'
 import { useEntityTasks } from '@/api/hooks/useTasks'
@@ -30,7 +32,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { ConfirmDialog } from '@/components/shared'
 import { activityTypeLabel, activityTypeIcon } from '../activities/activityUtils'
+import { DealFormDialog, type DealFormData } from './DealFormDialog'
 
 function formatCurrency(value?: number, currency?: string): string {
   if (value == null) return '-'
@@ -68,13 +72,68 @@ export default function DealDetailPage() {
   })
   const { data: tasksData } = useEntityTasks('deal', id ?? '')
   const createQuoteFromDeal = useCreateQuoteFromDeal()
+  const updateDeal = useUpdateDeal()
+  const deleteDeal = useDeleteDeal()
+  const { data: stagesData } = usePipelineStages()
+  const stages = stagesData?.stages ?? []
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const deal = data?.deal
   const activities = activitiesData?.activities ?? []
   const linkedTasks = tasksData?.tasks ?? []
 
-  function showComingSoon() {
-    alert('Kommt bald')
+  function dealToFormData(): Partial<DealFormData> {
+    if (!deal) return {}
+    const cf = (deal.customFields ?? {}) as Record<string, unknown>
+    return {
+      name: deal.name ?? '',
+      value: deal.value ?? 0,
+      currency: deal.currency ?? 'CHF',
+      stage: deal.stageId ?? '',
+      priority: (cf._priority as string) ?? 'normal',
+      probability: (cf._probability as number) ?? 50,
+      contactName: deal.contactName ?? (cf._contactName as string) ?? '',
+      companyName: deal.companyName ?? (cf._companyName as string) ?? '',
+      expectedCloseDate: deal.expectedCloseDate ?? '',
+      notes: deal.notes ?? '',
+      tags: (cf._tags as string[]) ?? [],
+    }
+  }
+
+  async function handleUpdate(form: DealFormData) {
+    if (!id) return
+    try {
+      await updateDeal.mutateAsync({
+        id,
+        name: form.name,
+        value: form.value,
+        currency: form.currency,
+        expected_close_date: form.expectedCloseDate || undefined,
+        notes: form.notes || undefined,
+        custom_fields: {
+          ...(form.contactName ? { _contactName: form.contactName } : {}),
+          ...(form.companyName ? { _companyName: form.companyName } : {}),
+          ...(form.priority !== 'normal' ? { _priority: form.priority } : {}),
+          ...(form.probability !== 50 ? { _probability: form.probability } : {}),
+          ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
+        },
+      })
+      toast.success('Deal aktualisiert')
+    } catch {
+      toast.error('Fehler beim Aktualisieren des Deals')
+    }
+  }
+
+  async function handleDelete() {
+    if (!id) return
+    try {
+      await deleteDeal.mutateAsync(id)
+      toast.success('Deal geloescht')
+      navigate('/crm/deals')
+    } catch {
+      toast.error('Fehler beim Loeschen des Deals')
+    }
   }
 
   /** Navigate to task creation with deal auto-populate params */
@@ -175,7 +234,7 @@ export default function DealDetailPage() {
             <FileText className="h-4 w-4 mr-1" />
             {createQuoteFromDeal.isPending ? 'Erstelle...' : 'Angebot erstellen'}
           </Button>
-          <Button variant="outline" size="sm" onClick={showComingSoon}>
+          <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-1" />
             Bearbeiten
           </Button>
@@ -183,7 +242,7 @@ export default function DealDetailPage() {
             variant="outline"
             size="sm"
             className="text-destructive"
-            onClick={showComingSoon}
+            onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
             Löschen
@@ -534,6 +593,25 @@ export default function DealDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <DealFormDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        initialData={dealToFormData()}
+        onSubmit={handleUpdate}
+        isEdit
+        stages={stages}
+      />
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Deal loeschen"
+        description={`Moechtest du "${deal.name}" wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.`}
+        confirmLabel="Loeschen"
+        variant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }
