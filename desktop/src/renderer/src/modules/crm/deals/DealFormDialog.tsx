@@ -1,5 +1,5 @@
 /**
- * DealFormDialog — Create/Edit Deal.
+ * DealFormDialog -- Create/Edit Deal.
  *
  * Used from DealDetailPage and DealsListPage.
  * Mock-first: works with local state, ready for API swap.

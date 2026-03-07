@@ -93,7 +93,8 @@ export function AppShell() {
         <main className="flex flex-1 flex-col overflow-hidden">
           {/* Top chrome */}
           <OfflineBanner />
-          <Header />
+          {isDock && <DockHeader />}
+          {(isSidebar || isClassic || isTopNav) && <Header />}
           {isTopNav && <TopNavBar />}
 
           {/* Content — stable position, never unmounts */}
@@ -118,7 +119,7 @@ export function AppShell() {
   )
 }
 
-/* ── Dock mini-header (extracted from DockLayout) ── */
+/* -- Dock mini-header (extracted from DockLayout) -- */
 function DockHeader() {
   const { isOnline } = useOnlineStatus()
   useNotificationWebSocket()

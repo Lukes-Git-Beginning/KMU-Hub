@@ -2,14 +2,58 @@
 
 ## Current Position
 
-Phase: BETA READY (D1-D8 complete, D9 paused for manual design)
-Last completed: D8 — Widgets & Overlays (2026-02-13)
-Branch: design/brainstorm (merged with main, Luke's Phase 6 included)
+Phase: BACKEND UPDATE RECEIVED — Luke's massive cleanup + Phase 17.5 Gast-Chat komplett
+Last completed: Feature Brainstorm + Strategy Docs + Pricing v2 (2026-02-25)
+Branch: design/brainstorm (pushed FEATURE-BRAINSTORM.md + STRATEGY.md + PRICING.md v2)
+
+## Luke Status Update (2026-02-25)
+
+**Siehe:** `.planning/design/LUKE-ANTWORT-2026-02-25.md`
+
+**Highlights:**
+- CRM CRUD komplett fertig (voller CRUD, nicht nur GET)
+- Phase 17.5 Gast-Chat komplett (Backend + Frontend SPA in `guest-chat/`)
+- Email-Modul komplett (39 RPCs)
+- DATEV-Export voll implementiert
+- Gap-Analyse Wave 3: ~60% bereits gebaut
+- Frontend kann JETZT gegen echte APIs bauen (kein Mock-Modus nötig)
+
+## Action Items (2026-02-25)
+
+**Option A: Gast-Chat Design-Upgrade** (Quick Win)
+- Standalone SPA in `guest-chat/` stylen (aktuell plain CSS)
+- 8 Komponenten redesignen (PreChatForm, ChatWindow, MessageBubble, etc.)
+
+**Option B: Admin-UI für Gast-Channels** (Neues Feature)
+- Toggle "Gast-Chat aktivieren" pro Channel
+- Config: Logo, Primärfarbe, Willkommensnachricht, File-Limit
+
+**Option C: Von Mocks zu echten APIs** (Migration)
+- TanStack Query Hooks schreiben
+- Mail/CRM-Module gegen echte Endpoints bauen
+
+**Option D: Notification-Präferenzen** (Offene Frage von Luke)
+- Wie wird Mitarbeiter benachrichtigt wenn Gast schreibt?
+- Design für Settings
+
+## Completed Strategy Work (2026-02-17 + 2026-02-25)
+
+**2026-02-17:**
+- 14 Research-Dokumente (~19.000 Zeilen) in `.planning/design/research/`
+- Handoff-Dokument: `docs/PRODUCT-STRATEGY.md`
+- Luke-Prompt: `research/PROMPT-FUER-LUKE.md`
+- Build/Integrate Matrix, Gap-Analyse, Compliance-Framework, DB-Modelle
+- Backend-Plan (Part 1+2), Frontend-Plan, Kostenanalyse, Infrastruktur-Matrix
+
+**2026-02-25:**
+- FEATURE-BRAINSTORM.md (103 Features, alle bewertet)
+- STRATEGY.md (Digitale Souveränität + MS Office Koexistenz)
+- PRICING.md v2 (Role-Based Pricing + Einmalkauf + Branchenpakete)
 
 ## NEXT SESSION TODO
-1. D9 Desk Polish — manuelle Bild-Generierung (Darien separat)
-2. D10 Visual Polish — Animationen, Accessibility
-3. D11 Nico-Review — Gesamte App durchgehen lassen
+1. **Entscheidung:** Welches Action Item (A/B/C/D)?
+2. D10 Visual Polish — Animationen, Accessibility (später)
+3. D11 Nico-Review — Gesamte App durchgehen lassen (später)
 
 ## Progress
 

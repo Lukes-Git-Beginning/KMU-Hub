@@ -95,10 +95,10 @@
 
 ---
 
-### 2.2 Finanzen / Finance
+### 2.2 Buchhaltung / Finance
 
 **Store:** `stores/finance.ts` — 5 invoices, 10 transactions, 5 expenses
-**Files:** `FinanzenPage.tsx`, `InvoiceFormDialog.tsx`, `InvoiceDetailPanel.tsx`, `ExpenseFormDialog.tsx`, `PaymentRecordDialog.tsx`, `ExportDialog.tsx`
+**Files:** `BuchhaltungPage.tsx`, `InvoiceFormDialog.tsx`, `InvoiceDetailPanel.tsx`, `ExpenseFormDialog.tsx`, `PaymentRecordDialog.tsx`, `ExportDialog.tsx`
 
 **Frontend Features:**
 - Invoices + Quotes CRUD (with line items: description, qty, unit price, discount, VAT)
@@ -811,10 +811,10 @@
 
 ---
 
-### 2.22 Mahnwesen (Dunning — Extension of Finanzen)
+### 2.22 Mahnwesen (Dunning — Extension of Buchhaltung)
 
 **Store:** `stores/finance.ts` — dunnings with levels 1-3
-**Files:** `modules/finanzen/FinanzenPage.tsx` (Mahnungen tab)
+**Files:** `modules/buchhaltung/BuchhaltungPage.tsx` (Mahnungen tab)
 
 **Frontend Features:**
 - Dunning table (level 1/2/3 indicators)
@@ -838,15 +838,31 @@
 
 ---
 
-### ~~2.23 Lohn (Payroll) — REMOVED~~
+### 2.23 Lohn (Payroll — Extension of Team)
 
-> **ANTI-FEATURE:** Payroll processing will NEVER be built in KMU Hub. Swiss social security
-> calculations (AHV/IV/EO, BVG, tax) are a legal minefield. Payroll is integration-only via
-> Bexio, Abacus, or Run my Accounts. The HR module covers leave, time tracking, absences,
-> and employee profiles — but NO salary calculation or payslip generation.
->
-> The 8 endpoints previously listed here have been struck from the roadmap.
-> Frontend mock data (Lohn tab in TeamPage) will be removed or replaced with an integration placeholder.
+**Store:** `stores/team.ts` — payroll entries with salary breakdown
+**Files:** `modules/team/TeamPage.tsx` (Lohn tab)
+
+**Frontend Features:**
+- Monthly payroll table (gross, AHV, pension, tax, net)
+- Month selector
+- Lohnlauf starten (batch payroll run)
+- Individual payslip view
+
+**Endpoints NEEDED:**
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/v1/team/payroll` | List payroll entries (month filter) |
+| GET | `/api/v1/team/payroll/{id}` | Get payslip detail |
+| POST | `/api/v1/team/payroll/run` | Start payroll run |
+| GET | `/api/v1/team/payroll/run/{id}/status` | Check run status |
+| PATCH | `/api/v1/team/payroll/{id}` | Adjust entry |
+| GET | `/api/v1/team/payroll/{id}/pdf` | Export payslip PDF |
+| GET | `/api/v1/team/payroll/summary` | Monthly summary (totals) |
+| POST | `/api/v1/team/payroll/export` | Export for accounting |
+
+**Complexity:** HIGH — Swiss social security calculations (AHV/IV/EO, BVG, tax)
 
 ---
 
@@ -965,10 +981,10 @@ The dashboard layout API works, but widget data is not wired:
 | Extension | Endpoints | Parent Module | Priority |
 |-----------|----------|---------------|----------|
 | Mahnwesen | 6 | Finance | MEDIUM |
-| ~~Lohn (Payroll)~~ | ~~8~~ | ~~Team~~ | **REMOVED — anti-feature, integration only** |
+| Lohn (Payroll) | 8 | Team | HIGH |
 | Schulungen | 9 | Team | LOW |
 | Wiki | 9 | Documents | MEDIUM |
-| **Subtotal** | **~24** | | |
+| **Subtotal** | **~32** | | |
 
 ### Grand Total
 
@@ -976,10 +992,10 @@ The dashboard layout API works, but widget data is not wired:
 |----------|-------|
 | Core modules (mock data) | ~148 |
 | Industry modules (mock data) | ~152 |
-| Module extensions (mock data) | ~24 |
-| **Total NEW endpoints needed** | **~324** |
+| Module extensions (mock data) | ~32 |
+| **Total NEW endpoints needed** | **~332** |
 | Existing but UI not wired (CRM/Chat/Work/Notifications) | ~89 |
-| **Grand total integrations** | **~413** |
+| **Grand total integrations** | **~421** |
 
 ---
 
@@ -998,7 +1014,7 @@ The dashboard layout API works, but widget data is not wired:
 ### Tier 3 — MEDIUM VALUE:
 7. **Phase 10: Email** — MailsPage fully built (inline compose, pop-out window, print/export/save)
 8. **Phase 11: Documents** — DokumentePage fully built (upload, share, vault, versions)
-9. **Phase 12: Finance** — FinanzenPage fully built (invoices, payments, expenses, DATEV)
+9. **Phase 12: Finance** — BuchhaltungPage fully built (invoices, payments, expenses, DATEV)
 10. **Phase 13: HR + Time Tracking** — TeamPage + Zeiterfassung (6 sub-views) fully built
 
 ### Tier 4 — INDUSTRY MODULES (NEW):
@@ -1016,7 +1032,7 @@ The dashboard layout API works, but widget data is not wired:
 
 ### Tier 5 — MODULE EXTENSIONS (NEW):
 22. **Mahnwesen** — 6 endpoints, extends Finance
-23. ~~**Lohn/Payroll**~~ — **REMOVED** (anti-feature, integration-only via Bexio/Abacus/RmA)
+23. **Lohn/Payroll** — 8 endpoints, Swiss social security math (HIGH)
 24. **Schulungen** — 9 endpoints, certificate tracking
 25. **Wiki** — 9 endpoints, full-text search
 
@@ -1045,7 +1061,7 @@ Frontend is **significantly ahead** of backend. ~332 new endpoints needed across
 | Vermietung | `rental_objects`, `reservations` |
 | Rapporte | `field_reports`, `report_workers`, `report_activities`, `report_materials`, `measurements`, `measurement_positions`, `report_templates` |
 | Mahnwesen | `dunnings` (extends finance) |
-| ~~Lohn~~ | ~~`payroll_entries`, `payroll_runs`~~ — **REMOVED** |
+| Lohn | `payroll_entries`, `payroll_runs` (extends team) |
 | Schulungen | `trainings`, `training_participations`, `certificates` (extends team) |
 | Wiki | `wiki_articles`, `wiki_categories` (extends documents) |
 

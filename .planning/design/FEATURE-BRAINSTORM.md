@@ -302,3 +302,26 @@ Diese Punkte gelten fuer ALLE Screens und muessen ueberall beruecksichtigt werde
 | L1 | Offline-Modus | Funktioniert |
 | L2 | Offline-Banner | Funktioniert |
 | M4 | Notification Center | NotificationBell |
+
+---
+
+## Neue Feature-Ideen (2026-02-24)
+
+### Internes Buchungs- & Anfrage-System (Cross-Modul)
+
+**Konzept:** Mitarbeiter koennen firmeninterne Ressourcen anfragen, zustaendige Personen bearbeiten die Anfragen, und alles ist zentral einsehbar.
+
+**Fuhrpark-Anfragen:**
+- Mitarbeiter stellt Anfrage: Fahrzeugtyp, Strecke, Zeitraum, Anlass (Event/Termin), Kriterien
+- Fuhrpark-Leitung sieht Anfragen-Queue, kann Fahrzeuge fuer Zeitraeume zuweisen
+- Mitarbeiter sieht Status + zugewiesenes Fahrzeug
+
+**Hotel-/Reise-Buchungen:**
+- Zustaendige Person bucht Hotel/Reise fuer Mitarbeiter
+- Mitarbeiter sieht alle Buchungsdetails zentral (keine 7 Mails durchsuchen)
+
+**"Meine Buchungen"-Uebersicht:**
+- Zentrale Ansicht im Profil oder eigenes Buchungsfenster
+- Alle Ressourcen-Buchungen: Fahrzeuge, Hotels, Raeume, Equipment
+- Status-Tracking: Angefragt → Genehmigt → Zugewiesen → Abgeschlossen
+- Timeline/Kalender-Integration

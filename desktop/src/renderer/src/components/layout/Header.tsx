@@ -8,7 +8,6 @@
 import { Menu } from 'lucide-react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
-
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { PresenceStatusPicker } from '@/features/presence'
@@ -37,12 +36,12 @@ export function Header() {
   return (
     <header data-tour="header" className="relative z-20 flex h-[64px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
       {/* Left: mobile menu + search + clock */}
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-[12px] md:gap-[16px]">
         {navLayout === 'sidebar' && (
           <button
             onClick={() => setSidebarMobileOpen(true)}
             className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
-            aria-label="Navigation öffnen"
+            aria-label="Navigation oeffnen"
           >
             <Menu className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
@@ -63,7 +62,7 @@ export function Header() {
       </div>
 
       {/* Right: controls */}
-      <div className="flex shrink-0 items-center gap-1 md:gap-2">
+      <div className="flex shrink-0 min-w-0 items-center gap-[4px] md:gap-[8px]">
         {/* Unified Time Tracker (clock-in + task tracking) */}
         <div className="hidden lg:block">
           <TimeTrackerWidget />

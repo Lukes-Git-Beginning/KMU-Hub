@@ -103,7 +103,7 @@ export default function ActivitiesListPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Aktivitäten
+            Fehler beim Laden der Aktivitaeten
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
@@ -155,12 +155,12 @@ export default function ActivitiesListPage() {
         <div className="flex flex-col items-center justify-center py-16">
           <Activity className="h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-lg font-medium text-foreground">
-            Keine Aktivitäten gefunden
+            Keine Aktivitaeten gefunden
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {typeFilter !== 'all'
-              ? `Keine ${activityTypeLabel(typeFilter)}-Aktivitäten vorhanden.`
-              : 'Erstelle deine erste Aktivität, um loszulegen.'}
+              ? `Keine ${activityTypeLabel(typeFilter)}-Aktivitaeten vorhanden.`
+              : 'Erstelle deine erste Aktivitaet, um loszulegen.'}
           </p>
         </div>
       ) : (
@@ -228,7 +228,7 @@ export default function ActivitiesListPage() {
                       )}
                       {activity.due_date && (
                         <span>
-                          Fällig:{' '}
+                          Faellig:{' '}
                           {new Date(activity.due_date).toLocaleDateString(
                             'de-DE'
                           )}
@@ -279,7 +279,7 @@ export default function ActivitiesListPage() {
 
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {total} Aktivität{total !== 1 ? 'en' : ''} gesamt
+              {total} Aktivitaet{total !== 1 ? 'en' : ''} gesamt
             </p>
             <div className="flex items-center gap-2">
               <Button
