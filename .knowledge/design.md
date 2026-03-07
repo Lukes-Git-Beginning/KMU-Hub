@@ -1,17 +1,16 @@
 ---
 tags: [frontend, design, erledigt]
-updated: 2026-03-04
+updated: 2026-03-07
 ---
 # Design System
 
-## Status: Integration erledigt (2026-02-27)
+## Status: D9 gemerged (2026-03-07)
 - D1-D8 cherry-picked from design/brainstorm to main (full design system)
+- D9 Waves 15-20 gemerged (2026-03-07) — Visual Polish + UI system integration
 - 5-layer desk theme system (5 themes: cozy, dreamy, raumstation, clean, minimal)
 - SVG empty state illustrations + search dropdown conversion
 - Darien's note: `.planning/for-darien-2026-02-27.md`
-
-## D9 (Visual Polish + Accessibility)
-- Geplant fuer Phase B (April 2026)
+- **Lint-Status:** 0 ESLint-Probleme (347 gefixt am 2026-03-07)
 
 ## Key Lessons
 - Design files use `actionLabel`/`onAction` aber main's EmptyState uses `action:{label,onClick}`

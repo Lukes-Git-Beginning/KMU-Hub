@@ -38,11 +38,11 @@ Drei parallele Tracks ueber drei Phasen:
 | **B — Beta Hardening** | April 2026 | DokumentePage, D9 Design, E2E | AGB, DSGVO, AVV/DPA | Website, Preisliste |
 | **C — Beta Launch** | Mai 2026 | Performance, Self-Hosted | Rechtstexte live | Pilot-Onboarding |
 
-### Aktueller Stand (2026-03-05)
+### Aktueller Stand (2026-03-07)
 
-- **Phase A Track 1 (Technisch):** Abgeschlossen — alle Core-Module auf echte API-Hooks migriert
+- **Phase A Track 1 (Technisch):** Abgeschlossen — Core-Module verdrahtet, D9 Waves 15-20 gemerged, Lint-Cleanup (347→0)
 - **Phase A Track 2+3 (Legal/Business):** Noch nicht gestartet
-- **Naechster Schritt:** Phase B — DokumentePage verdrahten oder D9 Design-Merge
+- **Naechster Schritt:** Phase B — DokumentePage verdrahten, E2E Tests, Team+Chat wiring
 
 ### Scope-Entscheidung
 
@@ -73,5 +73,5 @@ Diese werden erst bei konkretem Pilot-Kundenbedarf verdrahtet (Plugin-System aus
 
 ---
 
-*Letztes Update: 2026-03-05*
+*Letztes Update: 2026-03-07*
 *Detaillierte Roadmap: `.planning/ROADMAP.md`*

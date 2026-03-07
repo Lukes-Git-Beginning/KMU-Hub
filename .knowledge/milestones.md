@@ -1,6 +1,6 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-03-04
+updated: 2026-03-07
 ---
 # Milestones
 
@@ -14,6 +14,14 @@ updated: 2026-03-04
 | Aggregation & Automation | 14-16 | 2026-02-20 |
 | Integrations | 17-19 (+17.5 Guest Chat) | 2026-02-26 |
 | Extensibility | 20 (Plugin System + WASM) | 2026-02-26 |
+
+## Beta Phase A — Core Wiring (abgeschlossen)
+| Schritt | Abgeschlossen |
+|---------|--------------|
+| 9 Core-Module auf echte API-Hooks migriert | 2026-03-05 |
+| D9 Design-Merge (Waves 15-20) | 2026-03-07 |
+| Lint-Cleanup (347 ESLint-Probleme auf 0) | 2026-03-07 |
+| Phase A Dead-Code Audit | 2026-03-05 |
 
 ## GSD Integration
 - GSD quality profile, conventional commits, no AI attribution
