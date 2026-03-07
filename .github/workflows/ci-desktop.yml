@@ -24,12 +24,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install --no-audit --no-fund
+        run: rm package-lock.json && npm install --no-audit --no-fund
 
       - name: Run ESLint
         working-directory: desktop
@@ -46,12 +44,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install --no-audit --no-fund
+        run: rm package-lock.json && npm install --no-audit --no-fund
 
       - name: TypeScript type check
         working-directory: desktop
@@ -68,12 +64,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install --no-audit --no-fund
+        run: rm package-lock.json && npm install --no-audit --no-fund
 
       - name: Run tests
         working-directory: desktop
@@ -91,12 +85,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm install --no-audit --no-fund
+        run: rm package-lock.json && npm install --no-audit --no-fund
 
       - name: Build desktop app
         working-directory: desktop
