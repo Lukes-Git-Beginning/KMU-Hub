@@ -34,6 +34,8 @@ Drei parallele Tracks laufen durch alle Beta-Phasen:
 - [x] **Work TODOs** — mock components annotated with backend endpoint TODOs (erledigt 2026-03-05)
 - [x] **Finance TODOs** — mock components annotated with backend endpoint TODOs (erledigt 2026-03-05)
 - [x] **Store Cleanup** — kommunikation.ts dead code removed (537 lines mock data + 9 unused mutations) (erledigt 2026-03-05)
+- [x] **D9 Design-Merge** → Waves 15-20 von design/brainstorm gemerged (erledigt 2026-03-07)
+- [x] **Lint-Cleanup** → 347 ESLint-Probleme auf 0 gefixt (erledigt 2026-03-07)
 
 ### Track 2 — Legal
 
@@ -53,7 +55,7 @@ Drei parallele Tracks laufen durch alle Beta-Phasen:
 ### Track 1 — Technisch
 
 - [ ] **DokumentePage** → useDocuments hooks
-- [ ] **D9 Design-Merge** → Visual Polish + Accessibility von design/brainstorm cherry-picken
+- [x] **D9 Design-Merge** → Waves 15-20 gemerged (vorgezogen nach Phase A, erledigt 2026-03-07)
 - [ ] E2E-Tests fuer kritische Pfade (Auth, Kontakt CRUD, Rechnung erstellen)
 - [ ] Fehler-Monitoring einrichten (Sentry oder aequivalent)
 - [ ] Backup-Strategie Produktion (automatisch via Cron)
@@ -136,7 +138,6 @@ wird es vollstaendig verdrahtet. Qualitaet vor Quantitaet.
 1. **Legal ist Blocker fuer Pilot-Onboarding** — ohne AVV/DPA duerfen keine echten
    Kundendaten verarbeitet werden → **sofort starten**
 2. **Produktionsserver** muss vor Beta-Deployment stehen (Hetzner aufsetzen)
-3. **D9 Design-Merge** bevor Pilot-Kunde die App sieht
 
 ---
 
@@ -187,4 +188,4 @@ unter `.planning/milestones/`.
 
 *Phase 1-20 (Feature Development) abgeschlossen: 2026-02-26*
 *Beta Preparation gestartet: 2026-02-27*
-*Letztes Update: 2026-03-05*
+*Letztes Update: 2026-03-07*
