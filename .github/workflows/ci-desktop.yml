@@ -29,7 +29,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Run ESLint
         working-directory: desktop
@@ -51,7 +51,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: TypeScript type check
         working-directory: desktop
@@ -73,7 +73,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Run tests
         working-directory: desktop
@@ -96,7 +96,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: desktop
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Build desktop app
         working-directory: desktop
