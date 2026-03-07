@@ -116,6 +116,7 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Metrics(metricsRegistry))
 	r.Use(middleware.RequestID)
+	r.Use(middleware.SecurityHeaders(cfg.BehindProxy))
 	r.Use(middleware.Logging)
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 

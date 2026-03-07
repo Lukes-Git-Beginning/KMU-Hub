@@ -8,5 +8,51 @@ scrape_configs:
       - targets: ["gateway:9090"]
 
   - job_name: "auth"
+    metrics_path: /health
     static_configs:
       - targets: ["auth:9091"]
+
+  - job_name: "crm"
+    metrics_path: /health
+    static_configs:
+      - targets: ["crm:9092"]
+
+  - job_name: "chat"
+    metrics_path: /health
+    static_configs:
+      - targets: ["chat:9093"]
+
+  - job_name: "notification"
+    metrics_path: /health
+    static_configs:
+      - targets: ["notification:9094"]
+
+  - job_name: "work"
+    metrics_path: /health
+    static_configs:
+      - targets: ["work:9095"]
+
+  - job_name: "email"
+    metrics_path: /health
+    static_configs:
+      - targets: ["email:9096"]
+
+  - job_name: "document"
+    metrics_path: /health
+    static_configs:
+      - targets: ["document:9097"]
+
+  - job_name: "biz"
+    metrics_path: /health
+    static_configs:
+      - targets: ["biz:9098"]
+
+  - job_name: "automation"
+    metrics_path: /health
+    static_configs:
+      - targets: ["automation:9099"]
+
+  - job_name: "plugin"
+    metrics_path: /health
+    static_configs:
+      - targets: ["plugin:9100"]

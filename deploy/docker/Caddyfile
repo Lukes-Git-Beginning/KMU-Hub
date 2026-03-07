@@ -1,0 +1,13 @@
+:443 {
+    tls internal
+
+    reverse_proxy gateway:8080
+
+    header {
+        -Server
+    }
+}
+
+:80 {
+    redir https://{host}{uri} permanent
+}

@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: kmuhub
+
+resources:
+  # TODO: Add deployment and service manifests for each microservice
+  # - gateway-deployment.yaml
+  # - gateway-service.yaml
+  # - auth-deployment.yaml
+  # - auth-service.yaml
+  # - postgres-statefulset.yaml
+  # - postgres-service.yaml
+  # - redis-deployment.yaml
+  # - redis-service.yaml

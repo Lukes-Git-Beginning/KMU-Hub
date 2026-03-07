@@ -39,7 +39,8 @@ type Config struct {
 
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS,delimiter=;,default=http://localhost:3000;http://localhost:5173"`
 
-	RateLimitRPS int `env:"RATE_LIMIT_RPS,default=100"`
+	RateLimitRPS int  `env:"RATE_LIMIT_RPS,default=100"`
+	BehindProxy  bool `env:"BEHIND_PROXY,default=false"`
 
 	MetricsPort    string `env:"METRICS_PORT,default=:9090"`
 	HealthPort     string `env:"HEALTH_PORT,default=:9091"`
