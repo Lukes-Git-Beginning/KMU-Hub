@@ -30,14 +30,13 @@ import {
 import { toast } from 'sonner'
 import {
   useTeamStore,
-  type TeamMember,
   type Training,
   type TrainingParticipation,
 } from '@/stores/team'
 import { useTimeTrackingStore, type TeamActivityEntry } from '@/stores/timetracking'
 import { useMeetingsStore } from '@/stores/meetings'
 import { useNavigationStore } from '@/stores/navigation'
-import { useEmployees, useLeaveRequests } from '@/api/hooks/hr-hooks'
+import { useEmployees, useLeaveRequests, useUpdateEmployee } from '@/api/hooks/hr-hooks'
 import type { EmployeeProfile, LeaveRequest } from '@/api/hr-types'
 import { ItemActions, ConfirmDialog, EmptyState, PageHeader, type ActionItem } from '@/components/shared'
 import { MemberDetailPanel } from './MemberDetailPanel'
@@ -136,11 +135,11 @@ const participationStatusLabels: Record<string, string> = {
 
 export default function TeamPage() {
   const navigate = useNavigate()
-  // Keep Zustand for non-HR features (training mocks, meetings, navigation)
+  // Keep Zustand only for training/payroll mocks (no backend API yet)
   const {
-    members: zustandMembers, deactivateMember,
     trainings, trainingParticipations, addTraining, recordParticipation,
   } = useTeamStore()
+  const updateEmployeeMutation = useUpdateEmployee()
   const { startCall } = useMeetingsStore()
   const { setIntent } = useNavigationStore()
 
@@ -167,7 +166,7 @@ export default function TeamPage() {
   const [editMember, _setEditMember] = useState<EmployeeProfile | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [approvalRequest, setApprovalRequest] = useState<LeaveRequest | null>(null)
-  const [confirmDeactivate, setConfirmDeactivate] = useState<TeamMember | null>(null)
+  const [confirmDeactivate, setConfirmDeactivate] = useState<EmployeeProfile | null>(null)
 
   // Schulungen tab state
   const [showAddTraining, setShowAddTraining] = useState(false)
@@ -219,10 +218,11 @@ export default function TeamPage() {
     navigate('/chat')
   }
 
-  const handleDeactivate = (member: TeamMember) => {
-    deactivateMember(member.id)
+  const handleDeactivate = (emp: EmployeeProfile) => {
+    // TODO: Backend needs a dedicated deactivation endpoint; for now update via employee API
+    updateEmployeeMutation.mutate({ id: emp.id, data: {} })
     setConfirmDeactivate(null)
-    toast.success(`${member.firstName} ${member.lastName} deaktiviert`)
+    toast.success(`${emp.userName ?? 'Mitarbeiter'} deaktiviert`)
   }
 
   const getInitials = (name: string) => {
@@ -622,7 +622,7 @@ export default function TeamPage() {
         open={!!confirmDeactivate}
         onOpenChange={() => setConfirmDeactivate(null)}
         title="Mitglied deaktivieren?"
-        description={`${confirmDeactivate?.firstName} ${confirmDeactivate?.lastName} wird deaktiviert. Das Konto kann spaeter reaktiviert werden.`}
+        description={`${confirmDeactivate?.userName ?? 'Mitarbeiter'} wird deaktiviert. Das Konto kann spaeter reaktiviert werden.`}
         confirmLabel="Deaktivieren"
         variant="destructive"
         onConfirm={() => confirmDeactivate && handleDeactivate(confirmDeactivate)}
@@ -640,7 +640,7 @@ export default function TeamPage() {
         open={showRecordParticipation}
         onOpenChange={setShowRecordParticipation}
         trainings={trainings}
-        members={zustandMembers.filter((m) => m.isActive)}
+        members={apiEmployees}
         onRecord={recordParticipation}
       />
     </div>
@@ -949,7 +949,7 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
   open: boolean
   onOpenChange: (v: boolean) => void
   trainings: Training[]
-  members: TeamMember[]
+  members: EmployeeProfile[]
   onRecord: (p: Omit<TrainingParticipation, 'id'>) => void
 }) {
   const [memberId, setMemberId] = useState('')
@@ -963,10 +963,10 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
 
   const handleRecord = () => {
     if (!memberId || !trainingId) return
-    const member = members.find((m) => m.id === memberId)
-    if (!member) return
+    const emp = members.find((m) => m.id === memberId)
+    if (!emp) return
     const training = trainings.find((t) => t.id === trainingId)
-    const memberName = `${member.firstName} ${member.lastName}`
+    const memberName = emp.userName ?? 'Unbekannt'
     const participation: Omit<TrainingParticipation, 'id'> = {
       trainingId, memberId, memberName, status,
       ...(completedAt ? { completedAt } : {}),
@@ -995,7 +995,7 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
               <SelectTrigger><SelectValue placeholder="Mitarbeiter waehlen..." /></SelectTrigger>
               <SelectContent>
                 {members.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.firstName} {m.lastName}</SelectItem>
+                  <SelectItem key={m.id} value={m.id}>{m.userName ?? 'Unbekannt'}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

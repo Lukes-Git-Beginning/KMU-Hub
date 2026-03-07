@@ -1,51 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { toast } from 'sonner'
-import { getAllTeamMembers, DEPARTMENTS } from '@/mocks/mock-db'
 
-export interface TeamMember {
-  id: string
-  firstName: string
-  lastName: string
-  initials: string
-  email: string
-  phone: string
-  mobile?: string
-  role: string
-  department: string
-  status: 'online' | 'away' | 'offline' | 'dnd'
-  contractType: 'Vollzeit' | 'Teilzeit' | 'Praktikum' | 'Freelance'
-  workload: number // percentage, e.g. 100, 80, 60
-  joinDate: string
-  manager?: string
-  location: string
-  currentTask?: string
-  projects: string[]
-  skills: string[]
-  notes?: string
-  isActive: boolean
-}
-
-export interface HRRequest {
-  id: string
-  type: 'vacation' | 'sick' | 'overtime' | 'doctor' | 'homeoffice' | 'education'
-  memberId: string
-  memberName: string
-  memberInitials: string
-  startDate: string
-  endDate: string
-  days: number
-  status: 'pending' | 'approved' | 'rejected'
-  reason: string
-  comment?: string
-  createdAt: string
-}
-
-export interface Department {
-  id: string
-  name: string
-  color: string
-}
+// Members, requests, departments → migrated to API (useEmployees, useLeaveRequests)
+// Only training & payroll remain as Zustand mocks (no backend API yet)
 
 export interface PayrollEntry {
   id: string
@@ -82,54 +40,14 @@ export interface TrainingParticipation {
 }
 
 interface TeamStore {
-  members: TeamMember[]
-  requests: HRRequest[]
-  departments: Department[]
   payroll: PayrollEntry[]
   trainings: Training[]
   trainingParticipations: TrainingParticipation[]
-
-  addMember: (member: Omit<TeamMember, 'id' | 'initials' | 'isActive'>) => void
-  updateMember: (id: string, updates: Partial<TeamMember>) => void
-  deactivateMember: (id: string) => void
-  deleteMember: (id: string) => void
-
-  addRequest: (request: Omit<HRRequest, 'id' | 'createdAt'>) => void
-  approveRequest: (id: string, comment?: string) => void
-  rejectRequest: (id: string, comment?: string) => void
-  deleteRequest: (id: string) => void
 
   startPayrollRun: () => void
   addTraining: (training: Omit<Training, 'id'>) => void
   recordParticipation: (participation: Omit<TrainingParticipation, 'id'>) => void
 }
-
-function getInitials(first: string, last: string): string {
-  return `${first[0] || ''}${last[0] || ''}`.toUpperCase()
-}
-
-// ---------------------------------------------------------------------------
-// Initial data from central mock-db (TechVision GmbH, 18 employees)
-// ---------------------------------------------------------------------------
-
-const INITIAL_DEPARTMENTS: Department[] = DEPARTMENTS.map((d) => ({
-  id: d.id,
-  name: d.name,
-  color: d.color,
-}))
-
-const INITIAL_MEMBERS: TeamMember[] = getAllTeamMembers()
-
-const INITIAL_REQUESTS: HRRequest[] = [
-  { id: 'hr1', type: 'vacation', memberId: 'e10', memberName: 'Sabine Fischer', memberInitials: 'SF', startDate: '2026-02-17', endDate: '2026-02-28', days: 8, status: 'approved', reason: 'Winterurlaub Oesterreich', createdAt: '2026-02-03' },
-  { id: 'hr2', type: 'sick', memberId: 'e13', memberName: 'Petra Zimmermann', memberInitials: 'PZ', startDate: '2026-02-21', endDate: '2026-02-24', days: 2, status: 'approved', reason: 'Grippe', comment: 'Gute Besserung!', createdAt: '2026-02-21' },
-  { id: 'hr3', type: 'overtime', memberId: 'e2', memberName: 'Markus Weber', memberInitials: 'MW', startDate: '2026-02-20', endDate: '2026-02-20', days: 1, status: 'approved', reason: 'Release-Vorbereitung API v2, 4h Ueberstunden', createdAt: '2026-02-20' },
-  { id: 'hr4', type: 'doctor', memberId: 'e6', memberName: 'Tim Hartmann', memberInitials: 'TH', startDate: '2026-02-26', endDate: '2026-02-26', days: 0.5, status: 'pending', reason: 'Zahnarzttermin nachmittags', createdAt: '2026-02-22' },
-  { id: 'hr5', type: 'vacation', memberId: 'e3', memberName: 'Thomas Meier', memberInitials: 'TM', startDate: '2026-03-10', endDate: '2026-03-14', days: 5, status: 'pending', reason: 'Familienurlaub Mallorca', createdAt: '2026-02-15' },
-  { id: 'hr6', type: 'homeoffice', memberId: 'e8', memberName: 'Sophie Lang', memberInitials: 'SL', startDate: '2026-02-24', endDate: '2026-02-28', days: 5, status: 'approved', reason: 'Homeoffice-Woche (Usability Tests remote)', createdAt: '2026-02-20' },
-  { id: 'hr7', type: 'education', memberId: 'e7', memberName: 'Lena Braun', memberInitials: 'LB', startDate: '2026-02-24', endDate: '2026-02-25', days: 2, status: 'approved', reason: 'React Advanced Workshop, TU Muenchen', createdAt: '2026-02-18' },
-  { id: 'hr8', type: 'vacation', memberId: 'e12', memberName: 'Julia Hofmann', memberInitials: 'JH', startDate: '2026-03-03', endDate: '2026-03-07', days: 5, status: 'pending', reason: 'Staedtetrip Barcelona', createdAt: '2026-02-22' },
-]
 
 const INITIAL_PAYROLL: PayrollEntry[] = [
   { id: 'pay1', memberId: 'e1', memberName: 'Stefan Vogel', department: 'Geschaeftsfuehrung', employmentType: 'fulltime', grossSalary: 12500, month: '2026-01', status: 'paid', deductions: { ahv: 1188, pension: 938, tax: 2875, other: 62 }, netSalary: 7437 },
@@ -173,79 +91,9 @@ const INITIAL_PARTICIPATIONS: TrainingParticipation[] = [
 export const useTeamStore = create<TeamStore>()(
   persist(
     (set) => ({
-      members: INITIAL_MEMBERS,
-      requests: INITIAL_REQUESTS,
-      departments: INITIAL_DEPARTMENTS,
       payroll: INITIAL_PAYROLL,
       trainings: INITIAL_TRAININGS,
       trainingParticipations: INITIAL_PARTICIPATIONS,
-
-      addMember: (member) =>
-        set((state) => ({
-          members: [
-            ...state.members,
-            {
-              ...member,
-              id: `e${Date.now()}`,
-              initials: getInitials(member.firstName, member.lastName),
-              isActive: true,
-            },
-          ],
-        })),
-
-      updateMember: (id, updates) =>
-        set((state) => ({
-          members: state.members.map((m) =>
-            m.id === id
-              ? {
-                  ...m,
-                  ...updates,
-                  initials: updates.firstName || updates.lastName
-                    ? getInitials(updates.firstName ?? m.firstName, updates.lastName ?? m.lastName)
-                    : m.initials,
-                }
-              : m,
-          ),
-        })),
-
-      deactivateMember: (id) =>
-        set((state) => ({
-          members: state.members.map((m) =>
-            m.id === id ? { ...m, isActive: false, status: 'offline' as const } : m,
-          ),
-        })),
-
-      deleteMember: (id) =>
-        set((state) => ({
-          members: state.members.filter((m) => m.id !== id),
-        })),
-
-      addRequest: (request) =>
-        set((state) => ({
-          requests: [
-            ...state.requests,
-            { ...request, id: `hr${Date.now()}`, createdAt: new Date().toISOString().split('T')[0] },
-          ],
-        })),
-
-      approveRequest: (id, comment) =>
-        set((state) => ({
-          requests: state.requests.map((r) =>
-            r.id === id ? { ...r, status: 'approved' as const, comment } : r,
-          ),
-        })),
-
-      rejectRequest: (id, comment) =>
-        set((state) => ({
-          requests: state.requests.map((r) =>
-            r.id === id ? { ...r, status: 'rejected' as const, comment } : r,
-          ),
-        })),
-
-      deleteRequest: (id) =>
-        set((state) => ({
-          requests: state.requests.filter((r) => r.id !== id),
-        })),
 
       startPayrollRun: () =>
         set((state) => {

@@ -6,7 +6,7 @@
  * Supports keyboard navigation (ArrowUp/Down, Enter, Escape).
  */
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useTeamStore } from '@/stores/team'
+import { useEmployees } from '@/api/hooks/hr-hooks'
 import { usePresenceStore } from '@/stores/presence'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
@@ -24,24 +24,19 @@ const PRESENCE_COLORS: Record<string, string> = {
 }
 
 export function MentionAutocomplete({ query, onSelect, onClose }: MentionAutocompleteProps) {
-  const members = useTeamStore((s) => s.members)
+  const { data: employeesData } = useEmployees()
+  const employees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
   const presenceMap = usePresenceStore((s) => s.presenceMap)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
-    if (!query) return members.filter((m) => m.isActive).slice(0, 8)
+    if (!query) return employees.slice(0, 8)
     const q = query.toLowerCase()
-    return members
-      .filter(
-        (m) =>
-          m.isActive &&
-          (m.firstName.toLowerCase().includes(q) ||
-            m.lastName.toLowerCase().includes(q) ||
-            `${m.firstName} ${m.lastName}`.toLowerCase().includes(q))
-      )
+    return employees
+      .filter((emp) => (emp.userName ?? '').toLowerCase().includes(q))
       .slice(0, 8)
-  }, [members, query])
+  }, [employees, query])
 
   // Reset selected index when results change
   useEffect(() => {
@@ -60,8 +55,8 @@ export function MentionAutocomplete({ query, onSelect, onClose }: MentionAutocom
         setSelectedIndex((i) => Math.max(i - 1, 0))
       } else if (e.key === 'Enter' && filtered.length > 0) {
         e.preventDefault()
-        const member = filtered[selectedIndex]
-        if (member) onSelect(member.firstName)
+        const emp = filtered[selectedIndex]
+        if (emp) onSelect((emp.userName ?? '').split(' ')[0] || 'Unbekannt')
       } else if (e.key === 'Escape') {
         onClose()
       }
@@ -93,29 +88,30 @@ export function MentionAutocomplete({ query, onSelect, onClose }: MentionAutocom
         Mitarbeiter
       </p>
       <div ref={listRef} className="max-h-48 overflow-y-auto">
-        {filtered.map((member, i) => {
-          const presence = presenceMap[member.id] ?? member.status ?? 'offline'
+        {filtered.map((emp, i) => {
+          const name = emp.userName ?? 'Unbekannt'
+          const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+          const firstName = name.split(' ')[0] || 'Unbekannt'
+          const presence = presenceMap[emp.userId] ?? 'offline'
           return (
             <button
-              key={member.id}
-              onClick={() => onSelect(member.firstName)}
+              key={emp.id}
+              onClick={() => onSelect(firstName)}
               className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-sm transition-colors ${
                 i === selectedIndex ? 'bg-secondary' : 'hover:bg-secondary/50'
               }`}
             >
               <div className="relative">
                 <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-[10px]">{member.initials}</AvatarFallback>
+                  <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
                 </Avatar>
                 <span
                   className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${PRESENCE_COLORS[presence] ?? 'bg-gray-400'}`}
                 />
               </div>
               <div className="min-w-0 flex-1 text-left">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {member.firstName} {member.lastName}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">{member.role}</p>
+                <p className="truncate text-sm font-medium text-foreground">{name}</p>
+                <p className="truncate text-[11px] text-muted-foreground">{emp.positionTitle ?? ''}</p>
               </div>
             </button>
           )
