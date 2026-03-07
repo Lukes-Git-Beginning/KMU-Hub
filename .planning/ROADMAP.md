@@ -56,7 +56,7 @@ Drei parallele Tracks laufen durch alle Beta-Phasen:
 
 - [ ] **DokumentePage** → useDocuments hooks
 - [x] **D9 Design-Merge** → Waves 15-20 gemerged (vorgezogen nach Phase A, erledigt 2026-03-07)
-- [ ] E2E-Tests fuer kritische Pfade (Auth, Kontakt CRUD, Rechnung erstellen)
+- [x] **E2E-Tests** fuer kritische Pfade (Auth, Kontakt CRUD, Rechnung) — Vitest + Testing Library + MSW (erledigt 2026-03-07)
 - [ ] Fehler-Monitoring einrichten (Sentry oder aequivalent)
 - [ ] Backup-Strategie Produktion (automatisch via Cron)
 

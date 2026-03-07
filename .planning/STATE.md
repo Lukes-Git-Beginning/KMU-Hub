@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Mode: Beta Preparation
-Status: Phase A (Core Wiring) — COMPLETE. All technical items done.
-Last activity: 2026-03-05 -- Store cleanup (kommunikation.ts dead code removed), ROADMAP + STATE updated
-Next: Phase B (Beta Hardening) — DokumentePage wiring, D9 Design-Merge, E2E tests
+Status: Phase B (Beta Hardening) — in progress
+Last activity: 2026-03-07 -- E2E tests for critical paths (Auth, Contacts, Invoice) + D9 Design-Merge + Lint-Cleanup
+Next: Phase B — DokumentePage wiring, Fehler-Monitoring, Backup-Strategie
 
 Feature Development: [████████████████████████████████████] 100% (103/103 plans across phases 4-20)
 Beta Preparation:    [████████████░░░░░░░░░░░░░░░░░░░░░░░░] ~30% (Phase A Track 1 done, 9/10 core modules wired, Legal/Business 0%)
