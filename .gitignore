@@ -35,11 +35,14 @@ mobile/android/app/build/
 # === IDE / Tools ===
 .idea/
 .vscode/
-# Claude Code — keep shared config, ignore personal
+# Claude Code — keep shared config, ignore GSD and personal files
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
+.claude/hooks/gsd-*
 !.claude/commands/
+.claude/commands/gsd/
+.claude/commands/gsd-*
 *.swp
 *.swo
 *~
