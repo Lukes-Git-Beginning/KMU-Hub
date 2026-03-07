@@ -1,7 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -12,6 +17,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/chat/file"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -418,4 +425,231 @@ func createAuthTestUser(repo *authMockRepo, email, password string, active bool)
 	repo.users[user.ID] = user
 	repo.usersByEmail[user.Email] = user
 	return user
+}
+
+// ---------------------------------------------------------------------------
+// File upload mock repository (implements file.Repository)
+// ---------------------------------------------------------------------------
+
+type fileMockRepo struct {
+	members  map[string]bool             // "channelID:userID" → true
+	archived map[uuid.UUID]bool          // channelID → archived
+	files    map[uuid.UUID]*models.ChatFile
+	quota    *models.StorageQuota
+	userInfo map[uuid.UUID][2]string // userID → [firstName, lastName]
+	roles    map[string]models.ChannelRole // "channelID:userID" → role
+}
+
+func newFileMockRepo() *fileMockRepo {
+	return &fileMockRepo{
+		members:  make(map[string]bool),
+		archived: make(map[uuid.UUID]bool),
+		files:    make(map[uuid.UUID]*models.ChatFile),
+		quota: &models.StorageQuota{
+			ID:        uuid.New(),
+			MaxBytes:  1 << 30, // 1 GB
+			UsedBytes: 0,
+		},
+		userInfo: make(map[uuid.UUID][2]string),
+		roles:    make(map[string]models.ChannelRole),
+	}
+}
+
+func (m *fileMockRepo) memberKey(channelID, userID uuid.UUID) string {
+	return channelID.String() + ":" + userID.String()
+}
+
+func (m *fileMockRepo) IsChannelMember(_ context.Context, channelID, userID uuid.UUID) (bool, error) {
+	return m.members[m.memberKey(channelID, userID)], nil
+}
+
+func (m *fileMockRepo) IsChannelArchived(_ context.Context, channelID uuid.UUID) (bool, error) {
+	return m.archived[channelID], nil
+}
+
+func (m *fileMockRepo) GetStorageQuota(_ context.Context) (*models.StorageQuota, error) {
+	return m.quota, nil
+}
+
+func (m *fileMockRepo) CreateFile(_ context.Context, f *models.ChatFile) error {
+	m.files[f.ID] = f
+	return nil
+}
+
+func (m *fileMockRepo) GetFileByID(_ context.Context, id uuid.UUID) (*models.ChatFile, error) {
+	f, ok := m.files[id]
+	if !ok {
+		return nil, file.ErrFileNotFound
+	}
+	return f, nil
+}
+
+func (m *fileMockRepo) ListChannelFiles(_ context.Context, _ uuid.UUID, _, _ int) ([]*models.ChatFileWithUploader, int, error) {
+	return nil, 0, nil
+}
+
+func (m *fileMockRepo) GetFilesByMessageIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID][]models.ChatFileWithUploader, error) {
+	return nil, nil
+}
+
+func (m *fileMockRepo) DeleteFile(_ context.Context, id uuid.UUID) error {
+	f, ok := m.files[id]
+	if !ok {
+		return file.ErrFileNotFound
+	}
+	f.IsDeleted = true
+	now := time.Now()
+	f.DeletedAt = &now
+	return nil
+}
+
+func (m *fileMockRepo) IncrementUsedBytes(_ context.Context, bytes int64) error {
+	m.quota.UsedBytes += bytes
+	return nil
+}
+
+func (m *fileMockRepo) DecrementUsedBytes(_ context.Context, bytes int64) error {
+	m.quota.UsedBytes -= bytes
+	return nil
+}
+
+func (m *fileMockRepo) GetChannelRole(_ context.Context, channelID, userID uuid.UUID) (models.ChannelRole, error) {
+	role, ok := m.roles[channelID.String()+":"+userID.String()]
+	if !ok {
+		return "", file.ErrNotChannelMember
+	}
+	return role, nil
+}
+
+func (m *fileMockRepo) GetUserInfo(_ context.Context, userID uuid.UUID) (string, string, error) {
+	info, ok := m.userInfo[userID]
+	if !ok {
+		return "Test", "User", nil
+	}
+	return info[0], info[1], nil
+}
+
+// ---------------------------------------------------------------------------
+// File upload mock store (implements file.FileStore)
+// ---------------------------------------------------------------------------
+
+type fileMockStore struct {
+	errUpload error
+}
+
+func (m *fileMockStore) Upload(_ context.Context, _ string, _ io.Reader, _ int64, _ string) error {
+	return m.errUpload
+}
+
+func (m *fileMockStore) Download(_ context.Context, _ string) (io.ReadCloser, error) {
+	return io.NopCloser(bytes.NewReader(nil)), nil
+}
+
+func (m *fileMockStore) Delete(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *fileMockStore) GetPresignedURL(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "https://example.com/presigned", nil
+}
+
+// ---------------------------------------------------------------------------
+// File upload mock scanner (implements file.FileScanner)
+// ---------------------------------------------------------------------------
+
+type fileMockScanner struct {
+	scanErr error
+}
+
+func (m *fileMockScanner) Scan(_ context.Context, _ io.Reader, _ string) error {
+	return m.scanErr
+}
+
+// ---------------------------------------------------------------------------
+// File upload mock thumbnail generator (implements file.ThumbnailGenerator)
+// ---------------------------------------------------------------------------
+
+type fileMockThumbGen struct{}
+
+func (m *fileMockThumbGen) CanGenerate(_ string) bool                                  { return false }
+func (m *fileMockThumbGen) Generate(_ context.Context, _ io.Reader, _ string) (io.Reader, error) {
+	return nil, nil
+}
+
+// ---------------------------------------------------------------------------
+// File upload test helpers
+// ---------------------------------------------------------------------------
+
+func newTestFileUploadHandler() (*FileUploadHandler, *fileMockRepo, *fileMockStore, *fileMockScanner) {
+	repo := newFileMockRepo()
+	store := &fileMockStore{}
+	scanner := &fileMockScanner{}
+	thumbGen := &fileMockThumbGen{}
+	svc := file.NewService(repo, store, scanner, thumbGen, 50)
+	handler := NewFileUploadHandler(svc, nil)
+	return handler, repo, store, scanner
+}
+
+func newMultipartUploadRequest(t *testing.T, userID, channelID, filename, mimeType string, fileContent []byte) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	if channelID != "" {
+		require.NoError(t, writer.WriteField("channel_id", channelID))
+	}
+
+	if filename != "" {
+		part, err := writer.CreateFormFile("file", filename)
+		require.NoError(t, err)
+		_, err = part.Write(fileContent)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/files/upload", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	if userID != "" {
+		ctx := context.WithValue(req.Context(), middleware.UserIDKey, userID)
+		req = req.WithContext(ctx)
+	}
+
+	return req
+}
+
+func newMultipartUploadRequestWithMessageID(t *testing.T, userID, channelID, messageID, filename, mimeType string, fileContent []byte) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	if channelID != "" {
+		require.NoError(t, writer.WriteField("channel_id", channelID))
+	}
+	if messageID != "" {
+		require.NoError(t, writer.WriteField("message_id", messageID))
+	}
+
+	if filename != "" {
+		h := make(map[string][]string)
+		h["Content-Disposition"] = []string{`form-data; name="file"; filename="` + filename + `"`}
+		h["Content-Type"] = []string{mimeType}
+		part, err := writer.CreatePart(h)
+		require.NoError(t, err)
+		_, err = part.Write(fileContent)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/files/upload", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	if userID != "" {
+		ctx := context.WithValue(req.Context(), middleware.UserIDKey, userID)
+		req = req.WithContext(ctx)
+	}
+
+	return req
 }
