@@ -2,8 +2,7 @@ services:
   # ===== Infrastructure =====
 
   postgres:
-    ports: []
-    logging:
+    logging: &default-logging
       driver: json-file
       options:
         max-size: "10m"
@@ -13,271 +12,143 @@ services:
         limits:
           memory: 2G
           cpus: "1.0"
-    networks:
-      - backend
 
   redis:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "0.25"
-    networks:
-      - backend
 
   minio:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "0.5"
-    networks:
-      - backend
 
   createbucket:
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - backend
+    logging: *default-logging
 
   migrate:
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - backend
+    logging: *default-logging
 
   # ===== Third-Party Services =====
 
   onlyoffice:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 2G
           cpus: "1.0"
-    networks:
-      - backend
 
   livekit:
-    ports:
-      - "7881:7881"
-      - "50000-60000:50000-60000/udp"
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "0.5"
-    networks:
-      - backend
 
   livekit-egress:
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - backend
+    logging: *default-logging
 
   # ===== Go Microservices =====
 
   auth:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   crm:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   chat:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   notification:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   work:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   email:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   document:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   biz:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   automation:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   plugin:
-    ports: []
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 256M
           cpus: "0.25"
-    networks:
-      - backend
 
   # ===== API Gateway =====
 
   gateway:
-    ports: []
     environment:
       BEHIND_PROXY: "true"
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "0.5"
-    networks:
-      - frontend
-      - backend
 
   # ===== Reverse Proxy =====
 
@@ -293,18 +164,12 @@ services:
     depends_on:
       - gateway
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     deploy:
       resources:
         limits:
           memory: 128M
           cpus: "0.25"
-    networks:
-      - frontend
 
   # ===== Monitoring =====
 
@@ -316,13 +181,7 @@ services:
     ports:
       - "127.0.0.1:9091:9090"
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - backend
+    logging: *default-logging
 
   grafana:
     image: grafana/grafana:latest
@@ -334,20 +193,10 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - backend
+    logging: *default-logging
 
 volumes:
   caddy_data:
   caddy_config:
   prometheus_data:
   grafana_data:
-
-networks:
-  frontend:
-  backend:
