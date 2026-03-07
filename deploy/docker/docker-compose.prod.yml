@@ -179,7 +179,7 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     ports:
-      - "127.0.0.1:9091:9090"
+      - "127.0.0.1:9190:9090"
     restart: unless-stopped
     logging: *default-logging
 
