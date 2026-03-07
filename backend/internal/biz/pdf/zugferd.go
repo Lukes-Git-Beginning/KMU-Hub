@@ -3,6 +3,9 @@ package pdf
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
@@ -149,23 +152,28 @@ func GenerateZUGFeRDXML(invoice models.Invoice, settings models.CompanySettings)
 // EmbedZUGFeRDXML embeds the Factur-X XML into an existing PDF as /EmbeddedFiles.
 // The resulting PDF/A-3b compliant file has the XML attachment visible to e-invoice validators.
 func EmbedZUGFeRDXML(pdfBytes []byte, xmlBytes []byte, invoiceNumber string) ([]byte, error) {
-	pdfReader := bytes.NewReader(pdfBytes)
-	xmlReader := bytes.NewReader(xmlBytes)
-
 	fileName := fmt.Sprintf("factur-x_%s_%s.xml", invoiceNumber, time.Now().Format("20060102"))
-	desc := "Factur-X/ZUGFeRD 2.1 Invoice XML (EN 16931)"
 
+	// Write XML to temp file (pdfcpu AddAttachments requires file paths)
+	tmpDir, err := os.MkdirTemp("", "zugferd-*")
+	if err != nil {
+		return pdfBytes, nil
+	}
+	defer os.RemoveAll(tmpDir)
+
+	xmlPath := filepath.Join(tmpDir, fileName)
+	if err := os.WriteFile(xmlPath, xmlBytes, 0o600); err != nil {
+		return pdfBytes, nil
+	}
+
+	pdfReader := bytes.NewReader(pdfBytes)
 	conf := model.NewDefaultConfiguration()
 	conf.ValidationMode = model.ValidationRelaxed
 
 	var outBuf bytes.Buffer
-	if err := api.AttachAdd(pdfReader, &outBuf, []string{fileName}, []string{fileName}, conf); err != nil {
-		// Fallback: if attachment fails, return original PDF
-		// (this allows graceful degradation if PDF is not writable)
+	if err := api.AddAttachments(io.ReadSeeker(pdfReader), &outBuf, []string{xmlPath}, false, conf); err != nil {
 		return pdfBytes, nil
 	}
-	_ = xmlReader
-	_ = desc
 
 	if outBuf.Len() == 0 {
 		return pdfBytes, nil
