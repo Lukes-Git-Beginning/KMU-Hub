@@ -28,7 +28,6 @@ updated: 2026-03-07
 - [[stack]] — Tech-Stack Entscheidungen und Strategy
 - [[design]] — Design-System, Themes, D9 Status
 - [[milestones]] — Abgeschlossene und aktive Meilensteine
-- [[user-preferences]] — Entwickler-Praeferenzen und Regeln
 
 ### Technisch
 - [[datenbank]] — Schema, Tabellen, Migrations, Index-Strategie
