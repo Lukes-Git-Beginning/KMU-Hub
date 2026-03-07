@@ -26,7 +26,7 @@ export function HeaderWidgetSlots() {
           return (
             <div
               key={`empty-${i}`}
-              className="flex h-9 items-center justify-center rounded-lg border border-dashed border-border/20"
+              className="flex h-9 items-center justify-center rounded-lg border border-dashed border-border/20 bg-secondary/30"
             />
           )
         }
