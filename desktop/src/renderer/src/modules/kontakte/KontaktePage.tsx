@@ -37,7 +37,7 @@ import { backendContactToUI, uiFormToCreateRequest, uiFormToUpdateRequest } from
 type CategoryFilter = 'all' | 'employee' | 'customer' | 'partner' | `group:${string}`
 type SortField = 'name' | 'company' | 'lastContact'
 
-const categoryLabels: Record<string, string> = {
+const _categoryLabels: Record<string, string> = {
   employee: 'Mitarbeiter',
   customer: 'Kunde',
   partner: 'Partner',
@@ -56,7 +56,7 @@ const statusLabels: Record<string, string> = {
 }
 
 export default function KontaktePage() {
-  const { groups, favoriteIds, toggleFavorite, addContactToGroup, removeContactFromGroup } =
+  const { groups, favoriteIds, toggleFavorite } =
     useContactsStore()
   const { startCall, endCall, activeCallContactId, activeCallContactName } = useMeetingsStore()
   const navigate = useNavigate()

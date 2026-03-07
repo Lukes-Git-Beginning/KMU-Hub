@@ -67,7 +67,7 @@ export default function CommentThread({
   const deleteComment = useDeleteComment()
 
   const comments = commentsData?.comments ?? []
-  const members = membersData?.members ?? []
+  const members = useMemo(() => membersData?.members ?? [], [membersData?.members])
 
   const [inputValue, setInputValue] = useState('')
   const [quotedComment, setQuotedComment] = useState<TaskComment | null>(null)

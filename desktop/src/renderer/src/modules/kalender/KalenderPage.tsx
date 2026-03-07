@@ -345,6 +345,7 @@ export default function KalenderPage() {
     const ids = new Set<string>(calendarsData.calendars.map((c) => c.id))
     ids.add('holidays')
     ids.add('deadlines')
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
     setVisibleCalendarIds(ids)
     setVisibilityInitialized(true)
   }, [calendarsData, visibilityInitialized])

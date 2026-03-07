@@ -12,9 +12,7 @@ import {
   Receipt,
   UserCheck,
   MessageSquare,
-  Zap,
   Eye,
-  X,
 } from 'lucide-react'
 import * as Switch from '@radix-ui/react-switch'
 import {
@@ -254,7 +252,7 @@ export function TemplateGallery() {
   const [search, setSearch] = useState('')
   const [previewTemplate, setPreviewTemplate] = useState<AutomationTemplate | null>(null)
 
-  const templates = data?.templates ?? []
+  const templates = useMemo(() => data?.templates ?? [], [data?.templates])
 
   // Filter by search
   const filtered = useMemo(() => {

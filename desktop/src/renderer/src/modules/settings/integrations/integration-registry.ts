@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Hash,
   Plug,
-  Mail,
   PenTool,
   FileText,
   Video,

@@ -611,6 +611,7 @@ function SecurityTab() {
   // Password expiry calculation
   const lastChanged = security.passwordLastChanged ? new Date(security.passwordLastChanged) : null
   const expiryDays = security.passwordExpiryDays || 90
+  // eslint-disable-next-line react-hooks/purity -- Date.now() needed for expiry calculation
   const daysSinceChange = lastChanged ? Math.floor((Date.now() - lastChanged.getTime()) / (1000 * 60 * 60 * 24)) : 0
   const daysUntilExpiry = Math.max(0, expiryDays - daysSinceChange)
   const isExpiringSoon = daysUntilExpiry <= 14 && daysUntilExpiry > 0

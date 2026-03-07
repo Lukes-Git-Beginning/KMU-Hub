@@ -7,7 +7,6 @@ import {
   Grid3X3,
   List,
   Star,
-  Download,
   ChevronRight,
   ChevronDown,
   Folder,
@@ -17,25 +16,13 @@ import {
   Film,
   Archive,
   Share2,
-  Trash2,
   Plus,
-  Pencil,
-  HardDrive,
-  Paperclip,
   MessageSquare,
   Mail,
   CheckSquare,
-  Heart,
-  ArrowLeft,
-  Clock,
-  Eye,
-  Hash,
-  Tag,
-  Sparkles,
-  Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
+import { ConfirmDialog, EmptyState } from '@/components/shared'
 import { FilePreviewModal } from './FilePreviewModal'
 import { FileDetailPanel } from './FileDetailPanel'
 import { FolderCreateDialog } from './FolderCreateDialog'
@@ -67,24 +54,10 @@ import type {
   FileSortField,
   SortDirection,
 } from '@/api/types/document-types'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+
+
+
+
 
 
 // ---------------------------------------------------------------------------
@@ -253,7 +226,7 @@ export default function DokumentePage() {
   const wopiToken = useWOPIToken()
 
   // Derived data
-  const files = filesData?.files ?? []
+  const files = useMemo(() => filesData?.files ?? [], [filesData?.files])
   const breadcrumbs = pathData?.segments ?? []
 
   const filtered = useMemo(() => {

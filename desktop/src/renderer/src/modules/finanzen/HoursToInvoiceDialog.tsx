@@ -11,7 +11,6 @@ import {
   ArrowRight,
   Check,
   Calculator,
-  User,
   Calendar,
   FolderKanban,
 } from 'lucide-react'
@@ -93,7 +92,7 @@ export function HoursToInvoiceDialog({
     }
   }
 
-  const selectedEntries = unbilledEntries.filter((e) => selectedIds.has(e.id))
+  const selectedEntries = useMemo(() => unbilledEntries.filter((e) => selectedIds.has(e.id)), [unbilledEntries, selectedIds])
   const totalHours = selectedEntries.reduce((sum, e) => sum + e.hours, 0)
   const rate = Number(hourlyRate) || 0
   const totalAmount = totalHours * rate

@@ -15,6 +15,7 @@ export interface CSATRating {
   ratedAt: string
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const MOCK_CSAT_RATINGS: CSATRating[] = [
   { ticketId: 'tk-6', rating: 5, comment: 'Sehr schnelle Hilfe, danke!', ratedAt: '2026-02-14T14:00:00' },
   { ticketId: 'tk-9', rating: 4, comment: 'Problem geloest, hat aber etwas gedauert.', ratedAt: '2026-02-13T10:00:00' },

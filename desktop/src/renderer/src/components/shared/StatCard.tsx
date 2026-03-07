@@ -30,6 +30,7 @@ export function StatCard({
   const plainRef = useRef<HTMLDivElement>(null)
   const animated = useRef(false)
 
+   
   useEffect(() => {
     if (animated.current) return
     animated.current = true

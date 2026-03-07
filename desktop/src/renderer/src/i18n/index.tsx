@@ -51,7 +51,7 @@ function handleIntlError(err: Error): void {
     // Suppress in development -- translations are added incrementally
     return
   }
-  // eslint-disable-next-line no-console
+   
   console.error('[i18n]', err.message)
 }
 

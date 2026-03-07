@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Pencil, Check, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AlertsSection, ModulesGrid } from '@/components/dashboard'
@@ -16,6 +16,8 @@ function getGreeting(): string {
 }
 
 export default function DashboardPage() {
+   
+  const greeting = useMemo(() => getGreeting(), [])
   const isEditing = useDashboardStore((s) => s.isEditing)
   const toggleEditing = useDashboardStore((s) => s.toggleEditing)
   const resetToDefaults = useDashboardStore((s) => s.resetToDefaults)
@@ -32,7 +34,7 @@ export default function DashboardPage() {
         <div className="mb-8 flex items-start justify-between animate-fade-up">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
-              <TextReveal text={getGreeting()} wordDelay={80} />
+              <TextReveal text={greeting} wordDelay={80} />
             </h1>
             <p className="mt-1 text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: '200ms' }}>
               Willkommen im KMU Digital Hub &ndash; Ihre All-in-One Plattform

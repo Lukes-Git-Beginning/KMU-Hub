@@ -15,7 +15,6 @@ import {
   Minimize2,
   Clock,
   Settings,
-  MonitorOff,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
@@ -38,8 +37,10 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
   const [isMaximized, setIsMaximized] = useState(false)
   const [elapsed, setElapsed] = useState(0)
 
+   
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- timer tick update
       setElapsed(0)
       return
     }

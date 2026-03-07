@@ -4,7 +4,7 @@
  * Full canvas with custom node types (trigger, condition, action),
  * MiniMap, Controls, and serialization to/from workflow JSON.
  */
-import { useCallback, useMemo, useEffect } from 'react'
+import { useCallback, useMemo } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -22,13 +22,10 @@ import {
   type NodeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Wand2, Save, Plus, Trash2 } from 'lucide-react'
+import { Wand2, Save, Plus } from 'lucide-react'
 import { useAutomatisierungStore } from '@/stores/automatisierung'
 import { useCreateAutomation, useUpdateAutomation } from '@/api/hooks/useAutomation'
 import type { Automation, ActionConfig, ConditionConfig } from '@/api/automation-types'
-import { TriggerNode } from './nodes/TriggerNode'
-import { ConditionNode } from './nodes/ConditionNode'
-import { ActionNode } from './nodes/ActionNode'
 import { nodeTypes as customNodeTypes } from './nodes/nodeTypes'
 
 // ---------------------------------------------------------------------------
@@ -165,7 +162,8 @@ function EditorInner({ onClose }: { onClose: () => void }) {
   // Initialize nodes/edges from draft
   const initial = useMemo(
     () => workflowToNodesAndEdges(draftWorkflow ?? {}),
-    [], // Only compute once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only: initial snapshot of draft
+    [],
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes)

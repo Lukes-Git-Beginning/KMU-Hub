@@ -15,10 +15,8 @@ import {
   Ruler,
   Pencil,
   FileText,
-  Lock,
   ChevronDown,
   ChevronRight,
-  X,
   Thermometer,
   HardHat,
   Package,
@@ -35,7 +33,6 @@ import { toast } from 'sonner'
 import {
   useRapporteStore,
   type FieldReport,
-  type Measurement,
   type ReportTemplate,
   type WeatherType,
   type ReportWorker,

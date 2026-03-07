@@ -7,10 +7,7 @@
 import { useState, useMemo } from 'react'
 import {
   AlertTriangle,
-  ArrowRight,
   GitMerge,
-  Check,
-  X,
   Search,
 } from 'lucide-react'
 import { toast } from 'sonner'

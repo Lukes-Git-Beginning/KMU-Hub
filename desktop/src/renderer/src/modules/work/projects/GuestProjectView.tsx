@@ -106,14 +106,14 @@ interface GuestProjectViewProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function GuestProjectView({ projectId }: GuestProjectViewProps) {
+export default function GuestProjectView({ projectId: _projectId }: GuestProjectViewProps) {
   const project = MOCK_PROJECT
   const progressPercent = useMemo(
     () =>
       project.totalTasks > 0
         ? Math.round((project.completedTasks / project.totalTasks) * 100)
         : 0,
-    []
+    [project.completedTasks, project.totalTasks]
   )
 
   return (

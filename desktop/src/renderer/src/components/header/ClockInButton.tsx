@@ -9,7 +9,7 @@
  * automatically via mutation onSuccess callbacks in hr-hooks.ts.
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Play, Square, Coffee, Timer } from 'lucide-react'
+import { Square, Coffee, Timer } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import {
   useWorkTimeStatus,
@@ -50,8 +50,10 @@ export function ClockInButton() {
         `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
       )
     }
+    // eslint-disable-next-line react-hooks/immutability -- ref assigned in useCallback for rAF loop
     rafRef.current = requestAnimationFrame(updateTimer)
   }, [status?.isClockedIn, status?.currentShiftStart, status?.isOnBreak])
+
 
   useEffect(() => {
     if (status?.isClockedIn) {

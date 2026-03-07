@@ -31,7 +31,6 @@ import {
   type RentalObject,
   type RentalObjectType,
   type Reservation,
-  type Zustandsprotokoll,
 } from '@/stores/vermietung'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatCurrency } from '@/lib/format'
@@ -438,6 +437,7 @@ function ReservationDialog({
     const objCurrency = selectedObj?.currency ?? 'EUR'
 
     const res: Reservation = {
+      // eslint-disable-next-line react-hooks/purity -- Date.now() used for unique ID generation
       id: `res-${Date.now()}`,
       objectId,
       objectName: selectedObj?.name ?? '',
@@ -1281,7 +1281,7 @@ export default function VermietungPage() {
                       // Check if this is the start of a reservation block
                       const startsHere = cellReservations.find((r) => r.startDate === date)
                       // Check if reservation continues from previous day
-                      const continuesFromPrev = hasReservation && !startsHere
+                      const _continuesFromPrev = hasReservation && !startsHere
 
                       return (
                         <div

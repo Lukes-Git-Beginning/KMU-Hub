@@ -31,6 +31,7 @@ export function PomodoroWidget() {
     if (intervalRef.current) clearInterval(intervalRef.current)
   }, [])
 
+   
   useEffect(() => {
     if (!running) {
       if (intervalRef.current) clearInterval(intervalRef.current)

@@ -5,7 +5,6 @@
  * Backend swap: replace mock with actual PDF render via iframe/embed.
  */
 import {
-  FileText,
   Download,
   Printer,
   ZoomIn,

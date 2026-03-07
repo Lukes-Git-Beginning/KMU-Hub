@@ -246,7 +246,7 @@ export default function TaskListView({
   const { data: membersData } = useProjectMembers(projectId)
   const members: MemberOption[] = membersData?.members ?? []
 
-  const tasks: TaskData[] = tasksData?.tasks ?? []
+  const tasks: TaskData[] = useMemo(() => tasksData?.tasks ?? [], [tasksData?.tasks])
 
   // Build tree and group
   const childrenMap = useMemo(() => buildTree(tasks), [tasks])

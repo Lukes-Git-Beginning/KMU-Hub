@@ -143,6 +143,7 @@ export default function TaskRow({
 
   function isDueOverdue(date?: string): boolean {
     if (!date) return false
+    // eslint-disable-next-line react-hooks/purity -- Date.now() needed for overdue check
     return new Date(date).getTime() < Date.now()
   }
 

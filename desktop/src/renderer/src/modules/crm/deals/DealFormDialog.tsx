@@ -111,6 +111,7 @@ export function DealFormDialog({
 
   useEffect(() => {
     if (open && initialData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setName(initialData.name ?? '')
       setValue(initialData.value != null ? String(initialData.value) : '')
       setCurrency(initialData.currency ?? 'CHF')
@@ -135,7 +136,7 @@ export function DealFormDialog({
       setNotes('')
       setTags([])
     }
-  }, [open, initialData])
+  }, [open, initialData, stagesProp])
 
   const handleSubmit = () => {
     if (!name.trim()) return

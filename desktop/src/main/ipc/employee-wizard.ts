@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { join } from 'path'
 
 export function registerEmployeeWizardHandlers(): void {
-  ipcMain.handle('employee-wizard:open-window', (event) => {
+  ipcMain.handle('employee-wizard:open-window', (_event) => {
     const composeWin = new BrowserWindow({
       width: 960,
       height: 720,

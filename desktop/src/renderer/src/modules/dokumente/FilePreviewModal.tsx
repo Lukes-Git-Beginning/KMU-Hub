@@ -137,6 +137,7 @@ export function FilePreviewModal({
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 pr-8">
+            {/* eslint-disable-next-line react-hooks/static-components -- Icon is a dynamic component variable */}
             <Icon className="h-5 w-5 shrink-0" />
             <span className="truncate">{file.filename}</span>
           </DialogTitle>
@@ -177,6 +178,7 @@ export function FilePreviewModal({
           ) : (
             <div className="flex items-center justify-center p-8">
               <div className="w-full max-w-lg text-center">
+                {/* eslint-disable-next-line react-hooks/static-components -- Icon is a dynamic component variable */}
                 <Icon className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-40" />
                 <p className="text-sm font-medium text-foreground mb-1">
                   {file.filename}

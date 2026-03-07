@@ -46,7 +46,7 @@ function getInitials(name: string): string {
 
 function TeamStatus(_props: WidgetProps) {
   const { data: employeeData, isLoading: loadingEmployees } = useEmployees()
-  const employees = employeeData?.employees ?? []
+  const employees = useMemo(() => employeeData?.employees ?? [], [employeeData?.employees])
 
   const userIds = useMemo(
     () => employees.map((e) => e.userId).filter(Boolean),

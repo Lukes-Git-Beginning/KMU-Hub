@@ -50,7 +50,7 @@ export default function ProjectSettingsDialog({
   const updateProject = useUpdateProject()
   const archiveProject = useArchiveProject()
   const createStatus = useCreateStatus()
-  const updateStatus = useUpdateStatus()
+  const _updateStatus = useUpdateStatus()
   const deleteStatus = useDeleteStatus()
   const removeMember = useRemoveMember()
   const saveAsTemplate = useSaveAsTemplate()
@@ -66,8 +66,10 @@ export default function ProjectSettingsDialog({
   const [templateName, setTemplateName] = useState('')
   const [tab, setTab] = useState<'info' | 'statuses' | 'members'>('info')
 
+   
   useEffect(() => {
     if (project) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setName(project.name ?? '')
       setDescription(project.description ?? '')
     }

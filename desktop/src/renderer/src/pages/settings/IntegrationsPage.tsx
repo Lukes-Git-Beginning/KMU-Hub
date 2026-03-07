@@ -5,4 +5,5 @@
  * BexioIntegrationCard alongside Teams/Slack cards.
  */
 export { IntegrationsSettingsTab as default } from '@/modules/settings/tabs/IntegrationsSettingsTab'
+ 
 export { IntegrationsSettingsTab } from '@/modules/settings/tabs/IntegrationsSettingsTab'

@@ -59,6 +59,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
   useEffect(() => {
     if (!open) return
     if (editInvoice) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setType(editInvoice.type)
       setClient(editInvoice.client)
       setClientEmail(editInvoice.clientEmail ?? '')

@@ -70,9 +70,10 @@ export default function ProjectCreateDialog({
   const [statuses, setStatuses] = useState<StatusDraft[]>(DEFAULT_STATUSES)
   const [error, setError] = useState<string | null>(null)
 
-  // Auto-generate key from name unless manually edited
+   
   useEffect(() => {
     if (!keyManual) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
       setKey(generateKey(name))
     }
   }, [name, keyManual])

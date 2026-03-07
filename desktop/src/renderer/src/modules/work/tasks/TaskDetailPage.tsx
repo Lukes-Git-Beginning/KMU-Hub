@@ -81,7 +81,9 @@ export default function TaskDetailPage() {
   const [descValue, setDescValue] = useState('')
   const [activeTab, setActiveTab] = useState<'combined' | 'comments' | 'activity'>('combined')
 
+   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
     setTitleValue(task?.title ?? '')
     setDescValue(task?.description ?? '')
   }, [task?.title, task?.description])

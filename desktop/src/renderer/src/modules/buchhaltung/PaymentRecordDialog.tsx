@@ -47,6 +47,7 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
   // Reset when opening
   useEffect(() => {
     if (open && invoice) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setAmount(calcRemainingAmount(invoice))
     }
   }, [open, invoice])

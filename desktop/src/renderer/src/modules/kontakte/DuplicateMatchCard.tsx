@@ -1,7 +1,7 @@
 /**
  * DuplicateMatchCard — Shows a potential duplicate match with similarity score.
  */
-import { AlertTriangle, Mail, Phone, Building2, User } from 'lucide-react'
+import { AlertTriangle, Mail, Phone, Building2 } from 'lucide-react'
 import type { Contact } from '@/stores/contacts'
 
 // ---------------------------------------------------------------------------

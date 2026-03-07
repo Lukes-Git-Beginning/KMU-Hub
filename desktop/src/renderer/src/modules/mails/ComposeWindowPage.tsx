@@ -54,8 +54,10 @@ export default function ComposeWindowPage() {
   const [templateOpen, setTemplateOpen] = useState(false)
 
   // Load draft state on mount
+   
   useEffect(() => {
     if (composeDraft) {
+       
       setTo(composeDraft.to)
       setCc(composeDraft.cc)
       setBcc(composeDraft.bcc)
@@ -72,6 +74,7 @@ export default function ComposeWindowPage() {
       setBody(buildSignatureHtml(signature))
       setEditorVersion((v) => v + 1)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: initialize form state from composeDraft/signature once
   }, [])
 
   const addRecipient = (

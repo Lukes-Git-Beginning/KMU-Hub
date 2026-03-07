@@ -35,6 +35,7 @@ export function PluginSettingsEditor({
 }: PluginSettingsEditorProps) {
   const [formValues, setFormValues] = useState<Record<string, unknown>>(values)
 
+   
   useEffect(() => {
     setFormValues(values)
   }, [values])

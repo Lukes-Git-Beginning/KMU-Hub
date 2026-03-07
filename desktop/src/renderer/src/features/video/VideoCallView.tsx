@@ -105,6 +105,7 @@ function InnerCallView({
   const isScreenSharing = screenShareTracks.length > 0
 
   // Active speaker detection -- auto-switch to speaker view
+   
   useEffect(() => {
     const handleActiveSpeaker = (speakers: Participant[]) => {
       if (speakers.length > 0 && speakers[0] !== localParticipant) {

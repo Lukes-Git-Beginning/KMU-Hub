@@ -14,7 +14,6 @@ import {
   ChevronDown,
   ArrowLeft,
   Lock,
-  FileText,
   Zap,
   Route,
   Settings2,

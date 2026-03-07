@@ -23,6 +23,7 @@ function getTimeInfo() {
 export function HeaderClock() {
   const [time, setTime] = useState(getTimeInfo)
 
+   
   useEffect(() => {
     const interval = setInterval(() => setTime(getTimeInfo()), 1000)
     return () => clearInterval(interval)

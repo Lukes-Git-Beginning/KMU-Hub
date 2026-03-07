@@ -7,7 +7,6 @@
  *
  * Both modes write to the same draft.conditions in the Zustand store.
  */
-import { useState, useCallback } from 'react'
 import {
   Plus,
   Trash2,

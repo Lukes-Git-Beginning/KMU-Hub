@@ -11,7 +11,6 @@ import {
   User,
   ChevronDown,
   ChevronRight,
-  Download,
   FileJson,
   FileSpreadsheet,
   Mail,
@@ -22,7 +21,6 @@ import {
   Receipt,
   FolderKanban,
   ClipboardList,
-  Building2,
   BarChart3,
 } from 'lucide-react'
 import { toast } from 'sonner'

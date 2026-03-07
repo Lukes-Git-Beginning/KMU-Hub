@@ -53,6 +53,7 @@ export default function WidgetContainer() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(1200)
 
+   
   useEffect(() => {
     const el = containerRef.current
     if (!el) return

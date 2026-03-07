@@ -25,6 +25,7 @@ export function LanguageSwitcher() {
 
   const currentLang = languages.find((l) => l.code === locale) ?? languages[0]
 
+   
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (

@@ -164,7 +164,7 @@ export default function TeamPage() {
   const [selectedMemberInitials, setSelectedMemberInitials] = useState<string>('')
   const [showInvite, setShowInvite] = useState(false)
   const [showCreateWizard, setShowCreateWizard] = useState(false)
-  const [editMember, setEditMember] = useState<EmployeeProfile | null>(null)
+  const [editMember, _setEditMember] = useState<EmployeeProfile | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [approvalRequest, setApprovalRequest] = useState<LeaveRequest | null>(null)
   const [confirmDeactivate, setConfirmDeactivate] = useState<TeamMember | null>(null)
@@ -174,7 +174,7 @@ export default function TeamPage() {
   const [showRecordParticipation, setShowRecordParticipation] = useState(false)
 
   // Employees from API
-  const apiEmployees = employeesData?.employees ?? []
+  const apiEmployees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
   const pendingRequests = pendingRequestsData?.requests ?? []
   const pendingCount = pendingRequests.length
 
@@ -200,6 +200,7 @@ export default function TeamPage() {
   }, [apiEmployees])
 
   // Training computed values (still from Zustand mock)
+   
   const mandatoryCount = useMemo(() => trainings.filter((t) => t.mandatory).length, [trainings])
   const expiredCount = useMemo(() => trainingParticipations.filter((p) => p.status === 'expired').length, [trainingParticipations])
 

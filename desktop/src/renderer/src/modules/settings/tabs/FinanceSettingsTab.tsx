@@ -36,8 +36,10 @@ export function FinanceSettingsTab() {
   const [l3Days, setL3Days] = useState(14)
   const [l3Fee, setL3Fee] = useState('20.00')
 
+   
   useEffect(() => {
     if (!dunningConfig) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
     setL1Days(dunningConfig.level1_days_after_due ?? 14)
     setL1Fee(dunningConfig.level1_fee ?? '5.00')
     setL2Days(dunningConfig.level2_days_after_level1 ?? 14)

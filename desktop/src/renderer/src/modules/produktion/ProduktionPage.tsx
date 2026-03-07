@@ -16,9 +16,6 @@ import {
   PlayCircle,
   PauseCircle,
   Trash2,
-  Cpu,
-  Wrench,
-  CircleDot,
   ListChecks,
   AlertTriangle,
   Gauge,
@@ -31,8 +28,6 @@ import {
   type QualityCheck,
   type BomItem,
   type WorkStep,
-  type Machine,
-  type MachineBooking,
 } from '@/stores/produktion'
 import { DetailPanel, PageHeader, EmptyState } from '@/components/shared'
 import { EmptyGeneric } from '@/components/shared/illustrations'

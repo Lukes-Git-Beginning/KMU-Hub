@@ -6,7 +6,6 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
-import { useAuthStore } from '@/stores/auth'
 
 // ---------------------------------------------------------------------------
 // Timer queries

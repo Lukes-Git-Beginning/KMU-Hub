@@ -5,7 +5,7 @@
  * Export tab: entity picker, format (CSV/vCard/Excel), field selection.
  * Mock data for design — backend swap: replace with API hooks.
  */
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import {
   Upload,
   Download,
@@ -225,9 +225,11 @@ export function ImportExportDialog({
   const config = entityConfig[entity]
 
   // Init export fields when entity changes
-  useMemo(() => {
+   
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset export fields on entity change
     setExportFields(new Set(config.fields.map((f) => f.key)))
-  }, [entity])
+  }, [entity, config])
 
   const reset = () => {
     setImportStep('upload')

@@ -39,6 +39,7 @@ function getTimeStr() {
 function AnalogClock({ size }: { size: number }) {
   const [angles, setAngles] = useState(getHandAngles)
 
+   
   useEffect(() => {
     const interval = setInterval(() => setAngles(getHandAngles()), 1000)
     return () => clearInterval(interval)
@@ -81,6 +82,7 @@ function AnalogClock({ size }: { size: number }) {
 function DigitalClock({ size }: { size: number }) {
   const [time, setTime] = useState(getTimeStr)
 
+   
   useEffect(() => {
     const interval = setInterval(() => setTime(getTimeStr()), 1000)
     return () => clearInterval(interval)

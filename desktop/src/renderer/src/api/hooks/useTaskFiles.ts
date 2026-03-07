@@ -119,7 +119,7 @@ export function useRemoveFile() {
   return useMutation({
     mutationFn: async ({
       fileId,
-      taskId,
+      taskId: _taskId,
     }: {
       fileId: string
       taskId: string

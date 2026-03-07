@@ -21,7 +21,6 @@ import type {
   ActionConfig,
   ActionDefinition,
   ConfigParam,
-  OnErrorBehavior,
 } from '@/api/automation-types'
 
 // ---------------------------------------------------------------------------

@@ -76,7 +76,10 @@ export default function GanttChart({ projectId }: GanttChartProps) {
     page_size: MAX_GANTT_TASKS,
   })
 
-  const apiTasks = (tasksData as { tasks?: TaskResponse[]; total?: number })?.tasks ?? []
+  const apiTasks = useMemo(
+    () => (tasksData as { tasks?: TaskResponse[]; total?: number })?.tasks ?? [],
+    [tasksData]
+  )
 
   // Fetch dependencies for tasks that have blocked deps
   const taskIdsWithDeps = useMemo(

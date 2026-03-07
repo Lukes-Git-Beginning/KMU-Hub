@@ -20,7 +20,6 @@ import {
   taskToBar,
   getBarColor,
   xToDate,
-  dateToX,
   ROW_HEIGHT,
   BAR_HEIGHT,
   TASK_INFO_WIDTH,
@@ -153,6 +152,7 @@ export default function GanttTaskRow({
   // -----------------------------------------------------------------------
   // Global mousemove / mouseup during drag
   // -----------------------------------------------------------------------
+   
   useEffect(() => {
     if (!drag) return
 
@@ -208,7 +208,7 @@ export default function GanttTaskRow({
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [drag, ghostX, ghostWidth, config, onTaskDateChange, task.id, task.start, task.end])
 
   // -----------------------------------------------------------------------

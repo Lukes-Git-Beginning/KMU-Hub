@@ -7,7 +7,6 @@
 import { useState, useMemo } from 'react'
 import {
   FileText,
-  FileSpreadsheet,
   Presentation,
   Search,
   X,

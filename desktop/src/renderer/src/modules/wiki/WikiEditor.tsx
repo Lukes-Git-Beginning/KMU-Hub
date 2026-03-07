@@ -39,6 +39,7 @@ interface WikiEditorProps {
 export function WikiEditor({ content, onChange, onSave, onCancel }: WikiEditorProps) {
   const [text, setText] = useState(content)
 
+   
   useEffect(() => {
     setText(content)
   }, [content])

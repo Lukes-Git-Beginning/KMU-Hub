@@ -6,7 +6,7 @@
  * - Vorlagen: template gallery with module/complexity grouping
  * - Protokoll: execution log viewer across all automations
  */
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
 import * as Switch from '@radix-ui/react-switch'
 import {

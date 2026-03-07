@@ -162,8 +162,10 @@ export function GlobalSearchDialog() {
   const [semanticResults, setSemanticResults] = useState<GroupedResult[]>([])
   const [semanticLoading, setSemanticLoading] = useState(false)
 
+   
   useEffect(() => {
     if (!hasQuery || query.length < 3 || !aiSearchEnabled) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
       setSemanticResults([])
       setSemanticLoading(false)
       return
@@ -204,8 +206,9 @@ export function GlobalSearchDialog() {
     return QUICK_ACTIONS.length
   }, [hasQuery, allResults])
 
-  // Reset active index when results change
+   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
     setActiveIndex(0)
   }, [query])
 

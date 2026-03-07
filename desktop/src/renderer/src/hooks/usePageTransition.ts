@@ -10,9 +10,11 @@ export function usePageTransition(routeKey: string): string {
   const [transitionClass, setTransitionClass] = useState('page-enter')
   const prevKey = useRef(routeKey)
 
+   
   useEffect(() => {
     if (routeKey !== prevKey.current) {
       // Trigger re-entrance animation on route change
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
       setTransitionClass('')
       const frame = requestAnimationFrame(() => {
         setTransitionClass('page-enter')

@@ -6,7 +6,6 @@ import {
   Briefcase,
   MapPin,
   Calendar,
-  Clock,
   Shield,
   PhoneCall,
   Loader2,
@@ -27,7 +26,6 @@ import {
   useDocumentCategories,
   useUploadEmployeeDocument,
 } from '@/api/hooks/hr-hooks'
-import type { EmployeeProfile } from '@/api/hr-types'
 
 const contractTypeLabels: Record<string, string> = {
   full_time: 'Vollzeit',
@@ -252,7 +250,7 @@ function DocumentsSection({
   const [showUpload, setShowUpload] = useState(false)
   const [categoryId, setCategoryId] = useState('')
   const [notes, setNotes] = useState('')
-  const [fileName, setFileName] = useState('')
+  const [_fileName, _setFileName] = useState('')
 
   const handleUpload = () => {
     if (!categoryId) {

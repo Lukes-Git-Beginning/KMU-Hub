@@ -51,6 +51,7 @@ export default function ProjectsListPage() {
   const [templateKey, setTemplateKey] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
 
+   
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search)

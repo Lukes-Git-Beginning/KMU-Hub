@@ -15,6 +15,7 @@ export interface RoutingRule {
   active: boolean
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const TICKET_CATEGORIES = [
   'Netzwerk', 'Hardware', 'Software', 'Zugang',
   'E-Mail', 'Telefonie', 'Sicherheit', 'Sonstiges',

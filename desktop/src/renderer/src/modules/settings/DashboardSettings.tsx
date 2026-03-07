@@ -5,7 +5,7 @@
  * default dashboard and save the configuration to the server.
  * Non-admin users are redirected away (guarded by route).
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Save, RotateCcw, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -82,7 +82,10 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
   const [saveError, setSaveError] = useState<string | null>(null)
 
   // Effective active widgets (local edits take priority over server data)
-  const activeWidgets = localWidgets ?? (defaults?.active_widgets as string[] | undefined) ?? []
+  const activeWidgets = useMemo(
+    () => localWidgets ?? (defaults?.active_widgets as string[] | undefined) ?? [],
+    [localWidgets, defaults?.active_widgets]
+  )
 
   const toggleWidget = useCallback((widgetId: string) => {
     setLocalWidgets((prev) => {

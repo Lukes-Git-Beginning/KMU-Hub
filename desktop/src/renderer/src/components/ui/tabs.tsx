@@ -12,6 +12,7 @@ const TabsList = React.forwardRef<
   const innerRef = React.useRef<HTMLDivElement | null>(null)
   const [indicator, setIndicator] = React.useState({ x: 0, w: 0, ready: false })
 
+   
   React.useEffect(() => {
     const el = innerRef.current
     if (!el) return

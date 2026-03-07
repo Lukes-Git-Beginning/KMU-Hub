@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Sparkles, User, LayoutGrid, Compass, Clock, PartyPopper,
   ChevronRight, ChevronLeft,
@@ -203,36 +203,39 @@ export function OnboardingWizard() {
 }
 
 /** Simple CSS confetti animation */
+const CONFETTI_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444']
+
 function Confetti() {
-  const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444']
+  /* eslint-disable react-hooks/purity -- random values generated once on mount via useMemo */
+  const particles = useMemo(() => Array.from({ length: 40 }, (_, i) => ({
+    left: Math.random() * 100,
+    delay: Math.random() * 0.5,
+    duration: 1.5 + Math.random() * 1,
+    size: 6 + Math.random() * 6,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    rotation: Math.random() * 360,
+    borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+  })), [])
+  /* eslint-enable react-hooks/purity */
   return (
     <div className="fixed inset-0 z-[201] pointer-events-none overflow-hidden">
-      {Array.from({ length: 40 }, (_, i) => {
-        const left = Math.random() * 100
-        const delay = Math.random() * 0.5
-        const duration = 1.5 + Math.random() * 1
-        const size = 6 + Math.random() * 6
-        const color = colors[i % colors.length]
-        const rotation = Math.random() * 360
-
-        return (
+      {particles.map((p, i) => (
           <div
             key={i}
             className="absolute animate-confetti"
             style={{
-              left: `${left}%`,
+              left: `${p.left}%`,
               top: '-10px',
-              width: size,
-              height: size,
-              backgroundColor: color,
-              borderRadius: Math.random() > 0.5 ? '50%' : '2px',
-              transform: `rotate(${rotation}deg)`,
-              animationDelay: `${delay}s`,
-              animationDuration: `${duration}s`,
+              width: p.size,
+              height: p.size,
+              backgroundColor: p.color,
+              borderRadius: p.borderRadius,
+              transform: `rotate(${p.rotation}deg)`,
+              animationDelay: `${p.delay}s`,
+              animationDuration: `${p.duration}s`,
             }}
           />
-        )
-      })}
+        ))}
       <style>{`
         @keyframes confetti-fall {
           0% { transform: translateY(0) rotate(0deg); opacity: 1; }

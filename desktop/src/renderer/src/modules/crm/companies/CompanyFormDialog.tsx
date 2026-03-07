@@ -109,6 +109,7 @@ export function CompanyFormDialog({
 
   useEffect(() => {
     if (open && initialData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setName(initialData.name ?? '')
       setIndustry(initialData.industry ?? '')
       setWebsite(initialData.website ?? '')

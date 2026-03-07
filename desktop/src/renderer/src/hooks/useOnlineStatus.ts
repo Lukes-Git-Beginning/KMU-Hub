@@ -54,6 +54,7 @@ export function useOnlineStatus() {
     prevOnlineRef.current = false
   }, [])
 
+   
   useEffect(() => {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)

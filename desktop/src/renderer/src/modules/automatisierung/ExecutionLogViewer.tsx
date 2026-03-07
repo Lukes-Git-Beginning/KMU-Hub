@@ -4,13 +4,12 @@
  * Table with expandable row details showing trigger event, condition result,
  * and step-by-step action results. Supports status filtering and pagination.
  */
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
   CheckCircle,
   XCircle,
-  Clock,
   AlertTriangle,
   MinusCircle,
   Loader2,

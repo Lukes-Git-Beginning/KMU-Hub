@@ -8,15 +8,10 @@ import {
   Clock,
   AlertCircle,
   XCircle,
-  Send,
-  Ban,
-  CreditCard,
-  ArrowRight,
   BarChart3,
   Gavel,
   Receipt,
   Link2,
-  QrCode,
   Landmark,
   Timer,
 } from 'lucide-react'
@@ -44,7 +39,6 @@ import type {
   InvoiceStatus,
   Quote,
   QuoteStatus,
-  CreditNote,
 } from '@/types/finance-types'
 import { InvoiceFormDialog } from './InvoiceFormDialog'
 import { QuoteFormDialog } from './QuoteFormDialog'
@@ -138,7 +132,6 @@ export default function FinanzenPage() {
     invoiceFilter,
     setInvoiceFilter,
     quoteFilter,
-    setQuoteFilter,
   } = useFinanceUIStore()
 
   const [search, setSearch] = useState('')

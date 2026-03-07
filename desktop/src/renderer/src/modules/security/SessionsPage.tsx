@@ -8,7 +8,7 @@
 import { useState, useCallback } from 'react'
 import { FormattedMessage, useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { Monitor, Smartphone, Tablet, MapPin, Wifi, X } from 'lucide-react'
+import { Monitor, Smartphone, Tablet, MapPin, Wifi } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useMemo } from 'react'
 import { X } from 'lucide-react'
 import { useContacts } from '@/api/hooks/useContacts'

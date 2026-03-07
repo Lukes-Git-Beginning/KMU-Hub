@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  XCircle,
   CreditCard,
   Receipt,
   Search,
@@ -181,7 +180,7 @@ export function BelegketteTab() {
           ['open', 'Offen', stats.open, 'bg-info-light text-info'],
           ['complete', 'Abgeschlossen', stats.complete, 'bg-success-light text-success'],
           ['overdue', 'Ueberfaellig', stats.overdue, 'bg-error-light text-error'],
-        ] as const).map(([key, label, count, colors]) => (
+        ] as const).map(([key, label, count, _colors]) => (
           <button
             key={key}
             onClick={() => setFilter(key === filter ? 'all' : key)}

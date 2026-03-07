@@ -27,7 +27,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
   const status = store.getStatus(definition.id)
   const storedValues = store.getFieldValues(definition.id)
   const integration = store.integrations[definition.id]
-  const fields = definition.fields ?? []
+  const fields = useMemo(() => definition.fields ?? [], [definition.fields])
 
   const [localValues, setLocalValues] = useState<Record<string, string | boolean>>(() => {
     const defaults: Record<string, string | boolean> = {}

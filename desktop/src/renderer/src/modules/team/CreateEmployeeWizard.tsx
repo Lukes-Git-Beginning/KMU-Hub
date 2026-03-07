@@ -26,8 +26,6 @@ import {
   MapPin,
   Phone,
   Calendar,
-  Clock,
-  Umbrella,
   Building2,
   AlertTriangle,
   Mail,

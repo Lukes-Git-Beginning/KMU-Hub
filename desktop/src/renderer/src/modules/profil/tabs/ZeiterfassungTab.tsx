@@ -1,13 +1,11 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
-  Play, Pause, Square, Clock, Calendar, BarChart3, Users, Tag,
+  Play, Square, Clock, Calendar,
   Coffee, AlertTriangle, Loader2, Edit3,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -124,9 +122,11 @@ export default function ZeiterfassungTab() {
         `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
       )
     }
+    // eslint-disable-next-line react-hooks/immutability -- ref assigned in useCallback for rAF loop
     rafRef.current = requestAnimationFrame(updateTimer)
   }, [status?.isClockedIn, status?.currentShiftStart, status?.isOnBreak])
 
+   
   useEffect(() => {
     if (status?.isClockedIn) {
       rafRef.current = requestAnimationFrame(updateTimer)

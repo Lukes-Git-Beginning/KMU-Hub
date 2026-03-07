@@ -74,7 +74,7 @@ const ACTION_TYPES: { value: RuleActionType; label: string }[] = [
 // Condition builder sub-components
 // ---------------------------------------------------------------------------
 
-function generateId(): string {
+function _generateId(): string {
   return Math.random().toString(36).slice(2, 10)
 }
 

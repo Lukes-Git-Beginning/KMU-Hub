@@ -56,6 +56,7 @@ export default function VaultPage() {
   const isEditing = editKeyName !== ''
 
   // Auto-hide expired revealed secrets
+   
   useEffect(() => {
     if (revealed.size === 0) {
       if (timerRef.current) {
@@ -257,6 +258,7 @@ export default function VaultPage() {
               {secretsList.map((secret) => {
                 const revealedEntry = revealed.get(secret.key_name)
                 const remainingSec = revealedEntry
+                  // eslint-disable-next-line react-hooks/purity -- Date.now() needed for countdown display
                   ? Math.max(0, Math.ceil((revealedEntry.expiresAt - Date.now()) / 1000))
                   : 0
 

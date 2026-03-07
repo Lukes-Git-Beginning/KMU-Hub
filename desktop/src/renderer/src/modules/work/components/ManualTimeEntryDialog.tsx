@@ -72,9 +72,10 @@ export default function ManualTimeEntryDialog({
   const [minutes, setMinutes] = useState(String(initMinutes))
   const [description, setDescription] = useState(initialDescription ?? '')
 
-  // Reset form when dialog opens with new values
+   
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setDate(initDate)
       setTime(initTime)
       setHours(String(initHours))

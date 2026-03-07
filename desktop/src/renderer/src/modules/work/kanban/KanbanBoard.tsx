@@ -60,7 +60,7 @@ export default function KanbanBoard({
     include_completed: true,
   })
 
-  const tasks: TaskData[] = tasksData?.tasks ?? []
+  const tasks: TaskData[] = useMemo(() => tasksData?.tasks ?? [], [tasksData?.tasks])
 
   // Group tasks by status
   const columnData = useMemo(() => {
@@ -130,7 +130,7 @@ export default function KanbanBoard({
     setActiveTask(task ?? null)
   }
 
-  function handleDragOver(event: DragOverEvent) {
+  function handleDragOver(_event: DragOverEvent) {
     // We can handle visual feedback here if needed
     // For now, the isOver state on KanbanColumn handles visual cues
   }

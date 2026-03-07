@@ -160,7 +160,7 @@ function ContextMenuContent({
 // ---------------------------------------------------------------------------
 
 export function FileContextMenu({
-  file,
+  file: _file,
   children,
   onOpen,
   onDownload,
@@ -237,7 +237,7 @@ export function FileContextMenu({
 // ---------------------------------------------------------------------------
 
 export function FolderContextMenu({
-  folder,
+  folder: _folder,
   children,
   onOpen,
   onNewSubfolder,

@@ -43,6 +43,7 @@ export function ActivityFormDialog({
 
   useEffect(() => {
     if (open && initialData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setActivityType(initialData.activity_type ?? 'call')
       setSubject(initialData.subject ?? '')
       setDescription(initialData.description ?? '')

@@ -24,6 +24,7 @@ export function PasswordExpiryDialog() {
   // Check if password is expired
   const lastChanged = security.passwordLastChanged ? new Date(security.passwordLastChanged) : null
   const expiryDays = security.passwordExpiryDays || 90
+  // eslint-disable-next-line react-hooks/purity -- reading current date to compute password expiry status
   const daysSinceChange = lastChanged ? Math.floor((Date.now() - lastChanged.getTime()) / (1000 * 60 * 60 * 24)) : 0
   const isExpired = expiryDays > 0 && daysSinceChange >= expiryDays
 

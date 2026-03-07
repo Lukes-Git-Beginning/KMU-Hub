@@ -39,6 +39,12 @@ export function AccountLinkDialog({
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const linkAccount = useLinkAccount()
 
+  const handleClose = () => {
+    setToken('')
+    setStatus('idle')
+    onClose()
+  }
+
   // Auto-close after successful link
   useEffect(() => {
     if (status === 'success') {
@@ -47,13 +53,8 @@ export function AccountLinkDialog({
       }, 2000)
       return () => clearTimeout(timer)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleClose is stable in practice (state setters + onClose prop); adding it would re-trigger on every render
   }, [status])
-
-  const handleClose = () => {
-    setToken('')
-    setStatus('idle')
-    onClose()
-  }
 
   const handleLink = async () => {
     if (!token.trim()) return

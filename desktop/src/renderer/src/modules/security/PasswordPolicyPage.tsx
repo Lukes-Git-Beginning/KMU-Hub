@@ -64,8 +64,10 @@ export default function PasswordPolicyPage() {
   const validatePw = useValidatePassword()
 
   // Sync form from server data
+   
   useEffect(() => {
     if (policy) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setMinLength(policy.min_length ?? 12)
       setMinEntropy(policy.min_entropy ?? 50)
       setMaxAgeDays(policy.max_age_days ?? 0)

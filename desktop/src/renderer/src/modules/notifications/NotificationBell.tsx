@@ -152,6 +152,7 @@ function NotificationItem({
       onClick={onClick}
     >
       <div className="mt-0.5 shrink-0">
+        {/* eslint-disable-next-line react-hooks/static-components -- Icon is a dynamic component variable */}
         <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
 

@@ -41,6 +41,7 @@ export function FolderCreateDialog({
   const createFolder = useCreateFolder()
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
     if (open) setName('')
   }, [open])
 

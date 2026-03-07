@@ -2,9 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { join } from 'path'
 
 export function registerComposeHandlers(): void {
-  ipcMain.handle('compose:open-window', (event) => {
-    const parent = BrowserWindow.fromWebContents(event.sender)
-
+  ipcMain.handle('compose:open-window', (_event) => {
     const composeWin = new BrowserWindow({
       width: 680,
       height: 620,

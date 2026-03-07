@@ -11,7 +11,6 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search,
-  CheckSquare,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -101,6 +100,7 @@ export default function MyTasksPage() {
   const { data: projectsData } = useProjects({ page_size: 100 })
   const projects = projectsData?.projects ?? []
 
+   
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search)
@@ -119,7 +119,7 @@ export default function MyTasksPage() {
       : undefined,
   })
 
-  const tasks: TaskItem[] = data?.tasks ?? []
+  const tasks: TaskItem[] = useMemo(() => data?.tasks ?? [], [data?.tasks])
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -184,6 +184,7 @@ export default function MyTasksPage() {
 
   function isDueOverdue(dueDate?: string): boolean {
     if (!dueDate) return false
+    // eslint-disable-next-line react-hooks/purity -- Date.now() needed for overdue check
     return new Date(dueDate).getTime() < Date.now()
   }
 
@@ -198,7 +199,7 @@ export default function MyTasksPage() {
     setCreateDialogOpen(false)
   }
 
-  async function handleMoveToProject(projectId: string) {
+  async function _handleMoveToProject(_projectId: string) {
     if (!moveTaskId) return
     await updateTask.mutateAsync({
       id: moveTaskId,

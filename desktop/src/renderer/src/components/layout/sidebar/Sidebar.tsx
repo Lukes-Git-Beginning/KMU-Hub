@@ -10,13 +10,8 @@
  * - Mobile drawer + tablet auto-collapse
  */
 import { useState, useEffect, useRef } from 'react'
-import { useLocation, NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
-import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
-import { canSeeNavItem } from '@/config/roles'
-import { isModuleAllowedForProfile } from '@/config/business-profiles'
-import { useProfileStore } from '@/stores/profile'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useFilteredNavItems } from '@/hooks/useFilteredNavItems'
 import {
@@ -45,6 +40,7 @@ export function Sidebar({ collapsed, onToggle, isMobileOpen = false, onMobileClo
   const security = useSettingsStore((s) => s.security)
   const pwLastChanged = security.passwordLastChanged ? new Date(security.passwordLastChanged) : null
   const pwExpiryDays = security.passwordExpiryDays || 90
+  // eslint-disable-next-line react-hooks/purity -- reading current date to compute password expiry status
   const daysSincePwChange = pwLastChanged ? Math.floor((Date.now() - pwLastChanged.getTime()) / (1000 * 60 * 60 * 24)) : 0
   const pwDaysLeft = Math.max(0, pwExpiryDays - daysSincePwChange)
   const showPwWarning = pwExpiryDays > 0 && pwDaysLeft <= 14

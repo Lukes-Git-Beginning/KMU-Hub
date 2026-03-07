@@ -17,7 +17,6 @@ import {
   useRoomContext,
   useIsRecording,
 } from '@livekit/components-react'
-import { Track } from 'livekit-client'
 
 import { useEndCall, useStartRecording, useStopRecording } from '@/api/hooks/useVideo'
 import { cn } from '@/lib'

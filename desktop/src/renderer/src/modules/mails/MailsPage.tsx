@@ -19,7 +19,6 @@ import {
   EyeOff,
   Printer,
   Download,
-  FolderOpen,
   RefreshCw,
   Users,
   Loader2,
@@ -43,7 +42,7 @@ import {
   useSyncStatus,
   useEmailContactLinks,
 } from '@/api/hooks/useEmail'
-import type { EmailMessageInfo, EmailFolderInfo } from '@/api/email-types'
+import type { EmailMessageInfo } from '@/api/email-types'
 import type { ComposeMode } from '@/stores/mails'
 import { ComposeInline } from './ComposeInline'
 import { ItemActions, ConfirmDialog, EmptyState, type ActionItem } from '@/components/shared'
@@ -103,7 +102,7 @@ export default function MailsPage() {
   const user = useAuthStore((s) => s.user)
   const userId = user?.id ?? ''
   const consumeIntent = useNavigationStore((s) => s.consumeIntent)
-  const { setComposeDraft } = useMailsStore()
+  const { setComposeDraft: _setComposeDraft } = useMailsStore()
 
   // Account
   const { data: accountData } = useEmailAccount(userId)
@@ -111,7 +110,7 @@ export default function MailsPage() {
 
   // Folders
   const { data: foldersData } = useEmailFolders(accountId)
-  const folders = foldersData?.folders ?? []
+  const folders = useMemo(() => foldersData?.folders ?? [], [foldersData?.folders])
 
   // UI state
   const [activeFolderId, setActiveFolderId] = useState<string>('')
@@ -132,20 +131,23 @@ export default function MailsPage() {
   useEffect(() => {
     if (folders.length > 0 && !activeFolderId) {
       const inbox = folders.find((f) => f.folder_type === 'inbox')
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
       setActiveFolderId(inbox?.id ?? folders[0].id)
     }
   }, [folders, activeFolderId])
 
   // Navigation intent (e.g., compose-email from CRM)
+   
   useEffect(() => {
     const intent = consumeIntent()
     if (intent?.type === 'compose-email') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- navigation intent handler
       setComposePrefillTo(intent.data.to)
       setComposeMode('compose')
       setComposeReplyTo(null)
       setComposeOpen(true)
     }
-  }, [])
+  }, [consumeIntent])
 
   // Messages for active folder
   const messagesParams = useMemo(() => ({

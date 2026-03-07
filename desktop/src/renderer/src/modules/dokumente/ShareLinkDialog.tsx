@@ -4,7 +4,7 @@
  * Options: expiry date, password protection, permission (view/download).
  * Generates a mock link with copy-to-clipboard.
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Link2, Copy, Check, Shield, Calendar, RefreshCw, Eye, Download } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -45,10 +45,14 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
     toast.success('Neuer Link generiert')
   }
 
-  if (!open) return null
+   
+  const expiryDate = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + parseInt(expiryDays || '7'))
+    return d
+  }, [expiryDays])
 
-  const expiryDate = new Date()
-  expiryDate.setDate(expiryDate.getDate() + parseInt(expiryDays || '7'))
+  if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">

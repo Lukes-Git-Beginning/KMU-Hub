@@ -300,7 +300,7 @@ export default function SketchCanvas({
 
       if (activeTool === 'text') {
         // Show text input overlay at click position
-        const rect = canvas.getBoundingClientRect()
+        const _rect = canvas.getBoundingClientRect()
         setTextInput({
           visible: true,
           position: point,

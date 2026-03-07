@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import {
-  FileText, Upload, Download, Trash2, Eye, FolderOpen, Search, Loader2,
+  FileText, Upload, Download, Eye, FolderOpen, Search, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,6 @@ import {
   useUploadEmployeeDocument,
   useSelfProfile,
 } from '@/api/hooks/hr-hooks'
-import type { EmployeeDocument, HRDocumentCategory } from '@/api/hr-types'
 
 export default function DokumenteTab() {
   const [activeCategory, setActiveCategory] = useState<string>('all')
@@ -25,9 +24,9 @@ export default function DokumenteTab() {
   // TanStack Query hooks
   const { data: documents, isLoading: docsLoading } = useEmployeeDocuments(employeeId)
   const { data: categories } = useDocumentCategories(employeeId)
-  const uploadMutation = useUploadEmployeeDocument()
+  const _uploadMutation = useUploadEmployeeDocument()
 
-  const allDocuments = documents ?? []
+  const allDocuments = useMemo(() => documents ?? [], [documents])
   const allCategories = categories ?? []
 
   // Filter and search

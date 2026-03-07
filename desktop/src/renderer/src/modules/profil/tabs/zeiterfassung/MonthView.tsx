@@ -75,11 +75,11 @@ export default function MonthView() {
             const isWeekend = date.getDay() === 0 || date.getDay() === 6
             const barHeight = data.total > 0 ? Math.max(4, (data.total / maxMinutesInDay) * 180) : 0
             const targetLine = (dailyTarget / maxMinutesInDay) * 180
-            const isUnderTarget = data.total > 0 && data.total < dailyTarget && !isWeekend
+            const _isUnderTarget = data.total > 0 && data.total < dailyTarget && !isWeekend
 
             // Stack categories
             const catEntries = Object.entries(data.byCat)
-            let stackOffset = 0
+            let _stackOffset = 0
 
             return (
               <div
@@ -109,7 +109,7 @@ export default function MonthView() {
                         style={{ height: `${segHeight}%`, backgroundColor: cat?.color || '#6b7280' }}
                       />
                     )
-                    stackOffset += segHeight
+                    _stackOffset += segHeight
                     return el
                   })}
                   {catEntries.length === 0 && <div className="w-full h-full bg-muted" />}

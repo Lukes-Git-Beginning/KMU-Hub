@@ -35,7 +35,6 @@ import {
   useEinkaufStore,
   type PurchaseOrder,
   type Supplier,
-  type CatalogItem,
   type SupplierRating,
   type FrameworkContract,
 } from '@/stores/einkauf'

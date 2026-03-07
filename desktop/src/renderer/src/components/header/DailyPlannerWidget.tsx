@@ -63,6 +63,7 @@ export function DailyPlannerWidget() {
     (t) => !t.completed && t.priority === 'high',
   ).length
 
+   
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (

@@ -91,6 +91,7 @@ export function QuoteFormDialog({
   useEffect(() => {
     if (!open) return
     if (editQuote) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setCustomerName(editQuote.customer.name)
       setCustomerAddress(editQuote.customer.address)
       setCustomerEmail(editQuote.customer.email)

@@ -33,8 +33,10 @@ export function ConfettiBurst({ active, onComplete }: ConfettiBurstProps) {
 
   const stableOnComplete = useCallback(() => onComplete?.(), [onComplete])
 
+   
   useEffect(() => {
     if (!active) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
       setParticles([])
       return
     }

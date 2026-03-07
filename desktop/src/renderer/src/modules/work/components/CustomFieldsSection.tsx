@@ -45,14 +45,17 @@ export default function CustomFieldsSection({
 
   const definitions: CustomFieldInfo[] = defsData?.customFields ?? []
   const currentValues: Record<string, string> = valuesData?.custom_fields ?? {}
+  const currentValuesKey = JSON.stringify(currentValues)
 
   const [localValues, setLocalValues] = useState<Record<string, string>>({})
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
-  // Sync local values from server
+
   useEffect(() => {
+     
     setLocalValues(currentValues)
-  }, [JSON.stringify(currentValues)])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- using serialized key for deep comparison instead of object reference
+  }, [currentValuesKey])
 
   const persistValues = useCallback(
     (newValues: Record<string, string>) => {

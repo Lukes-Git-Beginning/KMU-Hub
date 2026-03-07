@@ -59,6 +59,7 @@ export function PaymentRecordDialog({
 
   useEffect(() => {
     if (open && remaining > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setAmount(remaining.toFixed(2))
       setDate(new Date().toISOString().split('T')[0])
       setMethod('bank_transfer')

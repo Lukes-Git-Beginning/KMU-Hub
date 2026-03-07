@@ -268,6 +268,13 @@ export default function FormularePage() {
       minute: '2-digit',
     })
 
+  // Editor (declared before getFormActions to satisfy React compiler)
+  const openEditor = (form: Form) => {
+    setEditingFormId(form.id)
+    setEditName(form.name)
+    setEditDescription(form.description)
+  }
+
   const getFormActions = useCallback(
     (form: Form) => [
       {
@@ -317,13 +324,6 @@ export default function FormularePage() {
     deleteForm(form.id)
     setConfirmDelete(null)
     toast.success(`"${form.name}" wurde geloescht`)
-  }
-
-  // Editor
-  const openEditor = (form: Form) => {
-    setEditingFormId(form.id)
-    setEditName(form.name)
-    setEditDescription(form.description)
   }
 
   const closeEditor = () => {
@@ -517,8 +517,11 @@ export default function FormularePage() {
     return map
   }
 
+   
   const fieldPageMap = useMemo(
+     
     () => (editingForm ? computeFieldPages(editingForm.fields) : new Map<string, number>()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally depending on editingForm.fields only, not the whole object
     [editingForm?.fields]
   )
 
@@ -529,6 +532,7 @@ export default function FormularePage() {
       if (f.label === '__page_break__') pages++
     }
     return pages + 1
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally depending on editingForm.fields only, not the whole object
   }, [editingForm?.fields])
 
   // ---------------------------------------------------------------------------
@@ -614,7 +618,7 @@ export default function FormularePage() {
     }
   }
 
-  const conditionOperatorLabels: Record<string, string> = {
+  const _conditionOperatorLabels: Record<string, string> = {
     equals: 'ist gleich',
     not_equals: 'ist nicht gleich',
     contains: 'enthaelt',
@@ -917,7 +921,7 @@ export default function FormularePage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {editingForm.fields.map((field, idx) => {
+                {editingForm.fields.map((field, _idx) => {
                   // 10.2 — Page break divider
                   if (field.label === '__page_break__') {
                     const pageNum = (fieldPageMap.get(field.id) === -1)

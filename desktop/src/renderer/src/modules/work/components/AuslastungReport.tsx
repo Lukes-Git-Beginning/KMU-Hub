@@ -126,7 +126,7 @@ function getUtilTextColor(pct: number): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function AuslastungReport({ projectId }: AuslastungReportProps) {
+export default function AuslastungReport({ projectId: _projectId }: AuslastungReportProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('week')
 
   // Calculate summary stats

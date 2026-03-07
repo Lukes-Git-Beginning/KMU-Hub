@@ -42,7 +42,7 @@ export default function SignatureCanvas({
     ctx.strokeStyle = 'currentColor'
   }, [width, height])
 
-  // Load initial data if provided
+   
   useEffect(() => {
     setupCanvas()
 

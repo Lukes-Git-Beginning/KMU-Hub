@@ -16,8 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { toast } from 'sonner'
 import { useUpdateEmployee, useEmployees } from '@/api/hooks/hr-hooks'
 import type { EmployeeProfile, ContractType } from '@/api/hr-types'
 
@@ -55,8 +53,10 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
   const [emergencyContactName, setEmergencyContactName] = useState('')
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
 
+   
   useEffect(() => {
     if (!member || !open) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
     setDepartment(member.department ?? '')
     setContractType(member.contractType)
     setPositionTitle(member.positionTitle ?? '')

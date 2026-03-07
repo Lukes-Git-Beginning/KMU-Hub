@@ -4,7 +4,6 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Save,
   Bell,
@@ -13,7 +12,6 @@ import {
   VolumeX,
   Loader2,
   Trash2,
-  Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSettingsStore, type NotificationModule, type NotificationPrefs } from '@/stores/settings'
@@ -61,8 +59,10 @@ export function NotificationSettingsTab() {
   const [qhDays, setQhDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6])
   const [qhActive, setQhActive] = useState(true)
 
+   
   useEffect(() => {
     if (!quietHours) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
     setQhStart(quietHours.start_time ?? '22:00')
     setQhEnd(quietHours.end_time ?? '07:00')
     setQhDays(quietHours.days ?? [0, 1, 2, 3, 4, 5, 6])

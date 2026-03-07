@@ -19,7 +19,6 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { DetailPanel, ConfirmDialog } from '@/components/shared'
 import {
   Dialog,
@@ -32,7 +31,6 @@ import {
   useFileVersions,
   useCreateVersion,
   useRevertVersion,
-  useFileDownloadURL,
 } from '@/api/hooks/useDocuments'
 
 // ---------------------------------------------------------------------------

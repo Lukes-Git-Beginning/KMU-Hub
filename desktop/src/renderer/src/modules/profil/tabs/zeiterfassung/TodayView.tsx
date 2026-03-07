@@ -26,7 +26,7 @@ const ABSENCE_ICONS: Record<string, typeof Palmtree> = {
 
 export default function TodayView() {
   const [showManualForm, setShowManualForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [_editingId, _setEditingId] = useState<string | null>(null)
 
   const entries = useTimeTrackingStore((s) => s.entries)
   const categories = useTimeTrackingStore((s) => s.categories)

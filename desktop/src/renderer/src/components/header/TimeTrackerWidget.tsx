@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import {
-  Play, Pause, Square, Timer, X, ArrowRight, Coffee,
-  FolderKanban, ArrowRightLeft,
+  Play, Pause, Square, Timer, ArrowRight, Coffee, ArrowRightLeft,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/cn'
@@ -53,8 +52,10 @@ export function TimeTrackerWidget() {
 
   // Total work time ticker
   const [workElapsed, setWorkElapsed] = useState(0)
+   
   useEffect(() => {
     if (!isClockedIn || !clockedInAt) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- timer tick update
       setWorkElapsed(0)
       return
     }
@@ -69,8 +70,10 @@ export function TimeTrackerWidget() {
 
   // Break timer
   const [breakElapsed, setBreakElapsed] = useState(0)
+   
   useEffect(() => {
     if (!isOnBreak || !breakStartedAt) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- timer tick update
       setBreakElapsed(0)
       return
     }
@@ -432,7 +435,7 @@ export function TimeTrackerWidget() {
                     onChange={(e) => setDescription(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        activeTimer.status !== 'idle' ? handleSwitchTask() : handleStartTask()
+                        if (activeTimer.status !== 'idle') { handleSwitchTask() } else { handleStartTask() }
                       }
                     }}
                     className="h-7 w-full rounded-md border border-border bg-transparent px-2 text-xs outline-none placeholder:text-muted-foreground focus:border-primary"

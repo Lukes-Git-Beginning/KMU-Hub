@@ -47,6 +47,7 @@ export function HelpWidget() {
     : FAQ_ITEMS
 
   // Close on outside click
+   
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
@@ -60,6 +61,7 @@ export function HelpWidget() {
   }, [isOpen])
 
   // Close on Escape
+   
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && isOpen) {

@@ -25,6 +25,7 @@ export function CallOverlay({ contactName, contactInitials, open, onEnd }: CallO
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
       setCallState('ringing')
       setElapsed(0)
       setIsMuted(false)

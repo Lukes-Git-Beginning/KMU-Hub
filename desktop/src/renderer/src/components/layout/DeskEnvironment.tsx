@@ -10,6 +10,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { AppShell } from './AppShell'
 
 // Background gradient presets
+// eslint-disable-next-line react-refresh/only-export-components
 export const DESK_BACKGROUNDS: Record<string, { label: string; css: string }> = {
   'gradient-warm': {
     label: 'Sonnenuntergang',

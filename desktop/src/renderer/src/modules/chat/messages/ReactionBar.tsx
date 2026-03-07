@@ -54,6 +54,7 @@ export function ReactionBar({ reactions, currentUserId, onToggleReaction, onOpen
 }
 
 /** Generate sample reactions for demo purposes. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function generateMockReactions(messageId: string): Reaction[] {
   const hash = messageId.charCodeAt(0) + (messageId.charCodeAt(1) || 0)
   if (hash % 3 !== 0) return []

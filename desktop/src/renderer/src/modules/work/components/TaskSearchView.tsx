@@ -54,7 +54,7 @@ export default function TaskSearchView() {
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState<TaskFilters>(EMPTY_FILTERS)
 
-  // Debounce search input
+   
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchInput)

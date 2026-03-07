@@ -37,6 +37,7 @@ export function RenameDialog({
   const updateFolder = useUpdateFolder()
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
     if (open) setName(currentName)
   }, [open, currentName])
 

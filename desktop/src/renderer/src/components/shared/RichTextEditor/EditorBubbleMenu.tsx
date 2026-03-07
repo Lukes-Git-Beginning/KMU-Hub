@@ -18,6 +18,7 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
   const [visible, setVisible] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
 
+   
   useEffect(() => {
     const update = () => {
       const { from, to, empty } = editor.state.selection

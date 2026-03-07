@@ -45,7 +45,7 @@ export function ConversationList({ messages, isLoading, onNewConversation }: Con
 
   // Sort messages client-side (filtering is done via API filter in KommunikationPage)
   const sorted = useMemo(() => {
-    let result = [...messages]
+    const result = [...messages]
 
     switch (sort) {
       case 'newest':

@@ -90,12 +90,13 @@ export default function TaskLinkField({
   )
 
   const { data: linksData } = useTaskEntityLinks(taskId)
-  const links: TaskEntityLink[] = linksData?.links ?? []
+  const links: TaskEntityLink[] = useMemo(() => linksData?.links ?? [], [linksData?.links])
 
   const linkEntity = useLinkEntity()
   const unlinkEntity = useUnlinkEntity()
 
   // Debounce search query
+   
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300)
     return () => clearTimeout(timer)
@@ -124,6 +125,7 @@ export default function TaskLinkField({
     contextText.length >= 3 ? contextText.substring(0, 50) : '',
     { types: 'contact,company,deal', limit: 5 }
   )
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- deps are correct
   const suggestions = useMemo(() => {
     if (!suggestData?.results) return []
     return suggestData.results.filter(

@@ -23,6 +23,7 @@ export function useNativeNotification() {
 export function useWindowControls() {
   const [isMaximized, setIsMaximized] = useState(false)
 
+   
   useEffect(() => {
     window.electronAPI.window.isMaximized().then(setIsMaximized)
   }, [])
@@ -50,6 +51,7 @@ export function useWindowControls() {
 export function usePlatform() {
   const [platform, setPlatform] = useState<NodeJS.Platform | null>(null)
 
+   
   useEffect(() => {
     window.electronAPI.app.getPlatform().then(setPlatform)
   }, [])

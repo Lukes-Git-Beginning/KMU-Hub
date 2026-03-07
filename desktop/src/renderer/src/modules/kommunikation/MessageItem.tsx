@@ -1,4 +1,4 @@
-import { FileText, Image, File, Reply, Forward, Copy, MoreHorizontal } from 'lucide-react'
+import { FileText, Image, File, Reply, Forward, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ConversationMessage } from '@/types/communication'
 

@@ -26,8 +26,6 @@ import { moduleHsl, moduleHslBg } from '@/components/layout/sidebar/nav-items'
 // Module config — colors derived from nav-items.ts (single source of truth)
 // ---------------------------------------------------------------------------
 
-type ModuleKey = 'contacts' | 'files' | 'emails' | 'tasks' | 'messages'
-
 interface ModuleConfig {
   label: string
   icon: typeof Users
@@ -90,6 +88,7 @@ function getResultUrl(module: string, item: GlobalSearchResultItem): string {
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value)
 
+   
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedValue(value), delayMs)
     return () => clearTimeout(timer)
@@ -197,6 +196,7 @@ export function SearchBar() {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50)
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dialog close
       setQuery('')
       setActiveFilter('Alle')
       setHighlightedIndex(0)
@@ -206,6 +206,7 @@ export function SearchBar() {
 
   // Reset highlighted index when results change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
     setHighlightedIndex(0)
   }, [flatResults.length])
 

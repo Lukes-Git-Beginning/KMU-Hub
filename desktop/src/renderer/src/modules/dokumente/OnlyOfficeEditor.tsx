@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * OnlyOffice WOPI editor iframe wrapper.
  *
@@ -158,6 +159,7 @@ export function OnlyOfficeEditor({
       if (typeof data === 'object' && data !== null) {
         // Handle UI_Close from OnlyOffice
         if (data.MessageId === 'UI_Close' || data.type === 'UI_Close') {
+          // eslint-disable-next-line react-hooks/immutability -- calling handler from event listener
           handleClose()
         }
       }

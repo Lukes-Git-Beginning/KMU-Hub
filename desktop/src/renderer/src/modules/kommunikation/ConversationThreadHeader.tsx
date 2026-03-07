@@ -55,8 +55,8 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
   const markUnread = useMarkUnread()
   const toggleStar = useToggleStar()
   const archiveMsg = useArchiveMessage()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const assignMsg = useAssignMessage()
+   
+  const _assignMsg = useAssignMessage()
 
   const [actionsOpen, setActionsOpen] = useState(false)
 

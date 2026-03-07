@@ -91,9 +91,10 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
     return () => clearInterval(interval)
   }, [isOpen, step, polling, refetchConnection])
 
-  // Stop polling when connected
+   
   useEffect(() => {
     if (connectionStatus?.connected && polling) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
       setPolling(false)
     }
   }, [connectionStatus?.connected, polling])

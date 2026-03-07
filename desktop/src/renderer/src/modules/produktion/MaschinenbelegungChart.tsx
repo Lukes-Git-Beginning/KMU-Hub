@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Cpu, Wrench, CircleDot } from 'lucide-react'
+import { Cpu } from 'lucide-react'
 import type { Machine, MachineBooking } from '@/stores/produktion'
 
 interface MaschinenbelegungChartProps {

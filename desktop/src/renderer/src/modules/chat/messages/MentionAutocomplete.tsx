@@ -45,6 +45,7 @@ export function MentionAutocomplete({ query, onSelect, onClose }: MentionAutocom
 
   // Reset selected index when results change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
     setSelectedIndex(0)
   }, [filtered.length])
 

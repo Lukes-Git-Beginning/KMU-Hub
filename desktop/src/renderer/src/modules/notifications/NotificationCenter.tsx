@@ -194,6 +194,7 @@ function NotificationCard({
     >
       <CardContent className="flex items-start gap-4 p-4">
         <div className={cn('mt-0.5 shrink-0 rounded-md p-2', priorityColor)}>
+          {/* eslint-disable-next-line react-hooks/static-components -- Icon is a dynamic component variable */}
           <Icon className="h-4 w-4" />
         </div>
 

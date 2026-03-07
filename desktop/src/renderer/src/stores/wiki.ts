@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { WikiArticle, WikiCategory, WikiTemplate, WikiVersion } from '@/types/wiki'
+import type { WikiArticle, WikiCategory, WikiTemplate } from '@/types/wiki'
 
 // ---------------------------------------------------------------------------
 // State interface
@@ -328,7 +328,7 @@ let nextVersionId = 20
 
 export const useWikiStore = create<WikiState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       categories: mockCategories,
       articles: mockArticles,
       templates: mockTemplates,

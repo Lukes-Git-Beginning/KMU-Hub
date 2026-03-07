@@ -295,8 +295,10 @@ function HRSettingsSection() {
   const [showAbsenceReason, setShowAbsenceReason] = useState(false)
   const [timezone, setTimezone] = useState('Europe/Zurich')
 
+   
   useEffect(() => {
     if (!hrSettings) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
     setAuThreshold(hrSettings.auThresholdDays ?? 3)
     setDefaultLeaveDays(hrSettings.defaultAnnualLeaveDays ?? 25)
     setShowAbsenceReason(hrSettings.showAbsenceReason ?? false)

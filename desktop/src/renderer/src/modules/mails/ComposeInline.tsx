@@ -66,6 +66,7 @@ export function ComposeInline({
 
   useEffect(() => {
     if (mode === 'reply' && replyTo) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setTo([replyTo.from.email])
       setCc([])
       setBcc([])

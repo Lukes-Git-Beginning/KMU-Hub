@@ -6,7 +6,7 @@
  * subtle tint. Today column is highlighted.
  */
 import { cn } from '@/lib'
-import type { TimelineConfig, TimelineColumn } from './gantt-utils'
+import type { TimelineConfig } from './gantt-utils'
 import {
   generateTimelineColumns,
   generateGroupHeaders,

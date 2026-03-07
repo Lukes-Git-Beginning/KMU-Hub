@@ -198,7 +198,7 @@ function OrgNodeCard({
 
 export function OrgChart() {
   const { data: employeesData, isLoading } = useEmployees()
-  const employees = employeesData?.employees ?? []
+  const employees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
 
   const rootNodes = useMemo(() => buildOrgTree(employees), [employees])
   const allNodes = useMemo(() => flattenNodes(rootNodes), [rootNodes])

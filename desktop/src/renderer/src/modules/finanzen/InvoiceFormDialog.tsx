@@ -19,7 +19,7 @@ import {
 import { Plus, Trash2, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCreateInvoice, useUpdateInvoice, useCompanySettings } from '@/api/hooks/useFinance'
-import { formatEUR, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
+import { calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
 import type { Invoice, TaxMode } from '@/types/finance-types'
 
 interface LineItemDraft {
@@ -76,7 +76,7 @@ const CURRENCY_OPTIONS: { value: InvoiceCurrency; label: string; symbol: string 
 ]
 
 // Legacy alias for backward compatibility
-const TAX_RATES = TAX_RATES_BY_COUNTRY.DE
+const _TAX_RATES = TAX_RATES_BY_COUNTRY.DE
 
 function emptyItem(position: number): LineItemDraft {
   return {
@@ -139,6 +139,7 @@ export function InvoiceFormDialog({
   useEffect(() => {
     if (!open) return
     if (editInvoice) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setCustomerName(editInvoice.customer.name)
       setCustomerAddress(editInvoice.customer.address)
       setCustomerEmail(editInvoice.customer.email)

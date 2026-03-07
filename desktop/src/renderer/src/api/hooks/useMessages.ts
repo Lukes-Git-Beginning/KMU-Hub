@@ -289,7 +289,6 @@ export function useThreadWebSocket(messageId: string | null) {
  */
 export function useTypingIndicator(channelId: string | null) {
   const typingUsersRef = useRef<Map<string, { name: string; timeout: ReturnType<typeof setTimeout> }>>(new Map())
-  const forceUpdateRef = useRef(0)
   const queryClient = useQueryClient()
 
   // Use a dummy query to trigger re-renders when typing state changes
@@ -339,14 +338,16 @@ export function useTypingIndicator(channelId: string | null) {
       }
     })
 
+    // Copy ref to local variable for cleanup (avoids stale ref in unmount)
+    const currentTypingUsers = typingUsersRef.current
     return () => {
       unsubStart()
       unsubStop()
       // Clean up all timeouts
-      for (const entry of typingUsersRef.current.values()) {
+      for (const entry of currentTypingUsers.values()) {
         clearTimeout(entry.timeout)
       }
-      typingUsersRef.current.clear()
+      currentTypingUsers.clear()
     }
   }, [channelId, queryClient])
 

@@ -62,8 +62,9 @@ export default function TaskDetailPanel() {
   const [descValue, setDescValue] = useState('')
   const [commentValue, setCommentValue] = useState('')
 
-  // Sync editable values when task changes
+   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
     setTitleValue(task?.title ?? '')
     setDescValue(task?.description ?? '')
   }, [task?.title, task?.description])

@@ -11,7 +11,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Play, Square, Clock, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib'
 import {
   useActiveTimer,
   useStartTimer,
@@ -62,6 +61,7 @@ export default function TaskTimer({ taskId }: TaskTimerProps) {
   const startTimeRef = useRef<number | null>(null)
 
   // Sync timer state from API response to Zustand store
+   
   useEffect(() => {
     if (activeTimer) {
       setActiveTimer(
@@ -73,8 +73,10 @@ export default function TaskTimer({ taskId }: TaskTimerProps) {
   }, [activeTimer, setActiveTimer])
 
   // Run the elapsed counter
+   
   useEffect(() => {
     if (!isTimerRunningOnThisTask || !activeTimer?.started_at) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- timer tick update
       setElapsed(0)
       startTimeRef.current = null
       if (rafRef.current) {

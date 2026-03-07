@@ -8,7 +8,6 @@
  */
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Loader2, Plus, Trash2, RotateCcw } from 'lucide-react'
 import {
   useLexwareFieldMappings,
@@ -44,9 +43,10 @@ export function LexwareFieldMappingEditor({
   const [mappings, setMappings] = useState<LexwareFieldMappingEntry[]>([])
   const [isDirty, setIsDirty] = useState(false)
 
-  // Initialize from server or defaults
+   
   useEffect(() => {
     if (serverMappings && serverMappings.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
       setMappings(serverMappings)
     } else if (!isLoading) {
       // Use defaults when no server mappings exist

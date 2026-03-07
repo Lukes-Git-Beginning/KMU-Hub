@@ -114,8 +114,10 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
   const [addToCalendar, setAddToCalendar] = useState(true)
   const [sendInvitations, setSendInvitations] = useState(true)
 
+   
   useEffect(() => {
     if (meeting) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setTitle(meeting.title)
       setDate(meeting.date)
       setStartTime(meeting.startTime)

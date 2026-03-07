@@ -82,5 +82,6 @@ export default function PriorityBadge({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { priorityConfig }
 export type { Priority }

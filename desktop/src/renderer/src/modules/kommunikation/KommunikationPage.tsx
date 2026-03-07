@@ -53,7 +53,7 @@ export default function KommunikationPage() {
   }, [activeChannel, searchQuery])
 
   const { data, isLoading } = useInboxMessages(filter)
-  const messages = data?.messages ?? []
+  const messages = useMemo(() => data?.messages ?? [], [data?.messages])
 
   // Keyboard shortcuts: j/k to navigate, Escape to deselect
   const handleKeyDown = useCallback(

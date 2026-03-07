@@ -75,10 +75,11 @@ function ProjectBoardView() {
   type ViewType = 'list' | 'kanban' | 'gantt' | 'auslastung'
   const [view, setView] = useState<ViewType>('list')
 
-  // Sync view from preferences once loaded
+   
   useEffect(() => {
     const vt = prefData?.view_type
     if (vt === 'kanban' || vt === 'list' || vt === 'gantt') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
       setView(vt as ViewType)
     }
   }, [prefData?.view_type])
@@ -88,7 +89,7 @@ function ProjectBoardView() {
     if (id) {
       // Persist auslastung as gantt in preferences (not a standard view type)
       const persistView = newView === 'auslastung' ? 'gantt' : newView
-      setPreference.mutate({ projectId: id, view_type: persistView as any })
+      setPreference.mutate({ projectId: id, view_type: persistView as string })
     }
   }
 

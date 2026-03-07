@@ -59,19 +59,6 @@ export function CreditNoteDialog({
     preselectedInvoice ??
     eligibleInvoices.find((inv) => inv.id === selectedInvoiceId)
 
-  useEffect(() => {
-    if (!open) return
-    if (preselectedInvoice) {
-      setSelectedInvoiceId(preselectedInvoice.id)
-      populateFromInvoice(preselectedInvoice)
-    } else {
-      setSelectedInvoiceId('')
-      setTaxMode('standard')
-      setReason('')
-      setItems([])
-    }
-  }, [open, preselectedInvoice])
-
   function populateFromInvoice(inv: Invoice) {
     setTaxMode(inv.tax_mode)
     setItems(
@@ -84,6 +71,21 @@ export function CreditNoteDialog({
       })),
     )
   }
+
+   
+  useEffect(() => {
+    if (!open) return
+    if (preselectedInvoice) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from dialog props
+      setSelectedInvoiceId(preselectedInvoice.id)
+      populateFromInvoice(preselectedInvoice)
+    } else {
+      setSelectedInvoiceId('')
+      setTaxMode('standard')
+      setReason('')
+      setItems([])
+    }
+  }, [open, preselectedInvoice])
 
   const handleInvoiceSelect = (invoiceId: string) => {
     setSelectedInvoiceId(invoiceId)

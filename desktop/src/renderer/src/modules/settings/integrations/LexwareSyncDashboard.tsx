@@ -68,7 +68,7 @@ export function LexwareSyncDashboard({
     return () => clearInterval(interval)
   }, [isSyncing, refetchStatus])
 
-  // Check if any sync is running
+   
   useEffect(() => {
     if (!syncStatus) return
     const anyRunning =
@@ -76,6 +76,7 @@ export function LexwareSyncDashboard({
       syncStatus.invoice_sync?.status === 'running' ||
       syncStatus.quote_sync?.status === 'running'
     if (!anyRunning && isSyncing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
       setIsSyncing(false)
     }
   }, [syncStatus, isSyncing])

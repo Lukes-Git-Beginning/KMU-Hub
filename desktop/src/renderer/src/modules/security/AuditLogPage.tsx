@@ -4,7 +4,7 @@
  * Displays a searchable, filterable table of all security-relevant actions.
  * Supports CSV/JSON export and integrity verification of the audit chain.
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import {
@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Search,
   Filter,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -49,20 +48,20 @@ export default function AuditLogPage() {
   const [resultFilter, setResultFilter] = useState<'all' | 'success' | 'failure'>('all')
   const [page, setPage] = useState(0)
 
-  const filter: AuditFilter = {
+  const filter: AuditFilter = useMemo(() => ({
     date_from: dateFrom || undefined,
     date_to: dateTo || undefined,
     action: actionFilter || undefined,
     result: resultFilter === 'all' ? undefined : resultFilter,
     offset: page * PAGE_SIZE,
     limit: PAGE_SIZE,
-  }
+  }), [dateFrom, dateTo, actionFilter, resultFilter, page])
 
   const { data, isLoading } = useAuditLog(filter)
   const exportMutation = useExportAuditLog()
   const verifyMutation = useVerifyAuditChain()
 
-  const entries = data?.entries ?? []
+  const entries = useMemo(() => data?.entries ?? [], [data?.entries])
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 

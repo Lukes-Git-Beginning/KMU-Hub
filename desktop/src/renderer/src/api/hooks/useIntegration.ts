@@ -10,7 +10,6 @@ import { toast } from 'sonner'
 import * as integrationClient from '../integration-client'
 import type {
   Platform,
-  IntegrationConfig,
   IntegrationConfigListResponse,
   CreateIntegrationConfigRequest,
   UpdateIntegrationConfigRequest,
@@ -265,7 +264,7 @@ export function useLinkAccount() {
   return useMutation({
     mutationFn: (data: { token: string }) =>
       integrationClient.linkAccount(data),
-    onSuccess: (data) => {
+    onSuccess: (_data) => {
       qc.invalidateQueries({
         queryKey: ['integration', 'link'],
       })

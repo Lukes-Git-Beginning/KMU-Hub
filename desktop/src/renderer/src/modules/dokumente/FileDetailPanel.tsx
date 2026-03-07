@@ -12,7 +12,6 @@ import {
   Archive,
   File,
   Calendar,
-  User,
   Tag,
   History,
   Users,
@@ -161,6 +160,7 @@ export function FileDetailPanel({
       {/* Metadata */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm">
+          {/* eslint-disable-next-line react-hooks/static-components -- Icon is a dynamic component variable */}
           <Icon className="h-4 w-4 text-muted-foreground" />
           <span className="text-foreground">
             {getMimeLabel(file.mime_type)} &middot;{' '}

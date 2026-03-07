@@ -56,9 +56,10 @@ export function TeamInboxSettings({
   const addMember = useAddTeamMember()
   const removeMember = useRemoveTeamMember()
 
-  // Sync form state when team changes
+   
   useEffect(() => {
     if (team) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setName(team.name)
       setDescription(team.description ?? '')
       setAssignmentMode(team.assignment_mode)

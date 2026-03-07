@@ -81,7 +81,7 @@ export function useUpdateComment() {
   return useMutation({
     mutationFn: async ({
       commentId,
-      taskId,
+      taskId: _taskId,
       content,
     }: {
       commentId: string
@@ -111,7 +111,7 @@ export function useDeleteComment() {
   return useMutation({
     mutationFn: async ({
       commentId,
-      taskId,
+      taskId: _taskId,
     }: {
       commentId: string
       taskId: string

@@ -97,8 +97,8 @@ export default function DependencyList({
     page_size: 20,
   })
 
-  const dependencies = data?.dependencies ?? []
-  const searchResults = tasksData?.tasks ?? []
+  const dependencies = useMemo(() => data?.dependencies ?? [], [data?.dependencies])
+  const searchResults = useMemo(() => tasksData?.tasks ?? [], [tasksData?.tasks])
 
   // Filter out current task and already-linked tasks from search results
   const existingTargetIds = useMemo(() => {

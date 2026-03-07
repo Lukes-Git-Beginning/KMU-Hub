@@ -33,7 +33,7 @@ type ViewMode = 'grid' | 'timeline'
 function getRelativeTime(date: string, startTime: string, duration: number, status: Meeting['status']): string | null {
   const now = new Date()
   const meetingStart = new Date(`${date}T${startTime}:00`)
-  const meetingEnd = new Date(meetingStart.getTime() + duration * 60_000)
+  const _meetingEnd = new Date(meetingStart.getTime() + duration * 60_000)
   const diffMs = meetingStart.getTime() - now.getTime()
 
   if (status === 'live') {

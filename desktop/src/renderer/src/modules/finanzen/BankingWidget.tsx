@@ -9,14 +9,12 @@ import { useState } from 'react'
 import {
   Landmark,
   Link2,
-  Unlink,
   RefreshCw,
   Check,
   X,
   ArrowUpRight,
   ArrowDownRight,
   Search,
-  AlertTriangle,
   CheckCircle2,
   HelpCircle,
   Zap,
@@ -110,11 +108,11 @@ export function BankingWidget() {
     }, 2000)
   }
 
-  const handleAcceptMatch = (txId: string) => {
+  const handleAcceptMatch = (_txId: string) => {
     toast.success('Zuordnung bestaetigt')
   }
 
-  const handleRejectMatch = (txId: string) => {
+  const handleRejectMatch = (_txId: string) => {
     toast.success('Zuordnung abgelehnt')
   }
 

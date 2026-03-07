@@ -9,8 +9,10 @@ export function useTimerTick(): number {
   const activeTimer = useTimeTrackingStore((s) => s.activeTimer)
   const [elapsed, setElapsed] = useState(0)
 
+   
   useEffect(() => {
     if (activeTimer.status === 'idle') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- timer tick update
       setElapsed(0)
       return
     }

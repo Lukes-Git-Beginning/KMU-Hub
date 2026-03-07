@@ -9,7 +9,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import {
   Dialog,
   DialogContent,
@@ -69,7 +68,7 @@ export function BexioSyncDashboard({
     return () => clearInterval(interval)
   }, [isSyncing, refetchStatus])
 
-  // Check if any sync is running
+   
   useEffect(() => {
     if (!syncStatus) return
     const anyRunning =
@@ -78,6 +77,7 @@ export function BexioSyncDashboard({
       syncStatus.quote_sync?.status === 'running' ||
       syncStatus.payment_poll?.status === 'running'
     if (!anyRunning && isSyncing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local editable state from prop
       setIsSyncing(false)
     }
   }, [syncStatus, isSyncing])

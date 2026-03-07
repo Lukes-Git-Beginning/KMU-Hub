@@ -75,10 +75,12 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
   const initializedRef = useRef(false)
 
   // Keep refs in sync
-  contentRef.current = content
-  isPrivateRef.current = isPrivate
+  useEffect(() => {
+    contentRef.current = content
+    isPrivateRef.current = isPrivate
+  }, [content, isPrivate])
 
-  // Initialize from server data once
+   
   useEffect(() => {
     if (existingNotes && !initializedRef.current) {
       setContent(existingNotes.content)

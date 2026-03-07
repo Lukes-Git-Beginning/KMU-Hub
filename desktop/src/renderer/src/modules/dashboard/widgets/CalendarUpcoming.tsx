@@ -9,11 +9,13 @@ import { expandedEventToUI } from '@/modules/kalender/adapters'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function CalendarUpcoming(_props: WidgetProps) {
-  const today = new Date()
-  const dd = String(today.getDate()).padStart(2, '0')
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${dd}`
-  const todayStart = `${todayStr}T00:00:00Z`
-  const todayEnd = `${todayStr}T23:59:59Z`
+   
+  const { todayStart, todayEnd } = useMemo(() => {
+    const today = new Date()
+    const dd = String(today.getDate()).padStart(2, '0')
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${dd}`
+    return { todayStart: `${todayStr}T00:00:00Z`, todayEnd: `${todayStr}T23:59:59Z` }
+  }, [])
 
   const { data: calData } = useCalendars()
   const calendarIds = useMemo(() => {

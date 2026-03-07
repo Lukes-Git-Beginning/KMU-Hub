@@ -54,7 +54,7 @@ export function TriggerSelector() {
   const { draftWorkflow, updateDraftTrigger } = useAutomatisierungStore()
   const [search, setSearch] = useState('')
 
-  const triggers = data?.triggers ?? []
+  const triggers = useMemo(() => data?.triggers ?? [], [data?.triggers])
   const selectedType = draftWorkflow?.trigger_type ?? ''
 
   // Group by module

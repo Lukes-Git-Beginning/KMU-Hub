@@ -294,7 +294,7 @@ export function useDeleteDependency() {
   return useMutation({
     mutationFn: async ({
       dependencyId,
-      taskId,
+      taskId: _taskId,
     }: {
       dependencyId: string
       taskId: string
@@ -375,7 +375,7 @@ export function useUnlinkEntity() {
   return useMutation({
     mutationFn: async ({
       linkId,
-      taskId,
+      taskId: _taskId,
     }: {
       linkId: string
       taskId: string

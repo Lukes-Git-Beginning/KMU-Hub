@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   X,
   Download,
-  Eye,
   Zap,
   Building2,
 } from 'lucide-react'
@@ -172,7 +171,6 @@ export function EInvoiceDetailDialog({
     xmlEmbedded: false,
   }
 
-  const cfg = standardConfig[status.standard]
   const [selectedProfile, setSelectedProfile] = useState<ZUGFeRDProfile>(
     status.profile ?? 'COMFORT',
   )

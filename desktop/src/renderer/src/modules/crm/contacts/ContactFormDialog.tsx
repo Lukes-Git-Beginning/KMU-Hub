@@ -117,6 +117,7 @@ export function ContactFormDialog({
 
   useEffect(() => {
     if (open && initialData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setSalutation(initialData.salutation ?? '')
       setTitle(initialData.title ?? '')
       setFirstName(initialData.firstName ?? '')

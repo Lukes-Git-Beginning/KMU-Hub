@@ -26,7 +26,7 @@ export function PageHeader({
   moduleId,
   breadcrumb,
   tabs,
-  gradient = false,
+  gradient: _gradient = false,
   className,
 }: PageHeaderProps) {
   const accentColor = moduleId ? moduleHsl(moduleId) : undefined

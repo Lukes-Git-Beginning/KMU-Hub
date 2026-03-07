@@ -9,10 +9,12 @@ export default function EmployeeWizardWindowPage() {
   const [initialData, setInitialData] = useState<Record<string, unknown> | undefined>(undefined)
   const [ready, setReady] = useState(false)
 
+   
   useEffect(() => {
     try {
       const raw = localStorage.getItem('kmuhub-employee-wizard-draft')
       if (raw) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
         setInitialData(JSON.parse(raw))
         localStorage.removeItem('kmuhub-employee-wizard-draft')
       }

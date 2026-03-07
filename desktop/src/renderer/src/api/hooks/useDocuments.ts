@@ -26,7 +26,6 @@ import type {
   LinkFileRequest,
   SearchFilesParams,
   DocumentFile,
-  SharePermission,
 } from '../types/document-types'
 
 // ---------------------------------------------------------------------------
@@ -470,7 +469,6 @@ export function useVirtualFiles(sourceType?: string) {
 // ---------------------------------------------------------------------------
 
 export function useWOPIToken() {
-  const qc = useQueryClient()
   return useMutation({
     mutationFn: (fileId: string) => documentWopiApi.generateToken(fileId),
   })

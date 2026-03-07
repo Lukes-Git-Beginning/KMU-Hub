@@ -43,9 +43,10 @@ export function CompanySettingsTab() {
   const [paymentTermsDays, setPaymentTermsDays] = useState(30)
   const [quoteValidityDays, setQuoteValidityDays] = useState(30)
 
-  // Populate form when API data arrives
+   
   useEffect(() => {
     if (!settings) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
     setName(settings.name ?? '')
     setStreet(settings.street ?? '')
     setPlz(settings.plz ?? '')

@@ -328,7 +328,7 @@ interface QRBillIndicatorProps {
   onPreview?: () => void
 }
 
-export function QRBillIndicator({ hasQRBill, invoiceNumber, onPreview }: QRBillIndicatorProps) {
+export function QRBillIndicator({ hasQRBill, invoiceNumber: _invoiceNumber, onPreview }: QRBillIndicatorProps) {
   if (!hasQRBill) return null
   return (
     <button

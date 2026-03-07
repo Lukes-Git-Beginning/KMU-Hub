@@ -67,7 +67,7 @@ export function SecuritySettingsTab() {
   // 2FA state
   const [show2FASetup, setShow2FASetup] = useState(false)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
-  const setup2FA = useSetup2FA()
+  const _setup2FA = useSetup2FA()
   const disable2FA = useDisable2FA()
   const regenerateCodes = useRegenerateRecoveryCodes()
 
@@ -84,6 +84,7 @@ export function SecuritySettingsTab() {
 
   // Password validation (mutation -- trigger on password change)
   const validatePassword = useValidatePassword()
+   
   useEffect(() => {
     if (newPw.length >= 4) {
       validatePassword.mutate(newPw)

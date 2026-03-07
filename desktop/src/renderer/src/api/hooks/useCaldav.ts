@@ -155,7 +155,7 @@ export function useAdminRevokeUserPasswords() {
   return useMutation({
     mutationFn: (userId: string) =>
       caldavClient.adminRevokeUserPasswords(userId),
-    onSuccess: (_data, userId) => {
+    onSuccess: (_data, _userId) => {
       qc.invalidateQueries({ queryKey: caldavKeys.admin.users() })
       toast.success('Alle Passwoerter des Benutzers widerrufen')
     },

@@ -67,7 +67,7 @@ export default function TaskCreateDialog({
   const { data: membersData } = useProjectMembers(projectId)
   const members = membersData?.members ?? []
 
-  // Set default status to first non-closed or first status
+   
   useEffect(() => {
     if (statuses.length > 0 && !statusId) {
       const defaultStatus =
@@ -75,6 +75,7 @@ export default function TaskCreateDialog({
         statuses.find((s) => !s.is_closed) ??
         statuses[0]
       if (defaultStatus?.id) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
         setStatusId(defaultStatus.id)
       }
     }

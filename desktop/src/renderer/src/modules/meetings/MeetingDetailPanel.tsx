@@ -95,13 +95,16 @@ export function MeetingDetailPanel({
   const updateNotes = useMeetingsStore((s) => s.updateNotes)
   const updateMeeting = useMeetingsStore((s) => s.updateMeeting)
 
-  // Sync notes from meeting to local state
+   
   useEffect(() => {
+     
     if (meeting) setNotesValue(meeting.notes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally depending on meeting.id and meeting.notes only
   }, [meeting?.id, meeting?.notes])
 
-  // Reset tab when opening a different meeting
+   
   useEffect(() => {
+     
     setActiveTab('details')
     setNewAgendaText('')
   }, [meeting?.id])

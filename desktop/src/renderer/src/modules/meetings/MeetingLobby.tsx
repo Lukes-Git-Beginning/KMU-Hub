@@ -82,7 +82,7 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
 
   const [previousNotesExpanded, setPreviousNotesExpanded] = useState(true)
 
-  const handleJoin = (audioEnabled: boolean, videoEnabled: boolean) => {
+  const handleJoin = (_audioEnabled: boolean, _videoEnabled: boolean) => {
     if (!meeting) return
 
     // If meeting is still scheduled, start it (organizer action)

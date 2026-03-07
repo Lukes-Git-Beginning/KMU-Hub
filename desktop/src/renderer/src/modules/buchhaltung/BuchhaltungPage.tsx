@@ -28,7 +28,6 @@ import { toast } from 'sonner'
 import {
   useFinanceStore,
   type Invoice,
-  type Dunning,
   calcInvoiceTotal,
   calcRemainingAmount,
 } from '@/stores/finance'

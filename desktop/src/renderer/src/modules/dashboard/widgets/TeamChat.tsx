@@ -33,7 +33,7 @@ const MAX_MESSAGES = 7
 function TeamChat(_props: WidgetProps) {
   const navigate = useNavigate()
   const { data: channelData, isLoading } = useChannels()
-  const channels = channelData?.channels ?? []
+  const channels = useMemo(() => channelData?.channels ?? [], [channelData?.channels])
 
   const recentMessages = useMemo(() => {
     return channels

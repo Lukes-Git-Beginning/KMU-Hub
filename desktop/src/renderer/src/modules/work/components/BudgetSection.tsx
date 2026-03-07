@@ -54,20 +54,18 @@ interface BudgetSectionProps {
 
 export default function BudgetSection({
   budget = 50000,
-  projectName,
+  projectName: _projectName,
 }: BudgetSectionProps) {
   const [expanded, setExpanded] = useState(true)
 
   // Calculate actual costs from mock time entries
   const { totalCosts, totalHours, breakdownRows } = useMemo(() => {
-    let costs = 0
-    let hours = 0
-    const rows = MOCK_TIME_DATA.map((entry) => {
-      const lineCost = entry.hours * entry.rate
-      costs += lineCost
-      hours += entry.hours
-      return { ...entry, total: lineCost }
-    })
+    const rows = MOCK_TIME_DATA.map((entry) => ({
+      ...entry,
+      total: entry.hours * entry.rate,
+    }))
+    const costs = rows.reduce((sum, r) => sum + r.total, 0)
+    const hours = rows.reduce((sum, r) => sum + r.hours, 0)
     return { totalCosts: costs, totalHours: hours, breakdownRows: rows }
   }, [])
 

@@ -59,7 +59,7 @@ export function PreJoinScreen({
         <PreJoin
           onSubmit={handleSubmit}
           onError={(err) => {
-            // eslint-disable-next-line no-console
+             
             console.error('PreJoin device error:', err)
           }}
           defaults={{

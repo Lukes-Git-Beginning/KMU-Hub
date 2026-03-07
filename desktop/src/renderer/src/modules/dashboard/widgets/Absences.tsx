@@ -47,8 +47,11 @@ function formatDate(dateStr: string): string {
 }
 
 function Absences(_props: WidgetProps) {
-  const today = new Date()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+   
+  const todayStr = useMemo(() => {
+    const today = new Date()
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  }, [])
 
   const { data: entries, isLoading } = useAbsenceCalendar({
     start_date: todayStr,

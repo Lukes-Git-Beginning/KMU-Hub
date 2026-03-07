@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import {
   Plus, Palmtree, Thermometer, Home, GraduationCap, HelpCircle,
   X, Calendar, Loader2, AlertTriangle, Upload,

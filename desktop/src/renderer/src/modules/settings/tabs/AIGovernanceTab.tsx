@@ -9,8 +9,6 @@ import {
   Shield,
   Server,
   Activity,
-  ToggleLeft,
-  ToggleRight,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { useAIStore } from '@/stores/ai'

@@ -16,7 +16,6 @@ import type {
   TriggerDefinitionListResponse,
   ActionDefinitionListResponse,
   TemplateListResponse,
-  AutomationTemplate,
   TestConditionResponse,
   DryRunResponse,
   AutomationStats,

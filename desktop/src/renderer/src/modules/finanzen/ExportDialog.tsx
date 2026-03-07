@@ -19,14 +19,14 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-  const firstOfMonth = new Date(year, month, 1).toISOString().split('T')[0]
-  const lastOfMonth = new Date(year, month + 1, 0).toISOString().split('T')[0]
-
-  const [startDate, setStartDate] = useState(firstOfMonth)
-  const [endDate, setEndDate] = useState(lastOfMonth)
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  })
+  const [endDate, setEndDate] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+  })
 
   const exportDATEV = useExportDATEV()
 

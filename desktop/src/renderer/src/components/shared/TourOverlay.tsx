@@ -24,6 +24,7 @@ export function TourOverlay() {
   const isLast = currentStep === totalSteps - 1
 
   // Find and measure target element
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- step?.target is sufficient dep
   const measureTarget = useCallback(() => {
     if (!step?.target) {
       setTargetRect(null)
@@ -37,7 +38,9 @@ export function TourOverlay() {
     }
   }, [step?.target])
 
+   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- measure and sync target rect on mount/resize
     measureTarget()
     window.addEventListener('resize', measureTarget)
     window.addEventListener('scroll', measureTarget, true)

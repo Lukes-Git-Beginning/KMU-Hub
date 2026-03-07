@@ -42,6 +42,7 @@ export default function ActivitiesListPage() {
 
   // Reset page when filter changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dependency change
     setPage(1)
   }, [typeFilter])
 

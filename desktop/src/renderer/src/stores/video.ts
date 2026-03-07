@@ -6,7 +6,7 @@
  * Call state is inherently transient and should not survive app restart.
  */
 import { create } from 'zustand'
-import type { CallSession, CallType, IncomingCallData } from '@/api/video-types'
+import type { CallSession, IncomingCallData } from '@/api/video-types'
 
 // ---------------------------------------------------------------------------
 // Types
