@@ -17,6 +17,10 @@ func SecurityHeaders(behindProxy bool) func(http.Handler) http.Handler {
 			h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 			h.Set("X-XSS-Protection", "0")
 
+			// CSP: API-only backend serves no HTML, but set a restrictive policy as defense-in-depth.
+			// Tailwind is pre-compiled (no unsafe-eval), fonts/images loaded from same origin.
+			h.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+
 			if behindProxy {
 				h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 			}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,7 +14,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/metrics"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
+)
+
+const (
+	// maxConnsPerUser limits how many concurrent WebSocket connections a single user can have.
+	maxConnsPerUser = 5
+	// maxMsgsPerSecond is the per-user message rate limit (sustained).
+	maxMsgsPerSecond = 10
+	// msgBurstSize is the per-user burst allowance above the sustained rate.
+	msgBurstSize = 20
+	// wsAuthProtocol is the subprotocol marker used for Sec-WebSocket-Protocol auth.
+	wsAuthProtocol = "access_token"
 )
 
 // GuestSessionValidator validates guest tokens and enforces rate limits.
@@ -53,10 +66,45 @@ type WSVideoService interface {
 	NotifyCallDeclined(ctx context.Context, callID, userID string) error
 }
 
+// msgRateLimiter tracks per-user message rates using a token bucket.
+type msgRateLimiter struct {
+	tokens     float64
+	maxTokens  float64
+	refillRate float64 // tokens per second
+	lastRefill time.Time
+}
+
+func newMsgRateLimiter() *msgRateLimiter {
+	return &msgRateLimiter{
+		tokens:     msgBurstSize,
+		maxTokens:  msgBurstSize,
+		refillRate: maxMsgsPerSecond,
+		lastRefill: time.Now(),
+	}
+}
+
+func (rl *msgRateLimiter) allow() bool {
+	now := time.Now()
+	elapsed := now.Sub(rl.lastRefill).Seconds()
+	rl.lastRefill = now
+	rl.tokens += elapsed * rl.refillRate
+	if rl.tokens > rl.maxTokens {
+		rl.tokens = rl.maxTokens
+	}
+	if rl.tokens < 1 {
+		return false
+	}
+	rl.tokens--
+	return true
+}
+
 // WebSocketHub manages WebSocket connections and message broadcasting
 type WebSocketHub struct {
 	chatClient chatv1.ChatServiceClient
 	tokenMaker *auth.TokenMaker
+
+	// allowedOrigins controls which origins may open WebSocket connections.
+	allowedOrigins []string
 
 	// connections maps user ID to their connections
 	connections map[string]map[*websocket.Conn]struct{}
@@ -69,6 +117,9 @@ type WebSocketHub struct {
 	userNames    map[string]struct{ firstName, lastName string }
 	userInfoFunc UserInfoFunc
 
+	// rateLimiters tracks per-user message rate limits
+	rateLimiters map[string]*msgRateLimiter
+
 	// Guest connections: maps guest session ID to their connections
 	guestConnections map[string]map[*websocket.Conn]struct{}
 	// Guest session channel mapping: guest session ID -> channel ID (for isolation)
@@ -79,19 +130,26 @@ type WebSocketHub struct {
 	videoService    WSVideoService
 	guestService    GuestSessionValidator
 
+	// Optional metrics registry for Prometheus instrumentation
+	metrics *metrics.Registry
+
 	mu sync.RWMutex
 }
 
-// NewWebSocketHub creates a new WebSocket hub
-func NewWebSocketHub(chatClient chatv1.ChatServiceClient, tokenMaker *auth.TokenMaker, userInfoFunc UserInfoFunc) *WebSocketHub {
+// NewWebSocketHub creates a new WebSocket hub.
+// allowedOrigins controls which browser origins may connect (e.g. ["https://app.zentria.tech"]).
+// An empty slice means no connections will be accepted.
+func NewWebSocketHub(chatClient chatv1.ChatServiceClient, tokenMaker *auth.TokenMaker, userInfoFunc UserInfoFunc, allowedOrigins []string) *WebSocketHub {
 	return &WebSocketHub{
 		chatClient:          chatClient,
 		tokenMaker:          tokenMaker,
+		allowedOrigins:      allowedOrigins,
 		connections:         make(map[string]map[*websocket.Conn]struct{}),
 		channelMembers:      make(map[string]map[string]struct{}),
 		presenceSubscribers: make(map[string]map[string]struct{}),
 		userNames:           make(map[string]struct{ firstName, lastName string }),
 		userInfoFunc:        userInfoFunc,
+		rateLimiters:        make(map[string]*msgRateLimiter),
 		guestConnections:    make(map[string]map[*websocket.Conn]struct{}),
 		guestChannels:       make(map[string]string),
 	}
@@ -172,8 +230,30 @@ func (h *WebSocketHub) SetGuestService(svc GuestSessionValidator) {
 	h.guestService = svc
 }
 
-// HandleWebSocket handles WebSocket connections
-// Authentication is done via query parameter: /api/v1/ws?token=<JWT> or ?guest_token=<opaque>
+// SetMetrics injects an optional metrics registry for Prometheus instrumentation.
+func (h *WebSocketHub) SetMetrics(reg *metrics.Registry) {
+	h.metrics = reg
+}
+
+// extractToken reads the auth token from Sec-WebSocket-Protocol header first,
+// falling back to the query parameter for backwards compatibility.
+// Sec-WebSocket-Protocol format: "access_token, <jwt>"
+func extractToken(r *http.Request) string {
+	if proto := r.Header.Get("Sec-WebSocket-Protocol"); proto != "" {
+		// Parse comma-separated subprotocols; the JWT is the non-marker value
+		for _, p := range strings.Split(proto, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" && p != wsAuthProtocol {
+				return p
+			}
+		}
+	}
+	return r.URL.Query().Get("token")
+}
+
+// HandleWebSocket handles WebSocket connections.
+// Authentication is done via Sec-WebSocket-Protocol header (preferred)
+// or query parameter (fallback): /api/v1/ws?token=<JWT> or ?guest_token=<opaque>
 func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Check for guest token first
 	guestToken := r.URL.Query().Get("guest_token")
@@ -182,29 +262,52 @@ func (h *WebSocketHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get token from query parameter
-	token := r.URL.Query().Get("token")
+	// Extract token from Sec-WebSocket-Protocol or query parameter
+	token := extractToken(r)
 	if token == "" {
-		http.Error(w, "token query parameter is required", http.StatusUnauthorized)
+		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
 
 	// Validate token
 	claims, err := h.tokenMaker.ValidateAccessToken(token)
 	if err != nil {
-		slog.Warn("websocket auth failed", "error", err)
+		slog.Warn("websocket auth failed", "error", err, "remote_addr", r.RemoteAddr)
+		if h.metrics != nil {
+			h.metrics.WSErrors.WithLabelValues("auth_failed").Inc()
+		}
 		http.Error(w, "invalid token", http.StatusUnauthorized)
 		return
 	}
 
 	userID := claims.UserID
 
-	// Accept WebSocket connection
-	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns: []string{"*"}, // Configure properly in production
-	})
+	// Enforce per-user connection limit
+	h.mu.RLock()
+	connCount := len(h.connections[userID])
+	h.mu.RUnlock()
+	if connCount >= maxConnsPerUser {
+		slog.Warn("websocket connection limit exceeded",
+			"user_id", userID,
+			"current", connCount,
+			"max", maxConnsPerUser,
+		)
+		if h.metrics != nil {
+			h.metrics.WSErrors.WithLabelValues("conn_limit").Inc()
+		}
+		http.Error(w, "too many connections", http.StatusTooManyRequests)
+		return
+	}
+
+	// Build accept options with explicit origin allowlist
+	acceptOpts := &websocket.AcceptOptions{
+		OriginPatterns: h.allowedOrigins,
+		Subprotocols:   []string{wsAuthProtocol},
+	}
+
+	conn, err := websocket.Accept(w, r, acceptOpts)
 	if err != nil {
-		slog.Error("websocket accept failed", "error", err)
+		slog.Error("websocket accept failed", "error", err, "remote_addr", r.RemoteAddr)
 		return
 	}
 
@@ -235,10 +338,10 @@ func (h *WebSocketHub) handleGuestWebSocket(w http.ResponseWriter, r *http.Reque
 	}
 
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns: []string{"*"},
+		OriginPatterns: h.allowedOrigins,
 	})
 	if err != nil {
-		slog.Error("guest websocket accept failed", "error", err)
+		slog.Error("guest websocket accept failed", "error", err, "remote_addr", r.RemoteAddr)
 		return
 	}
 
@@ -266,6 +369,10 @@ func (h *WebSocketHub) registerConnection(userID string, conn *websocket.Conn) {
 		h.connections[userID] = make(map[*websocket.Conn]struct{})
 	}
 	h.connections[userID][conn] = struct{}{}
+
+	if h.metrics != nil {
+		h.metrics.WSConnectionsActive.WithLabelValues("user").Inc()
+	}
 }
 
 func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn) {
@@ -290,6 +397,15 @@ func (h *WebSocketHub) unregisterConnection(userID string, conn *websocket.Conn)
 	// Clean up presence subscriptions for disconnected user
 	h.cleanupPresenceSubscriptions(userID)
 
+	// Remove rate limiter when user has no more connections
+	if _, hasConns := h.connections[userID]; !hasConns {
+		delete(h.rateLimiters, userID)
+	}
+
+	if h.metrics != nil {
+		h.metrics.WSConnectionsActive.WithLabelValues("user").Dec()
+	}
+
 	_ = conn.Close(websocket.StatusNormalClosure, "connection closed")
 }
 
@@ -310,7 +426,32 @@ func (h *WebSocketHub) handleConnection(ctx context.Context, conn *websocket.Con
 	}
 }
 
+func (h *WebSocketHub) checkMsgRate(userID string) bool {
+	h.mu.Lock()
+	rl, ok := h.rateLimiters[userID]
+	if !ok {
+		rl = newMsgRateLimiter()
+		h.rateLimiters[userID] = rl
+	}
+	allowed := rl.allow()
+	h.mu.Unlock()
+	return allowed
+}
+
 func (h *WebSocketHub) handleMessage(ctx context.Context, conn *websocket.Conn, userID string, msg *WSMessage) {
+	if !h.checkMsgRate(userID) {
+		slog.Warn("websocket message rate limit exceeded", "user_id", userID, "type", msg.Type)
+		if h.metrics != nil {
+			h.metrics.WSErrors.WithLabelValues("rate_limited").Inc()
+		}
+		h.sendError(ctx, conn, "rate limit exceeded")
+		return
+	}
+
+	if h.metrics != nil {
+		h.metrics.WSMessagesTotal.WithLabelValues("inbound", msg.Type).Inc()
+	}
+
 	switch msg.Type {
 	case WSMessageSend:
 		h.handleSendMessage(ctx, conn, userID, msg)
@@ -480,6 +621,10 @@ func (h *WebSocketHub) registerGuestConnection(sessionID, channelID string, conn
 	}
 	h.guestConnections[sessionID][conn] = struct{}{}
 	h.guestChannels[sessionID] = channelID
+
+	if h.metrics != nil {
+		h.metrics.WSConnectionsActive.WithLabelValues("guest").Inc()
+	}
 }
 
 func (h *WebSocketHub) unregisterGuestConnection(sessionID string, conn *websocket.Conn) {
@@ -492,6 +637,10 @@ func (h *WebSocketHub) unregisterGuestConnection(sessionID string, conn *websock
 			delete(h.guestConnections, sessionID)
 			delete(h.guestChannels, sessionID)
 		}
+	}
+
+	if h.metrics != nil {
+		h.metrics.WSConnectionsActive.WithLabelValues("guest").Dec()
 	}
 
 	_ = conn.Close(websocket.StatusNormalClosure, "connection closed")
@@ -650,6 +799,10 @@ func (h *WebSocketHub) sendToUser(ctx context.Context, userID string, msg WSMess
 		connList = append(connList, conn)
 	}
 	h.mu.RUnlock()
+
+	if h.metrics != nil {
+		h.metrics.WSMessagesTotal.WithLabelValues("outbound", msg.Type).Inc()
+	}
 
 	writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

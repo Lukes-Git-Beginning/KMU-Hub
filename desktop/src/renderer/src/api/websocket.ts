@@ -86,10 +86,12 @@ export class WebSocketManager {
   private createConnection(): void {
     if (!this.currentToken) return
 
-    const wsUrl = `${this.baseUrl}/api/v1/ws?token=${encodeURIComponent(this.currentToken)}`
+    const wsUrl = `${this.baseUrl}/api/v1/ws`
 
     try {
-      this.ws = new WebSocket(wsUrl)
+      // Pass token via Sec-WebSocket-Protocol header instead of query parameter
+      // to prevent token leakage in access logs and caches
+      this.ws = new WebSocket(wsUrl, ['access_token', this.currentToken])
     } catch {
       this.scheduleReconnect()
       return
