@@ -168,7 +168,13 @@ jobs:
 
       - name: Build services
         working-directory: backend
-        run: go build -o bin/auth ./cmd/auth && go build -o bin/gateway ./cmd/gateway
+        run: |
+          go build -o bin/auth ./cmd/auth
+          go build -o bin/gateway ./cmd/gateway
+          go build -o bin/crm ./cmd/crm
+          go build -o bin/chat ./cmd/chat
+          go build -o bin/work ./cmd/work
+          go build -o bin/document ./cmd/document
 
       - name: Start auth service
         working-directory: backend
@@ -182,6 +188,74 @@ jobs:
             if [ "$i" = "30" ]; then
               echo "Auth service failed to start"
               cat /tmp/auth.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Start CRM service
+        working-directory: backend
+        run: |
+          ./bin/crm > /tmp/crm.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9092/health > /dev/null 2>&1; then
+              echo "CRM service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "CRM service failed to start"
+              cat /tmp/crm.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Start chat service
+        working-directory: backend
+        run: |
+          ./bin/chat > /tmp/chat.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9093/health > /dev/null 2>&1; then
+              echo "Chat service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Chat service failed to start"
+              cat /tmp/chat.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Start work service
+        working-directory: backend
+        run: |
+          ./bin/work > /tmp/work.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9095/health > /dev/null 2>&1; then
+              echo "Work service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Work service failed to start"
+              cat /tmp/work.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Start document service
+        working-directory: backend
+        run: |
+          ./bin/document > /tmp/document.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9097/health > /dev/null 2>&1; then
+              echo "Document service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Document service failed to start"
+              cat /tmp/document.log
               exit 1
             fi
             sleep 1
@@ -213,7 +287,14 @@ jobs:
         run: |
           echo "=== Auth Service Logs ==="
           cat /tmp/auth.log || true
-          echo ""
+          echo "=== CRM Service Logs ==="
+          cat /tmp/crm.log || true
+          echo "=== Chat Service Logs ==="
+          cat /tmp/chat.log || true
+          echo "=== Work Service Logs ==="
+          cat /tmp/work.log || true
+          echo "=== Document Service Logs ==="
+          cat /tmp/document.log || true
           echo "=== Gateway Service Logs ==="
           cat /tmp/gateway.log || true
 

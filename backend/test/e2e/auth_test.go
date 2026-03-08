@@ -3,115 +3,12 @@
 package e2e
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 )
-
-func gatewayURL() string {
-	if u := os.Getenv("GATEWAY_URL"); u != "" {
-		return u
-	}
-	return "http://localhost:8080"
-}
-
-func waitForHealth(t *testing.T, baseURL string) {
-	t.Helper()
-	deadline := time.Now().Add(60 * time.Second)
-	for time.Now().Before(deadline) {
-		resp, err := http.Get(baseURL + "/health")
-		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
-			return
-		}
-		if resp != nil {
-			resp.Body.Close()
-		}
-		time.Sleep(2 * time.Second)
-	}
-	t.Fatal("gateway did not become healthy within 60 seconds")
-}
-
-type authResponse struct {
-	User         map[string]interface{} `json:"user"`
-	AccessToken  string                 `json:"access_token"`
-	RefreshToken string                 `json:"refresh_token"`
-}
-
-type refreshResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
-func postJSON(t *testing.T, url string, body interface{}, token string) (*http.Response, []byte) {
-	t.Helper()
-	b, err := json.Marshal(body)
-	if err != nil {
-		t.Fatalf("failed to marshal request body: %v", err)
-	}
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(b))
-	if err != nil {
-		t.Fatalf("failed to create request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("request failed: %v", err)
-	}
-	defer resp.Body.Close()
-	var respBody bytes.Buffer
-	respBody.ReadFrom(resp.Body)
-	return resp, respBody.Bytes()
-}
-
-func getJSON(t *testing.T, url string, token string) (*http.Response, []byte) {
-	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		t.Fatalf("failed to create request: %v", err)
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("request failed: %v", err)
-	}
-	defer resp.Body.Close()
-	var respBody bytes.Buffer
-	respBody.ReadFrom(resp.Body)
-	return resp, respBody.Bytes()
-}
-
-func deleteJSON(t *testing.T, url string, token string) (*http.Response, []byte) {
-	t.Helper()
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
-	if err != nil {
-		t.Fatalf("failed to create request: %v", err)
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("request failed: %v", err)
-	}
-	defer resp.Body.Close()
-	var respBody bytes.Buffer
-	respBody.ReadFrom(resp.Body)
-	return resp, respBody.Bytes()
-}
 
 func TestAuthFlow(t *testing.T) {
 	base := gatewayURL()
@@ -262,11 +159,11 @@ func TestGetProfile(t *testing.T) {
 		"password": password,
 	}, "")
 
-	var authResp authResponse
-	if err := json.Unmarshal(body, &authResp); err != nil {
+	var loginResp authResponse
+	if err := json.Unmarshal(body, &loginResp); err != nil {
 		t.Fatalf("failed to decode login response: %v", err)
 	}
-	accessToken := authResp.AccessToken
+	accessToken := loginResp.AccessToken
 
 	t.Run("get_profile_success", func(t *testing.T) {
 		resp, body = getJSON(t, base+"/api/v1/auth/me", accessToken)
@@ -315,11 +212,11 @@ func TestChangePassword(t *testing.T) {
 		"password": oldPassword,
 	}, "")
 
-	var authResp authResponse
-	if err := json.Unmarshal(body, &authResp); err != nil {
+	var loginResp authResponse
+	if err := json.Unmarshal(body, &loginResp); err != nil {
 		t.Fatalf("failed to decode login response: %v", err)
 	}
-	accessToken := authResp.AccessToken
+	accessToken := loginResp.AccessToken
 
 	t.Run("change_password_success", func(t *testing.T) {
 		resp, body = postJSON(t, base+"/api/v1/auth/change-password", map[string]string{
@@ -371,20 +268,14 @@ func TestChangePassword(t *testing.T) {
 }
 
 func TestInvitationFlow(t *testing.T) {
-	// Skip: This test requires a pre-existing admin user in the database.
-	// In CI, we don't have seed data with an admin, so a freshly registered
-	// user cannot assign themselves admin role (chicken-and-egg problem).
-	// The invitation functionality is tested via unit tests in service_test.go.
 	t.Skip("Skipping: requires admin seed data not available in CI")
 
 	base := gatewayURL()
 	waitForHealth(t, base)
 
-	// Create an admin user to create invitations
 	adminEmail := fmt.Sprintf("admin-%d@test.com", time.Now().UnixNano())
 	adminPassword := "AdminPass123!"
 
-	// Register admin
 	_, _ = postJSON(t, base+"/api/v1/auth/register", map[string]string{
 		"email":      adminEmail,
 		"password":   adminPassword,
@@ -392,7 +283,6 @@ func TestInvitationFlow(t *testing.T) {
 		"last_name":  "User",
 	}, "")
 
-	// Login as admin
 	resp, body := postJSON(t, base+"/api/v1/auth/login", map[string]string{
 		"email":    adminEmail,
 		"password": adminPassword,
@@ -405,13 +295,10 @@ func TestInvitationFlow(t *testing.T) {
 	adminToken := adminAuth.AccessToken
 	adminUserID := adminAuth.User["id"].(string)
 
-	// Assign admin role (need to do this via direct API call)
-	// Note: In real setup, seed data would have an initial admin
 	_, _ = postJSON(t, base+"/api/v1/users/"+adminUserID+"/roles", map[string]string{
 		"role_name": "admin",
 	}, adminToken)
 
-	// Re-login to get new token with admin role
 	resp, body = postJSON(t, base+"/api/v1/auth/login", map[string]string{
 		"email":    adminEmail,
 		"password": adminPassword,
@@ -429,17 +316,13 @@ func TestInvitationFlow(t *testing.T) {
 			"role":  "member",
 		}, adminToken)
 
-		if resp.StatusCode != http.StatusCreated {
-			t.Fatalf("expected 201, got %d: %s", resp.StatusCode, string(body))
-		}
+		requireStatus(t, resp, body, http.StatusCreated)
 
 		var invResp struct {
 			Invitation map[string]interface{} `json:"invitation"`
 			Token      string                 `json:"token"`
 		}
-		if err := json.Unmarshal(body, &invResp); err != nil {
-			t.Fatalf("failed to decode invitation response: %v", err)
-		}
+		decodeBody(t, body, &invResp)
 
 		if invResp.Token == "" {
 			t.Fatal("expected invitation token")
@@ -450,16 +333,12 @@ func TestInvitationFlow(t *testing.T) {
 
 	t.Run("list_invitations", func(t *testing.T) {
 		resp, body = getJSON(t, base+"/api/v1/invitations", adminToken)
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
-		}
+		requireStatus(t, resp, body, http.StatusOK)
 
 		var listResp struct {
 			Invitations []map[string]interface{} `json:"invitations"`
 		}
-		if err := json.Unmarshal(body, &listResp); err != nil {
-			t.Fatalf("failed to decode list response: %v", err)
-		}
+		decodeBody(t, body, &listResp)
 
 		found := false
 		for _, inv := range listResp.Invitations {
@@ -480,14 +359,10 @@ func TestInvitationFlow(t *testing.T) {
 			"last_name":  "User",
 		}, "")
 
-		if resp.StatusCode != http.StatusCreated {
-			t.Fatalf("expected 201, got %d: %s", resp.StatusCode, string(body))
-		}
+		requireStatus(t, resp, body, http.StatusCreated)
 
 		var acceptResp authResponse
-		if err := json.Unmarshal(body, &acceptResp); err != nil {
-			t.Fatalf("failed to decode accept response: %v", err)
-		}
+		decodeBody(t, body, &acceptResp)
 
 		if acceptResp.AccessToken == "" {
 			t.Fatal("expected access_token after accepting invitation")
@@ -499,10 +374,7 @@ func TestInvitationFlow(t *testing.T) {
 			"email":    invitedEmail,
 			"password": "InvitedPass123!",
 		}, "")
-
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
-		}
+		requireStatus(t, resp, body, http.StatusOK)
 	})
 
 	t.Run("accept_same_invitation_again_fails", func(t *testing.T) {
@@ -517,9 +389,7 @@ func TestInvitationFlow(t *testing.T) {
 		}
 	})
 
-	// Test cancel invitation
 	t.Run("cancel_invitation", func(t *testing.T) {
-		// Create another invitation to cancel
 		cancelEmail := fmt.Sprintf("cancel-%d@test.com", time.Now().UnixNano())
 		resp, body = postJSON(t, base+"/api/v1/invitations", map[string]string{
 			"email": cancelEmail,
@@ -533,11 +403,8 @@ func TestInvitationFlow(t *testing.T) {
 		cancelID := invResp.Invitation["id"].(string)
 
 		resp, body = deleteJSON(t, base+"/api/v1/invitations/"+cancelID, adminToken)
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
-		}
+		requireStatus(t, resp, body, http.StatusOK)
 
-		// Verify it's no longer in the list
 		resp, body = getJSON(t, base+"/api/v1/invitations", adminToken)
 		var listResp struct {
 			Invitations []map[string]interface{} `json:"invitations"`
@@ -551,6 +418,5 @@ func TestInvitationFlow(t *testing.T) {
 		}
 	})
 
-	// Suppress unused variable warning
 	_ = invitationID
 }
