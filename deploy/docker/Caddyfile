@@ -1,13 +1,10 @@
-:443 {
-    tls internal
-
-    reverse_proxy gateway:8080
-
-    header {
-        -Server
-    }
-}
-
 :80 {
-    redir https://{host}{uri} permanent
+	reverse_proxy gateway:8080
+
+	header {
+		-Server
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
 }
