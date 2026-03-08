@@ -6,16 +6,10 @@
  * and profile menu.
  */
 import { Menu } from 'lucide-react'
-import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useUIStore } from '@/stores/ui'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { PresenceStatusPicker } from '@/features/presence'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import {
   SearchBar,
   HeaderClock,
@@ -23,10 +17,10 @@ import {
   ProfileSwitcher,
   ProfileMenu,
   HeaderWidgetSlots,
+  ConnectionStatusIndicator,
 } from '@/components/header'
 
 export function Header() {
-  const { isOnline } = useOnlineStatus()
   const navLayout = useUIStore((s) => s.navLayout)
   const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
 
@@ -74,23 +68,8 @@ export function Header() {
         {/* Notification bell (existing, real API) */}
         <NotificationBell />
 
-        {/* Connection status dot */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-full ${
-                isOnline ? 'bg-emerald-500' : 'bg-destructive'
-              }`}
-              role="status"
-              aria-label={isOnline ? 'Online' : 'Offline'}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            {isOnline
-              ? 'Verbunden mit dem Server'
-              : 'Keine Verbindung zum Server'}
-          </TooltipContent>
-        </Tooltip>
+        {/* Connection status dot (browser + WebSocket state) */}
+        <ConnectionStatusIndicator />
 
         {/* Profile Switcher */}
         <div className="hidden sm:block">

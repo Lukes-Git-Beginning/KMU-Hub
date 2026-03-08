@@ -42,6 +42,15 @@ export class ModuleErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoun
     return { hasError: true, error }
   }
 
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    // Log error details for debugging — structured console output
+    console.error('[ModuleErrorBoundary] Uncaught render error:', {
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+    })
+  }
+
   handleRetry = () => {
     this.setState({ hasError: false, error: null })
   }

@@ -13,6 +13,7 @@ export type WSMessageHandler = (data: Record<string, unknown>) => void
 export class WebSocketManager {
   private ws: WebSocket | null = null
   private handlers = new Map<string, Set<WSMessageHandler>>()
+  private stateListeners = new Set<() => void>()
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempt = 0
   private baseUrl: string
@@ -36,7 +37,7 @@ export class WebSocketManager {
     this.clearReconnectTimer()
 
     this.currentToken = accessToken
-    this.state = 'connecting'
+    this.setState('connecting')
     this.reconnectAttempt = 0
 
     this.createConnection()
@@ -45,7 +46,7 @@ export class WebSocketManager {
   /** Disconnect and stop reconnection attempts. */
   disconnect(): void {
     this.currentToken = null
-    this.state = 'disconnected'
+    this.setState('disconnected')
     this.reconnectAttempt = 0
     this.clearReconnectTimer()
     this.cleanupSocket()
@@ -83,6 +84,26 @@ export class WebSocketManager {
     return this.state
   }
 
+  /**
+   * Subscribe to connection state changes.
+   * Returns an unsubscribe function. Compatible with useSyncExternalStore.
+   */
+  subscribe(listener: () => void): () => void {
+    this.stateListeners.add(listener)
+    return () => {
+      this.stateListeners.delete(listener)
+    }
+  }
+
+  private setState(newState: WSConnectionState): void {
+    if (this.state !== newState) {
+      this.state = newState
+      for (const listener of this.stateListeners) {
+        listener()
+      }
+    }
+  }
+
   private createConnection(): void {
     if (!this.currentToken) return
 
@@ -98,7 +119,7 @@ export class WebSocketManager {
     }
 
     this.ws.onopen = () => {
-      this.state = 'connected'
+      this.setState('connected')
       this.reconnectAttempt = 0
     }
 
@@ -120,7 +141,7 @@ export class WebSocketManager {
     }
 
     this.ws.onclose = () => {
-      this.state = 'disconnected'
+      this.setState('disconnected')
       this.ws = null
       // Only reconnect if we haven't been explicitly disconnected
       if (this.currentToken) {
@@ -135,7 +156,7 @@ export class WebSocketManager {
 
   private scheduleReconnect(): void {
     if (this.reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-      this.state = 'disconnected'
+      this.setState('disconnected')
       return
     }
 
@@ -144,7 +165,7 @@ export class WebSocketManager {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempt++
-      this.state = 'connecting'
+      this.setState('connecting')
       this.createConnection()
     }, delay)
   }

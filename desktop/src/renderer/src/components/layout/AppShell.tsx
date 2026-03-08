@@ -17,14 +17,13 @@
 import { useUIStore } from '@/stores/ui'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { PresenceProvider } from '@/features/presence'
 import { PresenceStatusPicker } from '@/features/presence'
 import { FloatingCallBar } from '@/features/video/FloatingCallBar'
 import { IncomingCallOverlay } from '@/features/video/IncomingCallOverlay'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
-import { SearchBar, ProfileMenu } from '@/components/header'
+import { SearchBar, ProfileMenu, ConnectionStatusIndicator } from '@/components/header'
 import { Sidebar } from './sidebar'
 import { Header } from './Header'
 import { OfflineBanner } from './OfflineBanner'
@@ -36,11 +35,6 @@ import { PasswordExpiryDialog } from '@/components/shared/PasswordExpiryDialog'
 import { DockBar } from './dock/DockBar'
 import { TopNavBar } from './topnav/TopNavBar'
 import { ClassicSidebar } from './classic/ClassicSidebar'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 
 export function AppShell() {
   const navLayout = useUIStore((s) => s.navLayout)
@@ -121,7 +115,6 @@ export function AppShell() {
 
 /* -- Dock mini-header (extracted from DockLayout) -- */
 function DockHeader() {
-  const { isOnline } = useOnlineStatus()
   useNotificationWebSocket()
 
   return (
@@ -131,18 +124,7 @@ function DockHeader() {
       <div className="flex items-center gap-2">
         <PresenceStatusPicker />
         <NotificationBell />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className={`inline-block h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-destructive'}`}
-              role="status"
-              aria-label={isOnline ? 'Online' : 'Offline'}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            {isOnline ? 'Verbunden' : 'Keine Verbindung'}
-          </TooltipContent>
-        </Tooltip>
+        <ConnectionStatusIndicator />
         <ProfileMenu />
       </div>
     </header>
