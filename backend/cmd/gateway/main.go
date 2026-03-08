@@ -33,6 +33,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server"
 	authv1 "github.com/kmuhub/kmuhub/proto/auth/v1"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
+	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
 
 func main() {
@@ -126,6 +127,16 @@ func main() {
 
 	rateLimiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS)
 	r.Use(rateLimiter.Middleware)
+
+	// Audit logger: logs security-relevant events via gRPC (fire-and-forget)
+	auditLogger := middleware.NewAuditLogger(func() (securityv1.SecurityServiceClient, error) {
+		conn, err := registry.GetConnection("auth")
+		if err != nil {
+			return nil, err
+		}
+		return securityv1.NewSecurityServiceClient(conn), nil
+	})
+	r.Use(auditLogger.Middleware)
 
 	// =========================================================================
 	// Register per-service route handlers via RouteRegistrar interface
@@ -237,8 +248,9 @@ func main() {
 	// =========================================================================
 	// WebSocket hub (cross-cutting: needs chat + auth gRPC clients)
 	// =========================================================================
-	wsHub := setupWebSocketHub(registry, tokenMaker)
+	wsHub := setupWebSocketHub(registry, tokenMaker, cfg.CORSAllowedOrigins)
 	if wsHub != nil {
+		wsHub.SetMetrics(metricsRegistry)
 		// Wire guest service to WebSocket hub for guest token validation
 		wsHub.SetGuestService(&guestServiceAdapter{svc: guestService})
 
@@ -377,7 +389,7 @@ func listenNotificationDelivery(ctx context.Context, databaseURL string, wsHub *
 
 // setupWebSocketHub creates the WebSocket hub using lazy connections from the registry.
 // Returns nil if either chat or auth service connections cannot be obtained.
-func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.TokenMaker) *server.WebSocketHub {
+func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.TokenMaker, allowedOrigins []string) *server.WebSocketHub {
 	chatConn, err := registry.GetConnection("chat")
 	if err != nil {
 		slog.Warn("chat connection unavailable for websocket hub", "error", err)
@@ -398,7 +410,7 @@ func setupWebSocketHub(registry *gateway.ServiceRegistry, tokenMaker *auth.Token
 			return "", "", err
 		}
 		return resp.User.FirstName, resp.User.LastName, nil
-	})
+	}, allowedOrigins)
 }
 
 // guestServiceAdapter adapts guest.Service to server.GuestSessionValidator,

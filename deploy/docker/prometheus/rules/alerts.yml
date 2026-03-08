@@ -1,0 +1,90 @@
+groups:
+  - name: service_health
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been unreachable for more than 30 seconds."
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+            /
+            sum(rate(http_requests_total[5m])) by (job)
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "{{ $labels.job }} error rate is above 5% for the last 2 minutes."
+
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job))
+          > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P99 latency on {{ $labels.job }}"
+          description: "{{ $labels.job }} P99 latency is above 2 seconds for the last 5 minutes."
+
+  - name: infrastructure
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.job }}"
+          description: "{{ $labels.job }} is using more than 200MB of memory."
+
+      - alert: HighGoroutineCount
+        expr: go_goroutines > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High goroutine count on {{ $labels.job }}"
+          description: "{{ $labels.job }} has more than 500 goroutines."
+
+      - alert: GRPCHighErrorRate
+        expr: |
+          (
+            sum(rate(grpc_server_handled_total{grpc_code!="OK"}[5m])) by (job)
+            /
+            sum(rate(grpc_server_handled_total[5m])) by (job)
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High gRPC error rate on {{ $labels.job }}"
+          description: "{{ $labels.job }} gRPC error rate is above 5%."
+
+  - name: websocket
+    rules:
+      - alert: HighWSConnectionCount
+        expr: sum(ws_connections_active) > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket connection count"
+          description: "More than 500 active WebSocket connections."
+
+      - alert: WSAuthFailures
+        expr: rate(ws_errors_total{error_type="auth_failed"}[5m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated WebSocket authentication failures"
+          description: "More than 1 WS auth failure per second sustained for 2 minutes."

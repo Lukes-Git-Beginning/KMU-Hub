@@ -20,6 +20,11 @@ type Registry struct {
 	RequestDuration  *prometheus.HistogramVec
 	RequestsInFlight *prometheus.GaugeVec
 
+	// WebSocket metrics
+	WSConnectionsActive *prometheus.GaugeVec
+	WSMessagesTotal     *prometheus.CounterVec
+	WSErrors            *prometheus.CounterVec
+
 	// gRPC metrics
 	grpcMetrics *grpcprometheus.ServerMetrics
 }
@@ -44,6 +49,21 @@ func NewRegistry() *Registry {
 		Help: "Number of HTTP requests currently being served.",
 	}, []string{"method"})
 
+	wsConnectionsActive := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ws_connections_active",
+		Help: "Number of active WebSocket connections.",
+	}, []string{"type"}) // type: "user" or "guest"
+
+	wsMessagesTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "ws_messages_total",
+		Help: "Total number of WebSocket messages processed.",
+	}, []string{"direction", "message_type"}) // direction: "inbound" or "outbound"
+
+	wsErrors := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "ws_errors_total",
+		Help: "Total number of WebSocket errors.",
+	}, []string{"error_type"}) // error_type: "auth_failed", "rate_limited", "conn_limit"
+
 	grpcMetrics := grpcprometheus.NewServerMetrics()
 
 	reg.MustRegister(
@@ -52,15 +72,21 @@ func NewRegistry() *Registry {
 		requestsTotal,
 		requestDuration,
 		requestsInFlight,
+		wsConnectionsActive,
+		wsMessagesTotal,
+		wsErrors,
 		grpcMetrics,
 	)
 
 	return &Registry{
-		registry:         reg,
-		RequestsTotal:    requestsTotal,
-		RequestDuration:  requestDuration,
-		RequestsInFlight: requestsInFlight,
-		grpcMetrics:      grpcMetrics,
+		registry:            reg,
+		RequestsTotal:       requestsTotal,
+		RequestDuration:     requestDuration,
+		RequestsInFlight:    requestsInFlight,
+		WSConnectionsActive: wsConnectionsActive,
+		WSMessagesTotal:     wsMessagesTotal,
+		WSErrors:            wsErrors,
+		grpcMetrics:         grpcMetrics,
 	}
 }
 
