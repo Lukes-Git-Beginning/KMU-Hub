@@ -10,11 +10,11 @@ import (
 
 // Service handles GDPR consent management business logic.
 type Service struct {
-	repo *PostgresRepository
+	repo Repository
 }
 
 // NewService creates a new consent service.
-func NewService(repo *PostgresRepository) *Service {
+func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 

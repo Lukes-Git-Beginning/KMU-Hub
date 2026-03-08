@@ -1,0 +1,773 @@
+package workflow
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kmuhub/kmuhub/internal/automation/condition"
+	"github.com/kmuhub/kmuhub/internal/models"
+)
+
+// ============================================================================
+// Mock Repositories
+// ============================================================================
+
+type mockRepo struct {
+	createFn            func(ctx context.Context, a *models.Automation) error
+	updateFn            func(ctx context.Context, a *models.Automation) error
+	deleteFn            func(ctx context.Context, id uuid.UUID) error
+	getByIDFn           func(ctx context.Context, id uuid.UUID) (*models.Automation, error)
+	listFn              func(ctx context.Context, f ListFilter) ([]*models.Automation, int, error)
+	listActiveByTrigFn  func(ctx context.Context, triggerType string) ([]*models.Automation, error)
+	listActiveTimeBasFn func(ctx context.Context) ([]*models.Automation, error)
+	setActiveFn         func(ctx context.Context, id uuid.UUID, active bool) error
+	updateLastTriggFn   func(ctx context.Context, id uuid.UUID, at time.Time) error
+}
+
+func (m *mockRepo) Create(ctx context.Context, a *models.Automation) error {
+	if m.createFn != nil {
+		return m.createFn(ctx, a)
+	}
+	return nil
+}
+
+func (m *mockRepo) Update(ctx context.Context, a *models.Automation) error {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, a)
+	}
+	return nil
+}
+
+func (m *mockRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, id)
+	}
+	return nil
+}
+
+func (m *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Automation, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *mockRepo) List(ctx context.Context, f ListFilter) ([]*models.Automation, int, error) {
+	if m.listFn != nil {
+		return m.listFn(ctx, f)
+	}
+	return nil, 0, nil
+}
+
+func (m *mockRepo) ListActiveByTriggerType(ctx context.Context, triggerType string) ([]*models.Automation, error) {
+	if m.listActiveByTrigFn != nil {
+		return m.listActiveByTrigFn(ctx, triggerType)
+	}
+	return nil, nil
+}
+
+func (m *mockRepo) ListActiveTimeBased(ctx context.Context) ([]*models.Automation, error) {
+	if m.listActiveTimeBasFn != nil {
+		return m.listActiveTimeBasFn(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockRepo) SetActive(ctx context.Context, id uuid.UUID, active bool) error {
+	if m.setActiveFn != nil {
+		return m.setActiveFn(ctx, id, active)
+	}
+	return nil
+}
+
+func (m *mockRepo) UpdateLastTriggered(ctx context.Context, id uuid.UUID, at time.Time) error {
+	if m.updateLastTriggFn != nil {
+		return m.updateLastTriggFn(ctx, id, at)
+	}
+	return nil
+}
+
+type mockExecRepo struct {
+	createExecFn  func(ctx context.Context, e *models.AutomationExecution) error
+	updateExecFn  func(ctx context.Context, e *models.AutomationExecution) error
+	getExecFn     func(ctx context.Context, id uuid.UUID) (*models.AutomationExecution, error)
+	listExecFn    func(ctx context.Context, f ExecutionFilter) ([]*models.AutomationExecution, int, error)
+	cleanupOldFn  func(ctx context.Context, olderThan time.Duration) (int64, error)
+}
+
+func (m *mockExecRepo) CreateExecution(ctx context.Context, e *models.AutomationExecution) error {
+	if m.createExecFn != nil {
+		return m.createExecFn(ctx, e)
+	}
+	return nil
+}
+
+func (m *mockExecRepo) UpdateExecution(ctx context.Context, e *models.AutomationExecution) error {
+	if m.updateExecFn != nil {
+		return m.updateExecFn(ctx, e)
+	}
+	return nil
+}
+
+func (m *mockExecRepo) GetExecution(ctx context.Context, id uuid.UUID) (*models.AutomationExecution, error) {
+	if m.getExecFn != nil {
+		return m.getExecFn(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *mockExecRepo) ListExecutions(ctx context.Context, f ExecutionFilter) ([]*models.AutomationExecution, int, error) {
+	if m.listExecFn != nil {
+		return m.listExecFn(ctx, f)
+	}
+	return nil, 0, nil
+}
+
+func (m *mockExecRepo) CleanupOldExecutions(ctx context.Context, olderThan time.Duration) (int64, error) {
+	if m.cleanupOldFn != nil {
+		return m.cleanupOldFn(ctx, olderThan)
+	}
+	return 0, nil
+}
+
+type mockTemplateRepo struct {
+	listTemplatesFn func(ctx context.Context, category *string) ([]*models.AutomationTemplate, error)
+	getTemplateFn   func(ctx context.Context, id string) (*models.AutomationTemplate, error)
+	upsertFn        func(ctx context.Context, t *models.AutomationTemplate) error
+}
+
+func (m *mockTemplateRepo) ListTemplates(ctx context.Context, category *string) ([]*models.AutomationTemplate, error) {
+	if m.listTemplatesFn != nil {
+		return m.listTemplatesFn(ctx, category)
+	}
+	return nil, nil
+}
+
+func (m *mockTemplateRepo) GetTemplate(ctx context.Context, id string) (*models.AutomationTemplate, error) {
+	if m.getTemplateFn != nil {
+		return m.getTemplateFn(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *mockTemplateRepo) UpsertTemplate(ctx context.Context, t *models.AutomationTemplate) error {
+	if m.upsertFn != nil {
+		return m.upsertFn(ctx, t)
+	}
+	return nil
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+func triggerGet(t string) (any, bool) {
+	if t == "event" || t == "schedule" {
+		return "trigger-def", true
+	}
+	return nil, false
+}
+
+func triggerAll() []any {
+	return []any{"trigger1", "trigger2"}
+}
+
+func actionGet(t string) (any, bool) {
+	if t == "send_email" || t == "add_tag" {
+		return "action-def", true
+	}
+	return nil, false
+}
+
+func actionAllDefs() []any {
+	return []any{"action1", "action2"}
+}
+
+func newTestService(repo *mockRepo, execRepo *mockExecRepo, tmplRepo *mockTemplateRepo) *Service {
+	if repo == nil {
+		repo = &mockRepo{}
+	}
+	if execRepo == nil {
+		execRepo = &mockExecRepo{}
+	}
+	if tmplRepo == nil {
+		tmplRepo = &mockTemplateRepo{}
+	}
+	return NewService(repo, execRepo, tmplRepo, triggerGet, triggerAll, actionGet, actionAllDefs, condition.NewEvaluator())
+}
+
+func mustJSON(v any) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// ============================================================================
+// Create
+// ============================================================================
+
+func TestCreate_Success(t *testing.T) {
+	var captured *models.Automation
+	repo := &mockRepo{
+		createFn: func(_ context.Context, a *models.Automation) error {
+			captured = a
+			return nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	auto := &models.Automation{
+		Name:        "Test Automation",
+		TriggerType: "event",
+		Actions:     mustJSON([]models.ActionConfig{{Type: "send_email"}}),
+	}
+
+	err := svc.Create(context.Background(), auto)
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.Nil, captured.ID)
+	assert.False(t, captured.CreatedAt.IsZero())
+	assert.False(t, captured.UpdatedAt.IsZero())
+	assert.Equal(t, 10, captured.MaxSteps, "default MaxSteps should be 10")
+}
+
+func TestCreate_UnknownTriggerType(t *testing.T) {
+	svc := newTestService(nil, nil, nil)
+
+	auto := &models.Automation{
+		Name:        "Bad Trigger",
+		TriggerType: "nonexistent",
+		Actions:     mustJSON([]models.ActionConfig{{Type: "send_email"}}),
+	}
+
+	err := svc.Create(context.Background(), auto)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidCondition))
+}
+
+func TestCreate_UnknownActionType(t *testing.T) {
+	svc := newTestService(nil, nil, nil)
+
+	auto := &models.Automation{
+		Name:        "Bad Action",
+		TriggerType: "event",
+		Actions:     mustJSON([]models.ActionConfig{{Type: "launch_rocket"}}),
+	}
+
+	err := svc.Create(context.Background(), auto)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidAction))
+}
+
+func TestCreate_CustomMaxSteps(t *testing.T) {
+	repo := &mockRepo{
+		createFn: func(_ context.Context, a *models.Automation) error {
+			return nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	auto := &models.Automation{
+		Name:        "Custom Steps",
+		TriggerType: "event",
+		Actions:     mustJSON([]models.ActionConfig{{Type: "send_email"}}),
+		MaxSteps:    25,
+	}
+
+	err := svc.Create(context.Background(), auto)
+	require.NoError(t, err)
+	assert.Equal(t, 25, auto.MaxSteps, "custom MaxSteps should be preserved")
+}
+
+// ============================================================================
+// Update
+// ============================================================================
+
+func TestUpdate_Success(t *testing.T) {
+	updateCalled := false
+	repo := &mockRepo{
+		updateFn: func(_ context.Context, a *models.Automation) error {
+			updateCalled = true
+			return nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	auto := &models.Automation{
+		ID:          uuid.New(),
+		Name:        "Updated Automation",
+		TriggerType: "schedule",
+		Actions:     mustJSON([]models.ActionConfig{{Type: "add_tag"}}),
+	}
+
+	err := svc.Update(context.Background(), auto)
+	require.NoError(t, err)
+	assert.True(t, updateCalled)
+	assert.False(t, auto.UpdatedAt.IsZero())
+}
+
+func TestUpdate_ValidationError(t *testing.T) {
+	svc := newTestService(nil, nil, nil)
+
+	auto := &models.Automation{
+		ID:          uuid.New(),
+		Name:        "Bad Update",
+		TriggerType: "invalid_trigger",
+	}
+
+	err := svc.Update(context.Background(), auto)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrInvalidCondition))
+}
+
+// ============================================================================
+// Delete
+// ============================================================================
+
+func TestDelete_Success(t *testing.T) {
+	deletedID := uuid.Nil
+	repo := &mockRepo{
+		deleteFn: func(_ context.Context, id uuid.UUID) error {
+			deletedID = id
+			return nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	targetID := uuid.New()
+	err := svc.Delete(context.Background(), targetID)
+	require.NoError(t, err)
+	assert.Equal(t, targetID, deletedID)
+}
+
+// ============================================================================
+// GetByID
+// ============================================================================
+
+func TestGetByID_Success(t *testing.T) {
+	expected := &models.Automation{ID: uuid.New(), Name: "Found"}
+	repo := &mockRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*models.Automation, error) {
+			return expected, nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	result, err := svc.GetByID(context.Background(), expected.ID)
+	require.NoError(t, err)
+	assert.Equal(t, expected.Name, result.Name)
+}
+
+func TestGetByID_NotFound(t *testing.T) {
+	repo := &mockRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*models.Automation, error) {
+			return nil, ErrAutomationNotFound
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	_, err := svc.GetByID(context.Background(), uuid.New())
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrAutomationNotFound))
+}
+
+// ============================================================================
+// List
+// ============================================================================
+
+func TestList_Success(t *testing.T) {
+	expected := []*models.Automation{{ID: uuid.New(), Name: "Auto1"}}
+	repo := &mockRepo{
+		listFn: func(_ context.Context, f ListFilter) ([]*models.Automation, int, error) {
+			return expected, 1, nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	results, count, err := svc.List(context.Background(), ListFilter{Limit: 10})
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+	assert.Len(t, results, 1)
+}
+
+func TestList_LimitClampZeroToDefault(t *testing.T) {
+	var capturedFilter ListFilter
+	repo := &mockRepo{
+		listFn: func(_ context.Context, f ListFilter) ([]*models.Automation, int, error) {
+			capturedFilter = f
+			return nil, 0, nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	_, _, err := svc.List(context.Background(), ListFilter{Limit: 0})
+	require.NoError(t, err)
+	assert.Equal(t, 50, capturedFilter.Limit, "zero limit should be clamped to 50")
+}
+
+func TestList_LimitClampOverMax(t *testing.T) {
+	var capturedFilter ListFilter
+	repo := &mockRepo{
+		listFn: func(_ context.Context, f ListFilter) ([]*models.Automation, int, error) {
+			capturedFilter = f
+			return nil, 0, nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	_, _, err := svc.List(context.Background(), ListFilter{Limit: 500})
+	require.NoError(t, err)
+	assert.Equal(t, 100, capturedFilter.Limit, "limit over 100 should be clamped to 100")
+}
+
+// ============================================================================
+// SetActive
+// ============================================================================
+
+func TestSetActive_Success(t *testing.T) {
+	var capturedActive bool
+	repo := &mockRepo{
+		setActiveFn: func(_ context.Context, _ uuid.UUID, active bool) error {
+			capturedActive = active
+			return nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	err := svc.SetActive(context.Background(), uuid.New(), true)
+	require.NoError(t, err)
+	assert.True(t, capturedActive)
+}
+
+// ============================================================================
+// ListExecutions
+// ============================================================================
+
+func TestListExecutions_Success(t *testing.T) {
+	expected := []*models.AutomationExecution{{ID: uuid.New(), Status: "completed"}}
+	execRepo := &mockExecRepo{
+		listExecFn: func(_ context.Context, f ExecutionFilter) ([]*models.AutomationExecution, int, error) {
+			return expected, 1, nil
+		},
+	}
+	svc := newTestService(nil, execRepo, nil)
+
+	results, count, err := svc.ListExecutions(context.Background(), ExecutionFilter{Limit: 10})
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+	assert.Len(t, results, 1)
+}
+
+func TestListExecutions_LimitClampZero(t *testing.T) {
+	var capturedFilter ExecutionFilter
+	execRepo := &mockExecRepo{
+		listExecFn: func(_ context.Context, f ExecutionFilter) ([]*models.AutomationExecution, int, error) {
+			capturedFilter = f
+			return nil, 0, nil
+		},
+	}
+	svc := newTestService(nil, execRepo, nil)
+
+	_, _, err := svc.ListExecutions(context.Background(), ExecutionFilter{Limit: 0})
+	require.NoError(t, err)
+	assert.Equal(t, 50, capturedFilter.Limit)
+}
+
+func TestListExecutions_LimitClampOver100(t *testing.T) {
+	var capturedFilter ExecutionFilter
+	execRepo := &mockExecRepo{
+		listExecFn: func(_ context.Context, f ExecutionFilter) ([]*models.AutomationExecution, int, error) {
+			capturedFilter = f
+			return nil, 0, nil
+		},
+	}
+	svc := newTestService(nil, execRepo, nil)
+
+	_, _, err := svc.ListExecutions(context.Background(), ExecutionFilter{Limit: 200})
+	require.NoError(t, err)
+	assert.Equal(t, 100, capturedFilter.Limit)
+}
+
+// ============================================================================
+// GetExecution
+// ============================================================================
+
+func TestGetExecution_Success(t *testing.T) {
+	expected := &models.AutomationExecution{ID: uuid.New(), Status: "completed"}
+	execRepo := &mockExecRepo{
+		getExecFn: func(_ context.Context, id uuid.UUID) (*models.AutomationExecution, error) {
+			return expected, nil
+		},
+	}
+	svc := newTestService(nil, execRepo, nil)
+
+	result, err := svc.GetExecution(context.Background(), expected.ID)
+	require.NoError(t, err)
+	assert.Equal(t, expected.ID, result.ID)
+}
+
+// ============================================================================
+// ListTriggers / ListActions
+// ============================================================================
+
+func TestListTriggers_ReturnsCatalog(t *testing.T) {
+	svc := newTestService(nil, nil, nil)
+	triggers := svc.ListTriggers()
+	assert.Len(t, triggers, 2)
+	assert.Equal(t, "trigger1", triggers[0])
+	assert.Equal(t, "trigger2", triggers[1])
+}
+
+func TestListActions_ReturnsCatalog(t *testing.T) {
+	svc := newTestService(nil, nil, nil)
+	actions := svc.ListActions()
+	assert.Len(t, actions, 2)
+	assert.Equal(t, "action1", actions[0])
+	assert.Equal(t, "action2", actions[1])
+}
+
+// ============================================================================
+// Templates
+// ============================================================================
+
+func TestListTemplates_Success(t *testing.T) {
+	expected := []*models.AutomationTemplate{{ID: "tmpl-1", Name: "Welcome Email"}}
+	tmplRepo := &mockTemplateRepo{
+		listTemplatesFn: func(_ context.Context, _ *string) ([]*models.AutomationTemplate, error) {
+			return expected, nil
+		},
+	}
+	svc := newTestService(nil, nil, tmplRepo)
+
+	results, err := svc.ListTemplates(context.Background(), nil)
+	require.NoError(t, err)
+	assert.Len(t, results, 1)
+	assert.Equal(t, "Welcome Email", results[0].Name)
+}
+
+func TestGetTemplate_Success(t *testing.T) {
+	expected := &models.AutomationTemplate{ID: "tmpl-1", Name: "Welcome Email"}
+	tmplRepo := &mockTemplateRepo{
+		getTemplateFn: func(_ context.Context, id string) (*models.AutomationTemplate, error) {
+			return expected, nil
+		},
+	}
+	svc := newTestService(nil, nil, tmplRepo)
+
+	result, err := svc.GetTemplate(context.Background(), "tmpl-1")
+	require.NoError(t, err)
+	assert.Equal(t, "tmpl-1", result.ID)
+}
+
+// ============================================================================
+// CreateFromTemplate
+// ============================================================================
+
+func TestCreateFromTemplate_Success(t *testing.T) {
+	tmpl := &models.AutomationTemplate{
+		ID:            "tmpl-welcome",
+		Name:          "Welcome",
+		Description:   "Welcome email automation",
+		TriggerType:   "event",
+		TriggerConfig: mustJSON(map[string]string{"event": "contact.created"}),
+		Conditions:    nil,
+		Actions:       mustJSON([]models.ActionConfig{{Type: "send_email"}}),
+	}
+
+	var createdAuto *models.Automation
+	repo := &mockRepo{
+		createFn: func(_ context.Context, a *models.Automation) error {
+			createdAuto = a
+			return nil
+		},
+	}
+	tmplRepo := &mockTemplateRepo{
+		getTemplateFn: func(_ context.Context, id string) (*models.AutomationTemplate, error) {
+			return tmpl, nil
+		},
+	}
+	svc := newTestService(repo, nil, tmplRepo)
+
+	ownerID := uuid.New()
+	result, err := svc.CreateFromTemplate(context.Background(), "tmpl-welcome", ownerID, "My Welcome")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Equal(t, "My Welcome", result.Name)
+	assert.Equal(t, tmpl.Description, result.Description)
+	assert.Equal(t, models.AutomationScopePersonal, result.Scope)
+	assert.Equal(t, ownerID, result.OwnerID)
+	assert.False(t, result.IsActive, "should be inactive by default")
+	assert.Equal(t, 10, result.MaxSteps)
+	require.NotNil(t, result.TemplateID)
+	assert.Equal(t, "tmpl-welcome", *result.TemplateID)
+	assert.NotNil(t, createdAuto)
+}
+
+func TestCreateFromTemplate_TemplateNotFound(t *testing.T) {
+	tmplRepo := &mockTemplateRepo{
+		getTemplateFn: func(_ context.Context, id string) (*models.AutomationTemplate, error) {
+			return nil, nil
+		},
+	}
+	svc := newTestService(nil, nil, tmplRepo)
+
+	_, err := svc.CreateFromTemplate(context.Background(), "nonexistent", uuid.New(), "Test")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrTemplateNotFound))
+}
+
+// ============================================================================
+// GetStats
+// ============================================================================
+
+func TestGetStats_Success(t *testing.T) {
+	repo := &mockRepo{
+		listFn: func(_ context.Context, f ListFilter) ([]*models.Automation, int, error) {
+			if f.IsActive != nil && *f.IsActive {
+				return nil, 3, nil
+			}
+			return nil, 10, nil
+		},
+	}
+	execRepo := &mockExecRepo{
+		listExecFn: func(_ context.Context, f ExecutionFilter) ([]*models.AutomationExecution, int, error) {
+			if f.Status == nil {
+				return nil, 0, nil
+			}
+			switch *f.Status {
+			case models.ExecutionStatusCompleted:
+				return nil, 15, nil
+			case models.ExecutionStatusFailed:
+				return nil, 5, nil
+			case models.ExecutionStatusSkipped:
+				return nil, 2, nil
+			}
+			return nil, 0, nil
+		},
+	}
+	svc := newTestService(repo, execRepo, nil)
+
+	stats, err := svc.GetStats(context.Background())
+	require.NoError(t, err)
+
+	assert.Equal(t, 10, stats.TotalAutomations)
+	assert.Equal(t, 3, stats.ActiveAutomations)
+	assert.Equal(t, 15, stats.SuccessfulExecs)
+	assert.Equal(t, 5, stats.FailedExecs)
+	assert.Equal(t, 2, stats.SkippedExecs)
+	assert.Equal(t, 22, stats.TotalExecutions)
+	// 15/22 * 100 = 68.18...
+	assert.InDelta(t, 68.18, stats.SuccessRate, 0.1)
+}
+
+// ============================================================================
+// TestCondition
+// ============================================================================
+
+func TestTestCondition_EmptyModeAlwaysTrue(t *testing.T) {
+	svc := newTestService(nil, nil, nil)
+
+	condJSON := mustJSON(models.ConditionConfig{Mode: ""})
+	result, err := svc.TestCondition(context.Background(), condJSON, nil)
+	require.NoError(t, err)
+	assert.True(t, result, "empty mode should always return true")
+}
+
+func TestTestCondition_SimpleCondition(t *testing.T) {
+	svc := newTestService(nil, nil, nil)
+
+	condJSON := mustJSON(models.ConditionConfig{
+		Mode: models.ConditionModeSimple,
+		Simple: &models.Condition{
+			Field:    "status",
+			Operator: "equals",
+			Value:    "active",
+		},
+	})
+	env := map[string]any{"status": "active"}
+
+	result, err := svc.TestCondition(context.Background(), condJSON, env)
+	require.NoError(t, err)
+	assert.True(t, result)
+}
+
+// ============================================================================
+// DryRun
+// ============================================================================
+
+func TestDryRun_Success(t *testing.T) {
+	autoID := uuid.New()
+	auto := &models.Automation{
+		ID:          autoID,
+		Name:        "Test Auto",
+		TriggerType: "event",
+		Conditions:  nil,
+		Actions:     mustJSON([]models.ActionConfig{{Type: "send_email"}, {Type: "add_tag"}}),
+		IsActive:    true,
+	}
+	repo := &mockRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*models.Automation, error) {
+			if id == autoID {
+				return auto, nil
+			}
+			return nil, nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	result, err := svc.DryRun(context.Background(), autoID, map[string]any{"x": 1})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.True(t, result.ConditionResult, "empty conditions should match")
+	assert.Len(t, result.Steps, 2)
+	assert.Equal(t, "send_email", result.Steps[0].ActionType)
+	assert.True(t, result.Steps[0].WouldRun)
+	assert.Equal(t, "add_tag", result.Steps[1].ActionType)
+	assert.True(t, result.Steps[1].WouldRun)
+}
+
+func TestDryRun_AutomationNotFound(t *testing.T) {
+	repo := &mockRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*models.Automation, error) {
+			return nil, nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	_, err := svc.DryRun(context.Background(), uuid.New(), nil)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrAutomationNotFound))
+}
+
+func TestDryRun_UnknownActionMarkedAsError(t *testing.T) {
+	autoID := uuid.New()
+	auto := &models.Automation{
+		ID:          autoID,
+		TriggerType: "event",
+		Actions:     mustJSON([]models.ActionConfig{{Type: "send_email"}, {Type: "unknown_action"}}),
+	}
+	repo := &mockRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*models.Automation, error) {
+			return auto, nil
+		},
+	}
+	svc := newTestService(repo, nil, nil)
+
+	result, err := svc.DryRun(context.Background(), autoID, nil)
+	require.NoError(t, err)
+
+	assert.True(t, result.Steps[0].WouldRun)
+	assert.Empty(t, result.Steps[0].Error)
+	assert.False(t, result.Steps[1].WouldRun)
+	assert.Equal(t, "action type not registered", result.Steps[1].Error)
+}

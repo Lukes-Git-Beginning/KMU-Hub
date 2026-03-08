@@ -138,6 +138,14 @@ func (m *MockRepository) SetContactCount(companyID uuid.UUID, count int) {
 	m.contactCounts[companyID] = count
 }
 
+func (m *MockRepository) FindDuplicateCandidates(_ context.Context, _ uuid.UUID) ([]*DuplicateCandidate, error) {
+	return nil, nil
+}
+
+func (m *MockRepository) MergeInto(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
 // ============================================================================
 // Create Tests
 // ============================================================================

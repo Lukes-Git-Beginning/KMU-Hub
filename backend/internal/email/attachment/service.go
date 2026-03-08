@@ -2,29 +2,26 @@ package attachment
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
 // Service manages attachment DB records and MinIO storage.
 type Service struct {
-	pool  *pgxpool.Pool
-	store *Store
+	repo  Repository
+	store ObjectStore
 }
 
 // NewService creates a new attachment service.
-func NewService(pool *pgxpool.Pool, store *Store) *Service {
+func NewService(repo Repository, store ObjectStore) *Service {
 	return &Service{
-		pool:  pool,
+		repo:  repo,
 		store: store,
 	}
 }
@@ -60,17 +57,10 @@ func (s *Service) CreateFromStream(
 		CreatedAt:   time.Now().UTC(),
 	}
 
-	_, err = s.pool.Exec(ctx,
-		`INSERT INTO email_attachments (id, message_id, filename, content_type,
-			size_bytes, minio_key, content_id, is_inline, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		att.ID, att.MessageID, att.Filename, att.ContentType,
-		att.SizeBytes, att.MinIOKey, att.ContentID, att.IsInline, att.CreatedAt,
-	)
-	if err != nil {
+	if createErr := s.repo.Create(ctx, att); createErr != nil {
 		// Cleanup MinIO on DB failure
 		_ = s.store.Delete(ctx, minioKey)
-		return nil, fmt.Errorf("failed to create attachment record: %w", err)
+		return nil, fmt.Errorf("failed to create attachment record: %w", createErr)
 	}
 
 	slog.Info("attachment created",
@@ -85,40 +75,13 @@ func (s *Service) CreateFromStream(
 
 // GetByMessage returns all attachments for a message.
 func (s *Service) GetByMessage(ctx context.Context, messageID uuid.UUID) ([]*models.EmailAttachment, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT id, message_id, filename, content_type, size_bytes, minio_key,
-			content_id, is_inline, created_at
-		 FROM email_attachments WHERE message_id = $1
-		 ORDER BY created_at ASC`, messageID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var attachments []*models.EmailAttachment
-	for rows.Next() {
-		var att models.EmailAttachment
-		if err := rows.Scan(&att.ID, &att.MessageID, &att.Filename, &att.ContentType,
-			&att.SizeBytes, &att.MinIOKey, &att.ContentID, &att.IsInline,
-			&att.CreatedAt); err != nil {
-			return nil, err
-		}
-		attachments = append(attachments, &att)
-	}
-	return attachments, rows.Err()
+	return s.repo.GetByMessage(ctx, messageID)
 }
 
 // GetDownloadURL returns a presigned URL for downloading an attachment.
 func (s *Service) GetDownloadURL(ctx context.Context, attachmentID uuid.UUID) (string, error) {
-	var minioKey string
-	err := s.pool.QueryRow(ctx,
-		`SELECT minio_key FROM email_attachments WHERE id = $1`, attachmentID,
-	).Scan(&minioKey)
+	minioKey, err := s.repo.GetMinIOKeyByID(ctx, attachmentID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrAttachmentNotFound
-		}
 		return "", err
 	}
 

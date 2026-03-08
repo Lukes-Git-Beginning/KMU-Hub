@@ -99,7 +99,7 @@ func main() {
 
 	// Attachment service (MinIO storage)
 	attachStore := attachment.NewStore(minioClient, cfg.MinIOBucket)
-	attachmentService := attachment.NewService(pool, attachStore)
+	attachmentService := attachment.NewService(attachment.NewPostgresRepository(pool), attachStore)
 
 	// Sync engine (background IMAP sync)
 	folderSyncAdapter := &folderSyncAdapter{repo: folderRepo}

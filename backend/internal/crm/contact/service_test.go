@@ -187,6 +187,14 @@ func (m *MockRepository) SetInUse(contactID uuid.UUID, inUse bool) {
 	m.inUseContacts[contactID] = inUse
 }
 
+func (m *MockRepository) FindDuplicateCandidates(_ context.Context, _ uuid.UUID) ([]*DuplicateCandidate, error) {
+	return nil, nil
+}
+
+func (m *MockRepository) MergeInto(_ context.Context, _, _ uuid.UUID) error {
+	return nil
+}
+
 // ============================================================================
 // Create Tests
 // ============================================================================

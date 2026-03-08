@@ -13,19 +13,18 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/plugin/config"
-	"github.com/kmuhub/kmuhub/internal/plugin/repository"
 )
 
 // Service handles plugin business logic
 type Service struct {
-	manifests        *repository.ManifestRepository
-	installations    *repository.InstallationRepository
-	permissions      *repository.PermissionRepository
-	kvStore          *repository.KVStoreRepository
-	executionLog     *repository.ExecutionLogRepository
-	validationRules  *repository.ValidationRuleRepository
-	workflowRules    *repository.WorkflowRuleRepository
-	templates        *repository.IndustryTemplateRepository
+	manifests        ManifestRepo
+	installations    InstallationRepo
+	permissions      PermissionRepo
+	kvStore          KVStoreRepo
+	executionLog     ExecutionLogRepo
+	validationRules  ValidationRuleRepo
+	workflowRules    WorkflowRuleRepo
+	templates        IndustryTemplateRepo
 	schemaValidator  *config.SchemaValidator
 	validationEngine *config.ValidationEngine
 	workflowEngine   *config.WorkflowEngine
@@ -33,14 +32,14 @@ type Service struct {
 
 // NewService creates a new plugin service
 func NewService(
-	manifests *repository.ManifestRepository,
-	installations *repository.InstallationRepository,
-	permissions *repository.PermissionRepository,
-	kvStore *repository.KVStoreRepository,
-	executionLog *repository.ExecutionLogRepository,
-	validationRules *repository.ValidationRuleRepository,
-	workflowRules *repository.WorkflowRuleRepository,
-	templates *repository.IndustryTemplateRepository,
+	manifests ManifestRepo,
+	installations InstallationRepo,
+	permissions PermissionRepo,
+	kvStore KVStoreRepo,
+	executionLog ExecutionLogRepo,
+	validationRules ValidationRuleRepo,
+	workflowRules WorkflowRuleRepo,
+	templates IndustryTemplateRepo,
 ) *Service {
 	return &Service{
 		manifests:        manifests,
