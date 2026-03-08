@@ -1,0 +1,88 @@
+package gateway
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
+)
+
+// emptyRegistry returns a ServiceRegistry with no registered services.
+// Any handler that calls getXClient will get a "service not registered" error.
+func emptyRegistry() *ServiceRegistry {
+	return NewServiceRegistry()
+}
+
+// registryWithService returns a ServiceRegistry with a single service registered.
+// The address is a dummy localhost address — gRPC calls will fail at RPC time,
+// but getXClient will succeed (grpc.NewClient is non-blocking).
+func registryWithService(name string) *ServiceRegistry {
+	reg := NewServiceRegistry()
+	reg.Register(name, "localhost:0")
+	return reg
+}
+
+// withUserID creates a request with a user ID set in the context (as the auth middleware would).
+func withUserID(r *http.Request, userID string) *http.Request {
+	ctx := context.WithValue(r.Context(), middleware.UserIDKey, userID)
+	return r.WithContext(ctx)
+}
+
+// withChiURLParam sets a chi URL parameter on the request context.
+func withChiURLParam(r *http.Request, key, value string) *http.Request {
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add(key, value)
+	return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+}
+
+// jsonBody creates a reader from a JSON-serializable value.
+func jsonBody(t *testing.T, v interface{}) *bytes.Reader {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("failed to marshal json: %v", err)
+	}
+	return bytes.NewReader(data)
+}
+
+// invalidJSON returns a reader with invalid JSON content.
+func invalidJSON() *strings.Reader {
+	return strings.NewReader("{invalid json")
+}
+
+// assertStatus checks the HTTP response status code.
+func assertStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
+	t.Helper()
+	if rec.Code != want {
+		t.Errorf("status = %d, want %d; body = %s", rec.Code, want, rec.Body.String())
+	}
+}
+
+// assertErrorContains checks that the response contains a JSON error message with the given substring.
+func assertErrorContains(t *testing.T, rec *httptest.ResponseRecorder, substr string) {
+	t.Helper()
+	var resp map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if !strings.Contains(resp["error"], substr) {
+		t.Errorf("error = %q, want to contain %q", resp["error"], substr)
+	}
+}
+
+// testServiceUnavailable is a generic test for any handler that gets a gRPC client first.
+// It verifies that when the service is not registered, the handler returns 503.
+func testServiceUnavailable(t *testing.T, handler http.HandlerFunc) {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/", strings.NewReader("{}"))
+	handler(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
