@@ -5,6 +5,9 @@ COMPOSE_DIR="${COMPOSE_DIR:-/opt/kmuhub}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKIP_BACKUP=false
 SERVICE=""
+DEPLOY_LOCK="$COMPOSE_DIR/.deploy.lock"
+DEPLOY_LOG="$COMPOSE_DIR/deploy-history.log"
+DEPLOY_START=$(date +%s)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -18,37 +21,140 @@ COMPOSE="docker compose -f $COMPOSE_DIR/docker-compose.yml -f $COMPOSE_DIR/docke
 
 log() { echo "[deploy] $(date '+%Y-%m-%d %H:%M:%S') $*"; }
 
+log_deploy() {
+    local status=$1
+    local prev_sha=$2
+    local new_sha=$3
+    local duration=$(( $(date +%s) - DEPLOY_START ))
+    echo "$(date '+%Y-%m-%d %H:%M:%S')	$prev_sha	$new_sha	$status	${duration}s" >> "$DEPLOY_LOG"
+}
+
+cleanup() {
+    rm -f "$DEPLOY_LOCK"
+}
+
+rollback() {
+    local prev_sha=$1
+    local current_sha
+    current_sha=$(git -C "$COMPOSE_DIR" rev-parse HEAD)
+
+    log "AUTO-ROLLBACK: Rolling back from $current_sha to $prev_sha"
+
+    cd "$COMPOSE_DIR"
+    git checkout "$prev_sha"
+
+    # Calculate migration rollback count
+    local new_migrations current_migrations diff
+    new_migrations=$(ls -1 "$COMPOSE_DIR/backend/migrations/"*.up.sql 2>/dev/null | wc -l)
+    git stash 2>/dev/null || true
+    current_migrations=$(ls -1 "$COMPOSE_DIR/backend/migrations/"*.up.sql 2>/dev/null | wc -l)
+    git stash pop 2>/dev/null || true
+
+    diff=$(( new_migrations - current_migrations ))
+    if [[ $diff -gt 0 ]]; then
+        log "Rolling back $diff migration(s)..."
+        $COMPOSE run --rm migrate -path /migrations -database "$DATABASE_URL" down "$diff" || true
+    fi
+
+    # Rebuild and restart
+    local build_version build_commit
+    build_version=$(git -C "$COMPOSE_DIR" describe --tags --always 2>/dev/null || echo "rollback")
+    build_commit=$(git -C "$COMPOSE_DIR" rev-parse --short HEAD)
+
+    $COMPOSE build \
+        --build-arg BUILD_VERSION="$build_version" \
+        --build-arg BUILD_COMMIT="$build_commit" \
+        --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    $COMPOSE up -d postgres redis minio
+    sleep 5
+    for svc in auth crm chat notification work email document biz automation plugin; do
+        $COMPOSE up -d "$svc"
+        sleep 3
+    done
+    $COMPOSE up -d gateway caddy
+    sleep 5
+
+    # Verify rollback health
+    if [[ -f "$SCRIPT_DIR/healthcheck.sh" ]]; then
+        if "$SCRIPT_DIR/healthcheck.sh"; then
+            log "AUTO-ROLLBACK: Health check passed after rollback"
+            log_deploy "rollback-success" "$current_sha" "$prev_sha"
+        else
+            log "AUTO-ROLLBACK: Health check FAILED after rollback — manual intervention required"
+            log_deploy "rollback-failed" "$current_sha" "$prev_sha"
+        fi
+    fi
+}
+
+# ==========================================
+# Deployment Lock
+# ==========================================
+if [[ -f "$DEPLOY_LOCK" ]]; then
+    lock_pid=$(cat "$DEPLOY_LOCK" 2>/dev/null || echo "unknown")
+    log "ERROR: Another deployment is running (PID: $lock_pid)"
+    log "Lock file: $DEPLOY_LOCK"
+    log "If stale, remove manually: rm $DEPLOY_LOCK"
+    exit 1
+fi
+
+echo $$ > "$DEPLOY_LOCK"
+trap cleanup EXIT
+
 log "=========================================="
 log "  KMU Hub Production Deployment"
 log "=========================================="
 
+# Pre-Deploy Snapshot
+cd "$COMPOSE_DIR"
+PREV_SHA=$(git rev-parse HEAD)
+log "Previous commit: $PREV_SHA"
+
 # Step 1: Backup
 if [[ "$SKIP_BACKUP" == "false" ]]; then
-    log "Step 1/6: Creating backup..."
+    log "Step 1/7: Creating backup..."
     "$SCRIPT_DIR/backup.sh"
 else
-    log "Step 1/6: Backup skipped (--skip-backup)"
+    log "Step 1/7: Backup skipped (--skip-backup)"
 fi
 
 # Step 2: Pull latest code
-log "Step 2/6: Pulling latest code..."
-cd "$COMPOSE_DIR"
+log "Step 2/7: Pulling latest code..."
 git pull origin main
+NEW_SHA=$(git rev-parse HEAD)
+log "New commit: $NEW_SHA"
 
-# Step 3: Build images
-log "Step 3/6: Building images..."
+if [[ "$PREV_SHA" == "$NEW_SHA" && -z "$SERVICE" ]]; then
+    log "No changes to deploy (already at $NEW_SHA)"
+    log_deploy "no-change" "$PREV_SHA" "$NEW_SHA"
+    exit 0
+fi
+
+# Step 3: Build images with version info
+log "Step 3/7: Building images..."
+BUILD_VERSION=$(git describe --tags --always 2>/dev/null || echo "$NEW_SHA")
+BUILD_COMMIT=$(git rev-parse --short HEAD)
+BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
 if [[ -n "$SERVICE" ]]; then
-    $COMPOSE build "$SERVICE"
+    $COMPOSE build \
+        --build-arg BUILD_VERSION="$BUILD_VERSION" \
+        --build-arg BUILD_COMMIT="$BUILD_COMMIT" \
+        --build-arg BUILD_TIME="$BUILD_TIME" \
+        "$SERVICE"
 else
-    $COMPOSE build
+    $COMPOSE build \
+        --build-arg BUILD_VERSION="$BUILD_VERSION" \
+        --build-arg BUILD_COMMIT="$BUILD_COMMIT" \
+        --build-arg BUILD_TIME="$BUILD_TIME"
 fi
 
 # Step 4: Run migrations
-log "Step 4/6: Running migrations..."
+log "Step 4/7: Running migrations..."
 $COMPOSE run --rm migrate
 
 # Step 5: Restart services
-log "Step 5/6: Restarting services..."
+log "Step 5/7: Restarting services..."
 if [[ -n "$SERVICE" ]]; then
     $COMPOSE up -d "$SERVICE"
     log "Waiting for $SERVICE health check..."
@@ -69,15 +175,33 @@ else
 fi
 
 # Step 6: Health check
-log "Step 6/6: Running health checks..."
+log "Step 6/7: Running health checks..."
 if [[ -f "$SCRIPT_DIR/healthcheck.sh" ]]; then
-    "$SCRIPT_DIR/healthcheck.sh"
+    if ! "$SCRIPT_DIR/healthcheck.sh"; then
+        log "Health check FAILED — initiating auto-rollback..."
+        rollback "$PREV_SHA"
+        exit 1
+    fi
 else
     $COMPOSE ps
 fi
 
+# Step 7: Smoke tests
+log "Step 7/7: Running smoke tests..."
+if [[ -f "$SCRIPT_DIR/smoke.sh" ]]; then
+    if ! "$SCRIPT_DIR/smoke.sh" --base-url https://app.zentria.tech --expect-version "$BUILD_COMMIT"; then
+        log "Smoke tests FAILED — initiating auto-rollback..."
+        rollback "$PREV_SHA"
+        exit 1
+    fi
+else
+    log "Smoke script not found, skipping..."
+fi
+
+# Log success
+log_deploy "success" "$PREV_SHA" "$NEW_SHA"
+
 log "=========================================="
 log "  Deployment complete!"
+log "  Version: $BUILD_VERSION ($BUILD_COMMIT)"
 log "=========================================="
-log ""
-log "Rollback: git checkout HEAD~1 && $0 --skip-backup"

@@ -1,4 +1,4 @@
-.PHONY: build test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation migrate-up migrate-down migrate-create proto proto-automation docker-build docker-up docker-down docker-logs docker-clean e2e-test
+.PHONY: build test lint clean run-gateway run-crm run-chat run-auth run-notification run-work run-automation migrate-up migrate-down migrate-create proto proto-automation docker-build docker-up docker-down docker-logs docker-clean e2e-test smoke-test smoke-prod
 
 # Build all services
 build:
@@ -117,6 +117,13 @@ docker-clean:
 # E2E tests (requires running Docker stack)
 e2e-test:
 	go test -tags=e2e ./test/e2e/... -v
+
+# Smoke tests (requires running services)
+smoke-test:
+	go test -tags=smoke ./test/smoke/... -v -count=1
+
+smoke-prod:
+	SMOKE_URL=https://app.zentria.tech go test -tags=smoke ./test/smoke/... -v -count=1
 
 # Health checks
 health-gateway:

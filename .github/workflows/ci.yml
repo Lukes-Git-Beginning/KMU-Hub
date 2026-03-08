@@ -298,6 +298,96 @@ jobs:
           echo "=== Gateway Service Logs ==="
           cat /tmp/gateway.log || true
 
+  smoke:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [e2e]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: kmuhub_test
+          POSTGRES_USER: kmuhub_test
+          POSTGRES_PASSWORD: kmuhub_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kmuhub_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://kmuhub_test:kmuhub_test@localhost:5432/kmuhub_test?sslmode=disable
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-smoke-test-secret-minimum-32-characters
+      SMOKE_URL: http://localhost:8080
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Install golang-migrate
+        run: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.17.0
+
+      - name: Run migrations
+        run: migrate -path backend/migrations -database "$DATABASE_URL" up
+
+      - name: Build and start services
+        working-directory: backend
+        run: |
+          go build -o bin/auth ./cmd/auth
+          go build -o bin/gateway ./cmd/gateway
+          go build -o bin/crm ./cmd/crm
+          go build -o bin/chat ./cmd/chat
+          go build -o bin/work ./cmd/work
+          go build -o bin/document ./cmd/document
+
+          ./bin/auth > /tmp/auth.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:9091/health > /dev/null 2>&1 && break; sleep 1; done
+
+          ./bin/crm > /tmp/crm.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:9092/health > /dev/null 2>&1 && break; sleep 1; done
+
+          ./bin/chat > /tmp/chat.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:9093/health > /dev/null 2>&1 && break; sleep 1; done
+
+          ./bin/work > /tmp/work.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:9095/health > /dev/null 2>&1 && break; sleep 1; done
+
+          ./bin/document > /tmp/document.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:9097/health > /dev/null 2>&1 && break; sleep 1; done
+
+          ./bin/gateway > /tmp/gateway.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/health > /dev/null 2>&1 && break; sleep 1; done
+
+      - name: Run smoke tests
+        working-directory: backend
+        run: go test -tags=smoke ./test/smoke/... -v -count=1
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          for log in auth crm chat work document gateway; do
+            echo "=== $log Service Logs ==="
+            cat /tmp/$log.log || true
+          done
+
   openapi-validate:
     name: Validate OpenAPI
     runs-on: ubuntu-latest

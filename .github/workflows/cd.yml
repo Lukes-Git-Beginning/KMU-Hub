@@ -1,0 +1,66 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_backup:
+        description: "Skip database backup before deploy"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+env:
+  DEPLOY_HOST: 178.104.38.195
+  DEPLOY_USER: deploy
+  DEPLOY_PATH: /opt/kmuhub
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HETZNER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        run: |
+          DEPLOY_FLAGS=""
+          if [[ "${{ inputs.skip_backup }}" == "true" ]]; then
+            DEPLOY_FLAGS="--skip-backup"
+          fi
+
+          ssh -i ~/.ssh/deploy_key ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} \
+            "cd ${{ env.DEPLOY_PATH }} && ./deploy/scripts/deploy.sh $DEPLOY_FLAGS"
+
+      - name: Post-deploy smoke check
+        run: |
+          echo "Waiting for services to stabilize..."
+          sleep 10
+
+          HEALTH=$(curl -sf --max-time 10 https://app.zentria.tech/health || echo '{"status":"unreachable"}')
+          echo "Health response: $HEALTH"
+
+          STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "unknown")
+          if [[ "$STATUS" != "healthy" ]]; then
+            echo "::error::Post-deploy health check failed: status=$STATUS"
+            exit 1
+          fi
+
+          VERSION=$(echo "$HEALTH" | jq -r '.version // "unknown"' 2>/dev/null)
+          COMMIT=$(echo "$HEALTH" | jq -r '.commit // "unknown"' 2>/dev/null)
+          echo "Deployed version: $VERSION (commit: $COMMIT)"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

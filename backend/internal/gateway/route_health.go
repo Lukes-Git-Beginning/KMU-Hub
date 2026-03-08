@@ -11,6 +11,13 @@ import (
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
 
+// Build info variables, set via ldflags at build time.
+var (
+	BuildVersion = "dev"
+	BuildCommit  = "unknown"
+	BuildTime    = "unknown"
+)
+
 // HealthRoutes handles the health check endpoint for the gateway.
 type HealthRoutes struct {
 	checkers []health.Checker
@@ -53,5 +60,8 @@ func (h *HealthRoutes) HandleHealth(w http.ResponseWriter, r *http.Request) {
 		"status":              string(overall),
 		"checks":              checks,
 		"registered_services": registeredServices,
+		"version":             BuildVersion,
+		"commit":              BuildCommit,
+		"build_time":          BuildTime,
 	})
 }

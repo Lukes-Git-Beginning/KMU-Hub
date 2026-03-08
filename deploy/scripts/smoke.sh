@@ -1,0 +1,371 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ==========================================
+# KMU Hub Smoke Test Suite
+# Curl/jq-based, no Go toolchain required
+# ==========================================
+
+BASE_URL="https://app.zentria.tech"
+VERBOSE=false
+EXPECT_VERSION=""
+PASSED=0
+FAILED=0
+TOTAL=0
+SMOKE_TOKEN=""
+SMOKE_USER_ID=""
+SMOKE_EMAIL=""
+SMOKE_CONTACT_ID=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --base-url) BASE_URL="$2"; shift 2 ;;
+        --base-url=*) BASE_URL="${1#*=}"; shift ;;
+        --verbose) VERBOSE=true; shift ;;
+        --expect-version) EXPECT_VERSION="$2"; shift 2 ;;
+        --expect-version=*) EXPECT_VERSION="${1#*=}"; shift ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+# Remove trailing slash
+BASE_URL="${BASE_URL%/}"
+
+# Check dependencies
+for cmd in curl jq; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "ERROR: $cmd is required but not installed"
+        exit 1
+    fi
+done
+
+pass() {
+    ((TOTAL++))
+    ((PASSED++))
+    echo "  [PASS] $1"
+}
+
+fail() {
+    ((TOTAL++))
+    ((FAILED++))
+    echo "  [FAIL] $1"
+    if [[ "$VERBOSE" == "true" && -n "${2:-}" ]]; then
+        echo "         Details: $2"
+    fi
+}
+
+section() {
+    echo ""
+    echo "--- $1 ---"
+}
+
+# ==========================================
+# Infrastructure Tests (5)
+# ==========================================
+section "Infrastructure"
+
+# 1. Gateway health = 200 + healthy
+HEALTH_RESP=$(curl -sf -w "\n%{http_code}" "$BASE_URL/health" 2>/dev/null) || HEALTH_RESP=$'\n000'
+HEALTH_CODE=$(echo "$HEALTH_RESP" | tail -1)
+HEALTH_BODY=$(echo "$HEALTH_RESP" | sed '$d')
+
+if [[ "$HEALTH_CODE" == "200" ]]; then
+    HEALTH_STATUS=$(echo "$HEALTH_BODY" | jq -r '.status' 2>/dev/null || echo "")
+    if [[ "$HEALTH_STATUS" == "healthy" ]]; then
+        pass "Gateway /health returns 200 + healthy"
+    else
+        fail "Gateway /health status is '$HEALTH_STATUS', expected 'healthy'" "$HEALTH_BODY"
+    fi
+else
+    fail "Gateway /health returned $HEALTH_CODE, expected 200" ""
+fi
+
+# 2. All 10 services registered
+SVC_COUNT=$(echo "$HEALTH_BODY" | jq '.registered_services | length' 2>/dev/null || echo "0")
+if [[ "$SVC_COUNT" -ge 10 ]]; then
+    pass "All services registered ($SVC_COUNT)"
+else
+    fail "Only $SVC_COUNT services registered, expected >= 10" "$(echo "$HEALTH_BODY" | jq -r '.registered_services[]' 2>/dev/null)"
+fi
+
+# 3. HTTPS cert valid
+if curl -sf --max-time 5 "$BASE_URL/health" > /dev/null 2>&1; then
+    pass "HTTPS certificate valid"
+else
+    # Try without strict SSL to differentiate cert vs connectivity
+    if curl -ksf --max-time 5 "$BASE_URL/health" > /dev/null 2>&1; then
+        fail "HTTPS certificate invalid (request succeeds with -k)" ""
+    else
+        fail "Cannot reach $BASE_URL" ""
+    fi
+fi
+
+# 4. Response time < 2s
+RESP_TIME=$(curl -sf -o /dev/null -w "%{time_total}" "$BASE_URL/health" 2>/dev/null || echo "99")
+if (( $(echo "$RESP_TIME < 2.0" | bc -l 2>/dev/null || echo 0) )); then
+    pass "Health response time ${RESP_TIME}s < 2s"
+else
+    fail "Health response time ${RESP_TIME}s >= 2s" ""
+fi
+
+# 5. Version info present
+HAS_VERSION=$(echo "$HEALTH_BODY" | jq 'has("version")' 2>/dev/null || echo "false")
+if [[ "$HAS_VERSION" == "true" ]]; then
+    DEPLOYED_VERSION=$(echo "$HEALTH_BODY" | jq -r '.version' 2>/dev/null || echo "")
+    if [[ -n "$EXPECT_VERSION" && "$DEPLOYED_VERSION" != *"$EXPECT_VERSION"* ]]; then
+        DEPLOYED_COMMIT=$(echo "$HEALTH_BODY" | jq -r '.commit' 2>/dev/null || echo "")
+        if [[ "$DEPLOYED_COMMIT" == *"$EXPECT_VERSION"* ]]; then
+            pass "Expected version deployed (commit: $DEPLOYED_COMMIT)"
+        else
+            fail "Version mismatch: expected '$EXPECT_VERSION', got version='$DEPLOYED_VERSION' commit='$DEPLOYED_COMMIT'" ""
+        fi
+    else
+        pass "Version info present ($DEPLOYED_VERSION)"
+    fi
+else
+    fail "No version info in health response" ""
+fi
+
+# ==========================================
+# Auth Flow Tests (3)
+# ==========================================
+section "Auth Flow"
+
+SMOKE_EMAIL="smoke-$(date +%s)@test.kmuhub.local"
+SMOKE_PASS="SmokeTest123!"
+
+# 6. Register
+REG_RESP=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\",\"first_name\":\"Smoke\",\"last_name\":\"Test\"}" 2>/dev/null) || REG_RESP=$'\n000'
+REG_CODE=$(echo "$REG_RESP" | tail -1)
+
+if [[ "$REG_CODE" == "201" || "$REG_CODE" == "200" ]]; then
+    pass "Register smoke user ($SMOKE_EMAIL)"
+else
+    fail "Register returned $REG_CODE" "$(echo "$REG_RESP" | sed '$d')"
+fi
+
+# 7. Login = 200 + JWT
+LOGIN_RESP=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}" 2>/dev/null) || LOGIN_RESP=$'\n000'
+LOGIN_CODE=$(echo "$LOGIN_RESP" | tail -1)
+LOGIN_BODY=$(echo "$LOGIN_RESP" | sed '$d')
+
+if [[ "$LOGIN_CODE" == "200" ]]; then
+    SMOKE_TOKEN=$(echo "$LOGIN_BODY" | jq -r '.access_token' 2>/dev/null || echo "")
+    SMOKE_USER_ID=$(echo "$LOGIN_BODY" | jq -r '.user.id' 2>/dev/null || echo "")
+    if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+        pass "Login returns JWT"
+    else
+        fail "Login returned 200 but no access_token" "$LOGIN_BODY"
+    fi
+else
+    fail "Login returned $LOGIN_CODE" "$LOGIN_BODY"
+fi
+
+# 8. /auth/me with token
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    ME_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/auth/me" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
+    if [[ "$ME_CODE" == "200" ]]; then
+        pass "GET /auth/me with token = 200"
+    else
+        fail "GET /auth/me returned $ME_CODE" ""
+    fi
+else
+    fail "GET /auth/me skipped (no token)" ""
+fi
+
+# ==========================================
+# CRM CRUD Tests (3)
+# ==========================================
+section "CRM CRUD"
+
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    # 9. Create contact
+    CONTACT_RESP=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/contacts" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" \
+        -d '{"first_name":"Smoke","last_name":"Contact","email":"smoke-contact@test.kmuhub.local"}' 2>/dev/null) || CONTACT_RESP=$'\n000'
+    CONTACT_CODE=$(echo "$CONTACT_RESP" | tail -1)
+    CONTACT_BODY=$(echo "$CONTACT_RESP" | sed '$d')
+
+    if [[ "$CONTACT_CODE" == "201" || "$CONTACT_CODE" == "200" ]]; then
+        SMOKE_CONTACT_ID=$(echo "$CONTACT_BODY" | jq -r '.id // .contact.id // empty' 2>/dev/null || echo "")
+        pass "POST /contacts = $CONTACT_CODE"
+    else
+        fail "POST /contacts returned $CONTACT_CODE" "$CONTACT_BODY"
+    fi
+
+    # 10. Get contact
+    if [[ -n "$SMOKE_CONTACT_ID" ]]; then
+        GET_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/contacts/$SMOKE_CONTACT_ID" \
+            -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
+        if [[ "$GET_CODE" == "200" ]]; then
+            pass "GET /contacts/$SMOKE_CONTACT_ID = 200"
+        else
+            fail "GET /contacts/$SMOKE_CONTACT_ID returned $GET_CODE" ""
+        fi
+    else
+        fail "GET /contacts skipped (no contact ID)" ""
+    fi
+
+    # 11. Delete contact
+    if [[ -n "$SMOKE_CONTACT_ID" ]]; then
+        DEL_CODE=$(curl -sf -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/contacts/$SMOKE_CONTACT_ID" \
+            -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
+        if [[ "$DEL_CODE" == "200" || "$DEL_CODE" == "204" ]]; then
+            pass "DELETE /contacts/$SMOKE_CONTACT_ID = $DEL_CODE"
+        else
+            fail "DELETE /contacts returned $DEL_CODE" ""
+        fi
+    else
+        fail "DELETE /contacts skipped (no contact ID)" ""
+    fi
+else
+    fail "POST /contacts skipped (no token)" ""
+    fail "GET /contacts skipped (no token)" ""
+    fail "DELETE /contacts skipped (no token)" ""
+fi
+
+# ==========================================
+# Security Tests (3)
+# ==========================================
+section "Security"
+
+# 12. Unauthenticated /contacts = 401
+UNAUTH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/contacts" 2>/dev/null || echo "000")
+if [[ "$UNAUTH_CODE" == "401" ]]; then
+    pass "Unauthenticated /contacts = 401"
+else
+    fail "Unauthenticated /contacts returned $UNAUTH_CODE, expected 401" ""
+fi
+
+# 13. CORS headers on preflight
+CORS_RESP=$(curl -sf -D - -o /dev/null -X OPTIONS "$BASE_URL/api/v1/contacts" \
+    -H "Origin: https://app.zentria.tech" \
+    -H "Access-Control-Request-Method: GET" 2>/dev/null || echo "")
+if echo "$CORS_RESP" | grep -qi "access-control-allow"; then
+    pass "CORS headers present on preflight"
+else
+    fail "No CORS headers on preflight" ""
+fi
+
+# 14. HSTS header
+HSTS_RESP=$(curl -sf -D - -o /dev/null "$BASE_URL/health" 2>/dev/null || echo "")
+if echo "$HSTS_RESP" | grep -qi "strict-transport-security"; then
+    pass "HSTS header present"
+else
+    fail "No HSTS header" ""
+fi
+
+# ==========================================
+# Performance Tests (3)
+# ==========================================
+section "Performance"
+
+# 15. /health < 500ms
+PERF_HEALTH=$(curl -sf -o /dev/null -w "%{time_total}" "$BASE_URL/health" 2>/dev/null || echo "99")
+if (( $(echo "$PERF_HEALTH < 0.5" | bc -l 2>/dev/null || echo 0) )); then
+    pass "Health response ${PERF_HEALTH}s < 500ms"
+else
+    fail "Health response ${PERF_HEALTH}s >= 500ms" ""
+fi
+
+# 16. /auth/login < 2s
+if [[ -n "$SMOKE_TOKEN" ]]; then
+    PERF_LOGIN=$(curl -sf -o /dev/null -w "%{time_total}" -X POST "$BASE_URL/api/v1/auth/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}" 2>/dev/null || echo "99")
+    if (( $(echo "$PERF_LOGIN < 2.0" | bc -l 2>/dev/null || echo 0) )); then
+        pass "Login response ${PERF_LOGIN}s < 2s"
+    else
+        fail "Login response ${PERF_LOGIN}s >= 2s" ""
+    fi
+else
+    fail "Login perf skipped (no auth)" ""
+fi
+
+# 17. /contacts list < 1s
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    PERF_CONTACTS=$(curl -sf -o /dev/null -w "%{time_total}" "$BASE_URL/api/v1/contacts" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "99")
+    if (( $(echo "$PERF_CONTACTS < 1.0" | bc -l 2>/dev/null || echo 0) )); then
+        pass "Contacts list ${PERF_CONTACTS}s < 1s"
+    else
+        fail "Contacts list ${PERF_CONTACTS}s >= 1s" ""
+    fi
+else
+    fail "Contacts list perf skipped (no auth)" ""
+fi
+
+# ==========================================
+# Cross-Service Tests (2)
+# ==========================================
+section "Cross-Service"
+
+# 18. Chat channel (create + verify)
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    CHAN_RESP=$(curl -sf -w "\n%{http_code}" -X POST "$BASE_URL/api/v1/chat/channels" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" \
+        -d '{"name":"smoke-test-channel","type":"public"}' 2>/dev/null) || CHAN_RESP=$'\n000'
+    CHAN_CODE=$(echo "$CHAN_RESP" | tail -1)
+    if [[ "$CHAN_CODE" == "201" || "$CHAN_CODE" == "200" ]]; then
+        pass "Create chat channel = $CHAN_CODE"
+    else
+        fail "Create chat channel returned $CHAN_CODE" "$(echo "$CHAN_RESP" | sed '$d')"
+    fi
+else
+    fail "Chat channel skipped (no auth)" ""
+fi
+
+# 19. Dashboard endpoint reachable
+if [[ -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    DASH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$BASE_URL/api/v1/dashboard" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
+    if [[ "$DASH_CODE" == "200" ]]; then
+        pass "Dashboard endpoint = 200"
+    else
+        # Dashboard might not exist yet — 404 is acceptable info, not a critical fail
+        if [[ "$DASH_CODE" == "404" ]]; then
+            pass "Dashboard endpoint responds ($DASH_CODE — not yet implemented)"
+        else
+            fail "Dashboard endpoint returned $DASH_CODE" ""
+        fi
+    fi
+else
+    fail "Dashboard endpoint skipped (no auth)" ""
+fi
+
+# ==========================================
+# Cleanup
+# ==========================================
+section "Cleanup"
+
+if [[ -n "$SMOKE_USER_ID" && -n "$SMOKE_TOKEN" && "$SMOKE_TOKEN" != "null" ]]; then
+    CLEANUP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/v1/auth/users/$SMOKE_USER_ID" \
+        -H "Authorization: Bearer $SMOKE_TOKEN" 2>/dev/null || echo "000")
+    if [[ "$CLEANUP_CODE" == "200" || "$CLEANUP_CODE" == "204" || "$CLEANUP_CODE" == "404" ]]; then
+        echo "  Smoke user cleaned up ($SMOKE_EMAIL)"
+    else
+        echo "  WARNING: Could not delete smoke user (code: $CLEANUP_CODE)"
+    fi
+else
+    echo "  No smoke user to clean up"
+fi
+
+# ==========================================
+# Results
+# ==========================================
+echo ""
+echo "=========================================="
+echo "  Smoke Test Results: $PASSED/$TOTAL passed, $FAILED failed"
+echo "=========================================="
+
+if [[ $FAILED -gt 0 ]]; then
+    exit 1
+fi
+exit 0
