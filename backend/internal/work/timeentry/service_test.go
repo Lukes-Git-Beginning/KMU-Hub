@@ -141,7 +141,6 @@ func (m *mockRepository) GetTaskTimeSummary(_ context.Context, _ uuid.UUID) (*mo
 // --- Helper ---
 
 func ptrString(s string) *string { return &s }
-func ptrInt(i int) *int          { return &i }
 
 // --- StartTimer Tests ---
 

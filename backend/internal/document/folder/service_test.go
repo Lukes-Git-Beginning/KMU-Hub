@@ -74,9 +74,6 @@ func (m *MockRepository) List(_ context.Context, filter ListFilter) ([]*models.D
 			if f.ParentID == nil || *f.ParentID != *filter.ParentID {
 				match = false
 			}
-		} else {
-			// nil ParentID filter: match root folders (ParentID == nil)
-			// Only filter if explicitly nil AND we want roots — skip this for simplicity
 		}
 		if match {
 			result = append(result, f)

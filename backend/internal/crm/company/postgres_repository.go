@@ -312,7 +312,7 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, compan
 			if scanErr == nil {
 				alreadyAdded := false
 				for _, existing := range candidates {
-					if existing.Company.Company.ID == c.ID {
+					if existing.Company.ID == c.ID {
 						alreadyAdded = true
 						break
 					}

@@ -493,7 +493,7 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, contac
 				// Skip if already found via email match
 				alreadyAdded := false
 				for _, existing := range candidates {
-					if existing.Contact.Contact.ID == c.ID {
+					if existing.Contact.ID == c.ID {
 						alreadyAdded = true
 						break
 					}
@@ -525,7 +525,7 @@ func (r *PostgresRepository) FindDuplicateCandidates(ctx context.Context, contac
 				if scanErr == nil {
 					alreadyAdded := false
 					for _, existing := range candidates {
-						if existing.Contact.Contact.ID == c.ID {
+						if existing.Contact.ID == c.ID {
 							alreadyAdded = true
 							break
 						}
