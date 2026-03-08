@@ -17,6 +17,7 @@ import { STALE_TIME, GC_TIME } from '@/lib/constants'
 import { DeskEnvironment } from '@/components/layout/DeskEnvironment'
 import { ModuleLoadingFallback } from '@/components/layout/ModuleShell'
 import LoginPage from '@/modules/auth/LoginPage'
+import RegisterPage from '@/modules/auth/RegisterPage'
 import { DEV_PROFILES } from '@/config/roles'
 import { ProfileSwitcher } from '@/components/dev/ProfileSwitcher'
 import NotificationToast from '@/modules/notifications/NotificationToast'
@@ -237,6 +238,14 @@ const router = createHashRouter([
     element: (
       <GuestRoute>
         <LoginPage />
+      </GuestRoute>
+    ),
+  },
+  {
+    path: '/register',
+    element: (
+      <GuestRoute>
+        <RegisterPage />
       </GuestRoute>
     ),
   },

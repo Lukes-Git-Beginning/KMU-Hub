@@ -94,7 +94,7 @@ interface OnlyOfficeEditorProps {
 const ONLYOFFICE_URL =
   import.meta.env.VITE_ONLYOFFICE_URL || 'http://localhost:8088'
 const API_URL =
-  import.meta.env.VITE_API_URL || 'http://localhost:8080'
+  import.meta.env.RENDERER_VITE_API_URL || 'http://localhost:8080'
 
 /**
  * Full-screen overlay hosting the OnlyOffice editor via WOPI iframe.

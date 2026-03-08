@@ -41,6 +41,9 @@ interface AuthState {
   /** Initialize auth state from stored tokens (call on app startup). */
   initialize: () => Promise<void>
 
+  /** Register a new account. Automatically logs in on success. */
+  register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>
+
   /** Log in with email and password. Throws '2FA_REQUIRED' if 2FA needed. */
   login: (email: string, password: string) => Promise<void>
 
@@ -199,6 +202,43 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         isLoading: false,
       })
     }
+  },
+
+  async register(email: string, password: string, firstName: string, lastName: string) {
+    if (!navigator.onLine) {
+      throw new Error('Registrierung erfordert eine Internetverbindung.')
+    }
+
+    const { data, error } = await apiClient.POST('/api/v1/auth/register', {
+      body: { email, password, first_name: firstName, last_name: lastName },
+    })
+
+    if (error || !data) {
+      const msg = (error as Record<string, unknown>)?.message
+      throw new Error(typeof msg === 'string' ? msg : 'Registrierung fehlgeschlagen.')
+    }
+
+    const accessToken = data.access_token ?? null
+    const refreshToken = data.refresh_token ?? null
+    const user = data.user ? toUser(data.user) : null
+
+    if (!accessToken || !refreshToken || !user) {
+      throw new Error('Invalid server response.')
+    }
+
+    await window.electronAPI.auth.storeTokens({ accessToken, refreshToken })
+    cacheUser(user)
+
+    set({
+      user,
+      accessToken,
+      refreshTokenValue: refreshToken,
+      isAuthenticated: true,
+      isLoading: false,
+      pendingToken: null,
+    })
+
+    wsManager.connect(accessToken)
   },
 
   async login(email: string, password: string) {

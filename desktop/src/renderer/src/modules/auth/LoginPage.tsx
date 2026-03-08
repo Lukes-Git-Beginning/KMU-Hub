@@ -9,7 +9,7 @@
  * input instead of redirecting. Users can also use recovery codes.
  */
 import { useState, useCallback, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { FormattedMessage, useIntl } from 'react-intl'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
@@ -266,6 +266,13 @@ export default function LoginPage() {
                 <FormattedMessage id="auth.login" />
               )}
             </Button>
+
+            <p className="text-center text-sm text-muted-foreground">
+              <FormattedMessage id="auth.noAccount" />{' '}
+              <Link to="/register" className="text-primary underline-offset-2 hover:underline">
+                <FormattedMessage id="auth.register" />
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>

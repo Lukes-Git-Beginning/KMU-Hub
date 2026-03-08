@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:win": "electron-vite build && electron-builder --win",
+    "build:dist": "electron-vite build && electron-builder",
     "preview": "electron-vite preview",
     "test": "vitest",
     "lint": "eslint src/",
@@ -80,6 +82,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "dotenv": "^17.2.4",
     "electron": "^33.0.0",
+    "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "eslint": "^9.0.0",
     "eslint-plugin-react-hooks": "^7.0.1",
