@@ -4,6 +4,11 @@ import { onlineManager } from '@tanstack/react-query'
 import './styles/globals.css'
 import App from './App'
 import { useAuthStore } from './stores/auth'
+import { startDemoMode } from './mocks/demo-mode'
+
+// Start demo mode (MSW browser worker) before anything else.
+// No-op when RENDERER_VITE_DEMO_MODE is not 'true'.
+await startDemoMode()
 
 // Configure TanStack Query's online manager to use browser online/offline events.
 // When offline, TanStack Query automatically pauses queries and mutations.
