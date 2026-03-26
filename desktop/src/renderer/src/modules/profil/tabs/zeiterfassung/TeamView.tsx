@@ -3,9 +3,9 @@ import { cn } from '@/lib/cn'
 import { useTimeTrackingStore } from '@/stores/timetracking'
 
 const STATUS_MAP = {
-  tracking: { label: 'Aktiv', dotClass: 'bg-emerald-500', animate: true },
+  tracking: { label: 'Aktiv', dotClass: 'bg-success', animate: true },
   idle: { label: 'Inaktiv', dotClass: 'bg-gray-400', animate: false },
-  absent: { label: 'Abwesend', dotClass: 'bg-amber-500', animate: false },
+  absent: { label: 'Abwesend', dotClass: 'bg-warning', animate: false },
 }
 
 export default function TeamView() {
@@ -24,7 +24,7 @@ export default function TeamView() {
         </h3>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="h-2 w-2 rounded-full bg-success" />
             Aktiv ({teamActivity.filter((t) => t.status === 'tracking').length})
           </span>
           <span className="flex items-center gap-1.5">
@@ -32,7 +32,7 @@ export default function TeamView() {
             Inaktiv ({teamActivity.filter((t) => t.status === 'idle').length})
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            <span className="h-2 w-2 rounded-full bg-warning" />
             Abwesend ({teamActivity.filter((t) => t.status === 'absent').length})
           </span>
         </div>
@@ -68,9 +68,9 @@ export default function TeamView() {
                   <span className={cn(
                     'px-2 py-0.5 rounded-full text-[10px] font-medium',
                     member.status === 'tracking'
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                      ? 'bg-success-light text-success'
                       : member.status === 'absent'
-                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        ? 'bg-warning-light text-warning-foreground'
                         : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
                   )}>
                     {status.label}

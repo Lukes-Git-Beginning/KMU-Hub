@@ -115,7 +115,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             <div className="relative">
               <Timer className="h-5 w-5 text-primary" />
               {activeTimer.status === 'running' && (
-                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success animate-pulse" />
               )}
             </div>
             <div className="flex-1">
@@ -154,7 +154,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             <div
               className={cn(
                 'h-full rounded-full transition-all',
-                todayPercent >= 90 ? 'bg-emerald-500' : todayPercent >= 60 ? 'bg-amber-500' : 'bg-primary/40',
+                todayPercent >= 90 ? 'bg-success' : todayPercent >= 60 ? 'bg-warning' : 'bg-primary/40',
               )}
               style={{ width: `${todayPercent}%` }}
             />
@@ -185,7 +185,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             <div
               className={cn(
                 'h-full rounded-full transition-all',
-                weekPercent >= 90 ? 'bg-emerald-500' : weekPercent >= 60 ? 'bg-amber-500' : 'bg-primary/40',
+                weekPercent >= 90 ? 'bg-success' : weekPercent >= 60 ? 'bg-warning' : 'bg-primary/40',
               )}
               style={{ width: `${weekPercent}%` }}
             />
@@ -201,15 +201,15 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Überstunden</span>
             {overtime >= 0 ? (
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              <TrendingUp className="h-4 w-4 text-success" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-amber-500" />
+              <TrendingDown className="h-4 w-4 text-warning" />
             )}
           </div>
           <div className="flex items-end gap-1.5 mb-2">
             <span className={cn(
               'text-2xl font-bold tabular-nums',
-              overtime >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
+              overtime >= 0 ? 'text-success' : 'text-warning-foreground',
             )}>
               {overtime >= 0 ? '+' : ''}{formatHoursDecimal(overtime)}h
             </span>
@@ -226,7 +226,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Resturlaub</span>
-            <Palmtree className="h-4 w-4 text-emerald-500" />
+            <Palmtree className="h-4 w-4 text-success" />
           </div>
           <div className="flex items-end gap-1.5 mb-2">
             <span className="text-2xl font-bold text-foreground tabular-nums">{vacationRemaining}</span>
@@ -234,14 +234,14 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           </div>
           <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
             <div
-              className="h-full rounded-full bg-emerald-500 transition-all"
+              className="h-full rounded-full bg-success transition-all"
               style={{ width: `${Math.round((VACATION_USED / VACATION_TOTAL) * 100)}%` }}
             />
           </div>
           <div className="flex items-center gap-3 mt-1.5">
             <span className="text-xs text-muted-foreground">{VACATION_USED} genommen</span>
             {pendingVacation > 0 && (
-              <span className="text-xs text-amber-600 dark:text-amber-400">{pendingVacation} beantragt</span>
+              <span className="text-xs text-warning-foreground">{pendingVacation} beantragt</span>
             )}
           </div>
         </div>
@@ -281,7 +281,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
                     <div
                       className={cn(
                         'absolute bottom-0 left-1 right-1 rounded-t-md transition-all',
-                        day.isToday ? 'bg-primary' : isOver ? 'bg-emerald-500' : day.minutes > 0 ? 'bg-primary/60' : 'bg-transparent',
+                        day.isToday ? 'bg-primary' : isOver ? 'bg-success' : day.minutes > 0 ? 'bg-primary/60' : 'bg-transparent',
                       )}
                       style={{ height: `${barHeight}%` }}
                     />
@@ -301,14 +301,14 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             <span>|</span>
             <span className={cn(
               'font-medium',
-              weekMinutes >= weekTarget ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground',
+              weekMinutes >= weekTarget ? 'text-success' : 'text-foreground',
             )}>
               Ist: {formatHoursDecimal(weekMinutes)}h
             </span>
             <span>|</span>
             <span className={cn(
               'font-medium',
-              weekMinutes >= weekTarget ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
+              weekMinutes >= weekTarget ? 'text-success' : 'text-warning-foreground',
             )}>
               {weekMinutes >= weekTarget ? '+' : ''}{formatMinutes(weekMinutes - weekTarget)}
             </span>

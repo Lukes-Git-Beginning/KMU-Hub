@@ -54,9 +54,9 @@ function TimeClockWidget(_props: WidgetProps) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-            isClockedIn ? 'bg-emerald-500/10' : 'bg-gray-500/10'
+            isClockedIn ? 'bg-success/10' : 'bg-gray-500/10'
           }`}>
-            <Clock className={`h-4 w-4 ${isClockedIn ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+            <Clock className={`h-4 w-4 ${isClockedIn ? 'text-success' : 'text-muted-foreground'}`} />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground">
@@ -104,7 +104,7 @@ function TimeClockWidget(_props: WidgetProps) {
         </div>
         <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
           <div
-            className="h-full bg-emerald-500 rounded-full transition-all"
+            className="h-full bg-success rounded-full transition-all"
             style={{ width: `${weekPct}%` }}
           />
         </div>

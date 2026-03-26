@@ -1524,7 +1524,7 @@ function FileGridCard({
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           {file.is_favorite && (
-            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+            <Star className="h-3 w-3 fill-warning text-warning" />
           )}
         </div>
       </div>
@@ -1603,7 +1603,7 @@ function FileListRow({
         </div>
         <ClassificationBadge fileId={file.id} filename={file.filename} />
         {file.is_favorite && (
-          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" />
+          <Star className="h-3 w-3 shrink-0 fill-warning text-warning" />
         )}
       </div>
       <span className="text-xs text-muted-foreground">

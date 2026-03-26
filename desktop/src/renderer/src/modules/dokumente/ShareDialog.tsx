@@ -188,7 +188,7 @@ export function ShareDialog({
                     </span>
                     <button
                       onClick={() => handleRemoveShare(s.id)}
-                      className="rounded p-0.5 text-muted-foreground hover:text-red-500"
+                      className="rounded p-0.5 text-muted-foreground hover:text-destructive"
                       disabled={unshareEntity.isPending}
                     >
                       <X className="h-3.5 w-3.5" />

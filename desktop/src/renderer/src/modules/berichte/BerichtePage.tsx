@@ -500,7 +500,7 @@ export default function BerichtePage() {
                           </div>
                           <div className="rounded-lg bg-muted/50 p-2 text-center">
                             <p className="text-[10px] text-muted-foreground">Differenz</p>
-                            <p className={`text-sm font-semibold ${diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-sm font-semibold ${diff >= 0 ? 'text-success' : 'text-destructive'}`}>
                               {diff >= 0 ? '+' : ''}{diff}k ({diff >= 0 ? '+' : ''}{diffPct}%)
                             </p>
                           </div>
@@ -973,13 +973,13 @@ export default function BerichtePage() {
                         <tr key={row.position} className={`border-b border-border/40 last:border-0 ${isSummary ? 'bg-muted/20 font-medium' : ''}`}>
                           <td className="px-4 py-2 text-xs text-muted-foreground">{row.position}</td>
                           <td className={`px-4 py-2 text-sm ${isSummary ? 'text-foreground font-medium' : 'text-foreground'}`}>{row.label}</td>
-                          <td className={`px-4 py-2 text-right text-sm ${row.currentMonth < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                          <td className={`px-4 py-2 text-right text-sm ${row.currentMonth < 0 ? 'text-destructive' : 'text-foreground'}`}>
                             {row.currentMonth.toLocaleString('de-DE')} EUR
                           </td>
-                          <td className={`px-4 py-2 text-right text-sm ${row.previousMonth < 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                          <td className={`px-4 py-2 text-right text-sm ${row.previousMonth < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                             {row.previousMonth.toLocaleString('de-DE')} EUR
                           </td>
-                          <td className={`px-4 py-2 text-right text-sm ${row.yearToDate < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                          <td className={`px-4 py-2 text-right text-sm ${row.yearToDate < 0 ? 'text-destructive' : 'text-foreground'}`}>
                             {row.yearToDate.toLocaleString('de-DE')} EUR
                           </td>
                         </tr>
@@ -1013,13 +1013,13 @@ export default function BerichtePage() {
                       <tr key={row.position} className="border-b border-border/40 last:border-0 hover:bg-muted/20">
                         <td className="px-4 py-2 text-xs font-mono text-muted-foreground">{row.position}</td>
                         <td className="px-4 py-2 text-sm text-foreground">{row.label}</td>
-                        <td className={`px-4 py-2 text-right text-sm ${row.currentMonth < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                        <td className={`px-4 py-2 text-right text-sm ${row.currentMonth < 0 ? 'text-destructive' : 'text-foreground'}`}>
                           {row.currentMonth.toLocaleString('de-DE')} EUR
                         </td>
-                        <td className={`px-4 py-2 text-right text-sm ${row.previousMonth < 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                        <td className={`px-4 py-2 text-right text-sm ${row.previousMonth < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                           {row.previousMonth.toLocaleString('de-DE')} EUR
                         </td>
-                        <td className={`px-4 py-2 text-right text-sm ${row.yearToDate < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+                        <td className={`px-4 py-2 text-right text-sm ${row.yearToDate < 0 ? 'text-destructive' : 'text-foreground'}`}>
                           {row.yearToDate.toLocaleString('de-DE')} EUR
                         </td>
                       </tr>

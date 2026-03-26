@@ -68,7 +68,7 @@ export default function ProfilTab() {
               <Badge variant="outline" className="border-primary/30 text-primary">
                 {role}
               </Badge>
-              <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="outline" className="border-success/30 text-success">
                 Online
               </Badge>
             </div>

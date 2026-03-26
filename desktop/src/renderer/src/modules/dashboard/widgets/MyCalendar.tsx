@@ -10,9 +10,9 @@ import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 const TYPE_STYLE: Record<string, { color: string; label: string }> = {
   meeting: { color: 'bg-blue-500', label: 'Meeting' },
-  focus: { color: 'bg-emerald-500', label: 'Fokus' },
+  focus: { color: 'bg-success', label: 'Fokus' },
   call: { color: 'bg-violet-500', label: 'Anruf' },
-  break: { color: 'bg-amber-500', label: 'Pause' },
+  break: { color: 'bg-warning', label: 'Pause' },
   workshop: { color: 'bg-teal-500', label: 'Workshop' },
 }
 

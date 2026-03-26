@@ -58,12 +58,12 @@ const depTypeConfig: Record<
   blocks: {
     label: 'Blockiert',
     icon: ArrowRight,
-    color: 'text-red-500',
+    color: 'text-destructive',
   },
   blocked_by: {
     label: 'Blockiert durch',
     icon: Lock,
-    color: 'text-yellow-500',
+    color: 'text-warning-foreground',
   },
   relates_to: {
     label: 'Verwandt',

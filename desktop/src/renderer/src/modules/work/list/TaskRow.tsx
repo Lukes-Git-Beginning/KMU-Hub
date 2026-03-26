@@ -228,7 +228,7 @@ export default function TaskRow({
 
       {/* Blocked indicator */}
       {task.has_blocked_deps && (
-        <Lock className="h-3.5 w-3.5 shrink-0 text-yellow-500" title="Blockiert" />
+        <Lock className="h-3.5 w-3.5 shrink-0 text-warning-foreground" title="Blockiert" />
       )}
 
       {/* Subtask count */}

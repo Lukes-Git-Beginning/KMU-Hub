@@ -26,7 +26,7 @@ const ABSENCE_LABELS: Record<string, string> = {
 }
 
 const ABSENCE_COLORS: Record<string, string> = {
-  vacation: 'text-amber-600 dark:text-amber-400',
+  vacation: 'text-warning-foreground',
   sick: 'text-gray-500 dark:text-gray-400',
   homeoffice: 'text-blue-500 dark:text-blue-400',
   education: 'text-purple-500 dark:text-purple-400',
@@ -242,7 +242,7 @@ export default function WeekView() {
         <span className="text-muted-foreground">Wochensaldo:</span>
         <span className={cn(
           'font-semibold',
-          weekOvertime >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
+          weekOvertime >= 0 ? 'text-success' : 'text-warning-foreground',
         )}>
           {weekOvertime >= 0 ? '+' : ''}{formatMinutes(weekOvertime)}
         </span>

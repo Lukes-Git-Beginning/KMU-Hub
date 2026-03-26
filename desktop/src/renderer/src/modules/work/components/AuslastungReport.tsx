@@ -111,15 +111,15 @@ interface AuslastungReportProps {
 // ---------------------------------------------------------------------------
 
 function getUtilColor(pct: number): string {
-  if (pct > 100) return 'bg-red-500'
-  if (pct >= 80) return 'bg-yellow-500'
-  return 'bg-emerald-500'
+  if (pct > 100) return 'bg-destructive'
+  if (pct >= 80) return 'bg-warning'
+  return 'bg-success'
 }
 
 function getUtilTextColor(pct: number): string {
-  if (pct > 100) return 'text-red-500'
-  if (pct >= 80) return 'text-yellow-600 dark:text-yellow-400'
-  return 'text-emerald-600 dark:text-emerald-400'
+  if (pct > 100) return 'text-destructive'
+  if (pct >= 80) return 'text-warning-foreground'
+  return 'text-success'
 }
 
 // ---------------------------------------------------------------------------
@@ -302,7 +302,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
                         {/* Overflow stripe for >100% */}
                         {pct > 100 && (
                           <div
-                            className="absolute top-0 right-0 h-full bg-red-500/20 border-l-2 border-red-500"
+                            className="absolute top-0 right-0 h-full bg-destructive/20 border-l-2 border-destructive"
                             style={{ width: `${Math.min(pct - 100, 20)}%` }}
                           />
                         )}
@@ -325,15 +325,15 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
           {/* Target line legend */}
           <div className="flex items-center gap-4 pt-3 text-[10px] text-muted-foreground border-t border-border mt-2">
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-5 rounded bg-emerald-500" />
+              <div className="h-3 w-5 rounded bg-success" />
               <span>&lt;80% (Kapazitaet frei)</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-5 rounded bg-yellow-500" />
+              <div className="h-3 w-5 rounded bg-warning" />
               <span>80-100% (Gut ausgelastet)</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-5 rounded bg-red-500" />
+              <div className="h-3 w-5 rounded bg-destructive" />
               <span>&gt;100% (Ueberlastet)</span>
             </div>
           </div>
@@ -341,23 +341,23 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
 
         {/* Overload warnings */}
         {overloaded.length > 0 && (
-          <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 p-4 space-y-2">
+          <div className="rounded-lg border border-destructive/30 bg-error-light p-4 space-y-2">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              <span className="text-sm font-medium text-red-700 dark:text-red-400">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <span className="text-sm font-medium text-destructive">
                 Ueberlastungswarnungen
               </span>
             </div>
             <div className="space-y-1">
               {overloaded.slice(0, 8).map((warn, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400">
+                <div key={i} className="flex items-center gap-2 text-xs text-destructive">
                   <span className="font-medium">{warn.name}</span>
-                  <span className="text-red-400 dark:text-red-500">—</span>
+                  <span className="text-destructive">—</span>
                   <span>{warn.period}: {warn.pct}% Auslastung</span>
                 </div>
               ))}
               {overloaded.length > 8 && (
-                <p className="text-xs text-red-400">
+                <p className="text-xs text-destructive">
                   ... und {overloaded.length - 8} weitere
                 </p>
               )}

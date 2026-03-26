@@ -492,7 +492,7 @@ function FormField({
     <div className="space-y-1.5">
       <Label className="text-xs">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-destructive ml-0.5">*</span>}
       </Label>
       {children}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
@@ -885,7 +885,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
                 </div>
                 <button
                   onClick={() => removeDocument(doc.id)}
-                  className="rounded-md p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

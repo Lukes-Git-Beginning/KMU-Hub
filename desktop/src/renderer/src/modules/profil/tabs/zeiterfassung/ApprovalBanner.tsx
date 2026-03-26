@@ -46,14 +46,14 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
 
   if (status === 'pending') {
     return (
-      <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-4 flex items-center gap-3">
-        <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 animate-pulse" />
+      <div className="rounded-lg border border-warning/30 bg-warning-light p-4 flex items-center gap-3">
+        <Clock className="h-5 w-5 text-warning-foreground shrink-0 animate-pulse" />
         <div className="flex-1">
-          <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+          <p className="text-sm font-medium text-warning-foreground">
             Wochenrapport eingereicht — warte auf Genehmigung
           </p>
           {approval?.submittedAt && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+            <p className="text-xs text-warning-foreground mt-0.5">
               Eingereicht am {new Date(approval.submittedAt).toLocaleDateString('de-DE', {
                 day: '2-digit',
                 month: '2-digit',
@@ -70,15 +70,15 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
 
   if (status === 'approved') {
     return (
-      <div className="rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 p-4 flex items-center gap-3">
-        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+      <div className="rounded-lg border border-success/30 bg-success-light p-4 flex items-center gap-3">
+        <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
         <div className="flex-1">
-          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+          <p className="text-sm font-medium text-success">
             Wochenrapport genehmigt
             {approval?.reviewedBy && ` von ${approval.reviewedBy}`}
           </p>
           {approval?.reviewedAt && (
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+            <p className="text-xs text-success mt-0.5">
               Genehmigt am {new Date(approval.reviewedAt).toLocaleDateString('de-DE', {
                 day: '2-digit',
                 month: '2-digit',
@@ -93,20 +93,20 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
 
   // status === 'rejected'
   return (
-    <div className="rounded-lg border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 p-4 flex items-center gap-3">
-      <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+    <div className="rounded-lg border border-destructive/30 bg-error-light p-4 flex items-center gap-3">
+      <XCircle className="h-5 w-5 text-destructive shrink-0" />
       <div className="flex-1">
-        <p className="text-sm font-medium text-red-800 dark:text-red-300">
+        <p className="text-sm font-medium text-destructive">
           Wochenrapport abgelehnt
           {approval?.reviewedBy && ` von ${approval.reviewedBy}`}
         </p>
         {approval?.comment && (
-          <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+          <p className="text-xs text-destructive mt-0.5">
             Grund: {approval.comment}
           </p>
         )}
       </div>
-      <Button size="sm" variant="outline" onClick={handleResubmit} className="gap-1.5 border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30">
+      <Button size="sm" variant="outline" onClick={handleResubmit} className="gap-1.5 border-destructive/30 hover:bg-error-light">
         <RotateCcw className="h-3.5 w-3.5" />
         Erneut einreichen
       </Button>

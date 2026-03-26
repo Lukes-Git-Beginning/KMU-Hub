@@ -8,9 +8,9 @@ import { useMyTasks } from '@/api/hooks/useTasks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 const PRIORITY_STYLE: Record<string, string> = {
-  urgent: 'text-red-500',
-  high: 'text-red-500',
-  medium: 'text-amber-500',
+  urgent: 'text-destructive',
+  high: 'text-destructive',
+  medium: 'text-warning',
   low: 'text-muted-foreground',
 }
 
@@ -88,7 +88,7 @@ function MyTasks(_props: WidgetProps) {
       {/* Summary */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <span className="text-xs text-muted-foreground">{open.length} offen · {done.length} erledigt</span>
-        <span className="flex items-center gap-1 text-xs text-red-500">
+        <span className="flex items-center gap-1 text-xs text-destructive">
           <AlertTriangle className="h-3 w-3" />
           {open.filter((t) => t.due === 'Heute').length} heute faellig
         </span>
@@ -102,7 +102,7 @@ function MyTasks(_props: WidgetProps) {
             className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
           >
             {task.done ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
             ) : (
               <Circle className={`mt-0.5 h-4 w-4 shrink-0 ${PRIORITY_STYLE[task.priority] ?? 'text-muted-foreground'}`} />
             )}

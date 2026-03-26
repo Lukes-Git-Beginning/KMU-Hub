@@ -379,7 +379,7 @@ function getNotificationIcon(moduleId: string) {
 function getPriorityColor(priority: string | undefined): string {
   switch (priority) {
     case 'urgent':
-      return 'bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400'
+      return 'bg-error-light text-destructive'
     case 'high':
       return 'bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400'
     case 'normal':

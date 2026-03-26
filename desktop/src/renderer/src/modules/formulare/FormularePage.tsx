@@ -641,7 +641,7 @@ export default function FormularePage() {
         <Star
           key={i}
           className={`h-4 w-4 ${
-            i < value ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'
+            i < value ? 'fill-warning text-warning' : 'text-muted-foreground/30'
           }`}
         />
       ))}
@@ -1308,7 +1308,7 @@ export default function FormularePage() {
                       <div key={field.id} className="space-y-1.5">
                         <label className="text-sm font-medium text-gray-700">
                           {field.label}
-                          {field.required && <span className="text-red-500 ml-0.5">*</span>}
+                          {field.required && <span className="text-destructive ml-0.5">*</span>}
                         </label>
                         {/* Render fillable inputs */}
                         {(field.type === 'text' || field.type === 'number') && (
@@ -1358,7 +1358,7 @@ export default function FormularePage() {
                         {field.type === 'rating' && (
                           <div className="flex items-center gap-1">
                             {[1, 2, 3, 4, 5].map((n) => (
-                              <Star key={n} className="h-6 w-6 text-gray-300 hover:text-amber-400 cursor-pointer transition-colors" />
+                              <Star key={n} className="h-6 w-6 text-gray-300 hover:text-warning cursor-pointer transition-colors" />
                             ))}
                           </div>
                         )}

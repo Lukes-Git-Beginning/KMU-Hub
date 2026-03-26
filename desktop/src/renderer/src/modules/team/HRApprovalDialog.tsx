@@ -182,7 +182,7 @@ export function HRApprovalDialog({
           <Button
             onClick={handleReject}
             variant="outline"
-            className="flex-1 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
+            className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10"
             disabled={isPending}
           >
             {rejectMutation.isPending ? (

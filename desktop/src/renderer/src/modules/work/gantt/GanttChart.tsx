@@ -403,7 +403,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
               {/* Today marker line */}
               {todayX > 0 && (
                 <div
-                  className="absolute top-0 bottom-0 border-l-2 border-dashed border-red-400 z-[5] pointer-events-none"
+                  className="absolute top-0 bottom-0 border-l-2 border-dashed border-destructive/30 z-[5] pointer-events-none"
                   style={{
                     left: TASK_INFO_WIDTH + todayX,
                     height: scheduledHeight,

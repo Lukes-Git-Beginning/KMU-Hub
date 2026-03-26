@@ -10,9 +10,9 @@ type AbsenceType = 'urlaub' | 'krank' | 'elternzeit' | 'weiterbildung' | 'homeof
 
 const TYPE_CONFIG: Record<AbsenceType, { icon: typeof Palmtree; label: string; color: string; bgColor: string }> = {
   urlaub: { icon: Palmtree, label: 'Urlaub', color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
-  krank: { icon: Thermometer, label: 'Krank', color: 'text-red-500', bgColor: 'bg-red-500/10' },
+  krank: { icon: Thermometer, label: 'Krank', color: 'text-destructive', bgColor: 'bg-destructive/10' },
   elternzeit: { icon: Baby, label: 'Elternzeit', color: 'text-violet-600', bgColor: 'bg-violet-500/10' },
-  weiterbildung: { icon: GraduationCap, label: 'Weiterbildung', color: 'text-amber-600', bgColor: 'bg-amber-500/10' },
+  weiterbildung: { icon: GraduationCap, label: 'Weiterbildung', color: 'text-warning-foreground', bgColor: 'bg-warning/10' },
   homeoffice: { icon: Home, label: 'Homeoffice', color: 'text-cyan-600', bgColor: 'bg-cyan-500/10' },
 }
 

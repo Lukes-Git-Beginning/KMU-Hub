@@ -180,7 +180,7 @@ export function TimeTrackerWidget() {
           'flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-colors text-sm',
           isClockedIn
             ? isOnBreak
-              ? 'bg-amber-500/10 hover:bg-amber-500/15'
+              ? 'bg-warning/10 hover:bg-warning/15'
               : 'bg-success/10 hover:bg-success/15'
             : 'hover:bg-accent',
         )}
@@ -193,17 +193,17 @@ export function TimeTrackerWidget() {
           </>
         ) : isOnBreak ? (
           <>
-            <Coffee className="h-4 w-4 text-amber-500" />
-            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Pause</span>
+            <Coffee className="h-4 w-4 text-warning" />
+            <span className="text-xs font-medium text-warning-foreground">Pause</span>
           </>
         ) : (
           <>
             <span className="relative flex h-2.5 w-2.5">
               <span className={cn(
                 'absolute inline-flex h-full w-full rounded-full opacity-75',
-                activeTimer.status === 'running' ? 'animate-ping bg-emerald-400' : 'bg-emerald-400',
+                activeTimer.status === 'running' ? 'animate-ping bg-success' : 'bg-success',
               )} />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
             </span>
             <span className="font-mono text-sm font-semibold text-primary tabular-nums">
               {activeTimer.status !== 'idle'
@@ -262,9 +262,9 @@ export function TimeTrackerWidget() {
           ) : isOnBreak ? (
             <div className="p-4 space-y-3">
               <div className="text-center space-y-1">
-                <Coffee className="h-6 w-6 text-amber-500 mx-auto" />
+                <Coffee className="h-6 w-6 text-warning mx-auto" />
                 <p className="text-sm font-medium text-foreground">Pause</p>
-                <span className="text-2xl font-mono font-bold text-amber-500 tabular-nums">
+                <span className="text-2xl font-mono font-bold text-warning tabular-nums">
                   {formatElapsed(breakElapsed)}
                 </span>
               </div>

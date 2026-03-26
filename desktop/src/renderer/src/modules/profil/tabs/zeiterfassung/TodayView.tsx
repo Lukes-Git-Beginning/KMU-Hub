@@ -80,13 +80,13 @@ export default function TodayView() {
         return (
           <div className={cn(
             'rounded-lg border p-3 flex items-center gap-3',
-            todayAbsence.type === 'vacation' ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30' :
+            todayAbsence.type === 'vacation' ? 'border-warning/30 bg-warning-light' :
             todayAbsence.type === 'sick' ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30' :
             'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/30',
           )}>
             <AbsIcon className={cn(
               'h-5 w-5 shrink-0',
-              todayAbsence.type === 'vacation' ? 'text-amber-600 dark:text-amber-400' :
+              todayAbsence.type === 'vacation' ? 'text-warning-foreground' :
               todayAbsence.type === 'sick' ? 'text-gray-500' :
               'text-blue-500 dark:text-blue-400',
             )} />
@@ -131,8 +131,8 @@ export default function TodayView() {
             <span className={cn(
               'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider',
               activeTimer.status === 'running'
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                ? 'bg-success-light text-success'
+                : 'bg-warning-light text-warning-foreground',
             )}>
               {activeTimer.status === 'running' ? 'Läuft' : 'Pausiert'}
             </span>
@@ -248,8 +248,8 @@ export default function TodayView() {
             <span className={cn(
               'text-xs font-semibold px-2 py-0.5 rounded-full',
               dailyOvertime >= 0
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                ? 'bg-success-light text-success'
+                : 'bg-warning-light text-warning-foreground',
             )}>
               {dailyOvertime >= 0 ? '+' : ''}{formatMinutes(dailyOvertime)}
             </span>
@@ -259,13 +259,13 @@ export default function TodayView() {
           <div
             className={cn(
               'h-full rounded-full transition-all duration-500',
-              progressPercent >= 90 ? 'bg-emerald-500' : progressPercent >= 60 ? 'bg-amber-500' : 'bg-red-500',
+              progressPercent >= 90 ? 'bg-success' : progressPercent >= 60 ? 'bg-warning' : 'bg-destructive',
             )}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
         {totalMinutes > targetMinutes && (
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+          <p className="text-xs text-success mt-1">
             +{formatMinutes(totalMinutes - targetMinutes)} Ueberstunden
           </p>
         )}

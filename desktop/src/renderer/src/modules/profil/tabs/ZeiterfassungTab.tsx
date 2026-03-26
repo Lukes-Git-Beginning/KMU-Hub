@@ -238,7 +238,7 @@ export default function ZeiterfassungTab() {
               <div
                 className={cn(
                   'h-full rounded-full transition-all',
-                  progressPercent >= 100 ? 'bg-warning' : progressPercent >= 80 ? 'bg-emerald-500' : 'bg-primary',
+                  progressPercent >= 100 ? 'bg-warning' : progressPercent >= 80 ? 'bg-success' : 'bg-primary',
                 )}
                 style={{ width: `${progressPercent}%` }}
               />

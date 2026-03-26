@@ -51,9 +51,9 @@ function KpiTasks(_props: WidgetProps) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
   const segments = [
-    { label: 'Erledigt', count: done, color: 'bg-emerald-500', textColor: 'text-emerald-600', icon: CheckCircle2 },
+    { label: 'Erledigt', count: done, color: 'bg-success', textColor: 'text-success', icon: CheckCircle2 },
     { label: 'In Arbeit', count: inProgress, color: 'bg-blue-500', textColor: 'text-blue-600', icon: Circle },
-    { label: 'Ueberfaellig', count: overdue, color: 'bg-red-500', textColor: 'text-red-600', icon: AlertTriangle },
+    { label: 'Ueberfaellig', count: overdue, color: 'bg-destructive', textColor: 'text-destructive', icon: AlertTriangle },
   ]
 
   return (
@@ -68,7 +68,7 @@ function KpiTasks(_props: WidgetProps) {
         {/* Progress bar */}
         <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden flex">
           <div
-            className="h-full bg-emerald-500 transition-all"
+            className="h-full bg-success transition-all"
             style={{ width: total > 0 ? `${(done / total) * 100}%` : '0%' }}
           />
           <div
@@ -76,7 +76,7 @@ function KpiTasks(_props: WidgetProps) {
             style={{ width: total > 0 ? `${(inProgress / total) * 100}%` : '0%' }}
           />
           <div
-            className="h-full bg-red-500 transition-all"
+            className="h-full bg-destructive transition-all"
             style={{ width: total > 0 ? `${(overdue / total) * 100}%` : '0%' }}
           />
         </div>

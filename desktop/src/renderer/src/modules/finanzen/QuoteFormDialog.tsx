@@ -348,7 +348,7 @@ export function QuoteFormDialog({
                   <button
                     onClick={() => removeItem(idx)}
                     disabled={items.length <= 1}
-                    className="rounded p-0.5 text-muted-foreground hover:text-red-500 disabled:opacity-30"
+                    className="rounded p-0.5 text-muted-foreground hover:text-destructive disabled:opacity-30"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

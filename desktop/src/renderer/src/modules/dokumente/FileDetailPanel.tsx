@@ -119,7 +119,7 @@ export function FileDetailPanel({
       badge={
         <div className="flex items-center gap-1.5 ml-2">
           {file.is_favorite && (
-            <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+            <Star className="h-3.5 w-3.5 fill-warning text-warning" />
           )}
         </div>
       }
@@ -141,7 +141,7 @@ export function FileDetailPanel({
             <Star
               className={`h-4 w-4 ${
                 file.is_favorite
-                  ? 'fill-yellow-400 text-yellow-400'
+                  ? 'fill-warning text-warning'
                   : ''
               }`}
             />
@@ -149,7 +149,7 @@ export function FileDetailPanel({
           <Button
             variant="outline"
             size="icon"
-            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => onDelete(file.id)}
           >
             <Trash2 className="h-4 w-4" />

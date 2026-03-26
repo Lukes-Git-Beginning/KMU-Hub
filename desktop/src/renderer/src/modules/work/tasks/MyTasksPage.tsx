@@ -45,7 +45,7 @@ import type { Priority } from '../components/PriorityBadge'
 const PAGE_SIZE = 50
 
 const PRIORITY_CONFIG: Record<string, { label: string; className: string }> = {
-  urgent: { label: 'Dringend', className: 'bg-red-100 text-red-700 border-red-300' },
+  urgent: { label: 'Dringend', className: 'bg-error-light text-destructive border-destructive/30' },
   high: { label: 'Hoch', className: 'bg-orange-100 text-orange-700 border-orange-300' },
   normal: { label: 'Normal', className: 'bg-blue-100 text-blue-700 border-blue-300' },
   low: { label: 'Niedrig', className: 'bg-gray-100 text-gray-500 border-gray-300' },

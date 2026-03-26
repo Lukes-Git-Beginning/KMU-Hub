@@ -125,7 +125,7 @@ function ConditionGroup({
           {onRemove && (
             <button
               onClick={onRemove}
-              className="rounded-md p-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -214,7 +214,7 @@ function LeafCondition({
       {onRemove && (
         <button
           onClick={onRemove}
-          className="rounded-md p-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          className="rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -298,8 +298,8 @@ function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
               </>
             ) : (
               <>
-                <XCircle className="h-4 w-4 text-red-500" />
-                <span className="text-red-600">
+                <XCircle className="h-4 w-4 text-destructive" />
+                <span className="text-destructive">
                   Fehlgeschlagen
                   {testMutation.data.error
                     ? `: ${testMutation.data.error}`
@@ -421,8 +421,8 @@ export function ConditionBuilder() {
                       </>
                     ) : (
                       <>
-                        <XCircle className="h-4 w-4 text-red-500" />
-                        <span className="text-red-600">
+                        <XCircle className="h-4 w-4 text-destructive" />
+                        <span className="text-destructive">
                           Bedingung trifft nicht zu
                           {testMutation.data.error
                             ? `: ${testMutation.data.error}`

@@ -76,10 +76,10 @@ export default function BudgetSection({
 
   // Progress bar color
   const barColorClass = isOverBudget
-    ? 'bg-red-500'
+    ? 'bg-destructive'
     : isWarning
-      ? 'bg-yellow-500'
-      : 'bg-emerald-500'
+      ? 'bg-warning'
+      : 'bg-success'
 
   const statusLabel = isOverBudget
     ? 'Ueber Budget'
@@ -88,10 +88,10 @@ export default function BudgetSection({
       : 'Im Rahmen'
 
   const statusColorClass = isOverBudget
-    ? 'text-red-500'
+    ? 'text-destructive'
     : isWarning
-      ? 'text-yellow-600 dark:text-yellow-400'
-      : 'text-emerald-600 dark:text-emerald-400'
+      ? 'text-warning-foreground'
+      : 'text-success'
 
   return (
     <div className="border-b border-border bg-card/50">
@@ -115,7 +115,7 @@ export default function BudgetSection({
                 ({Math.round(percentage)}%)
               </span>
               {isOverBudget && (
-                <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
               )}
             </span>
           )}
@@ -161,7 +161,7 @@ export default function BudgetSection({
             <div className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
                 {isOverBudget ? (
-                  <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
                 ) : (
                   <Clock className="h-3.5 w-3.5" />
                 )}
@@ -170,7 +170,7 @@ export default function BudgetSection({
               <p
                 className={cn(
                   'text-lg font-semibold',
-                  isOverBudget ? 'text-red-500' : 'text-foreground'
+                  isOverBudget ? 'text-destructive' : 'text-foreground'
                 )}
               >
                 {formatCurrency(Math.abs(remaining))}
@@ -198,7 +198,7 @@ export default function BudgetSection({
               />
             </div>
             {isOverBudget && (
-              <div className="flex items-center gap-1.5 text-xs text-red-500 mt-1">
+              <div className="flex items-center gap-1.5 text-xs text-destructive mt-1">
                 <AlertTriangle className="h-3 w-3" />
                 Budget um {formatCurrency(Math.abs(remaining))} ueberschritten (
                 {Math.round(percentage - 100)}% ueber Plan)

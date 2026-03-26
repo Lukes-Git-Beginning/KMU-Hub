@@ -304,7 +304,7 @@ function EditorInner({ onClose }: { onClose: () => void }) {
           </button>
           <button
             onClick={addConditionNode}
-            className="flex items-center gap-1 rounded-md bg-yellow-500/10 px-2 py-1 text-[11px] font-medium text-yellow-600 hover:bg-yellow-500/20 transition-colors"
+            className="flex items-center gap-1 rounded-md bg-warning/10 px-2 py-1 text-[11px] font-medium text-warning-foreground hover:bg-warning/20 transition-colors"
           >
             <Plus className="h-3 w-3" />
             Bedingung

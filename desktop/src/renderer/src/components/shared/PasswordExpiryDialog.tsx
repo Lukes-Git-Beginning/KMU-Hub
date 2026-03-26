@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { Shield, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/stores/settings'
@@ -48,21 +49,23 @@ export function PasswordExpiryDialog() {
   }
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl animate-fade-up">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-error/10">
-            <Shield className="h-6 w-6 text-error" />
+    <Dialog open={isExpired}>
+      <DialogContent className="gap-0 p-0 max-w-md [&>button:last-child]:hidden">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-error/10">
+              <Shield className="h-6 w-6 text-error" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-semibold text-foreground">Passwort abgelaufen</DialogTitle>
+              <DialogDescription>
+                Dein Passwort muss geaendert werden bevor du fortfahren kannst.
+              </DialogDescription>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Passwort abgelaufen</h2>
-            <p className="text-sm text-muted-foreground">
-              Dein Passwort muss geaendert werden bevor du fortfahren kannst.
-            </p>
-          </div>
-        </div>
+        </DialogHeader>
 
-        <div className="space-y-3 mb-4">
+        <div className="space-y-3 px-6 pb-2">
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">Aktuelles Passwort</label>
             <div className="relative">
@@ -107,14 +110,16 @@ export function PasswordExpiryDialog() {
           </div>
         </div>
 
-        <Button
-          onClick={handleSubmit}
-          className="w-full"
-          disabled={!currentPw || !newPw || !confirmPw}
-        >
-          Passwort aendern
-        </Button>
-      </div>
-    </div>
+        <div className="px-6 pb-6 pt-2">
+          <Button
+            onClick={handleSubmit}
+            className="w-full"
+            disabled={!currentPw || !newPw || !confirmPw}
+          >
+            Passwort aendern
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

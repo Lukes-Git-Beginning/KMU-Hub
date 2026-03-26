@@ -130,7 +130,7 @@ function ActionSlot({
           </button>
           <button
             onClick={onRemove}
-            className="rounded p-0.5 text-muted-foreground hover:text-red-500 transition-colors"
+            className="rounded p-0.5 text-muted-foreground hover:text-destructive transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -243,7 +243,7 @@ function ParamInput({
     <div>
       <label className="text-[11px] font-medium text-muted-foreground">
         {param.label}
-        {param.required && <span className="text-red-500 ml-0.5">*</span>}
+        {param.required && <span className="text-destructive ml-0.5">*</span>}
       </label>
       {param.type === 'boolean' ? (
         <div className="mt-1">

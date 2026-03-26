@@ -66,9 +66,9 @@ export default function DokumenteTab() {
 
   const getTypeColor = (ext: string) => {
     switch (ext) {
-      case 'pdf': return 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30'
+      case 'pdf': return 'text-destructive bg-error-light'
       case 'docx': case 'doc': return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30'
-      case 'xlsx': case 'xls': return 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30'
+      case 'xlsx': case 'xls': return 'text-success bg-success-light'
       case 'png': case 'jpg': case 'jpeg': return 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30'
       default: return 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/30'
     }

@@ -14,9 +14,9 @@ import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 type UIStatus = 'online' | 'away' | 'busy' | 'offline'
 
 const STATUS_CONFIG: Record<UIStatus, { color: string; label: string }> = {
-  online: { color: 'bg-emerald-500', label: 'Online' },
-  away: { color: 'bg-amber-500', label: 'Abwesend' },
-  busy: { color: 'bg-red-500', label: 'Beschaeftigt' },
+  online: { color: 'bg-success', label: 'Online' },
+  away: { color: 'bg-warning', label: 'Abwesend' },
+  busy: { color: 'bg-destructive', label: 'Beschaeftigt' },
   offline: { color: 'bg-gray-400', label: 'Offline' },
 }
 

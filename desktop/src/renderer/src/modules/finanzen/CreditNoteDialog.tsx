@@ -254,7 +254,7 @@ export function CreditNoteDialog({
                       </span>
                       <button
                         onClick={() => removeItem(idx)}
-                        className="rounded p-0.5 text-muted-foreground hover:text-red-500"
+                        className="rounded p-0.5 text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

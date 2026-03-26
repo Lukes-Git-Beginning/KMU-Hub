@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/cn'
 import { useUIStore } from '@/stores/ui'
 
@@ -120,85 +121,87 @@ export function OnboardingWizard() {
   const Icon = step.icon
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      {/* Confetti */}
-      {showConfetti && <Confetti />}
+    <Dialog open>
+      <DialogContent className="gap-0 p-0 max-w-lg [&>button:last-child]:hidden">
+        <DialogTitle className="sr-only">Onboarding abgeschlossen</DialogTitle>
+        {/* Confetti */}
+        {showConfetti && <Confetti />}
 
-      {/* Card */}
-      <div className="relative max-w-lg w-full mx-4 rounded-2xl border border-border bg-card p-8 shadow-2xl">
-        {/* Step Icon */}
-        <div className="flex justify-center mb-6">
-          <div className={cn('flex h-16 w-16 items-center justify-center rounded-2xl', step.iconBg)}>
-            <Icon className={cn('h-8 w-8', step.iconColor)} />
+        <div className="p-8">
+          {/* Step Icon */}
+          <div className="flex justify-center mb-6">
+            <div className={cn('flex h-16 w-16 items-center justify-center rounded-2xl', step.iconBg)}>
+              <Icon className={cn('h-8 w-8', step.iconColor)} />
+            </div>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="text-center mb-6">
-          <h2 className="text-xl font-bold text-foreground mb-2">{step.title}</h2>
-          <p className="text-sm text-muted-foreground">{step.description}</p>
-        </div>
+          {/* Content */}
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-bold text-foreground mb-2">{step.title}</h2>
+            <p className="text-sm text-muted-foreground">{step.description}</p>
+          </div>
 
-        {/* Features */}
-        {step.features && (
-          <ul className="space-y-2 mb-6">
-            {step.features.map((feature, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                <span className="text-foreground">{feature}</span>
-              </li>
+          {/* Features */}
+          {step.features && (
+            <ul className="space-y-2 mb-6">
+              {step.features.map((feature, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                  <span className="text-foreground">{feature}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Progress Dots */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {STEPS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentStep(i)}
+                className={cn(
+                  'h-2 rounded-full transition-all',
+                  i === currentStep
+                    ? 'w-6 bg-primary'
+                    : i < currentStep
+                      ? 'w-2 bg-primary/40'
+                      : 'w-2 bg-muted-foreground/20',
+                )}
+              />
             ))}
-          </ul>
-        )}
+          </div>
 
-        {/* Progress Dots */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          {STEPS.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentStep(i)}
-              className={cn(
-                'h-2 rounded-full transition-all',
-                i === currentStep
-                  ? 'w-6 bg-primary'
-                  : i < currentStep
-                    ? 'w-2 bg-primary/40'
-                    : 'w-2 bg-muted-foreground/20',
+          {/* Buttons */}
+          <div className="flex items-center justify-between">
+            <div>
+              {!isFirst && (
+                <Button variant="ghost" size="sm" onClick={() => setCurrentStep((s) => s - 1)}>
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Zurueck
+                </Button>
               )}
-            />
-          ))}
-        </div>
+            </div>
 
-        {/* Buttons */}
-        <div className="flex items-center justify-between">
-          <div>
-            {!isFirst && (
-              <Button variant="ghost" size="sm" onClick={() => setCurrentStep((s) => s - 1)}>
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Zurueck
-              </Button>
-            )}
+            <Button onClick={handleNext} disabled={showConfetti}>
+              {isLast ? "Los geht's!" : 'Weiter'}
+              {!isLast && <ChevronRight className="h-4 w-4 ml-1" />}
+            </Button>
           </div>
 
-          <Button onClick={handleNext} disabled={showConfetti}>
-            {isLast ? "Los geht's!" : 'Weiter'}
-            {!isLast && <ChevronRight className="h-4 w-4 ml-1" />}
-          </Button>
+          {/* Skip Link */}
+          {!isLast && !showConfetti && (
+            <div className="text-center mt-4">
+              <button
+                onClick={handleSkip}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Überspringen
+              </button>
+            </div>
+          )}
         </div>
-
-        {/* Skip Link */}
-        {!isLast && !showConfetti && (
-          <div className="text-center mt-4">
-            <button
-              onClick={handleSkip}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Überspringen
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

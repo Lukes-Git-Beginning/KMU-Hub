@@ -29,9 +29,9 @@ import type { LeaveRequestStatus } from '@/api/hr-types'
 type FilterKey = 'all' | LeaveRequestStatus
 
 const STATUS_BADGES: Record<string, { label: string; className: string }> = {
-  pending: { label: 'Ausstehend', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
-  approved: { label: 'Genehmigt', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  rejected: { label: 'Abgelehnt', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+  pending: { label: 'Ausstehend', className: 'bg-warning-light text-warning-foreground' },
+  approved: { label: 'Genehmigt', className: 'bg-success-light text-success' },
+  rejected: { label: 'Abgelehnt', className: 'bg-error-light text-destructive' },
   cancelled: { label: 'Storniert', className: 'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400' },
 }
 

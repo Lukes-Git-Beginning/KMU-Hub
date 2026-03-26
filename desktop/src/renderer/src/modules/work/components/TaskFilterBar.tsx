@@ -44,7 +44,7 @@ const EMPTY_FILTERS: TaskFilters = {
 }
 
 const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Dringend', className: 'text-red-600' },
+  { value: 'urgent', label: 'Dringend', className: 'text-destructive' },
   { value: 'high', label: 'Hoch', className: 'text-orange-600' },
   { value: 'medium', label: 'Normal', className: 'text-blue-600' },
   { value: 'low', label: 'Niedrig', className: 'text-gray-500' },

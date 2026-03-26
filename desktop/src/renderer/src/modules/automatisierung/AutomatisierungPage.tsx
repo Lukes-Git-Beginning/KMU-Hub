@@ -58,7 +58,7 @@ function StatsBar() {
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <XCircle className="h-4 w-4 text-red-500" />
+        <XCircle className="h-4 w-4 text-destructive" />
         <span className="text-sm text-muted-foreground">Erfolgsrate</span>
         <span className="text-sm font-semibold text-foreground">
           {stats?.success_rate !== undefined

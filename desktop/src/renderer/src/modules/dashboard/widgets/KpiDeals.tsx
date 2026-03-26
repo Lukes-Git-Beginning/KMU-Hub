@@ -52,14 +52,14 @@ function KpiDeals(_props: WidgetProps) {
 
       {/* Stats grid */}
       <div className="mt-auto grid grid-cols-3 gap-2 pt-3">
-        <div className="rounded-lg bg-emerald-500/10 p-2 text-center">
-          <TrendingUp className="mx-auto h-3.5 w-3.5 text-emerald-600 mb-0.5" />
-          <p className="text-sm font-bold text-emerald-600">{wonThisMonth}</p>
+        <div className="rounded-lg bg-success/10 p-2 text-center">
+          <TrendingUp className="mx-auto h-3.5 w-3.5 text-success mb-0.5" />
+          <p className="text-sm font-bold text-success">{wonThisMonth}</p>
           <p className="text-[9px] text-muted-foreground">Gewonnen</p>
         </div>
-        <div className="rounded-lg bg-red-500/10 p-2 text-center">
-          <Target className="mx-auto h-3.5 w-3.5 text-red-500 mb-0.5" />
-          <p className="text-sm font-bold text-red-500">{lostThisMonth}</p>
+        <div className="rounded-lg bg-destructive/10 p-2 text-center">
+          <Target className="mx-auto h-3.5 w-3.5 text-destructive mb-0.5" />
+          <p className="text-sm font-bold text-destructive">{lostThisMonth}</p>
           <p className="text-[9px] text-muted-foreground">Verloren</p>
         </div>
         <div className="rounded-lg bg-violet-500/10 p-2 text-center">

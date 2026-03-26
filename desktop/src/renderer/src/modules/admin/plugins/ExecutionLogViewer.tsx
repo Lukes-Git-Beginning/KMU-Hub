@@ -25,19 +25,19 @@ function statusBadge(status: string) {
   switch (status) {
     case 'success':
       return (
-        <Badge className="bg-green-500/15 text-green-700 border-green-500/30 hover:bg-green-500/15">
+        <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">
           Erfolg
         </Badge>
       )
     case 'error':
       return (
-        <Badge className="bg-red-500/15 text-red-700 border-red-500/30 hover:bg-red-500/15">
+        <Badge className="bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/15">
           Fehler
         </Badge>
       )
     case 'skipped':
       return (
-        <Badge className="bg-yellow-500/15 text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/15">
+        <Badge className="bg-warning/15 text-warning-foreground border-warning/30 hover:bg-warning/15">
           Uebersprungen
         </Badge>
       )

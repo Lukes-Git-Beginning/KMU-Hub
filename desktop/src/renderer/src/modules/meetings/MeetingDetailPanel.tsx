@@ -43,7 +43,7 @@ interface MeetingDetailPanelProps {
 }
 
 const statusConfig = {
-  live: { label: 'Live', dot: 'bg-red-500' },
+  live: { label: 'Live', dot: 'bg-destructive' },
   scheduled: { label: 'Geplant', dot: 'bg-blue-500' },
   past: { label: 'Vergangen', dot: 'bg-gray-400' },
   cancelled: { label: 'Abgesagt', dot: 'bg-gray-400' },
@@ -413,8 +413,8 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
         {meeting.calendarEventId ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
-              <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">Im Kalender eingetragen</span>
+              <Check className="h-4 w-4 text-success shrink-0" />
+              <span className="text-success font-medium">Im Kalender eingetragen</span>
             </div>
             <button className="flex items-center gap-1.5 text-xs text-primary hover:underline transition-colors">
               <ExternalLink className="h-3 w-3" />
@@ -445,7 +445,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
         </h4>
         {meeting.invitationsSent ? (
           <div className="space-y-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-light px-2.5 py-1 text-xs font-medium text-success">
               <Check className="h-3 w-3" />
               Einladungen versendet
             </span>
@@ -458,7 +458,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
                     </span>
                     <span className="text-xs text-[var(--body)]">{p.name}</span>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                  <span className="inline-flex items-center gap-1 text-[10px] text-success">
                     <Check className="h-2.5 w-2.5" />
                     Gesendet
                   </span>
@@ -468,7 +468,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
           </div>
         ) : (
           <div className="space-y-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-light px-2.5 py-1 text-xs font-medium text-warning-foreground">
               <Mail className="h-3 w-3" />
               Einladungen ausstehend
             </span>
@@ -509,7 +509,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
               </span>
               <span className="text-sm text-[var(--body)]">{p.name}</span>
               {p.id === meeting.organizerId && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-warning-light px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
                   <Crown className="h-2.5 w-2.5" />
                   Organisator
                 </span>
@@ -668,7 +668,7 @@ function AgendaTab({
               )}
               <button
                 onClick={() => onRemove(item.id)}
-                className="rounded p-0.5 text-[var(--muted)] hover:text-red-500 transition-colors"
+                className="rounded p-0.5 text-[var(--muted)] hover:text-destructive transition-colors"
                 title="Entfernen"
               >
                 <X className="h-3.5 w-3.5" />

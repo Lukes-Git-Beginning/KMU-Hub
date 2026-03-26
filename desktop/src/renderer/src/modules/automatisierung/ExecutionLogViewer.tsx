@@ -40,12 +40,12 @@ const STATUS_CONFIG: Record<
   failed: {
     icon: XCircle,
     label: 'Fehlgeschlagen',
-    className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    className: 'bg-error-light text-destructive',
   },
   running: {
     icon: Loader2,
     label: 'Laeuft',
-    className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    className: 'bg-warning-light text-warning-foreground',
   },
   skipped: {
     icon: MinusCircle,
@@ -97,7 +97,7 @@ function ExecutionDetail({ execution }: { execution: AutomationExecution }) {
         </h4>
         <span
           className={`text-sm font-medium ${
-            execution.condition_result ? 'text-green-600' : 'text-red-600'
+            execution.condition_result ? 'text-green-600' : 'text-destructive'
           }`}
         >
           {execution.condition_result ? 'Ja (Bedingung erfuellt)' : 'Nein (Bedingung nicht erfuellt)'}
@@ -121,8 +121,8 @@ function ExecutionDetail({ execution }: { execution: AutomationExecution }) {
       {/* Error */}
       {execution.error_message && (
         <div>
-          <h4 className="text-xs font-medium text-red-600 mb-1">Fehler</h4>
-          <p className="text-sm text-red-600">{execution.error_message}</p>
+          <h4 className="text-xs font-medium text-destructive mb-1">Fehler</h4>
+          <p className="text-sm text-destructive">{execution.error_message}</p>
         </div>
       )}
     </div>
@@ -144,7 +144,7 @@ function StepDetail({ step, index }: { step: ExecutionStep; index: number }) {
             {index + 1}
           </span>
           <span className="text-xs font-medium text-foreground">{step.action_type}</span>
-          {hasError && <XCircle className="h-3 w-3 text-red-500" />}
+          {hasError && <XCircle className="h-3 w-3 text-destructive" />}
           <span className="text-[10px] text-muted-foreground">{step.duration_ms}ms</span>
         </div>
         {expanded ? (
@@ -169,8 +169,8 @@ function StepDetail({ step, index }: { step: ExecutionStep; index: number }) {
           </div>
           {step.error && (
             <div>
-              <span className="text-[10px] font-medium text-red-600">Fehler</span>
-              <p className="text-[11px] text-red-600 mt-0.5">{step.error}</p>
+              <span className="text-[10px] font-medium text-destructive">Fehler</span>
+              <p className="text-[11px] text-destructive mt-0.5">{step.error}</p>
             </div>
           )}
         </div>

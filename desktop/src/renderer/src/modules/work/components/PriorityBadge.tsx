@@ -18,7 +18,7 @@ const priorityConfig: Record<
   }
 > = {
   urgent: {
-    color: 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800',
+    color: 'text-destructive bg-error-light border-destructive/30',
     icon: AlertTriangle,
     label: 'Dringend',
   },

@@ -15,7 +15,6 @@ import {
   AlertTriangle,
   Gauge,
   User,
-  X,
   TrendingUp,
   Droplets,
   FileText,
@@ -30,6 +29,7 @@ import {
   Truck,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { DetailPanel, EmptyState, PageHeader } from '@/components/shared'
 import { formatAmount } from '@/lib/format'
 import { useFuhrparkStore, type Vehicle, type MaintenanceRecord, type FuelRecord, type LogbookEntry, type VehicleDocument, type DamageReport } from '@/stores/fuhrpark'
@@ -221,19 +221,13 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-foreground">Fahrzeug hinzufuegen</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-lg glass-elevated">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogTitle className="text-base font-semibold text-foreground">Fahrzeug hinzufuegen</DialogTitle>
+        </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 px-6 pt-5">
           {/* Row: Kennzeichen + Typ */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -345,7 +339,7 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex justify-end gap-2">
+        <DialogFooter className="px-6 py-4">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -359,9 +353,9 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
           >
             Speichern
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -409,19 +403,13 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-foreground">Wartung eintragen</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-lg glass-elevated">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogTitle className="text-base font-semibold text-foreground">Wartung eintragen</DialogTitle>
+        </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 px-6 pt-5">
           {/* Fahrzeug */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Fahrzeug</label>
@@ -507,7 +495,7 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <DialogFooter className="px-6 py-4">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -521,9 +509,9 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
           >
             Speichern
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -562,19 +550,13 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-foreground">Tanken eintragen</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-md glass-elevated">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogTitle className="text-base font-semibold text-foreground">Tanken eintragen</DialogTitle>
+        </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 px-6 pt-5">
           {/* Fahrzeug */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Fahrzeug</label>
@@ -641,7 +623,7 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <DialogFooter className="px-6 py-4">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -655,9 +637,9 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
           >
             Speichern
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

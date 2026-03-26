@@ -109,7 +109,7 @@ export default function ReportsView() {
                   <div
                     className={cn(
                       'absolute bottom-0 left-1 right-1 rounded-t-md transition-all',
-                      isOverTarget ? 'bg-emerald-500' : 'bg-amber-500',
+                      isOverTarget ? 'bg-success' : 'bg-warning',
                     )}
                     style={{ height: barHeight }}
                   />
@@ -142,7 +142,7 @@ export default function ReportsView() {
               <span className="text-muted-foreground">Differenz</span>
               <span className={cn(
                 'font-semibold',
-                overtime >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+                overtime >= 0 ? 'text-success' : 'text-destructive',
               )}>
                 {overtime >= 0 ? '+' : ''}{formatMinutes(overtime)}
               </span>
@@ -155,7 +155,7 @@ export default function ReportsView() {
           <div className="flex items-end gap-2 mb-2">
             <span className={cn(
               'text-3xl font-bold',
-              overtime >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+              overtime >= 0 ? 'text-success' : 'text-destructive',
             )}>
               {overtime >= 0 ? '+' : ''}{formatHoursDecimal(overtime)}h
             </span>

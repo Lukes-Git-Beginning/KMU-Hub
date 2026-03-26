@@ -47,8 +47,8 @@ const CATEGORY_CONFIG: Record<
   finanzen: {
     icon: Receipt,
     label: 'Finanzen',
-    color: 'text-amber-500',
-    band: 'bg-amber-500',
+    color: 'text-warning-foreground',
+    band: 'bg-warning',
   },
   personal: {
     icon: UserCheck,
@@ -75,7 +75,7 @@ const COMPLEXITY_CONFIG: Record<
   mittel: {
     label: 'Mittel',
     className:
-      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+      'bg-warning-light text-warning-foreground',
   },
   fortgeschritten: {
     label: 'Fortgeschritten',

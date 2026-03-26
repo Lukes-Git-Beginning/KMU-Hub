@@ -18,17 +18,17 @@ export function SLABadge({ overdue, remaining, dueAt, compact }: SLABadgeProps) 
   const hours = parseInt(remaining, 10)
   const isYellow = isWarning && !isNaN(hours) && hours < 4
 
-  let colorClass = 'text-emerald-600 dark:text-emerald-400'
-  let bgClass = 'bg-emerald-50 dark:bg-emerald-950/30'
+  let colorClass = 'text-success'
+  let bgClass = 'bg-success-light'
   let Icon = Clock
 
   if (overdue) {
-    colorClass = 'text-red-600 dark:text-red-400'
-    bgClass = 'bg-red-50 dark:bg-red-950/30'
+    colorClass = 'text-destructive'
+    bgClass = 'bg-error-light'
     Icon = AlertTriangle
   } else if (isYellow) {
-    colorClass = 'text-amber-600 dark:text-amber-400'
-    bgClass = 'bg-amber-50 dark:bg-amber-950/30'
+    colorClass = 'text-warning-foreground'
+    bgClass = 'bg-warning-light'
   }
 
   if (compact) {
@@ -58,7 +58,7 @@ export function SLABadge({ overdue, remaining, dueAt, compact }: SLABadgeProps) 
 
 export function SLABreachBanner({ remaining }: { remaining: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
+    <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-error-light px-3 py-2 text-xs font-medium text-destructive">
       <AlertTriangle className="h-4 w-4 animate-pulse shrink-0" />
       <span>SLA-Verletzung: {remaining} — Bitte umgehend bearbeiten!</span>
     </div>

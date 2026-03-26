@@ -206,7 +206,7 @@ function ReviewStep() {
                   Trifft zu
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-red-600">
+                <span className="flex items-center gap-1 text-destructive">
                   <XCircle className="h-3.5 w-3.5" />
                   Trifft nicht zu
                 </span>
@@ -241,7 +241,7 @@ function ReviewStep() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground">{step.action_type}</p>
                         {step.error ? (
-                          <p className="text-red-600 mt-0.5">{step.error}</p>
+                          <p className="text-destructive mt-0.5">{step.error}</p>
                         ) : (
                           <p className="text-muted-foreground mt-0.5">
                             {step.duration_ms}ms
@@ -249,7 +249,7 @@ function ReviewStep() {
                         )}
                       </div>
                       {step.error ? (
-                        <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+                        <XCircle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
                       ) : (
                         <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
                       )}
@@ -262,7 +262,7 @@ function ReviewStep() {
         )}
 
         {dryRunMutation.isError && (
-          <div className="flex items-center gap-2 text-xs text-red-600">
+          <div className="flex items-center gap-2 text-xs text-destructive">
             <XCircle className="h-3.5 w-3.5" />
             Simulation fehlgeschlagen: {(dryRunMutation.error as Error)?.message ?? 'Unbekannter Fehler'}
           </div>

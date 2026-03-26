@@ -164,7 +164,7 @@ export default function MonthView() {
           <p className="text-xs text-muted-foreground">Saldo</p>
           <p className={cn(
             'text-xl font-bold mt-1',
-            totalMinutes >= monthTarget ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
+            totalMinutes >= monthTarget ? 'text-success' : 'text-warning-foreground',
           )}>
             {totalMinutes >= monthTarget ? '+' : ''}{formatMinutes(totalMinutes - monthTarget)}
           </p>

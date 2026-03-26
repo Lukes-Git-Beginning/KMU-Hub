@@ -2276,8 +2276,10 @@
   --color-text-disabled: var(--text-disabled);
   --color-success: var(--success);
   --color-success-light: var(--success-light);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-light: var(--warning-light);
+  --color-warning-foreground: var(--warning-foreground);
   --color-error: var(--error);
   --color-error-light: var(--error-light);
   --color-info: var(--info);

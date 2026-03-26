@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { RoomBookingView } from './RoomBookingView'
 import { CategoryManagerDialog } from './CategoryManagerDialog'
 import { CalendarBrowseDialog } from './CalendarBrowseDialog'
@@ -1380,19 +1381,11 @@ function NewBookingDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-md max-h-[85vh] rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <h3 className="text-sm font-medium text-foreground">Neuer Termin</h3>
-          <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-secondary">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-md max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader className="border-b border-border px-5 py-3">
+          <DialogTitle className="text-sm font-medium text-foreground">Neuer Termin</DialogTitle>
+        </DialogHeader>
 
         {/* Form */}
         <div className="overflow-y-auto flex-1 p-5 space-y-4">
@@ -1503,7 +1496,7 @@ function NewBookingDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+        <DialogFooter className="border-t border-border px-5 py-3">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
@@ -1516,9 +1509,9 @@ function NewBookingDialog({
           >
             Termin erstellen
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

@@ -665,9 +665,9 @@ interface EmployeeCardProps {
 
 function EmployeeCard({ employee, name, initials, actions, activity, onEmail, onMessage, onCall, onClick }: EmployeeCardProps) {
   const statusDot = activity?.status === 'tracking'
-    ? 'bg-emerald-500'
+    ? 'bg-success'
     : activity?.status === 'absent'
-      ? 'bg-amber-500'
+      ? 'bg-warning'
       : 'bg-gray-400'
 
   return (
@@ -703,8 +703,8 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
         </div>
       )}
       {activity && activity.status === 'absent' && activity.currentDescription && (
-        <div className="flex items-center gap-2 mb-3 rounded-md bg-amber-500/10 px-2.5 py-1.5">
-          <span className="text-[11px] text-amber-600 dark:text-amber-400">{activity.currentDescription}</span>
+        <div className="flex items-center gap-2 mb-3 rounded-md bg-warning/10 px-2.5 py-1.5">
+          <span className="text-[11px] text-warning-foreground">{activity.currentDescription}</span>
         </div>
       )}
 
@@ -759,9 +759,9 @@ interface EmployeeRowProps {
 
 function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onMessage, onClick }: EmployeeRowProps) {
   const statusDot = activity?.status === 'tracking'
-    ? 'bg-emerald-500'
+    ? 'bg-success'
     : activity?.status === 'absent'
-      ? 'bg-amber-500'
+      ? 'bg-warning'
       : 'bg-gray-400'
 
   return (
@@ -790,7 +790,7 @@ function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onM
           </div>
         )}
         {activity?.status === 'absent' && activity.currentDescription && (
-          <span className="hidden lg:block text-[11px] text-amber-600 dark:text-amber-400 shrink-0">{activity.currentDescription}</span>
+          <span className="hidden lg:block text-[11px] text-warning-foreground shrink-0">{activity.currentDescription}</span>
         )}
       </button>
       <div className="flex gap-1">

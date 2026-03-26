@@ -38,7 +38,7 @@ function highlightText(text: string, query: string): React.ReactNode {
   const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase() ? (
-      <mark key={i} className="bg-yellow-200 text-foreground rounded-sm px-0.5">
+      <mark key={i} className="bg-warning-light text-foreground rounded-sm px-0.5">
         {part}
       </mark>
     ) : (

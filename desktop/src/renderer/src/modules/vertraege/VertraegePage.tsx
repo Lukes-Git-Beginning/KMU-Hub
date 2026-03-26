@@ -598,7 +598,7 @@ function TerminationDialog({
           <button
             onClick={handleTerminate}
             disabled={!confirmed}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="rounded-lg bg-destructive px-4 py-2 text-sm text-white hover:bg-destructive/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Kuendigung einleiten
           </button>
@@ -1172,7 +1172,7 @@ export default function VertraegePage() {
               {(selectedContract.status === 'active' || selectedContract.status === 'expiring') && (
                 <button
                   onClick={() => openTerminationDialog(selectedContract)}
-                  className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700 transition-colors"
+                  className="flex-1 rounded-lg bg-destructive px-3 py-2 text-sm text-white hover:bg-destructive/90 transition-colors"
                 >
                   Kuendigen
                 </button>

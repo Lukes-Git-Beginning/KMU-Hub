@@ -36,19 +36,19 @@ function KpiRevenue(_props: WidgetProps) {
       {/* Top: value + change */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-            <Euro className="h-4 w-4 text-emerald-600" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/10">
+            <Euro className="h-4 w-4 text-success" />
           </div>
           <span className="text-xs font-medium text-muted-foreground">Monatsumsatz</span>
         </div>
         <p className="text-2xl font-bold text-foreground">{fmt(current)}</p>
         <div className="mt-1 flex items-center gap-1">
           {isUp ? (
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+            <TrendingUp className="h-3.5 w-3.5 text-success" />
           ) : (
-            <TrendingDown className="h-3.5 w-3.5 text-red-500" />
+            <TrendingDown className="h-3.5 w-3.5 text-destructive" />
           )}
-          <span className={`text-xs font-medium ${isUp ? 'text-emerald-600' : 'text-red-600'}`}>
+          <span className={`text-xs font-medium ${isUp ? 'text-success' : 'text-destructive'}`}>
             {isUp ? '+' : ''}{changePercent.toFixed(1)}%
           </span>
           <span className="text-xs text-muted-foreground">vs. Vormonat ({fmt(previous)})</span>
@@ -62,7 +62,7 @@ function KpiRevenue(_props: WidgetProps) {
             <div key={d.month} className="flex flex-1 flex-col items-center gap-1">
               <div
                 className={`w-full rounded-sm transition-all ${
-                  i === chartData.length - 1 ? 'bg-emerald-500' : 'bg-emerald-500/30'
+                  i === chartData.length - 1 ? 'bg-success' : 'bg-success/30'
                 }`}
                 style={{ height: `${(d.revenue / max) * 40}px` }}
               />

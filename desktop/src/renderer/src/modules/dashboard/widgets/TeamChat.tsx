@@ -92,7 +92,7 @@ function TeamChat(_props: WidgetProps) {
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <span className="text-xs text-muted-foreground">
           {unreadCount > 0 && (
-            <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white mr-1.5">
+            <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white mr-1.5">
               {unreadCount}
             </span>
           )}

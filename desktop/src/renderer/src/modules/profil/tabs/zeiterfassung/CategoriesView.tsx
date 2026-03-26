@@ -110,7 +110,7 @@ export default function CategoriesView() {
                       if (e.key === 'Escape') setEditingCat(null)
                     }}
                   />
-                  <button onClick={() => handleSaveEdit(cat.id)} className="p-1 text-emerald-600 hover:bg-emerald-500/10 rounded">
+                  <button onClick={() => handleSaveEdit(cat.id)} className="p-1 text-success hover:bg-success/10 rounded">
                     <Check className="h-4 w-4" />
                   </button>
                   <button onClick={() => setEditingCat(null)} className="p-1 text-muted-foreground hover:bg-accent rounded">

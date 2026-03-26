@@ -265,7 +265,7 @@ function MetricCard({
 function MilestoneRow({ milestone }: { milestone: MockMilestone }) {
   const statusIcon =
     milestone.status === 'completed' ? (
-      <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+      <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
     ) : milestone.status === 'in-progress' ? (
       <Clock className="h-4 w-4 text-primary flex-shrink-0 animate-pulse" />
     ) : (
@@ -330,9 +330,9 @@ function MilestoneRow({ milestone }: { milestone: MockMilestone }) {
 function StatusUpdateCard({ update }: { update: MockStatusUpdate }) {
   const typeIcon =
     update.type === 'milestone' ? (
-      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+      <CheckCircle2 className="h-3.5 w-3.5 text-success" />
     ) : update.type === 'risk' ? (
-      <AlertCircle className="h-3.5 w-3.5 text-yellow-500" />
+      <AlertCircle className="h-3.5 w-3.5 text-warning-foreground" />
     ) : null
 
   const borderClass =

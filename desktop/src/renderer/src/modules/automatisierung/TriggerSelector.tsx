@@ -30,7 +30,7 @@ const MODULE_CONFIG: Record<
   crm: { icon: Users, label: 'CRM', color: 'text-blue-500' },
   work: { icon: Briefcase, label: 'Projekte', color: 'text-purple-500' },
   email: { icon: Mail, label: 'E-Mail', color: 'text-green-500' },
-  finance: { icon: Receipt, label: 'Finanzen', color: 'text-amber-500' },
+  finance: { icon: Receipt, label: 'Finanzen', color: 'text-warning-foreground' },
   hr: { icon: UserCheck, label: 'Personal', color: 'text-rose-500' },
   calendar: { icon: Calendar, label: 'Kalender', color: 'text-cyan-500' },
 }
