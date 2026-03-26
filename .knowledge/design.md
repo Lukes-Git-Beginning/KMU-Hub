@@ -1,10 +1,10 @@
 ---
-tags: [frontend, design, tools, skills]
+tags: [frontend, design, tools, skills, audit]
 updated: 2026-03-26
 ---
 # Design System
 
-## Status: D9 gemerged + Design-Tooling aufgeruestet (2026-03-26)
+## Status: D9 gemerged + Design-Tooling + UI Hardening (2026-03-26)
 - D1-D8 cherry-picked from design/brainstorm to main (full design system)
 - D9 Waves 15-20 gemerged (2026-03-07) — Visual Polish + UI system integration
 - 5-layer desk theme system (5 themes: cozy, dreamy, raumstation, clean, minimal)
@@ -59,6 +59,37 @@ Install-Pattern: `npx shadcn@latest add "https://magicui.design/r/<name>" --yes`
 - Anti-Patterns: Card-in-Card, AI Slop, symmetrische Layouts, Ueber-Animation
 - Farb-Hierarchie: Dominante Primaerfarbe + scharfe Akzente
 - Motion: Orchestrierte Page-Loads > verstreute Micro-Interactions
+
+## UI Hardening Pass (B8, 2026-03-26)
+
+### Audit Score: 12/20 → 17.5/20 (6 Commits, ~210 Dateien)
+
+**Accessibility:**
+- 26 Custom-Modale auf Radix Dialog migriert (Focus-Trap, ESC, ARIA)
+- div-onClick → semantic button konvertiert
+- aria-labels auf allen Icon-Buttons
+- Semantic HTML: aside, nav, main korrekt
+- Skip-to-content Link in AppShell
+
+**Performance:**
+- MessageList virtualisiert (@tanstack/react-virtual)
+- TipTap lazy-loaded (React.lazy, 7 Consumer)
+- Query-Key-Stabilitaet (Primitives statt Objects)
+- Images lazy-loaded (loading="lazy" decoding="async")
+- Intl.NumberFormat gehoisted
+- PresenceProvider userIds in useMemo
+
+**Theming:**
+- ~500 Hard-Coded Tailwind-Colors → Design-Tokens migriert
+- 3 neue Token-Familien: success-foreground, warning-foreground, info-foreground (in allen 16 Theme-Bloecken)
+- Roboto aus Font-Fallback entfernt → system-ui
+- Verbleibend: ~59 Dateien in Settings/Integrations (niedrige Prioritaet)
+
+**Anti-Patterns bereinigt:**
+- Keine banned Fonts, kein Gradient-Text, kein Card-Nesting
+- Glass selektiv (26 Dateien, Layout-fokussiert)
+- ModulesGrid Hero-Card spannt 2 Spalten (Card-Monotonie gebrochen)
+- sm: Breakpoint zu Grids hinzugefuegt
 
 ## Key Lessons
 - Design files use `actionLabel`/`onAction` aber main's EmptyState uses `action:{label,onClick}`
