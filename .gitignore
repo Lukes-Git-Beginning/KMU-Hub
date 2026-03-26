@@ -28,6 +28,7 @@ mobile/android/app/build/
 
 # === Environment ===
 .env
+.env.*
 .env.local
 .env.*.local
 *.env
