@@ -31,6 +31,13 @@ import {
   MOCK_CUSTOM_FIELD_DEFS,
 } from '@/stores/helpdesk'
 import { SLABadge, SLABreachBanner } from './SLABadge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { CSATWidget, CSATAggregate } from './CSATWidget'
 import { CannedResponsesPanel } from './CannedResponsesPanel'
 import { CannedResponsePicker } from './CannedResponsePicker'
@@ -570,13 +577,11 @@ export default function HelpdeskPage() {
       {/* ================================================================== */}
       {/* NEW TICKET DIALOG                                                   */}
       {/* ================================================================== */}
-      {newTicketOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setNewTicketOpen(false)}>
-          <div className="w-full max-w-lg rounded-xl bg-card border border-border shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <h2 className="text-base font-semibold text-foreground">Neues Ticket erstellen</h2>
-              <button onClick={() => setNewTicketOpen(false)} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors"><X className="h-4 w-4" /></button>
-            </div>
+      <Dialog open={newTicketOpen} onOpenChange={setNewTicketOpen}>
+        <DialogContent className="max-w-lg gap-0 p-0">
+          <DialogHeader className="px-6 py-4 border-b border-border">
+            <DialogTitle>Neues Ticket erstellen</DialogTitle>
+          </DialogHeader>
             <div className="space-y-4 px-6 py-5">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-foreground">Betreff</label>
@@ -622,13 +627,12 @@ export default function HelpdeskPage() {
                 <input type="text" value={ntContact} onChange={(e) => setNtContact(e.target.value)} placeholder="Name des Kontakts" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+            <DialogFooter className="px-6 py-4 border-t border-border">
               <button onClick={() => setNewTicketOpen(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">Abbrechen</button>
               <button onClick={handleSaveNewTicket} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">Ticket erstellen</button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* External Dialogs */}
       <CannedResponsesPanel open={cannedResponsesOpen} onClose={() => setCannedResponsesOpen(false)} onInsert={(content) => { setReplyText(content.replace(/<[^>]+>/g, '')); setCannedResponsesOpen(false) }} />

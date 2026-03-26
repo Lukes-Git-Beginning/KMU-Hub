@@ -27,6 +27,14 @@ import { useBerichteStore } from '@/stores/berichte'
 import { PageHeader } from '@/components/shared'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { EmptyReports } from '@/components/shared/illustrations'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 /* ---------- constants ---------- */
 
@@ -1027,32 +1035,21 @@ export default function BerichtePage() {
       {/* ================================================================ */}
       {/*  DIALOG: Neuer geplanter Bericht                                  */}
       {/* ================================================================ */}
-      {showScheduleDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-lg rounded-xl border border-border bg-card shadow-xl">
-            {/* Dialog header */}
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light">
-                  <CalendarClock className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Neuer geplanter Bericht
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Automatischen Berichtsversand einrichten
-                  </p>
-                </div>
+      <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+        <DialogContent className="max-w-lg gap-0 p-0">
+          <DialogHeader className="px-6 py-4 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light">
+                <CalendarClock className="h-4 w-4 text-primary" />
               </div>
-              <button
-                onClick={() => setShowScheduleDialog(false)}
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                aria-label="Dialog schliessen"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div>
+                <DialogTitle className="text-sm">Neuer geplanter Bericht</DialogTitle>
+                <DialogDescription>
+                  Automatischen Berichtsversand einrichten
+                </DialogDescription>
+              </div>
             </div>
+          </DialogHeader>
 
             {/* Dialog body */}
             <div className="space-y-5 px-6 py-5">
@@ -1160,8 +1157,7 @@ export default function BerichtePage() {
               </div>
             </div>
 
-            {/* Dialog footer */}
-            <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+            <DialogFooter className="px-6 py-4 border-t border-border">
               <button
                 onClick={() => setShowScheduleDialog(false)}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
@@ -1175,10 +1171,9 @@ export default function BerichtePage() {
                 <CalendarClock className="h-4 w-4" />
                 Speichern
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

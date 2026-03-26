@@ -126,6 +126,7 @@ export function ModulesGrid() {
                 className={cn(
                   'group relative rounded-xl border border-border bg-card p-6 transition-all hover:shadow-lg hover:-translate-y-0.5',
                   !mod.isActive && 'opacity-75',
+                  i === 0 && 'lg:col-span-2 lg:flex lg:items-center lg:gap-6',
                   `animate-scale-in stagger-${Math.min(i + 1, 8)}`,
                 )}
               >

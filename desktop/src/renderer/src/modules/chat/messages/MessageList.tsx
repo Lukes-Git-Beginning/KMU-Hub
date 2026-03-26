@@ -1,14 +1,15 @@
 /**
- * Scrollable message history for a chat channel.
+ * Virtualized scrollable message history for a chat channel.
  *
- * Displays messages reverse-chronologically (newest at bottom) with
- * infinite scroll for older messages, date separators, and real-time
- * updates via WebSocket.
+ * Uses @tanstack/react-virtual for windowed rendering so only visible
+ * messages are in the DOM. Supports infinite scroll for older messages,
+ * date separators, and real-time updates via WebSocket.
  */
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Loader2 } from 'lucide-react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useMessages, useMessageWebSocket, useEditMessage, useDeleteMessage, type MessageInfo } from '@/api/hooks/useMessages'
 import { useAuthStore } from '@/stores/auth'
 import { MessageBubble } from './MessageBubble'
@@ -18,10 +19,13 @@ interface MessageListProps {
   onOpenThread: (messageId: string) => void
 }
 
+type FlatItem =
+  | { type: 'date'; date: string }
+  | { type: 'message'; message: MessageInfo }
+
 export function MessageList({ channelId, onOpenThread }: MessageListProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
   const wasAtBottomRef = useRef(true)
 
   const {
@@ -32,26 +36,45 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
     isLoading,
   } = useMessages(channelId)
 
-  // Subscribe to real-time message updates
   useMessageWebSocket(channelId)
 
   const editMessage = useEditMessage()
   const deleteMessage = useDeleteMessage()
 
+  // Flatten grouped messages into a single array for virtualizer
+  const flatItems = useMemo<FlatItem[]>(() => {
+    const groups = groupByDate(messages)
+    const items: FlatItem[] = []
+    for (const group of groups) {
+      items.push({ type: 'date', date: group.date })
+      for (const msg of group.messages) {
+        items.push({ type: 'message', message: msg })
+      }
+    }
+    return items
+  }, [messages])
+
+  const virtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => flatItems[index].type === 'date' ? 40 : 72,
+    overscan: 10,
+  })
+
   // Auto-scroll to bottom on new messages (only if user was already at bottom)
   useEffect(() => {
-    if (wasAtBottomRef.current && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' })
+    if (wasAtBottomRef.current && flatItems.length > 0) {
+      virtualizer.scrollToIndex(flatItems.length - 1, { align: 'end', behavior: 'smooth' })
     }
-  }, [messages.length])
+  }, [flatItems.length, virtualizer])
 
   // Scroll to bottom on channel change
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView()
+    if (flatItems.length > 0) {
+      virtualizer.scrollToIndex(flatItems.length - 1, { align: 'end' })
     }
     wasAtBottomRef.current = true
-  }, [channelId])
+  }, [channelId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track scroll position to know if user is at bottom
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -101,9 +124,6 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
     )
   }
 
-  // Group messages by date
-  const groupedMessages = groupByDate(messages)
-
   return (
     <div
       ref={scrollRef}
@@ -128,25 +148,44 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
         </div>
       )}
 
-      {/* Messages grouped by date */}
-      {groupedMessages.map(({ date, messages: dateMessages }) => (
-        <div key={date}>
-          <DateSeparator date={date} />
-          {dateMessages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              isOwn={message.created_by === currentUserId}
-              onOpenThread={onOpenThread}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          ))}
-        </div>
-      ))}
-
-      {/* Scroll anchor */}
-      <div ref={bottomRef} />
+      {/* Virtualized message list */}
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualItem) => {
+          const item = flatItems[virtualItem.index]
+          return (
+            <div
+              key={virtualItem.key}
+              data-index={virtualItem.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+            >
+              {item.type === 'date' ? (
+                <DateSeparator date={item.date} />
+              ) : (
+                <MessageBubble
+                  message={item.message}
+                  isOwn={item.message.created_by === currentUserId}
+                  onOpenThread={onOpenThread}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

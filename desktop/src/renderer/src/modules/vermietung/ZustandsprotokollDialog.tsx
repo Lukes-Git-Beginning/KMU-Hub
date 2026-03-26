@@ -1,8 +1,16 @@
 import { useState } from 'react'
-import { X, Camera, Plus, Check, AlertTriangle, XCircle } from 'lucide-react'
+import { Camera, Plus, Check, AlertTriangle, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Reservation, Zustandsprotokoll, ZustandsprotokollItem } from '@/stores/vermietung'
 import SignatureCanvas from '../rapporte/SignatureCanvas'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 // ---------------------------------------------------------------------------
 // Types & Constants
@@ -153,32 +161,16 @@ export default function ZustandsprotokollDialog({
 
   // ---- Render ----
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-
-      {/* Dialog card */}
-      <div className="relative z-10 w-full max-w-2xl rounded-xl border border-border bg-card shadow-xl glass-elevated flex flex-col max-h-[85vh]">
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col gap-0 p-0 glass-elevated">
         {/* ---- Header ---- */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Zustandsprotokoll
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {reservation.objectName} &middot; {reservation.renter}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
+          <DialogTitle>Zustandsprotokoll</DialogTitle>
+          <DialogDescription>
+            {reservation.objectName} &middot; {reservation.renter}
+          </DialogDescription>
+        </DialogHeader>
 
         {/* ---- Scrollable body ---- */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
@@ -255,6 +247,7 @@ export default function ZustandsprotokollDialog({
                         value={item.label}
                         onChange={(e) => updateChecklistItem(idx, { label: e.target.value })}
                         placeholder="Prüfpunkt..."
+                        aria-label={`Pruefpunkt ${idx + 1}`}
                         className="flex-1 min-w-0 bg-transparent text-sm text-foreground placeholder:text-input-placeholder focus:outline-none"
                       />
 
@@ -270,6 +263,7 @@ export default function ZustandsprotokollDialog({
                               type="button"
                               onClick={() => updateChecklistItem(idx, { condition: opt.value })}
                               title={opt.label}
+                              aria-label={`${item.label || `Punkt ${idx + 1}`}: ${opt.label}`}
                               className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${
                                 isActive
                                   ? opt.activeBg
@@ -290,8 +284,9 @@ export default function ZustandsprotokollDialog({
                           onClick={() => removeChecklistItem(idx)}
                           className="flex-shrink-0 rounded p-0.5 text-muted-foreground hover:text-error transition-colors"
                           title="Entfernen"
+                          aria-label={`${item.label || `Punkt ${idx + 1}`} entfernen`}
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                       )}
                     </div>
@@ -303,6 +298,7 @@ export default function ZustandsprotokollDialog({
                         value={item.note}
                         onChange={(e) => updateChecklistItem(idx, { note: e.target.value })}
                         placeholder="Anmerkung zur Abweichung..."
+                        aria-label={`Anmerkung fuer ${item.label || `Punkt ${idx + 1}`}`}
                         className="mt-2 w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                       />
                     )}
@@ -404,7 +400,7 @@ export default function ZustandsprotokollDialog({
         </div>
 
         {/* ---- Footer ---- */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border flex-shrink-0">
+        <DialogFooter className="px-6 py-4 border-t border-border flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -419,8 +415,8 @@ export default function ZustandsprotokollDialog({
           >
             Protokoll speichern
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
