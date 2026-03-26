@@ -195,6 +195,75 @@ Alle API-Calls muessen sicher wiederholbar sein. Idempotency-Keys fuer POST-Requ
 
 ---
 
+## UI/UX Design-Directives (KRITISCH)
+
+### Aesthetic Direction
+
+KMU Hub strebt **"Premium SaaS mit Editorial Touch"** an — kein generisches Dashboard-Look. Die UI soll bei jedem Screen ein "Wow" ausloesen. Wir nutzen AI-Design-Skills (frontend-design, impeccable) und halten uns an diese Regeln:
+
+### Font-Bans (NIEMALS verwenden)
+
+- **VERBOTEN:** Inter, Roboto, Arial, Space Grotesk, Helvetica, Open Sans
+- **Erlaubt (Display):** Plus Jakarta Sans (aktuell), Clash Display, Satoshi, Cabinet Grotesk, Bricolage Grotesque
+- **Erlaubt (Mono):** JetBrains Mono (aktuell), Fira Code
+- **Erlaubt (Editorial/Akzente):** Playfair Display, Fraunces, Crimson Pro
+- **Prinzip:** Font-Pairing mit hohem Kontrast (Display + Mono, Serif + Geometric Sans). Gewichts-Extreme: 200 vs 800. Groessen-Spruenge 3x+, nicht 1.5x.
+
+### Farb-Hierarchie
+
+- **RICHTIG:** Dominante Primaerfarbe + scharfe Akzente. Klare Hierarchie: 1 Hero-Farbe dominiert, 1-2 Akzente punktuell.
+- **FALSCH:** Gleichmaessig verteilte Paletten ohne visuelle Hierarchie. Timide, "sichere" Neutraltoene ueberall.
+- CSS-Variablen fuer Konsistenz: `var(--primary)`, `var(--accent-1)`, `var(--accent-2)`
+- Status-Farben NUR fuer Status (Success, Warning, Error, Info)
+
+### Motion & Animation
+
+- **RICHTIG:** Ein orchestrierter Page-Load mit gestaffelten Reveals (Stagger-System nutzen). Bewusste, bedeutungsvolle Animationen.
+- **FALSCH:** Verstreute Micro-Interactions ohne Zusammenhang. Alles animieren "weil es geht".
+- Page-Transitions: `cubic-bezier(0.22, 1, 0.36, 1)` (unser Standard)
+- Dauer: 200-350ms fuer Interactions, 400-600ms fuer Page-Transitions
+- `prefers-reduced-motion` IMMER respektieren
+
+### Hintergruende & Tiefe
+
+- **RICHTIG:** Atmosphaere und Tiefe erzeugen (Glass-Effekte, subtile Patterns, Schatten-Hierarchie)
+- **FALSCH:** Flache Solid-Color-Hintergruende ohne Dimensionalitaet
+- Unser 3-Look-System nutzen: Solid, Glass (blur 18px), Crystal (blur 12px)
+- Schatten-Hierarchie: `--shadow-card` (default) -> `--shadow-card-hover` (elevated)
+
+### Anti-Patterns (VERBIETEN)
+
+1. **Card-in-Card Nesting** — Maximal 1 Ebene, keine verschachtelten Karten
+2. **Grauer Text auf farbigem Hintergrund** — Kontrast-Ratio WCAG AA minimum
+3. **Bootstrap-Aera Patterns** — Keine generischen Grid-Karten ohne Persoenlichkeit
+4. **Symmetrische, vorhersagbare Layouts** — Visuelle Spannung durch bewusste Asymmetrie
+5. **"AI Slop" Aesthetik** — Lila Gradienten, generische Icons, identische Card-Hoehen
+6. **Ueber-Animation** — Nicht alles muss bouncen. Weniger ist mehr, aber das Wenige muss sitzen.
+
+### Design-Workflow (Iterativ)
+
+1. **Generate** — UI erstellen mit klarer Aesthetic Direction
+2. **`/audit`** — Qualitaets-Check (P0-P3 Severity)
+3. **`/critique`** — UX-Review gegen Nielsen's 10 Heuristiken
+4. **Fix** — Gefundene Issues beheben
+5. **`/polish`** — Final Pass fuer Perfektion
+6. **Ship**
+
+### Installierte Design-Skills
+
+| Skill | Commands | Zweck |
+|-------|----------|-------|
+| **frontend-design** | (auto-loaded) | Aesthetic Direction, Font-Bans, Bold Design |
+| **impeccable** | `/audit`, `/critique`, `/polish`, `/animate`, `/normalize`, `/bolder`, `/overdrive` + 14 mehr | Strukturiertes Design-Review & Verbesserung |
+
+### Component Libraries (Copy-Paste)
+
+- **shadcn/ui** (Radix) — Base Components (bereits integriert)
+- **Magic UI** (magicui.design) — 150+ animierte Komponenten fuer Wow-Factor
+- **Aceternity UI** (ui.aceternity.com) — 3D Cards, Parallax, Spotlight-Effekte
+
+---
+
 ## Haeufige Fehler (VERMEIDEN!)
 
 Diese Fehler wurden im Vorgaenger-Projekt (slot_booking_webapp) gemacht und duerfen NICHT wiederholt werden:
@@ -249,20 +318,6 @@ Diese Fehler wurden im Vorgaenger-Projekt (slot_booking_webapp) gemacht und duer
 
 ---
 
-## GSD Workflow
-
-Dieses Projekt nutzt [Get Shit Done](https://github.com/glittercowboy/get-shit-done) fuer strukturierte AI-Entwicklung.
-
-- Planung: `/gsd-discuss-phase` → `/gsd-plan-phase`
-- Ausfuehrung: `/gsd-execute-phase`
-- Verifikation: `/gsd-verify-work`
-- Ad-hoc Fixes: `/gsd-quick`
-- Status: `/gsd-progress`
-
-Planungsdateien in `.planning/` werden committed.
-
----
-
 ## Weiterfuehrende Dokumentation
 
 | Thema | Datei |
@@ -271,7 +326,3 @@ Planungsdateien in `.planning/` werden committed.
 | Learnings aus Vorgaenger-Projekt | `docs/LEARNINGS.md` |
 | Pricing-Modell | `docs/PRICING.md` |
 | Roadmap & Phasen (Archiv) | `docs/ROADMAP.md` |
-| GSD Projekt | `PROJECT.md` |
-| GSD Requirements | `REQUIREMENTS.md` |
-| GSD Roadmap | `ROADMAP.md` |
-| GSD State | `STATE.md` |
