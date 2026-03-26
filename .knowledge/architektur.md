@@ -1,6 +1,6 @@
 ---
 tags: [architektur, backend, frontend]
-updated: 2026-03-05
+updated: 2026-03-08
 ---
 # Architektur
 
@@ -10,7 +10,9 @@ updated: 2026-03-05
   - auth (:50051), crm (:50052), chat (:50053)
   - notification (:50054), work (:50055), email (:50056)
   - document (:50057), biz (:50058, includes HR+finance+bexio)
-  - automation (:50059)
+  - automation (:50059), plugin (:50060)
+- Gateway `/health` Endpoint: status, checks, registered_services, version, commit, build_time
+- Build-Version via ldflags (`BuildVersion`, `BuildCommit`, `BuildTime` in `internal/gateway`)
 
 ## Frontend
 - Electron + React 19 + TypeScript Desktop-App
@@ -29,7 +31,9 @@ updated: 2026-03-05
 - golangci-lint v2.8 (action v7), config: backend/.golangci.yml (version: "2")
 - goimports aus formatters entfernt (CI issues)
 - Postgres + Redis service containers, E2E with Go binaries
-- Claude security review + PR automation
+- CI Pipeline: Lint → Test → Build → E2E → Smoke → OpenAPI Validate
+- CD Pipeline: workflow_dispatch → SSH → deploy.sh → Health Check
+- Smoke Tests: Bash (curl/jq, 19 Tests) + Go (build tag `smoke`)
 
 ## Regeln
 - Thick services, thin handlers
@@ -42,3 +46,5 @@ updated: 2026-03-05
 - [[datenbank]] — Schema & Migrations
 - [[api]] — API-Endpoints & OpenAPI
 - [[security]] — Auth, RBAC, Middleware
+- [[deployment]] — Deploy Scripts, Rollback, Smoke Tests
+- [[testing]] — Test-Strategie, Smoke Tests

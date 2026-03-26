@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-03-05
+updated: 2026-03-08
 ---
 # Deployment & Infrastruktur
 
@@ -36,10 +36,10 @@ Datei: `deploy/docker/docker-compose.yml`
 - Alle Services: `wget --spider http://localhost:{port}/health`
 - Interval: 5-10s, Timeout: 5s, Retries: 10-15
 - Restart: `unless-stopped`
+- Gateway `/health` zeigt: status, checks, registered_services, **version**, **commit**, **build_time**
 
 ## CI/CD
-Datei: `.github/workflows/ci.yml`
-
+### CI Pipeline (`.github/workflows/ci.yml`)
 - **Trigger:** Push auf main/develop, PRs (nur bei backend/ Aenderungen)
 - **Go Version:** 1.25.6
 - **Jobs (parallel):**
@@ -47,23 +47,89 @@ Datei: `.github/workflows/ci.yml`
   2. **Test** — `go test ./... -race`, Coverage-Report, 30-Tage-Artifact
   3. **Build** — `make build` (abhaengig von Lint+Test)
   4. **E2E** — Integration Tests (abhaengig von Lint+Test)
+  5. **Smoke** — Go Smoke Tests (abhaengig von E2E)
+  6. **OpenAPI Validate** — Spec-Validierung
 - Service-Container: postgres:16-alpine + redis:7-alpine
 
-## Deployment-Reihenfolge (KRITISCH)
-1. Backup erstellen
-2. Assets bauen (CSS, JS, Electron)
-3. Config aktualisieren
-4. Code deployen
-5. `make migrate-up`
-6. Services restarten
-7. Health Check
-8. Rollback-Plan bereithalten
+### CD Pipeline (`.github/workflows/cd.yml`)
+- **Trigger:** `workflow_dispatch` (manuell, mit optional `skip_backup`)
+- **Environment:** `production` (GitHub Environment Protection)
+- SSH auf Hetzner-Server, fuehrt `deploy.sh` aus
+- Post-Deploy: Remote Health Check via curl gegen `https://app.zentria.tech/health`
+- **Secret:** `HETZNER_SSH_KEY`
 
-## Produktion (geplant)
-- **Hetzner Cloud** — EU-only, DSGVO-konform
-- Kubernetes mit Blue-Green Deployment
-- Automatische Skalierung
-- **Status:** NOCH NICHT AUFGESETZT (Phase A Blocker)
+## Deploy Scripts (`deploy/scripts/`)
+
+### deploy.sh — Automatisiertes Deployment
+Flow: `lock → snapshot → backup → pull → build → migrate → rolling restart → health check → smoke test → log → unlock`
+- **Deployment Lock:** PID-File (`/opt/kmuhub/.deploy.lock`), verhindert parallele Deploys
+- **Pre-Deploy Snapshot:** `PREV_SHA` + Migrations-Stand
+- **Build-Args:** `--build-arg BUILD_VERSION/BUILD_COMMIT/BUILD_TIME` fuer ldflags
+- **Auto-Rollback:** Bei Health-Check- oder Smoke-Failure: checkout PREV_SHA, migrate down, rebuild, restart
+- **Deploy-History:** TSV-Log (`/opt/kmuhub/deploy-history.log`): timestamp, prev_sha, new_sha, status, duration
+- **No-Change Detection:** Skipped wenn SHA identisch
+- Flags: `--skip-backup`, `--service=<name>`
+
+### rollback.sh — Manueller Rollback
+- `./rollback.sh` — Rollback zum vorherigen Deploy (aus deploy-history.log)
+- `./rollback.sh --to <sha>` — Rollback zu spezifischem Commit
+- `./rollback.sh --list` — Letzte 10 Deployments tabellarisch
+- Steps: Lock → Backup → Checkout → Rebuild → Restart → Health Check → Log
+
+### smoke.sh — Curl/jq Smoke Tests (19 Tests, 6 Kategorien)
+Laeuft ohne Go-Toolchain auf jedem Server, <30 Sekunden.
+
+| Kategorie | Tests |
+|-----------|-------|
+| Infrastruktur (5) | Gateway health, 10 Services, HTTPS-Cert, Response <2s, Version-Info |
+| Auth Flow (3) | Register, Login + JWT, /auth/me |
+| CRM CRUD (3) | POST, GET, DELETE /contacts |
+| Security (3) | Unauth 401, CORS-Headers, HSTS |
+| Performance (3) | /health <500ms, /auth/login <2s, /contacts <1s |
+| Cross-Service (2) | Chat-Channel, Dashboard |
+
+Flags: `--base-url URL`, `--verbose`, `--expect-version SHA`
+Cleanup: Smoke-User wird am Ende per DELETE entfernt.
+
+### healthcheck.sh — Docker Service Health
+- Prueft alle 10 Services + Gateway + Postgres + Redis + Caddy
+- Exit 0 = healthy, Exit 2 = failures
+
+### backup.sh / restore.sh — Datenbank-Backup
+- Backup-Cron taeglich 02:00
+
+## Deployment-Reihenfolge (KRITISCH)
+1. Lock erwerben (flock)
+2. Snapshot (PREV_SHA)
+3. Backup erstellen
+4. Code pullen
+5. Images bauen (mit Build-Version)
+6. Migrations ausfuehren
+7. Rolling Restart (infra → services → gateway)
+8. Health Check — bei Fehler: Auto-Rollback
+9. Smoke Tests — bei Fehler: Auto-Rollback
+10. Erfolg loggen + Lock freigeben
+
+## Produktion (Hetzner)
+- **Server:** CPX42 (8 vCPU, 16GB RAM), Ubuntu 24.04, Nuernberg
+- **IP:** 178.104.38.195, **Domain:** app.zentria.tech
+- **SSH:** `ssh -i ~/.ssh/hetzner_kmuhub deploy@178.104.38.195`
+- **App-Pfad:** `/opt/kmuhub/`, Compose aus `deploy/docker/`
+- **Git Pull:** `sudo GIT_SSH_COMMAND='ssh -i /home/deploy/.ssh/github_deploy' git pull origin main`
+- **HTTPS:** Caddy + Let's Encrypt, HSTS, HTTP/2
+- **Firewall:** Hetzner Cloud Firewall `kmuhub-fw` (10 Regeln, IPv4+IPv6)
+- **Monitoring:** Prometheus + Grafana (localhost-only, SSH-Tunnel)
+
+## Gateway Build-Version (ldflags)
+```dockerfile
+# Dockerfile.gateway
+ARG BUILD_VERSION=dev
+ARG BUILD_COMMIT=unknown
+ARG BUILD_TIME=unknown
+RUN go build -ldflags "-X .../gateway.BuildVersion=$BUILD_VERSION -X .../gateway.BuildCommit=$BUILD_COMMIT -X .../gateway.BuildTime=$BUILD_TIME" ...
+```
+Package-Level Vars in `backend/internal/gateway/route_health.go`:
+`BuildVersion`, `BuildCommit`, `BuildTime`
 
 ## Self-Hosted (Kunden)
 - Docker Compose Setup
@@ -73,4 +139,5 @@ Datei: `.github/workflows/ci.yml`
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur
 - [[security]] — Infrastruktur-Security
+- [[testing]] — Smoke Tests (Go + Bash)
 - [[integrationen]] — Docker-Container fuer LiveKit, OnlyOffice
