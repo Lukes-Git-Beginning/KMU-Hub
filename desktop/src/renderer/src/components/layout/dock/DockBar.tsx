@@ -103,7 +103,7 @@ function DockItem({ item }: { item: NavItemConfig }) {
               className={cn(
                 'absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full z-10',
                 item.badge.type === 'live'
-                  ? 'bg-red-500 animate-pulse'
+                  ? 'bg-destructive animate-pulse'
                   : 'bg-primary'
               )}
             />

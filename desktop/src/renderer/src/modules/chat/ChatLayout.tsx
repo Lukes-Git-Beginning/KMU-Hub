@@ -33,12 +33,12 @@ export default function ChatLayout() {
   return (
     <div className="flex h-full">
       {/* Channel sidebar */}
-      <div className="h-full w-[280px] shrink-0">
+      <aside className="h-full w-[280px] shrink-0">
         <ChannelList
           selectedChannelId={selectedChannelId}
           onSelectChannel={handleSelectChannel}
         />
-      </div>
+      </aside>
 
       {/* Message area */}
       <div className="flex flex-1 flex-col min-w-0">

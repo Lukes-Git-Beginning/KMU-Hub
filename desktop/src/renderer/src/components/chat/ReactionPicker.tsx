@@ -81,6 +81,7 @@ export function ReactionPicker({ messageId }: ReactionPickerProps) {
               className="rounded p-1 text-lg transition-colors hover:bg-accent"
               onClick={() => handleSelect(qr.emoji)}
               title={qr.label}
+              aria-label={qr.label}
             >
               {qr.emoji}
             </button>
@@ -97,6 +98,7 @@ export function ReactionPicker({ messageId }: ReactionPickerProps) {
           <EmojiPicker.Search
             className="mx-2 mt-2 mb-1 h-8 w-[calc(100%-1rem)] rounded-md border border-input bg-transparent px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             placeholder="Emoji suchen..."
+            aria-label="Emoji suchen"
             autoFocus
           />
           <EmojiPicker.Viewport className="relative flex-1 overflow-y-auto px-1">

@@ -103,7 +103,7 @@ function TopNavTab({ item }: { item: NavItemConfig }) {
         <span
           className={cn(
             'h-1.5 w-1.5 rounded-full',
-            item.badge.type === 'live' ? 'bg-red-500 animate-pulse' : 'bg-primary'
+            item.badge.type === 'live' ? 'bg-destructive animate-pulse' : 'bg-primary'
           )}
         />
       )}

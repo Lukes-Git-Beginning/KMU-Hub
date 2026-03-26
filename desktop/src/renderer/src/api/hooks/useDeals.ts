@@ -22,7 +22,7 @@ export interface DealListParams {
 
 export function useDeals(params?: DealListParams) {
   return useQuery({
-    queryKey: ['deals', params],
+    queryKey: ['deals', params?.page, params?.page_size, params?.search, params?.stage_id, params?.contact_id, params?.company_id, params?.owner_id, params?.tag_ids, params?.sort_by, params?.sort_desc],
     queryFn: async () => {
       const { data, error } = await apiClient.GET('/api/v1/deals', {
         params: { query: params },

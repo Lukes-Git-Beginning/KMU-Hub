@@ -41,7 +41,7 @@ export function ReactionBar({ messageId }: ReactionBarProps) {
               className={cn(
                 'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-all hover:scale-105',
                 reaction.current_user_reacted
-                  ? 'border-blue-300 bg-blue-100 text-blue-800 dark:border-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
+                  ? 'border-info bg-info-light text-info-foreground'
                   : 'border-border bg-muted text-muted-foreground hover:bg-accent',
               )}
               onClick={() => handleToggle(reaction.emoji)}

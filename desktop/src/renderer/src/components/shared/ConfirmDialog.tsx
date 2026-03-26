@@ -31,15 +31,15 @@ const variantConfig = {
   },
   destructive: {
     icon: Trash2,
-    iconBg: 'bg-red-50 dark:bg-red-950/30',
-    iconClass: 'text-red-500',
-    buttonClass: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-600',
+    iconBg: 'bg-error-light',
+    iconClass: 'text-destructive',
+    buttonClass: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive',
   },
   warning: {
     icon: AlertTriangle,
-    iconBg: 'bg-amber-50 dark:bg-amber-950/30',
-    iconClass: 'text-amber-500',
-    buttonClass: 'bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-600',
+    iconBg: 'bg-warning-light',
+    iconClass: 'text-warning-foreground',
+    buttonClass: 'bg-warning text-warning-foreground hover:bg-warning/90 focus:ring-warning',
   },
 }
 

@@ -56,7 +56,7 @@ export function ItemActions({
               disabled={item.disabled}
               className={cn(
                 'cursor-pointer',
-                item.variant === 'destructive' && 'text-red-600 focus:text-red-600'
+                item.variant === 'destructive' && 'text-destructive focus:text-destructive'
               )}
             >
               {item.icon && <item.icon className="mr-2 h-4 w-4" />}

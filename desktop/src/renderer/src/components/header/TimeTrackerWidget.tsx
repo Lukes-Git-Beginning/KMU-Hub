@@ -238,7 +238,7 @@ export function TimeTrackerWidget() {
                 <div className="text-center">
                   <span className={cn(
                     'text-xs font-medium tabular-nums',
-                    overtimeSaldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+                    overtimeSaldo >= 0 ? 'text-success-foreground' : 'text-destructive',
                   )}>
                     Saldo: {overtimeSaldo >= 0 ? '+' : ''}{formatMinutes(overtimeSaldo)}
                   </span>
@@ -301,7 +301,7 @@ export function TimeTrackerWidget() {
                   <div
                     className={cn(
                       'h-full rounded-full transition-all',
-                      progressPercent >= 90 ? 'bg-emerald-500' : progressPercent >= 60 ? 'bg-amber-500' : 'bg-primary',
+                      progressPercent >= 90 ? 'bg-success' : progressPercent >= 60 ? 'bg-warning' : 'bg-primary',
                     )}
                     style={{ width: `${progressPercent}%` }}
                   />
@@ -312,7 +312,7 @@ export function TimeTrackerWidget() {
                   </span>
                   <span className={cn(
                     'text-[10px] font-medium tabular-nums',
-                    overtimeSaldo >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+                    overtimeSaldo >= 0 ? 'text-success-foreground' : 'text-destructive',
                   )}>
                     Saldo: {overtimeSaldo >= 0 ? '+' : ''}{formatMinutes(overtimeSaldo)}
                   </span>
@@ -332,7 +332,7 @@ export function TimeTrackerWidget() {
                     <div className="flex-1" />
                     <span className={cn(
                       'font-mono text-sm font-bold tabular-nums',
-                      activeTimer.status === 'running' ? 'text-primary' : 'text-amber-500',
+                      activeTimer.status === 'running' ? 'text-primary' : 'text-warning-foreground',
                     )}>
                       {formatElapsed(taskElapsed)}
                     </span>

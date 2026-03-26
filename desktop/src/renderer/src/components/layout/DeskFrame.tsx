@@ -89,6 +89,8 @@ export function DeskFrame({ visible, theme, isDark, zoomToWindow, children }: De
             className="absolute pointer-events-none"
             style={{ ...f.position, zIndex: f.zIndex }}
             draggable={false}
+            loading="lazy"
+            decoding="async"
             alt=""
           />
         )

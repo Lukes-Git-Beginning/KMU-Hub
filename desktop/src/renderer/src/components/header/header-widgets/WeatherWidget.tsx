@@ -21,7 +21,7 @@ export function WeatherWidget() {
     <Tooltip>
       <TooltipTrigger asChild>
         <button className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs hover:bg-accent transition-colors">
-          <CloudSun className="h-3.5 w-3.5 text-amber-500" />
+          <CloudSun className="h-3.5 w-3.5 text-warning-foreground" />
           <span className="font-semibold text-foreground">{MOCK.temp}°C</span>
         </button>
       </TooltipTrigger>

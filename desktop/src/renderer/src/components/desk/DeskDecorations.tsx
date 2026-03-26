@@ -32,6 +32,8 @@ function DecorationRenderer({ placement, maxSize }: { placement: DecorationPlace
           alt={placement.variant}
           className={placement.animationClass ?? undefined}
           draggable={false}
+          loading="lazy"
+          decoding="async"
           style={{
             maxWidth: `${maxSize.width}px`,
             maxHeight: `${maxSize.height}px`,

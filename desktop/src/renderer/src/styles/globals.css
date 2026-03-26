@@ -14,7 +14,7 @@
    Inspired by clean SaaS aesthetics (Inspo 2).
    ═══════════════════════════════════════════════════════════ */
 :root {
-  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
   --font-size: 16px;
 
@@ -69,12 +69,15 @@
   /* STATUS COLORS */
   --success: #10b981;
   --success-light: #ecfdf5;
+  --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-light: #fffbeb;
+  --warning-foreground: #78350f;
   --error: #ef4444;
   --error-light: #fef2f2;
   --info: #3b82f6;
   --info-light: #eff6ff;
+  --info-foreground: #1e40af;
 
   /* DESTRUCTIVE */
   --destructive: #ef4444;
@@ -235,12 +238,15 @@
 
   --success: #34d399;
   --success-light: rgba(16, 185, 129, 0.12);
+  --success-foreground: #ffffff;
   --warning: #fbbf24;
   --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-foreground: #fef3c7;
   --error: #f87171;
   --error-light: rgba(239, 68, 68, 0.12);
   --info: #60a5fa;
   --info-light: rgba(59, 130, 246, 0.12);
+  --info-foreground: #bfdbfe;
 
   --destructive: #f87171;
   --destructive-foreground: #0f0f13;
@@ -378,12 +384,15 @@
 
   --success: #2d8a5e;
   --success-light: #e8f4f0;
+  --success-foreground: #ffffff;
   --warning: #c47a20;
   --warning-light: #f9ede4;
+  --warning-foreground: #78350f;
   --error: #c43c3c;
   --error-light: #f5e8e8;
   --info: #2d6baa;
   --info-light: #e8eef5;
+  --info-foreground: #1e3a5f;
 
   --destructive: #c43c3c;
   --destructive-foreground: #ffffff;
@@ -644,12 +653,15 @@
 
   --success: #10b981;
   --success-light: #ecfdf5;
+  --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-light: #fffbeb;
+  --warning-foreground: #78350f;
   --error: #ef4444;
   --error-light: #fef2f2;
   --info: #3b82f6;
   --info-light: #eff6ff;
+  --info-foreground: #1e40af;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
@@ -777,12 +789,15 @@
 
   --success: #34d399;
   --success-light: rgba(16, 185, 129, 0.12);
+  --success-foreground: #ffffff;
   --warning: #fbbf24;
   --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-foreground: #fef3c7;
   --error: #f87171;
   --error-light: rgba(239, 68, 68, 0.12);
   --info: #60a5fa;
   --info-light: rgba(59, 130, 246, 0.12);
+  --info-foreground: #bfdbfe;
 
   --destructive: #f87171;
   --destructive-foreground: #0a1214;
@@ -910,12 +925,15 @@
 
   --success: #10b981;
   --success-light: #ecfdf5;
+  --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-light: #fffbeb;
+  --warning-foreground: #78350f;
   --error: #ef4444;
   --error-light: #fef2f2;
   --info: #3b82f6;
   --info-light: #eff6ff;
+  --info-foreground: #1e40af;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
@@ -1043,12 +1061,15 @@
 
   --success: #34d399;
   --success-light: rgba(16, 185, 129, 0.12);
+  --success-foreground: #ffffff;
   --warning: #fbbf24;
   --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-foreground: #fef3c7;
   --error: #f87171;
   --error-light: rgba(239, 68, 68, 0.12);
   --info: #60a5fa;
   --info-light: rgba(59, 130, 246, 0.12);
+  --info-foreground: #bfdbfe;
 
   --destructive: #f87171;
   --destructive-foreground: #110e18;
@@ -1176,12 +1197,15 @@
 
   --success: #10b981;
   --success-light: #ecfdf5;
+  --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-light: #fffbeb;
+  --warning-foreground: #78350f;
   --error: #ef4444;
   --error-light: #fef2f2;
   --info: #3b82f6;
   --info-light: #eff6ff;
+  --info-foreground: #1e40af;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
@@ -1309,12 +1333,15 @@
 
   --success: #34d399;
   --success-light: rgba(16, 185, 129, 0.12);
+  --success-foreground: #ffffff;
   --warning: #fbbf24;
   --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-foreground: #fef3c7;
   --error: #f87171;
   --error-light: rgba(239, 68, 68, 0.12);
   --info: #60a5fa;
   --info-light: rgba(59, 130, 246, 0.12);
+  --info-foreground: #bfdbfe;
 
   --destructive: #f87171;
   --destructive-foreground: #0a120c;
@@ -1442,12 +1469,15 @@
 
   --success: #10b981;
   --success-light: #ecfdf5;
+  --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-light: #fffbeb;
+  --warning-foreground: #78350f;
   --error: #ef4444;
   --error-light: #fef2f2;
   --info: #3b82f6;
   --info-light: #eff6ff;
+  --info-foreground: #1e40af;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
@@ -1575,12 +1605,15 @@
 
   --success: #34d399;
   --success-light: rgba(16, 185, 129, 0.12);
+  --success-foreground: #ffffff;
   --warning: #fbbf24;
   --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-foreground: #fef3c7;
   --error: #f87171;
   --error-light: rgba(239, 68, 68, 0.12);
   --info: #60a5fa;
   --info-light: rgba(59, 130, 246, 0.12);
+  --info-foreground: #bfdbfe;
 
   --destructive: #f87171;
   --destructive-foreground: #160a0e;
@@ -1708,12 +1741,15 @@
 
   --success: #10b981;
   --success-light: #ecfdf5;
+  --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-light: #fffbeb;
+  --warning-foreground: #78350f;
   --error: #ef4444;
   --error-light: #fef2f2;
   --info: #3b82f6;
   --info-light: #eff6ff;
+  --info-foreground: #1e40af;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
@@ -1841,12 +1877,15 @@
 
   --success: #34d399;
   --success-light: rgba(16, 185, 129, 0.12);
+  --success-foreground: #ffffff;
   --warning: #fbbf24;
   --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-foreground: #fef3c7;
   --error: #f87171;
   --error-light: rgba(239, 68, 68, 0.12);
   --info: #60a5fa;
   --info-light: rgba(59, 130, 246, 0.12);
+  --info-foreground: #bfdbfe;
 
   --destructive: #f87171;
   --destructive-foreground: #080b12;
@@ -1974,12 +2013,15 @@
 
   --success: #10b981;
   --success-light: #ecfdf5;
+  --success-foreground: #ffffff;
   --warning: #f59e0b;
   --warning-light: #fffbeb;
+  --warning-foreground: #78350f;
   --error: #ef4444;
   --error-light: #fef2f2;
   --info: #3b82f6;
   --info-light: #eff6ff;
+  --info-foreground: #1e40af;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
@@ -2107,12 +2149,15 @@
 
   --success: #34d399;
   --success-light: rgba(16, 185, 129, 0.12);
+  --success-foreground: #ffffff;
   --warning: #fbbf24;
   --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-foreground: #fef3c7;
   --error: #f87171;
   --error-light: rgba(239, 68, 68, 0.12);
   --info: #60a5fa;
   --info-light: rgba(59, 130, 246, 0.12);
+  --info-foreground: #bfdbfe;
 
   --destructive: #f87171;
   --destructive-foreground: #14100a;

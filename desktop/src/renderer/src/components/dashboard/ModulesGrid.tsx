@@ -91,6 +91,7 @@ export function ModulesGrid() {
                   key={item.value}
                   onClick={() => setViewState(item.value)}
                   title={item.title}
+                  aria-label={item.title}
                   className={cn(
                     'rounded p-1.5 transition-colors',
                     viewState === item.value
@@ -111,7 +112,7 @@ export function ModulesGrid() {
       </div>
 
       {viewState !== 'minimized' && (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {display.map((mod, i) => {
             const Icon = getModuleIcon(mod.id)
             if (!Icon) return null

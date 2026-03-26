@@ -36,16 +36,16 @@ export function AlertsSection() {
           key={alert.id}
           className={`flex items-center justify-between rounded-xl border p-4 animate-fade-up stagger-${i + 1} ${
             alert.type === 'warning'
-              ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20'
-              : 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20'
+              ? 'border-warning bg-warning-light'
+              : 'border-info bg-info-light'
           }`}
         >
           <div className="flex items-center gap-3">
             <AlertCircle
               className={`h-5 w-5 ${
                 alert.type === 'warning'
-                  ? 'text-yellow-600 dark:text-yellow-400'
-                  : 'text-blue-600 dark:text-blue-400'
+                  ? 'text-warning-foreground'
+                  : 'text-info-foreground'
               }`}
             />
             <span className="text-sm text-foreground">{alert.title}</span>
@@ -54,8 +54,8 @@ export function AlertsSection() {
             to={alert.path}
             className={`shrink-0 text-sm font-medium hover:underline ${
               alert.type === 'warning'
-                ? 'text-yellow-700 dark:text-yellow-400'
-                : 'text-blue-700 dark:text-blue-400'
+                ? 'text-warning-foreground'
+                : 'text-info-foreground'
             }`}
           >
             {alert.action}

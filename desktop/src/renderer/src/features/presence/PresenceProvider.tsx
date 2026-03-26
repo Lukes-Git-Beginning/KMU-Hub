@@ -9,7 +9,7 @@
  *
  * Renders no UI of its own -- purely a side-effect provider.
  */
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { wsManager } from '@/api/websocket'
 import { useWSSubscription } from '@/hooks/useWebSocket'
 import { usePresenceStore } from '@/stores/presence'
@@ -126,7 +126,7 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
   // -----------------------------------------------------------------------
   // 4. Initial bulk fetch for subscribed users
   // -----------------------------------------------------------------------
-  const userIds = Array.from(subscribedUsers)
+  const userIds = useMemo(() => Array.from(subscribedUsers), [subscribedUsers])
   const { data: bulkData } = useBulkPresence(userIds)
 
   useEffect(() => {

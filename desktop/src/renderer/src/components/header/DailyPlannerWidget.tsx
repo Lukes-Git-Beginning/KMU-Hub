@@ -142,7 +142,7 @@ export function DailyPlannerWidget() {
       >
         <Check className="h-5 w-5 text-muted-foreground" />
         {highPriorityCount > 0 && (
-          <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+          <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
             {highPriorityCount}
           </div>
         )}

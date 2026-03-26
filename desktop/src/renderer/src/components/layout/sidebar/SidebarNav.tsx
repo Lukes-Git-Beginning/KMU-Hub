@@ -95,8 +95,8 @@ function NavItem({
             )}>
               {item.badge.type === 'live' ? (
                 <span className="flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive/75 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
                 </span>
               ) : item.badge.value ? (
                 <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary">

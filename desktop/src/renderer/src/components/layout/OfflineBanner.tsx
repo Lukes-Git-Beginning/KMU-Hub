@@ -15,7 +15,7 @@ export function OfflineBanner() {
   if (isOnline && wasOffline) {
     return (
       <div
-        className="flex items-center justify-center gap-2 bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all duration-300"
+        className="flex items-center justify-center gap-2 bg-success px-4 py-2 text-sm font-medium text-success-foreground transition-all duration-300"
         role="status"
         aria-live="polite"
       >
@@ -29,7 +29,7 @@ export function OfflineBanner() {
   if (!isOnline) {
     return (
       <div
-        className="flex items-center justify-center gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950 transition-all duration-300"
+        className="flex items-center justify-center gap-2 bg-warning px-4 py-2 text-sm font-medium text-warning-foreground transition-all duration-300"
         role="alert"
         aria-live="assertive"
       >

@@ -40,7 +40,7 @@ export function SidebarUser({ collapsed }: SidebarUserProps) {
               </AvatarFallback>
             </Avatar>
             {/* Online status dot */}
-            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-sidebar bg-emerald-500" />
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-sidebar bg-success" />
           </div>
         </TooltipTrigger>
         {collapsed && (

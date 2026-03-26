@@ -46,12 +46,12 @@ export function QuickStatsSection() {
       </div>
 
       {/* Support CTA */}
-      <div className="rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 text-white">
+      <div className="rounded-lg bg-gradient-to-br from-success to-success/80 p-6 text-success-foreground">
         <h3 className="mb-2 text-lg font-semibold">Benötigen Sie Hilfe?</h3>
-        <p className="mb-4 text-sm text-emerald-100">
+        <p className="mb-4 text-sm opacity-80">
           Unser Support-Team steht Ihnen zur Verfuegung
         </p>
-        <button className="w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50">
+        <button className="w-full rounded-lg bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card/90">
           Support kontaktieren
         </button>
       </div>

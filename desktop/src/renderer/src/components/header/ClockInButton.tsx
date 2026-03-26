@@ -117,14 +117,14 @@ export function ClockInButton() {
           </>
         ) : status.isOnBreak ? (
           <>
-            <Coffee className="h-4 w-4 text-amber-500" />
-            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Pause</span>
+            <Coffee className="h-4 w-4 text-warning-foreground" />
+            <span className="text-xs font-medium text-warning-foreground">Pause</span>
           </>
         ) : (
           <>
             <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping bg-emerald-400" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping bg-success/75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
             </span>
             <span className="font-mono text-sm font-semibold text-primary tabular-nums">
               {elapsedDisplay}

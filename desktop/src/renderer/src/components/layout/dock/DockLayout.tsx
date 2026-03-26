@@ -29,7 +29,7 @@ export function DockLayout() {
           <Tooltip>
             <TooltipTrigger asChild>
               <span
-                className={`inline-block h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-destructive'}`}
+                className={`inline-block h-2 w-2 rounded-full ${isOnline ? 'bg-success' : 'bg-destructive'}`}
                 role="status"
                 aria-label={isOnline ? 'Online' : 'Offline'}
               />

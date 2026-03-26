@@ -26,13 +26,13 @@ function deriveStatus(isOnline: boolean, wsState: string): IndicatorStatus {
 
 const STATUS_CONFIG: Record<IndicatorStatus, { color: string; pulse: boolean; label: string; tooltip: string }> = {
   connected: {
-    color: 'bg-emerald-500',
+    color: 'bg-success',
     pulse: false,
     label: 'Verbunden',
     tooltip: 'Verbunden mit dem Server',
   },
   reconnecting: {
-    color: 'bg-amber-500',
+    color: 'bg-warning',
     pulse: true,
     label: 'Verbindung wird hergestellt',
     tooltip: 'Verbindung wird hergestellt...',

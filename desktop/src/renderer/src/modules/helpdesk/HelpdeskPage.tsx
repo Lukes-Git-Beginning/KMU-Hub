@@ -453,7 +453,7 @@ export default function HelpdeskPage() {
                 </div>
               ) : (
                 kbArticles.map((article) => (
-                  <div key={article.id} onClick={() => setSelectedArticleId(article.id)} className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer">
+                  <button type="button" key={article.id} onClick={() => setSelectedArticleId(article.id)} className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-card-hover)] cursor-pointer text-left w-full">
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="text-sm font-medium text-foreground line-clamp-2">{article.title}</h4>
                       {article.published ? (
@@ -468,7 +468,7 @@ export default function HelpdeskPage() {
                       <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{article.views}</span>
                       <span>{new Date(article.updatedAt).toLocaleDateString('de-CH')}</span>
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>

@@ -338,6 +338,7 @@ export default function KontaktePage() {
             <input
               type="text"
               placeholder="Kontakt suchen..."
+              aria-label="Kontakt suchen"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -350,6 +351,7 @@ export default function KontaktePage() {
             }}
             className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             title={`Sortierung: ${sortField === 'name' ? 'Name' : sortField === 'company' ? 'Firma' : 'Letzter Kontakt'}`}
+            aria-label={`Sortierung: ${sortField === 'name' ? 'Name' : sortField === 'company' ? 'Firma' : 'Letzter Kontakt'}`}
           >
             <ArrowUpDown className="h-4 w-4" />
           </button>
@@ -357,6 +359,7 @@ export default function KontaktePage() {
             onClick={() => setImportOpen(true)}
             className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             title="Kontakte importieren"
+            aria-label="Kontakte importieren"
           >
             <Upload className="h-4 w-4" />
           </button>
@@ -398,8 +401,9 @@ export default function KontaktePage() {
           )}
 
           {!isLoading && !isError && filtered.map((contact) => (
-            <div
+            <button
               key={contact.id}
+              type="button"
               className={`group flex w-full items-center gap-3 border-b border-border-muted px-4 py-3 text-left transition-colors hover:bg-secondary/50 cursor-pointer ${
                 selectedContactId === contact.id ? 'bg-primary-light/50 border-l-2 border-l-primary' : ''
               }`}
@@ -427,7 +431,7 @@ export default function KontaktePage() {
               <div className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                 <ItemActions items={getContactActions(contact)} />
               </div>
-            </div>
+            </button>
           ))}
 
           {!isLoading && !isError && filtered.length === 0 && (

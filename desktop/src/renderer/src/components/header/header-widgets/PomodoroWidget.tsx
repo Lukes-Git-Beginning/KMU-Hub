@@ -92,7 +92,7 @@ export function PomodoroWidget() {
           {/* Progress ring (simplified as bar) */}
           <div className="h-1.5 w-full rounded-full bg-secondary mb-3 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-1000 ${isBreak ? 'bg-emerald-500' : 'bg-primary'}`}
+              className={`h-full rounded-full transition-all duration-1000 ${isBreak ? 'bg-success' : 'bg-primary'}`}
               style={{ width: `${pct}%` }}
             />
           </div>

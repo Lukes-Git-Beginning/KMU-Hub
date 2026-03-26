@@ -13,14 +13,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
+const currencyFormatter = new Intl.NumberFormat('de-DE', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+})
+
 function formatCurrency(value?: number): string {
   if (value == null) return '0 EUR'
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
+  return currencyFormatter.format(value)
 }
 
 function DealPipeline(_props: WidgetProps) {

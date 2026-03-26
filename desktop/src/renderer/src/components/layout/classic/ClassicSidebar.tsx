@@ -57,7 +57,7 @@ export function ClassicSidebar() {
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-sidebar bg-emerald-500" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-sidebar bg-success" />
               </div>
             </div>
           </TooltipTrigger>
@@ -104,7 +104,7 @@ function ClassicNavItem({ item }: { item: NavItemConfig }) {
               className={cn(
                 'absolute top-0.5 right-0.5 h-2 w-2 rounded-full z-10',
                 item.badge.type === 'live'
-                  ? 'bg-red-500 animate-pulse'
+                  ? 'bg-destructive animate-pulse'
                   : 'bg-sidebar-primary'
               )}
             />

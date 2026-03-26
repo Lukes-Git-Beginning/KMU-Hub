@@ -24,7 +24,7 @@ export function UnreadCountWidget() {
         >
           <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
           {MOCK_UNREAD > 0 && (
-            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
               {MOCK_UNREAD > 99 ? '99+' : MOCK_UNREAD}
             </span>
           )}

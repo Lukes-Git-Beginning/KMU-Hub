@@ -1048,6 +1048,7 @@ export default function BerichtePage() {
               <button
                 onClick={() => setShowScheduleDialog(false)}
                 className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                aria-label="Dialog schliessen"
               >
                 <X className="h-4 w-4" />
               </button>

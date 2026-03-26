@@ -18,7 +18,7 @@ export interface ContactListParams {
 
 export function useContacts(params?: ContactListParams) {
   return useQuery({
-    queryKey: ['contacts', params],
+    queryKey: ['contacts', params?.page, params?.page_size, params?.search, params?.company_id, params?.tag_ids],
     queryFn: async () => {
       const { data, error } = await apiClient.GET('/api/v1/contacts', {
         params: { query: params },
