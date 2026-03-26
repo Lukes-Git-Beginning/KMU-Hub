@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/auth'
-import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
+import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { toast } from 'sonner'
 
 export default function ProfilTab() {

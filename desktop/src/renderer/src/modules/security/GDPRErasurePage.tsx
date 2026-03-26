@@ -10,7 +10,15 @@
  */
 import { useState, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
-import { AlertTriangle, Search, Eye, Trash2, CheckCircle, X, Download } from 'lucide-react'
+import { AlertTriangle, Search, Eye, Trash2, CheckCircle, Download } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { FormattedMessage, useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import {
@@ -326,21 +334,15 @@ export default function GDPRErasurePage() {
       </div>
 
       {/* Two-Step Confirmation Dialog */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => { setShowConfirm(false); setAdminPassword('') }} />
-          <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-foreground">
+      <Dialog open={showConfirm} onOpenChange={(o) => { if (!o) { setShowConfirm(false); setAdminPassword('') } }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
+          <div className="p-6">
+            <DialogHeader className="mb-5">
+              <DialogTitle className="text-lg font-semibold text-foreground">
                 <FormattedMessage id="gdpr.erasure.confirmTitle" />
-              </h2>
-              <button
-                onClick={() => { setShowConfirm(false); setAdminPassword('') }}
-                className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+              </DialogTitle>
+              <DialogDescription className="sr-only">Loeschvorgang bestaetigen</DialogDescription>
+            </DialogHeader>
 
             <p className="text-sm text-muted-foreground mb-4">
               <FormattedMessage id="gdpr.erasure.confirmDescription" />
@@ -383,7 +385,7 @@ export default function GDPRErasurePage() {
               />
             </div>
 
-            <div className="flex justify-end gap-2">
+            <DialogFooter>
               <button
                 onClick={() => { setShowConfirm(false); setAdminPassword('') }}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -404,10 +406,10 @@ export default function GDPRErasurePage() {
                   <FormattedMessage id="gdpr.erasureConfirm" />
                 )}
               </button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

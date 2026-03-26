@@ -18,9 +18,9 @@ import { Separator } from '@/components/ui/separator'
 import { CreateChannelDialog } from './CreateChannelDialog'
 
 const PRESENCE_DOT_COLORS: Record<string, string> = {
-  online: 'bg-emerald-500',
-  away: 'bg-amber-400',
-  dnd: 'bg-red-500',
+  online: 'bg-success',
+  away: 'bg-warning',
+  dnd: 'bg-destructive',
   offline: 'bg-gray-400',
 }
 

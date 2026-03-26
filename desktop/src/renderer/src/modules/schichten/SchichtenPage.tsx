@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   BarChart3,
   Timer,
-  X,
   StickyNote,
   Check,
   XCircle,
@@ -29,6 +28,14 @@ import {
   CalendarClock,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import {
   useSchichtenStore,
   type ShiftTemplate,
@@ -1255,16 +1262,13 @@ export default function SchichtenPage() {
       {/* ============================================================ */}
       {/* DIALOG: Schicht zuweisen                                      */}
       {/* ============================================================ */}
-      {assignDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setAssignDialog({ open: false, employeeId: '', date: '' })} />
-          <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-foreground">Schicht zuweisen</h3>
-              <button onClick={() => setAssignDialog({ open: false, employeeId: '', date: '' })} className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-secondary transition-colors">
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
+      <Dialog open={assignDialog.open} onOpenChange={(o) => { if (!o) setAssignDialog({ open: false, employeeId: '', date: '' }) }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
+          <div className="p-6">
+            <DialogHeader className="mb-5">
+              <DialogTitle className="text-base font-semibold text-foreground">Schicht zuweisen</DialogTitle>
+              <DialogDescription className="sr-only">Schicht einem Mitarbeiter zuweisen</DialogDescription>
+            </DialogHeader>
 
             <div className="space-y-4">
               <div>
@@ -1291,31 +1295,28 @@ export default function SchichtenPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 mt-6">
+            <DialogFooter className="mt-6">
               <button onClick={() => setAssignDialog({ open: false, employeeId: '', date: '' })} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 Abbrechen
               </button>
               <button onClick={handleAssignSubmit} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
                 Zuweisen
               </button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* ============================================================ */}
       {/* DIALOG: Vorlage erstellen                                     */}
       {/* ============================================================ */}
-      {templateDialog.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setTemplateDialog({ open: false })} />
-          <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-foreground">Neue Schichtvorlage</h3>
-              <button onClick={() => setTemplateDialog({ open: false })} className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-secondary transition-colors">
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
+      <Dialog open={templateDialog.open} onOpenChange={(o) => { if (!o) setTemplateDialog({ open: false }) }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
+          <div className="p-6">
+            <DialogHeader className="mb-5">
+              <DialogTitle className="text-base font-semibold text-foreground">Neue Schichtvorlage</DialogTitle>
+              <DialogDescription className="sr-only">Neue Schichtvorlage anlegen</DialogDescription>
+            </DialogHeader>
 
             <div className="space-y-4">
               <div>
@@ -1356,17 +1357,17 @@ export default function SchichtenPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 mt-6">
+            <DialogFooter className="mt-6">
               <button onClick={() => setTemplateDialog({ open: false })} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 Abbrechen
               </button>
               <button onClick={handleTemplateSubmit} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
                 Erstellen
               </button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm Delete Template */}
       <ConfirmDialog

@@ -146,12 +146,12 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
         onClick={handleRecordToggle}
         title={isRecording ? 'Aufnahme stoppen' : 'Aufnahme starten'}
         aria-label={isRecording ? 'Aufnahme stoppen' : 'Aufnahme starten'}
-        className={isRecording ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30' : ''}
+        className={isRecording ? 'bg-destructive/20 text-destructive hover:bg-destructive/30' : ''}
       >
         <div className="relative">
           <RecordIcon className="h-5 w-5" />
           {isRecording && (
-            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" />
           )}
         </div>
       </ControlButton>
@@ -162,7 +162,7 @@ export function CallControls({ callId, onLeave, className }: CallControlsProps) 
       {/* Leave call */}
       <button
         className={cn(
-          'flex h-11 items-center gap-2 rounded-full bg-red-600 px-5 text-sm font-medium text-white transition-colors hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 disabled:opacity-50',
+          'flex h-11 items-center gap-2 rounded-full bg-destructive px-5 text-sm font-medium text-white transition-colors hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 disabled:opacity-50',
         )}
         onClick={handleLeave}
         disabled={isLeaving}

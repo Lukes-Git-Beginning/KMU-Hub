@@ -29,7 +29,7 @@ import {
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { RichTextEditor } from '@/components/shared/RichTextEditor'
+import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useMeetingsStore } from '@/stores/meetings'
 import type { Meeting } from '@/stores/meetings'
 

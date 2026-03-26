@@ -35,14 +35,14 @@ export function QuickNoteWidget() {
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
             <button className="relative flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs hover:bg-accent transition-colors">
-              <StickyNote className={`h-3.5 w-3.5 ${note ? 'text-amber-500' : 'text-muted-foreground'}`} />
+              <StickyNote className={`h-3.5 w-3.5 ${note ? 'text-warning' : 'text-muted-foreground'}`} />
               {note && (
                 <span className="hidden md:inline text-muted-foreground max-w-[80px] truncate">
                   {note}
                 </span>
               )}
               {note && (
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 absolute top-1 right-1" />
+                <span className="h-1.5 w-1.5 rounded-full bg-warning absolute top-1 right-1" />
               )}
             </button>
           </PopoverTrigger>

@@ -9,13 +9,20 @@ import {
   CheckCircle2,
   FolderOpen,
   Eye,
-  X,
   File,
   FileCheck,
   FileLock2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 // ============================================================
 // Types
@@ -280,16 +287,13 @@ export function PersonnelDocuments() {
       )}
 
       {/* Upload Dialog */}
-      {showUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowUpload(false)} />
-          <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Dokument hochladen</h3>
-              <button onClick={() => setShowUpload(false)} className="rounded-md p-1 hover:bg-secondary transition-colors">
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
+      <Dialog open={showUpload} onOpenChange={(o) => { if (!o) setShowUpload(false) }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
+          <div className="p-6">
+            <DialogHeader className="mb-4">
+              <DialogTitle className="text-base font-semibold text-foreground">Dokument hochladen</DialogTitle>
+              <DialogDescription className="sr-only">Personaldokument hochladen</DialogDescription>
+            </DialogHeader>
             <div className="space-y-4">
               <div className="rounded-lg border-2 border-dashed border-border bg-secondary/20 p-8 text-center">
                 <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
@@ -307,17 +311,17 @@ export function PersonnelDocuments() {
                 <input type="date" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-6">
+            <DialogFooter className="mt-6">
               <button onClick={() => setShowUpload(false)} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
                 Abbrechen
               </button>
               <button onClick={handleUpload} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
                 Hochladen
               </button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

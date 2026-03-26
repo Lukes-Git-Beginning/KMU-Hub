@@ -172,12 +172,12 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
                   </div>
                   <div className="flex items-center gap-1">
                     {emp.email && (
-                      <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors" title={emp.email}>
+                      <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors" title={emp.email} aria-label={`E-Mail an ${emp.email}`}>
                         <Mail className="h-3 w-3" />
                       </button>
                     )}
                     {emp.phone && (
-                      <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors" title={emp.phone}>
+                      <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors" title={emp.phone} aria-label={`Anrufen: ${emp.phone}`}>
                         <Phone className="h-3 w-3" />
                       </button>
                     )}

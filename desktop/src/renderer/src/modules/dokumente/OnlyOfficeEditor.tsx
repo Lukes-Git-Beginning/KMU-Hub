@@ -9,6 +9,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, FileText, AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 
 // ---------------------------------------------------------------------------
 // WOPI-editable MIME types
@@ -192,14 +198,19 @@ export function OnlyOfficeEditor({
   }, [onClose, onVersionCreated])
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    <Dialog open onOpenChange={(open) => { if (!open) handleClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-full w-screen h-screen rounded-none border-0 [&>button:last-child]:hidden">
+    <div className="flex flex-col h-full">
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <FileText className="h-5 w-5 text-primary shrink-0" />
-          <span className="text-sm font-medium text-foreground truncate">
+          <DialogTitle className="text-sm font-medium text-foreground truncate">
             {fileName}
-          </span>
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            OnlyOffice Editor fuer {fileName}
+          </DialogDescription>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary shrink-0">
             Bearbeitung aktiv
           </span>
@@ -250,5 +261,7 @@ export function OnlyOfficeEditor({
         />
       </div>
     </div>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -6,7 +6,6 @@
  */
 import { useState } from 'react'
 import {
-  X,
   Clock,
   Plus,
   Trash2,
@@ -14,6 +13,14 @@ import {
   Calendar,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import {
   useHelpdeskStore,
   type BusinessDay,
@@ -89,24 +96,17 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
     onClose()
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="w-full max-w-2xl max-h-[85vh] rounded-xl bg-card border border-border shadow-xl flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-2xl max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4 shrink-0">
+        <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" />
-            <h2 className="text-base font-semibold text-foreground">Geschaeftszeiten konfigurieren</h2>
+            <DialogTitle className="text-base font-semibold text-foreground">Geschaeftszeiten konfigurieren</DialogTitle>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+          <DialogDescription className="sr-only">Oeffnungszeiten und Feiertage konfigurieren</DialogDescription>
+        </DialogHeader>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
@@ -247,7 +247,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4 shrink-0">
+        <DialogFooter className="border-t border-border px-6 py-4 shrink-0">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -260,8 +260,8 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
           >
             Speichern
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

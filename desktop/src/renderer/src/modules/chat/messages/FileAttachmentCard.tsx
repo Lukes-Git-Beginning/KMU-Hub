@@ -26,6 +26,8 @@ export function FileAttachmentCard({ file, onRemove, compact }: FileAttachmentCa
         <img
           src={file.previewUrl}
           alt={file.name}
+          loading="lazy"
+          decoding="async"
           className={`rounded-lg border border-border object-cover ${
             compact ? 'h-16 w-16' : 'max-h-48 max-w-xs'
           }`}

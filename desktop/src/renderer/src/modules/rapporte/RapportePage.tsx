@@ -890,6 +890,8 @@ function ReportDetailPanel({
               <img
                 src={report.signatureDataUrl}
                 alt="Unterschrift"
+                loading="lazy"
+                decoding="async"
                 className="max-h-24 mx-auto"
               />
               <p className="text-[10px] text-success text-center mt-1 flex items-center justify-center gap-1">
@@ -1450,7 +1452,7 @@ function NewReportDialog({
             <Label className="text-sm font-medium">Digitale Unterschrift</Label>
             {signatureDataUrl ? (
               <div className="rounded-lg border border-border bg-white p-3">
-                <img src={signatureDataUrl} alt="Unterschrift" className="max-h-20 mx-auto" />
+                <img src={signatureDataUrl} alt="Unterschrift" loading="lazy" decoding="async" className="max-h-20 mx-auto" />
                 <div className="flex items-center justify-center gap-2 mt-2">
                   <p className="text-[10px] text-success flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />

@@ -482,13 +482,13 @@ export default function MailsPage() {
               </button>
               <div className="flex-1" />
               <div className="flex items-center gap-1">
-                <button onClick={() => openCompose('reply', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Antworten">
+                <button onClick={() => openCompose('reply', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Antworten" aria-label="Antworten">
                   <Reply className="h-4 w-4" />
                 </button>
-                <button onClick={() => openCompose('reply-all', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Allen antworten">
+                <button onClick={() => openCompose('reply-all', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Allen antworten" aria-label="Allen antworten">
                   <ReplyAll className="h-4 w-4" />
                 </button>
-                <button onClick={() => openCompose('forward', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Weiterleiten">
+                <button onClick={() => openCompose('forward', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Weiterleiten" aria-label="Weiterleiten">
                   <Forward className="h-4 w-4" />
                 </button>
                 <span className="mx-1 h-5 w-px bg-border" />

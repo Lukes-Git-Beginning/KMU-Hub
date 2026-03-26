@@ -9,7 +9,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  X,
   Copy,
   Share2,
   Archive,
@@ -47,6 +46,14 @@ import {
   type FormSubmission,
 } from '@/stores/formulare'
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1270,16 +1277,10 @@ export default function FormularePage() {
         </div>
 
         {/* ====================== 10.4 — PUBLIC PREVIEW MODAL ====================== */}
-        {showPublicPreview && editingForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl mx-4">
-              {/* Close button */}
-              <button
-                onClick={() => setShowPublicPreview(false)}
-                className="absolute right-4 top-4 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors z-10"
-              >
-                <X className="h-5 w-5" />
-              </button>
+        <Dialog open={showPublicPreview && !!editingForm} onOpenChange={(o) => { if (!o) setShowPublicPreview(false) }}>
+          <DialogContent className="gap-0 p-0 max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+              <DialogTitle className="sr-only">Formular-Vorschau</DialogTitle>
+              <DialogDescription className="sr-only">Oeffentliche Vorschau des Formulars</DialogDescription>
 
               {/* Info banner */}
               <div className="flex items-center gap-2 bg-blue-50 border-b border-blue-100 px-6 py-3">
@@ -1377,26 +1378,19 @@ export default function FormularePage() {
                   </button>
                 )}
               </div>
-            </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
 
         {/* ====================== FIELD CONFIG DIALOG ====================== */}
-        {showFieldConfigDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl mx-4">
-              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <Dialog open={!!showFieldConfigDialog} onOpenChange={(o) => { if (!o) setShowFieldConfigDialog(null) }}>
+          <DialogContent className="gap-0 p-0 max-w-md">
+              <DialogHeader className="border-b border-border px-5 py-4">
                 <div className="flex items-center gap-2">
-                  {renderFieldIcon(showFieldConfigDialog.field.type, 'h-5 w-5 text-primary')}
-                  <h2 className="text-base font-semibold text-foreground">Feld konfigurieren</h2>
+                  {showFieldConfigDialog && renderFieldIcon(showFieldConfigDialog.field.type, 'h-5 w-5 text-primary')}
+                  <DialogTitle className="text-base font-semibold text-foreground">Feld konfigurieren</DialogTitle>
                 </div>
-                <button
-                  onClick={() => setShowFieldConfigDialog(null)}
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+                <DialogDescription className="sr-only">Feldeinstellungen bearbeiten</DialogDescription>
+              </DialogHeader>
 
               <div className="p-5 space-y-4">
                 <div className="space-y-1.5">
@@ -1534,7 +1528,7 @@ export default function FormularePage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+              <DialogFooter className="border-t border-border px-5 py-4">
                 <button
                   onClick={() => setShowFieldConfigDialog(null)}
                   className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -1547,10 +1541,9 @@ export default function FormularePage() {
                 >
                   Speichern
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
+              </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
@@ -2075,21 +2068,15 @@ export default function FormularePage() {
       </DetailPanel>
 
       {/* ====================== NEUES FORMULAR DIALOG ====================== */}
-      {showNewFormDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl mx-4">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+      <Dialog open={showNewFormDialog} onOpenChange={(o) => { if (!o) setShowNewFormDialog(false) }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
+            <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                <h2 className="text-base font-semibold text-foreground">Neues Formular</h2>
+                <DialogTitle className="text-base font-semibold text-foreground">Neues Formular</DialogTitle>
               </div>
-              <button
-                onClick={() => setShowNewFormDialog(false)}
-                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+              <DialogDescription className="sr-only">Neues Formular erstellen</DialogDescription>
+            </DialogHeader>
 
             <div className="p-5 space-y-4">
               <div className="space-y-1.5">
@@ -2136,7 +2123,7 @@ export default function FormularePage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+            <DialogFooter className="border-t border-border px-5 py-4">
               <button
                 onClick={() => setShowNewFormDialog(false)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -2149,27 +2136,20 @@ export default function FormularePage() {
               >
                 Formular erstellen
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ====================== SHARE DIALOG ====================== */}
-      {showShareDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-sm rounded-xl bg-card border border-border shadow-xl mx-4">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+      <Dialog open={!!showShareDialog} onOpenChange={(o) => { if (!o) setShowShareDialog(null) }}>
+        <DialogContent className="gap-0 p-0 max-w-sm">
+            <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <Share2 className="h-5 w-5 text-primary" />
-                <h2 className="text-base font-semibold text-foreground">Formular teilen</h2>
+                <DialogTitle className="text-base font-semibold text-foreground">Formular teilen</DialogTitle>
               </div>
-              <button
-                onClick={() => setShowShareDialog(null)}
-                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+              <DialogDescription className="sr-only">Formular per Link oder E-Mail teilen</DialogDescription>
+            </DialogHeader>
 
             <div className="p-5 space-y-4">
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
@@ -2214,17 +2194,16 @@ export default function FormularePage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end border-t border-border px-5 py-4">
+            <DialogFooter className="border-t border-border px-5 py-4">
               <button
                 onClick={() => setShowShareDialog(null)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 Schliessen
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ====================== CONFIRM DELETE ====================== */}
       <ConfirmDialog

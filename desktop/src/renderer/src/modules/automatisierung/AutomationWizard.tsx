@@ -17,6 +17,12 @@ import {
   XCircle,
   Loader2,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { useAutomatisierungStore } from '@/stores/automatisierung'
 import { useCreateAutomation, useUpdateAutomation, useDryRunAutomation } from '@/api/hooks/useAutomation'
 import type { ConditionConfig, ActionConfig, DryRunResponse } from '@/api/automation-types'
@@ -380,12 +386,17 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
   const isPending = createMutation.isPending || updateMutation.isPending
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-full w-screen h-screen rounded-none border-0 [&>button:last-child]:hidden">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
-        <h2 className="text-lg font-semibold text-foreground">
+        <DialogTitle className="text-lg font-semibold text-foreground">
           {isEditing ? 'Automatisierung bearbeiten' : 'Neue Automatisierung'}
-        </h2>
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Wizard zum Erstellen und Bearbeiten von Automatisierungen
+        </DialogDescription>
         <div className="flex items-center gap-3">
           <button
             onClick={handleSwitchToEditor}
@@ -397,6 +408,7 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
           <button
             onClick={onClose}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            aria-label="Schliessen"
           >
             <X className="h-5 w-5" />
           </button>
@@ -456,5 +468,7 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
         )}
       </div>
     </div>
+      </DialogContent>
+    </Dialog>
   )
 }

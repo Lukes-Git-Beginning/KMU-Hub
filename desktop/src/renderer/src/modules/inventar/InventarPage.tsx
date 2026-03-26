@@ -11,7 +11,6 @@ import {
   Edit,
   Trash2,
   Eye,
-  X,
   ArrowDownToLine,
   ArrowUpFromLine,
   RefreshCw,
@@ -27,6 +26,14 @@ import {
   Warehouse,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import {
   Tooltip,
   TooltipContent,
@@ -140,21 +147,17 @@ function BarcodeScannerDialog({
     if (e.key === 'Enter') handleSubmit()
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
-        <div className="flex items-center justify-between mb-4">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-sm">
+        <div className="p-6">
+        <DialogHeader className="mb-4">
           <div className="flex items-center gap-2">
             <ScanBarcode className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Barcode-Scanner</h2>
+            <DialogTitle className="text-lg font-semibold text-foreground">Barcode-Scanner</DialogTitle>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+          <DialogDescription className="sr-only">Barcode eingeben oder scannen</DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-3">
           <input
@@ -171,7 +174,7 @@ function BarcodeScannerDialog({
           </p>
         </div>
 
-        <div className="flex justify-end gap-2 mt-5">
+        <DialogFooter className="mt-5">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -184,9 +187,10 @@ function BarcodeScannerDialog({
           >
             Suchen
           </button>
+        </DialogFooter>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -237,20 +241,16 @@ function ArtikelDialog({
     onClose()
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-foreground">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+        <DialogHeader className="mb-5">
+          <DialogTitle className="text-lg font-semibold text-foreground">
             {isEdit ? 'Artikel bearbeiten' : 'Neuen Artikel anlegen'}
-          </h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+          </DialogTitle>
+          <DialogDescription className="sr-only">Artikel-Stammdaten bearbeiten</DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-4">
           {/* Name */}
@@ -363,7 +363,7 @@ function ArtikelDialog({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 mt-6">
+        <DialogFooter className="mt-6">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -376,9 +376,10 @@ function ArtikelDialog({
           >
             {isEdit ? 'Speichern' : 'Anlegen'}
           </button>
+        </DialogFooter>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -410,8 +411,6 @@ function BewegungDialog({
     onClose()
   }
 
-  if (!open || !item) return null
-
   const typeOptions: { key: MovementType; label: string; icon: typeof ArrowDownToLine }[] = [
     { key: 'in', label: 'Eingang', icon: ArrowDownToLine },
     { key: 'out', label: 'Ausgang', icon: ArrowUpFromLine },
@@ -420,18 +419,13 @@ function BewegungDialog({
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Bestandsbewegung</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{item.name} ({item.sku})</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+    <Dialog open={open && !!item} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-md">
+        <div className="p-6">
+        <DialogHeader className="mb-5">
+          <DialogTitle className="text-lg font-semibold text-foreground">Bestandsbewegung</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground mt-0.5">{item?.name} ({item?.sku})</DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-4">
           {/* Typ radio */}
@@ -511,7 +505,7 @@ function BewegungDialog({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 mt-6">
+        <DialogFooter className="mt-6">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -524,9 +518,10 @@ function BewegungDialog({
           >
             Bewegung erfassen
           </button>
+        </DialogFooter>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

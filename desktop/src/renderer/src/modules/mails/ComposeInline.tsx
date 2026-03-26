@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { useMailsStore, type ComposeMode } from '@/stores/mails'
 import { useSendEmail, useSaveDraft, useReplyEmail, useForwardEmail } from '@/api/hooks/useEmail'
 import type { EmailMessageInfo, EmailAddress } from '@/api/email-types'
-import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
+import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { EmailTemplateDialog } from './EmailTemplateDialog'
 import {
   RecipientField,

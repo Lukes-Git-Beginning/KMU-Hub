@@ -13,7 +13,7 @@ import { useMailsStore } from '@/stores/mails'
 import type { ComposeMode } from '@/stores/mails'
 import { useSendEmail, useSaveDraft, useReplyEmail, useForwardEmail } from '@/api/hooks/useEmail'
 import type { EmailAddress } from '@/api/email-types'
-import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
+import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { EmailTemplateDialog } from './EmailTemplateDialog'
 import {
   RecipientField,

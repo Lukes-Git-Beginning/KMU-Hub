@@ -23,6 +23,12 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Wand2, Save, Plus } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { useAutomatisierungStore } from '@/stores/automatisierung'
 import { useCreateAutomation, useUpdateAutomation } from '@/api/hooks/useAutomation'
 import type { Automation, ActionConfig, ConditionConfig } from '@/api/automation-types'
@@ -281,13 +287,13 @@ function EditorInner({ onClose }: { onClose: () => void }) {
   const isPending = createMutation.isPending || updateMutation.isPending
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background" onKeyDown={onKeyDown}>
+    <div className="flex flex-col h-full" onKeyDown={onKeyDown}>
       {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold text-foreground">
+          <DialogTitle className="text-sm font-semibold text-foreground">
             Visueller Editor
-          </h2>
+          </DialogTitle>
           <div className="h-4 w-px bg-border" />
           <button
             onClick={addTriggerNode}
@@ -370,6 +376,9 @@ function EditorInner({ onClose }: { onClose: () => void }) {
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         </ReactFlow>
       </div>
+      <DialogDescription className="sr-only">
+        Visueller Editor fuer Automatisierungs-Workflows
+      </DialogDescription>
     </div>
   )
 }
@@ -380,8 +389,12 @@ function EditorInner({ onClose }: { onClose: () => void }) {
 
 export function AutomationEditor({ onClose }: { onClose: () => void }) {
   return (
-    <ReactFlowProvider>
-      <EditorInner onClose={onClose} />
-    </ReactFlowProvider>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-full w-screen h-screen rounded-none border-0 [&>button:last-child]:hidden">
+        <ReactFlowProvider>
+          <EditorInner onClose={onClose} />
+        </ReactFlowProvider>
+      </DialogContent>
+    </Dialog>
   )
 }

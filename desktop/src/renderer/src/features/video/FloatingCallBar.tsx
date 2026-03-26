@@ -172,7 +172,7 @@ export function FloatingCallBar({ className }: FloatingCallBarProps) {
 
       {/* Hang up */}
       <button
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-700"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-white transition-colors hover:bg-destructive/90"
         onClick={handleHangUp}
         title="Auflegen"
         aria-label="Anruf beenden"

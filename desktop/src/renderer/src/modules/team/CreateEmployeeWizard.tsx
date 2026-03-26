@@ -42,6 +42,12 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { useCreateEmployee, useEmployees } from '@/api/hooks/hr-hooks'
 import type { ContractType } from '@/api/hr-types'
 
@@ -272,7 +278,9 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    <Dialog open onOpenChange={(open) => { if (!open) { if (isWindow) { window.electronAPI?.window.close() } else { onClose() } } }}>
+      <DialogContent className="gap-0 p-0 max-w-full w-screen h-screen rounded-none border-0 [&>button:last-child]:hidden">
+    <div className="flex flex-col h-full">
       {/* ── Header ── */}
       <div
         className="flex items-center justify-between border-b border-border px-5 py-2.5"
@@ -284,9 +292,10 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
             {initials || <User className="h-4 w-4" />}
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-foreground leading-tight">
+            <DialogTitle className="text-sm font-semibold text-foreground leading-tight">
               Neuen Mitarbeiter erstellen
-            </h2>
+            </DialogTitle>
+            <DialogDescription className="sr-only">Wizard zum Erstellen eines neuen Mitarbeiters</DialogDescription>
             {(form.firstName || form.lastName) && (
               <p className="text-[11px] text-muted-foreground leading-tight">
                 {form.firstName} {form.lastName}
@@ -437,6 +446,8 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
         )}
       </div>
     </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

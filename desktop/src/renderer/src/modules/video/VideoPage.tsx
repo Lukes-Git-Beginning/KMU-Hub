@@ -171,10 +171,10 @@ function CallHistoryRow({ entry }: { entry: CallHistoryEntry }) {
       <div className="text-xs text-muted-foreground">{formatDate(entry.date)}</div>
 
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title="Videoanruf">
+        <button className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title="Videoanruf" aria-label="Videoanruf">
           <Video className="h-4 w-4" />
         </button>
-        <button className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title="Audioanruf">
+        <button className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground" title="Audioanruf" aria-label="Audioanruf">
           <Phone className="h-4 w-4" />
         </button>
       </div>

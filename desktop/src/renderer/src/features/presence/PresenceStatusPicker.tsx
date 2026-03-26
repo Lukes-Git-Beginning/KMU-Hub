@@ -24,14 +24,14 @@ const selectableStatuses: Array<{
 }> = [
   { value: 'online', label: 'Online', color: 'bg-green-500' },
   { value: 'away', label: 'Abwesend', color: 'bg-yellow-500' },
-  { value: 'dnd', label: 'Nicht stoeren', color: 'bg-red-500' },
+  { value: 'dnd', label: 'Nicht stoeren', color: 'bg-destructive' },
 ]
 
 /** Color mapping for display (includes automatic statuses). */
 const statusColors: Record<PresenceLevel, string> = {
   online: 'bg-green-500',
   away: 'bg-yellow-500',
-  dnd: 'bg-red-500',
+  dnd: 'bg-destructive',
   in_call: 'bg-purple-500',
   offline: 'bg-gray-400',
 }

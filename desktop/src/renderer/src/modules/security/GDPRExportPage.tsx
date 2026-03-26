@@ -12,10 +12,17 @@ import {
   CheckCircle,
   XCircle,
   Download,
-  X,
   Clock,
   Info,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -271,35 +278,28 @@ export default function GDPRExportPage() {
       </div>
 
       {/* Deny Reason Dialog */}
-      {denyId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => { setDenyId(null); setDenyReason('') }} />
-          <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-foreground">
+      <Dialog open={denyId !== null} onOpenChange={(o) => { if (!o) { setDenyId(null); setDenyReason('') } }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
+          <div className="p-6">
+            <DialogHeader className="mb-5">
+              <DialogTitle className="text-lg font-semibold text-foreground">
                 <FormattedMessage id="gdpr.admin.deny" />
-              </h2>
-              <button
-                onClick={() => { setDenyId(null); setDenyReason('') }}
-                className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <p className="text-sm text-muted-foreground mb-4">
-              <FormattedMessage id="gdpr.admin.denyReason" />
-            </p>
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                <FormattedMessage id="gdpr.admin.denyReason" />
+              </DialogDescription>
+            </DialogHeader>
 
             <input
               value={denyReason}
               onChange={(e) => setDenyReason(e.target.value)}
               placeholder="Reason for denial..."
+              aria-label="Reason for denial"
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               autoFocus
             />
 
-            <div className="flex justify-end gap-2 mt-6">
+            <DialogFooter className="mt-6">
               <button
                 onClick={() => { setDenyId(null); setDenyReason('') }}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -313,10 +313,10 @@ export default function GDPRExportPage() {
               >
                 <FormattedMessage id="gdpr.admin.deny" />
               </button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

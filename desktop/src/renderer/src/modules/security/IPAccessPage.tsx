@@ -7,7 +7,15 @@
  */
 import { useState, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Globe, Plus, Trash2, Info, X } from 'lucide-react'
+import { Globe, Plus, Trash2, Info } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
 import { toast } from 'sonner'
 import {
@@ -205,21 +213,15 @@ export default function IPAccessPage() {
       </div>
 
       {/* Add Rule Dialog */}
-      {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setShowAdd(false)} />
-          <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-foreground">
+      <Dialog open={showAdd} onOpenChange={(o) => { if (!o) setShowAdd(false) }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
+          <div className="p-6">
+            <DialogHeader className="mb-5">
+              <DialogTitle className="text-lg font-semibold text-foreground">
                 <FormattedMessage id="ipAccess.addRule" />
-              </h2>
-              <button
-                onClick={() => setShowAdd(false)}
-                className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+              </DialogTitle>
+              <DialogDescription className="sr-only">Neue IP-Regel hinzufuegen</DialogDescription>
+            </DialogHeader>
 
             <div className="space-y-4">
               <div className="space-y-1.5">
@@ -269,7 +271,7 @@ export default function IPAccessPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 mt-6">
+            <DialogFooter className="mt-6">
               <button
                 onClick={() => setShowAdd(false)}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -283,20 +285,22 @@ export default function IPAccessPage() {
               >
                 <FormattedMessage id="common.create" />
               </button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      {deleteId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setDeleteId(null)} />
-          <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
-            <h2 className="text-lg font-semibold text-foreground mb-2">
-              <FormattedMessage id="ipAccess.deleteConfirm" />
-            </h2>
-            <div className="flex justify-end gap-2 mt-6">
+      <Dialog open={deleteId !== null} onOpenChange={(o) => { if (!o) setDeleteId(null) }}>
+        <DialogContent className="gap-0 p-0 max-w-sm">
+          <div className="p-6">
+            <DialogHeader className="mb-2">
+              <DialogTitle className="text-lg font-semibold text-foreground">
+                <FormattedMessage id="ipAccess.deleteConfirm" />
+              </DialogTitle>
+              <DialogDescription className="sr-only">IP-Regel loeschen bestaetigen</DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-6">
               <button
                 onClick={() => setDeleteId(null)}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -310,10 +314,10 @@ export default function IPAccessPage() {
               >
                 <FormattedMessage id="common.delete" />
               </button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

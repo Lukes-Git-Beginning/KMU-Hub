@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import {
-  X,
   Send,
   UserPlus,
   Check,
@@ -14,6 +13,14 @@ import {
   Info,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import type { Contract, ContractSigner } from '@/stores/vertraege'
 
 // ─── Status Config ─────────────────────────────────────────────
@@ -147,25 +154,18 @@ export default function ESignaturDialog({
     onClose()
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <FileSignature className="h-5 w-5 text-primary" />
-              Digitale Unterschrift — Skribble
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{contract.title}</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <DialogHeader className="mb-5">
+          <DialogTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <FileSignature className="h-5 w-5 text-primary" />
+            Digitale Unterschrift — Skribble
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground mt-0.5">{contract.title}</DialogDescription>
+        </DialogHeader>
 
         {/* Info Banner */}
         <div className="rounded-lg border border-info/30 bg-info-light/30 p-3 mb-5">
@@ -369,7 +369,7 @@ export default function ESignaturDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-border pt-4">
+        <DialogFooter className="border-t border-border pt-4">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -383,8 +383,9 @@ export default function ESignaturDialog({
             <Send className="h-4 w-4" />
             Zur Unterschrift senden
           </button>
+        </DialogFooter>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

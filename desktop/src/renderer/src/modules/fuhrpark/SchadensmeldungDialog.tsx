@@ -1,7 +1,15 @@
 import { useState } from 'react'
-import { X, Camera, Plus, AlertTriangle, AlertCircle, AlertOctagon } from 'lucide-react'
+import { Camera, Plus, AlertTriangle, AlertCircle, AlertOctagon } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Vehicle, DamageReport } from '@/stores/fuhrpark'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,21 +90,14 @@ export default function SchadensmeldungDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div
-        className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-lg">
+        <div className="p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-foreground">Schadensmeldung erstellen</h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <DialogHeader className="mb-5">
+          <DialogTitle className="text-base font-semibold text-foreground">Schadensmeldung erstellen</DialogTitle>
+          <DialogDescription className="sr-only">Formular fuer eine neue Schadensmeldung</DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-4">
           {/* Fahrzeug */}
@@ -217,7 +218,7 @@ export default function SchadensmeldungDialog({
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex justify-end gap-2">
+        <DialogFooter className="mt-6">
           <button
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -231,8 +232,9 @@ export default function SchadensmeldungDialog({
           >
             Schadensmeldung speichern
           </button>
+        </DialogFooter>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

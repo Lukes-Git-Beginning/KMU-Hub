@@ -1,6 +1,14 @@
 import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Users, Monitor, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 // ============================================================
 // Types
@@ -122,17 +130,12 @@ function QuickBookDialog({
   }
 
   return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-        <div className="relative w-full max-w-sm rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h3 className="text-sm font-medium text-foreground">Raum buchen</h3>
-            <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-secondary">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-sm overflow-hidden">
+          <DialogHeader className="border-b border-border px-4 py-3">
+            <DialogTitle className="text-sm font-medium text-foreground">Raum buchen</DialogTitle>
+            <DialogDescription className="sr-only">Schnellbuchung fuer einen Raum</DialogDescription>
+          </DialogHeader>
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Monitor className="h-3.5 w-3.5" />
@@ -166,7 +169,7 @@ function QuickBookDialog({
               </select>
             </div>
 
-            <div className="flex gap-2 pt-1">
+            <DialogFooter className="pt-1">
               <button
                 onClick={onClose}
                 className="flex-1 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
@@ -180,11 +183,10 @@ function QuickBookDialog({
               >
                 Buchen
               </button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -243,14 +245,17 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
   const roomLabelWidth = 200
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-background">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-full w-screen h-screen rounded-none border-0 [&>button:last-child]:hidden">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2.5">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors">
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors" aria-label="Schliessen">
             <X className="h-4 w-4" />
           </button>
-          <h2 className="text-sm font-medium text-foreground">Raumplanung</h2>
+          <DialogTitle className="text-sm font-medium text-foreground">Raumplanung</DialogTitle>
+          <DialogDescription className="sr-only">Wochenansicht der Raumbuchungen</DialogDescription>
         </div>
 
         <div className="flex items-center gap-2">
@@ -411,17 +416,14 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
       )}
 
       {/* Booking detail popover */}
-      {selectedBooking && (
-        <>
-          <div className="fixed inset-0 z-50" onClick={() => setSelectedBooking(null)} />
-          <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 rounded-xl border border-border bg-card shadow-[var(--shadow-large)] overflow-hidden">
+      <Dialog open={!!selectedBooking} onOpenChange={(o) => { if (!o) setSelectedBooking(null) }}>
+        <DialogContent className="gap-0 p-0 w-72 max-w-xs">
             <div className="p-4 space-y-2.5">
               <div className="flex items-start justify-between">
-                <h4 className="text-sm font-medium text-foreground">{selectedBooking.title}</h4>
-                <button onClick={() => setSelectedBooking(null)} className="rounded p-0.5 text-muted-foreground hover:bg-secondary">
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                <DialogTitle className="text-sm font-medium text-foreground">{selectedBooking?.title}</DialogTitle>
+                <DialogDescription className="sr-only">Buchungsdetails</DialogDescription>
               </div>
+              {selectedBooking && (
               <div className="space-y-1.5 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Monitor className="h-3.5 w-3.5" />
@@ -436,9 +438,10 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
                   <span>{selectedBooking.organizer} · {selectedBooking.participants} TN</span>
                 </div>
               </div>
+              )}
               <div className="flex gap-2 pt-1">
                 <button
-                  onClick={() => handleDeleteBooking(selectedBooking.id)}
+                  onClick={() => selectedBooking && handleDeleteBooking(selectedBooking.id)}
                   className="flex-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                 >
                   Stornieren
@@ -451,10 +454,11 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
                 </button>
               </div>
             </div>
-          </div>
-        </>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

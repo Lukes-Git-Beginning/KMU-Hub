@@ -7,6 +7,14 @@
 import { useState, useCallback, useMemo } from 'react'
 import { Link2, Copy, Check, Shield, Calendar, RefreshCw, Eye, Download } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 interface ShareLinkDialogProps {
   open: boolean
@@ -52,23 +60,21 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
     return d
   }, [expiryDays])
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card shadow-xl">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-md">
         {/* Header */}
-        <div className="border-b border-border px-6 py-4">
+        <DialogHeader className="border-b border-border px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
               <Link2 className="h-4.5 w-4.5 text-primary" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Link teilen</h2>
-              <p className="text-xs text-muted-foreground truncate max-w-[280px]">{fileName}</p>
+              <DialogTitle className="text-sm font-semibold text-foreground">Link teilen</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground truncate max-w-[280px]">{fileName}</DialogDescription>
             </div>
           </div>
-        </div>
+        </DialogHeader>
 
         {/* Content */}
         <div className="px-6 py-4 space-y-4">
@@ -84,6 +90,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
               />
               <button
                 onClick={handleCopy}
+                aria-label="Link kopieren"
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
               >
                 {copied ? (
@@ -95,7 +102,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
               <button
                 onClick={handleRegenerate}
                 className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted transition-colors"
-                title="Neuen Link generieren"
+                aria-label="Neuen Link generieren"
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
@@ -189,7 +196,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-border px-6 py-3">
+        <DialogFooter className="border-t border-border px-6 py-3">
           <button
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
@@ -205,8 +212,8 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
           >
             Link kopieren & schliessen
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

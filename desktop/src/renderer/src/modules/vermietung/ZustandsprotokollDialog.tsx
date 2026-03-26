@@ -362,6 +362,8 @@ export default function ZustandsprotokollDialog({
                   <img
                     src={signatureDataUrl}
                     alt="Unterschrift"
+                    loading="lazy"
+                    decoding="async"
                     className="h-[100px] object-contain"
                   />
                 </div>

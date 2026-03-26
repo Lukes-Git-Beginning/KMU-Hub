@@ -794,10 +794,10 @@ function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onM
         )}
       </button>
       <div className="flex gap-1">
-        <button onClick={onEmail} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title="E-Mail">
+        <button onClick={onEmail} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title="E-Mail" aria-label="E-Mail">
           <Mail className="h-4 w-4" />
         </button>
-        <button onClick={onMessage} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title="Nachricht">
+        <button onClick={onMessage} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title="Nachricht" aria-label="Nachricht">
           <MessageSquare className="h-4 w-4" />
         </button>
         <ItemActions items={actions} />

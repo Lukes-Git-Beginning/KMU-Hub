@@ -1,5 +1,13 @@
 import { useState, useMemo, useCallback } from 'react'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
   Search,
   Plus,
   ShoppingCart,
@@ -1335,22 +1343,16 @@ export default function EinkaufPage() {
       </DetailPanel>
 
       {/* ====================== NEUE BESTELLUNG DIALOG ====================== */}
-      {showNewOrderDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-card border border-border shadow-xl mx-4 max-h-[85vh] flex flex-col">
+      <Dialog open={showNewOrderDialog} onOpenChange={(o) => { if (!o) setShowNewOrderDialog(false) }}>
+        <DialogContent className="gap-0 p-0 max-w-lg max-h-[85vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5 text-primary" />
-                <h2 className="text-base font-semibold text-foreground">Neue Bestellung</h2>
+                <DialogTitle className="text-base font-semibold text-foreground">Neue Bestellung</DialogTitle>
               </div>
-              <button
-                onClick={() => setShowNewOrderDialog(false)}
-                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+              <DialogDescription className="sr-only">Neue Bestellung anlegen</DialogDescription>
+            </DialogHeader>
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -1496,7 +1498,7 @@ export default function EinkaufPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+            <DialogFooter className="border-t border-border px-5 py-4">
               <button
                 onClick={() => setShowNewOrderDialog(false)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -1509,28 +1511,21 @@ export default function EinkaufPage() {
               >
                 Bestellung erstellen
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ====================== LIEFERANT ANLEGEN DIALOG ====================== */}
-      {showNewSupplierDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl mx-4">
+      <Dialog open={showNewSupplierDialog} onOpenChange={(o) => { if (!o) setShowNewSupplierDialog(false) }}>
+        <DialogContent className="gap-0 p-0 max-w-md">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <Truck className="h-5 w-5 text-primary" />
-                <h2 className="text-base font-semibold text-foreground">Lieferant anlegen</h2>
+                <DialogTitle className="text-base font-semibold text-foreground">Lieferant anlegen</DialogTitle>
               </div>
-              <button
-                onClick={() => setShowNewSupplierDialog(false)}
-                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+              <DialogDescription className="sr-only">Neuen Lieferanten anlegen</DialogDescription>
+            </DialogHeader>
 
             {/* Body */}
             <div className="p-5 space-y-4">
@@ -1595,7 +1590,7 @@ export default function EinkaufPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+            <DialogFooter className="border-t border-border px-5 py-4">
               <button
                 onClick={() => setShowNewSupplierDialog(false)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -1608,33 +1603,25 @@ export default function EinkaufPage() {
               >
                 Lieferant speichern
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ====================== WARENEINGANG DIALOG ====================== */}
-      {showWareneingangDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-card border border-border shadow-xl mx-4 max-h-[80vh] flex flex-col">
+      <Dialog open={!!showWareneingangDialog} onOpenChange={(o) => { if (!o) setShowWareneingangDialog(null) }}>
+        <DialogContent className="gap-0 p-0 max-w-lg max-h-[80vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <PackageCheck className="h-5 w-5 text-primary" />
                 <div>
-                  <h2 className="text-base font-semibold text-foreground">Wareneingang buchen</h2>
-                  <p className="text-xs text-muted-foreground">
-                    {showWareneingangDialog.orderNumber} — {showWareneingangDialog.supplierName}
-                  </p>
+                  <DialogTitle className="text-base font-semibold text-foreground">Wareneingang buchen</DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    {showWareneingangDialog?.orderNumber} — {showWareneingangDialog?.supplierName}
+                  </DialogDescription>
                 </div>
               </div>
-              <button
-                onClick={() => setShowWareneingangDialog(null)}
-                className="rounded-lg p-1 text-muted-foreground hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            </DialogHeader>
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -1701,7 +1688,7 @@ export default function EinkaufPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+            <DialogFooter className="border-t border-border px-5 py-4">
               <button
                 onClick={() => setShowWareneingangDialog(null)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
@@ -1714,10 +1701,9 @@ export default function EinkaufPage() {
               >
                 Wareneingang buchen
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ====================== CONFIRM CANCEL ORDER ====================== */}
       <ConfirmDialog

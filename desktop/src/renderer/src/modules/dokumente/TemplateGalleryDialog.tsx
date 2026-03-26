@@ -9,7 +9,6 @@ import {
   FileText,
   Presentation,
   Search,
-  X,
   Plus,
   FileCheck,
   Receipt,
@@ -19,6 +18,13 @@ import {
   ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 
 interface Template {
   id: string
@@ -86,24 +92,14 @@ export function TemplateGalleryDialog({ open, onClose }: TemplateGalleryDialogPr
     onClose()
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-3xl rounded-xl border border-border bg-card shadow-xl max-h-[85vh] flex flex-col">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="gap-0 p-0 max-w-3xl max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Neu aus Vorlage</h2>
-            <p className="text-xs text-muted-foreground">{TEMPLATES.length} Vorlagen verfuegbar</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <DialogHeader className="border-b border-border px-6 py-4">
+          <DialogTitle className="text-sm font-semibold text-foreground">Neu aus Vorlage</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">{TEMPLATES.length} Vorlagen verfuegbar</DialogDescription>
+        </DialogHeader>
 
         {/* Search + Category filter */}
         <div className="border-b border-border px-6 py-3 space-y-3">
@@ -170,7 +166,7 @@ export function TemplateGalleryDialog({ open, onClose }: TemplateGalleryDialogPr
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

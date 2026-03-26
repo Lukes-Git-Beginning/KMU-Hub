@@ -17,7 +17,7 @@ import {
   ArrowLeft,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { RichTextEditor } from '@/components/shared/RichTextEditor/RichTextEditor'
+import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTextEditor'
 import { useHelpdeskStore, type CannedResponse, MOCK_CATEGORIES } from '@/stores/helpdesk'
 
 // ---------------------------------------------------------------------------

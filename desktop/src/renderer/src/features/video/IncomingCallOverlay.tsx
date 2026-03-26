@@ -192,9 +192,9 @@ export function IncomingCallOverlay({ className }: IncomingCallOverlayProps) {
         <div className="flex flex-col items-center gap-2">
           <button
             className={cn(
-              'flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition-all',
-              'hover:bg-red-700 hover:scale-105',
-              'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-red-500/50',
+              'flex h-16 w-16 items-center justify-center rounded-full bg-destructive text-white shadow-lg transition-all',
+              'hover:bg-destructive/90 hover:scale-105',
+              'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-destructive/50',
             )}
             onClick={handleDecline}
             aria-label="Anruf ablehnen"

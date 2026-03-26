@@ -28,7 +28,7 @@ interface PresenceIndicatorProps {
 const presenceColors: Record<PresenceLevel, string> = {
   online: 'bg-green-500',
   away: 'bg-yellow-500',
-  dnd: 'bg-red-500',
+  dnd: 'bg-destructive',
   in_call: 'bg-purple-500',
   offline: 'bg-gray-400',
 }
