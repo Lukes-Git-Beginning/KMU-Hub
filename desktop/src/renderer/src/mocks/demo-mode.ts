@@ -1,13 +1,21 @@
 /**
- * Demo Mode Bootstrap — starts MSW browser worker to intercept all API calls
- * with realistic mock data. Activated via RENDERER_VITE_DEMO_MODE=true.
+ * Demo Mode Bootstrap — intercepts all API calls with realistic mock data.
+ * Activated via RENDERER_VITE_DEMO_MODE=true.
  *
- * Dynamic imports ensure MSW is tree-shaken from production bundles.
+ * Uses a direct fetch interceptor instead of MSW Service Worker because
+ * Electron production builds use file:// protocol which doesn't support
+ * Service Workers or dynamic import().
+ *
+ * Handlers are statically imported so they work without dynamic import().
+ * In non-demo production builds, Vite dead-code eliminates everything
+ * after the early return.
  */
+
+import { handlers } from './handlers'
 
 export const DEMO_MODE = import.meta.env.RENDERER_VITE_DEMO_MODE === 'true'
 
-export async function startDemoMode(): Promise<void> {
+export function startDemoMode(): void {
   if (!DEMO_MODE) return
 
   // Clear stale query cache so fresh mock data is loaded
@@ -17,14 +25,32 @@ export async function startDemoMode(): Promise<void> {
     // localStorage may be unavailable
   }
 
-  const { setupWorker } = await import('msw/browser')
-  const { handlers } = await import('./handlers')
+  const originalFetch = window.fetch.bind(window)
 
-  const worker = setupWorker(...handlers)
-  await worker.start({
-    onUnhandledRequest: 'bypass',
-    quiet: false,
-  })
+  window.fetch = async function interceptedFetch(
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): Promise<Response> {
+    const request = new Request(
+      input instanceof URL ? input.href : input,
+      init,
+    )
 
-  console.info('[Demo Mode] MSW worker started — all API calls are mocked')
+    for (const handler of handlers) {
+      const requestId = Math.random().toString(36).slice(2, 9)
+      try {
+        const result = await handler.run({ request: request.clone(), requestId })
+        if (result?.response) {
+          return result.response
+        }
+      } catch {
+        // Handler didn't match — try next
+      }
+    }
+
+    // No handler matched — pass through to real fetch
+    return originalFetch(input, init)
+  }
+
+  console.info('[Demo Mode] Fetch interceptor active — all API calls are mocked')
 }

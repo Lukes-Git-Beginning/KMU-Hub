@@ -17,6 +17,7 @@ export default defineConfig({
   renderer: {
     root: resolve('src/renderer'),
     build: {
+      modulePreload: false,
       rollupOptions: {
         input: resolve('src/renderer/index.html')
       }
