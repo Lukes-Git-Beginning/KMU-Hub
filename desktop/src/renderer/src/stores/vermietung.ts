@@ -218,6 +218,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'upcoming',
     pickupLocation: 'Buero Zuerich',
     returnLocation: 'Buero Zuerich',
+    currency: 'EUR',
   },
   {
     id: 'res-5',
@@ -273,6 +274,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     status: 'completed',
     pickupLocation: 'Buero Zuerich',
     returnLocation: 'Buero Zuerich',
+    currency: 'EUR',
   },
   {
     id: 'res-9',

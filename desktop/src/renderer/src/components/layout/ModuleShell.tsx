@@ -5,6 +5,7 @@
  * and an error boundary (ModuleErrorBoundary) that allows retry on failure.
  */
 import { Component, type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 
 /** Centered spinner shown while a lazy-loaded module is loading. */
@@ -32,7 +33,7 @@ interface ErrorBoundaryState {
  * Error boundary that catches render errors in module content
  * and shows a retry button instead of a blank screen.
  */
-export class ModuleErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ModuleErrorBoundaryInner extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: null }
@@ -80,4 +81,14 @@ export class ModuleErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoun
 
     return this.props.children
   }
+}
+
+/** Wrapper that resets the error boundary on route change via React key. */
+export function ModuleErrorBoundary({ children }: ErrorBoundaryProps) {
+  const location = useLocation()
+  return (
+    <ModuleErrorBoundaryInner key={location.pathname}>
+      {children}
+    </ModuleErrorBoundaryInner>
+  )
 }

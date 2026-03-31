@@ -277,6 +277,7 @@ export default function FormularePage() {
 
   // Editor (declared before getFormActions to satisfy React compiler)
   const openEditor = (form: Form) => {
+    if (!form) return
     setEditingFormId(form.id)
     setEditName(form.name)
     setEditDescription(form.description)

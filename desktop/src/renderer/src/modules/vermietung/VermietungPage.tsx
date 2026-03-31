@@ -1113,7 +1113,7 @@ export default function VermietungPage() {
                         key={res.id}
                         className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
                       >
-                        <td className="px-4 py-3 font-medium text-foreground">{res.objectName}</td>
+                        <td className="px-4 py-3 font-medium text-foreground">{res?.objectName ?? ''}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-col">
                             <span className="text-foreground">{res.renter}</span>

@@ -17,17 +17,42 @@ const API = API_BASE_URL
 export const workHandlers = [
   // ── Projects ────────────────────────────────────────────────────────────
 
-  // GET /api/v1/projects — list (with optional status filter)
+  // GET /api/v1/projects — list (with optional status, search, templates_only filter)
   http.get(`${API}/api/v1/projects`, ({ request }) => {
     const url = new URL(request.url)
     const status = url.searchParams.get('status')
+    const search = url.searchParams.get('search') ?? ''
+    const templatesOnly = url.searchParams.get('templates_only') === 'true'
+    const page = Number(url.searchParams.get('page') ?? 1)
+    const pageSize = Number(url.searchParams.get('page_size') ?? 50)
+
+    let filtered = mockProjects.projects
 
     if (status) {
-      const filtered = mockProjects.projects.filter((p) => p.status === status)
-      return HttpResponse.json({ projects: filtered, total: filtered.length, page: 1, page_size: 50 })
+      filtered = filtered.filter((p) => p.status === status)
+    }
+    if (search) {
+      const q = search.toLowerCase()
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          p.project_key.toLowerCase().includes(q),
+      )
+    }
+    if (templatesOnly) {
+      filtered = filtered.filter((p) => p.is_template === true)
     }
 
-    return HttpResponse.json(mockProjects)
+    const start = (page - 1) * pageSize
+    const paged = filtered.slice(start, start + pageSize)
+
+    return HttpResponse.json({
+      projects: paged,
+      total: filtered.length,
+      page,
+      page_size: pageSize,
+    })
   }),
 
   // GET /api/v1/projects/:id — detail

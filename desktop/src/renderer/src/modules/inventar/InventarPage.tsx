@@ -23,7 +23,6 @@ import {
   Link2,
   ClipboardCheck,
   AlertTriangle,
-  Warehouse,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -455,7 +454,7 @@ function BewegungDialog({
 
           {/* Menge */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Menge ({item.unit})</label>
+            <label className="text-sm font-medium text-foreground">Menge ({item?.unit ?? 'Stk'})</label>
             <input
               type="number"
               min={1}

@@ -1081,12 +1081,12 @@ export default function EinkaufPage() {
                 Bestellte Positionen
               </h4>
               <div className="rounded-lg border border-border divide-y divide-border-muted">
-                {getOrderItems(selectedOrder.id).length === 0 ? (
+                {getOrderItems(selectedOrder?.id ?? '').length === 0 ? (
                   <p className="px-3 py-4 text-xs text-muted-foreground text-center">
                     Keine Positionen vorhanden
                   </p>
                 ) : (
-                  getOrderItems(selectedOrder.id).map((item) => (
+                  getOrderItems(selectedOrder?.id ?? '').map((item) => (
                     <div key={item.id} className="flex items-center justify-between px-3 py-2.5">
                       <div>
                         <p className="text-sm text-foreground">{item.itemName}</p>

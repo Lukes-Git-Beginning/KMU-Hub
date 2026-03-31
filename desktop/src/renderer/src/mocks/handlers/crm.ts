@@ -11,6 +11,44 @@ import {
   getDealById,
 } from '../data/contacts'
 
+// ---------------------------------------------------------------------------
+// Helper: transform snake_case contact to camelCase (matches OpenAPI schema)
+// ---------------------------------------------------------------------------
+function contactToCamel(c: Record<string, unknown>) {
+  return {
+    id: c.id,
+    firstName: c.first_name,
+    lastName: c.last_name,
+    email: c.email,
+    phone: c.phone,
+    companyName: c.company_name,
+    companyId: c.company_id,
+    title: c.title,
+    tags: c.tags,
+    notes: c.notes,
+    address: c.address,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at ?? c.created_at,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: enrich activity with resolved entity names
+// ---------------------------------------------------------------------------
+function enrichActivity(a: Record<string, unknown>) {
+  const contact = a.contact_id ? getContactById(a.contact_id as string) : null
+  const company = a.company_id ? getCompanyById(a.company_id as string) : null
+  const deal = a.deal_id ? getDealById(a.deal_id as string) : null
+
+  return {
+    ...a,
+    activity_type: a.type,
+    contact_name: contact ? `${contact.first_name} ${contact.last_name}` : undefined,
+    company_name: company ? company.name : undefined,
+    deal_name: deal ? deal.name : undefined,
+  }
+}
+
 const API = API_BASE_URL
 
 // ---------------------------------------------------------------------------
@@ -51,7 +89,7 @@ export const crmHandlers = [
     const paged = filtered.slice(start, start + pageSize)
 
     return HttpResponse.json({
-      contacts: paged,
+      contacts: paged.map((c) => contactToCamel(c as unknown as Record<string, unknown>)),
       total: filtered.length,
       page,
       page_size: pageSize,
@@ -63,7 +101,7 @@ export const crmHandlers = [
     if (!contact) {
       return HttpResponse.json({ error: 'Contact not found' }, { status: 404 })
     }
-    return HttpResponse.json(contact)
+    return HttpResponse.json(contactToCamel(contact as unknown as Record<string, unknown>))
   }),
 
   http.post(`${API}/api/v1/contacts`, async ({ request }) => {
@@ -223,7 +261,16 @@ export const crmHandlers = [
   // ---- Pipeline Stages --------------------------------------------------
 
   http.get(`${API}/api/v1/pipeline-stages`, () => {
-    return HttpResponse.json(mockPipelineStages)
+    // Enrich each stage with dealCount and totalValue from deals data
+    const stages = mockPipelineStages.stages.map((stage) => {
+      const stageDeals = mockDeals.deals.filter((d) => d.stageId === stage.id)
+      return {
+        ...stage,
+        dealCount: stageDeals.length,
+        totalValue: stageDeals.reduce((sum, d) => sum + d.value, 0),
+      }
+    })
+    return HttpResponse.json({ stages })
   }),
 
   // ---- Activities -------------------------------------------------------
@@ -253,11 +300,21 @@ export const crmHandlers = [
       filtered = filtered.filter((a) => a.deal_id === dealId)
     }
 
+    // Sort by created_at descending when requested
+    const sortBy = url.searchParams.get('sort_by')
+    const sortDesc = url.searchParams.get('sort_desc') === 'true'
+    if (sortBy === 'created_at') {
+      filtered = [...filtered].sort((a, b) => {
+        const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        return sortDesc ? -diff : diff
+      })
+    }
+
     const start = (page - 1) * pageSize
     const paged = filtered.slice(start, start + pageSize)
 
     return HttpResponse.json({
-      activities: paged,
+      activities: paged.map((a) => enrichActivity(a as unknown as Record<string, unknown>)),
       total: filtered.length,
       page,
       page_size: pageSize,
@@ -269,7 +326,7 @@ export const crmHandlers = [
     if (!activity) {
       return HttpResponse.json({ error: 'Activity not found' }, { status: 404 })
     }
-    return HttpResponse.json(activity)
+    return HttpResponse.json(enrichActivity(activity as unknown as Record<string, unknown>))
   }),
 
   http.post(`${API}/api/v1/activities`, async ({ request }) => {
@@ -303,7 +360,7 @@ export const crmHandlers = [
     )
 
     return HttpResponse.json({
-      contacts: matchedContacts.slice(0, 10),
+      contacts: matchedContacts.slice(0, 10).map((c) => contactToCamel(c as unknown as Record<string, unknown>)),
       companies: matchedCompanies.slice(0, 10),
       deals: matchedDeals.slice(0, 10),
     })
