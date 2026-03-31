@@ -1631,7 +1631,7 @@ export default function EinkaufPage() {
                   <span className="text-[10px] font-medium text-muted-foreground uppercase text-right">Bestellt</span>
                   <span className="text-[10px] font-medium text-muted-foreground uppercase text-right">Erhalten</span>
                 </div>
-                {getOrderItems(showWareneingangDialog.id).map((item) => (
+                {getOrderItems(showWareneingangDialog?.id ?? '').map((item) => (
                   <div key={item.id} className="grid grid-cols-[1fr_80px_80px] gap-2 items-center px-3 py-2.5">
                     <div>
                       <p className="text-sm text-foreground">{item.itemName}</p>

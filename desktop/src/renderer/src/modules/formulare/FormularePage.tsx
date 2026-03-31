@@ -817,17 +817,17 @@ export default function FormularePage() {
             <span className="text-xs text-muted-foreground">Oeffentlich</span>
             <button
               onClick={() => {
-                if (!editingFormId) return
+                if (!editingFormId || !editingForm) return
                 updateForm(editingFormId, { isPublic: !editingForm.isPublic })
                 toast.success(editingForm.isPublic ? 'Formular ist jetzt privat' : 'Formular ist jetzt oeffentlich')
               }}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                editingForm.isPublic ? 'bg-primary' : 'bg-secondary'
+                editingForm?.isPublic ? 'bg-primary' : 'bg-secondary'
               }`}
             >
               <span
                 className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                  editingForm.isPublic ? 'translate-x-4.5' : 'translate-x-0.5'
+                  editingForm?.isPublic ? 'translate-x-4.5' : 'translate-x-0.5'
                 }`}
               />
             </button>
@@ -2157,7 +2157,7 @@ export default function FormularePage() {
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                   Formular
                 </p>
-                <p className="text-sm font-medium text-foreground">{showShareDialog.name}</p>
+                <p className="text-sm font-medium text-foreground">{showShareDialog?.name}</p>
               </div>
 
               <div className="space-y-2">

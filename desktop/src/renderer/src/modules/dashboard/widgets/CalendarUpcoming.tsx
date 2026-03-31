@@ -10,11 +10,11 @@ import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function CalendarUpcoming(_props: WidgetProps) {
    
-  const { todayStart, todayEnd } = useMemo(() => {
+  const { todayStart, todayEnd, today, dd } = useMemo(() => {
     const today = new Date()
     const dd = String(today.getDate()).padStart(2, '0')
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${dd}`
-    return { todayStart: `${todayStr}T00:00:00Z`, todayEnd: `${todayStr}T23:59:59Z` }
+    return { todayStart: `${todayStr}T00:00:00Z`, todayEnd: `${todayStr}T23:59:59Z`, today, dd }
   }, [])
 
   const { data: calData } = useCalendars()

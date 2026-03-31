@@ -18,10 +18,10 @@ const TYPE_STYLE: Record<string, { color: string; label: string }> = {
 
 function MyCalendar(_props: WidgetProps) {
    
-  const { todayStart, todayEnd } = useMemo(() => {
+  const { todayStart, todayEnd, now } = useMemo(() => {
     const now = new Date()
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    return { todayStart: `${todayStr}T00:00:00Z`, todayEnd: `${todayStr}T23:59:59Z` }
+    return { todayStart: `${todayStr}T00:00:00Z`, todayEnd: `${todayStr}T23:59:59Z`, now }
   }, [])
 
   const { data: calData } = useCalendars()

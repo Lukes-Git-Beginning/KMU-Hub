@@ -168,7 +168,7 @@ export default function ZustandsprotokollDialog({
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
           <DialogTitle>Zustandsprotokoll</DialogTitle>
           <DialogDescription>
-            {reservation.objectName} &middot; {reservation.renter}
+            {reservation?.objectName} &middot; {reservation?.renter}
           </DialogDescription>
         </DialogHeader>
 
