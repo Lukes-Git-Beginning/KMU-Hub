@@ -10,6 +10,7 @@ import { useUIStore } from '@/stores/ui'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
 import { PresenceStatusPicker } from '@/features/presence'
+import { DEMO_MODE } from '@/mocks/demo-mode'
 import {
   SearchBar,
   HeaderClock,
@@ -29,8 +30,13 @@ export function Header() {
 
   return (
     <header data-tour="header" className="relative z-20 flex h-[64px] items-center border-b border-header-border bg-header-background px-[16px] md:px-[24px] glass-surface">
-      {/* Left: mobile menu + search + clock */}
+      {/* Left: demo badge + mobile menu + search + clock */}
       <div className="flex shrink-0 items-center gap-[12px] md:gap-[16px]">
+        {DEMO_MODE && (
+          <span className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600">
+            Demo
+          </span>
+        )}
         {navLayout === 'sidebar' && (
           <button
             onClick={() => setSidebarMobileOpen(true)}

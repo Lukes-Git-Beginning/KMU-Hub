@@ -10,7 +10,7 @@
  * Only visible when DEV_BYPASS_AUTH is enabled.
  */
 import { useState } from 'react'
-import { Users, ChevronUp, Check, X, Building2, Eye } from 'lucide-react'
+import { Users, ChevronUp, Check, X, Building2, Eye, RotateCcw } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { DEV_PROFILES, type DevProfile } from '@/config/roles'
 import { BUSINESS_PROFILES, type BusinessProfileId } from '@/config/business-profiles'
@@ -200,8 +200,8 @@ export function ProfileSwitcher() {
               )}
             </div>
 
-            {/* Footer with dev toggle */}
-            <div className="border-t border-border px-4 py-2.5 bg-secondary/20">
+            {/* Footer with dev toggle + reset */}
+            <div className="border-t border-border px-4 py-2.5 bg-secondary/20 space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -214,6 +214,17 @@ export function ProfileSwitcher() {
                   Alle Module anzeigen (Dev)
                 </span>
               </label>
+              <button
+                onClick={() => {
+                  const keys = Object.keys(localStorage).filter((k) => k.startsWith('kmuhub-'))
+                  keys.forEach((k) => localStorage.removeItem(k))
+                  window.location.reload()
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Demo zuruecksetzen
+              </button>
             </div>
           </div>
         </>
