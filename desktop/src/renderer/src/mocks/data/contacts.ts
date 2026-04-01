@@ -1036,14 +1036,14 @@ const deals = [
     contactName: 'Oliver Winkler',
     companyId: IDS.companies.hanseatischIT,
     companyName: 'Hanseatisch IT Services GmbH',
-    expectedCloseDate: daysAgo(5),
+    expectedCloseDate: daysAgo(1),
     probability: 100,
     tags: [
       { id: 'tag-d20', name: 'Support', color: '#10B981' },
       { id: 'tag-d21', name: 'Recurring', color: '#6366F1' },
     ],
     created_at: daysAgo(60),
-    updated_at: daysAgo(5),
+    updated_at: daysAgo(1),
   },
   {
     id: IDS.deals.hostingVertrag,
@@ -1056,14 +1056,14 @@ const deals = [
     contactName: 'Petra Koch',
     companyId: IDS.companies.rheinConsulting,
     companyName: 'Rhein Consulting Partners',
-    expectedCloseDate: daysAgo(12),
+    expectedCloseDate: daysAgo(3),
     probability: 100,
     tags: [
       { id: 'tag-d22', name: 'Hosting', color: '#0EA5E9' },
       { id: 'tag-d23', name: 'Recurring', color: '#6366F1' },
     ],
     created_at: daysAgo(75),
-    updated_at: daysAgo(12),
+    updated_at: daysAgo(3),
   },
 
   // --- Verloren (1) ---
@@ -1078,11 +1078,11 @@ const deals = [
     contactName: 'Monika Egger',
     companyId: IDS.companies.donauPharma,
     companyName: 'Donau Pharma GmbH',
-    expectedCloseDate: daysAgo(20),
+    expectedCloseDate: daysAgo(2),
     probability: 0,
     tags: [{ id: 'tag-d24', name: 'Web', color: '#EF4444' }],
     created_at: daysAgo(90),
-    updated_at: daysAgo(20),
+    updated_at: daysAgo(2),
   },
 ]
 

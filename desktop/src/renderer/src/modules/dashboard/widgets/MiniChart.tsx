@@ -22,10 +22,12 @@ function MiniChart(_props: WidgetProps) {
     )
   }
 
-  // TODO: Need monthly revenue endpoint for per-month breakdown
-  // For now, show the aggregate total with a placeholder message
-  const total = parseFloat(dashboard?.total_invoiced ?? '0')
-  const chartData: { month: string; label: string; revenue: number }[] = []
+  const MONTH_LABELS = ['Jan', 'Feb', 'Maer', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+  const chartData = (dashboard?.monthly_revenue ?? []).map((d) => {
+    const date = new Date(d.month)
+    return { month: d.month, label: MONTH_LABELS[date.getMonth()], revenue: d.revenue }
+  })
+  const total = chartData.reduce((sum, d) => sum + d.revenue, 0)
   const max = chartData.length > 0 ? Math.max(...chartData.map((d) => d.revenue)) : 1
 
   return (
@@ -85,7 +87,7 @@ function MiniChart(_props: WidgetProps) {
           })
         ) : (
           <div className="flex w-full items-center justify-center">
-            <p className="text-xs text-muted-foreground">Monatsverlauf noch nicht verfügbar</p>
+            <p className="text-xs text-muted-foreground">Keine Umsatzdaten vorhanden</p>
           </div>
         )}
       </div>

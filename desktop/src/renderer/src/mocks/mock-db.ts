@@ -743,15 +743,34 @@ export interface MockBirthday {
   daysUntil: number
 }
 
-/** Compute upcoming birthdays from employee data. */
+/** Compute upcoming birthdays dynamically from employee data. */
 export function getUpcomingBirthdays(): MockBirthday[] {
-  return [
-    { employeeId: 'e9', name: 'Nina Richter', initials: 'NR', department: 'Design', birthday: '1987-02-14', displayDate: '14. Feb', daysUntil: 0 },
-    { employeeId: 'e2', name: 'Markus Weber', initials: 'MW', department: 'Entwicklung', birthday: '1985-03-22', displayDate: '22. Maer', daysUntil: 26 },
-    { employeeId: 'e17', name: 'Jonas Schmitt', initials: 'JS', department: 'Support', birthday: '1998-03-07', displayDate: '07. Maer', daysUntil: 11 },
-    { employeeId: 'e15', name: 'Elena Schuster', initials: 'ES', department: 'Personal', birthday: '1989-04-03', displayDate: '03. Apr', daysUntil: 38 },
-    { employeeId: 'e10', name: 'Sabine Fischer', initials: 'SF', department: 'Vertrieb', birthday: '1988-04-25', displayDate: '25. Apr', daysUntil: 60 },
-  ]
+  const MONTH_NAMES = ['Jan', 'Feb', 'Maer', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  return EMPLOYEES
+    .filter((e) => e.birthday)
+    .map((e) => {
+      const [, m, d] = e.birthday.split('-').map(Number)
+      let nextBirthday = new Date(now.getFullYear(), m - 1, d)
+      if (nextBirthday < todayStart) {
+        nextBirthday = new Date(now.getFullYear() + 1, m - 1, d)
+      }
+      const daysUntil = Math.round((nextBirthday.getTime() - todayStart.getTime()) / 86_400_000)
+      const displayDate = `${String(d).padStart(2, '0')}. ${MONTH_NAMES[m - 1]}`
+      return {
+        employeeId: e.id,
+        name: `${e.firstName} ${e.lastName}`,
+        initials: e.initials,
+        department: e.department,
+        birthday: e.birthday,
+        displayDate,
+        daysUntil,
+      }
+    })
+    .sort((a, b) => a.daysUntil - b.daysUntil)
+    .slice(0, 5)
 }
 
 // ---------------------------------------------------------------------------

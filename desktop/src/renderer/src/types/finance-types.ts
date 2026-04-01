@@ -165,10 +165,13 @@ export interface FinanceDashboard {
   conversion_rate: number
   average_deal_size: string
   revenue_forecast: string
+  revenue_this_month: number
+  revenue_last_month: number
   status_breakdown: Record<InvoiceStatus, number>
   recent_invoices: Invoice[]
   expiring_quotes: Quote[]
   pending_dunnings: DunningRecord[]
+  monthly_revenue?: Array<{ month: string; revenue: number }>
 }
 
 // ---------------------------------------------------------------------------

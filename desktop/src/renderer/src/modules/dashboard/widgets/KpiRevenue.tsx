@@ -21,14 +21,16 @@ function KpiRevenue(_props: WidgetProps) {
     )
   }
 
-  const current = parseFloat(dashboard?.total_invoiced ?? '0')
-  const previous = parseFloat(dashboard?.total_paid ?? '0')
+  const current = dashboard?.revenue_this_month ?? 0
+  const previous = dashboard?.revenue_last_month ?? 0
   const changePercent = previous > 0 ? ((current - previous) / previous) * 100 : 0
   const isUp = changePercent >= 0
 
-  // TODO: Need monthly revenue endpoint for per-month breakdown chart
-  // For now, show a single bar with the current total
-  const chartData: { month: string; label: string; revenue: number }[] = []
+  const MONTH_LABELS = ['Jan', 'Feb', 'Maer', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+  const chartData = (dashboard?.monthly_revenue ?? []).map((d) => {
+    const date = new Date(d.month)
+    return { month: d.month, label: MONTH_LABELS[date.getMonth()], revenue: d.revenue }
+  })
   const max = chartData.length > 0 ? Math.max(...chartData.map((d) => d.revenue)) : 1
 
   return (

@@ -1,16 +1,27 @@
 /**
  * Time Clock widget — clock in/out with today's work hours.
  */
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Clock, LogIn, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useWorkTimeStatus, useClockIn, useClockOut } from '@/api/hooks/hr-hooks'
+import { useWorkTimeStatus, useClockIn, useClockOut, useWeeklySummary } from '@/api/hooks/hr-hooks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
+
+function getMonday(): string {
+  const now = new Date()
+  const day = now.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  const monday = new Date(now)
+  monday.setDate(now.getDate() + diff)
+  return monday.toISOString().slice(0, 10)
+}
 
 function TimeClockWidget(_props: WidgetProps) {
   const { data: status, isLoading } = useWorkTimeStatus()
   const clockIn = useClockIn()
   const clockOut = useClockOut()
+  const weekStart = useMemo(() => getMonday(), [])
+  const { data: weeklySummary } = useWeeklySummary(weekStart)
 
   if (isLoading) {
     return (
@@ -32,11 +43,10 @@ function TimeClockWidget(_props: WidgetProps) {
     startTimeDisplay = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
 
-  // Week progress — use daily total * 5 as rough estimate since we only have today's data
-  // TODO: Integrate weekly summary for accurate week hours
+  // Week progress from weekly summary (accurate) or fallback to today only
   const targetWeek = 40
-  const weekHoursEstimate = workedHours // Only today's hours available from status endpoint
-  const weekPct = Math.min(100, (weekHoursEstimate / targetWeek) * 100)
+  const weekHours = weeklySummary ? weeklySummary.totalWorkedMinutes / 60 : workedHours
+  const weekPct = Math.min(100, (weekHours / targetWeek) * 100)
 
   const handleToggle = () => {
     if (isClockedIn) {
@@ -100,7 +110,7 @@ function TimeClockWidget(_props: WidgetProps) {
       <div className="mt-auto">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs text-muted-foreground">Woche</span>
-          <span className="text-xs font-medium text-foreground">{weekHoursEstimate.toFixed(1)}h / {targetWeek}h</span>
+          <span className="text-xs font-medium text-foreground">{weekHours.toFixed(1)}h / {targetWeek}h</span>
         </div>
         <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
           <div

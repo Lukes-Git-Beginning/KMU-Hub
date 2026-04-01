@@ -4,6 +4,7 @@
 import { memo, useMemo } from 'react'
 import { Handshake, TrendingUp, Target } from 'lucide-react'
 import { useDeals } from '@/api/hooks/useDeals'
+import { usePipelineStages } from '@/api/hooks/usePipelineStages'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function fmt(n: number) {
@@ -12,19 +13,35 @@ function fmt(n: number) {
 
 function KpiDeals(_props: WidgetProps) {
   const { data, isLoading } = useDeals()
+  const { data: stagesData } = usePipelineStages()
 
   const stats = useMemo(() => {
     const deals = (data as { deals?: Array<Record<string, unknown>>; total?: number })?.deals ?? []
-    const activeDeals = (data as { total?: number })?.total ?? deals.length
-    const pipelineValue = deals.reduce((sum, d) => sum + (Number(d.value) || 0), 0)
+    const stages = (stagesData as { stages?: Array<Record<string, unknown>> })?.stages ?? []
 
-    // TODO: Need stage info to determine won/lost deals and win rate
-    const wonThisMonth = 0
-    const lostThisMonth = 0
-    const winRate = 0
+    const wonStageIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id))
+    const lostStageIds = new Set(stages.filter((s) => s.is_lost).map((s) => s.id))
 
-    return { pipelineValue, activeDeals, wonThisMonth, lostThisMonth, winRate }
-  }, [data])
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+    const activeDeals = deals.filter(
+      (d) => !wonStageIds.has(d.stageId as string) && !lostStageIds.has(d.stageId as string),
+    )
+    const pipelineValue = activeDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0)
+
+    const closedThisMonth = deals.filter((d) => {
+      const updated = new Date(d.updated_at as string)
+      return updated >= monthStart && (wonStageIds.has(d.stageId as string) || lostStageIds.has(d.stageId as string))
+    })
+
+    const wonThisMonth = closedThisMonth.filter((d) => wonStageIds.has(d.stageId as string)).length
+    const lostThisMonth = closedThisMonth.filter((d) => lostStageIds.has(d.stageId as string)).length
+    const total = wonThisMonth + lostThisMonth
+    const winRate = total > 0 ? Math.round((wonThisMonth / total) * 100) : 0
+
+    return { pipelineValue, activeDeals: activeDeals.length, wonThisMonth, lostThisMonth, winRate }
+  }, [data, stagesData])
 
   if (isLoading) {
     return (

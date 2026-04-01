@@ -164,15 +164,13 @@ export const teamHandlers = [
     return HttpResponse.json({ active: null })
   }),
 
-  // Work time status
+  // Work time status — matches WorkTimeStatus interface
   http.get(`${API}/api/v1/hr/time/status`, () => {
     return HttpResponse.json({
-      clocked_in: false,
-      today_hours: 0,
-      today_break_min: 0,
-      week_hours: 31.5,
-      week_target: 40,
-      overtime_hours: 12.5,
+      isClockedIn: false,
+      isOnBreak: false,
+      todayTotalMinutes: 0,
+      arbzgSeverity: 'none',
     })
   }),
 
@@ -184,31 +182,37 @@ export const teamHandlers = [
     return HttpResponse.json({ entries: filtered, total: filtered.length })
   }),
 
-  // Daily summary
+  // Daily summary — matches DailySummary interface
   http.get(`${API}/api/v1/hr/time/summary/daily`, () => {
     return HttpResponse.json({
-      date: today(),
-      total_hours: 0,
-      break_min: 0,
-      entries: [],
+      summary: {
+        date: today(),
+        totalWorkedMinutes: 0,
+        totalBreakMinutes: 0,
+        netWorkMinutes: 0,
+        overtimeMinutes: 0,
+        entryCount: 0,
+      },
     })
   }),
 
-  // Weekly summary
+  // Weekly summary — matches WeeklySummary interface
   http.get(`${API}/api/v1/hr/time/summary/weekly`, () => {
     return HttpResponse.json({
-      week_start: daysAgo(new Date().getDay() - 1),
-      week_end: daysFromNow(7 - new Date().getDay()),
-      total_hours: 31.5,
-      target_hours: 40,
-      overtime: 12.5,
-      days: [
-        { date: daysAgo(4), hours: 7.75, target: 8 },
-        { date: daysAgo(3), hours: 7.5, target: 8 },
-        { date: daysAgo(2), hours: 8.0, target: 8 },
-        { date: daysAgo(1), hours: 8.25, target: 8 },
-        { date: daysAgo(0), hours: 0, target: 8 },
-      ],
+      summary: {
+        weekStart: daysAgo(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1),
+        days: [
+          { date: daysAgo(4), totalWorkedMinutes: 465, totalBreakMinutes: 30, netWorkMinutes: 435, overtimeMinutes: 0, entryCount: 1 },
+          { date: daysAgo(3), totalWorkedMinutes: 450, totalBreakMinutes: 30, netWorkMinutes: 420, overtimeMinutes: 0, entryCount: 1 },
+          { date: daysAgo(2), totalWorkedMinutes: 480, totalBreakMinutes: 30, netWorkMinutes: 450, overtimeMinutes: 0, entryCount: 1 },
+          { date: daysAgo(1), totalWorkedMinutes: 495, totalBreakMinutes: 30, netWorkMinutes: 465, overtimeMinutes: 15, entryCount: 1 },
+          { date: daysAgo(0), totalWorkedMinutes: 0, totalBreakMinutes: 0, netWorkMinutes: 0, overtimeMinutes: 0, entryCount: 0 },
+        ],
+        totalWorkedMinutes: 1890,
+        totalBreakMinutes: 120,
+        netWorkMinutes: 1770,
+        totalOvertimeMinutes: 15,
+      },
     })
   }),
 

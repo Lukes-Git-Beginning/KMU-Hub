@@ -411,12 +411,20 @@ export const mockCreditNotes = {
 // ---------------------------------------------------------------------------
 
 export const mockFinanceDashboard = {
+  total_invoiced: '189600',
+  total_paid: '165800',
+  total_outstanding: '23800',
+  overdue_amount: '8900',
+  quotes_pending: 3,
+  conversion_rate: 68,
+  average_deal_size: '42500',
+  revenue_forecast: '52000',
   revenue_this_month: 47500,
   revenue_last_month: 42300,
-  outstanding: 23800,
-  overdue: 8900,
-  paid_this_month: 38600,
-  invoice_count: { draft: 2, sent: 3, paid: 4, overdue: 2 },
+  status_breakdown: { draft: 2, sent: 3, paid: 4, overdue: 2 } as Record<string, number>,
+  recent_invoices: [] as unknown[],
+  expiring_quotes: [] as unknown[],
+  pending_dunnings: [] as unknown[],
   monthly_revenue: [
     { month: monthsAgo(11), revenue: 28400 },
     { month: monthsAgo(10), revenue: 31200 },

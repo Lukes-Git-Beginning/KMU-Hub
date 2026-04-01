@@ -145,7 +145,7 @@ export const financeHandlers = [
 
   // Finance dashboard KPIs
   http.get(`${API}/api/v1/finance/dashboard`, () => {
-    return HttpResponse.json(mockFinanceDashboard)
+    return HttpResponse.json({ dashboard: mockFinanceDashboard })
   }),
 
   // ---- Settings ----
