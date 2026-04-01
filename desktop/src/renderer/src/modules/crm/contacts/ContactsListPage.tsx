@@ -174,6 +174,7 @@ export default function ContactsListPage() {
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            aria-label="Kontakte suchen"
             placeholder="Kontakte suchen..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -238,7 +239,7 @@ export default function ContactsListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8"></TableHead>
+                <TableHead className="w-8"><span className="sr-only">Sichtbarkeit</span></TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>E-Mail</TableHead>
                 <TableHead>Telefon</TableHead>
@@ -254,13 +255,15 @@ export default function ContactsListPage() {
                 return (
                   <TableRow
                     key={contact.id}
-                    className="cursor-pointer"
+                    tabIndex={0}
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
                     onClick={() => navigate(`/crm/contacts/${contact.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/crm/contacts/${contact.id}`) } }}
                   >
                     <TableCell className="w-8 pr-0">
                       {visibility === 'personal' ? (
                         <Lock
-                          className="h-3.5 w-3.5 text-amber-500"
+                          className="h-3.5 w-3.5 text-warning"
                           aria-label="Persönlich"
                         />
                       ) : (
