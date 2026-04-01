@@ -39,13 +39,13 @@ export function createMenu(): void {
       label: 'Help',
       submenu: [
         {
-          label: 'About KMU Hub',
+          label: 'About Cosmi',
           click: () => {
             dialog.showMessageBox({
               type: 'info',
-              title: 'About KMU Hub',
-              message: `KMU Hub v${app.getVersion()}`,
-              detail: 'All-in-One CRM for DACH SMBs'
+              title: 'About Cosmi',
+              message: `Cosmi v${app.getVersion()}`,
+              detail: 'All-in-One Business-Plattform fuer DACH-KMUs\nby Zentria'
             })
           }
         }

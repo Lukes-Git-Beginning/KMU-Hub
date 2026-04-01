@@ -54,7 +54,7 @@ const CURRENT_USER = {
   initials: 'JD',
   role: 'Full-Stack Developer',
   department: 'Entwicklung',
-  email: 'jonas.diaz@kmuhub.ch',
+  email: 'jonas.diaz@zentria.tech',
   phone: '+49 151 456 78 90',
   location: 'Berlin',
   joinDate: '2024-09-15',

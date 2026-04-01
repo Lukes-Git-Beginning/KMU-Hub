@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { branding } from '@/config/branding'
 
 const FEATURES = [
   'Projekte, Aufgaben & Zeiterfassung',
@@ -20,16 +21,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-white">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor" opacity="0.3" />
-                <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold tracking-tight">Cosmi</span>
-          </div>
+          <img src={branding.cosmi.icon128} alt="Cosmi" className="h-12 w-auto" />
         </div>
 
         <div className="relative z-10 space-y-6">
@@ -53,9 +45,12 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           </ul>
         </div>
 
-        <p className="relative z-10 text-xs text-white/40">
-          EU-Datensouveraenitaet &middot; DSGVO-konform &middot; Self-Hosted oder Cloud
-        </p>
+        <div className="relative z-10">
+          <p className="text-xs text-white/40 mb-2">
+            EU-Datensouveraenitaet &middot; DSGVO-konform &middot; Self-Hosted oder Cloud
+          </p>
+          <p className="text-xs text-white/50">by Zentria</p>
+        </div>
       </div>
 
       {/* Form panel */}

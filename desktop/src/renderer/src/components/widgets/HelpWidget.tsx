@@ -159,7 +159,7 @@ export function HelpWidget() {
                 <div className="px-4 py-1 space-y-2">
                   <div className="flex items-center gap-2 text-xs">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-foreground">support@kmuhub.ch</span>
+                    <span className="text-foreground">support@zentria.tech</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground">Tel:</span>

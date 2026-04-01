@@ -1,5 +1,6 @@
 import { LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { branding } from '@/config/branding'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -33,11 +34,13 @@ export function SidebarBranding({ collapsed, onToggle, onOpenModules }: SidebarB
           <TooltipContent side={collapsed ? 'right' : 'bottom'}>Alle Module</TooltipContent>
         </Tooltip>
 
-        {/* Branding text */}
+        {/* Branding logo */}
         {!collapsed && (
-          <span className="text-sm font-bold text-sidebar-foreground truncate select-none">
-            Cosmi
-          </span>
+          <img
+            src={branding.cosmi.icon64}
+            alt="Cosmi"
+            className="h-6 w-auto select-none"
+          />
         )}
 
         {/* Spacer + collapse toggle */}

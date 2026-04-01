@@ -145,7 +145,7 @@ export function MeetingDetailPanel({
   }
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://meet.kmuhub.ch/${meeting.id}`)
+    navigator.clipboard.writeText(`https://meet.zentria.tech/${meeting.id}`)
   }
 
   const tabs: { id: TabId; label: string; icon: typeof ListChecks }[] = [

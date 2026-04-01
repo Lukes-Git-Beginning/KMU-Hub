@@ -36,7 +36,7 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
 
   if (!article) return null
 
-  const shareLink = `kmuhub://wiki/${article.slug}`
+  const shareLink = `cosmi://wiki/${article.slug}`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareLink).catch(() => {})

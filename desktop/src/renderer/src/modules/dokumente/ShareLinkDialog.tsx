@@ -25,7 +25,7 @@ interface ShareLinkDialogProps {
 
 function generateMockLink(fileId: string): string {
   const token = Math.random().toString(36).substring(2, 10)
-  return `https://kmuhub.app/s/${fileId.substring(0, 8)}-${token}`
+  return `https://cosmi.zentria.tech/s/${fileId.substring(0, 8)}-${token}`
 }
 
 export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDialogProps) {

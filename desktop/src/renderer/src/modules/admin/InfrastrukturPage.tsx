@@ -432,7 +432,7 @@ function BackupsTab({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-foreground">Speicherort</p>
-              <p className="text-xs text-muted-foreground">/var/backups/kmuhub/</p>
+              <p className="text-xs text-muted-foreground">/var/backups/cosmi/</p>
             </div>
             <Button variant="outline" size="sm" onClick={() => toast.info('Speicherort-Konfiguration wird geöffnet...')}>
               <Settings className="mr-1.5 h-3.5 w-3.5" />

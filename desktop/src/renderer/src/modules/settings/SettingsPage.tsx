@@ -44,6 +44,7 @@ import { AIGovernanceTab } from './tabs/AIGovernanceTab'
 import { ITAdminTab } from './tabs/ITAdminTab'
 import { ThemePreview } from './ThemePreview'
 import { useTourStore } from '@/stores/tour'
+import { branding } from '@/config/branding'
 
 type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notifications' | 'mail' | 'calendar' | 'finance' | 'company' | 'it-admin' | 'integrations' | 'privacy' | 'ai' | 'about'
 
@@ -915,13 +916,36 @@ function AboutTab() {
     <div className="max-w-2xl mx-auto">
       {/* Hero */}
       <div className="rounded-xl bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
-        <h2 className="text-primary-foreground text-xl font-semibold mb-1">Cosmi</h2>
+        <div className="flex items-center gap-4 mb-3">
+          <img src={branding.cosmi.icon128} alt="Cosmi" className="h-14 w-auto" />
+          <div>
+            <h2 className="text-primary-foreground text-xl font-semibold mb-0.5">Cosmi</h2>
+            <p className="text-primary-foreground/50 text-xs">by Zentria</p>
+          </div>
+        </div>
         <p className="text-primary-foreground/80 text-sm mb-3">
-          All-in-One Business-Plattform für DACH-KMUs
+          All-in-One Business-Plattform fuer DACH-KMUs
         </p>
         <div className="flex items-center gap-3">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">v0.1.0 Beta</span>
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">Enterprise</span>
+        </div>
+      </div>
+
+      {/* Product family */}
+      <h3 className="text-sm font-medium text-foreground mb-3">Produkt-Familie</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+        <div className="rounded-lg border border-border bg-card p-4 flex flex-col items-center gap-2">
+          <img src={branding.cosmi.logoTransparent} alt="Cosmi" className="h-12 w-auto" />
+          <p className="text-xs text-muted-foreground">Desktop App</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4 flex flex-col items-center gap-2">
+          <img src={branding.orbit.logoTransparent} alt="Orbit" className="h-12 w-auto" />
+          <p className="text-xs text-muted-foreground">Cloud Platform</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4 flex flex-col items-center gap-2">
+          <img src={branding.zentria.logo} alt="Zentria" className="h-12 w-auto" />
+          <p className="text-xs text-muted-foreground">Unternehmen</p>
         </div>
       </div>
 
@@ -938,7 +962,7 @@ function AboutTab() {
               <p className="text-xs text-muted-foreground">Mo-Fr, 08:00-18:00 Uhr</p>
             </div>
           </div>
-          <p className="text-sm text-primary ml-12">support@kmuhub.ch</p>
+          <p className="text-sm text-primary ml-12">support@zentria.tech</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-3 mb-2">
@@ -959,7 +983,7 @@ function AboutTab() {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Wissensdatenbank</p>
-              <p className="text-xs text-muted-foreground">docs.kmuhub.ch</p>
+              <p className="text-xs text-muted-foreground">docs.zentria.tech</p>
             </div>
           </div>
         </div>
@@ -970,7 +994,7 @@ function AboutTab() {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Website</p>
-              <p className="text-xs text-muted-foreground">www.kmuhub.ch</p>
+              <p className="text-xs text-muted-foreground">www.zentria.tech</p>
             </div>
           </div>
         </div>

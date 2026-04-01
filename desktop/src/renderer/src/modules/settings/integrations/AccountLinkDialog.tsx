@@ -1,7 +1,7 @@
 /**
  * Token-based account linking dialog for Teams and Slack.
  *
- * Users enter the token they received from the /kmuhub link command
+ * Users enter the token they received from the /cosmi link command
  * in their external platform. The dialog verifies the token and
  * links the account.
  */
@@ -97,7 +97,7 @@ export function AccountLinkDialog({
                   1. Geben Sie den folgenden Befehl in {platformLabel} ein:
                 </p>
                 <code className="block rounded-md bg-muted px-3 py-2 text-sm font-mono">
-                  /kmuhub link
+                  /cosmi link
                 </code>
                 <p className="text-sm text-muted-foreground">
                   2. Sie erhalten einen Token. Geben Sie ihn hier ein:

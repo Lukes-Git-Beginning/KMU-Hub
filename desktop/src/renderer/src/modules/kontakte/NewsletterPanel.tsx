@@ -47,7 +47,7 @@ const mockServices: NewsletterService[] = [
     id: 'brevo',
     name: 'Brevo (Sendinblue)',
     connected: true,
-    account: 'marketing@kmuhub.ch',
+    account: 'marketing@zentria.tech',
     lastSync: '2026-02-20 14:30',
     subscriberCount: 847,
     listCount: 5,

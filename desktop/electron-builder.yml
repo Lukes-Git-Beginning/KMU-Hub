@@ -3,6 +3,11 @@ productName: Cosmi
 directories:
   buildResources: build
   output: dist
+extraResources:
+  - from: src/main/resources/
+    to: resources/
+    filter:
+      - "**/*"
 files:
   - out/**/*
 win:

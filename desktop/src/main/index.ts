@@ -1,8 +1,9 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, nativeImage } from 'electron'
 import { join } from 'path'
 import { registerIPCHandlers } from './ipc/index'
 import { createMenu } from './menu'
 import { setupTray, destroyTray } from './tray'
+import { getResourcePath } from './utils'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -17,7 +18,8 @@ function createWindow(): void {
     minWidth: 1024,
     minHeight: 700,
     show: false,
-    title: 'KMU Hub',
+    title: 'Cosmi',
+    icon: nativeImage.createFromPath(getResourcePath('tray-icon@2x.png')),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

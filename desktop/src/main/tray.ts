@@ -1,21 +1,19 @@
 import { Tray, Menu, app, BrowserWindow, nativeImage } from 'electron'
+import { getResourcePath } from './utils'
 
 let tray: Tray | null = null
 
 export function setupTray(getMainWindow: () => BrowserWindow | null): void {
-  // Create a minimal 16x16 tray icon (1px transparent PNG)
-  // This will be replaced with a proper icon asset in a later plan
-  const icon = nativeImage.createEmpty()
+  const iconPath = getResourcePath('tray-icon.png')
+  const icon = nativeImage.createFromPath(iconPath)
 
-  // On some platforms, creating a tray with an empty icon may fail silently.
-  // Skip tray setup if no icon is available.
   if (icon.isEmpty()) {
     console.warn('[tray] No tray icon available, skipping tray setup')
     return
   }
 
   tray = new Tray(icon)
-  tray.setToolTip('KMU Hub')
+  tray.setToolTip('Cosmi')
 
   const contextMenu = Menu.buildFromTemplate([
     {
