@@ -80,3 +80,6 @@ temp/
 .ralph/
 .ralphrc
 .claude/settings.local.json
+
+# Playwright screenshots
+screenshots/

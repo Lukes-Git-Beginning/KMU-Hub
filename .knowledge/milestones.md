@@ -1,6 +1,6 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-03-07
+updated: 2026-04-01
 ---
 # Milestones
 
@@ -23,11 +23,18 @@ updated: 2026-03-07
 | Lint-Cleanup (347 ESLint-Probleme auf 0) | 2026-03-07 |
 | Phase A Dead-Code Audit | 2026-03-05 |
 
-## GSD Integration
-- GSD quality profile, conventional commits, no AI attribution
-- GSD = single source of truth (.planning/ directory)
-- `.planning/` committed to git
-- Darien arbeitet direkt auf `main`
+## Beta Phase B9 — Crash-Fixes & Playwright Testing (2026-04-01)
+| Schritt | Details |
+|---------|---------|
+| Playwright MCP eingerichtet | Chrome CDP Port 9222, .mcp.json konfiguriert |
+| MSW durch Fetch-Interceptor ersetzt | demo-mode.ts, sauberer als MSW Service Worker |
+| RichTextEditor entfernt | Ungenutzte shared component |
+| Business Roadmap erstellt | docs/BUSINESS-ROADMAP.md |
+| ErrorBoundary: Route-Reset | ModuleShell key={location.pathname}, kein Reload nötig |
+| 9 Modul-Crashes gefixt | Inventar (duplicate import), Einkauf (null guard), Formulare (null guard), Vermietung (objectName/currency), Dashboard Widgets (camelCase, activities, pipeline) |
+| 5 weitere Null-Guards | CalendarUpcoming (today/dd scope), MyCalendar (now scope), EinkaufPage (showWareneingangDialog?.id), FormularePage (showShareDialog?.name, editingForm), ZustandsprotokollDialog (reservation?.objectName) |
+| Projekte Mock-Daten | project_key, is_template, Handler pagination |
+| Playwright-Verifikation | Alle Module crash-frei verifiziert (0 JS-Errors) |
 
 ## Verwandte Notes
 - [[design]] — Frontend Wiring Progress

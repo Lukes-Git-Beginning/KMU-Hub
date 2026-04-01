@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-03-05
+updated: 2026-04-01
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -27,7 +27,7 @@ Aus Vorgaenger-Projekt (slot_booking_webapp) gelernt:
 - **Reihenfolge:** Services haben `depends_on` mit Health-Check-Conditions
 - **Health-Check-Timeout:** OnlyOffice braucht bis zu 60s Start-Period
 - **Volumes:** `pgdata` und `minio_data` persistent, `docker-compose down -v` loescht alles
-- **Rebuild nach Code-Aenderung:** `docker-compose build <service> && docker-compose up -d <service>`
+- **Rebuild nach Code-Änderung:** `docker-compose build <service> && docker-compose up -d <service>`
 
 ## Windows/Dev-Umgebung
 - **protoc Pfad:** `C:/Users/Luke/AppData/Local/Microsoft/WinGet/Packages/.../protoc.exe`
@@ -40,7 +40,19 @@ Aus Vorgaenger-Projekt (slot_booking_webapp) gelernt:
 - `goimports` aus Formatters entfernt (CI-Issues)
 - Action: golangci-lint v2.8 (action v7)
 
-## Haeufige Fehler
+## Radix Dialog Null-Access Pattern
+- Radix Dialog rendert `<DialogContent>` im DOM auch wenn `open={false}`
+- Alle Zugriffe auf Dialog-State im Content muessen null-safe sein
+- **Pattern:** `showDialog?.property` oder `{showDialog && ...}` im DialogContent
+- Betraf: EinkaufPage, FormularePage, ZustandsprotokollDialog (alle gefixt 2026-04-01)
+
+## useMemo Scope-Fehler
+- Variablen die INNERHALB von `useMemo()` deklariert werden sind AUSSERHALB nicht verfügbar
+- Wenn JSX auf diese Variablen zugreift → `ReferenceError: x is not defined`
+- **Fix:** Variable im Return-Objekt des useMemo zurückgeben
+- Betraf: CalendarUpcoming (today/dd), MyCalendar (now) (gefixt 2026-04-01)
+
+## Häufige Fehler
 - `fmt.Println` / `console.log` statt Structured Logging → slog verwenden
 - Hardcoded Secrets → Environment Variables
 - CORS Wildcard → Explizite Allowlist
