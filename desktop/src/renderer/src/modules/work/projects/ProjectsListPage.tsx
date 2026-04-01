@@ -8,6 +8,8 @@
  */
 import { useState, useEffect } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { EmptyState } from '@/components/shared'
+import { EmptyGeneric } from '@/components/shared/illustrations'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus,
@@ -175,25 +177,18 @@ export default function ProjectsListPage() {
           ))}
         </div>
       ) : projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <FolderKanban className="h-12 w-12 text-muted-foreground" />
-          <p className="mt-4 text-lg font-medium text-foreground">
-            {showTemplates ? 'Keine Vorlagen gefunden' : 'Keine Projekte gefunden'}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {debouncedSearch
+        <EmptyState
+          illustration={<EmptyGeneric />}
+          title={showTemplates ? 'Keine Vorlagen gefunden' : 'Keine Projekte gefunden'}
+          description={
+            debouncedSearch
               ? 'Versuche einen anderen Suchbegriff.'
               : showTemplates
                 ? 'Speichere ein Projekt als Vorlage, um es hier zu sehen.'
-                : 'Erstelle dein erstes Projekt, um loszulegen.'}
-          </p>
-          {!debouncedSearch && !showTemplates && (
-            <Button className="mt-4 gap-2" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Erstes Projekt erstellen
-            </Button>
-          )}
-        </div>
+                : 'Erstelle dein erstes Projekt, um loszulegen.'
+          }
+          action={!debouncedSearch && !showTemplates ? { label: 'Erstes Projekt erstellen', onClick: () => setCreateOpen(true) } : undefined}
+        />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

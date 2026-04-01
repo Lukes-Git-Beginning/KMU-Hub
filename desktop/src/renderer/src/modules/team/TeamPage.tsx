@@ -280,32 +280,37 @@ export default function TeamPage() {
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto">
-        {([
-          { key: 'members' as const, label: `Mitglieder (${apiEmployees.length})`, icon: undefined },
-          { key: 'requests' as const, label: `Anfragen (${pendingCount} offen)`, icon: undefined },
-          { key: 'absences' as const, label: 'Abwesenheiten', icon: undefined },
-          { key: 'korrekturen' as const, label: 'Korrekturen', icon: Clock },
-          { key: 'personalakte' as const, label: 'Personalakte', icon: FolderOpen },
-          { key: 'onboarding' as const, label: 'Onboarding', icon: ListChecks },
-          { key: 'orgchart' as const, label: 'Organigramm', icon: Network },
-          { key: 'integrationen' as const, label: 'Integrationen', icon: Link2 },
-          { key: 'schulungen' as const, label: 'Schulungen', icon: GraduationCap },
-          { key: 'selfservice' as const, label: 'Self-Service', icon: UserCircle },
-          { key: 'einstellungen' as const, label: 'Einstellungen', icon: Settings },
-        ]).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors whitespace-nowrap ${
-              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t.icon && <t.icon className="h-3.5 w-3.5" />}
-            {t.label}
-          </button>
-        ))}
+      {/* Tabs — scrollable with fade mask */}
+      <div className="relative mb-6">
+        <div
+          className="flex items-center gap-4 border-b border-border overflow-x-auto scrollbar-hide pr-8"
+          style={{ maskImage: 'linear-gradient(to right, black calc(100% - 40px), transparent)', WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 40px), transparent)' }}
+        >
+          {([
+            { key: 'members' as const, label: `Mitglieder (${apiEmployees.length})`, icon: undefined },
+            { key: 'requests' as const, label: `Anfragen (${pendingCount} offen)`, icon: undefined },
+            { key: 'absences' as const, label: 'Abwesenheiten', icon: undefined },
+            { key: 'korrekturen' as const, label: 'Korrekturen', icon: Clock },
+            { key: 'personalakte' as const, label: 'Personalakte', icon: FolderOpen },
+            { key: 'onboarding' as const, label: 'Onboarding', icon: ListChecks },
+            { key: 'orgchart' as const, label: 'Organigramm', icon: Network },
+            { key: 'integrationen' as const, label: 'Integrationen', icon: Link2 },
+            { key: 'schulungen' as const, label: 'Schulungen', icon: GraduationCap },
+            { key: 'selfservice' as const, label: 'Self-Service', icon: UserCircle },
+            { key: 'einstellungen' as const, label: 'Einstellungen', icon: Settings },
+          ]).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors whitespace-nowrap ${
+                tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t.icon && <t.icon className="h-3.5 w-3.5" />}
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Members Tab */}
@@ -516,7 +521,7 @@ export default function TeamPage() {
                         <p>Dauer: {training.duration}</p>
                         <p>Anbieter: {training.provider}</p>
                         {training.validityMonths > 0 && (
-                          <p>Gueltig: {training.validityMonths} Monate</p>
+                          <p>Gültig: {training.validityMonths} Monate</p>
                         )}
                       </div>
                     </div>
@@ -526,7 +531,7 @@ export default function TeamPage() {
             </div>
 
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-3">Teilnahme-Uebersicht</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">Teilnahme-Übersicht</h3>
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -622,7 +627,7 @@ export default function TeamPage() {
         open={!!confirmDeactivate}
         onOpenChange={() => setConfirmDeactivate(null)}
         title="Mitglied deaktivieren?"
-        description={`${confirmDeactivate?.userName ?? 'Mitarbeiter'} wird deaktiviert. Das Konto kann spaeter reaktiviert werden.`}
+        description={`${confirmDeactivate?.userName ?? 'Mitarbeiter'} wird deaktiviert. Das Konto kann später reaktiviert werden.`}
         confirmLabel="Deaktivieren"
         variant="destructive"
         onConfirm={() => confirmDeactivate && handleDeactivate(confirmDeactivate)}
@@ -923,7 +928,7 @@ function AddTrainingDialog({ open, onOpenChange, onAdd }: {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Gueltigkeit (Monate)</Label>
+              <Label>Gültigkeit (Monate)</Label>
               <Input type="number" min={0} placeholder="0 = unbegrenzt" value={validityMonths} onChange={(e) => setValidityMonths(Number(e.target.value))} />
             </div>
             <div className="flex items-center gap-2 pt-6">
@@ -977,7 +982,7 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
       participation.expiresAt = date.toISOString().split('T')[0]
     }
     onRecord(participation)
-    toast.success(`Teilnahme fuer ${memberName} erfasst`)
+    toast.success(`Teilnahme für ${memberName} erfasst`)
     reset()
     onOpenChange(false)
   }
@@ -992,7 +997,7 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
           <div className="space-y-1.5">
             <Label>Mitarbeiter *</Label>
             <Select value={memberId} onValueChange={setMemberId}>
-              <SelectTrigger><SelectValue placeholder="Mitarbeiter waehlen..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Mitarbeiter wählen..." /></SelectTrigger>
               <SelectContent>
                 {members.map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.userName ?? 'Unbekannt'}</SelectItem>
@@ -1003,7 +1008,7 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
           <div className="space-y-1.5">
             <Label>Schulung *</Label>
             <Select value={trainingId} onValueChange={setTrainingId}>
-              <SelectTrigger><SelectValue placeholder="Schulung waehlen..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Schulung wählen..." /></SelectTrigger>
               <SelectContent>
                 {trainings.map((t) => (
                   <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>

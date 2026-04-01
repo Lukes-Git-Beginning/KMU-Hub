@@ -12,6 +12,8 @@ import {
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/cn'
 import { toast } from 'sonner'
+import { EmptyState } from '@/components/shared'
+import { EmptyCalendar } from '@/components/shared/illustrations'
 import {
   useWorkTimeStatus,
   useWorkTimeEntries,
@@ -58,7 +60,7 @@ function getArbZGColor(severity: string): string {
 function getArbZGLabel(severity: string): string {
   switch (severity) {
     case 'info': return '8h erreicht'
-    case 'warning': return '9h ueberschritten'
+    case 'warning': return '9h überschritten'
     case 'error': return '10h Grenze!'
     default: return ''
   }
@@ -152,7 +154,7 @@ export default function ZeiterfassungTab() {
 
   const handleSubmitCorrection = () => {
     if (!correctionEntryId || !correctionClockIn || !correctionClockOut || !correctionReason.trim()) {
-      toast.error('Bitte alle Felder ausfuellen')
+      toast.error('Bitte alle Felder ausfüllen')
       return
     }
     correctionMutation.mutate(
@@ -331,7 +333,7 @@ export default function ZeiterfassungTab() {
                 value={correctionReason}
                 onChange={(e) => setCorrectionReason(e.target.value)}
                 rows={2}
-                placeholder="Grund fuer die Korrektur..."
+                placeholder="Grund für die Korrektur..."
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
@@ -382,9 +384,13 @@ function TodayView({ summary, entries }: { summary?: DailySummaryType; entries: 
 
       {/* Entries */}
       <div>
-        <h3 className="text-sm font-medium text-foreground mb-3">Eintraege</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">Einträge</h3>
         {entries.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Noch keine Eintraege heute</p>
+          <EmptyState
+            illustration={<EmptyCalendar />}
+            title="Noch keine Einträge heute"
+            description="Stempel dich ein, um deine Arbeitszeit zu erfassen."
+          />
         ) : (
           <div className="space-y-2">
             {entries.map((entry) => (
@@ -549,7 +555,11 @@ function CorrectionsView({
       <div>
         <h3 className="text-sm font-medium text-foreground mb-3">Korrektur beantragen</h3>
         {correctableEntries.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Keine Eintraege zum Korrigieren</p>
+          <EmptyState
+            icon={Edit3}
+            title="Keine Einträge zum Korrigieren"
+            description="Abgeschlossene Einträge können hier korrigiert werden."
+          />
         ) : (
           <div className="space-y-2">
             {correctableEntries.map((entry) => (

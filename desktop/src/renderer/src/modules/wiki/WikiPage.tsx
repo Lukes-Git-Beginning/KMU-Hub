@@ -33,13 +33,13 @@ import { WikiShareDialog } from './WikiShareDialog'
 
 const statusConfig: Record<string, { label: string; bg: string }> = {
   draft: { label: 'Entwurf', bg: 'bg-secondary text-muted-foreground' },
-  published: { label: 'Veroeffentlicht', bg: 'bg-success-light text-success' },
+  published: { label: 'Veröffentlicht', bg: 'bg-success-light text-success' },
   archived: { label: 'Archiviert', bg: 'bg-warning-light text-warning' },
 }
 
 function formatDate(dateStr: string): string {
   try {
-    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-CH')
+    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE')
   } catch {
     return dateStr
   }
@@ -127,7 +127,7 @@ export default function WikiPage() {
                 <EmptyState
                   icon={BookOpen}
                   title="Keine Artikel"
-                  description={searchQuery ? 'Keine Treffer fuer diese Suche.' : 'Erstelle deinen ersten Wiki-Artikel.'}
+                  description={searchQuery ? 'Keine Treffer für diese Suche.' : 'Erstelle deinen ersten Wiki-Artikel.'}
                 />
               ) : (
                 <div className="divide-y divide-border/50">
@@ -138,8 +138,8 @@ export default function WikiPage() {
                       <button
                         key={article.id}
                         onClick={() => handleSelectArticle(article)}
-                        className={`flex w-full flex-col px-3 py-2.5 text-left transition-colors ${
-                          isSelected ? 'bg-primary/5' : 'hover:bg-accent/50'
+                        className={`flex w-full flex-col px-3 py-2.5 text-left transition-colors border-l-[3px] ${
+                          isSelected ? 'border-l-primary bg-primary/[0.03]' : 'border-l-transparent hover:bg-accent/50'
                         }`}
                       >
                         {/* Title row */}
@@ -210,9 +210,9 @@ export default function WikiPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}
-        title="Artikel loeschen"
-        description={`"${deleteTarget?.title}" wird unwiderruflich geloescht.`}
-        confirmLabel="Loeschen"
+        title="Artikel löschen"
+        description={`"${deleteTarget?.title}" wird unwiderruflich gelöscht.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

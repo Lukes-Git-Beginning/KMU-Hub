@@ -273,7 +273,7 @@ export default function BuchhaltungPage() {
       {/* Invoices Tab */}
       {tab === 'invoices' && (
         filteredInvoices.length === 0 ? (
-          <EmptyState icon={FileText} title="Keine Rechnungen" description="Erstelle deine erste Rechnung" actionLabel="Neue Rechnung" onAction={handleNewInvoice} />
+          <EmptyState icon={FileText} title="Keine Rechnungen" description="Erstelle deine erste Rechnung" action={{ label: 'Neue Rechnung', onClick: handleNewInvoice }} />
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
@@ -289,7 +289,7 @@ export default function BuchhaltungPage() {
                   <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
                   <span className="text-sm text-foreground truncate">{inv.client}</span>
                   <span className="text-sm font-medium text-foreground">{formatCurrency(total)}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-CH')}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-DE')}</span>
                   <span className={`text-xs font-medium ${remaining > 0 ? 'text-warning' : 'text-success'}`}>
                     {remaining > 0 ? formatCurrency(remaining) : '—'}
                   </span>
@@ -308,11 +308,11 @@ export default function BuchhaltungPage() {
       {/* Quotes Tab */}
       {tab === 'quotes' && (
         filteredQuotes.length === 0 ? (
-          <EmptyState icon={FileText} title="Keine Angebote" description="Erstelle dein erstes Angebot" actionLabel="Neues Angebot" onAction={handleNewQuote} />
+          <EmptyState icon={FileText} title="Keine Angebote" description="Erstelle dein erstes Angebot" action={{ label: 'Neues Angebot', onClick: handleNewQuote }} />
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="grid grid-cols-[80px_1fr_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Gueltig bis</span><span>Status</span><span />
+              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Gültig bis</span><span>Status</span><span />
             </div>
             {filteredQuotes.map((inv) => {
               const sc = invoiceStatusConfig[inv.status]
@@ -323,7 +323,7 @@ export default function BuchhaltungPage() {
                   <button onClick={() => setSelectedInvoice(inv)} className="text-sm font-mono text-primary hover:underline text-left">{inv.number}</button>
                   <span className="text-sm text-foreground truncate">{inv.client}</span>
                   <span className="text-sm font-medium text-foreground">{formatCurrency(total)}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-CH')}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-DE')}</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
                     <StatusIcon className="h-3 w-3" />
                     {sc.label}
@@ -339,7 +339,7 @@ export default function BuchhaltungPage() {
       {/* Expenses Tab */}
       {tab === 'expenses' && (
         filteredExpenses.length === 0 ? (
-          <EmptyState icon={Receipt} title="Keine Ausgaben" description="Erfasse Ausgaben und Belege" actionLabel="Neue Ausgabe" onAction={() => setShowExpenseForm(true)} />
+          <EmptyState icon={Receipt} title="Keine Ausgaben" description="Erfasse Ausgaben und Belege" action={{ label: 'Neue Ausgabe', onClick: () => setShowExpenseForm(true) }} />
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
@@ -352,7 +352,7 @@ export default function BuchhaltungPage() {
                 <div key={exp.id} className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
                   <div className="min-w-0">
                     <p className="text-sm text-foreground truncate">{exp.description}</p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(exp.date).toLocaleDateString('de-CH')}{exp.project && ` · ${exp.project}`}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(exp.date).toLocaleDateString('de-DE')}{exp.project && ` · ${exp.project}`}</p>
                   </div>
                   <span className="text-xs text-muted-foreground">{exp.category}</span>
                   <span className="text-sm font-medium text-error">{formatCurrency(exp.amount)}</span>
@@ -395,7 +395,7 @@ export default function BuchhaltungPage() {
               <span className={`text-sm font-medium text-right ${tx.type === 'income' ? 'text-success' : 'text-error'}`}>
                 {tx.type === 'income' ? '+' : ''}{formatCurrency(tx.amount)}
               </span>
-              <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-CH')}</span>
+              <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-DE')}</span>
               <ItemActions items={[
                 { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
               ]} />
@@ -535,7 +535,7 @@ export default function BuchhaltungPage() {
                           ))}
                         </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">{new Date(d.sentAt).toLocaleDateString('de-CH')}</span>
+                      <span className="text-xs text-muted-foreground">{new Date(d.sentAt).toLocaleDateString('de-DE')}</span>
                       <span className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
                         {sc.label}
                       </span>

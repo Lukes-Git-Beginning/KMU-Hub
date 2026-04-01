@@ -111,7 +111,7 @@ const TEAM_MEMBERS = [
 
 const DAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const MONTHS_DE = [
-  'Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni',
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
 ]
 const RECURRENCE_OPTIONS = ['Keine', 'Täglich', 'Wöchentlich', 'Monatlich', 'Jaehrlich', 'Benutzerdefiniert...']
@@ -146,7 +146,7 @@ interface BookingAppointment {
   endTime: string
   personal: string
   notizen?: string
-  status: 'bestaetigt' | 'ausstehend' | 'abgesagt'
+  status: 'bestätigt' | 'ausstehend' | 'abgesagt'
 }
 
 const BOOKING_SERVICES: BookingService[] = [
@@ -154,7 +154,7 @@ const BOOKING_SERVICES: BookingService[] = [
   { id: 'bs2', name: 'Haarschnitt Damen', dauer: 45, preis: 65, color: '#d4619b', personal: ['Lena Huber', 'Nina Frei'] },
   { id: 'bs3', name: 'Faerben komplett', dauer: 90, preis: 120, color: '#8b5fc7', personal: ['Nina Frei'] },
   { id: 'bs4', name: 'Bartpflege', dauer: 20, preis: 25, color: '#3da356', personal: ['Marco Roth'] },
-  { id: 'bs5', name: 'Beratungsgespraech', dauer: 60, preis: 80, color: '#d48c3d', personal: ['Lena Huber', 'Marco Roth', 'Nina Frei'] },
+  { id: 'bs5', name: 'Beratungsgespräch', dauer: 60, preis: 80, color: '#d48c3d', personal: ['Lena Huber', 'Marco Roth', 'Nina Frei'] },
   { id: 'bs6', name: 'Massage 30min', dauer: 30, preis: 55, color: '#1e7e74', personal: ['Sandra Wyss'] },
   { id: 'bs7', name: 'Massage 60min', dauer: 60, preis: 95, color: '#1e7e74', personal: ['Sandra Wyss'] },
   { id: 'bs8', name: 'Manikuere', dauer: 45, preis: 50, color: '#c75a8b', personal: ['Nina Frei', 'Sandra Wyss'] },
@@ -163,8 +163,8 @@ const BOOKING_SERVICES: BookingService[] = [
 const BOOKING_STAFF = ['Lena Huber', 'Marco Roth', 'Nina Frei', 'Sandra Wyss']
 
 const MOCK_EXTERNAL_SERVICES = [
-  { id: 'ext1', name: 'Beratungsgespraech 30 Min', duration: 30, price: 0 },
-  { id: 'ext2', name: 'Erstgespraech 60 Min', duration: 60, price: 0 },
+  { id: 'ext1', name: 'Beratungsgespräch 30 Min', duration: 30, price: 0 },
+  { id: 'ext2', name: 'Erstgespräch 60 Min', duration: 60, price: 0 },
   { id: 'ext3', name: 'Technischer Support 45 Min', duration: 45, price: 0 },
 ]
 
@@ -176,18 +176,18 @@ const EXTERNAL_TIME_SLOTS = [
 
 const MOCK_BOOKINGS: BookingAppointment[] = [
   // Today (2026-02-09 as mock "today")
-  { id: 'bk1', serviceId: 'bs1', kunde: 'Anna Weber', datum: '2026-02-09', startTime: '09:00', endTime: '09:30', personal: 'Marco Roth', status: 'bestaetigt' },
-  { id: 'bk2', serviceId: 'bs2', kunde: 'Markus Steiner', datum: '2026-02-09', startTime: '09:30', endTime: '10:15', personal: 'Lena Huber', status: 'bestaetigt' },
-  { id: 'bk3', serviceId: 'bs6', kunde: 'Sarah Keller', datum: '2026-02-09', startTime: '10:00', endTime: '10:30', personal: 'Sandra Wyss', status: 'bestaetigt' },
+  { id: 'bk1', serviceId: 'bs1', kunde: 'Anna Weber', datum: '2026-02-09', startTime: '09:00', endTime: '09:30', personal: 'Marco Roth', status: 'bestätigt' },
+  { id: 'bk2', serviceId: 'bs2', kunde: 'Markus Steiner', datum: '2026-02-09', startTime: '09:30', endTime: '10:15', personal: 'Lena Huber', status: 'bestätigt' },
+  { id: 'bk3', serviceId: 'bs6', kunde: 'Sarah Keller', datum: '2026-02-09', startTime: '10:00', endTime: '10:30', personal: 'Sandra Wyss', status: 'bestätigt' },
   { id: 'bk4', serviceId: 'bs3', kunde: 'Julia Meier', datum: '2026-02-09', startTime: '11:00', endTime: '12:30', personal: 'Nina Frei', status: 'ausstehend' },
-  { id: 'bk5', serviceId: 'bs5', kunde: 'Thomas Brunner', datum: '2026-02-09', startTime: '13:00', endTime: '14:00', personal: 'Lena Huber', status: 'bestaetigt' },
-  { id: 'bk6', serviceId: 'bs7', kunde: 'Elena Fischer', datum: '2026-02-09', startTime: '14:00', endTime: '15:00', personal: 'Sandra Wyss', status: 'bestaetigt' },
-  { id: 'bk7', serviceId: 'bs4', kunde: 'Peter Zimmermann', datum: '2026-02-09', startTime: '15:00', endTime: '15:20', personal: 'Marco Roth', status: 'bestaetigt' },
+  { id: 'bk5', serviceId: 'bs5', kunde: 'Thomas Brunner', datum: '2026-02-09', startTime: '13:00', endTime: '14:00', personal: 'Lena Huber', status: 'bestätigt' },
+  { id: 'bk6', serviceId: 'bs7', kunde: 'Elena Fischer', datum: '2026-02-09', startTime: '14:00', endTime: '15:00', personal: 'Sandra Wyss', status: 'bestätigt' },
+  { id: 'bk7', serviceId: 'bs4', kunde: 'Peter Zimmermann', datum: '2026-02-09', startTime: '15:00', endTime: '15:20', personal: 'Marco Roth', status: 'bestätigt' },
   { id: 'bk8', serviceId: 'bs8', kunde: 'Claudia Berger', datum: '2026-02-09', startTime: '15:30', endTime: '16:15', personal: 'Nina Frei', status: 'ausstehend' },
   // Past days
-  { id: 'bk9', serviceId: 'bs1', kunde: 'David Mueller', datum: '2026-02-07', startTime: '10:00', endTime: '10:30', personal: 'Lena Huber', status: 'bestaetigt' },
-  { id: 'bk10', serviceId: 'bs2', kunde: 'Monika Schwarz', datum: '2026-02-07', startTime: '11:00', endTime: '11:45', personal: 'Nina Frei', status: 'bestaetigt' },
-  { id: 'bk11', serviceId: 'bs6', kunde: 'Hans Kaufmann', datum: '2026-02-08', startTime: '09:00', endTime: '09:30', personal: 'Sandra Wyss', status: 'bestaetigt' },
+  { id: 'bk9', serviceId: 'bs1', kunde: 'David Müller', datum: '2026-02-07', startTime: '10:00', endTime: '10:30', personal: 'Lena Huber', status: 'bestätigt' },
+  { id: 'bk10', serviceId: 'bs2', kunde: 'Monika Schwarz', datum: '2026-02-07', startTime: '11:00', endTime: '11:45', personal: 'Nina Frei', status: 'bestätigt' },
+  { id: 'bk11', serviceId: 'bs6', kunde: 'Hans Kaufmann', datum: '2026-02-08', startTime: '09:00', endTime: '09:30', personal: 'Sandra Wyss', status: 'bestätigt' },
   { id: 'bk12', serviceId: 'bs3', kunde: 'Ursula Schmid', datum: '2026-02-08', startTime: '13:00', endTime: '14:30', personal: 'Nina Frei', status: 'abgesagt' },
 ]
 
@@ -427,7 +427,7 @@ export default function KalenderPage() {
             toast(`Termin in ${diff} Minuten: ${e.title}`, {
               description: `${e.startTime} – ${e.endTime}`,
               action: {
-                label: 'Oeffnen',
+                label: 'Öffnen',
                 onClick: () => setSelectedEvent(e),
               },
               duration: 10000,
@@ -729,7 +729,7 @@ function TerminbuchungTab() {
   const [showNewBooking, setShowNewBooking] = useState(false)
   const [bookingDate, setBookingDate] = useState('2026-02-09')
   const [bookings, setBookings] = useState(MOCK_BOOKINGS)
-  const [buchungSubTab, setBuchungSubTab] = useState<'uebersicht' | 'vorschau'>('uebersicht')
+  const [buchungSubTab, setBuchungSubTab] = useState<'übersicht' | 'vorschau'>('übersicht')
 
   const bookingsForDate = useMemo(
     () => bookings
@@ -742,7 +742,7 @@ function TerminbuchungTab() {
 
   const statusLabel = (status: BookingAppointment['status']) => {
     switch (status) {
-      case 'bestaetigt': return { text: 'Bestaetigt', cls: 'bg-success/15 text-success' }
+      case 'bestätigt': return { text: 'Bestätigt', cls: 'bg-success/15 text-success' }
       case 'ausstehend': return { text: 'Ausstehend', cls: 'bg-warning/15 text-warning' }
       case 'abgesagt': return { text: 'Abgesagt', cls: 'bg-error/15 text-error' }
     }
@@ -763,13 +763,13 @@ function TerminbuchungTab() {
   return (
     <div className="flex-1 overflow-auto bg-card">
       <div className="mx-auto max-w-6xl p-6 space-y-6">
-        {/* Sub-tabs: Uebersicht / Vorschau */}
+        {/* Sub-tabs: Übersicht / Vorschau */}
         <div className="flex items-center gap-4 border-b border-border pb-0">
           <button
-            onClick={() => setBuchungSubTab('uebersicht')}
-            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'uebersicht' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setBuchungSubTab('übersicht')}
+            className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'übersicht' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           >
-            Uebersicht
+            Übersicht
           </button>
           <button
             onClick={() => setBuchungSubTab('vorschau')}
@@ -835,7 +835,7 @@ function TerminbuchungTab() {
         {/* Day Overview (Timeline) */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-foreground">Tagesuebersicht</h3>
+            <h3 className="text-sm font-medium text-foreground">Tagesübersicht</h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -1041,7 +1041,7 @@ function ExternalBookingPreview() {
 
   const handleBook = () => {
     if (!bookingForm.name.trim() || !bookingForm.email.trim()) {
-      toast.error('Bitte Name und E-Mail ausfuellen')
+      toast.error('Bitte Name und E-Mail ausfüllen')
       return
     }
     toast.success('Termin gebucht!')
@@ -1060,7 +1060,7 @@ function ExternalBookingPreview() {
       <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary-subtle px-4 py-3">
         <div className="flex items-center gap-2">
           <ExternalLink className="h-4 w-4 text-primary" />
-          <p className="text-xs text-primary font-medium">So sieht die Buchungsseite fuer Ihre Kunden aus</p>
+          <p className="text-xs text-primary font-medium">So sieht die Buchungsseite für Ihre Kunden aus</p>
         </div>
         <button
           onClick={() => {
@@ -1081,7 +1081,7 @@ function ExternalBookingPreview() {
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/20 mb-2">
             <Calendar className="h-6 w-6 text-white" />
           </div>
-          <h3 className="text-base font-semibold text-white">KMU Hub GmbH</h3>
+          <h3 className="text-base font-semibold text-white">Cosmi GmbH</h3>
           <p className="text-xs text-white/70 mt-0.5">Online Terminbuchung</p>
         </div>
 
@@ -1105,7 +1105,7 @@ function ExternalBookingPreview() {
           {/* Step 1: Service selection */}
           {step === 1 && (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-foreground text-center">Service waehlen</h4>
+              <h4 className="text-sm font-medium text-foreground text-center">Service wählen</h4>
               <div className="space-y-2">
                 {MOCK_EXTERNAL_SERVICES.map((svc) => (
                   <button
@@ -1145,8 +1145,8 @@ function ExternalBookingPreview() {
           {step === 2 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <button onClick={() => setStep(1)} className="text-xs text-primary hover:underline">Zurueck</button>
-                <h4 className="text-sm font-medium text-foreground">Datum waehlen</h4>
+                <button onClick={() => setStep(1)} className="text-xs text-primary hover:underline">Zurück</button>
+                <h4 className="text-sm font-medium text-foreground">Datum wählen</h4>
                 <div className="w-10" />
               </div>
               {selectedServiceObj && (
@@ -1185,8 +1185,8 @@ function ExternalBookingPreview() {
           {step === 3 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <button onClick={() => setStep(2)} className="text-xs text-primary hover:underline">Zurueck</button>
-                <h4 className="text-sm font-medium text-foreground">Uhrzeit waehlen</h4>
+                <button onClick={() => setStep(2)} className="text-xs text-primary hover:underline">Zurück</button>
+                <h4 className="text-sm font-medium text-foreground">Uhrzeit wählen</h4>
                 <div className="w-10" />
               </div>
               <p className="text-center text-xs text-muted-foreground">
@@ -1224,7 +1224,7 @@ function ExternalBookingPreview() {
           {step === 4 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <button onClick={() => setStep(3)} className="text-xs text-primary hover:underline">Zurueck</button>
+                <button onClick={() => setStep(3)} className="text-xs text-primary hover:underline">Zurück</button>
                 <h4 className="text-sm font-medium text-foreground">Ihre Daten</h4>
                 <div className="w-10" />
               </div>
@@ -1324,7 +1324,7 @@ function ExternalBookingPreview() {
         {/* Footer */}
         <div className="border-t border-border px-6 py-3 text-center">
           <p className="text-[10px] text-muted-foreground">
-            Powered by <span className="font-medium text-foreground">KMU Hub</span>
+            Powered by <span className="font-medium text-foreground">Cosmi</span>
           </p>
         </div>
       </div>
@@ -1376,7 +1376,7 @@ function NewBookingDialog({
       endTime,
       personal,
       notizen: notizen.trim() || undefined,
-      status: 'bestaetigt',
+      status: 'bestätigt',
     })
   }
 
@@ -1867,7 +1867,7 @@ function WeekView({
               onClick={() => onDateClick(d)}
               className="px-2 py-2 text-center border-l border-border-muted hover:bg-secondary/50 transition-colors"
             >
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{DAYS_SHORT[i]}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{DAYS_SHORT[i]}</p>
               <p
                 className={`text-sm mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full ${
                   today ? 'bg-primary text-primary-foreground font-medium' : 'text-foreground'
@@ -2366,7 +2366,7 @@ function MonthView({
     <div className="h-full flex flex-col">
       <div className="grid grid-cols-7 border-b border-border">
         {DAYS_SHORT.map((day) => (
-          <div key={day} className="px-2 py-2 text-center text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+          <div key={day} className="px-2 py-2 text-center text-xs uppercase tracking-wider font-medium text-muted-foreground">
             {day}
           </div>
         ))}

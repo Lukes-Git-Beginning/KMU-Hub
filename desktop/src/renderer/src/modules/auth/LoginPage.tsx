@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { AuthLayout } from './AuthLayout'
 
 type LoginStage = 'credentials' | '2fa_prompt'
 
@@ -108,8 +109,8 @@ export default function LoginPage() {
   // 2FA prompt view
   if (stage === '2fa_prompt') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-sm">
+      <AuthLayout>
+        <Card className="w-full max-w-sm border-0 shadow-lg bg-card/80 backdrop-blur-sm">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold tracking-tight">
               <FormattedMessage id="security.2fa.title" />
@@ -199,17 +200,24 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
-      </div>
+      </AuthLayout>
     )
   }
 
   // Credentials view (default)
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
+    <AuthLayout>
+      <Card className="w-full max-w-sm border-0 shadow-lg bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight animate-scale-in-bounce">
-            KMU Hub
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 animate-scale-in-bounce">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-primary">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor" opacity="0.2" />
+              <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <CardTitle className="text-2xl font-bold tracking-tight">
+            Cosmi
           </CardTitle>
           <CardDescription className="animate-fade-up" style={{ animationDelay: '200ms' }}>
             <FormattedMessage id="auth.login" />
@@ -276,6 +284,6 @@ export default function LoginPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </AuthLayout>
   )
 }
