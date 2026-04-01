@@ -162,7 +162,7 @@ export function LexwareFieldMappingEditor({
             className={`grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 items-center ${
               duplicateLexwareFields.includes(mapping.lexware_field) &&
               mapping.lexware_field
-                ? 'rounded-md ring-1 ring-red-500/50 p-1'
+                ? 'rounded-md ring-1 ring-destructive/50 p-1'
                 : ''
             }`}
           >
@@ -247,7 +247,7 @@ export function LexwareFieldMappingEditor({
 
       {/* Validation errors */}
       {duplicateLexwareFields.length > 0 && (
-        <p className="text-xs text-red-500">
+        <p className="text-xs text-destructive">
           Doppelte Lexware-Felder:{' '}
           {[...new Set(duplicateLexwareFields)].join(', ')}
         </p>

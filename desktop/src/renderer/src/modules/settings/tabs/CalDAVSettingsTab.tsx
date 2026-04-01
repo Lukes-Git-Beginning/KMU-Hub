@@ -121,9 +121,9 @@ export function CalDAVSettingsTab() {
               </p>
             </div>
             {status?.org_enabled ? (
-              <CheckCircle className="h-5 w-5 text-green-500" />
+              <CheckCircle className="h-5 w-5 text-success" />
             ) : (
-              <XCircle className="h-5 w-5 text-red-500" />
+              <XCircle className="h-5 w-5 text-destructive" />
             )}
           </div>
 
@@ -180,7 +180,7 @@ export function CalDAVSettingsTab() {
                 </div>
                 <div className="flex items-center gap-2 ml-2">
                   {pw.revoked_at ? (
-                    <span className="text-xs text-red-500 font-medium">
+                    <span className="text-xs text-destructive font-medium">
                       Widerrufen
                     </span>
                   ) : (
@@ -188,7 +188,7 @@ export function CalDAVSettingsTab() {
                       variant="ghost"
                       size="sm"
                       onClick={() => revokePassword.mutate(pw.id)}
-                      className="text-red-500 hover:text-red-600"
+                      className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -205,8 +205,8 @@ export function CalDAVSettingsTab() {
 
         {/* New password dialog shown inline */}
         {showNewPassword && (
-          <div className="border border-yellow-500/50 bg-yellow-50/10 rounded-md p-4 mb-4">
-            <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400 mb-2">
+          <div className="border border-warning/30 bg-warning-light rounded-md p-4 mb-4">
+            <p className="text-sm font-medium text-warning mb-2">
               Dieses Passwort wird nur einmal angezeigt!
             </p>
             <div className="flex items-center gap-2">
@@ -354,7 +354,7 @@ export function CalDAVSettingsTab() {
             onToggle={() => toggleClient('outlook')}
           >
             <div className="space-y-3 text-sm">
-              <div className="rounded-md bg-yellow-50/10 border border-yellow-500/30 p-2 text-xs text-yellow-700 dark:text-yellow-400">
+              <div className="rounded-md bg-warning-light border border-warning/30 p-2 text-xs text-warning">
                 Hinweis: Microsoft Outlook unterstuetzt CalDAV nicht nativ.
                 Installieren Sie das kostenlose Plugin &quot;CalDav
                 Synchronizer&quot; von{' '}
@@ -457,7 +457,7 @@ function ConnectionTestSection({
       </div>
 
       {(!orgEnabled || !userEnabled) && (
-        <div className="rounded-md border border-yellow-500/30 bg-yellow-50/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
+        <div className="rounded-md border border-warning/30 bg-warning-light px-3 py-2 text-xs text-warning">
           {!orgEnabled
             ? 'CalDAV/CardDAV ist organisationsweit deaktiviert. Bitte wenden Sie sich an Ihren Administrator.'
             : 'Aktivieren Sie zuerst Ihren persönlichen Zugang (oben), um den Verbindungstest ausführen zu können.'}
@@ -468,8 +468,8 @@ function ConnectionTestSection({
         <div
           className={`rounded-md border px-3 py-2.5 text-xs ${
             testMutation.data.success
-              ? 'border-green-500/30 bg-green-50/10 text-green-700 dark:text-green-400'
-              : 'border-red-500/30 bg-red-50/10 text-red-700 dark:text-red-400'
+              ? 'border-success/30 bg-success-light text-success'
+              : 'border-destructive/30 bg-error-light text-destructive'
           }`}
         >
           <div className="flex items-center gap-2 mb-1.5">
@@ -509,7 +509,7 @@ function ConnectionTestSection({
       )}
 
       {testMutation.isError && (
-        <div className="rounded-md border border-red-500/30 bg-red-50/10 px-3 py-2 text-xs text-red-700 dark:text-red-400 flex items-center gap-2">
+        <div className="rounded-md border border-destructive/30 bg-error-light px-3 py-2 text-xs text-destructive flex items-center gap-2">
           <XCircle className="h-4 w-4" />
           Fehler: {(testMutation.error as Error)?.message ?? 'Verbindungstest fehlgeschlagen'}
         </div>

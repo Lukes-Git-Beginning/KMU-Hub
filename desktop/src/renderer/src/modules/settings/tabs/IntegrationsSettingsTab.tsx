@@ -379,7 +379,7 @@ function AccountLinkRow({
             size="sm"
             onClick={() => unlinkAccount.mutate()}
             disabled={unlinkAccount.isPending}
-            className="text-red-500 hover:text-red-600"
+            className="text-destructive hover:text-destructive"
           >
             {unlinkAccount.isPending ? (
               <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />

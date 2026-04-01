@@ -301,7 +301,7 @@ function ExistingIntegrationWrapper({
                     </Button>
                     <button
                       onClick={() => setDeleteTarget(cfg.id)}
-                      className="rounded p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
+                      className="rounded p-1.5 text-muted-foreground hover:text-destructive transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -486,7 +486,7 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
                     { onSuccess: () => toast.success('Zuordnung entfernt') },
                   )
                 }
-                className="ml-auto text-muted-foreground hover:text-red-500 transition-colors"
+                className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
               >
                 <Trash2 className="h-3 w-3" />
               </button>

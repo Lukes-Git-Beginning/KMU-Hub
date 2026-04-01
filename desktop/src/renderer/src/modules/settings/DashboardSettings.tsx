@@ -218,7 +218,7 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
         </Button>
 
         {saveSuccess && (
-          <span className="flex items-center gap-1 text-sm text-green-600">
+          <span className="flex items-center gap-1 text-sm text-success">
             <Check className="h-4 w-4" />
             Gespeichert
           </span>

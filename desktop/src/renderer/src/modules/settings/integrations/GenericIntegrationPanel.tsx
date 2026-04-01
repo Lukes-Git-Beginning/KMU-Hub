@@ -16,10 +16,10 @@ interface GenericIntegrationPanelProps {
 }
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  connected: { label: 'Verbunden', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  connected: { label: 'Verbunden', cls: 'bg-success-light text-success' },
   disconnected: { label: 'Nicht verbunden', cls: 'bg-secondary text-muted-foreground' },
-  syncing: { label: 'Synchronisiert...', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  error: { label: 'Fehler', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  syncing: { label: 'Synchronisiert...', cls: 'bg-info-light text-info' },
+  error: { label: 'Fehler', cls: 'bg-error-light text-destructive' },
 }
 
 export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrationPanelProps) {
@@ -232,10 +232,10 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
 
       {/* Connected info */}
       {status === 'connected' && integration?.connectedAt && (
-        <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900/50 dark:bg-green-900/10 px-4 py-2.5 mb-6 text-sm text-green-700 dark:text-green-400">
+        <div className="rounded-lg border border-success/30 bg-success-light px-4 py-2.5 mb-6 text-sm text-success">
           Verbunden seit {new Date(integration.connectedAt).toLocaleDateString('de-DE')}
           {integration.lastSync && (
-            <span className="ml-3 text-green-600/70 dark:text-green-500/70">
+            <span className="ml-3 text-success/70">
               Letzte Synchronisation: {new Date(integration.lastSync).toLocaleString('de-DE')}
             </span>
           )}

@@ -158,7 +158,7 @@ export function BexioFieldMappingEditor({
             key={index}
             className={`grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 items-center ${
               duplicateBexioFields.includes(mapping.bexio_field) && mapping.bexio_field
-                ? 'rounded-md ring-1 ring-red-500/50 p-1'
+                ? 'rounded-md ring-1 ring-destructive/50 p-1'
                 : ''
             }`}
           >
@@ -243,7 +243,7 @@ export function BexioFieldMappingEditor({
 
       {/* Validation errors */}
       {duplicateBexioFields.length > 0 && (
-        <p className="text-xs text-red-500">
+        <p className="text-xs text-destructive">
           Doppelte Bexio-Felder: {[...new Set(duplicateBexioFields)].join(', ')}
         </p>
       )}

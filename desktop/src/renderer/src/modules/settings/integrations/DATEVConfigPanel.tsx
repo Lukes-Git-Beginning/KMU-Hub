@@ -24,10 +24,10 @@ const DEFAULT_MAPPINGS: KontoMapping[] = [
 ]
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  connected: { label: 'Verbunden', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  connected: { label: 'Verbunden', cls: 'bg-success-light text-success' },
   disconnected: { label: 'Nicht verbunden', cls: 'bg-secondary text-muted-foreground' },
-  syncing: { label: 'Synchronisiert...', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  error: { label: 'Fehler', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  syncing: { label: 'Synchronisiert...', cls: 'bg-info-light text-info' },
+  error: { label: 'Fehler', cls: 'bg-error-light text-destructive' },
 }
 
 interface DATEVConfigPanelProps {
@@ -128,7 +128,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary">
-          <Building2 className="h-6 w-6 text-green-600" />
+          <Building2 className="h-6 w-6 text-success" />
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-3">
@@ -145,10 +145,10 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
 
       {/* Connected info */}
       {status === 'connected' && integration?.connectedAt && (
-        <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900/50 dark:bg-green-900/10 px-4 py-2.5 mb-6 text-sm text-green-700 dark:text-green-400">
+        <div className="rounded-lg border border-success/30 bg-success-light px-4 py-2.5 mb-6 text-sm text-success">
           Verbunden seit {new Date(integration.connectedAt).toLocaleDateString('de-DE')}
           {integration.lastSync && (
-            <span className="ml-3 text-green-600/70 dark:text-green-500/70">
+            <span className="ml-3 text-success/70">
               Letzte Sync: {new Date(integration.lastSync).toLocaleString('de-DE')}
             </span>
           )}
@@ -249,7 +249,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
                 </button>
                 <button
                   onClick={() => removeMapping(m.id)}
-                  className="rounded p-1 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 transition-colors"
+                  className="rounded p-1 text-muted-foreground hover:bg-error-light hover:text-destructive transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

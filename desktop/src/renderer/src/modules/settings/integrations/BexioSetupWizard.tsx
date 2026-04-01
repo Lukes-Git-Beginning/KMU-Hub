@@ -267,22 +267,22 @@ function StepOAuth({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-blue-500/30 bg-blue-50/10 p-3">
-        <p className="text-sm text-blue-700 dark:text-blue-400">
+      <div className="rounded-md border border-info/30 bg-info-light p-3">
+        <p className="text-sm text-info">
           Verbinden Sie Cosmi mit Ihrem Bexio-Konto ueber OAuth. Sie werden
           zu Bexio weitergeleitet, um den Zugriff zu genehmigen.
         </p>
       </div>
 
       {connected ? (
-        <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-50/10 p-3">
-          <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+        <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success-light p-3">
+          <CheckCircle className="h-4 w-4 text-success shrink-0" />
           <div>
-            <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+            <p className="text-sm text-success font-medium">
               Verbindung hergestellt!
             </p>
             {orgName && (
-              <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
+              <p className="text-xs text-success mt-0.5">
                 Organisation: {orgName}
               </p>
             )}
@@ -462,11 +462,11 @@ function StepInitialSync({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-green-500/30 bg-green-50/10 p-3">
-        <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+      <div className="rounded-md border border-success/30 bg-success-light p-3">
+        <p className="text-sm text-success font-medium">
           Konfiguration abgeschlossen!
         </p>
-        <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+        <p className="text-xs text-success mt-1">
           Starten Sie jetzt die erste Synchronisierung, um Ihre Daten
           abzugleichen.
         </p>

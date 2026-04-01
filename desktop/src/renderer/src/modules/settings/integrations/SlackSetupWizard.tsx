@@ -443,17 +443,17 @@ function StepTest({
       </Button>
 
       {testResult === 'success' && (
-        <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-50/10 p-3">
-          <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-          <p className="text-sm text-green-700 dark:text-green-400">
+        <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success-light p-3">
+          <CheckCircle className="h-4 w-4 text-success shrink-0" />
+          <p className="text-sm text-success">
             Testbenachrichtigung erfolgreich gesendet!
           </p>
         </div>
       )}
       {testResult === 'error' && (
-        <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-50/10 p-3">
-          <XCircle className="h-4 w-4 text-red-500 shrink-0" />
-          <p className="text-sm text-red-700 dark:text-red-400">
+        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-error-light p-3">
+          <XCircle className="h-4 w-4 text-destructive shrink-0" />
+          <p className="text-sm text-destructive">
             Test fehlgeschlagen. Bitte überprüfen Sie die Konfiguration.
           </p>
         </div>
@@ -471,11 +471,11 @@ function StepFinish({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-green-500/30 bg-green-50/10 p-3">
-        <p className="text-sm text-green-700 dark:text-green-400 font-medium">
+      <div className="rounded-md border border-success/30 bg-success-light p-3">
+        <p className="text-sm text-success font-medium">
           Slack Konfiguration abgeschlossen!
         </p>
-        <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+        <p className="text-xs text-success mt-1">
           Die Integration kann jetzt aktiviert werden.
         </p>
       </div>

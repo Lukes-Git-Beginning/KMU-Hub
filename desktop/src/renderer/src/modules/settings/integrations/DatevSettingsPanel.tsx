@@ -137,7 +137,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div className="flex items-center gap-3">
             {isConnected ? (
-              <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
+              <CheckCircle className="h-5 w-5 text-success shrink-0" />
             ) : (
               <XCircle className="h-5 w-5 text-muted-foreground shrink-0" />
             )}
@@ -161,7 +161,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
               size="sm"
               onClick={handleDisconnect}
               disabled={disconnect.isPending}
-              className="text-red-500 hover:text-red-600"
+              className="text-destructive hover:text-destructive"
             >
               {disconnect.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -188,17 +188,17 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
 
         {/* Fallback when not connected */}
         {!isConnected && (
-          <div className="rounded-md border border-yellow-500/30 bg-yellow-50/10 p-3 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+          <div className="rounded-md border border-warning/30 bg-warning-light p-3 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm text-yellow-700 dark:text-yellow-400">
+              <p className="text-sm text-warning">
                 Ohne DATEV-Verbindung steht der manuelle CSV-Export zur
                 Verfuegung.
               </p>
               <Button
                 variant="link"
                 size="sm"
-                className="h-auto p-0 text-yellow-700 dark:text-yellow-400 underline text-xs mt-1"
+                className="h-auto p-0 text-warning underline text-xs mt-1"
               >
                 <Download className="h-3 w-3 mr-1" />
                 Manueller CSV-Export verfügbar
@@ -392,8 +392,8 @@ function UploadLogRow({ log }: { log: DatevUploadLogEntry }) {
       </tr>
       {expanded && log.error_message && (
         <tr className="border-t border-border">
-          <td colSpan={5} className="px-3 py-2 bg-red-50/10">
-            <p className="text-xs text-red-600 dark:text-red-400">
+          <td colSpan={5} className="px-3 py-2 bg-error-light">
+            <p className="text-xs text-destructive">
               {log.error_message}
             </p>
           </td>
@@ -413,7 +413,7 @@ function UploadStatusBadge({
       return (
         <Badge
           variant="outline"
-          className="text-[10px] border-green-500/30 text-green-600 dark:text-green-400"
+          className="text-[10px] border-success/30 text-success"
         >
           <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
           Fertig
@@ -423,7 +423,7 @@ function UploadStatusBadge({
       return (
         <Badge
           variant="outline"
-          className="text-[10px] border-red-500/30 text-red-600 dark:text-red-400"
+          className="text-[10px] border-destructive/30 text-destructive"
         >
           <XCircle className="h-2.5 w-2.5 mr-0.5" />
           Fehler
@@ -433,7 +433,7 @@ function UploadStatusBadge({
       return (
         <Badge
           variant="outline"
-          className="text-[10px] border-blue-500/30 text-blue-600 dark:text-blue-400"
+          className="text-[10px] border-info/30 text-info"
         >
           <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" />
           Hochladen
@@ -443,7 +443,7 @@ function UploadStatusBadge({
       return (
         <Badge
           variant="outline"
-          className="text-[10px] border-yellow-500/30 text-yellow-600 dark:text-yellow-400"
+          className="text-[10px] border-warning/30 text-warning"
         >
           <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
           Wartend

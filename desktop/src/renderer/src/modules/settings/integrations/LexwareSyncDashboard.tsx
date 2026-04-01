@@ -125,7 +125,7 @@ export function LexwareSyncDashboard({
             size="sm"
             onClick={handleDisconnect}
             disabled={disconnect.isPending}
-            className="text-red-500 hover:text-red-600"
+            className="text-destructive hover:text-destructive"
           >
             {disconnect.isPending ? (
               <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -166,7 +166,7 @@ export function LexwareSyncDashboard({
               {webhookActive ? (
                 <Badge
                   variant="outline"
-                  className="text-[10px] border-green-500/30 text-green-600 dark:text-green-400"
+                  className="text-[10px] border-success/30 text-success"
                 >
                   <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
                   Aktiv
@@ -174,7 +174,7 @@ export function LexwareSyncDashboard({
               ) : (
                 <Badge
                   variant="outline"
-                  className="text-[10px] border-red-500/30 text-red-600 dark:text-red-400"
+                  className="text-[10px] border-destructive/30 text-destructive"
                 >
                   <XCircle className="h-2.5 w-2.5 mr-0.5" />
                   Inaktiv
@@ -277,11 +277,11 @@ function SyncStatusCard({
 }) {
   const statusColor =
     status?.status === 'running'
-      ? 'text-blue-500'
+      ? 'text-info'
       : status?.status === 'completed'
-        ? 'text-green-500'
+        ? 'text-success'
         : status?.status === 'failed'
-          ? 'text-red-500'
+          ? 'text-destructive'
           : 'text-muted-foreground'
 
   return (
@@ -292,7 +292,7 @@ function SyncStatusCard({
           <span className="text-sm font-medium">{name}</span>
         </div>
         {status?.status === 'running' ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-info" />
         ) : (
           <span className={`text-xs ${statusColor}`}>
             {status?.status === 'completed'
@@ -309,7 +309,7 @@ function SyncStatusCard({
         <span>
           {status?.items_synced ?? 0} synchronisiert
           {(status?.items_failed ?? 0) > 0 && (
-            <span className="text-red-500 ml-1">
+            <span className="text-destructive ml-1">
               ({status!.items_failed} Fehler)
             </span>
           )}
@@ -343,7 +343,7 @@ function SyncLogRow({ log }: { log: LexwareSyncLogEntry }) {
         <td className="px-3 py-2 text-right">{log.items_processed}</td>
         <td className="px-3 py-2 text-right">
           {log.items_failed > 0 ? (
-            <span className="text-red-500">{log.items_failed}</span>
+            <span className="text-destructive">{log.items_failed}</span>
           ) : (
             '0'
           )}
@@ -359,8 +359,8 @@ function SyncLogRow({ log }: { log: LexwareSyncLogEntry }) {
       </tr>
       {expanded && log.error_message && (
         <tr className="border-t border-border">
-          <td colSpan={5} className="px-3 py-2 bg-red-50/10">
-            <p className="text-xs text-red-600 dark:text-red-400">
+          <td colSpan={5} className="px-3 py-2 bg-error-light">
+            <p className="text-xs text-destructive">
               {log.error_message}
             </p>
           </td>
@@ -380,7 +380,7 @@ function SyncStatusBadge({
       return (
         <Badge
           variant="outline"
-          className="text-[10px] border-green-500/30 text-green-600 dark:text-green-400"
+          className="text-[10px] border-success/30 text-success"
         >
           <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
           OK
@@ -390,7 +390,7 @@ function SyncStatusBadge({
       return (
         <Badge
           variant="outline"
-          className="text-[10px] border-red-500/30 text-red-600 dark:text-red-400"
+          className="text-[10px] border-destructive/30 text-destructive"
         >
           <XCircle className="h-2.5 w-2.5 mr-0.5" />
           Fehler
@@ -400,7 +400,7 @@ function SyncStatusBadge({
       return (
         <Badge
           variant="outline"
-          className="text-[10px] border-yellow-500/30 text-yellow-600 dark:text-yellow-400"
+          className="text-[10px] border-warning/30 text-warning"
         >
           <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
           Teilweise
@@ -410,7 +410,7 @@ function SyncStatusBadge({
       return (
         <Badge
           variant="outline"
-          className="text-[10px] border-blue-500/30 text-blue-600 dark:text-blue-400"
+          className="text-[10px] border-info/30 text-info"
         >
           <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" />
           Laeuft

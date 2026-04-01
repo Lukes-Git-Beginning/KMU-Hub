@@ -30,27 +30,27 @@ const STATUS_CONFIG: Record<
 > = {
   pending: {
     icon: Clock,
-    badgeClass: 'bg-yellow-100 text-yellow-800',
+    badgeClass: 'bg-warning-light text-warning',
     labelId: 'gdpr.exportPending',
   },
   approved: {
     icon: CheckCircle,
-    badgeClass: 'bg-blue-100 text-blue-800',
+    badgeClass: 'bg-info-light text-info',
     labelId: 'gdpr.exportApproved',
   },
   processing: {
     icon: Clock,
-    badgeClass: 'bg-blue-100 text-blue-800',
+    badgeClass: 'bg-info-light text-info',
     labelId: 'gdpr.exportProcessing',
   },
   ready: {
     icon: Download,
-    badgeClass: 'bg-green-100 text-green-800',
+    badgeClass: 'bg-success-light text-success',
     labelId: 'gdpr.exportReady',
   },
   denied: {
     icon: XCircle,
-    badgeClass: 'bg-red-100 text-red-800',
+    badgeClass: 'bg-error-light text-destructive',
     labelId: 'gdpr.exportDenied',
   },
 }

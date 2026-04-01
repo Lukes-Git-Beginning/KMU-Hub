@@ -81,8 +81,8 @@ export function AccountLinkDialog({
         <div className="space-y-4">
           {status === 'success' ? (
             <div className="flex flex-col items-center gap-3 py-4">
-              <CheckCircle className="h-12 w-12 text-green-500" />
-              <p className="text-sm font-medium text-green-700 dark:text-green-400">
+              <CheckCircle className="h-12 w-12 text-success" />
+              <p className="text-sm font-medium text-success">
                 Konto verknüpft!
               </p>
               <p className="text-xs text-muted-foreground">
@@ -118,9 +118,9 @@ export function AccountLinkDialog({
 
               {/* Error message */}
               {status === 'error' && (
-                <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-50/10 p-2.5">
-                  <XCircle className="h-4 w-4 text-red-500 shrink-0" />
-                  <p className="text-sm text-red-700 dark:text-red-400">
+                <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-error-light p-2.5">
+                  <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                  <p className="text-sm text-destructive">
                     Token ungültig oder abgelaufen. Bitte versuchen Sie es
                     erneut.
                   </p>

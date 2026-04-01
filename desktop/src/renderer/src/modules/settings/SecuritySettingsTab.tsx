@@ -41,12 +41,12 @@ function StrengthMeter({ valid, failures }: { valid: boolean; failures: string[]
   const score = valid ? 100 : Math.max(0, 100 - failures.length * 25)
   const level =
     score >= 100
-      ? { label: 'password.policy.strength.strong', color: 'bg-green-500', width: '100%' }
+      ? { label: 'password.policy.strength.strong', color: 'bg-success', width: '100%' }
       : score >= 75
-        ? { label: 'password.policy.strength.good', color: 'bg-blue-500', width: '75%' }
+        ? { label: 'password.policy.strength.good', color: 'bg-info', width: '75%' }
         : score >= 50
-          ? { label: 'password.policy.strength.fair', color: 'bg-yellow-500', width: '50%' }
-          : { label: 'password.policy.strength.weak', color: 'bg-red-500', width: '25%' }
+          ? { label: 'password.policy.strength.fair', color: 'bg-warning', width: '50%' }
+          : { label: 'password.policy.strength.weak', color: 'bg-destructive', width: '25%' }
 
   return (
     <div className="space-y-1">
@@ -155,7 +155,7 @@ export function SecuritySettingsTab() {
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                <Badge variant="secondary" className="bg-success-light text-success">
                   <FormattedMessage id="security.2fa.enabled" />
                 </Badge>
                 <div className="flex gap-2">

@@ -118,13 +118,13 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
             </div>
 
             {testResult === 'success' && (
-              <div className="flex items-center gap-2 text-green-600 text-sm">
+              <div className="flex items-center gap-2 text-success text-sm">
                 <CheckCircle2 className="h-4 w-4" />
                 Verbindung erfolgreich
               </div>
             )}
             {testResult === 'error' && (
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-destructive">
                 Verbindung fehlgeschlagen. Bitte prüfen Sie den API-Schluessel.
               </p>
             )}
@@ -139,7 +139,7 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
 
         {step === 3 && (
           <div className="text-center py-6 space-y-3">
-            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+            <CheckCircle2 className="h-12 w-12 text-success mx-auto" />
             <h3 className="font-medium">Verbindung hergestellt</h3>
             <p className="text-sm text-muted-foreground">
               Lexware Office ist verbunden. Starten Sie jetzt die erste

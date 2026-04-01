@@ -180,7 +180,7 @@ export function ChannelMappingEditor({
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(mapping.id)}
-                            className="h-7 px-2 text-red-500 hover:text-red-600"
+                            className="h-7 px-2 text-destructive hover:text-destructive"
                           >
                             Löschen
                           </Button>
@@ -198,7 +198,7 @@ export function ChannelMappingEditor({
                           variant="ghost"
                           size="sm"
                           onClick={() => setDeleteConfirmId(mapping.id)}
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-600"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

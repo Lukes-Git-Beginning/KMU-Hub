@@ -10,10 +10,10 @@ import { toast } from 'sonner'
 import { useIntegrationStore } from '@/stores/integrations'
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  connected: { label: 'Verbunden', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  connected: { label: 'Verbunden', cls: 'bg-success-light text-success' },
   disconnected: { label: 'Nicht verbunden', cls: 'bg-secondary text-muted-foreground' },
-  syncing: { label: 'Synchronisiert...', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  error: { label: 'Fehler', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  syncing: { label: 'Synchronisiert...', cls: 'bg-info-light text-info' },
+  error: { label: 'Fehler', cls: 'bg-error-light text-destructive' },
 }
 
 const SYNC_SCOPES = [
@@ -125,7 +125,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
       {/* Header */}
       <div className="flex items-start gap-4 mb-6">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary">
-          <Building2 className="h-6 w-6 text-blue-600" />
+          <Building2 className="h-6 w-6 text-info" />
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-3">
@@ -144,13 +144,13 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
       <div className="mb-6">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Verbindung</h3>
         {status === 'connected' ? (
-          <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900/50 dark:bg-green-900/10 p-4">
+          <div className="rounded-lg border border-success/30 bg-success-light p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                <p className="text-sm font-medium text-success">
                   Verbunden mit Bexio
                 </p>
-                <p className="text-xs text-green-600/70 dark:text-green-500/70 mt-0.5">
+                <p className="text-xs text-success/70 mt-0.5">
                   Seit {integration?.connectedAt ? new Date(integration.connectedAt).toLocaleDateString('de-DE') : '—'}
                   {integration?.lastSync && (
                     <span className="ml-2">
@@ -161,7 +161,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
               </div>
               <button
                 onClick={handleDisconnect}
-                className="flex items-center gap-1.5 rounded-lg border border-green-300 dark:border-green-800 px-3 py-1.5 text-sm text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-success/30 px-3 py-1.5 text-sm text-success hover:bg-success-light transition-colors"
               >
                 <Unlink className="h-3.5 w-3.5" />
                 Trennen
@@ -176,7 +176,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
             <button
               onClick={handleOAuthConnect}
               disabled={oauthState === 'loading'}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark transition-colors disabled:opacity-50"
             >
               {oauthState === 'loading' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

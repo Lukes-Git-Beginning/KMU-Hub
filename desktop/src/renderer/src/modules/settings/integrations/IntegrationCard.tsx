@@ -12,10 +12,10 @@ const STATUS_CONFIG: Record<
   IntegrationConnectionStatus,
   { label: string; dotClass: string; textClass: string }
 > = {
-  connected: { label: 'Verbunden', dotClass: 'bg-green-500', textClass: 'text-green-700 dark:text-green-400' },
+  connected: { label: 'Verbunden', dotClass: 'bg-success', textClass: 'text-success' },
   disconnected: { label: 'Nicht verbunden', dotClass: 'bg-muted-foreground/40', textClass: 'text-muted-foreground' },
-  syncing: { label: 'Synchronisiert...', dotClass: 'bg-blue-500', textClass: 'text-blue-600 dark:text-blue-400' },
-  error: { label: 'Fehler', dotClass: 'bg-red-500', textClass: 'text-red-600 dark:text-red-400' },
+  syncing: { label: 'Synchronisiert...', dotClass: 'bg-info', textClass: 'text-info' },
+  error: { label: 'Fehler', dotClass: 'bg-destructive', textClass: 'text-destructive' },
 }
 
 interface IntegrationCardProps {

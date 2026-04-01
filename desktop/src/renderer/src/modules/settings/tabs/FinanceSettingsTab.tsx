@@ -185,7 +185,7 @@ export function FinanceSettingsTab() {
               {/* Stufe 1 */}
               <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs font-bold dark:bg-amber-900/30 dark:text-amber-400">1</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning-light text-warning text-xs font-bold">1</span>
                   <span className="text-sm font-medium text-foreground">Zahlungserinnerung</span>
                 </div>
                 <div className="space-y-2">
@@ -203,7 +203,7 @@ export function FinanceSettingsTab() {
               {/* Stufe 2 */}
               <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-100 text-orange-700 text-xs font-bold dark:bg-orange-900/30 dark:text-orange-400">2</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning-light text-warning text-xs font-bold">2</span>
                   <span className="text-sm font-medium text-foreground">2. Mahnung</span>
                 </div>
                 <div className="space-y-2">
@@ -221,7 +221,7 @@ export function FinanceSettingsTab() {
               {/* Stufe 3 */}
               <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-700 text-xs font-bold dark:bg-red-900/30 dark:text-red-400">3</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-error-light text-destructive text-xs font-bold">3</span>
                   <span className="text-sm font-medium text-foreground">Letzte Mahnung</span>
                 </div>
                 <div className="space-y-2">
