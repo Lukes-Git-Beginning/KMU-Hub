@@ -23,7 +23,7 @@ updated: 2026-03-26
 - Key Commands: `/audit`, `/critique`, `/polish`, `/animate`, `/normalize`, `/bolder`, `/overdrive`, `/typeset`, `/colorize`, `/harden`, `/adapt`, `/distill`, `/extract`, `/delight`, `/clarify`, `/arrange`, `/optimize`, `/quieter`, `/onboard`, `/teach-impeccable`
 - `/audit` — Qualitaets-Check mit P0-P3 Severity Levels
 - `/critique` — UX-Review gegen Nielsen's 10 Heuristiken + Persona Testing
-- `/polish` — Final Pass fuer pixelperfekte Perfektion
+- `/polish` — Final Pass für pixelperfekte Perfektion
 
 ### Design-Workflow
 Generate -> `/audit` -> `/critique` -> Fix -> `/polish` -> Ship
@@ -31,9 +31,9 @@ Generate -> `/audit` -> `/critique` -> Fix -> `/polish` -> Ship
 ## Component Libraries (installiert 2026-03-26)
 
 ### Motion (ex Framer Motion)
-- Package: `motion` — deklarative Animationen fuer React
+- Package: `motion` — deklarative Animationen für React
 - Import: `import { motion } from 'motion/react'`
-- Ergaenzt unser CSS-Keyframe-System fuer komplexere Animationen (Spring Physics, Gestures, Layout Animations)
+- Ergaenzt unser CSS-Keyframe-System für komplexere Animationen (Spring Physics, Gestures, Layout Animations)
 
 ### Magic UI Komponenten (via shadcn Registry)
 Installiert in `src/renderer/src/components/ui/`:
@@ -56,7 +56,7 @@ Install-Pattern: `npx shadcn@latest add "https://magicui.design/r/<name>" --yes`
 ## Design-Directives (in CLAUDE.md dokumentiert)
 - Aesthetic Direction: "Premium SaaS mit Editorial Touch"
 - Font-Bans: Inter, Roboto, Arial, Space Grotesk, Helvetica, Open Sans
-- Anti-Patterns: Card-in-Card, AI Slop, symmetrische Layouts, Ueber-Animation
+- Anti-Patterns: Card-in-Card, AI Slop, symmetrische Layouts, Über-Animation
 - Farb-Hierarchie: Dominante Primaerfarbe + scharfe Akzente
 - Motion: Orchestrierte Page-Loads > verstreute Micro-Interactions
 
@@ -93,7 +93,7 @@ Install-Pattern: `npx shadcn@latest add "https://magicui.design/r/<name>" --yes`
 
 ## Key Lessons
 - Design files use `actionLabel`/`onAction` aber main's EmptyState uses `action:{label,onClick}`
-- `git checkout origin/design/brainstorm -- <path>` safe fuer additive changes
+- `git checkout origin/design/brainstorm -- <path>` safe für additive changes
 - 12 industry-specific modules from design = mock only for v1
 
 ## Frontend Wiring Progress

@@ -16,13 +16,13 @@ updated: 2026-03-05
 - Contact-Sync (KMU Hub → Lexware)
 - Invoice/Quote-Push
 - Webhook-basierte Realtime-Updates (vs. Bexio Polling)
-- Vault-verschluesselter API-Key
+- Vault-verschlüsselter API-Key
 - Sync-Config pro Tenant: Contact/Invoice/Quote einzeln aktivierbar
 - Code: `backend/internal/biz/lexware/`
 
 ## DATEV (OAuth 2.0)
 - CSV-Export im Buchungsstapel-Format
-- Tax-Mapping: Invoices/Quotes → DATEV-Buchungseintraege
+- Tax-Mapping: Invoices/Quotes → DATEV-Buchungseinträge
 - Deutsche Steuer-Compliance
 - **Status:** Export-only, kein Realtime-Sync
 - Code: `backend/internal/biz/datev/`
@@ -31,20 +31,20 @@ updated: 2026-03-05
 - 1:1 und Gruppen-Calls (WebRTC)
 - Room-Erstellung via JWT-Tokens
 - Recording mit DSGVO-Consent-Management
-- Egress-Service fuer Aufnahmen (MinIO-Storage)
+- Egress-Service für Aufnahmen (MinIO-Storage)
 - Feature-Flagged: Graceful Disable wenn API-Key/Secret nicht gesetzt
 - Code: `backend/internal/work/livekit/`
 - Docker: LiveKit Server (7880) + Egress Container
 
 ## CalDAV/CardDAV (go-webdav)
-- App-spezifische Passwoerter fuer Clients (Thunderbird, iOS, macOS)
-- Sync-Tokens fuer inkrementelle Updates
+- App-spezifische Passwoerter für Clients (Thunderbird, iOS, macOS)
+- Sync-Tokens für inkrementelle Updates
 - iCalendar ↔ internes Event-Format Konvertierung
 - CalDAV (Kalender) + CardDAV (Kontakte)
 - Code: `backend/internal/caldav/`
 
 ## WOPI/OnlyOffice
-- WOPI REST-Protokoll fuer Document-Editing
+- WOPI REST-Protokoll für Document-Editing
 - JWT-basierter Zugang (file_id + user_id Claims)
 - File-Locking (TTL-basiert, Concurrent-Edit-Prevention)
 - Auto-Versioning bei Save

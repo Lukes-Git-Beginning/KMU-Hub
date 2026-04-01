@@ -40,7 +40,7 @@ Datei: `deploy/docker/docker-compose.yml`
 
 ## CI/CD
 ### CI Pipeline (`.github/workflows/ci.yml`)
-- **Trigger:** Push auf main/develop, PRs (nur bei backend/ Aenderungen)
+- **Trigger:** Push auf main/develop, PRs (nur bei backend/ Änderungen)
 - **Go Version:** 1.25.6
 - **Jobs (parallel):**
   1. **Lint** — golangci-lint v2.8
@@ -64,7 +64,7 @@ Datei: `deploy/docker/docker-compose.yml`
 Flow: `lock → snapshot → backup → pull → build → migrate → rolling restart → health check → smoke test → log → unlock`
 - **Deployment Lock:** PID-File (`/opt/kmuhub/.deploy.lock`), verhindert parallele Deploys
 - **Pre-Deploy Snapshot:** `PREV_SHA` + Migrations-Stand
-- **Build-Args:** `--build-arg BUILD_VERSION/BUILD_COMMIT/BUILD_TIME` fuer ldflags
+- **Build-Args:** `--build-arg BUILD_VERSION/BUILD_COMMIT/BUILD_TIME` für ldflags
 - **Auto-Rollback:** Bei Health-Check- oder Smoke-Failure: checkout PREV_SHA, migrate down, rebuild, restart
 - **Deploy-History:** TSV-Log (`/opt/kmuhub/deploy-history.log`): timestamp, prev_sha, new_sha, status, duration
 - **No-Change Detection:** Skipped wenn SHA identisch
@@ -92,7 +92,7 @@ Flags: `--base-url URL`, `--verbose`, `--expect-version SHA`
 Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 
 ### healthcheck.sh — Docker Service Health
-- Prueft alle 10 Services + Gateway + Postgres + Redis + Caddy
+- Prüft alle 10 Services + Gateway + Postgres + Redis + Caddy
 - Exit 0 = healthy, Exit 2 = failures
 
 ### backup.sh / restore.sh — Datenbank-Backup
@@ -104,7 +104,7 @@ Cleanup: Smoke-User wird am Ende per DELETE entfernt.
 3. Backup erstellen
 4. Code pullen
 5. Images bauen (mit Build-Version)
-6. Migrations ausfuehren
+6. Migrations ausführen
 7. Rolling Restart (infra → services → gateway)
 8. Health Check — bei Fehler: Auto-Rollback
 9. Smoke Tests — bei Fehler: Auto-Rollback
@@ -140,4 +140,4 @@ Package-Level Vars in `backend/internal/gateway/route_health.go`:
 - [[architektur]] — Service-Architektur
 - [[security]] — Infrastruktur-Security
 - [[testing]] — Smoke Tests (Go + Bash)
-- [[integrationen]] — Docker-Container fuer LiveKit, OnlyOffice
+- [[integrationen]] — Docker-Container für LiveKit, OnlyOffice

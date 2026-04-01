@@ -4,9 +4,9 @@ updated: 2026-03-05
 ---
 # Datenbank
 
-## Ueberblick
+## Überblick
 - PostgreSQL 16 + Redis 7 (nur Cache, KEIN Dual-Write)
-- Aenderungen NUR via golang-migrate (`make migrate-create name=xxx`)
+- Änderungen NUR via golang-migrate (`make migrate-create name=xxx`)
 - 61 Migration-Paare in `backend/migrations/`
 - Index-Konvention: `idx_{table}_{column}`
 
@@ -41,7 +41,7 @@ updated: 2026-03-05
 - `project_members` — role (owner/member/viewer)
 - `project_statuses` — Custom pro Projekt, is_closed Flag
 - `tasks` — name, description, project_id, assigned_to, status_id, priority, due_date
-- `task_dependencies` — DAG fuer Task-Reihenfolge
+- `task_dependencies` — DAG für Task-Reihenfolge
 - `task_comments`, `task_files`, `task_links` — Diskussion, Dateien, Entity-Links
 - `time_entries` — task_id, duration_seconds, user_id, start_time
 
@@ -79,16 +79,16 @@ updated: 2026-03-05
 
 ### Security & Audit
 - `security_audit_logs` — action, resource, user_id, result, timestamp
-- `login_attempts` — Failed-Login-Tracking fuer 2FA-Enforcement
+- `login_attempts` — Failed-Login-Tracking für 2FA-Enforcement
 - `two_factor_settings` — method, enabled_at, grace_period_until
 - `security_tokens` — Sessions, App-Tokens
 - `app_passwords` — CalDAV/OAuth App-Passwoerter
 
 ## Index-Strategie
 - **Composite:** `(project_key, archived_at)`, `(user_id, role, name)`
-- **Conditional:** `(status) WHERE status != 'ended'` fuer aktive Records
-- **Case-insensitive:** `LOWER(email)`, `LOWER(name)` fuer Suche
-- **Time-series:** `created_at DESC` fuer chronologische Queries
+- **Conditional:** `(status) WHERE status != 'ended'` für aktive Records
+- **Case-insensitive:** `LOWER(email)`, `LOWER(name)` für Suche
+- **Time-series:** `created_at DESC` für chronologische Queries
 - **Foreign Keys:** ON DELETE CASCADE oder SET NULL
 
 ## Verwandte Notes

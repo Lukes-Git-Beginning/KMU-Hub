@@ -18,7 +18,7 @@ type MockRepository struct {
 }
 ```
 - Eigene Mocks pro Test (keine shared State)
-- `uuid.New()` fuer unique IDs pro Test
+- `uuid.New()` für unique IDs pro Test
 - Error-Injection via Mock-Fields
 
 ### Spezial-Tests
@@ -30,7 +30,7 @@ type MockRepository struct {
 
 ## Desktop (Electron/React)
 - Framework: Vitest konfiguriert
-- **Status:** Kaum Tests vorhanden — Ausbau noetig
+- **Status:** Kaum Tests vorhanden — Ausbau nötig
 
 ## E2E Tests
 - **Datei:** `backend/test/e2e/` (Build-Tag `//go:build e2e`)
@@ -43,7 +43,7 @@ type MockRepository struct {
 Zwei Varianten mit gleicher Abdeckung:
 
 ### Bash (`deploy/scripts/smoke.sh`)
-- Curl/jq-basiert, keine Go-Toolchain noetig
+- Curl/jq-basiert, keine Go-Toolchain nötig
 - 19 Tests in 6 Kategorien: Infra (5), Auth (3), CRM CRUD (3), Security (3), Performance (3), Cross-Service (2)
 - Flags: `--base-url`, `--verbose`, `--expect-version`
 - Smoke-User Cleanup am Ende
@@ -53,14 +53,14 @@ Zwei Varianten mit gleicher Abdeckung:
 - Build-Tag: `//go:build smoke`
 - `smoke_test.go` (11 Tests) + `helpers_test.go`
 - Konfigurierbar via `SMOKE_URL` env var (default: `http://localhost:8080`)
-- `SMOKE_EXPECT_VERSION` fuer Version-Verification
+- `SMOKE_EXPECT_VERSION` für Version-Verification
 - **Makefile:** `make smoke-test` (lokal), `make smoke-prod` (gegen Prod)
 - CI-Job: Laeuft nach E2E in der Pipeline
 
 ## Coverage-Ziele
 - **Gesamt:** 80%+ Minimum
 - **Kritische Pfade (Auth, Payments, Data):** 95%+
-- **Jeder PR:** Muss Tests fuer neuen Code enthalten
+- **Jeder PR:** Muss Tests für neuen Code enthalten
 
 ## Test-Pipeline (CI Reihenfolge)
 1. **Lint** (parallel) — golangci-lint

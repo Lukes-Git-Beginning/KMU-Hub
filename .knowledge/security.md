@@ -34,12 +34,12 @@ updated: 2026-03-05
 - Response: 429 mit `Retry-After: 1`
 
 ## Vault Service (Secrets)
-- Verschluesselte Secrets in PostgreSQL
+- Verschlüsselte Secrets in PostgreSQL
 - `VAULT_MASTER_SECRET` (32+ Zeichen) als Env-Var
 - Verwendet fuer: OAuth-Tokens (Bexio, DATEV), API-Keys (Lexware), Email-Passwoerter
 
 ## Electron Token-Persistence
-- `safeStorage.encryptString()` fuer verschluesselte Speicherung
+- `safeStorage.encryptString()` für verschlüsselte Speicherung
 - Datei: `app.getPath('userData')/tokens.enc`
 - Fallback: Plaintext auf Linux ohne Keyring
 - Geladen beim App-Start → `useAuthStore.initialize()`
@@ -52,7 +52,7 @@ updated: 2026-03-05
 ## GDPR / Datenschutz
 - Audit-Logging: `security_audit_logs` Tabelle
 - Erasure-Support implementiert
-- **OFFEN (Phase B Blocker):** AVV/DPA, AGB, DSGVO-Pruefung durch Anwalt
+- **OFFEN (Phase B Blocker):** AVV/DPA, AGB, DSGVO-Prüfung durch Anwalt
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur

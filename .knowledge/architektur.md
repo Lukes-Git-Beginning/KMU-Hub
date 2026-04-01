@@ -20,7 +20,7 @@ updated: 2026-03-08
 
 ## Datenbank
 - PostgreSQL + Redis (kein Dual-Write!)
-- Aenderungen nur via Migrations
+- Änderungen nur via Migrations
 
 ## Auth Service
 - JWT 15min + opaque refresh 7d, SHA-256, rotation + theft detection
@@ -38,7 +38,7 @@ updated: 2026-03-08
 ## Regeln
 - Thick services, thin handlers
 - Structured logging (slog), kein fmt.Println
-- 80%+ test coverage, 95%+ fuer kritische Pfade
+- 80%+ test coverage, 95%+ für kritische Pfade
 
 ## Verwandte Notes
 - [[stack]] — Strategy Decisions
