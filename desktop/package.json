@@ -1,7 +1,7 @@
 {
-  "name": "kmuhub-desktop",
+  "name": "cosmi-desktop",
   "version": "0.1.0",
-  "description": "KMU Hub Desktop App - All-in-One CRM for DACH SMBs",
+  "description": "Cosmi Desktop App - All-in-One CRM for DACH SMBs",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

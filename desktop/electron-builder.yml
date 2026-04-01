@@ -1,5 +1,5 @@
-appId: tech.zentria.kmuhub
-productName: KMU Hub
+appId: tech.zentria.cosmi
+productName: Cosmi
 directories:
   buildResources: build
   output: dist
@@ -15,4 +15,4 @@ nsis:
   perMachine: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: KMU Hub
+  shortcutName: Cosmi
