@@ -91,8 +91,26 @@ Install-Pattern: `npx shadcn@latest add "https://magicui.design/r/<name>" --yes`
 - ModulesGrid Hero-Card spannt 2 Spalten (Card-Monotonie gebrochen)
 - sm: Breakpoint zu Grids hinzugefuegt
 
+## Design Audit B10 (2026-04-01)
+
+### Auth Redesign
+- AuthLayout.tsx: Split-Layout mit Brand-Panel (Logo, Features, EU-Footer) + Form-Panel
+- Login/Register nutzen Glass-Card (backdrop-blur-sm, shadow-lg, borderless)
+- Brand-Panel hidden auf < lg, Form zentriert auf Mobile
+
+### Empty State Normalisierung
+- EmptyState-Komponente + 14 SVG-Illustrationen existieren in components/shared/illustrations/
+- Projekte: Skeleton-Cards → EmptyState + EmptyGeneric
+- Zeiterfassung: Plain-Text → EmptyState + EmptyCalendar / Edit3 Icon
+- Buchhaltung: actionLabel/onAction Props → action:{label,onClick} (3x, CTAs waren unsichtbar)
+
+### Weitere Fixes
+- Team: 11 Tabs mit Fade-Mask + scrollbar-hide (Overflow)
+- Wiki: Full-row bg-primary/5 → Left-border Accent (border-l-[3px])
+- Kalender: Wochen-/Monats-Day-Headers text-[10px] → text-xs font-medium
+
 ## Key Lessons
-- Design files use `actionLabel`/`onAction` aber main's EmptyState uses `action:{label,onClick}`
+- Design files use `actionLabel`/`onAction` aber main's EmptyState uses `action:{label,onClick}` — B10 gefixt
 - `git checkout origin/design/brainstorm -- <path>` safe für additive changes
 - 12 industry-specific modules from design = mock only for v1
 

@@ -36,6 +36,19 @@ updated: 2026-04-01
 | Projekte Mock-Daten | project_key, is_template, Handler pagination |
 | Playwright-Verifikation | Alle Module crash-frei verifiziert (0 JS-Errors) |
 
+## Beta Phase B10 — Design Audit & Rebrand (2026-04-01)
+| Schritt | Details |
+|---------|---------|
+| Design Audit (36 Screenshots) | Playwright-Session, alle Module visuell geprüft, Score ~6.6/10 |
+| Auth Redesign | AuthLayout mit Split-Layout + Brand-Panel für Login/Register |
+| Empty States normalisiert | Projekte (EmptyGeneric), Zeiterfassung (EmptyCalendar), Buchhaltung (Props gefixt) |
+| Team Tabs Overflow | Fade-Mask + scrollbar-hide für 11-Tab-Leiste |
+| Wiki Selection Highlight | Full-row bg → Left-border Accent |
+| Kalender Headers | text-[10px] → text-xs font-medium (Wochen- und Monatsansicht) |
+| Rebrand: KMU Hub → Cosmi | 36 Dateien, alle user-sichtbaren Texte |
+| Locale: de-CH → de-DE | 104 Dateien, Default-Währung CHF → EUR |
+| Umlaut-Normalisierung | ae/oe/ue → ä/ö/ü in ~255 Dateien (nur Display-Text, nicht Code) |
+
 ## Verwandte Notes
 - [[design]] — Frontend Wiring Progress
 - [[architektur]] — Technischer Kontext
