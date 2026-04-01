@@ -69,7 +69,7 @@ function groupByDate(meetings: Meeting[]): { label: string; date: string; meetin
       let label: string
       if (date === today) label = 'Heute'
       else if (date === tomorrow) label = 'Morgen'
-      else label = new Date(date).toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' })
+      else label = new Date(date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
       return { label, date, meetings: items.sort((a, b) => a.startTime.localeCompare(b.startTime)) }
     })
 }
@@ -452,7 +452,7 @@ function MeetingCard({
       <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3 flex-wrap">
         <span className="flex items-center gap-1">
           <Calendar className="h-3 w-3" />
-          {new Date(meeting.date).toLocaleDateString('de-CH')}
+          {new Date(meeting.date).toLocaleDateString('de-DE')}
         </span>
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />

@@ -140,7 +140,7 @@ describe('CompanyFormDialog', () => {
       <CompanyFormDialog open={true} onOpenChange={onOpenChange} onSubmit={onSubmit} />,
     )
 
-    const tagInput = screen.getByPlaceholderText('Tag hinzufuegen...')
+    const tagInput = screen.getByPlaceholderText('Tag hinzufügen...')
     await user.type(tagInput, 'VIP')
     await user.keyboard('{Enter}')
 

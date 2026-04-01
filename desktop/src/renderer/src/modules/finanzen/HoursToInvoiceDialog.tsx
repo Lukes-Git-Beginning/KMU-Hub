@@ -44,14 +44,14 @@ interface TimeEntry {
 // TODO: Replace mock data with API call — Backend needed: GET /api/v1/time-entries?billed=false
 // Fetch unbilled time entries from Zeiterfassung service, with project/employee filtering
 const mockTimeEntries: TimeEntry[] = [
-  { id: 'te1', date: '2026-02-18', project: 'Website Redesign', task: 'Frontend-Entwicklung', employee: 'Anna Mueller', hours: 4.5, description: 'React-Komponenten implementiert', billed: false },
-  { id: 'te2', date: '2026-02-18', project: 'Website Redesign', task: 'Design-Review', employee: 'Anna Mueller', hours: 1.5, description: 'Figma-Prototyp reviewt', billed: false },
+  { id: 'te1', date: '2026-02-18', project: 'Website Redesign', task: 'Frontend-Entwicklung', employee: 'Anna Müller', hours: 4.5, description: 'React-Komponenten implementiert', billed: false },
+  { id: 'te2', date: '2026-02-18', project: 'Website Redesign', task: 'Design-Review', employee: 'Anna Müller', hours: 1.5, description: 'Figma-Prototyp reviewt', billed: false },
   { id: 'te3', date: '2026-02-17', project: 'CRM Integration', task: 'API-Entwicklung', employee: 'Thomas Fischer', hours: 6.0, description: 'REST-Endpoints implementiert', billed: false },
   { id: 'te4', date: '2026-02-17', project: 'CRM Integration', task: 'Testing', employee: 'Thomas Fischer', hours: 2.0, description: 'Integration Tests geschrieben', billed: false },
   { id: 'te5', date: '2026-02-16', project: 'Website Redesign', task: 'Deployment', employee: 'Max Schmidt', hours: 3.0, description: 'Staging-Deployment + DNS', billed: false },
   { id: 'te6', date: '2026-02-15', project: 'Mobile App', task: 'UI-Development', employee: 'Sara Weber', hours: 5.5, description: 'React Native Screens', billed: false },
   { id: 'te7', date: '2026-02-15', project: 'CRM Integration', task: 'Datenbank-Migration', employee: 'Thomas Fischer', hours: 3.5, description: 'PostgreSQL Migrations', billed: false },
-  { id: 'te8', date: '2026-02-14', project: 'Website Redesign', task: 'Performance', employee: 'Anna Mueller', hours: 2.0, description: 'Lighthouse-Optimierung', billed: false },
+  { id: 'te8', date: '2026-02-14', project: 'Website Redesign', task: 'Performance', employee: 'Anna Müller', hours: 2.0, description: 'Lighthouse-Optimierung', billed: false },
   { id: 'te9', date: '2026-02-13', project: 'Beratung', task: 'Workshop', employee: 'Max Schmidt', hours: 4.0, description: 'Onboarding-Workshop beim Kunden', billed: true },
 ]
 
@@ -126,7 +126,7 @@ export function HoursToInvoiceDialog({
   }, [selectedEntries, groupBy])
 
   const formatCHF = (v: number) =>
-    new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF' }).format(v)
+    new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'CHF' }).format(v)
 
   const handleCreateInvoice = () => {
     toast.success(`Rechnung mit ${lineItems.length} Positionen erstellt (${formatCHF(totalAmount)})`)
@@ -178,7 +178,7 @@ export function HoursToInvoiceDialog({
                 onClick={toggleAll}
                 className="text-xs text-primary hover:underline"
               >
-                {selectedIds.size === unbilledEntries.length ? 'Alle abwaehlen' : 'Alle waehlen'}
+                {selectedIds.size === unbilledEntries.length ? 'Alle abwählen' : 'Alle wählen'}
               </button>
             </div>
 
@@ -233,7 +233,7 @@ export function HoursToInvoiceDialog({
             {/* Summary + actions */}
             <div className="flex items-center justify-between rounded-md bg-secondary/50 px-4 py-3">
               <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{selectedIds.size}</span> Eintraege |{' '}
+                <span className="font-medium text-foreground">{selectedIds.size}</span> Einträge |{' '}
                 <span className="font-medium text-foreground">{totalHours.toFixed(1)}h</span> |{' '}
                 <span className="font-medium text-primary">{formatCHF(totalAmount)}</span>
               </div>
@@ -332,7 +332,7 @@ export function HoursToInvoiceDialog({
                 onClick={() => setStep('select')}
                 className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
               >
-                Zurueck
+                Zurück
               </button>
               <button
                 onClick={handleCreateInvoice}

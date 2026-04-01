@@ -79,7 +79,7 @@ export function IndustryTemplateGallery() {
   if (!templates || templates.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-4">
-        Keine Branchenvorlagen verfuegbar.
+        Keine Branchenvorlagen verfügbar.
       </p>
     )
   }

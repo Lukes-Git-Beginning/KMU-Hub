@@ -272,7 +272,7 @@ export default function ProjectSettingsDialog({
                 className="gap-1"
               >
                 <Plus className="h-3 w-3" />
-                Hinzufuegen
+                Hinzufügen
               </Button>
             </div>
           </div>

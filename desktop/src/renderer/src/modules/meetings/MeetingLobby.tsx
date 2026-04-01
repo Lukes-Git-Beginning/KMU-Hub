@@ -56,14 +56,14 @@ const rsvpColors: Record<RsvpStatus, string> = {
 }
 
 function formatTime(isoDate: string): string {
-  return new Date(isoDate).toLocaleTimeString('de-CH', {
+  return new Date(isoDate).toLocaleTimeString('de-DE', {
     hour: '2-digit',
     minute: '2-digit',
   })
 }
 
 function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('de-CH', {
+  return new Date(isoDate).toLocaleDateString('de-DE', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

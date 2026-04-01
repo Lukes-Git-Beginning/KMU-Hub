@@ -60,7 +60,7 @@ const standardConfig: Record<
   },
   xrechnung: {
     label: 'XRechnung',
-    fullName: 'Deutscher Standard fuer oeffentliche Auftraggeber (EN 16931)',
+    fullName: 'Deutscher Standard für öffentliche Auftraggeber (EN 16931)',
     color: 'text-info',
     bg: 'bg-info-light',
   },
@@ -90,7 +90,7 @@ const mockStatuses: Record<string, EInvoiceStatus> = {
     version: '2.3',
     valid: true,
     errors: [],
-    warnings: ['Lieferdatum nicht angegeben — empfohlen fuer COMFORT-Profil'],
+    warnings: ['Lieferdatum nicht angegeben — empfohlen für COMFORT-Profil'],
     xmlEmbedded: true,
   },
   'RE-2026-008': {
@@ -314,12 +314,12 @@ export function EInvoiceDetailDialog({
                   {status.valid ? (
                     <>
                       <CheckCircle2 className="h-4 w-4 text-success" />
-                      <span className="text-sm font-medium text-success">Gueltig</span>
+                      <span className="text-sm font-medium text-success">Gültig</span>
                     </>
                   ) : (
                     <>
                       <AlertTriangle className="h-4 w-4 text-error" />
-                      <span className="text-sm font-medium text-error">Ungueltig</span>
+                      <span className="text-sm font-medium text-error">Ungültig</span>
                     </>
                   )}
                 </div>
@@ -356,8 +356,8 @@ export function EInvoiceDetailDialog({
               {status.standard === 'zugferd'
                 ? 'ZUGFeRD-Rechnungen enthalten eine maschinenlesbare XML-Datei (factur-x.xml) eingebettet in das PDF. Kompatibel mit Buchhaltungssoftware und DATEV.'
                 : status.standard === 'xrechnung'
-                  ? 'XRechnung ist fuer oeffentliche Auftraggeber in Deutschland Pflicht (seit 27.11.2020). Reines XML-Format nach EN 16931.'
-                  : 'Standard-PDF ohne maschinenlesbare Daten. Fuer automatische Verarbeitung wird ZUGFeRD oder XRechnung empfohlen.'}
+                  ? 'XRechnung ist für öffentliche Auftraggeber in Deutschland Pflicht (seit 27.11.2020). Reines XML-Format nach EN 16931.'
+                  : 'Standard-PDF ohne maschinenlesbare Daten. Für automatische Verarbeitung wird ZUGFeRD oder XRechnung empfohlen.'}
             </p>
           </div>
 

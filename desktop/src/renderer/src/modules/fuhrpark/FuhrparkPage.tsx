@@ -57,7 +57,7 @@ const vehicleTypeColors: Record<string, string> = {
 const maintenanceTypeLabels: Record<string, string> = {
   service: 'Service',
   repair: 'Reparatur',
-  inspection: 'Pruefung',
+  inspection: 'Prüfung',
   tires: 'Reifen',
 }
 
@@ -132,12 +132,12 @@ function statusTextColor(status: 'overdue' | 'soon' | 'ok'): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-CH')
+  return new Date(dateStr).toLocaleDateString('de-DE')
 }
 
 
 function formatKm(val: number): string {
-  return val.toLocaleString('de-CH')
+  return val.toLocaleString('de-DE')
 }
 
 function generateId(prefix: string): string {
@@ -177,11 +177,11 @@ function formatRelativeTime(timestamp: string): string {
 }
 
 function formatTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+  return new Date(timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
 }
 
 // ---------------------------------------------------------------------------
-// Dialog: Fahrzeug hinzufuegen
+// Dialog: Fahrzeug hinzufügen
 // ---------------------------------------------------------------------------
 
 interface AddVehicleDialogProps {
@@ -224,7 +224,7 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="gap-0 p-0 max-w-lg glass-elevated">
         <DialogHeader className="px-6 pt-6 pb-0">
-          <DialogTitle className="text-base font-semibold text-foreground">Fahrzeug hinzufuegen</DialogTitle>
+          <DialogTitle className="text-base font-semibold text-foreground">Fahrzeug hinzufügen</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 px-6 pt-5">
@@ -315,10 +315,10 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
             />
           </div>
 
-          {/* Row: Pruefung + Versicherung */}
+          {/* Row: Prüfung + Versicherung */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Naechste Pruefung</label>
+              <label className="text-xs font-medium text-muted-foreground">Nächste Prüfung</label>
               <input
                 type="date"
                 value={nextInspection}
@@ -398,7 +398,7 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
   const typeOptions: { value: MaintenanceRecord['type']; label: string }[] = [
     { value: 'service', label: 'Service' },
     { value: 'repair', label: 'Reparatur' },
-    { value: 'inspection', label: 'Pruefung' },
+    { value: 'inspection', label: 'Prüfung' },
     { value: 'tires', label: 'Reifen' },
   ]
 
@@ -816,7 +816,7 @@ function VehicleDetailContent({
           <div className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${statusDotColor(inspectionStatus)}`} />
-              <span className="text-xs text-muted-foreground">Naechste Pruefung</span>
+              <span className="text-xs text-muted-foreground">Nächste Prüfung</span>
             </div>
             <span className={`text-xs ${statusTextColor(inspectionStatus)}`}>
               {inspectionStatus === 'overdue' && <AlertTriangle className="inline h-3 w-3 mr-1" />}
@@ -842,7 +842,7 @@ function VehicleDetailContent({
           Letzte Wartungen
         </h4>
         {vehicleMaintenance.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">Keine Eintraege vorhanden</p>
+          <p className="text-xs text-muted-foreground italic">Keine Einträge vorhanden</p>
         ) : (
           <div className="space-y-1.5">
             {vehicleMaintenance.map((r) => (
@@ -869,14 +869,14 @@ function VehicleDetailContent({
           Letzte Tankungen
         </h4>
         {vehicleFuel.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">Keine Eintraege vorhanden</p>
+          <p className="text-xs text-muted-foreground italic">Keine Einträge vorhanden</p>
         ) : (
           <div className="space-y-1.5">
             {vehicleFuel.map((r) => (
               <div key={r.id} className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2">
                 <div className="flex items-center gap-2">
                   <Droplets className="h-3.5 w-3.5 text-info shrink-0" />
-                  <span className="text-xs text-muted-foreground">{r.liters.toLocaleString('de-CH', { minimumFractionDigits: 1 })} L</span>
+                  <span className="text-xs text-muted-foreground">{r.liters.toLocaleString('de-DE', { minimumFractionDigits: 1 })} L</span>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-medium text-foreground">CHF {formatAmount(r.cost)}</p>
@@ -1175,7 +1175,7 @@ export default function FuhrparkPage() {
         vehicles: [...state.vehicles, vehicle],
       }))
       setDialog(null)
-      toast.success(`Fahrzeug ${vehicle.licensePlate} wurde hinzugefuegt`)
+      toast.success(`Fahrzeug ${vehicle.licensePlate} wurde hinzugefügt`)
     },
     []
   )
@@ -1186,7 +1186,7 @@ export default function FuhrparkPage() {
         maintenanceRecords: [...state.maintenanceRecords, record],
       }))
       setDialog(null)
-      toast.success(`Wartung fuer ${record.vehiclePlate} eingetragen`)
+      toast.success(`Wartung für ${record.vehiclePlate} eingetragen`)
     },
     []
   )
@@ -1197,7 +1197,7 @@ export default function FuhrparkPage() {
         fuelRecords: [...state.fuelRecords, record],
       }))
       setDialog(null)
-      toast.success(`Tankung fuer ${record.vehiclePlate} eingetragen`)
+      toast.success(`Tankung für ${record.vehiclePlate} eingetragen`)
     },
     []
   )
@@ -1245,7 +1245,7 @@ export default function FuhrparkPage() {
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
         title="Fuhrpark"
-        description={`${activeVehicleCount} aktive Fahrzeuge${urgentCount > 0 ? ` · ${urgentCount} mit faelliger Pruefung/Versicherung` : ''}`}
+        description={`${activeVehicleCount} aktive Fahrzeuge${urgentCount > 0 ? ` · ${urgentCount} mit fälliger Prüfung/Versicherung` : ''}`}
         icon={Truck}
         moduleId="fuhrpark"
         className="mb-6"
@@ -1293,7 +1293,7 @@ export default function FuhrparkPage() {
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Fahrzeug hinzufuegen
+              Fahrzeug hinzufügen
             </button>
           </div>
         }
@@ -1375,8 +1375,8 @@ export default function FuhrparkPage() {
               <RefreshCw className="h-4 w-4 text-warning" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Naechster Reifenwechsel: April 2026 — Sommerreifen</p>
-              <p className="text-xs text-muted-foreground">Rechtzeitig Termine fuer {vehicles.filter((v) => v.isActive).length} aktive Fahrzeuge planen</p>
+              <p className="text-sm font-medium text-foreground">Nächster Reifenwechsel: April 2026 — Sommerreifen</p>
+              <p className="text-xs text-muted-foreground">Rechtzeitig Termine für {vehicles.filter((v) => v.isActive).length} aktive Fahrzeuge planen</p>
             </div>
           </div>
 
@@ -1435,7 +1435,7 @@ export default function FuhrparkPage() {
                       <div className="flex items-center gap-1.5">
                         <span className={`h-2 w-2 rounded-full ${statusDotColor(inspectionStatus)}`} />
                         <span className={`text-[11px] ${statusTextColor(inspectionStatus) || 'text-muted-foreground'}`}>
-                          Pruefung {formatDate(vehicle.nextInspection)}
+                          Prüfung {formatDate(vehicle.nextInspection)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -1482,7 +1482,7 @@ export default function FuhrparkPage() {
           {filteredMaintenance.length === 0 ? (
             <EmptyState
               icon={Wrench}
-              title="Keine Wartungseintraege"
+              title="Keine Wartungseinträge"
               description={search ? 'Passe deine Suche an' : 'Wartungen werden hier aufgelistet'}
             />
           ) : (
@@ -1567,7 +1567,7 @@ export default function FuhrparkPage() {
                         return d.getMonth() === currentMonth && d.getFullYear() === currentYear
                       })
                       .reduce((sum, r) => sum + r.liters, 0)
-                      .toLocaleString('de-CH', { minimumFractionDigits: 1 })} L
+                      .toLocaleString('de-DE', { minimumFractionDigits: 1 })} L
                   </p>
                 </div>
               </div>
@@ -1618,7 +1618,7 @@ export default function FuhrparkPage() {
                           {record.vehiclePlate}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground text-right tabular-nums">
-                          {record.liters.toLocaleString('de-CH', { minimumFractionDigits: 1 })}
+                          {record.liters.toLocaleString('de-DE', { minimumFractionDigits: 1 })}
                         </td>
                         <td className="px-4 py-3 text-xs text-foreground font-medium text-right tabular-nums">
                           {formatAmount(record.cost)}
@@ -1685,7 +1685,7 @@ export default function FuhrparkPage() {
             <EmptyState
               icon={BookOpen}
               title="Keine Fahrten erfasst"
-              description={search ? 'Passe deine Suche an' : 'Fahrtenbucheintraege werden hier angezeigt'}
+              description={search ? 'Passe deine Suche an' : 'Fahrtenbucheinträge werden hier angezeigt'}
             />
           ) : (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -2014,7 +2014,7 @@ export default function FuhrparkPage() {
               damageReports: [...state.damageReports, report],
             }))
             setDialog(null)
-            toast.success(`Schaden fuer ${report.vehiclePlate} gemeldet`)
+            toast.success(`Schaden für ${report.vehiclePlate} gemeldet`)
           }}
         />
       )}

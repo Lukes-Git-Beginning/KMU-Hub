@@ -37,7 +37,7 @@ export function PrivacySettingsTab() {
           <h3 className="text-sm font-medium text-foreground">DSGVO-konform</h3>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          KMU Hub speichert alle Daten auf EU-Servern (Hetzner, Deutschland). Deine Daten werden nie an Dritte
+          Cosmi speichert alle Daten auf EU-Servern (Hetzner, Deutschland). Deine Daten werden nie an Dritte
           außerhalb der EU übermittelt. Du hast jederzeit das Recht auf Auskunft, Berichtigung und Löschung
           deiner personenbezogenen Daten.
         </p>

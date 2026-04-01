@@ -101,7 +101,7 @@ function EmailConfigSection() {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-4">
-        E-Mail-Server-Konfiguration pro Mitarbeiter. Zugangsdaten werden verschluesselt gespeichert.
+        E-Mail-Server-Konfiguration pro Mitarbeiter. Zugangsdaten werden verschlüsselt gespeichert.
       </p>
       <div className="space-y-2">
         {employees.map((emp) => {
@@ -165,7 +165,7 @@ function EmailConfigSection() {
                     <Switch defaultChecked />
                     <span className="text-xs text-foreground">SSL/TLS verwenden</span>
                   </div>
-                  <Button size="sm" className="text-xs" onClick={() => toast.success(`E-Mail-Config fuer ${emp.name} gespeichert`)}>
+                  <Button size="sm" className="text-xs" onClick={() => toast.success(`E-Mail-Config für ${emp.name} gespeichert`)}>
                     <Save className="mr-1 h-3 w-3" />
                     Speichern
                   </Button>
@@ -194,7 +194,7 @@ function SecurityPolicySection() {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-4">
-        Sicherheitsrichtlinien fuer alle Mitarbeiter. Aenderungen werden beim naechsten Login wirksam.
+        Sicherheitsrichtlinien für alle Mitarbeiter. Änderungen werden beim nächsten Login wirksam.
       </p>
 
       {/* Password Policy */}
@@ -250,7 +250,7 @@ function SecurityPolicySection() {
         <div className="space-y-2">
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
             <div>
-              <p className="text-sm text-foreground">2FA fuer alle erzwingen</p>
+              <p className="text-sm text-foreground">2FA für alle erzwingen</p>
               <p className="text-xs text-muted-foreground">Alle Mitarbeiter muessen 2FA aktivieren</p>
             </div>
             <Switch checked={enforce2FA} onCheckedChange={setEnforce2FA} />
@@ -385,12 +385,12 @@ function SignatureSection() {
     .replace(/\{\{company\}\}/g, 'TechVision GmbH')
     .replace(/\{\{street\}\}/g, 'Maximilianstrasse 35')
     .replace(/\{\{plz\}\}/g, '80539')
-    .replace(/\{\{city\}\}/g, 'Muenchen')
+    .replace(/\{\{city\}\}/g, 'München')
 
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-4">
-        IT erstellt eine Firmen-Signaturvorlage mit Platzhaltern. Mitarbeiter passen ihre persoenlichen Felder an.
+        IT erstellt eine Firmen-Signaturvorlage mit Platzhaltern. Mitarbeiter passen ihre persönlichen Felder an.
       </p>
 
       {/* Mode toggle */}
@@ -435,7 +435,7 @@ function SignatureSection() {
             </div>
           ) : (
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-foreground">Persoenliche Felder</h4>
+              <h4 className="text-xs font-medium text-foreground">Persönliche Felder</h4>
               <div className="space-y-2">
                 <div className="space-y-1">
                   <Label className="text-xs">Name</Label>
@@ -481,7 +481,7 @@ function SignatureSection() {
           Vorlage speichern
         </Button>
         <Button size="sm" variant="outline" onClick={() => setTemplate(DEFAULT_SIGNATURE_TEMPLATE)}>
-          Zuruecksetzen
+          Zurücksetzen
         </Button>
       </div>
     </div>

@@ -336,7 +336,7 @@ export function MeetingDetailPanel({
 function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMeeting: (id: string, updates: Partial<Meeting>) => void }) {
   const handleAddToCalendar = () => {
     onUpdateMeeting(meeting.id, { calendarEventId: `cal-${meeting.id}` })
-    toast.success('Meeting wurde dem Kalender hinzugefuegt')
+    toast.success('Meeting wurde dem Kalender hinzugefügt')
   }
 
   const handleSendInvitations = () => {
@@ -351,7 +351,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
         <div className="flex items-center gap-2.5 text-sm">
           <Calendar className="h-4 w-4 text-[var(--muted)] shrink-0" />
           <span className="text-[var(--body)]">
-            {new Date(meeting.date).toLocaleDateString('de-CH', {
+            {new Date(meeting.date).toLocaleDateString('de-DE', {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
@@ -418,7 +418,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
             </div>
             <button className="flex items-center gap-1.5 text-xs text-primary hover:underline transition-colors">
               <ExternalLink className="h-3 w-3" />
-              Im Kalender oeffnen
+              Im Kalender öffnen
             </button>
           </div>
         ) : (
@@ -429,7 +429,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
             </div>
             <Button variant="outline" size="sm" onClick={handleAddToCalendar} className="w-full">
               <Calendar className="mr-1.5 h-4 w-4" />
-              Zum Kalender hinzufuegen
+              Zum Kalender hinzufügen
             </Button>
           </div>
         )}
@@ -742,10 +742,10 @@ function NotesTab({
       />
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-[var(--muted)]">
-          {isPast ? 'Nur-Lese-Ansicht (vergangenes Meeting)' : 'Aenderungen werden automatisch gespeichert'}
+          {isPast ? 'Nur-Lese-Ansicht (vergangenes Meeting)' : 'Änderungen werden automatisch gespeichert'}
         </p>
         <p className="text-[10px] text-[var(--muted)]">
-          Zuletzt bearbeitet: {new Date().toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          Zuletzt bearbeitet: {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
     </div>

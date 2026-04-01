@@ -118,7 +118,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
               <Label>Abteilung</Label>
               <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Waehlen..." />
+                  <SelectValue placeholder="Wählen..." />
                 </SelectTrigger>
                 <SelectContent>
                   {departments.map((d) => (
@@ -162,7 +162,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
             </div>
             <div className="space-y-1.5">
               <Label>Ort</Label>
-              <Input placeholder="Zuerich" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} />
+              <Input placeholder="Zürich" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Land</Label>

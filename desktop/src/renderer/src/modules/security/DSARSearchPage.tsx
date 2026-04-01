@@ -102,17 +102,17 @@ const MOCK_PERSONS: Record<string, PersonResult> = {
           { Termin: 'Kick-off Meeting', Datum: '2025-04-01', Teilnehmer: '4' },
           { Termin: 'Sprint Review', Datum: '2025-06-15', Teilnehmer: '6' },
           { Termin: 'Abnahme Website', Datum: '2025-09-20', Teilnehmer: '3' },
-          { Termin: 'Jahresgespraech 2026', Datum: '2026-01-10', Teilnehmer: '2' },
+          { Termin: 'Jahresgespräch 2026', Datum: '2026-01-10', Teilnehmer: '2' },
         ],
       },
       {
         module: 'Dokumente',
         icon: FileText,
-        columns: ['Dateiname', 'Hochgeladen', 'Groesse'],
+        columns: ['Dateiname', 'Hochgeladen', 'Größe'],
         records: [
-          { Dateiname: 'Vertrag_Mustermann_2025.pdf', Hochgeladen: '2025-03-15', Groesse: '245 KB' },
-          { Dateiname: 'Angebot_Redesign_v2.pdf', Hochgeladen: '2025-04-02', Groesse: '1.2 MB' },
-          { Dateiname: 'Logo_Mustermann.png', Hochgeladen: '2025-04-10', Groesse: '89 KB' },
+          { Dateiname: 'Vertrag_Mustermann_2025.pdf', Hochgeladen: '2025-03-15', Größe: '245 KB' },
+          { Dateiname: 'Angebot_Redesign_v2.pdf', Hochgeladen: '2025-04-02', Größe: '1.2 MB' },
+          { Dateiname: 'Logo_Mustermann.png', Hochgeladen: '2025-04-10', Größe: '89 KB' },
         ],
       },
       {
@@ -191,9 +191,9 @@ const MOCK_PERSONS: Record<string, PersonResult> = {
   },
   'peter': {
     id: 'user-3',
-    name: 'Peter Mueller',
+    name: 'Peter Müller',
     email: 'peter@example.com',
-    company: 'Mueller Technik AG',
+    company: 'Müller Technik AG',
     avatar: 'PM',
     modules: [
       {
@@ -201,9 +201,9 @@ const MOCK_PERSONS: Record<string, PersonResult> = {
         icon: User,
         columns: ['Feld', 'Wert'],
         records: [
-          { Feld: 'Name', Wert: 'Peter Mueller' },
+          { Feld: 'Name', Wert: 'Peter Müller' },
           { Feld: 'E-Mail', Wert: 'peter@example.com' },
-          { Feld: 'Firma', Wert: 'Mueller Technik AG' },
+          { Feld: 'Firma', Wert: 'Müller Technik AG' },
         ],
       },
       {
@@ -221,7 +221,7 @@ const MOCK_PERSONS: Record<string, PersonResult> = {
         icon: FolderKanban,
         columns: ['Projekt', 'Rolle', 'Zeitraum'],
         records: [
-          { Projekt: 'Cloud-Migration Mueller', Rolle: 'Technischer Leiter', Zeitraum: 'Nov 2025 – laufend' },
+          { Projekt: 'Cloud-Migration Müller', Rolle: 'Technischer Leiter', Zeitraum: 'Nov 2025 – laufend' },
         ],
       },
     ],
@@ -271,7 +271,7 @@ export default function DSARSearchPage() {
 
   const handleExport = (format: string) => {
     toast.success(`Datenpaket als ${format} wird erstellt...`)
-    setTimeout(() => toast.success(`${format}-Export fuer ${result?.name} bereit zum Download`), 1500)
+    setTimeout(() => toast.success(`${format}-Export für ${result?.name} bereit zum Download`), 1500)
   }
 
   if (!isAdmin) {
@@ -324,7 +324,7 @@ export default function DSARSearchPage() {
             </button>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
-            Testdaten: Max Mustermann, Anna Schmidt, Peter Mueller
+            Testdaten: Max Mustermann, Anna Schmidt, Peter Müller
           </p>
         </div>
 
@@ -333,7 +333,7 @@ export default function DSARSearchPage() {
           <div className="rounded-lg border border-border bg-card p-8 text-center glass-surface mb-6">
             <Search className="mx-auto h-10 w-10 text-muted-foreground/30 mb-2" />
             <p className="text-sm text-muted-foreground">
-              Keine Person gefunden. Bitte ueberpruefen Sie die Suchkriterien.
+              Keine Person gefunden. Bitte überprüfen Sie die Suchkriterien.
             </p>
           </div>
         )}
@@ -381,7 +381,7 @@ export default function DSARSearchPage() {
                         <span className="text-sm font-medium text-foreground">{mod.module}</span>
                       </div>
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
-                        {mod.records.length} {mod.records.length === 1 ? 'Eintrag' : 'Eintraege'}
+                        {mod.records.length} {mod.records.length === 1 ? 'Eintrag' : 'Einträge'}
                       </span>
                     </button>
 

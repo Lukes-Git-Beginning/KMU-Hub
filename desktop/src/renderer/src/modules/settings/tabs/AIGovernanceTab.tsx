@@ -16,9 +16,9 @@ import { useAIStore } from '@/stores/ai'
 const MODULE_CONFIG = [
   { key: 'email', label: 'E-Mail-Entwuerfe', description: 'KI-generierte Antwortvorschlaege im E-Mail-Composer', icon: Mail },
   { key: 'meetings', label: 'Meeting-Zusammenfassungen', description: 'Automatische Zusammenfassung von Meeting-Notizen', icon: MessageSquare },
-  { key: 'helpdesk', label: 'Ticket-Antwortvorschlaege', description: 'KI-basierte Antwortvorschlaege fuer Helpdesk-Tickets', icon: Headphones },
+  { key: 'helpdesk', label: 'Ticket-Antwortvorschlaege', description: 'KI-basierte Antwortvorschlaege für Helpdesk-Tickets', icon: Headphones },
   { key: 'search', label: 'Semantische Suche', description: 'Natuerlichsprachliche Suche ueber alle Module', icon: Search },
-  { key: 'docs', label: 'Dokument-Klassifizierung', description: 'Automatische Einstufung als oeffentlich/intern/vertraulich', icon: FileText },
+  { key: 'docs', label: 'Dokument-Klassifizierung', description: 'Automatische Einstufung als öffentlich/intern/vertraulich', icon: FileText },
 ] as const
 
 export function AIGovernanceTab() {
@@ -67,7 +67,7 @@ export function AIGovernanceTab() {
       <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
         <h3 className="text-sm font-medium text-foreground mb-1">Modul-Einstellungen</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Aktiviere oder deaktiviere KI-Funktionen fuer einzelne Module.
+          Aktiviere oder deaktiviere KI-Funktionen für einzelne Module.
         </p>
 
         <div className="space-y-3">
@@ -160,7 +160,7 @@ export function AIGovernanceTab() {
             <Activity className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-medium text-foreground">Aktivitaetslog</h3>
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {activityLog.length} Eintraege
+              {activityLog.length} Einträge
             </span>
           </div>
         </div>
@@ -208,7 +208,7 @@ export function AIGovernanceTab() {
                 onClick={() => setShowAllLogs(!showAllLogs)}
                 className="mt-3 text-xs text-primary hover:underline"
               >
-                {showAllLogs ? 'Weniger anzeigen' : `Alle ${activityLog.length} Eintraege anzeigen`}
+                {showAllLogs ? 'Weniger anzeigen' : `Alle ${activityLog.length} Einträge anzeigen`}
               </button>
             )}
           </>

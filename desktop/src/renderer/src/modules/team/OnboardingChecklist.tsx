@@ -57,9 +57,9 @@ const TEMPLATES: OnboardingTemplate[] = [
     icon: Monitor,
     color: 'bg-info-light text-info',
     items: [
-      { id: 'it-1', label: 'Laptop / Arbeitsgeraet bereitstellen', completed: false, assignee: 'IT-Abteilung', dueInDays: -3 },
+      { id: 'it-1', label: 'Laptop / Arbeitsgerät bereitstellen', completed: false, assignee: 'IT-Abteilung', dueInDays: -3 },
       { id: 'it-2', label: 'E-Mail-Konto einrichten', completed: false, assignee: 'IT-Abteilung', dueInDays: -2 },
-      { id: 'it-3', label: 'KMU Hub Zugang erstellen', completed: false, assignee: 'IT-Abteilung', dueInDays: -2 },
+      { id: 'it-3', label: 'Cosmi Zugang erstellen', completed: false, assignee: 'IT-Abteilung', dueInDays: -2 },
       { id: 'it-4', label: 'VPN-Zugang konfigurieren', completed: false, assignee: 'IT-Abteilung', dueInDays: -1 },
       { id: 'it-5', label: 'Software-Lizenzen zuweisen', completed: false, assignee: 'IT-Abteilung', dueInDays: 0 },
       { id: 'it-6', label: 'Drucker einrichten', completed: false, assignee: 'IT-Abteilung', dueInDays: 1 },
@@ -72,14 +72,14 @@ const TEMPLATES: OnboardingTemplate[] = [
     icon: Users,
     color: 'bg-primary-light text-primary',
     items: [
-      { id: 'hr-1', label: 'Personalfragebogen ausgefuellt', completed: false, assignee: 'HR', dueInDays: -5 },
+      { id: 'hr-1', label: 'Personalfragebogen ausgefüllt', completed: false, assignee: 'HR', dueInDays: -5 },
       { id: 'hr-2', label: 'Arbeitsvertrag unterschrieben', completed: false, assignee: 'HR', dueInDays: -3 },
       { id: 'hr-3', label: 'Steuer-ID und SV-Nummer erfasst', completed: false, assignee: 'HR', dueInDays: -1 },
       { id: 'hr-4', label: 'Bankverbindung erfasst', completed: false, assignee: 'HR', dueInDays: 0 },
       { id: 'hr-5', label: 'Betriebsarzt-Termin vereinbart', completed: false, assignee: 'HR', dueInDays: 3 },
       { id: 'hr-6', label: 'Willkommens-Mail verschickt', completed: false, assignee: 'HR', dueInDays: 0 },
       { id: 'hr-7', label: 'Team-Vorstellung geplant', completed: false, assignee: 'Teamleitung', dueInDays: 0 },
-      { id: 'hr-8', label: 'Feedback-Gespraech (Woche 1)', completed: false, assignee: 'HR', dueInDays: 5 },
+      { id: 'hr-8', label: 'Feedback-Gespräch (Woche 1)', completed: false, assignee: 'HR', dueInDays: 5 },
     ],
   },
   {
@@ -90,7 +90,7 @@ const TEMPLATES: OnboardingTemplate[] = [
     items: [
       { id: 'f-1', label: 'Einarbeitungsplan erstellt', completed: false, assignee: 'Teamleitung', dueInDays: -2 },
       { id: 'f-2', label: 'Mentor/Buddy zugewiesen', completed: false, assignee: 'Teamleitung', dueInDays: -1 },
-      { id: 'f-3', label: 'Projekt-Zugaenge eingerichtet', completed: false, assignee: 'Teamleitung', dueInDays: 0 },
+      { id: 'f-3', label: 'Projekt-Zugänge eingerichtet', completed: false, assignee: 'Teamleitung', dueInDays: 0 },
       { id: 'f-4', label: 'Dokumentation durcharbeiten', completed: false, dueInDays: 3 },
       { id: 'f-5', label: 'Erste Aufgabe zugewiesen', completed: false, assignee: 'Teamleitung', dueInDays: 2 },
       { id: 'f-6', label: 'Code-Review Prozess erklaert', completed: false, assignee: 'Mentor', dueInDays: 3 },
@@ -120,9 +120,9 @@ const ACTIVE_ONBOARDINGS: ActiveOnboarding[] = [
     templateId: 'tpl-it',
     templateName: 'IT-Onboarding',
     items: [
-      { id: 'it-1', label: 'Laptop / Arbeitsgeraet bereitstellen', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-1', label: 'Laptop / Arbeitsgerät bereitstellen', completed: true, assignee: 'IT-Abteilung' },
       { id: 'it-2', label: 'E-Mail-Konto einrichten', completed: true, assignee: 'IT-Abteilung' },
-      { id: 'it-3', label: 'KMU Hub Zugang erstellen', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-3', label: 'Cosmi Zugang erstellen', completed: true, assignee: 'IT-Abteilung' },
       { id: 'it-4', label: 'VPN-Zugang konfigurieren', completed: true, assignee: 'IT-Abteilung' },
       { id: 'it-5', label: 'Software-Lizenzen zuweisen', completed: true, assignee: 'IT-Abteilung' },
       { id: 'it-6', label: 'Drucker einrichten', completed: true, assignee: 'IT-Abteilung' },
@@ -137,14 +137,14 @@ const ACTIVE_ONBOARDINGS: ActiveOnboarding[] = [
     templateId: 'tpl-hr',
     templateName: 'HR-Onboarding',
     items: [
-      { id: 'hr-1', label: 'Personalfragebogen ausgefuellt', completed: true, assignee: 'HR' },
+      { id: 'hr-1', label: 'Personalfragebogen ausgefüllt', completed: true, assignee: 'HR' },
       { id: 'hr-2', label: 'Arbeitsvertrag unterschrieben', completed: true, assignee: 'HR' },
       { id: 'hr-3', label: 'Steuer-ID und SV-Nummer erfasst', completed: true, assignee: 'HR' },
       { id: 'hr-4', label: 'Bankverbindung erfasst', completed: true, assignee: 'HR' },
       { id: 'hr-5', label: 'Betriebsarzt-Termin vereinbart', completed: true, assignee: 'HR' },
       { id: 'hr-6', label: 'Willkommens-Mail verschickt', completed: true, assignee: 'HR' },
       { id: 'hr-7', label: 'Team-Vorstellung geplant', completed: true, assignee: 'Teamleitung' },
-      { id: 'hr-8', label: 'Feedback-Gespraech (Woche 1)', completed: true, assignee: 'HR' },
+      { id: 'hr-8', label: 'Feedback-Gespräch (Woche 1)', completed: true, assignee: 'HR' },
     ],
   },
   {
@@ -157,7 +157,7 @@ const ACTIVE_ONBOARDINGS: ActiveOnboarding[] = [
     items: [
       { id: 'f-1', label: 'Einarbeitungsplan erstellt', completed: true, assignee: 'Teamleitung' },
       { id: 'f-2', label: 'Mentor/Buddy zugewiesen', completed: true, assignee: 'Teamleitung' },
-      { id: 'f-3', label: 'Projekt-Zugaenge eingerichtet', completed: true, assignee: 'Teamleitung' },
+      { id: 'f-3', label: 'Projekt-Zugänge eingerichtet', completed: true, assignee: 'Teamleitung' },
       { id: 'f-4', label: 'Dokumentation durcharbeiten', completed: true },
       { id: 'f-5', label: 'Erste Aufgabe zugewiesen', completed: false, assignee: 'Teamleitung' },
       { id: 'f-6', label: 'Code-Review Prozess erklaert', completed: false, assignee: 'Mentor' },
@@ -255,7 +255,7 @@ export function OnboardingChecklist() {
             <EmptyState
               icon={ListChecks}
               title="Keine aktiven Onboardings"
-              description="Starte ein neues Onboarding fuer einen Mitarbeiter"
+              description="Starte ein neues Onboarding für einen Mitarbeiter"
               action={{ label: 'Onboarding starten', onClick: () => toast.info('Mock') }}
             />
           ) : (

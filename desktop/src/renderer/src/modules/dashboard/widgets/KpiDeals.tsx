@@ -43,7 +43,7 @@ function KpiDeals(_props: WidgetProps) {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10">
           <Handshake className="h-4 w-4 text-violet-600" />
         </div>
-        <span className="text-xs font-medium text-muted-foreground">Deal-Ueberblick</span>
+        <span className="text-xs font-medium text-muted-foreground">Deal-Überblick</span>
       </div>
 
       {/* Main KPI */}

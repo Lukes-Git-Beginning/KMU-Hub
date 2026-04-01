@@ -18,13 +18,13 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 
 const SYNC_SCOPES = [
   { id: 'contacts', label: 'Kontakte synchronisieren', helpText: 'Kunden und Lieferanten mit Bexio abgleichen' },
-  { id: 'invoices', label: 'Rechnungen synchronisieren', helpText: 'Ausgangsrechnungen an Bexio uebertragen' },
+  { id: 'invoices', label: 'Rechnungen synchronisieren', helpText: 'Ausgangsrechnungen an Bexio übertragen' },
   { id: 'products', label: 'Produkte synchronisieren', helpText: 'Artikelstamm zwischen Systemen abgleichen' },
   { id: 'projects', label: 'Projekte synchronisieren', helpText: 'Projektdaten bidirektional synchronisieren' },
 ]
 
 const CONFLICT_OPTIONS = [
-  { value: 'kmuhub', label: 'KMU Hub hat Vorrang' },
+  { value: 'kmuhub', label: 'Cosmi hat Vorrang' },
   { value: 'bexio', label: 'Bexio hat Vorrang' },
   { value: 'manual', label: 'Manuell abgleichen' },
 ]
@@ -119,7 +119,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zurueck zu Integrationen
+        Zurück zu Integrationen
       </button>
 
       {/* Header */}
@@ -265,7 +265,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
             className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin' : ''}`} />
-            Sync jetzt ausfuehren
+            Sync jetzt ausführen
           </button>
         )}
         <button

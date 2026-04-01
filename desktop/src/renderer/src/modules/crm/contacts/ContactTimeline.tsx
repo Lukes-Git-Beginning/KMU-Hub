@@ -34,9 +34,9 @@ const mockTimeline: TimelineEntry[] = [
     id: 'tl1',
     type: 'meeting',
     title: 'Sprint Planning Q1',
-    description: 'Besprechung der Roadmap-Prioritaeten fuer Q1 2026. Teilnehmer: Anna, Michael, Sarah.',
+    description: 'Besprechung der Roadmap-Prioritaeten für Q1 2026. Teilnehmer: Anna, Michael, Sarah.',
     date: '2026-02-18',
-    user: 'Anna Mueller',
+    user: 'Anna Müller',
     metadata: { Dauer: '60 min', Ort: 'Konferenzraum 1' },
   },
   {
@@ -45,7 +45,7 @@ const mockTimeline: TimelineEntry[] = [
     title: 'Projektupdate versendet',
     description: 'Statusbericht Woche 7 an alle Stakeholder versendet.',
     date: '2026-02-17',
-    user: 'Anna Mueller',
+    user: 'Anna Müller',
   },
   {
     id: 'tl3',
@@ -60,7 +60,7 @@ const mockTimeline: TimelineEntry[] = [
     id: 'tl4',
     type: 'call',
     title: 'Rueckruf wegen Deadline',
-    description: 'Telefonat zur Klaerung der Lieferfrist fuer Phase 2.',
+    description: 'Telefonat zur Klaerung der Lieferfrist für Phase 2.',
     date: '2026-02-14',
     user: 'Michael Berg',
     metadata: { Dauer: '15 min' },
@@ -78,24 +78,24 @@ const mockTimeline: TimelineEntry[] = [
     id: 'tl6',
     type: 'note',
     title: 'Interne Notiz',
-    description: 'Kunde hat Interesse an Workshop-Paket fuer Mitarbeiterschulung geaeussert.',
+    description: 'Kunde hat Interesse an Workshop-Paket für Mitarbeiterschulung geaeussert.',
     date: '2026-02-12',
     user: 'Lisa Schmidt',
   },
   {
     id: 'tl7',
     type: 'email',
-    title: 'Angebot fuer Phase 2 versendet',
+    title: 'Angebot für Phase 2 versendet',
     description: 'Detailliertes Angebot ueber CHF 35.000 inkl. Schulung und Support.',
     date: '2026-02-10',
-    user: 'Anna Mueller',
+    user: 'Anna Müller',
     metadata: { Betrag: 'CHF 35.000' },
   },
   {
     id: 'tl8',
     type: 'meeting',
     title: 'Quartalsbesprechung',
-    description: 'Review der Zusammenarbeit und Planung naechste Schritte.',
+    description: 'Review der Zusammenarbeit und Planung nächste Schritte.',
     date: '2026-02-05',
     user: 'Thomas Weber',
     metadata: { Dauer: '90 min', Ort: 'Beim Kunden' },
@@ -186,7 +186,7 @@ export function ContactTimeline({ contactId: _contactId }: ContactTimelineProps)
       {/* Timeline */}
       {visible.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted-foreground">
-          Keine Aktivitaeten fuer diesen Filter.
+          Keine Aktivitaeten für diesen Filter.
         </div>
       ) : (
         <div>
@@ -206,7 +206,7 @@ export function ContactTimeline({ contactId: _contactId }: ContactTimelineProps)
           onClick={() => setVisibleCount((c) => c + 8)}
           className="w-full rounded-md border border-border py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
-          Weitere laden ({filtered.length - visibleCount} uebrig)
+          Weitere laden ({filtered.length - visibleCount} übrig)
         </button>
       )}
     </div>

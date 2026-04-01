@@ -59,7 +59,7 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-type TabKey = 'formulare' | 'eingaenge' | 'vorlagen'
+type TabKey = 'formulare' | 'eingänge' | 'vorlagen'
 
 const formStatusLabels: Record<Form['status'], string> = {
   active: 'Aktiv',
@@ -264,10 +264,10 @@ export default function FormularePage() {
   // ---------------------------------------------------------------------------
 
   const formatDate = (d: string) =>
-    new Date(d.includes('T') ? d : d + 'T00:00:00').toLocaleDateString('de-CH')
+    new Date(d.includes('T') ? d : d + 'T00:00:00').toLocaleDateString('de-DE')
 
   const formatDateTime = (d: string) =>
-    new Date(d).toLocaleDateString('de-CH', {
+    new Date(d).toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -319,7 +319,7 @@ export default function FormularePage() {
       },
       { separator: true as const, label: '', onClick: () => {} },
       {
-        label: 'Loeschen',
+        label: 'Löschen',
         icon: Trash2,
         variant: 'destructive' as const,
         onClick: () => setConfirmDelete(form),
@@ -331,7 +331,7 @@ export default function FormularePage() {
   const handleDeleteForm = (form: Form) => {
     deleteForm(form.id)
     setConfirmDelete(null)
-    toast.success(`"${form.name}" wurde geloescht`)
+    toast.success(`"${form.name}" wurde gelöscht`)
   }
 
   const closeEditor = () => {
@@ -554,7 +554,7 @@ export default function FormularePage() {
     if (type === 'crm_contact') {
       // No config needed, just add
       updateForm(editingFormId, { actions: [...existing, newAction] })
-      toast.success('CRM-Kontakt Aktion hinzugefuegt')
+      toast.success('CRM-Kontakt Aktion hinzugefügt')
     } else {
       // Open inline editor
       updateForm(editingFormId, { actions: [...existing, newAction] })
@@ -732,7 +732,7 @@ export default function FormularePage() {
             disabled
             className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground"
           >
-            <option>Bitte waehlen...</option>
+            <option>Bitte wählen...</option>
             {field.options?.map((opt) => (
               <option key={opt}>{opt}</option>
             ))}
@@ -785,7 +785,7 @@ export default function FormularePage() {
         return (
           <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary/30 px-4 py-6 text-sm text-muted-foreground">
             <Paperclip className="h-4 w-4" />
-            Datei auswaehlen oder hierher ziehen
+            Datei auswählen oder hierher ziehen
           </div>
         )
       default:
@@ -807,19 +807,19 @@ export default function FormularePage() {
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Zurueck
+            Zurück
           </button>
           <div className="flex-1" />
 
-          {/* 10.4 — Oeffentlich toggle */}
+          {/* 10.4 — Öffentlich toggle */}
           <div className="flex items-center gap-2 mr-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Oeffentlich</span>
+            <span className="text-xs text-muted-foreground">Öffentlich</span>
             <button
               onClick={() => {
                 if (!editingFormId || !editingForm) return
                 updateForm(editingFormId, { isPublic: !editingForm.isPublic })
-                toast.success(editingForm.isPublic ? 'Formular ist jetzt privat' : 'Formular ist jetzt oeffentlich')
+                toast.success(editingForm.isPublic ? 'Formular ist jetzt privat' : 'Formular ist jetzt öffentlich')
               }}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                 editingForm?.isPublic ? 'bg-primary' : 'bg-secondary'
@@ -837,7 +837,7 @@ export default function FormularePage() {
           <button
             onClick={() => setShowPublicPreview(true)}
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            title="Oeffentliche Vorschau"
+            title="Öffentliche Vorschau"
           >
             <Eye className="h-4 w-4" />
             Vorschau
@@ -870,7 +870,7 @@ export default function FormularePage() {
             type="text"
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
-            placeholder="Beschreibung hinzufuegen..."
+            placeholder="Beschreibung hinzufügen..."
             className="w-full text-sm text-muted-foreground bg-transparent border-b border-border-muted pb-2 focus:outline-none focus:border-primary transition-colors placeholder:text-input-placeholder"
           />
         </div>
@@ -889,7 +889,7 @@ export default function FormularePage() {
                   className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Feld hinzufuegen
+                  Feld hinzufügen
                 </button>
                 {showAddFieldMenu && (
                   <div className="absolute right-0 top-full mt-1 z-20 w-56 rounded-lg border border-border bg-card shadow-xl py-1">
@@ -913,7 +913,7 @@ export default function FormularePage() {
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                     >
                       <Split className="h-4 w-4 text-muted-foreground" />
-                      Seitenumbruch einfuegen
+                      Seitenumbruch einfügen
                     </button>
                   </div>
                 )}
@@ -924,7 +924,7 @@ export default function FormularePage() {
               <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
                 <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground/40" />
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Noch keine Felder. Klicke auf "Feld hinzufuegen".
+                  Noch keine Felder. Klicke auf "Feld hinzufügen".
                 </p>
               </div>
             ) : (
@@ -998,7 +998,7 @@ export default function FormularePage() {
                         <button
                           onClick={() => handleRemoveField(field.id)}
                           className="rounded-md p-1.5 text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-                          title="Loeschen"
+                          title="Löschen"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -1030,7 +1030,7 @@ export default function FormularePage() {
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
-                    Zurueck
+                    Zurück
                   </button>
                   <span className="text-xs font-medium text-foreground">
                     Seite {previewPage + 1} von {totalPages}
@@ -1245,7 +1245,7 @@ export default function FormularePage() {
                   className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:border-primary/40 transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Aktion hinzufuegen
+                  Aktion hinzufügen
                 </button>
                 {showAddActionMenu && (
                   <div className="absolute left-0 top-full mt-1 z-20 w-52 rounded-lg border border-border bg-card shadow-xl py-1">
@@ -1281,13 +1281,13 @@ export default function FormularePage() {
         <Dialog open={showPublicPreview && !!editingForm} onOpenChange={(o) => { if (!o) setShowPublicPreview(false) }}>
           <DialogContent className="gap-0 p-0 max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
               <DialogTitle className="sr-only">Formular-Vorschau</DialogTitle>
-              <DialogDescription className="sr-only">Oeffentliche Vorschau des Formulars</DialogDescription>
+              <DialogDescription className="sr-only">Öffentliche Vorschau des Formulars</DialogDescription>
 
               {/* Info banner */}
               <div className="flex items-center gap-2 bg-blue-50 border-b border-blue-100 px-6 py-3">
                 <Info className="h-4 w-4 text-blue-500 shrink-0" />
                 <p className="text-xs text-blue-700">
-                  Diese Vorschau zeigt wie das Formular fuer externe Nutzer aussieht
+                  Diese Vorschau zeigt wie das Formular für externe Nutzer aussieht
                 </p>
               </div>
 
@@ -1328,7 +1328,7 @@ export default function FormularePage() {
                         )}
                         {field.type === 'select' && (
                           <select className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">Bitte waehlen...</option>
+                            <option value="">Bitte wählen...</option>
                             {field.options?.map((opt) => (
                               <option key={opt}>{opt}</option>
                             ))}
@@ -1366,7 +1366,7 @@ export default function FormularePage() {
                         {field.type === 'file' && (
                           <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
                             <Paperclip className="h-4 w-4" />
-                            Datei auswaehlen oder hierher ziehen
+                            Datei auswählen oder hierher ziehen
                           </div>
                         )}
                       </div>
@@ -1488,7 +1488,7 @@ export default function FormularePage() {
                           onChange={(e) => setConfigConditionalFieldId(e.target.value)}
                           className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                         >
-                          <option value="">Feld waehlen...</option>
+                          <option value="">Feld wählen...</option>
                           {editingForm!.fields
                             .filter((f) => f.id !== showFieldConfigDialog.field.id && f.label !== '__page_break__')
                             .map((f) => (
@@ -1557,7 +1557,7 @@ export default function FormularePage() {
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
         title="Formulare"
-        description={`${activeFormCount} aktive Formulare · ${newSubmissionCount} neue Eingaenge`}
+        description={`${activeFormCount} aktive Formulare · ${newSubmissionCount} neue Eingänge`}
         icon={FileInput}
         moduleId="formulare"
         className="mb-6"
@@ -1595,7 +1595,7 @@ export default function FormularePage() {
             </div>
             <div>
               <p className="text-2xl font-semibold text-foreground">{weeklySubmissionCount}</p>
-              <p className="text-xs text-muted-foreground">Eingaenge diese Woche</p>
+              <p className="text-xs text-muted-foreground">Eingänge diese Woche</p>
             </div>
           </div>
         </div>
@@ -1616,7 +1616,7 @@ export default function FormularePage() {
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
           { key: 'formulare' as const, label: `Meine Formulare (${activeForms.length})` },
-          { key: 'eingaenge' as const, label: `Eingaenge (${submissions.length})` },
+          { key: 'eingänge' as const, label: `Eingänge (${submissions.length})` },
           { key: 'vorlagen' as const, label: `Vorlagen (${templates.length})` },
         ]).map((t) => (
           <button
@@ -1652,8 +1652,8 @@ export default function FormularePage() {
             />
           </div>
 
-          {/* 10.5 — Export button (Eingaenge tab only) */}
-          {tab === 'eingaenge' && submissions.length > 0 && (
+          {/* 10.5 — Export button (Eingänge tab only) */}
+          {tab === 'eingänge' && submissions.length > 0 && (
             <div className="relative">
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
@@ -1763,14 +1763,14 @@ export default function FormularePage() {
                     {/* 10.4 — Public badge */}
                     {form.isPublic && (
                       <span className="rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
-                        Oeffentlich
+                        Öffentlich
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between border-t border-border-muted pt-3 text-xs text-muted-foreground">
                     <span>{form.fields.filter((f) => f.label !== '__page_break__').length} Felder</span>
-                    <span>{form.submissionCount} Eingaenge</span>
+                    <span>{form.submissionCount} Eingänge</span>
                     <span>{formatDate(form.createdAt)}</span>
                   </div>
                 </div>
@@ -1781,16 +1781,16 @@ export default function FormularePage() {
       )}
 
       {/* ====================== EINGAENGE TAB ====================== */}
-      {tab === 'eingaenge' && (
+      {tab === 'eingänge' && (
         <>
           {Object.keys(submissionsByForm).length === 0 ? (
             <EmptyState
               icon={Inbox}
-              title="Keine Eingaenge gefunden"
+              title="Keine Eingänge gefunden"
               description={
                 search
                   ? 'Passe deine Suche an'
-                  : 'Sobald Formulare ausgefuellt werden, erscheinen die Eingaenge hier'
+                  : 'Sobald Formulare ausgefüllt werden, erscheinen die Eingänge hier'
               }
             />
           ) : (
@@ -1816,7 +1816,7 @@ export default function FormularePage() {
                           {group.formName}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          ({group.items.length} Eingaenge)
+                          ({group.items.length} Eingänge)
                         </span>
                         {newCount > 0 && (
                           <span className="rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
@@ -1918,7 +1918,7 @@ export default function FormularePage() {
           {templates.length === 0 ? (
             <EmptyState
               icon={LayoutTemplate}
-              title="Keine Vorlagen verfuegbar"
+              title="Keine Vorlagen verfügbar"
               description="Vorlagen werden hier angezeigt, sobald welche erstellt werden."
             />
           ) : (
@@ -2099,7 +2099,7 @@ export default function FormularePage() {
                   value={newFormDescription}
                   onChange={(e) => setNewFormDescription(e.target.value)}
                   rows={3}
-                  placeholder="Wofuer wird dieses Formular verwendet?"
+                  placeholder="Wofür wird dieses Formular verwendet?"
                   className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
@@ -2210,9 +2210,9 @@ export default function FormularePage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Formular loeschen?"
-        description={`"${confirmDelete?.name}" und alle zugehoerigen Eingaenge werden unwiderruflich geloescht.`}
-        confirmLabel="Loeschen"
+        title="Formular löschen?"
+        description={`"${confirmDelete?.name}" und alle zugehoerigen Eingänge werden unwiderruflich gelöscht.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteForm(confirmDelete)}
       />

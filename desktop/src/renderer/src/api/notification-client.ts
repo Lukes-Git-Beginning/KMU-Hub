@@ -58,7 +58,7 @@ async function refreshTokenFn(): Promise<string | null> {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = options.method ?? 'GET'
   if (!navigator.onLine && MUTATION_METHODS.has(method)) {
-    throw new Error('Aenderungen sind offline nicht moeglich.')
+    throw new Error('Änderungen sind offline nicht möglich.')
   }
 
   const token = await getToken()

@@ -377,7 +377,7 @@ export function DealFormDialog({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
-                placeholder="Tag hinzufuegen..."
+                placeholder="Tag hinzufügen..."
                 className="h-9 flex-1 rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
               <button
@@ -408,7 +408,7 @@ export function DealFormDialog({
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Gewichteter Wert</span>
                 <span className="font-medium text-foreground">
-                  {new Intl.NumberFormat('de-CH', { style: 'currency', currency }).format(
+                  {new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(
                     (Number(value) * Number(probability)) / 100
                   )}
                 </span>

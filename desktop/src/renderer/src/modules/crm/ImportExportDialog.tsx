@@ -95,7 +95,7 @@ const entityConfig: Record<EntityType, {
     fields: [
       { key: 'name', label: 'Firmenname' },
       { key: 'industry', label: 'Branche' },
-      { key: 'size', label: 'Groesse' },
+      { key: 'size', label: 'Größe' },
       { key: 'phone', label: 'Telefon' },
       { key: 'email', label: 'E-Mail' },
       { key: 'website', label: 'Website' },
@@ -147,7 +147,7 @@ function generateMockPreview(entity: EntityType, mappings: FieldMapping[]): Impo
   const rows: ImportPreviewRow[] = []
   const sampleData: Record<string, string[]> = {
     firstName: ['Anna', 'Max', 'Sara', 'Thomas', 'Laura'],
-    lastName: ['Mueller', 'Schmidt', 'Weber', 'Fischer', 'Wagner'],
+    lastName: ['Müller', 'Schmidt', 'Weber', 'Fischer', 'Wagner'],
     email: ['anna@example.ch', 'max@test.ch', 'sara@firma.ch', 'thomas@corp.ch', 'laura@web.ch'],
     phone: ['+41 44 123 45 67', '+41 31 987 65 43', '+41 61 555 44 33', '+41 44 222 33 44', '+41 22 111 22 33'],
     company: ['Muster AG', 'Test GmbH', 'Beispiel AG', 'Demo GmbH', 'Swiss Corp'],
@@ -170,7 +170,7 @@ function generateMockPreview(entity: EntityType, mappings: FieldMapping[]): Impo
       duplicateReason: isDuplicate
         ? i === 1
           ? 'Gleiche E-Mail-Adresse'
-          : 'Aehnlicher Name'
+          : 'Ähnlicher Name'
         : undefined,
     })
   }
@@ -263,7 +263,7 @@ export function ImportExportDialog({
       }
 
       if (isVCard && entity !== 'contacts') {
-        setError('vCard-Import ist nur fuer Kontakte verfuegbar.')
+        setError('vCard-Import ist nur für Kontakte verfügbar.')
         return
       }
 
@@ -295,7 +295,7 @@ export function ImportExportDialog({
 
       const sampleValues: Record<string, string> = {
         Vorname: 'Anna',
-        Nachname: 'Mueller',
+        Nachname: 'Müller',
         'E-Mail': 'anna@example.ch',
         Telefon: '+41 44 123 45 67',
         Firma: 'Muster AG',
@@ -303,11 +303,11 @@ export function ImportExportDialog({
         Position: 'Geschaeftsfuehrerin',
         Branche: 'Technologie',
         Website: 'www.muster.ch',
-        Ort: 'Zuerich',
+        Ort: 'Zürich',
         'Deal-Name': 'Enterprise-Lizenz',
         Wert: '25000',
         Phase: 'Qualifiziert',
-        Kontakt: 'Anna Mueller',
+        Kontakt: 'Anna Müller',
         Abschlussdatum: '2026-03-15',
       }
 
@@ -447,7 +447,7 @@ export function ImportExportDialog({
                   {importCount} {config.labelPlural} importiert
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Die Daten wurden erfolgreich hinzugefuegt.
+                  Die Daten wurden erfolgreich hinzugefügt.
                 </p>
                 <button
                   onClick={handleClose}
@@ -501,7 +501,7 @@ export function ImportExportDialog({
                         Datei hierher ziehen
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        CSV{entity === 'contacts' ? ' oder vCard (.vcf)' : ''} — oder klicken zum Auswaehlen
+                        CSV{entity === 'contacts' ? ' oder vCard (.vcf)' : ''} — oder klicken zum Auswählen
                       </p>
                       <input
                         id="crm-import-upload"
@@ -619,10 +619,10 @@ export function ImportExportDialog({
                       </div>
                       <p className="text-[10px] text-muted-foreground">
                         {duplicateAction === 'skip'
-                          ? 'Bestehende Eintraege werden nicht veraendert.'
+                          ? 'Bestehende Einträge werden nicht veraendert.'
                           : duplicateAction === 'update'
-                            ? 'Bestehende Eintraege werden mit neuen Daten aktualisiert.'
-                            : 'Duplikate werden als neue Eintraege angelegt.'}
+                            ? 'Bestehende Einträge werden mit neuen Daten aktualisiert.'
+                            : 'Duplikate werden als neue Einträge angelegt.'}
                       </p>
                     </div>
 
@@ -633,7 +633,7 @@ export function ImportExportDialog({
                         className="flex items-center gap-1.5 h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
                       >
                         <ArrowLeft className="h-3.5 w-3.5" />
-                        Zurueck
+                        Zurück
                       </button>
                       <button
                         onClick={() => setImportStep('preview')}
@@ -661,7 +661,7 @@ export function ImportExportDialog({
                           <AlertTriangle className="h-3.5 w-3.5 text-warning" />
                           <span className="text-warning font-medium">{duplicateCount}</span>
                           <span className="text-muted-foreground">
-                            moegliche Duplikate ({duplicateAction === 'skip' ? 'werden uebersprungen' : duplicateAction === 'update' ? 'werden aktualisiert' : 'werden neu angelegt'})
+                            mögliche Duplikate ({duplicateAction === 'skip' ? 'werden übersprungen' : duplicateAction === 'update' ? 'werden aktualisiert' : 'werden neu angelegt'})
                           </span>
                         </div>
                       )}
@@ -723,7 +723,7 @@ export function ImportExportDialog({
                         <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                         <div>
                           <p className="text-xs font-medium text-foreground">
-                            {duplicateCount} moegliche Duplikate erkannt
+                            {duplicateCount} mögliche Duplikate erkannt
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
                             Basierend auf E-Mail-Adresse und Name. Aktion: {duplicateAction === 'skip' ? 'Ueberspringen' : duplicateAction === 'update' ? 'Aktualisieren' : 'Neu anlegen'}.

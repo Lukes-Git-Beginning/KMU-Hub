@@ -143,7 +143,7 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
             className="text-xs text-muted-foreground hover:text-foreground"
             onClick={() => fetchNextPage()}
           >
-            Aeltere Nachrichten laden
+            Ältere Nachrichten laden
           </button>
         </div>
       )}

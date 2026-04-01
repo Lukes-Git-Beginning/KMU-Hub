@@ -51,7 +51,7 @@ const FIELD_OPTIONS = [
   { value: 'subject', label: 'Betreff' },
   { value: 'preview', label: 'Inhalt' },
   { value: 'tags', label: 'Tags' },
-  { value: 'crm_contact_id', label: 'CRM-Verknuepfung' },
+  { value: 'crm_contact_id', label: 'CRM-Verknüpfung' },
 ]
 
 const OPERATOR_OPTIONS = [
@@ -66,7 +66,7 @@ const OPERATOR_OPTIONS = [
 const ACTION_TYPES: { value: RuleActionType; label: string }[] = [
   { value: 'route_to_team', label: 'An Team-Postfach weiterleiten' },
   { value: 'assign_to', label: 'Person zuweisen' },
-  { value: 'add_tags', label: 'Tags hinzufuegen' },
+  { value: 'add_tags', label: 'Tags hinzufügen' },
   { value: 'auto_reply', label: 'Automatische Antwort' },
 ]
 
@@ -338,7 +338,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
             {isEdit ? 'Regel bearbeiten' : 'Neue Regel erstellen'}
           </DialogTitle>
           <DialogDescription>
-            Definiere Bedingungen und Aktionen fuer die automatische
+            Definiere Bedingungen und Aktionen für die automatische
             Nachrichtenverarbeitung.
           </DialogDescription>
         </DialogHeader>
@@ -368,7 +368,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                 }
                 className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               >
-                <option value="">Alle Kanaele</option>
+                <option value="">Alle Kanäle</option>
                 <option value="email">E-Mail</option>
                 <option value="chat">Chat</option>
                 <option value="notification">Benachrichtigungen</option>
@@ -520,7 +520,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                 className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Aktion hinzufuegen
+                Aktion hinzufügen
               </button>
             </div>
           </div>
@@ -740,7 +740,7 @@ export function RoutingRulesEditor() {
             <button
               onClick={() => setDeleteConfirmId(rule.id)}
               className="rounded p-1.5 text-muted-foreground hover:text-red-500 hover:bg-secondary transition-colors"
-              title="Loeschen"
+              title="Löschen"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -762,9 +762,9 @@ export function RoutingRulesEditor() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Regel loeschen?"
-        description="Diese Regel wird dauerhaft geloescht."
-        confirmLabel="Loeschen"
+        title="Regel löschen?"
+        description="Diese Regel wird dauerhaft gelöscht."
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

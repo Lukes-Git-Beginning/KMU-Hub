@@ -148,7 +148,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'kpi-deals': {
     id: 'kpi-deals',
-    name: 'Deal-Ueberblick',
+    name: 'Deal-Überblick',
     description: 'Pipeline-Wert, Win-Rate und Deal-Statistiken.',
     icon: Handshake,
     defaultSize: { w: 4, h: 3 },
@@ -159,7 +159,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'calendar-upcoming': {
     id: 'calendar-upcoming',
     name: 'Termine heute',
-    description: 'Die naechsten Termine des Tages.',
+    description: 'Die nächsten Termine des Tages.',
     icon: Calendar,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -169,7 +169,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'team-status': {
     id: 'team-status',
     name: 'Team-Status',
-    description: 'Ueberblick wer online, abwesend oder offline ist.',
+    description: 'Überblick wer online, abwesend oder offline ist.',
     icon: UserCheck,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -189,7 +189,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'my-tasks': {
     id: 'my-tasks',
     name: 'Meine Aufgaben',
-    description: 'Persoenliche offene Aufgaben mit Deadlines.',
+    description: 'Persönliche offene Aufgaben mit Deadlines.',
     icon: ClipboardList,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -199,7 +199,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'my-calendar': {
     id: 'my-calendar',
     name: 'Mein Kalender',
-    description: 'Persoenlicher Tagesplan mit Timeline.',
+    description: 'Persönlicher Tagesplan mit Timeline.',
     icon: CalendarDays,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -219,7 +219,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'team-chat': {
     id: 'team-chat',
     name: 'Team-Chat',
-    description: 'Letzte Nachrichten aus Team-Kanaelen.',
+    description: 'Letzte Nachrichten aus Team-Kanälen.',
     icon: MessageCircle,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -239,7 +239,7 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   birthdays: {
     id: 'birthdays',
     name: 'Geburtstage',
-    description: 'Naechste Geburtstage im Team.',
+    description: 'Nächste Geburtstage im Team.',
     icon: Cake,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 3, h: 2 },

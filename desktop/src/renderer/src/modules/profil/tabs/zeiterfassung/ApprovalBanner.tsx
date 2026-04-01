@@ -33,7 +33,7 @@ export default function ApprovalBanner({ weekStart }: ApprovalBannerProps) {
             Wochenrapport noch nicht eingereicht
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Bitte ueberpruefen und einreichen
+            Bitte überprüfen und einreichen
           </p>
         </div>
         <Button size="sm" onClick={handleSubmit} className="gap-1.5">

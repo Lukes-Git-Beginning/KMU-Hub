@@ -64,9 +64,9 @@ const mockServices: NewsletterService[] = [
 ]
 
 const mockHistory: SendHistoryEntry[] = [
-  { id: 'sh1', subject: 'KMU Hub Newsletter - Februar 2026', sentAt: '2026-02-15', recipients: 812, opens: 423, clicks: 89 },
+  { id: 'sh1', subject: 'Cosmi Newsletter - Februar 2026', sentAt: '2026-02-15', recipients: 812, opens: 423, clicks: 89 },
   { id: 'sh2', subject: 'Neues Feature: Kalender-Integration', sentAt: '2026-02-01', recipients: 798, opens: 512, clicks: 145 },
-  { id: 'sh3', subject: 'KMU Hub Newsletter - Januar 2026', sentAt: '2026-01-15', recipients: 780, opens: 398, clicks: 67 },
+  { id: 'sh3', subject: 'Cosmi Newsletter - Januar 2026', sentAt: '2026-01-15', recipients: 780, opens: 398, clicks: 67 },
   { id: 'sh4', subject: 'Frohe Festtage & Ausblick 2026', sentAt: '2025-12-20', recipients: 756, opens: 534, clicks: 102 },
 ]
 
@@ -231,7 +231,7 @@ export function NewsletterPanel() {
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Mail className="h-2.5 w-2.5" />
-                  {entry.opens} Oeffnungen ({Math.round((entry.opens / entry.recipients) * 100)}%)
+                  {entry.opens} Öffnungen ({Math.round((entry.opens / entry.recipients) * 100)}%)
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <BarChart3 className="h-2.5 w-2.5" />

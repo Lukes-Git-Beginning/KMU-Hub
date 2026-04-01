@@ -111,7 +111,7 @@ const MOCK_INVENTUR_SESSIONS: InventurSession[] = [
   },
   {
     id: 'inv-s-2', name: 'Stichprobe Filiale Bern', date: '2026-01-20', status: 'completed',
-    locationId: 'loc-2', locationName: 'Filiale Bern', createdBy: 'Sarah Mueller',
+    locationId: 'loc-2', locationName: 'Filiale Bern', createdBy: 'Sarah Müller',
     counts: [
       { itemId: 'inv-6', itemName: 'Verteilerdose AP', sku: 'VD-AP', expected: 45, counted: 45 },
       { itemId: 'inv-7', itemName: 'Bewegungsmelder', sku: 'BM-180', expected: 15, counted: 15 },
@@ -125,7 +125,7 @@ const MOCK_MOVEMENTS: InventoryMovement[] = [
   { id: 'mov-1', itemId: 'inv-1', itemName: 'Kabelkanal 20x10mm', type: 'in', quantity: 200, locationTo: 'Hauptlager', reference: 'PO-2024-031', createdBy: 'Markus Weber', createdAt: '2026-02-14T09:30:00' },
   { id: 'mov-2', itemId: 'inv-3', itemName: 'Steckdose T13', type: 'out', quantity: 12, locationFrom: 'Hauptlager', reference: 'Auftrag #A-445', createdBy: 'Lukas Brunner', createdAt: '2026-02-14T08:15:00' },
   { id: 'mov-3', itemId: 'inv-5', itemName: 'NYM-J 3x1.5mm²', type: 'transfer', quantity: 100, locationFrom: 'Hauptlager', locationTo: 'Lieferwagen #1', reference: 'Transfer #T-12', createdBy: 'Thomas Keller', createdAt: '2026-02-13T16:45:00' },
-  { id: 'mov-4', itemId: 'inv-8', itemName: 'Thermostat digital', type: 'out', quantity: 2, locationFrom: 'Filiale Bern', reference: 'Auftrag #A-443', createdBy: 'Sarah Mueller', createdAt: '2026-02-13T14:20:00' },
+  { id: 'mov-4', itemId: 'inv-8', itemName: 'Thermostat digital', type: 'out', quantity: 2, locationFrom: 'Filiale Bern', reference: 'Auftrag #A-443', createdBy: 'Sarah Müller', createdAt: '2026-02-13T14:20:00' },
   { id: 'mov-5', itemId: 'inv-2', itemName: 'LED Panel 60x60cm', type: 'in', quantity: 10, locationTo: 'Hauptlager', reference: 'PO-2024-030', createdBy: 'Markus Weber', createdAt: '2026-02-13T10:00:00' },
   { id: 'mov-6', itemId: 'inv-12', itemName: 'Rauchmelder EN 14604', type: 'adjustment', quantity: -2, locationFrom: 'Hauptlager', reference: 'Inventur-Korrektur', notes: 'Defekte Ware aussortiert', createdBy: 'Nina Fischer', createdAt: '2026-02-12T11:30:00' },
 ]

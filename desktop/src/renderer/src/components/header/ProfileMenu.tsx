@@ -187,7 +187,7 @@ export function ProfileMenu() {
         open={showLogout}
         onOpenChange={setShowLogout}
         title="Abmelden?"
-        description="Du wirst von KMU Hub abgemeldet. Alle nicht gespeicherten Änderungen gehen verloren."
+        description="Du wirst von Cosmi abgemeldet. Alle nicht gespeicherten Änderungen gehen verloren."
         confirmLabel="Abmelden"
         variant="destructive"
         onConfirm={confirmLogout}

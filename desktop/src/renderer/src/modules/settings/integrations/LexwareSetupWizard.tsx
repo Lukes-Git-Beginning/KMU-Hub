@@ -113,7 +113,7 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Den API-Schluessel finden Sie in Lexware Office unter Einstellungen &gt; Oeffentliche API.
+                Den API-Schluessel finden Sie in Lexware Office unter Einstellungen &gt; Öffentliche API.
               </p>
             </div>
 
@@ -125,7 +125,7 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
             )}
             {testResult === 'error' && (
               <p className="text-sm text-red-500">
-                Verbindung fehlgeschlagen. Bitte pruefen Sie den API-Schluessel.
+                Verbindung fehlgeschlagen. Bitte prüfen Sie den API-Schluessel.
               </p>
             )}
           </div>
@@ -175,7 +175,7 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
           {step === 2 && (
             <>
               <Button variant="outline" onClick={() => setStep(1)}>
-                Zurueck
+                Zurück
               </Button>
               <Button onClick={() => setStep(3)}>
                 <ArrowRight className="h-4 w-4 mr-2" />
@@ -186,7 +186,7 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
           {step === 3 && (
             <>
               <Button variant="outline" onClick={handleClose}>
-                Spaeter
+                Später
               </Button>
               <Button onClick={handleStartSync} disabled={triggerSync.isPending}>
                 {triggerSync.isPending && (

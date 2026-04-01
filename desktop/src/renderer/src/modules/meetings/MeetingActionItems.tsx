@@ -114,13 +114,13 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
 
   const handleDelete = (itemId: string) => {
     deleteMutation.mutate(itemId, {
-      onError: () => toast.error('Fehler beim Loeschen'),
+      onError: () => toast.error('Fehler beim Löschen'),
     })
   }
 
   const handleConvert = () => {
     if (!selectedProjectId) {
-      toast.error('Bitte waehle ein Projekt aus')
+      toast.error('Bitte wähle ein Projekt aus')
       return
     }
 
@@ -291,7 +291,7 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
         <div className="flex items-center gap-2">
           <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
             <SelectTrigger className="text-sm flex-1">
-              <SelectValue placeholder="Projekt waehlen..." />
+              <SelectValue placeholder="Projekt wählen..." />
             </SelectTrigger>
             <SelectContent>
               {projects.map((p) => (

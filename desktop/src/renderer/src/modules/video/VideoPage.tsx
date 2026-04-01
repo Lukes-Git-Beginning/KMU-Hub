@@ -255,7 +255,7 @@ function SettingsTab() {
           {[
             { id: 'none', label: 'Keiner' },
             { id: 'blur', label: 'Unscharf' },
-            { id: 'office', label: 'Buero' },
+            { id: 'office', label: 'Büro' },
             { id: 'nature', label: 'Natur' },
           ].map((bg) => (
             <button
@@ -449,7 +449,7 @@ export default function VideoPage() {
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <Clock className="h-10 w-10 text-muted-foreground/40 mb-3" />
                 <p className="text-sm text-muted-foreground">
-                  {historySearch ? 'Keine Ergebnisse fuer diese Suche.' : 'Noch keine Anrufe im Verlauf.'}
+                  {historySearch ? 'Keine Ergebnisse für diese Suche.' : 'Noch keine Anrufe im Verlauf.'}
                 </p>
               </div>
             )}

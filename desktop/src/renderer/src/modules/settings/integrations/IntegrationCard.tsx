@@ -41,7 +41,7 @@ export function IntegrationCard({ definition, status, onClick }: IntegrationCard
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground italic">Demnaechst verfuegbar</span>
+          <span className="text-[10px] text-muted-foreground italic">Demnächst verfügbar</span>
         </div>
       </div>
     )

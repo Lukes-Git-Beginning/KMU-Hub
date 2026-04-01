@@ -126,7 +126,7 @@ export function SelfServiceView() {
             {LEAVE_BALANCES.slice(0, 2).map((lb) => (
               <div key={lb.type} className="text-center">
                 <p className={`text-lg font-bold ${lb.color}`}>{lb.remaining}</p>
-                <p className="text-[10px] text-muted-foreground">{lb.type} uebrig</p>
+                <p className="text-[10px] text-muted-foreground">{lb.type} übrig</p>
               </div>
             ))}
           </div>
@@ -161,7 +161,7 @@ export function SelfServiceView() {
       {tab === 'profil' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-medium text-foreground mb-4">Persoenliche Daten</h3>
+            <h3 className="text-sm font-medium text-foreground mb-4">Persönliche Daten</h3>
             <div className="space-y-3">
               {[
                 { icon: User, label: 'Name', value: CURRENT_USER.name },
@@ -184,10 +184,10 @@ export function SelfServiceView() {
               })}
             </div>
             <button
-              onClick={() => toast.info('Aenderungsantrag gestellt (Mock)')}
+              onClick={() => toast.info('Änderungsantrag gestellt (Mock)')}
               className="mt-4 flex items-center gap-1.5 text-xs text-primary hover:underline"
             >
-              Aenderung beantragen
+              Änderung beantragen
               <ChevronRight className="h-3 w-3" />
             </button>
           </div>
@@ -201,7 +201,7 @@ export function SelfServiceView() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-muted-foreground">{lb.type}</span>
                       <span className={`text-xs font-medium ${lb.color}`}>
-                        {lb.remaining}{lb.total > 0 ? `/${lb.total}` : ''} {lb.type === 'Krankheit' ? 'Tage genommen' : 'Tage uebrig'}
+                        {lb.remaining}{lb.total > 0 ? `/${lb.total}` : ''} {lb.type === 'Krankheit' ? 'Tage genommen' : 'Tage übrig'}
                       </span>
                     </div>
                     {lb.total > 0 && (

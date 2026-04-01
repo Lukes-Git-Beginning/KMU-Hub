@@ -65,7 +65,7 @@ const TICKET_PRIORITY_DATA = [
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString('de-CH', {
+    return new Date(iso).toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -78,7 +78,7 @@ function formatDate(iso: string): string {
 function formatDateTime(iso: string): string {
   try {
     const d = new Date(iso)
-    return `${d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}`
+    return `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
   } catch {
     return '—'
   }
@@ -173,7 +173,7 @@ export default function BerichtePage() {
       return
     }
     if (!selectedModule) {
-      toast.error('Bitte ein Modul auswaehlen')
+      toast.error('Bitte ein Modul auswählen')
       return
     }
     setIsGenerating(true)
@@ -197,7 +197,7 @@ export default function BerichtePage() {
     const email = schedDialogEmail.trim()
     if (!email) return
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error('Bitte eine gueltige E-Mail-Adresse eingeben')
+      toast.error('Bitte eine gültige E-Mail-Adresse eingeben')
       return
     }
     if (schedDialogRecipients.includes(email)) {
@@ -214,11 +214,11 @@ export default function BerichtePage() {
 
   const handleSaveScheduled = () => {
     if (!schedDialogReport) {
-      toast.error('Bitte einen Bericht auswaehlen')
+      toast.error('Bitte einen Bericht auswählen')
       return
     }
     if (schedDialogRecipients.length === 0) {
-      toast.error('Bitte mindestens einen Empfaenger hinzufuegen')
+      toast.error('Bitte mindestens einen Empfaenger hinzufügen')
       return
     }
     toast.success('Geplanter Bericht wurde gespeichert')
@@ -308,7 +308,7 @@ export default function BerichtePage() {
                 onClick={() => setModuleFilter('all')}
                 className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary"
               >
-                Filter zuruecksetzen
+                Filter zurücksetzen
               </button>
             )}
           </div>
@@ -319,7 +319,7 @@ export default function BerichtePage() {
               <div className="col-span-full">
                 <EmptyState
                   illustration={<EmptyReports />}
-                  title="Keine KPIs fuer dieses Modul vorhanden"
+                  title="Keine KPIs für dieses Modul vorhanden"
                 />
               </div>
             )}
@@ -593,7 +593,7 @@ export default function BerichtePage() {
                 <div>
                   <h3 className="text-sm font-medium text-foreground">Bericht erstellen</h3>
                   <p className="text-xs text-muted-foreground">
-                    Waehle Modul, Zeitraum und Format
+                    Wähle Modul, Zeitraum und Format
                   </p>
                 </div>
               </div>
@@ -623,7 +623,7 @@ export default function BerichtePage() {
                     onChange={(e) => setSelectedModule(e.target.value)}
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                   >
-                    <option value="">Modul auswaehlen...</option>
+                    <option value="">Modul auswählen...</option>
                     {modules.map((mod) => (
                       <option key={mod.id} value={mod.id}>
                         {mod.name}
@@ -703,10 +703,10 @@ export default function BerichtePage() {
                     <div className="flex flex-col items-center justify-center gap-2 py-4 text-center">
                       <Eye className="h-8 w-8 text-muted-foreground/40" />
                       <p className="text-sm text-muted-foreground">
-                        Vorschau verfuegbar nach Generierung
+                        Vorschau verfügbar nach Generierung
                       </p>
                       <p className="text-xs text-muted-foreground/70">
-                        Felder ausfuellen und &quot;Bericht generieren&quot; klicken
+                        Felder ausfüllen und &quot;Bericht generieren&quot; klicken
                       </p>
                     </div>
                   )}
@@ -771,12 +771,12 @@ export default function BerichtePage() {
                         </span>
                         <button
                           onClick={() =>
-                            toast.info(`Bericht "${report.name}" wird geoeffnet...`)
+                            toast.info(`Bericht "${report.name}" wird geöffnet...`)
                           }
                           className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         >
                           <Eye className="h-3 w-3" />
-                          Oeffnen
+                          Öffnen
                         </button>
                       </div>
                     </div>
@@ -826,7 +826,7 @@ export default function BerichtePage() {
                       Letzter Lauf
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Naechster Lauf
+                      Nächster Lauf
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
                       Aktiv
@@ -1056,14 +1056,14 @@ export default function BerichtePage() {
               {/* Select report */}
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Bericht auswaehlen
+                  Bericht auswählen
                 </label>
                 <select
                   value={schedDialogReport}
                   onChange={(e) => setSchedDialogReport(e.target.value)}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 >
-                  <option value="">Bericht auswaehlen...</option>
+                  <option value="">Bericht auswählen...</option>
                   {savedReports.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
@@ -1126,7 +1126,7 @@ export default function BerichtePage() {
                     onClick={handleAddRecipient}
                     className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   >
-                    Hinzufuegen
+                    Hinzufügen
                   </button>
                 </div>
 

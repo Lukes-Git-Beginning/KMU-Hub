@@ -152,10 +152,10 @@ export function useDeleteAutomation() {
     mutationFn: (id: string) => automationClient.deleteAutomation(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: automationKeys.all })
-      toast.success('Automatisierung geloescht')
+      toast.success('Automatisierung gelöscht')
     },
     onError: () => {
-      toast.error('Fehler beim Loeschen der Automatisierung')
+      toast.error('Fehler beim Löschen der Automatisierung')
     },
   })
 }

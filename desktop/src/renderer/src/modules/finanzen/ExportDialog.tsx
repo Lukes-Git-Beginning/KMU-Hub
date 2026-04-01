@@ -67,7 +67,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
                 DATEV Buchungsstapel
               </p>
               <p className="text-xs text-muted-foreground">
-                EXTF-Format (CSV) fuer den Import in DATEV oder Steuerberater-Software
+                EXTF-Format (CSV) für den Import in DATEV oder Steuerberater-Software
               </p>
             </div>
           </div>

@@ -2,7 +2,7 @@
  * ProfileWidgetSuggestions — recommends dashboard widgets based on
  * the active business profile.
  *
- * Dismissable suggestion cards: "Widget X hinzufuegen".
+ * Dismissable suggestion cards: "Widget X hinzufügen".
  */
 import { useState } from 'react'
 import {
@@ -32,7 +32,7 @@ interface WidgetSuggestion {
 
 const profileSuggestions: Record<string, WidgetSuggestion[]> = {
   handwerk: [
-    { id: 'fuhrpark-status', label: 'Fuhrpark-Status', description: 'Fahrzeuge und naechste Termine', icon: Truck, moduleId: 'fuhrpark' },
+    { id: 'fuhrpark-status', label: 'Fuhrpark-Status', description: 'Fahrzeuge und nächste Termine', icon: Truck, moduleId: 'fuhrpark' },
     { id: 'aktive-rapporte', label: 'Aktive Rapporte', description: 'Offene Rapporte und Freigaben', icon: FileCheck, moduleId: 'rapporte' },
     { id: 'zeiterfassung-quick', label: 'Zeiterfassung', description: 'Timer starten und Stunden', icon: Clock, moduleId: 'zeiterfassung' },
   ],
@@ -42,8 +42,8 @@ const profileSuggestions: Record<string, WidgetSuggestion[]> = {
     { id: 'nachrichten-quick', label: 'Nachrichten', description: 'Ungelesene Chat-Nachrichten', icon: MessageSquare, moduleId: 'chat' },
   ],
   dienstleistung: [
-    { id: 'naechste-termine', label: 'Naechste Termine', description: 'Kommende Termine und Meetings', icon: Clock, moduleId: 'calendar' },
-    { id: 'offene-rechnungen', label: 'Offene Rechnungen', description: 'Ueberfaellige und offene Rechnungen', icon: Receipt, moduleId: 'finance' },
+    { id: 'nächste-termine', label: 'Nächste Termine', description: 'Kommende Termine und Meetings', icon: Clock, moduleId: 'calendar' },
+    { id: 'offene-rechnungen', label: 'Offene Rechnungen', description: 'Ueberfällige und offene Rechnungen', icon: Receipt, moduleId: 'finance' },
     { id: 'kontakte-quick', label: 'Kontakte', description: 'Zuletzt bearbeitete Kontakte', icon: Users, moduleId: 'contacts' },
   ],
 }

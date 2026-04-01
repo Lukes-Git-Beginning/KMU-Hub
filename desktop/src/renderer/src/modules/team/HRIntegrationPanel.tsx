@@ -77,7 +77,7 @@ const INTEGRATIONS: IntegrationItem[] = [
   {
     id: 'personio',
     name: 'Personio',
-    description: 'All-in-One HR-Software fuer KMUs',
+    description: 'All-in-One HR-Software für KMUs',
     status: 'disconnected',
     icon: Building2,
     category: 'hr',
@@ -249,7 +249,7 @@ export function HRIntegrationPanel() {
                   <div className="border-t border-border px-4 py-3 bg-secondary/20">
                     <p className="text-xs text-muted-foreground">
                       Verbinden Sie {integration.name}, um Personalstammdaten und Lohndaten automatisch zu synchronisieren.
-                      Nach der Verbindung werden Aenderungen in Echtzeit uebertragen.
+                      Nach der Verbindung werden Änderungen in Echtzeit übertragen.
                     </p>
                   </div>
                 )}

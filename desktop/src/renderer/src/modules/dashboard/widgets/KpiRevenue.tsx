@@ -71,7 +71,7 @@ function KpiRevenue(_props: WidgetProps) {
           ))
         ) : (
           <div className="flex w-full items-center justify-center">
-            <p className="text-[10px] text-muted-foreground">Kein Monatsverlauf verfuegbar</p>
+            <p className="text-[10px] text-muted-foreground">Kein Monatsverlauf verfügbar</p>
           </div>
         )}
       </div>

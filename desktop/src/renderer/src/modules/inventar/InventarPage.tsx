@@ -82,8 +82,8 @@ const movementTypeIcons: Record<string, typeof ArrowDownToLine> = {
 
 const inventurStatusLabels: Record<string, string> = {
   open: 'Offen',
-  counting: 'Zaehlung',
-  review: 'Pruefung',
+  counting: 'Zählung',
+  review: 'Prüfung',
   completed: 'Abgeschlossen',
 }
 
@@ -112,12 +112,12 @@ function getStockStatusDisplay(item: InventoryItem): { color: string; label: str
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-CH')
+  return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE')
 }
 
 function formatDateTime(dateStr: string): string {
   const d = new Date(dateStr)
-  return `${d.toLocaleDateString('de-CH')} ${d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}`
+  return `${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 // ─── Barcode Scanner Dialog ─────────────────────────────────────
@@ -402,7 +402,7 @@ function BewegungDialog({
 
   const handleSave = () => {
     if (menge <= 0) {
-      toast.error('Bitte eine gueltige Menge eingeben')
+      toast.error('Bitte eine gültige Menge eingeben')
       return
     }
     const label = movementTypeLabels[typ]
@@ -652,7 +652,7 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
           {session.status === 'review' && (
             <div className="flex justify-end p-3 border-t border-border">
               <button
-                onClick={() => toast.success(`Differenzen fuer "${session.name}" wurden gebucht`)}
+                onClick={() => toast.success(`Differenzen für "${session.name}" wurden gebucht`)}
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <ClipboardCheck className="h-4 w-4" />
@@ -779,13 +779,13 @@ export default function InventarPage() {
     { label: 'Bearbeiten', icon: Edit, onClick: () => openArtikelDialog(item) },
     { label: 'Bestandsbewegung', icon: ArrowRightLeft, onClick: () => openBewegungDialog(item), separator: true },
     { separator: true as const, label: '', onClick: () => {} },
-    { label: 'Loeschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(item) },
+    { label: 'Löschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(item) },
   ]
 
   const handleDelete = (item: InventoryItem) => {
     setConfirmDelete(null)
     if (selectedItem?.id === item.id) setSelectedItem(null)
-    toast.success(`"${item.name}" wurde geloescht`)
+    toast.success(`"${item.name}" wurde gelöscht`)
   }
 
   return (
@@ -802,7 +802,7 @@ export default function InventarPage() {
             className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Artikel hinzufuegen
+            Artikel hinzufügen
           </button>
         }
       />
@@ -893,7 +893,7 @@ export default function InventarPage() {
                 className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Filter className="h-3.5 w-3.5" />
-                Filter zuruecksetzen
+                Filter zurücksetzen
               </button>
             )}
           </>
@@ -1095,8 +1095,8 @@ export default function InventarPage() {
                     return (
                       <tr key={mov.id} className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors">
                         <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          {new Date(mov.createdAt).toLocaleDateString('de-CH')}{' '}
-                          <span className="text-xs">{new Date(mov.createdAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}</span>
+                          {new Date(mov.createdAt).toLocaleDateString('de-DE')}{' '}
+                          <span className="text-xs">{new Date(mov.createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
                         </td>
                         <td className="px-4 py-3 font-medium text-foreground">{mov.itemName}</td>
                         <td className="px-4 py-3">
@@ -1219,7 +1219,7 @@ export default function InventarPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => toast.success(`Bestellvorschlag fuer "${selectedItem.name}" an Einkauf gesendet`)}
+                  onClick={() => toast.success(`Bestellvorschlag für "${selectedItem.name}" an Einkauf gesendet`)}
                   className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-error px-3 py-2 text-sm text-white hover:bg-error/90 transition-colors"
                 >
                   <ShoppingCart className="h-4 w-4" />
@@ -1323,7 +1323,7 @@ export default function InventarPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Link2 className="h-4 w-4 text-primary" />
                     <span className="text-sm text-foreground">
-                      Verknuepft mit Bestellung: <span className="font-mono font-medium">{selectedItem.linkedPurchaseOrder}</span>
+                      Verknüpft mit Bestellung: <span className="font-mono font-medium">{selectedItem.linkedPurchaseOrder}</span>
                     </span>
                   </div>
                   <button
@@ -1434,9 +1434,9 @@ export default function InventarPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Artikel loeschen?"
-        description={`"${confirmDelete?.name}" wird unwiderruflich geloescht. Alle zugehoerigen Bewegungen bleiben erhalten.`}
-        confirmLabel="Loeschen"
+        title="Artikel löschen?"
+        description={`"${confirmDelete?.name}" wird unwiderruflich gelöscht. Alle zugehoerigen Bewegungen bleiben erhalten.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />

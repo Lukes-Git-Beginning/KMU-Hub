@@ -51,7 +51,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
   const [contractType, setContractType] = useState<'Vollzeit' | 'Teilzeit' | 'Praktikum' | 'Freelance'>('Vollzeit')
   const [workload, setWorkload] = useState(100)
   // TODO: location is not in EmployeeProfile — kept for UI but not sent to API
-  const [location, setLocation] = useState('Zuerich')
+  const [location, setLocation] = useState('Zürich')
   const [welcomeMessage, setWelcomeMessage] = useState('')
 
   const reset = () => {
@@ -63,7 +63,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
     setDepartment('')
     setContractType('Vollzeit')
     setWorkload(100)
-    setLocation('Zuerich')
+    setLocation('Zürich')
     setWelcomeMessage('')
   }
 
@@ -162,7 +162,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
               <Label>Abteilung</Label>
               <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Waehlen..." />
+                  <SelectValue placeholder="Wählen..." />
                 </SelectTrigger>
                 <SelectContent>
                   {departments.map((d) => (
@@ -206,7 +206,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           <div className="space-y-1.5">
             <Label>Standort</Label>
             <Input
-              placeholder="Zuerich"
+              placeholder="Zürich"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />
@@ -216,7 +216,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           <div className="space-y-1.5">
             <Label>Willkommensnachricht (optional)</Label>
             <Textarea
-              placeholder="Schreibe eine persoenliche Nachricht..."
+              placeholder="Schreibe eine persönliche Nachricht..."
               value={welcomeMessage}
               onChange={(e) => setWelcomeMessage(e.target.value)}
               rows={3}

@@ -64,7 +64,7 @@ export function ChannelSettingsDialog({ open, onOpenChange }: ChannelSettingsDia
   const formatLastSync = (dateStr?: string): string => {
     if (!dateStr) return ''
     try {
-      return new Date(dateStr).toLocaleString('de-CH', {
+      return new Date(dateStr).toLocaleString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',
@@ -81,7 +81,7 @@ export function ChannelSettingsDialog({ open, onOpenChange }: ChannelSettingsDia
         <DialogHeader>
           <DialogTitle>Kanal-Einstellungen</DialogTitle>
           <DialogDescription>
-            Verbinde und konfiguriere deine Kommunikationskanaele.
+            Verbinde und konfiguriere deine Kommunikationskanäle.
           </DialogDescription>
         </DialogHeader>
 

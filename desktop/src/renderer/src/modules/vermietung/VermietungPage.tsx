@@ -53,7 +53,7 @@ const OBJECT_TYPE_CONFIG: Record<
   RentalObjectType,
   { label: string; icon: typeof Wrench; color: string; bg: string; badgeBg: string }
 > = {
-  geraet: { label: 'Geraet', icon: Wrench, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30', badgeBg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' },
+  gerät: { label: 'Gerät', icon: Wrench, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30', badgeBg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' },
   raum: { label: 'Raum', icon: DoorOpen, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30', badgeBg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
   fahrzeug: { label: 'Fahrzeug', icon: Car, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30', badgeBg: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
   werkzeug: { label: 'Werkzeug', icon: Hammer, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30', badgeBg: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
@@ -63,7 +63,7 @@ const STATUS_CONFIG: Record<
   RentalObject['status'],
   { label: string; dot: string; text: string }
 > = {
-  available: { label: 'Verfuegbar', dot: 'bg-success', text: 'text-success' },
+  available: { label: 'Verfügbar', dot: 'bg-success', text: 'text-success' },
   reserved: { label: 'Reserviert', dot: 'bg-info', text: 'text-info' },
   maintenance: { label: 'Wartung', dot: 'bg-warning', text: 'text-warning' },
 }
@@ -84,7 +84,7 @@ const DEPOSIT_STATUS_CONFIG: Record<
 > = {
   none: { label: 'Offen', bg: 'bg-secondary text-muted-foreground' },
   collected: { label: 'Eingezogen', bg: 'bg-success-light text-success' },
-  returned: { label: 'Zurueckgegeben', bg: 'bg-info-light text-info' },
+  returned: { label: 'Zurückgegeben', bg: 'bg-info-light text-info' },
 }
 
 const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD'] as const
@@ -121,11 +121,11 @@ function formatDateRange(dates: string[]): string {
   const first = new Date(dates[0] + 'T00:00:00')
   const last = new Date(dates[dates.length - 1] + 'T00:00:00')
   const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' }
-  return `${first.toLocaleDateString('de-CH', opts)} – ${last.toLocaleDateString('de-CH', opts)} ${last.getFullYear()}`
+  return `${first.toLocaleDateString('de-DE', opts)} – ${last.toLocaleDateString('de-DE', opts)} ${last.getFullYear()}`
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-CH', {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -187,7 +187,7 @@ function ObjectDialog({
   const isEdit = !!initial
 
   const [name, setName] = useState(initial?.name ?? '')
-  const [type, setType] = useState<RentalObjectType>(initial?.type ?? 'geraet')
+  const [type, setType] = useState<RentalObjectType>(initial?.type ?? 'gerät')
   const [location, setLocation] = useState(initial?.location ?? '')
   const [dailyRate, setDailyRate] = useState(initial?.dailyRate?.toString() ?? '')
   const [weeklyRate, setWeeklyRate] = useState(initial?.weeklyRate?.toString() ?? '')
@@ -199,7 +199,7 @@ function ObjectDialog({
   const handleSave = () => {
     if (!name.trim()) { toast.error('Bitte einen Namen eingeben'); return }
     if (!location.trim()) { toast.error('Bitte einen Standort eingeben'); return }
-    if (!dailyRate || Number(dailyRate) <= 0) { toast.error('Bitte einen gueltigen Tagessatz eingeben'); return }
+    if (!dailyRate || Number(dailyRate) <= 0) { toast.error('Bitte einen gültigen Tagessatz eingeben'); return }
 
     const obj: RentalObject = {
       id: initial?.id ?? `obj-${Date.now()}`,
@@ -257,7 +257,7 @@ function ObjectDialog({
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Typ <span className="text-destructive">*</span></label>
             <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(OBJECT_TYPE_CONFIG) as [RentalObjectType, typeof OBJECT_TYPE_CONFIG['geraet']][]).map(([key, cfg]) => {
+              {(Object.entries(OBJECT_TYPE_CONFIG) as [RentalObjectType, typeof OBJECT_TYPE_CONFIG['gerät']][]).map(([key, cfg]) => {
                 const Icon = cfg.icon
                 const isActive = type === key
                 return (
@@ -285,7 +285,7 @@ function ObjectDialog({
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="z.B. Buero Zuerich"
+              placeholder="z.B. Büro Zürich"
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -427,7 +427,7 @@ function ReservationDialog({
   }
 
   const handleSave = () => {
-    if (!objectId) { toast.error('Bitte ein Objekt waehlen'); return }
+    if (!objectId) { toast.error('Bitte ein Objekt wählen'); return }
     if (!startDate || !endDate) { toast.error('Bitte Zeitraum angeben'); return }
     if (startDate > endDate) { toast.error('Enddatum muss nach Startdatum liegen'); return }
     if (!renter.trim()) { toast.error('Bitte einen Mieter angeben'); return }
@@ -456,7 +456,7 @@ function ReservationDialog({
     }
 
     addReservation(res)
-    toast.success(`Reservierung fuer "${res.objectName}" erstellt`, {
+    toast.success(`Reservierung für "${res.objectName}" erstellt`, {
       description: `${formatDate(startDate)} – ${formatDate(endDate)} (${renter.trim()})`,
     })
     onClose()
@@ -484,7 +484,7 @@ function ReservationDialog({
               onChange={(e) => handleObjectChange(e.target.value)}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             >
-              <option value="">Objekt waehlen...</option>
+              <option value="">Objekt wählen...</option>
               {objects.map((obj) => (
                 <option key={obj.id} value={obj.id}>
                   {obj.name} ({OBJECT_TYPE_CONFIG[obj.type].label})
@@ -567,12 +567,12 @@ function ReservationDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Rueckgabe Ort</label>
+              <label className="text-sm font-medium text-foreground">Rückgabe Ort</label>
               <input
                 type="text"
                 value={returnLocation}
                 onChange={(e) => setReturnLocation(e.target.value)}
-                placeholder="Rueckgabeort"
+                placeholder="Rückgabeort"
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
@@ -793,13 +793,13 @@ export default function VermietungPage() {
     deleteObject(obj.id)
     setConfirmDelete(null)
     if (selectedObject?.id === obj.id) setSelectedObject(null)
-    toast.success(`"${obj.name}" wurde geloescht`)
+    toast.success(`"${obj.name}" wurde gelöscht`)
   }
 
   const handleCancelReservation = (res: Reservation) => {
     cancelReservation(res.id)
     setConfirmCancel(null)
-    toast.success(`Reservierung fuer "${res.objectName}" storniert`)
+    toast.success(`Reservierung für "${res.objectName}" storniert`)
   }
 
   const handleCalendarCellClick = useCallback(
@@ -822,7 +822,7 @@ export default function VermietungPage() {
     { label: 'Bearbeiten', icon: EditIcon, onClick: () => openObjectDialog(obj) },
     { label: 'Reservieren', icon: CalendarPlus, onClick: () => openReservationDialog(obj.id) },
     { separator: true as const, label: '', onClick: () => {} },
-    { label: 'Loeschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(obj) },
+    { label: 'Löschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(obj) },
   ]
 
   return (
@@ -857,7 +857,7 @@ export default function VermietungPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           {
-            label: 'Verfuegbar',
+            label: 'Verfügbar',
             value: `${availableCount}`,
             icon: CheckCircle2,
             color: 'text-success',
@@ -1023,7 +1023,7 @@ export default function VermietungPage() {
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <CalendarDays className="h-3 w-3 flex-shrink-0" />
                           <span>
-                            Naechste: {formatDate(nextRes.startDate)} – {formatDate(nextRes.endDate)} ({nextRes.renter})
+                            Nächste: {formatDate(nextRes.startDate)} – {formatDate(nextRes.endDate)} ({nextRes.renter})
                           </span>
                         </div>
                       ) : (
@@ -1077,7 +1077,7 @@ export default function VermietungPage() {
                 className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Filter className="h-3.5 w-3.5" />
-                Filter zuruecksetzen
+                Filter zurücksetzen
               </button>
             )}
           </div>
@@ -1100,7 +1100,7 @@ export default function VermietungPage() {
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Kaution</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Abholung</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rueckgabe</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rückgabe</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground w-12"></th>
                   </tr>
                 </thead>
@@ -1239,7 +1239,7 @@ export default function VermietungPage() {
                         {WEEKDAYS[i]}
                       </span>
                       <span className={`text-[11px] ${today ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
-                        {dateObj.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })}
+                        {dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
                       </span>
                       {today && <div className="mt-1 h-0.5 w-4 rounded-full bg-primary" />}
                     </div>
@@ -1566,9 +1566,9 @@ export default function VermietungPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Objekt loeschen?"
-        description={`"${confirmDelete?.name}" wird unwiderruflich geloescht. Bestehende Reservierungen bleiben erhalten.`}
-        confirmLabel="Loeschen"
+        title="Objekt löschen?"
+        description={`"${confirmDelete?.name}" wird unwiderruflich gelöscht. Bestehende Reservierungen bleiben erhalten.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteObject(confirmDelete)}
       />
@@ -1578,7 +1578,7 @@ export default function VermietungPage() {
         open={!!confirmCancel}
         onOpenChange={() => setConfirmCancel(null)}
         title="Reservierung stornieren?"
-        description={`Die Reservierung von "${confirmCancel?.renter}" fuer "${confirmCancel?.objectName}" wird storniert.`}
+        description={`Die Reservierung von "${confirmCancel?.renter}" für "${confirmCancel?.objectName}" wird storniert.`}
         confirmLabel="Stornieren"
         variant="destructive"
         onConfirm={() => confirmCancel && handleCancelReservation(confirmCancel)}

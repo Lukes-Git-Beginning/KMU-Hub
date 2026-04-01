@@ -138,8 +138,8 @@ export function IntegrationsSettingsTab() {
       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 mb-6">
         <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
         <p className="text-xs text-muted-foreground">
-          Nur Administratoren koennen Integrationen konfigurieren. Alle
-          Benutzer koennen ihr eigenes Konto verknuepfen.
+          Nur Administratoren können Integrationen konfigurieren. Alle
+          Benutzer können ihr eigenes Konto verknüpfen.
         </p>
       </div>
 
@@ -260,10 +260,10 @@ export function IntegrationsSettingsTab() {
       {/* Account linking section (visible to all users) */}
       <section>
         <h3 className="text-sm font-medium text-foreground mb-1">
-          Kontoverknuepfung
+          Kontoverknüpfung
         </h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Verknuepfen Sie Ihr externes Konto, um Benachrichtigungen direkt in
+          Verknüpfen Sie Ihr externes Konto, um Benachrichtigungen direkt in
           Teams oder Slack zu erhalten.
         </p>
 
@@ -361,7 +361,7 @@ function AccountLinkRow({
           <div className="animate-pulse h-3 bg-muted rounded w-32 mt-1" />
         ) : linkStatus?.linked ? (
           <p className="text-xs text-muted-foreground">
-            Verknuepft als{' '}
+            Verknüpft als{' '}
             <span className="font-medium">
               {linkStatus.external_display_name}
             </span>
@@ -369,7 +369,7 @@ function AccountLinkRow({
               ` seit ${new Date(linkStatus.linked_at).toLocaleDateString('de-DE')}`}
           </p>
         ) : (
-          <p className="text-xs text-muted-foreground">Nicht verknuepft</p>
+          <p className="text-xs text-muted-foreground">Nicht verknüpft</p>
         )}
       </div>
       <div>
@@ -386,12 +386,12 @@ function AccountLinkRow({
             ) : (
               <Unlink className="h-3.5 w-3.5 mr-1" />
             )}
-            Verknuepfung aufheben
+            Verknüpfung aufheben
           </Button>
         ) : (
           <Button variant="outline" size="sm" onClick={onLink}>
             <Link2 className="h-3.5 w-3.5 mr-1" />
-            Verknuepfen
+            Verknüpfen
           </Button>
         )}
       </div>

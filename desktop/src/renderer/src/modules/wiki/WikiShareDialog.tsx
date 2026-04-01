@@ -16,8 +16,8 @@ import {
 
 const accessOptions = [
   { id: 'private', icon: Lock, label: 'Privat', description: 'Nur du kannst sehen und bearbeiten' },
-  { id: 'team', icon: Users, label: 'Team', description: 'Alle Teammitglieder koennen sehen' },
-  { id: 'public', icon: Globe, label: 'Oeffentlich', description: 'Jeder im Unternehmen kann sehen' },
+  { id: 'team', icon: Users, label: 'Team', description: 'Alle Teammitglieder können sehen' },
+  { id: 'public', icon: Globe, label: 'Öffentlich', description: 'Jeder im Unternehmen kann sehen' },
 ]
 
 // ---------------------------------------------------------------------------

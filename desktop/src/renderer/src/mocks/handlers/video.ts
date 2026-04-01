@@ -68,7 +68,7 @@ const meetings = [
   {
     id: 'mtg-004',
     title: 'Demo: Gruber Maschinenbau',
-    description: 'Produkt-Demo fuer Neukunden — CRM und Projektmanagement.',
+    description: 'Produkt-Demo für Neukunden — CRM und Projektmanagement.',
     organizer_id: IDS.users.thomas,
     organizer_name: 'Thomas Meier',
     start_time: daysFromNow(5) + 'T14:00:00Z',
@@ -83,7 +83,7 @@ const meetings = [
   },
   {
     id: 'mtg-005',
-    title: 'All-Hands Maerz',
+    title: 'All-Hands März',
     description: 'Monatliches Company-Meeting — Updates aus allen Abteilungen.',
     organizer_id: IDS.users.stefan,
     organizer_name: 'Stefan Vogel',

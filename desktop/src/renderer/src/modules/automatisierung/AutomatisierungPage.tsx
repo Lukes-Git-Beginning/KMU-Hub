@@ -52,7 +52,7 @@ function StatsBar() {
       </div>
       <div className="flex items-center gap-2">
         <CheckCircle className="h-4 w-4 text-green-500" />
-        <span className="text-sm text-muted-foreground">Ausfuehrungen heute</span>
+        <span className="text-sm text-muted-foreground">Ausführungen heute</span>
         <span className="text-sm font-semibold text-foreground">
           {stats?.total_executions ?? 0}
         </span>
@@ -139,7 +139,7 @@ function AutomationRow({
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
         {automation.scope === 'personal'
-          ? 'Persoenlich'
+          ? 'Persönlich'
           : automation.scope === 'team'
             ? 'Team'
             : 'Organisation'}

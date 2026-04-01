@@ -11,7 +11,7 @@ import {
 
 const MOCK_USER = {
   firstName: 'Darien',
-  lastName: 'Mueller',
+  lastName: 'Müller',
   email: 'darien@kmuhub.ch',
   roles: ['admin'],
 }

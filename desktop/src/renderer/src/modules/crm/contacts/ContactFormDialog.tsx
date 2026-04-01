@@ -549,7 +549,7 @@ export function ContactFormDialog({
                     addTag()
                   }
                 }}
-                placeholder="Tag hinzufuegen..."
+                placeholder="Tag hinzufügen..."
                 className="h-9 flex-1 rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
               <button

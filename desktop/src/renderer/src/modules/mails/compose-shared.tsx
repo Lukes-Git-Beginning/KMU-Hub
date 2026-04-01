@@ -15,7 +15,7 @@ export type ContactSuggestion = { name: string; email: string }
 // Hooks
 // ---------------------------------------------------------------------------
 
-const FALLBACK_SIGNATURE = '<p>Mit freundlichen Gruessen<br/>Ihr KMU Hub Team</p>'
+const FALLBACK_SIGNATURE = '<p>Mit freundlichen Grüßen<br/>Ihr Cosmi Team</p>'
 
 /** Read HTML signature from settings store */
 export function useEmailSignature(): string {

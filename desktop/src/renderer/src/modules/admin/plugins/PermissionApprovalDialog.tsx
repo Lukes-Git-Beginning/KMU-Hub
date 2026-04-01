@@ -37,7 +37,7 @@ function permissionLabel(permission: string): string {
     'write:invoices': 'Rechnungen schreiben',
     'read:settings': 'Einstellungen lesen',
     'write:settings': 'Einstellungen schreiben',
-    'execute:hooks': 'Hooks ausfuehren',
+    'execute:hooks': 'Hooks ausführen',
     'read:custom_fields': 'Benutzerdefinierte Felder lesen',
     'write:custom_fields': 'Benutzerdefinierte Felder schreiben',
   }
@@ -97,7 +97,7 @@ export function PermissionApprovalDialog({
             Berechtigungen genehmigen
           </DialogTitle>
           <DialogDescription>
-            {installation.manifest_name} benoetigt folgende Berechtigungen:
+            {installation.manifest_name} benötigt folgende Berechtigungen:
           </DialogDescription>
         </DialogHeader>
 
@@ -135,7 +135,7 @@ export function PermissionApprovalDialog({
                   className="h-6 text-xs"
                   onClick={selectAll}
                 >
-                  Alle auswaehlen
+                  Alle auswählen
                 </Button>
               </div>
               {pendingPermissions.map((p) => (

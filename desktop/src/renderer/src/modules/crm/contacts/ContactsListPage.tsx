@@ -193,7 +193,7 @@ export default function ContactsListPage() {
           <SelectContent>
             <SelectItem value="all">Alle Kontakte</SelectItem>
             <SelectItem value="shared">Geteilte</SelectItem>
-            <SelectItem value="personal">Persoenliche</SelectItem>
+            <SelectItem value="personal">Persönliche</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -261,7 +261,7 @@ export default function ContactsListPage() {
                       {visibility === 'personal' ? (
                         <Lock
                           className="h-3.5 w-3.5 text-amber-500"
-                          aria-label="Persoenlich"
+                          aria-label="Persönlich"
                         />
                       ) : (
                         <Globe

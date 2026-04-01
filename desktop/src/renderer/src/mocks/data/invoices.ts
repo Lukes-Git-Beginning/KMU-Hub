@@ -110,7 +110,7 @@ export const mockInvoices = {
       id: IDS.invoices.inv006,
       number: 'RE-2026-006',
       status: 'sent' as const,
-      customer_name: 'Zuerich Fintech Solutions',
+      customer_name: 'Zürich Fintech Solutions',
       customer_id: IDS.companies.zurichFintech,
       issue_date: daysAgo(7),
       due_date: daysFromNow(23),
@@ -445,7 +445,7 @@ export const mockFinanceSettings = {
     address: {
       street: 'Innovationsweg 12',
       zip: '80331',
-      city: 'Muenchen',
+      city: 'München',
       country: 'DE',
     },
     bank_account: {
@@ -460,6 +460,6 @@ export const mockFinanceSettings = {
     credit_note_prefix: 'GS',
     next_invoice_number: 13,
     next_quote_number: 7,
-    footer_text: 'Vielen Dank fuer Ihr Vertrauen. Zahlbar innerhalb von 30 Tagen netto.',
+    footer_text: 'Vielen Dank für Ihr Vertrauen. Zahlbar innerhalb von 30 Tagen netto.',
   },
 }

@@ -141,7 +141,7 @@ export function CompanySettingsTab() {
             </div>
             <div className="space-y-1.5">
               <Label>Ort</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Zuerich" />
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Zürich" />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -187,7 +187,7 @@ export function CompanySettingsTab() {
             <Input
               value={handelsregister}
               onChange={(e) => setHandelsregister(e.target.value)}
-              placeholder="HRB 12345, Amtsgericht Zuerich"
+              placeholder="HRB 12345, Amtsgericht Zürich"
             />
           </div>
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
@@ -270,7 +270,7 @@ export function CompanySettingsTab() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Angebots-Gueltigkeit (Tage)</Label>
+              <Label>Angebots-Gültigkeit (Tage)</Label>
               <Input
                 type="number"
                 min={0}

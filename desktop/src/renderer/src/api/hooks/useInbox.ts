@@ -177,7 +177,7 @@ export function useToggleStar() {
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.error('Fehler beim Aendern des Sterns')
+      toast.error('Fehler beim Ändern des Sterns')
     },
   })
 }
@@ -303,7 +303,7 @@ export function useClaimMessage() {
       toast.success('Uebernommen')
     },
     onError: () => {
-      toast.error('Fehler beim Uebernehmen')
+      toast.error('Fehler beim Übernehmen')
     },
   })
 }
@@ -378,10 +378,10 @@ export function useDeleteTeamInbox() {
     mutationFn: (id: string) => inboxClient.deleteTeamInbox(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inboxKeys.teams() })
-      toast.success('Team-Postfach geloescht')
+      toast.success('Team-Postfach gelöscht')
     },
     onError: () => {
-      toast.error('Fehler beim Loeschen')
+      toast.error('Fehler beim Löschen')
     },
   })
 }
@@ -402,10 +402,10 @@ export function useAddTeamMember() {
       qc.invalidateQueries({
         queryKey: inboxKeys.teamMembers(vars.teamId),
       })
-      toast.success('Mitglied hinzugefuegt')
+      toast.success('Mitglied hinzugefügt')
     },
     onError: () => {
-      toast.error('Fehler beim Hinzufuegen')
+      toast.error('Fehler beim Hinzufügen')
     },
   })
 }
@@ -467,10 +467,10 @@ export function useDeleteRoutingRule() {
     mutationFn: (id: string) => inboxClient.deleteRoutingRule(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inboxKeys.rules() })
-      toast.success('Regel geloescht')
+      toast.success('Regel gelöscht')
     },
     onError: () => {
-      toast.error('Fehler beim Loeschen der Regel')
+      toast.error('Fehler beim Löschen der Regel')
     },
   })
 }

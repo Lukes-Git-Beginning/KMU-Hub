@@ -1,7 +1,7 @@
 /**
  * Central mock database — single source of truth for ALL demo data.
  *
- * TechVision GmbH — Software-Agentur, Muenchen, 18 Mitarbeiter
+ * TechVision GmbH — Software-Agentur, München, 18 Mitarbeiter
  * Deutschland-first: EUR, 19%/7% MwSt, ArbZG, DATEV-kompatibel
  *
  * Replace this with API calls when backend is ready.
@@ -18,7 +18,7 @@ export const COMPANY = {
   address: {
     street: 'Leopoldstrasse 120',
     zip: '80802',
-    city: 'Muenchen',
+    city: 'München',
     state: 'Bayern',
     country: 'Deutschland',
   },
@@ -31,7 +31,7 @@ export const COMPANY = {
   bankAccount: {
     iban: 'DE89 3704 0044 0532 0130 00',
     bic: 'COBADEFFXXX',
-    bank: 'Commerzbank Muenchen',
+    bank: 'Commerzbank München',
   },
 }
 
@@ -47,7 +47,7 @@ export interface MockDepartment {
 }
 
 export const DEPARTMENTS: MockDepartment[] = [
-  { id: 'mgmt', name: 'Geschaeftsfuehrung', color: '#6366f1', headId: 'e1' },
+  { id: 'mgmt', name: 'Geschaeftsführung', color: '#6366f1', headId: 'e1' },
   { id: 'dev', name: 'Entwicklung', color: '#3b82f6', headId: 'e2' },
   { id: 'design', name: 'Design', color: '#ec4899', headId: 'e9' },
   { id: 'sales', name: 'Vertrieb', color: '#f59e0b', headId: 'e3' },
@@ -90,13 +90,13 @@ export interface MockEmployee {
 }
 
 export const EMPLOYEES: MockEmployee[] = [
-  // --- Geschaeftsfuehrung ---
+  // --- Geschaeftsführung ---
   {
     id: 'e1', firstName: 'Stefan', lastName: 'Vogel', initials: 'SV',
     email: 'stefan.vogel@techvision.de', phone: '+49 89 2468 1351', mobile: '+49 171 234 5678',
-    role: 'admin', jobTitle: 'Geschaeftsfuehrer', department: 'Geschaeftsfuehrung', departmentId: 'mgmt',
+    role: 'admin', jobTitle: 'Geschaeftsfuehrer', department: 'Geschaeftsführung', departmentId: 'mgmt',
     contractType: 'Vollzeit', workload: 100, joinDate: '2021-04-01', birthday: '1978-06-15',
-    location: 'Muenchen', salary: 12500,
+    location: 'München', salary: 12500,
     skills: ['Strategie', 'Business Development', 'Verhandlung'],
     status: 'online', currentTask: 'Quartalsbericht vorbereiten',
   },
@@ -106,7 +106,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'markus.weber@techvision.de', phone: '+49 89 2468 1352', mobile: '+49 172 345 6789',
     role: 'manager', jobTitle: 'CTO / Technischer Leiter', department: 'Entwicklung', departmentId: 'dev',
     contractType: 'Vollzeit', workload: 100, joinDate: '2021-04-01', birthday: '1985-03-22',
-    location: 'Muenchen', salary: 9800,
+    location: 'München', salary: 9800,
     skills: ['Go', 'TypeScript', 'PostgreSQL', 'Docker', 'Kubernetes'],
     status: 'online', currentTask: 'Architektur-Review API v2',
   },
@@ -115,7 +115,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'laura.neumann@techvision.de', phone: '+49 89 2468 1354', mobile: '+49 176 567 8901',
     role: 'member', jobTitle: 'Senior Developerin', department: 'Entwicklung', departmentId: 'dev',
     contractType: 'Vollzeit', workload: 100, joinDate: '2022-01-15', birthday: '1990-11-08',
-    location: 'Muenchen', managerId: 'e2', salary: 7200,
+    location: 'München', managerId: 'e2', salary: 7200,
     skills: ['React', 'TypeScript', 'Node.js', 'GraphQL'],
     status: 'online', currentTask: 'Dashboard Widgets fertigstellen',
   },
@@ -124,7 +124,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'felix.krause@techvision.de', phone: '+49 89 2468 1355', mobile: '+49 157 678 9012',
     role: 'member', jobTitle: 'Backend Developer', department: 'Entwicklung', departmentId: 'dev',
     contractType: 'Vollzeit', workload: 100, joinDate: '2022-06-01', birthday: '1992-07-30',
-    location: 'Muenchen', managerId: 'e2', salary: 6800,
+    location: 'München', managerId: 'e2', salary: 6800,
     skills: ['Go', 'PostgreSQL', 'Redis', 'gRPC'],
     status: 'busy', currentTask: 'API-Endpoint /deals optimieren',
   },
@@ -133,7 +133,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'tim.hartmann@techvision.de', phone: '+49 89 2468 1356', mobile: '+49 151 789 0123',
     role: 'member', jobTitle: 'Frontend Developer', department: 'Entwicklung', departmentId: 'dev',
     contractType: 'Vollzeit', workload: 100, joinDate: '2023-03-01', birthday: '1995-01-17',
-    location: 'Muenchen', managerId: 'e2', salary: 6200,
+    location: 'München', managerId: 'e2', salary: 6200,
     skills: ['React', 'Tailwind CSS', 'Electron', 'Vite'],
     status: 'online', currentTask: 'Kalender-Modul Bug fixen',
   },
@@ -142,9 +142,9 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'lena.braun@techvision.de', phone: '+49 89 2468 1357', mobile: '+49 160 890 1234',
     role: 'member', jobTitle: 'Junior Developerin', department: 'Entwicklung', departmentId: 'dev',
     contractType: 'Werkstudent', workload: 60, joinDate: '2025-10-01', birthday: '2001-09-12',
-    location: 'Muenchen', managerId: 'e2', salary: 2400,
+    location: 'München', managerId: 'e2', salary: 2400,
     skills: ['TypeScript', 'React', 'Jest', 'Git'],
-    status: 'away', currentTask: 'Unit Tests fuer CRM-Modul',
+    status: 'away', currentTask: 'Unit Tests für CRM-Modul',
   },
   // --- Vertrieb (3) ---
   {
@@ -152,7 +152,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'thomas.meier@techvision.de', phone: '+49 89 2468 1353', mobile: '+49 173 456 7890',
     role: 'manager', jobTitle: 'Vertriebsleiter', department: 'Vertrieb', departmentId: 'sales',
     contractType: 'Vollzeit', workload: 100, joinDate: '2021-09-01', birthday: '1982-12-03',
-    location: 'Muenchen', salary: 8500,
+    location: 'München', salary: 8500,
     skills: ['Verhandlung', 'CRM', 'Key Account Management'],
     status: 'online', currentTask: 'Angebot Gruber Maschinenbau',
   },
@@ -161,18 +161,18 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'sabine.fischer@techvision.de', phone: '+49 89 2468 1360', mobile: '+49 175 012 3456',
     role: 'member', jobTitle: 'Account Managerin', department: 'Vertrieb', departmentId: 'sales',
     contractType: 'Vollzeit', workload: 100, joinDate: '2023-01-15', birthday: '1988-04-25',
-    location: 'Muenchen', managerId: 'e3', salary: 5800,
+    location: 'München', managerId: 'e3', salary: 5800,
     skills: ['Account Management', 'Praesentation', 'SalesForce'],
-    status: 'away', currentTask: 'Nachfass-Gespraeche Pipeline Q1',
+    status: 'away', currentTask: 'Nachfass-Gespräche Pipeline Q1',
   },
   {
     id: 'e11', firstName: 'Kevin', lastName: 'Baumann', initials: 'KB',
     email: 'kevin.baumann@techvision.de', phone: '+49 89 2468 1361', mobile: '+49 179 123 4567',
     role: 'member', jobTitle: 'Sales Representative', department: 'Vertrieb', departmentId: 'sales',
     contractType: 'Vollzeit', workload: 100, joinDate: '2024-06-01', birthday: '1996-08-19',
-    location: 'Muenchen', managerId: 'e3', salary: 4800,
+    location: 'München', managerId: 'e3', salary: 4800,
     skills: ['Kaltakquise', 'LinkedIn Sales', 'Demos'],
-    status: 'online', currentTask: 'Demo fuer MedTech Innovations',
+    status: 'online', currentTask: 'Demo für MedTech Innovations',
   },
   // --- Design (2) ---
   {
@@ -180,7 +180,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'nina.richter@techvision.de', phone: '+49 89 2468 1359', mobile: '+49 174 901 2345',
     role: 'manager', jobTitle: 'Creative Director', department: 'Design', departmentId: 'design',
     contractType: 'Vollzeit', workload: 100, joinDate: '2021-11-01', birthday: '1987-02-14',
-    location: 'Muenchen', salary: 7500,
+    location: 'München', salary: 7500,
     skills: ['Figma', 'Brand Design', 'Design Systems', 'UX Research'],
     status: 'online', currentTask: 'Design System v2 Components',
   },
@@ -189,7 +189,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'sophie.lang@techvision.de', phone: '+49 89 2468 1358', mobile: '+49 163 890 1234',
     role: 'member', jobTitle: 'UX Designerin', department: 'Design', departmentId: 'design',
     contractType: 'Teilzeit', workload: 80, joinDate: '2023-09-01', birthday: '1993-05-28',
-    location: 'Muenchen', managerId: 'e9', salary: 4800,
+    location: 'München', managerId: 'e9', salary: 4800,
     skills: ['Figma', 'User Research', 'Prototyping', 'Accessibility'],
     status: 'online', currentTask: 'Usability Test Ergebnisse auswerten',
   },
@@ -199,7 +199,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'julia.hofmann@techvision.de', phone: '+49 89 2468 1362', mobile: '+49 152 234 5678',
     role: 'member', jobTitle: 'Marketing Managerin', department: 'Marketing', departmentId: 'marketing',
     contractType: 'Vollzeit', workload: 100, joinDate: '2023-04-01', birthday: '1991-10-06',
-    location: 'Muenchen', salary: 5500,
+    location: 'München', salary: 5500,
     skills: ['SEO', 'Content Marketing', 'Google Analytics', 'HubSpot'],
     status: 'online', currentTask: 'Blog-Artikel: KI im Mittelstand',
   },
@@ -209,7 +209,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'petra.zimmermann@techvision.de', phone: '+49 89 2468 1363', mobile: '+49 177 345 6789',
     role: 'member', jobTitle: 'Buchhalterin', department: 'Buchhaltung', departmentId: 'finance',
     contractType: 'Vollzeit', workload: 100, joinDate: '2022-03-01', birthday: '1975-08-20',
-    location: 'Muenchen', salary: 5200,
+    location: 'München', salary: 5200,
     skills: ['DATEV', 'Lohnbuchhaltung', 'UStVA', 'BWA'],
     status: 'offline', currentTask: 'Monatsabschluss Januar',
   },
@@ -217,11 +217,11 @@ export const EMPLOYEES: MockEmployee[] = [
   {
     id: 'e14', firstName: 'Andrea', lastName: 'Keller', initials: 'AK',
     email: 'andrea.keller@techvision.de', phone: '+49 89 2468 1364', mobile: '+49 178 456 7890',
-    role: 'member', jobTitle: 'Office Managerin', department: 'Geschaeftsfuehrung', departmentId: 'mgmt',
+    role: 'member', jobTitle: 'Office Managerin', department: 'Geschaeftsführung', departmentId: 'mgmt',
     contractType: 'Teilzeit', workload: 60, joinDate: '2022-08-01', birthday: '1983-11-30',
-    location: 'Muenchen', managerId: 'e1', salary: 3200,
+    location: 'München', managerId: 'e1', salary: 3200,
     skills: ['Organisation', 'Eventplanung', 'Office 365'],
-    status: 'online', currentTask: 'Team-Event Maerz planen',
+    status: 'online', currentTask: 'Team-Event März planen',
   },
   // --- Personal (1) ---
   {
@@ -229,9 +229,9 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'elena.schuster@techvision.de', phone: '+49 89 2468 1365', mobile: '+49 159 567 8901',
     role: 'member', jobTitle: 'HR Managerin', department: 'Personal', departmentId: 'hr',
     contractType: 'Vollzeit', workload: 100, joinDate: '2023-02-01', birthday: '1989-04-03',
-    location: 'Muenchen', salary: 5800,
+    location: 'München', salary: 5800,
     skills: ['Recruiting', 'Arbeitsrecht', 'Personio', 'Onboarding'],
-    status: 'online', currentTask: 'Bewerbungsgespraeche planen',
+    status: 'online', currentTask: 'Bewerbungsgespräche planen',
   },
   // --- Support (2) ---
   {
@@ -239,7 +239,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'martin.wolf@techvision.de', phone: '+49 89 2468 1366', mobile: '+49 176 678 9012',
     role: 'member', jobTitle: 'Support Engineer', department: 'Support', departmentId: 'support',
     contractType: 'Vollzeit', workload: 100, joinDate: '2023-07-01', birthday: '1994-12-11',
-    location: 'Muenchen', salary: 5000,
+    location: 'München', salary: 5000,
     skills: ['Linux', 'Troubleshooting', 'Jira', 'Zendesk'],
     status: 'online', currentTask: 'Ticket #472 — Login-Problem Gruber',
   },
@@ -248,7 +248,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'jonas.schmitt@techvision.de', phone: '+49 89 2468 1367', mobile: '+49 155 789 0123',
     role: 'member', jobTitle: 'Helpdesk Agent', department: 'Support', departmentId: 'support',
     contractType: 'Vollzeit', workload: 100, joinDate: '2024-09-01', birthday: '1998-03-07',
-    location: 'Muenchen', managerId: 'e16', salary: 3800,
+    location: 'München', managerId: 'e16', salary: 3800,
     skills: ['Kundenkommunikation', 'Ticketing', 'FAQ-Pflege'],
     status: 'busy', currentTask: 'FAQ-Artikel aktualisieren',
   },
@@ -258,7 +258,7 @@ export const EMPLOYEES: MockEmployee[] = [
     email: 'sarah.beck@techvision.de', phone: '+49 89 2468 1368', mobile: '+49 170 890 1234',
     role: 'member', jobTitle: 'Projektleiterin', department: 'Projektmanagement', departmentId: 'pm',
     contractType: 'Vollzeit', workload: 100, joinDate: '2022-09-01', birthday: '1986-07-22',
-    location: 'Muenchen', salary: 6500,
+    location: 'München', salary: 6500,
     skills: ['Scrum', 'Jira', 'Confluence', 'Stakeholder Management'],
     status: 'away', currentTask: 'Sprint Review vorbereiten',
   },
@@ -310,8 +310,8 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     id: 'x3', salutation: 'Herr', title: '', firstName: 'Michael', lastName: 'Berger', initials: 'MB',
     email: 'berger@berger-soehne.de', phone: '+49 911 345 6789', mobile: '+49 172 333 4455',
     company: 'Berger & Soehne Metallverarbeitung', jobTitle: 'CEO',
-    category: 'customer', status: 'active', city: 'Nuernberg',
-    tags: ['Produktion', 'Mobile App'], notes: 'Mobile App fuer Werkstatt-Terminals. Wichtiger Referenzkunde.',
+    category: 'customer', status: 'active', city: 'Nürnberg',
+    tags: ['Produktion', 'Mobile App'], notes: 'Mobile App für Werkstatt-Terminals. Wichtiger Referenzkunde.',
     lastContact: '2026-02-15',
   },
   {
@@ -319,7 +319,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     email: 'weiss@weiss-consulting.de', phone: '+49 69 456 7890', mobile: '+49 173 444 5566',
     company: 'Weiss Consulting GmbH', jobTitle: 'Geschaeftsfuehrerin',
     category: 'customer', status: 'active', city: 'Frankfurt am Main',
-    tags: ['Beratung', 'KMU'], notes: 'Nutzt KMU Hub fuer internes Projektmanagement. Sehr zufrieden.',
+    tags: ['Beratung', 'KMU'], notes: 'Nutzt Cosmi für internes Projektmanagement. Sehr zufrieden.',
     lastContact: '2026-02-12',
   },
   {
@@ -343,7 +343,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     email: 'stadler@stadler-bau.de', phone: '+49 821 789 0123', mobile: '+49 176 777 8899',
     company: 'Stadler Bauunternehmen GmbH', jobTitle: 'Geschaeftsfuehrer',
     category: 'customer', status: 'active', city: 'Augsburg',
-    tags: ['Bau', 'Intranet'], notes: 'Intranet-Portal fuer 120 Mitarbeiter. Budget bestaetigt.',
+    tags: ['Bau', 'Intranet'], notes: 'Intranet-Portal für 120 Mitarbeiter. Budget bestätigt.',
     lastContact: '2026-02-14',
   },
   {
@@ -351,7 +351,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     email: 'schwarz@schwarz-handel.de', phone: '+49 40 890 1234', mobile: '+49 177 888 9900',
     company: 'Schwarz Einzelhandel AG', jobTitle: 'Einkaufsleiterin',
     category: 'customer', status: 'active', city: 'Hamburg',
-    tags: ['Einzelhandel', 'E-Commerce'], notes: 'E-Commerce-Plattform. Multi-Channel-Anbindung gewuenscht.',
+    tags: ['Einzelhandel', 'E-Commerce'], notes: 'E-Commerce-Plattform. Multi-Channel-Anbindung gewünscht.',
     lastContact: '2026-02-08',
   },
   {
@@ -375,8 +375,8 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     id: 'x11', salutation: 'Herr', title: 'Prof. Dr.', firstName: 'Werner', lastName: 'Braun', initials: 'WB',
     email: 'braun@braun-kollegen.de', phone: '+49 89 111 2233', mobile: '+49 170 112 2334',
     company: 'Braun & Kollegen Rechtsanwaelte', jobTitle: 'IT-Rechtsanwalt',
-    category: 'partner', status: 'active', city: 'Muenchen',
-    tags: ['Recht', 'DSGVO', 'Vertraege'], notes: 'Externe Rechtsberatung. DSGVO + AGB + Arbeitsrecht.',
+    category: 'partner', status: 'active', city: 'München',
+    tags: ['Recht', 'DSGVO', 'Verträge'], notes: 'Externe Rechtsberatung. DSGVO + AGB + Arbeitsrecht.',
     lastContact: '2026-02-11',
   },
   {
@@ -391,7 +391,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     id: 'x13', salutation: 'Herr', title: '', firstName: 'Dirk', lastName: 'Hoffmann', initials: 'DH',
     email: 'hoffmann@hoffmann-it.de', phone: '+49 911 333 4455', mobile: '+49 172 334 4556',
     company: 'Hoffmann IT — DATEV-Partner', jobTitle: 'Senior Consultant',
-    category: 'partner', status: 'active', city: 'Nuernberg',
+    category: 'partner', status: 'active', city: 'Nürnberg',
     tags: ['DATEV', 'Buchhaltung', 'Schnittstellen'], notes: 'DATEV-Integrationspartner. Hilft bei Export/Import-Schnittstellen.',
     lastContact: '2026-02-07',
   },
@@ -399,7 +399,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     id: 'x14', salutation: 'Frau', title: '', firstName: 'Carla', lastName: 'Ruiz', initials: 'CR',
     email: 'ruiz@linguaplus.de', phone: '+49 89 444 5566', mobile: '+49 173 445 5667',
     company: 'LinguaPlus GmbH', jobTitle: 'Uebersetzerin DE/ES/EN',
-    category: 'partner', status: 'active', city: 'Muenchen',
+    category: 'partner', status: 'active', city: 'München',
     tags: ['Uebersetzung', 'Lokalisierung'], notes: 'Uebersetzt Marketingmaterial und Docs. Schnell und zuverlaessig.',
     lastContact: '2026-01-28',
   },
@@ -408,7 +408,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     email: 'reuter@reuter-design.de', phone: '+49 30 555 6677', mobile: '+49 174 556 6778',
     company: 'Reuter Design Studio', jobTitle: 'Grafikdesigner',
     category: 'partner', status: 'active', city: 'Berlin',
-    tags: ['Grafik', 'Print', 'Branding'], notes: 'Externer Grafikdesigner fuer Print + Messematerial.',
+    tags: ['Grafik', 'Print', 'Branding'], notes: 'Externer Grafikdesigner für Print + Messematerial.',
     lastContact: '2026-02-03',
   },
   // --- Prospects (5) ---
@@ -432,7 +432,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     id: 'x18', salutation: 'Frau', title: '', firstName: 'Barbara', lastName: 'Engel', initials: 'BE',
     email: 'engel@engel-stb.de', phone: '+49 89 888 9900', mobile: '+49 177 889 9001',
     company: 'Engel Steuerberatung', jobTitle: 'Inhaberin',
-    category: 'prospect', status: 'prospect', city: 'Muenchen',
+    category: 'prospect', status: 'prospect', city: 'München',
     tags: ['Steuerberatung', 'Prospect'], notes: 'Empfehlung von Hoffmann IT. 12 Mitarbeiter. Bucht evtl. Buchhaltungsmodul.',
     lastContact: '2026-02-04',
   },
@@ -448,7 +448,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     id: 'x20', salutation: 'Frau', title: '', firstName: 'Christine', lastName: 'Wolf', initials: 'CW',
     email: 'wolf@bvg-medien.de', phone: '+49 89 000 1122', mobile: '+49 179 001 1223',
     company: 'Bayerische Verlagsgruppe AG', jobTitle: 'Marketing-Leiterin',
-    category: 'prospect', status: 'prospect', city: 'Muenchen',
+    category: 'prospect', status: 'prospect', city: 'München',
     tags: ['Verlag', 'Medien', 'Prospect'], notes: 'Kontakt ueber LinkedIn. Interesse an Marketing-Automatisierung.',
     lastContact: '2026-01-25',
   },
@@ -484,13 +484,13 @@ export const PROJECTS: MockProject[] = [
     id: 'p2', name: 'CRM Migration', clientId: 'x2', clientName: 'Rhein-Neckar Logistik AG',
     status: 'aktiv', startDate: '2025-12-01', endDate: '2026-04-15', budget: 35000, progress: 40,
     managerId: 'e18', teamMemberIds: ['e2', 'e5', 'e4'],
-    description: 'Migration von Salesforce zu KMU Hub CRM. Datentransfer + Schulung.',
+    description: 'Migration von Salesforce zu Cosmi CRM. Datentransfer + Schulung.',
   },
   {
     id: 'p3', name: 'Mobile App', clientId: 'x3', clientName: 'Berger & Soehne Metallverarbeitung',
     status: 'aktiv', startDate: '2026-01-15', endDate: '2026-06-30', budget: 62000, progress: 20,
     managerId: 'e18', teamMemberIds: ['e6', 'e4', 'e9'],
-    description: 'Native App fuer Werkstatt-Terminals mit Barcode-Scanner und Auftragsverwaltung.',
+    description: 'Native App für Werkstatt-Terminals mit Barcode-Scanner und Auftragsverwaltung.',
   },
   {
     id: 'p4', name: 'E-Commerce Plattform', clientId: 'x8', clientName: 'Schwarz Einzelhandel AG',
@@ -502,7 +502,7 @@ export const PROJECTS: MockProject[] = [
     id: 'p5', name: 'Data Analytics Dashboard', clientId: 'x6', clientName: 'DataFlow GmbH',
     status: 'aktiv', startDate: '2026-01-01', endDate: '2026-03-31', budget: 28000, progress: 70,
     managerId: 'e18', teamMemberIds: ['e5', 'e4', 'e7'],
-    description: 'Interaktives Dashboard fuer Echtzeit-Datenvisualisierung mit Drill-Down.',
+    description: 'Interaktives Dashboard für Echtzeit-Datenvisualisierung mit Drill-Down.',
   },
   {
     id: 'p6', name: 'Intranet Portal', clientId: 'x7', clientName: 'Stadler Bauunternehmen GmbH',
@@ -551,27 +551,27 @@ export const DEALS: MockDeal[] = [
   { id: 'd1', name: 'Website Relaunch Gruber', contactId: 'x1', contactName: 'Dr. Hans Gruber', company: 'Gruber Maschinenbau GmbH', stage: 'gewonnen', value: 48000, probability: 100, expectedClose: '2025-10-15', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-08-01', notes: 'Vertrag unterschrieben. Projekt laeuft.' },
   { id: 'd2', name: 'CRM Migration RN Logistik', contactId: 'x2', contactName: 'Claudia Hartwig', company: 'Rhein-Neckar Logistik AG', stage: 'gewonnen', value: 35000, probability: 100, expectedClose: '2025-11-20', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-09-10', notes: 'Vertrag + Wartung 12 Monate.' },
   { id: 'd3', name: 'Mobile App Berger', contactId: 'x3', contactName: 'Michael Berger', company: 'Berger & Soehne', stage: 'gewonnen', value: 62000, probability: 100, expectedClose: '2026-01-10', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2025-10-15', notes: 'Grossprojekt. Phase 1 ab Januar.' },
-  { id: 'd4', name: 'Intranet Stadler', contactId: 'x7', contactName: 'Robert Stadler', company: 'Stadler Bauunternehmen GmbH', stage: 'gewonnen', value: 42000, probability: 100, expectedClose: '2025-09-15', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-07-01', notes: 'Langzeit-Kunde. Weitere Projekte moeglich.' },
+  { id: 'd4', name: 'Intranet Stadler', contactId: 'x7', contactName: 'Robert Stadler', company: 'Stadler Bauunternehmen GmbH', stage: 'gewonnen', value: 42000, probability: 100, expectedClose: '2025-09-15', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-07-01', notes: 'Langzeit-Kunde. Weitere Projekte möglich.' },
   { id: 'd5', name: 'Analytics Dashboard DataFlow', contactId: 'x6', contactName: 'Monika Lehmann', company: 'DataFlow GmbH', stage: 'gewonnen', value: 28000, probability: 100, expectedClose: '2025-12-20', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2025-11-01', notes: 'Technisch anspruchsvoll aber spannend.' },
   { id: 'd6', name: 'Security Audit BioTech', contactId: 'x9', contactName: 'Frank Neubauer', company: 'BioTech Solutions GmbH', stage: 'gewonnen', value: 18000, probability: 100, expectedClose: '2026-02-05', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-01-15', notes: 'Dringend. DSGVO-Audit vor Zertifizierung.' },
   // Aktive Pipeline
-  { id: 'd7', name: 'E-Commerce Schwarz AG', contactId: 'x8', contactName: 'Ingrid Schwarz', company: 'Schwarz Einzelhandel AG', stage: 'verhandlung', value: 85000, probability: 75, expectedClose: '2026-02-28', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-12-01', notes: 'Vertragsverhandlung laeuft. Budget bestaetigt.' },
+  { id: 'd7', name: 'E-Commerce Schwarz AG', contactId: 'x8', contactName: 'Ingrid Schwarz', company: 'Schwarz Einzelhandel AG', stage: 'verhandlung', value: 85000, probability: 75, expectedClose: '2026-02-28', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-12-01', notes: 'Vertragsverhandlung laeuft. Budget bestätigt.' },
   { id: 'd8', name: 'HR-Modul Kramer', contactId: 'x10', contactName: 'Susanne Kramer', company: 'Kramer Automotive GmbH', stage: 'angebot', value: 32000, probability: 60, expectedClose: '2026-03-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-01-20', notes: 'Angebot versendet. Warten auf Feedback.' },
   { id: 'd9', name: 'Consulting Paket Weiss', contactId: 'x4', contactName: 'Katrin Weiss', company: 'Weiss Consulting GmbH', stage: 'angebot', value: 15000, probability: 50, expectedClose: '2026-03-31', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-01', notes: 'Erweiterung um Schulungspaket.' },
-  { id: 'd10', name: 'Buchungssystem Alpen', contactId: 'x5', contactName: 'Juergen Becker', company: 'Alpen Tourismus AG', stage: 'qualifiziert', value: 55000, probability: 40, expectedClose: '2026-05-30', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-01-10', notes: 'Anforderungsanalyse geplant fuer Maerz.' },
-  { id: 'd11', name: 'KMU Hub Lizenz MedTech', contactId: 'x16', contactName: 'Dr. Astrid Vogel', company: 'MedTech Innovations GmbH', stage: 'qualifiziert', value: 24000, probability: 35, expectedClose: '2026-04-30', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-10', notes: 'Demo am 28.02. Entscheidung im Maerz.' },
+  { id: 'd10', name: 'Buchungssystem Alpen', contactId: 'x5', contactName: 'Juergen Becker', company: 'Alpen Tourismus AG', stage: 'qualifiziert', value: 55000, probability: 40, expectedClose: '2026-05-30', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-01-10', notes: 'Anforderungsanalyse geplant für März.' },
+  { id: 'd11', name: 'Cosmi Lizenz MedTech', contactId: 'x16', contactName: 'Dr. Astrid Vogel', company: 'MedTech Innovations GmbH', stage: 'qualifiziert', value: 24000, probability: 35, expectedClose: '2026-04-30', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-10', notes: 'Demo am 28.02. Entscheidung im März.' },
   { id: 'd12', name: 'CRM Lizenz NordSoft', contactId: 'x17', contactName: 'Henrik Svensson', company: 'NordSoft GmbH', stage: 'lead', value: 18000, probability: 20, expectedClose: '2026-06-30', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-09', notes: 'Erstkontakt. Brauchen DACH-spezifisches CRM.' },
-  { id: 'd13', name: 'Buchhaltung Engel STB', contactId: 'x18', contactName: 'Barbara Engel', company: 'Engel Steuerberatung', stage: 'lead', value: 8000, probability: 25, expectedClose: '2026-04-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-04', notes: 'Klein aber gute Referenz fuer Steuerberater-Branche.' },
-  { id: 'd14', name: 'Starter-Paket GreenTech', contactId: 'x19', contactName: 'Lukas Pfeifer', company: 'GreenTech Solutions UG', stage: 'lead', value: 6000, probability: 15, expectedClose: '2026-05-31', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-01', notes: 'Startup-Rabatt moeglich. Preisverhandlung.' },
+  { id: 'd13', name: 'Buchhaltung Engel STB', contactId: 'x18', contactName: 'Barbara Engel', company: 'Engel Steuerberatung', stage: 'lead', value: 8000, probability: 25, expectedClose: '2026-04-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-04', notes: 'Klein aber gute Referenz für Steuerberater-Branche.' },
+  { id: 'd14', name: 'Starter-Paket GreenTech', contactId: 'x19', contactName: 'Lukas Pfeifer', company: 'GreenTech Solutions UG', stage: 'lead', value: 6000, probability: 15, expectedClose: '2026-05-31', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-01', notes: 'Startup-Rabatt möglich. Preisverhandlung.' },
   { id: 'd15', name: 'Marketing Suite BVG', contactId: 'x20', contactName: 'Christine Wolf', company: 'Bayerische Verlagsgruppe AG', stage: 'lead', value: 45000, probability: 10, expectedClose: '2026-07-31', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-01-25', notes: 'Sehr fruehe Phase. Erst mal Bedarfsanalyse.' },
   // Verloren
   { id: 'd16', name: 'IT-Infrastruktur Maier AG', contactId: 'x1', contactName: 'Dr. Hans Gruber', company: 'Maier Elektrotechnik AG', stage: 'verloren', value: 38000, probability: 0, expectedClose: '2025-12-15', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-09-01', notes: 'Verloren an Wettbewerber. Preis war entscheidend.' },
   // Extra pipeline deals
   { id: 'd17', name: 'App Erweiterung Gruber Ph.2', contactId: 'x1', contactName: 'Dr. Hans Gruber', company: 'Gruber Maschinenbau GmbH', stage: 'qualifiziert', value: 25000, probability: 60, expectedClose: '2026-06-30', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-02-15', notes: 'Phase 2 Website: Kundenportal + Konfigurator.' },
   { id: 'd18', name: 'Wartungsvertrag RN Logistik', contactId: 'x2', contactName: 'Claudia Hartwig', company: 'Rhein-Neckar Logistik AG', stage: 'verhandlung', value: 12000, probability: 80, expectedClose: '2026-04-01', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-02-10', notes: 'Verlaengerung Wartungsvertrag. Fast sicher.' },
-  { id: 'd19', name: 'Schulungspaket Berger', contactId: 'x3', contactName: 'Michael Berger', company: 'Berger & Soehne', stage: 'angebot', value: 8500, probability: 70, expectedClose: '2026-03-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-12', notes: 'Schulung fuer 20 Werkstatt-Mitarbeiter.' },
+  { id: 'd19', name: 'Schulungspaket Berger', contactId: 'x3', contactName: 'Michael Berger', company: 'Berger & Soehne', stage: 'angebot', value: 8500, probability: 70, expectedClose: '2026-03-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-12', notes: 'Schulung für 20 Werkstatt-Mitarbeiter.' },
   { id: 'd20', name: 'Zusatzmodul Weiss Consulting', contactId: 'x4', contactName: 'Katrin Weiss', company: 'Weiss Consulting GmbH', stage: 'angebot', value: 9500, probability: 55, expectedClose: '2026-04-15', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-05', notes: 'Helpdesk + Chat-Modul Erweiterung.' },
-  { id: 'd21', name: 'DSGVO Audit Kramer', contactId: 'x10', contactName: 'Susanne Kramer', company: 'Kramer Automotive GmbH', stage: 'qualifiziert', value: 14000, probability: 45, expectedClose: '2026-05-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-08', notes: 'Kombination mit HR-Modul moeglich.' },
+  { id: 'd21', name: 'DSGVO Audit Kramer', contactId: 'x10', contactName: 'Susanne Kramer', company: 'Kramer Automotive GmbH', stage: 'qualifiziert', value: 14000, probability: 45, expectedClose: '2026-05-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-08', notes: 'Kombination mit HR-Modul möglich.' },
   { id: 'd22', name: 'Analytics Erweiterung DataFlow', contactId: 'x6', contactName: 'Monika Lehmann', company: 'DataFlow GmbH', stage: 'verhandlung', value: 19000, probability: 70, expectedClose: '2026-04-30', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-18', notes: 'Phase 2: Predictive Analytics + ML-Pipeline.' },
 ]
 
@@ -604,7 +604,7 @@ export const TASKS: MockTask[] = [
   // p2 — CRM Migration
   { id: 't5', title: 'Salesforce-Datenexport validieren', projectId: 'p2', projectName: 'CRM Migration', assigneeId: 'e5', assigneeName: 'Felix Krause', priority: 'high', status: 'done', deadline: '2026-02-10' },
   { id: 't6', title: 'Kontakt-Import Mapping erstellen', projectId: 'p2', projectName: 'CRM Migration', assigneeId: 'e4', assigneeName: 'Laura Neumann', priority: 'high', status: 'in_progress', deadline: '2026-02-26' },
-  { id: 't7', title: 'Testmigration durchfuehren', projectId: 'p2', projectName: 'CRM Migration', assigneeId: 'e2', assigneeName: 'Markus Weber', priority: 'medium', status: 'todo', deadline: '2026-03-05' },
+  { id: 't7', title: 'Testmigration durchführen', projectId: 'p2', projectName: 'CRM Migration', assigneeId: 'e2', assigneeName: 'Markus Weber', priority: 'medium', status: 'todo', deadline: '2026-03-05' },
   // p3 — Mobile App
   { id: 't8', title: 'Barcode-Scanner Integration', projectId: 'p3', projectName: 'Mobile App', assigneeId: 'e6', assigneeName: 'Tim Hartmann', priority: 'high', status: 'in_progress', deadline: '2026-03-01' },
   { id: 't9', title: 'Offline-Modus implementieren', projectId: 'p3', projectName: 'Mobile App', assigneeId: 'e4', assigneeName: 'Laura Neumann', priority: 'medium', status: 'todo', deadline: '2026-03-15' },
@@ -621,12 +621,12 @@ export const TASKS: MockTask[] = [
   { id: 't17', title: 'Newsletter-Template designen', projectId: 'p7', projectName: 'Marketing Automation', assigneeId: 'e9', assigneeName: 'Nina Richter', priority: 'medium', status: 'in_progress', deadline: '2026-02-27' },
   { id: 't18', title: 'Lead-Scoring Regeln definieren', projectId: 'p7', projectName: 'Marketing Automation', assigneeId: 'e12', assigneeName: 'Julia Hofmann', priority: 'high', status: 'todo', deadline: '2026-03-05' },
   // p8 — Security Audit
-  { id: 't19', title: 'Penetrationstest durchfuehren', projectId: 'p8', projectName: 'Security Audit', assigneeId: 'e2', assigneeName: 'Markus Weber', priority: 'high', status: 'in_progress', deadline: '2026-02-28' },
+  { id: 't19', title: 'Penetrationstest durchführen', projectId: 'p8', projectName: 'Security Audit', assigneeId: 'e2', assigneeName: 'Markus Weber', priority: 'high', status: 'in_progress', deadline: '2026-02-28' },
   { id: 't20', title: 'DSGVO-Checkliste abarbeiten', projectId: 'p8', projectName: 'Security Audit', assigneeId: 'e5', assigneeName: 'Felix Krause', priority: 'high', status: 'todo', deadline: '2026-03-05' },
   // Nicht-Projekt (interne Aufgaben)
   { id: 't21', title: 'Monatsabschluss Januar', projectId: '', projectName: 'Intern', assigneeId: 'e13', assigneeName: 'Petra Zimmermann', priority: 'high', status: 'in_progress', deadline: '2026-02-25' },
-  { id: 't22', title: 'Bewerbungsgespraeche KW 9', projectId: '', projectName: 'Intern', assigneeId: 'e15', assigneeName: 'Elena Schuster', priority: 'medium', status: 'todo', deadline: '2026-02-28' },
-  { id: 't23', title: 'Team-Event Maerz organisieren', projectId: '', projectName: 'Intern', assigneeId: 'e14', assigneeName: 'Andrea Keller', priority: 'low', status: 'in_progress', deadline: '2026-03-07' },
+  { id: 't22', title: 'Bewerbungsgespräche KW 9', projectId: '', projectName: 'Intern', assigneeId: 'e15', assigneeName: 'Elena Schuster', priority: 'medium', status: 'todo', deadline: '2026-02-28' },
+  { id: 't23', title: 'Team-Event März organisieren', projectId: '', projectName: 'Intern', assigneeId: 'e14', assigneeName: 'Andrea Keller', priority: 'low', status: 'in_progress', deadline: '2026-03-07' },
   { id: 't24', title: 'FAQ-Artikel aktualisieren', projectId: '', projectName: 'Intern', assigneeId: 'e17', assigneeName: 'Jonas Schmitt', priority: 'medium', status: 'in_progress', deadline: '2026-02-24' },
 ]
 
@@ -653,7 +653,7 @@ export const TODAY_EVENTS: MockCalendarEvent[] = [
   { id: 'ev5', title: 'Fokuszeit — Deep Work', time: '13:30', duration: '2 Std', type: 'focus', attendeeIds: [], color: '#10b981' },
   { id: 'ev6', title: 'Call: Claudia Hartwig (RN Logistik)', time: '15:30', duration: '30 Min', type: 'call', attendeeIds: ['e3', 'e10'], color: '#f59e0b' },
   { id: 'ev7', title: 'Team Retro', time: '16:00', duration: '1 Std', location: 'Raum Alpen', type: 'workshop', attendeeIds: ['e2', 'e4', 'e5', 'e6', 'e7', 'e18'], color: '#14b8a6' },
-  { id: 'ev8', title: '1:1 mit Stefan (Quartalsplanung)', time: '17:00', duration: '30 Min', location: 'Buero GF', type: 'meeting', attendeeIds: ['e1', 'e2'], color: '#6366f1' },
+  { id: 'ev8', title: '1:1 mit Stefan (Quartalsplanung)', time: '17:00', duration: '30 Min', location: 'Büro GF', type: 'meeting', attendeeIds: ['e1', 'e2'], color: '#6366f1' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -673,8 +673,8 @@ export interface MockChatMessage {
 
 export const CHAT_MESSAGES: MockChatMessage[] = [
   { id: 'msg1', channel: 'allgemein', senderId: 'e18', senderName: 'Sarah Beck', senderInitials: 'SB', text: 'Reminder: Sprint Review heute um 10 Uhr in Raum Alpen!', time: '08:45', unread: true },
-  { id: 'msg2', channel: 'entwicklung', senderId: 'e2', senderName: 'Markus Weber', senderInitials: 'MW', text: 'PR #312 ist ready for review — API v2 Endpunkte. Wer kann drueberschauen?', time: '08:32', unread: true },
-  { id: 'msg3', channel: 'allgemein', senderId: 'e9', senderName: 'Nina Richter', senderInitials: 'NR', text: 'Neue Mockups fuer die Mobile App sind im Figma. Link im Thread.', time: '08:15', unread: false },
+  { id: 'msg2', channel: 'entwicklung', senderId: 'e2', senderName: 'Markus Weber', senderInitials: 'MW', text: 'PR #312 ist ready for review — API v2 Endpunkte. Wer kann drüberschauen?', time: '08:32', unread: true },
+  { id: 'msg3', channel: 'allgemein', senderId: 'e9', senderName: 'Nina Richter', senderInitials: 'NR', text: 'Neue Mockups für die Mobile App sind im Figma. Link im Thread.', time: '08:15', unread: false },
   { id: 'msg4', channel: 'vertrieb', senderId: 'e3', senderName: 'Thomas Meier', senderInitials: 'TM', text: 'Schwarz Einzelhandel hat den E-Commerce-Vertrag unterschrieben! 🎉', time: 'Gestern', unread: false },
   { id: 'msg5', channel: 'random', senderId: 'e14', senderName: 'Andrea Keller', senderInitials: 'AK', text: 'Wer hat Lust auf Mittagessen beim Italiener um die Ecke?', time: 'Gestern', unread: false },
   { id: 'msg6', channel: 'entwicklung', senderId: 'e5', senderName: 'Felix Krause', senderInitials: 'FK', text: 'Heads up: Redis-Migration auf v7 ist durch. Bitte lokales Setup updaten.', time: 'Gestern', unread: false },
@@ -815,12 +815,12 @@ export const BANK_TRANSACTIONS: MockTransaction[] = [
   { id: 'bt1', date: '2026-02-24', description: 'Eingang Gruber Maschinenbau — Abschlag 3', amount: 16000, type: 'eingang', category: 'Projekterloes', counterparty: 'Gruber Maschinenbau GmbH', status: 'gebucht' },
   { id: 'bt2', date: '2026-02-23', description: 'CloudFirst Hosting — Monatsrechnung Feb', amount: -1890, type: 'ausgang', category: 'Hosting', counterparty: 'CloudFirst Hosting GmbH', status: 'gebucht' },
   { id: 'bt3', date: '2026-02-22', description: 'Eingang DataFlow — Analytics Dashboard', amount: 14000, type: 'eingang', category: 'Projekterloes', counterparty: 'DataFlow GmbH', status: 'gebucht' },
-  { id: 'bt4', date: '2026-02-21', description: 'Gehaelter Februar 2026', amount: -78500, type: 'ausgang', category: 'Gehaelter', counterparty: 'Sammelüberweisung', status: 'gebucht' },
-  { id: 'bt5', date: '2026-02-20', description: 'Bueromiete Leopoldstrasse', amount: -4200, type: 'ausgang', category: 'Miete', counterparty: 'Bayerische Hausverwaltung', status: 'gebucht' },
+  { id: 'bt4', date: '2026-02-21', description: 'Gehälter Februar 2026', amount: -78500, type: 'ausgang', category: 'Gehälter', counterparty: 'Sammelüberweisung', status: 'gebucht' },
+  { id: 'bt5', date: '2026-02-20', description: 'Büromiete Leopoldstrasse', amount: -4200, type: 'ausgang', category: 'Miete', counterparty: 'Bayerische Hausverwaltung', status: 'gebucht' },
   { id: 'bt6', date: '2026-02-19', description: 'Eingang Stadler Bau — Intranet Portal', amount: 21000, type: 'eingang', category: 'Projekterloes', counterparty: 'Stadler Bauunternehmen GmbH', status: 'gebucht' },
   { id: 'bt7', date: '2026-02-18', description: 'Adobe Creative Cloud — Jahresrechnung', amount: -4188, type: 'ausgang', category: 'Software-Lizenzen', counterparty: 'Adobe Inc.', status: 'gebucht' },
   { id: 'bt8', date: '2026-02-25', description: 'Eingang Berger — Mobile App Anzahlung', amount: 20000, type: 'eingang', category: 'Projekterloes', counterparty: 'Berger & Soehne', status: 'ausstehend' },
-  { id: 'bt9', date: '2026-02-26', description: 'DATEV Lizenzgebuehr Q1/2026', amount: -890, type: 'ausgang', category: 'Software-Lizenzen', counterparty: 'DATEV eG', status: 'ausstehend' },
+  { id: 'bt9', date: '2026-02-26', description: 'DATEV Lizenzgebühr Q1/2026', amount: -890, type: 'ausgang', category: 'Software-Lizenzen', counterparty: 'DATEV eG', status: 'ausstehend' },
 ]
 
 // ---------------------------------------------------------------------------

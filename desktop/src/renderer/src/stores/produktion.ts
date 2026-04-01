@@ -147,18 +147,18 @@ const MOCK_ORDERS: ProductionOrder[] = [
 
 const MOCK_WORK_STEPS: WorkStep[] = [
   { id: 'ws-1', orderId: 'prod-1', stepNr: 1, name: 'Gehaeuse vorbereiten', description: 'Stahlgehaeuse entgraten, bohren und grundieren', durationMinutes: 120, status: 'completed', assignee: 'Thomas Keller' },
-  { id: 'ws-2', orderId: 'prod-1', stepNr: 2, name: 'Hutschienen montieren', description: 'Hutschienen und Kabelkanaele einbauen', durationMinutes: 60, status: 'completed', assignee: 'Thomas Keller' },
+  { id: 'ws-2', orderId: 'prod-1', stepNr: 2, name: 'Hutschienen montieren', description: 'Hutschienen und Kabelkanäle einbauen', durationMinutes: 60, status: 'completed', assignee: 'Thomas Keller' },
   { id: 'ws-3', orderId: 'prod-1', stepNr: 3, name: 'Sicherungen einbauen', description: 'LSS, FI und Hauptschalter montieren', durationMinutes: 90, status: 'in_progress', assignee: 'Lukas Brunner' },
   { id: 'ws-4', orderId: 'prod-1', stepNr: 4, name: 'Verdrahtung', description: 'Interne Verdrahtung nach Plan', durationMinutes: 180, status: 'pending' },
-  { id: 'ws-5', orderId: 'prod-1', stepNr: 5, name: 'Pruefung / Inbetriebnahme', description: 'Isolationsmessung, Funktionstest, Protokoll', durationMinutes: 60, status: 'pending' },
+  { id: 'ws-5', orderId: 'prod-1', stepNr: 5, name: 'Prüfung / Inbetriebnahme', description: 'Isolationsmessung, Funktionstest, Protokoll', durationMinutes: 60, status: 'pending' },
   { id: 'ws-6', orderId: 'prod-2', stepNr: 1, name: 'Gehaeuse fertigen', description: 'Aluminiumgehaeuse CNC-fraesen und eloxieren', durationMinutes: 90, status: 'completed', assignee: 'Werner Stoeckli' },
-  { id: 'ws-7', orderId: 'prod-2', stepNr: 2, name: 'Elektronik bestuecken', description: 'CM4, Display und Netzteil montieren', durationMinutes: 120, status: 'in_progress', assignee: 'Irene Graf' },
+  { id: 'ws-7', orderId: 'prod-2', stepNr: 2, name: 'Elektronik bestücken', description: 'CM4, Display und Netzteil montieren', durationMinutes: 120, status: 'in_progress', assignee: 'Irene Graf' },
   { id: 'ws-8', orderId: 'prod-2', stepNr: 3, name: 'Software flashen', description: 'Firmware und Konfiguration aufspielen', durationMinutes: 45, status: 'pending' },
-  { id: 'ws-9', orderId: 'prod-2', stepNr: 4, name: 'Endpruefung', description: 'Touch-Kalibrierung, Kommunikationstest, Verpackung', durationMinutes: 60, status: 'pending' },
-  { id: 'ws-10', orderId: 'prod-4', stepNr: 1, name: 'LED-Module vorbereiten', description: 'LED-Module und Treiber pruefen und vorsortieren', durationMinutes: 60, status: 'pending' },
+  { id: 'ws-9', orderId: 'prod-2', stepNr: 4, name: 'Endprüfung', description: 'Touch-Kalibrierung, Kommunikationstest, Verpackung', durationMinutes: 60, status: 'pending' },
+  { id: 'ws-10', orderId: 'prod-4', stepNr: 1, name: 'LED-Module vorbereiten', description: 'LED-Module und Treiber prüfen und vorsortieren', durationMinutes: 60, status: 'pending' },
   { id: 'ws-11', orderId: 'prod-4', stepNr: 2, name: 'Gehaeuse giessen', description: 'Druckguss-Gehaeuse fertigen und entgraten', durationMinutes: 150, status: 'pending' },
   { id: 'ws-12', orderId: 'prod-4', stepNr: 3, name: 'Montage', description: 'LED-Modul, Treiber und Optik in Gehaeuse montieren', durationMinutes: 90, status: 'pending' },
-  { id: 'ws-13', orderId: 'prod-4', stepNr: 4, name: 'IP65-Pruefung', description: 'Dichtheit und Schutzart pruefen', durationMinutes: 45, status: 'pending' },
+  { id: 'ws-13', orderId: 'prod-4', stepNr: 4, name: 'IP65-Prüfung', description: 'Dichtheit und Schutzart prüfen', durationMinutes: 45, status: 'pending' },
 ]
 
 const MOCK_MACHINES: Machine[] = [
@@ -166,7 +166,7 @@ const MOCK_MACHINES: Machine[] = [
   { id: 'mc-2', name: 'Lötstation Pro', type: 'Lötstation', status: 'in_use' },
   { id: 'mc-3', name: 'Druckgussmaschine DG-400', type: 'Druckguss', status: 'available' },
   { id: 'mc-4', name: 'Montageband 1', type: 'Montage', status: 'in_use' },
-  { id: 'mc-5', name: 'Pruefstand Elektro', type: 'Pruefung', status: 'available' },
+  { id: 'mc-5', name: 'Prüfstand Elektro', type: 'Prüfung', status: 'available' },
   { id: 'mc-6', name: 'Verpackungslinie VP-1', type: 'Verpackung', status: 'maintenance' },
 ]
 
@@ -174,7 +174,7 @@ const MOCK_MACHINE_BOOKINGS: MachineBooking[] = [
   { id: 'mb-1', machineId: 'mc-1', machineName: 'CNC-Fraese Alpha', orderId: 'prod-2', orderNr: 'PRD-2026-042', product: 'Steuerungspanel Touch 10"', startDate: '2026-02-10', endDate: '2026-02-14', color: '#3b82f6' },
   { id: 'mb-2', machineId: 'mc-2', machineName: 'Lötstation Pro', orderId: 'prod-2', orderNr: 'PRD-2026-042', product: 'Steuerungspanel Touch 10"', startDate: '2026-02-14', endDate: '2026-02-20', color: '#3b82f6' },
   { id: 'mb-3', machineId: 'mc-4', machineName: 'Montageband 1', orderId: 'prod-1', orderNr: 'PRD-2026-041', product: 'Schaltschrank Standard 600mm', startDate: '2026-02-03', endDate: '2026-02-17', color: '#10b981' },
-  { id: 'mb-4', machineId: 'mc-5', machineName: 'Pruefstand Elektro', orderId: 'prod-1', orderNr: 'PRD-2026-041', product: 'Schaltschrank Standard 600mm', startDate: '2026-02-15', endDate: '2026-02-17', color: '#10b981' },
+  { id: 'mb-4', machineId: 'mc-5', machineName: 'Prüfstand Elektro', orderId: 'prod-1', orderNr: 'PRD-2026-041', product: 'Schaltschrank Standard 600mm', startDate: '2026-02-15', endDate: '2026-02-17', color: '#10b981' },
   { id: 'mb-5', machineId: 'mc-3', machineName: 'Druckgussmaschine DG-400', orderId: 'prod-4', orderNr: 'PRD-2026-044', product: 'LED-Leuchte IP65 Outdoor', startDate: '2026-02-18', endDate: '2026-02-28', color: '#f59e0b' },
   { id: 'mb-6', machineId: 'mc-4', machineName: 'Montageband 1', orderId: 'prod-4', orderNr: 'PRD-2026-044', product: 'LED-Leuchte IP65 Outdoor', startDate: '2026-02-28', endDate: '2026-03-07', color: '#f59e0b' },
   { id: 'mb-7', machineId: 'mc-1', machineName: 'CNC-Fraese Alpha', orderId: 'prod-7', orderNr: 'PRD-2026-047', product: 'Steuerungspanel Touch 10"', startDate: '2026-01-27', endDate: '2026-02-03', color: '#8b5cf6' },

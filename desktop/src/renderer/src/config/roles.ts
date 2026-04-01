@@ -70,7 +70,7 @@ export const DEV_PROFILES: DevProfile[] = [
     user: {
       id: 'u-pm',
       firstName: 'Sarah',
-      lastName: 'Mueller',
+      lastName: 'Müller',
       email: 'sarah.mueller@firma.ch',
       roles: ['manager'],
     },

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/tooltip'
 import type { NavItemConfig } from '../sidebar/nav-items'
 
-const MOCK_USER = { firstName: 'Darien', lastName: 'Mueller' }
+const MOCK_USER = { firstName: 'Darien', lastName: 'Müller' }
 
 export function ClassicSidebar() {
   const { mainItems, bottomItems } = useFilteredNavItems()

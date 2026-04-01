@@ -1,7 +1,7 @@
 /**
  * Snooze popover with preset buttons and custom date/time picker.
  *
- * Presets: 1 Stunde, Morgen frueh (09:00), Naechste Woche (Mon 09:00).
+ * Presets: 1 Stunde, Morgen frueh (09:00), Nächste Woche (Mon 09:00).
  * Custom: Date + Time inputs with confirm button.
  */
 import { useState } from 'react'
@@ -83,7 +83,7 @@ export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
       <PopoverContent className="w-64 p-3" align="start">
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground mb-2">
-            Spaeter erinnern
+            Später erinnern
           </p>
 
           {/* Presets */}
@@ -109,7 +109,7 @@ export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            Naechste Woche
+            Nächste Woche
             <span className="ml-auto text-xs text-muted-foreground">
               {formatSnoozeDisplay(nextMondayAt9())}
             </span>
@@ -140,7 +140,7 @@ export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
             onClick={handleCustom}
             className="mt-1 w-full rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Spaeter erinnern
+            Später erinnern
           </button>
         </div>
       </PopoverContent>

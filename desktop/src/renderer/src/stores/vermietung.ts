@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type RentalObjectType = 'geraet' | 'raum' | 'fahrzeug' | 'werkzeug'
+export type RentalObjectType = 'gerät' | 'raum' | 'fahrzeug' | 'werkzeug'
 
 export interface RentalObject {
   id: string
@@ -72,9 +72,9 @@ const MOCK_OBJECTS: RentalObject[] = [
   {
     id: 'obj-1',
     name: 'Beamer Epson EB-W49',
-    type: 'geraet',
+    type: 'gerät',
     description: 'Full-HD Beamer mit 3800 Lumen, HDMI & USB, inkl. Fernbedienung und Tragetasche',
-    location: 'Buero Zuerich',
+    location: 'Büro Zürich',
     serialNumber: 'EP-W49-2024-0871',
     dailyRate: 45,
     currency: 'EUR',
@@ -84,7 +84,7 @@ const MOCK_OBJECTS: RentalObject[] = [
     id: 'obj-2',
     name: 'Konferenzraum A',
     type: 'raum',
-    description: 'Grosser Konferenzraum fuer bis zu 20 Personen, Beamer & Whiteboard vorhanden',
+    description: 'Grosser Konferenzraum für bis zu 20 Personen, Beamer & Whiteboard vorhanden',
     location: '2. OG',
     dailyRate: 150,
     currency: 'EUR',
@@ -118,7 +118,7 @@ const MOCK_OBJECTS: RentalObject[] = [
   {
     id: 'obj-5',
     name: 'Hebebuehne 12m',
-    type: 'geraet',
+    type: 'gerät',
     description: 'Selbstfahrende Scherenbuehne, max. Arbeitshoehe 12m, Tragkraft 350kg',
     location: 'Aussenlager',
     serialNumber: 'HB-12M-0042',
@@ -132,7 +132,7 @@ const MOCK_OBJECTS: RentalObject[] = [
     id: 'obj-6',
     name: 'Schulungsraum B',
     type: 'raum',
-    description: 'Schulungsraum fuer bis zu 12 Personen, Flipchart & Beamer',
+    description: 'Schulungsraum für bis zu 12 Personen, Flipchart & Beamer',
     location: '1. OG',
     dailyRate: 100,
     currency: 'EUR',
@@ -141,9 +141,9 @@ const MOCK_OBJECTS: RentalObject[] = [
   {
     id: 'obj-7',
     name: 'Laptop-Pool (5 Stk.)',
-    type: 'geraet',
+    type: 'gerät',
     description: '5x Lenovo ThinkPad T14s, 16GB RAM, 512GB SSD, Windows 11 Pro',
-    location: 'IT-Buero',
+    location: 'IT-Büro',
     dailyRate: 25,
     currency: 'EUR',
     status: 'reserved',
@@ -184,12 +184,12 @@ const MOCK_RESERVATIONS: Reservation[] = [
     objectName: 'Laptop-Pool (5 Stk.)',
     startDate: '2026-02-13',
     endDate: '2026-02-17',
-    renter: 'Sandra Mueller',
+    renter: 'Sandra Müller',
     renterType: 'employee',
     notes: 'Workshop-Woche Digitalisierung',
     status: 'active',
-    pickupLocation: 'IT-Buero',
-    returnLocation: 'IT-Buero',
+    pickupLocation: 'IT-Büro',
+    returnLocation: 'IT-Büro',
     currency: 'EUR',
   },
   {
@@ -216,8 +216,8 @@ const MOCK_RESERVATIONS: Reservation[] = [
     renterType: 'employee',
     notes: 'Praesentation Teammeeting',
     status: 'upcoming',
-    pickupLocation: 'Buero Zuerich',
-    returnLocation: 'Buero Zuerich',
+    pickupLocation: 'Büro Zürich',
+    returnLocation: 'Büro Zürich',
     currency: 'EUR',
   },
   {
@@ -228,7 +228,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
     endDate: '2026-02-22',
     renter: 'Reto Aeschlimann',
     renterType: 'employee',
-    notes: 'Montage Kabelkanaele Neubau',
+    notes: 'Montage Kabelkanäle Neubau',
     status: 'upcoming',
     pickupLocation: 'Lager Winterthur',
     returnLocation: 'Lager Winterthur',
@@ -272,8 +272,8 @@ const MOCK_RESERVATIONS: Reservation[] = [
     renterType: 'employee',
     notes: 'Kundenschulung',
     status: 'completed',
-    pickupLocation: 'Buero Zuerich',
-    returnLocation: 'Buero Zuerich',
+    pickupLocation: 'Büro Zürich',
+    returnLocation: 'Büro Zürich',
     currency: 'EUR',
   },
   {
@@ -364,7 +364,7 @@ const MOCK_ZUSTANDSPROTOKOLLE: Zustandsprotokoll[] = [
       { label: 'Ladungssicherung', condition: 'ok' },
     ],
     photoCount: 1,
-    notes: 'Rueckgabe ohne neue Schaeden',
+    notes: 'Rückgabe ohne neue Schaeden',
     createdBy: 'Thomas Keller',
   },
 ]

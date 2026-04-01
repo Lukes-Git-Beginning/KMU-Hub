@@ -28,7 +28,7 @@ export function ContextPanel() {
         <button
           onClick={toggleDetailPane}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          title="Kontext-Panel oeffnen"
+          title="Kontext-Panel öffnen"
         >
           <PanelRightClose className="h-4 w-4" />
         </button>

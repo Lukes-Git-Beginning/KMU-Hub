@@ -45,7 +45,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'crm', 'projects', 'tasks', 'chat', 'calendar', 'meetings',
       'documents', 'mail', 'contacts', 'team', 'finance', 'zeiterfassung',
     ],
-    optionalModules: ['berichte', 'helpdesk', 'vertraege', 'formulare'],
+    optionalModules: ['berichte', 'helpdesk', 'verträge', 'formulare'],
     examples: ['Beratungsfirmen', 'Agenturen', 'Kanzleien', 'Treuhänder'],
   },
   {
@@ -58,7 +58,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'crm', 'projects', 'calendar', 'einkauf', 'inventar',
       'fuhrpark', 'documents', 'team', 'finance', 'rapporte', 'zeiterfassung',
     ],
-    optionalModules: ['schichten', 'chat', 'meetings', 'vertraege', 'vermietung', 'formulare'],
+    optionalModules: ['schichten', 'chat', 'meetings', 'verträge', 'vermietung', 'formulare'],
     examples: ['Elektriker', 'Sanitär', 'Schreiner', 'Maler', 'HVAC'],
   },
   {
@@ -71,7 +71,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'inventar', 'schichten', 'einkauf',
       'team', 'finance', 'calendar', 'zeiterfassung',
     ],
-    optionalModules: ['crm', 'chat', 'berichte', 'vertraege', 'formulare'],
+    optionalModules: ['crm', 'chat', 'berichte', 'verträge', 'formulare'],
     examples: ['Restaurants', 'Cafes', 'Catering', 'Bäckereien', 'Hotels'],
   },
   {
@@ -84,7 +84,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'inventar', 'crm', 'einkauf', 'schichten',
       'team', 'finance', 'zeiterfassung',
     ],
-    optionalModules: ['chat', 'berichte', 'meetings', 'vertraege', 'vermietung', 'formulare'],
+    optionalModules: ['chat', 'berichte', 'meetings', 'verträge', 'vermietung', 'formulare'],
     examples: ['Elektronik', 'Boutique', 'Möbel', 'Buchhandlung'],
   },
   {
@@ -95,7 +95,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(330 81% 60%)',
     defaultModules: [
       'calendar', 'crm', 'mail', 'documents',
-      'team', 'finance', 'chat', 'zeiterfassung', 'vertraege',
+      'team', 'finance', 'chat', 'zeiterfassung', 'verträge',
     ],
     optionalModules: ['projects', 'meetings', 'helpdesk', 'berichte', 'vermietung', 'formulare', 'rapporte'],
     examples: ['Friseursalon', 'Kosmetik', 'Reinigung', 'Berater'],
@@ -108,7 +108,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(142 71% 45%)',
     defaultModules: [
       'crm', 'projects', 'tasks', 'helpdesk', 'chat', 'meetings',
-      'documents', 'mail', 'team', 'infrastructure', 'finance', 'zeiterfassung', 'vertraege',
+      'documents', 'mail', 'team', 'infrastructure', 'finance', 'zeiterfassung', 'verträge',
     ],
     optionalModules: ['berichte', 'inventar', 'formulare'],
     examples: ['Softwarefirmen', 'IT-Support', 'SaaS', 'Web-Agenturen'],
@@ -147,7 +147,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
     color: 'hsl(174 62% 47%)',
     defaultModules: [
       'calendar', 'crm', 'documents',
-      'team', 'finance', 'mail', 'zeiterfassung', 'vertraege',
+      'team', 'finance', 'mail', 'zeiterfassung', 'verträge',
     ],
     optionalModules: ['schichten', 'inventar', 'meetings', 'helpdesk', 'berichte', 'formulare'],
     examples: ['Arztpraxen', 'Zahnärzte', 'Physiotherapie', 'Tierärzte'],

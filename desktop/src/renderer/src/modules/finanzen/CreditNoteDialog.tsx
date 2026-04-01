@@ -162,7 +162,7 @@ export function CreditNoteDialog({
               <Label>Originalrechnung *</Label>
               <Select value={selectedInvoiceId} onValueChange={handleInvoiceSelect}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Rechnung auswaehlen..." />
+                  <SelectValue placeholder="Rechnung auswählen..." />
                 </SelectTrigger>
                 <SelectContent>
                   {eligibleInvoices.map((inv) => (
@@ -201,7 +201,7 @@ export function CreditNoteDialog({
               <div className="space-y-1.5">
                 <Label>Grund *</Label>
                 <Textarea
-                  placeholder="z.B. Teilgutschrift fuer nicht erbrachte Leistung"
+                  placeholder="z.B. Teilgutschrift für nicht erbrachte Leistung"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={2}
@@ -210,7 +210,7 @@ export function CreditNoteDialog({
 
               {/* Line items (adjustable) */}
               <div className="space-y-2">
-                <Label>Positionen (anpassbar fuer Teilgutschrift)</Label>
+                <Label>Positionen (anpassbar für Teilgutschrift)</Label>
                 <div className="rounded-lg border border-border overflow-hidden">
                   <div className="grid grid-cols-[1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
                     <span>Bezeichnung</span>

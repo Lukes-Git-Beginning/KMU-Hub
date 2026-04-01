@@ -110,7 +110,7 @@ const MOCK_VEHICLES: Vehicle[] = [
   { id: 'veh-1', licensePlate: 'ZH 345 678', make: 'VW', model: 'Caddy Cargo', year: 2024, type: 'van', currentDriver: 'Thomas Keller', mileage: 18420, nextInspection: '2026-08-15', insuranceExpiry: '2027-01-01', isActive: true },
   { id: 'veh-2', licensePlate: 'ZH 112 233', make: 'Skoda', model: 'Octavia Combi', year: 2023, type: 'car', currentDriver: 'Lukas Brunner', mileage: 34560, nextInspection: '2026-05-20', insuranceExpiry: '2027-01-01', isActive: true },
   { id: 'veh-3', licensePlate: 'BE 456 789', make: 'Mercedes-Benz', model: 'Sprinter 314', year: 2022, type: 'truck', currentDriver: 'Reto Aeschlimann', mileage: 67890, nextInspection: '2026-03-10', insuranceExpiry: '2027-01-01', isActive: true },
-  { id: 'veh-4', licensePlate: 'ZH 998 877', make: 'Renault', model: 'Kangoo E-Tech', year: 2025, type: 'van', currentDriver: 'Sandra Mueller', mileage: 5230, nextInspection: '2027-02-01', insuranceExpiry: '2027-01-01', isActive: true },
+  { id: 'veh-4', licensePlate: 'ZH 998 877', make: 'Renault', model: 'Kangoo E-Tech', year: 2025, type: 'van', currentDriver: 'Sandra Müller', mileage: 5230, nextInspection: '2027-02-01', insuranceExpiry: '2027-01-01', isActive: true },
   { id: 'veh-5', licensePlate: 'AG 223 344', make: 'Toyota', model: 'Proace City', year: 2023, type: 'van', currentDriver: 'Daniel Frei', mileage: 41200, nextInspection: '2026-06-30', insuranceExpiry: '2027-01-01', isActive: true },
   { id: 'veh-6', licensePlate: 'ZH 667 788', make: 'Iveco', model: 'Daily 35S14', year: 2021, type: 'truck', currentDriver: '', mileage: 89450, nextInspection: '2026-04-15', insuranceExpiry: '2027-01-01', isActive: false },
 ]
@@ -149,11 +149,11 @@ const MOCK_VEHICLE_ROUTES: VehicleRoute[] = [
     status: 'driving',
     driver: 'Thomas Berger',
     positions: [
-      { lat: 47.3769, lng: 8.5417, address: 'Bahnhofstrasse 42, 8001 Zuerich', timestamp: '2026-02-15T07:15:00' },
+      { lat: 47.3769, lng: 8.5417, address: 'Bahnhofstrasse 42, 8001 Zürich', timestamp: '2026-02-15T07:15:00' },
       { lat: 47.4245, lng: 8.6507, address: 'Industriestrasse 18, 8404 Winterthur', timestamp: '2026-02-15T08:05:00' },
       { lat: 47.4979, lng: 8.7271, address: 'Muensterplatz 1, 8200 Schaffhausen', timestamp: '2026-02-15T09:30:00' },
-      { lat: 47.4508, lng: 8.6843, address: 'Zuerich Flughafen, Cargo-Terminal', timestamp: '2026-02-15T11:20:00' },
-      { lat: 47.3895, lng: 8.5185, address: 'Hardstrasse 201, 8005 Zuerich', timestamp: '2026-02-15T12:45:00' },
+      { lat: 47.4508, lng: 8.6843, address: 'Zürich Flughafen, Cargo-Terminal', timestamp: '2026-02-15T11:20:00' },
+      { lat: 47.3895, lng: 8.5185, address: 'Hardstrasse 201, 8005 Zürich', timestamp: '2026-02-15T12:45:00' },
     ],
   },
   {
@@ -194,7 +194,7 @@ const MOCK_VEHICLE_ROUTES: VehicleRoute[] = [
     date: '2026-02-15',
     dailyKm: 12,
     status: 'parked',
-    driver: 'Anna Mueller',
+    driver: 'Anna Müller',
     positions: [
       { lat: 47.0502, lng: 8.3093, address: 'Pilatusstrasse 15, 6003 Luzern', timestamp: '2026-02-15T08:00:00' },
       { lat: 47.0378, lng: 8.3080, address: 'Bundesplatz 14, 6003 Luzern', timestamp: '2026-02-15T08:10:00' },
@@ -225,21 +225,21 @@ const MOCK_VEHICLE_ROUTES: VehicleRoute[] = [
     status: 'unknown',
     driver: '\u2014',
     positions: [
-      { lat: 47.3769, lng: 8.5417, address: 'Lagerstrasse 104, 8004 Zuerich (letzte Position)', timestamp: '2026-02-14T17:30:00' },
+      { lat: 47.3769, lng: 8.5417, address: 'Lagerstrasse 104, 8004 Zürich (letzte Position)', timestamp: '2026-02-14T17:30:00' },
     ],
   },
 ]
 
 // Wave 9 — Fahrtenbuch mock data
 const MOCK_LOGBOOK: LogbookEntry[] = [
-  { id: 'lb-1', vehicleId: 'veh-1', vehiclePlate: 'ZH 345 678', date: '2026-02-14', startLocation: 'Buero Zuerich', endLocation: 'Kunde Meier AG, Winterthur', purpose: 'Kundenbesuch Angebot #2045', startKm: 18320, endKm: 18370, km: 50, isPrivate: false, driver: 'Thomas Keller' },
-  { id: 'lb-2', vehicleId: 'veh-1', vehiclePlate: 'ZH 345 678', date: '2026-02-14', startLocation: 'Kunde Meier AG, Winterthur', endLocation: 'Buero Zuerich', purpose: 'Rueckfahrt', startKm: 18370, endKm: 18420, km: 50, isPrivate: false, driver: 'Thomas Keller' },
-  { id: 'lb-3', vehicleId: 'veh-2', vehiclePlate: 'ZH 112 233', date: '2026-02-13', startLocation: 'Wohnort', endLocation: 'Buero Zuerich', purpose: 'Arbeitsweg', startKm: 34480, endKm: 34520, km: 40, isPrivate: true, driver: 'Lukas Brunner' },
-  { id: 'lb-4', vehicleId: 'veh-2', vehiclePlate: 'ZH 112 233', date: '2026-02-13', startLocation: 'Buero Zuerich', endLocation: 'Baustelle Altstetten', purpose: 'Baustellenbesichtigung', startKm: 34520, endKm: 34540, km: 20, isPrivate: false, driver: 'Lukas Brunner' },
+  { id: 'lb-1', vehicleId: 'veh-1', vehiclePlate: 'ZH 345 678', date: '2026-02-14', startLocation: 'Büro Zürich', endLocation: 'Kunde Meier AG, Winterthur', purpose: 'Kundenbesuch Angebot #2045', startKm: 18320, endKm: 18370, km: 50, isPrivate: false, driver: 'Thomas Keller' },
+  { id: 'lb-2', vehicleId: 'veh-1', vehiclePlate: 'ZH 345 678', date: '2026-02-14', startLocation: 'Kunde Meier AG, Winterthur', endLocation: 'Büro Zürich', purpose: 'Rueckfahrt', startKm: 18370, endKm: 18420, km: 50, isPrivate: false, driver: 'Thomas Keller' },
+  { id: 'lb-3', vehicleId: 'veh-2', vehiclePlate: 'ZH 112 233', date: '2026-02-13', startLocation: 'Wohnort', endLocation: 'Büro Zürich', purpose: 'Arbeitsweg', startKm: 34480, endKm: 34520, km: 40, isPrivate: true, driver: 'Lukas Brunner' },
+  { id: 'lb-4', vehicleId: 'veh-2', vehiclePlate: 'ZH 112 233', date: '2026-02-13', startLocation: 'Büro Zürich', endLocation: 'Baustelle Altstetten', purpose: 'Baustellenbesichtigung', startKm: 34520, endKm: 34540, km: 20, isPrivate: false, driver: 'Lukas Brunner' },
   { id: 'lb-5', vehicleId: 'veh-3', vehiclePlate: 'BE 456 789', date: '2026-02-14', startLocation: 'Depot Bern', endLocation: 'Baustelle Thun', purpose: 'Materialtransport Baustahl', startKm: 67750, endKm: 67820, km: 70, isPrivate: false, driver: 'Reto Aeschlimann' },
   { id: 'lb-6', vehicleId: 'veh-3', vehiclePlate: 'BE 456 789', date: '2026-02-14', startLocation: 'Baustelle Thun', endLocation: 'Depot Bern', purpose: 'Rueckfahrt leer', startKm: 67820, endKm: 67890, km: 70, isPrivate: false, driver: 'Reto Aeschlimann' },
-  { id: 'lb-7', vehicleId: 'veh-4', vehiclePlate: 'ZH 998 877', date: '2026-02-12', startLocation: 'Buero Luzern', endLocation: 'Messe Zuerich', purpose: 'Messeaufbau', startKm: 5180, endKm: 5230, km: 50, isPrivate: false, driver: 'Sandra Mueller' },
-  { id: 'lb-8', vehicleId: 'veh-5', vehiclePlate: 'AG 223 344', date: '2026-02-13', startLocation: 'Buero Aarau', endLocation: 'Kunde Weber, Basel', purpose: 'Servicebesuch', startKm: 41100, endKm: 41200, km: 100, isPrivate: false, driver: 'Daniel Frei' },
+  { id: 'lb-7', vehicleId: 'veh-4', vehiclePlate: 'ZH 998 877', date: '2026-02-12', startLocation: 'Büro Luzern', endLocation: 'Messe Zürich', purpose: 'Messeaufbau', startKm: 5180, endKm: 5230, km: 50, isPrivate: false, driver: 'Sandra Müller' },
+  { id: 'lb-8', vehicleId: 'veh-5', vehiclePlate: 'AG 223 344', date: '2026-02-13', startLocation: 'Büro Aarau', endLocation: 'Kunde Weber, Basel', purpose: 'Servicebesuch', startKm: 41100, endKm: 41200, km: 100, isPrivate: false, driver: 'Daniel Frei' },
 ]
 
 // Wave 9 — Dokumente mock data

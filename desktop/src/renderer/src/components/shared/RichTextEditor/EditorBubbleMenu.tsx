@@ -90,7 +90,7 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
         <ToolbarButton
           icon={Link}
           onClick={setLink}
-          tooltip="Link einfuegen"
+          tooltip="Link einfügen"
         />
       )}
     </div>

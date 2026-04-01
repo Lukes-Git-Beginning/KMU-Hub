@@ -8,7 +8,7 @@ import type { ConversationMessage } from '@/types/communication'
 
 function formatTime(timestamp: string): string {
   try {
-    return new Date(timestamp).toLocaleTimeString('de-CH', {
+    return new Date(timestamp).toLocaleTimeString('de-DE', {
       hour: '2-digit',
       minute: '2-digit',
     })
@@ -19,7 +19,7 @@ function formatTime(timestamp: string): string {
 
 function formatDate(timestamp: string): string {
   try {
-    return new Date(timestamp).toLocaleDateString('de-CH', {
+    return new Date(timestamp).toLocaleDateString('de-DE', {
       weekday: 'short',
       day: '2-digit',
       month: 'short',

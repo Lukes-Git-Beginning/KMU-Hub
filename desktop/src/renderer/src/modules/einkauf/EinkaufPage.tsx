@@ -49,13 +49,13 @@ import {
 import { ItemActions, ConfirmDialog, EmptyState, DetailPanel, PageHeader } from '@/components/shared'
 import { formatAmount, formatCurrency } from '@/lib/format'
 
-type TabKey = 'bestellungen' | 'lieferanten' | 'katalog' | 'rahmenvertraege'
+type TabKey = 'bestellungen' | 'lieferanten' | 'katalog' | 'rahmenverträge'
 type StatusFilter = PurchaseOrder['status'] | 'all'
 
 const orderStatusLabels: Record<string, string> = {
   draft: 'Entwurf',
   sent: 'Bestellt',
-  confirmed: 'Bestaetigt',
+  confirmed: 'Bestätigt',
   partial: 'Teillieferung',
   received: 'Geliefert',
   cancelled: 'Storniert',
@@ -91,7 +91,7 @@ const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'Alle' },
   { value: 'draft', label: 'Entwurf' },
   { value: 'sent', label: 'Bestellt' },
-  { value: 'confirmed', label: 'Bestaetigt' },
+  { value: 'confirmed', label: 'Bestätigt' },
   { value: 'partial', label: 'Teillieferung' },
   { value: 'received', label: 'Geliefert' },
   { value: 'cancelled', label: 'Storniert' },
@@ -196,7 +196,7 @@ export default function EinkaufPage() {
   const [catalogSearch, setCatalogSearch] = useState('')
   const [catalogCategory, setCatalogCategory] = useState<string>('all')
 
-  // Rahmenvertraege state
+  // Rahmenverträge state
   const [expandedContract, setExpandedContract] = useState<string | null>(null)
 
   // ---------------------------------------------------------------------------
@@ -348,7 +348,7 @@ export default function EinkaufPage() {
 
   const handleSaveOrder = () => {
     if (!newOrderSupplierId) {
-      toast.error('Bitte Lieferant auswaehlen')
+      toast.error('Bitte Lieferant auswählen')
       return
     }
     if (newOrderItems.some((i) => !i.name.trim())) {
@@ -357,7 +357,7 @@ export default function EinkaufPage() {
     }
     const sup = suppliers.find((s) => s.id === newOrderSupplierId)
     const nr = `PO-2026-${String(purchaseOrders.length + 1).padStart(3, '0')}`
-    toast.success(`Bestellung ${nr} bei ${sup?.name ?? 'Lieferant'} erstellt (${newOrderCurrency} ${newOrderTotal.toLocaleString('de-CH', { minimumFractionDigits: 2 })})`)
+    toast.success(`Bestellung ${nr} bei ${sup?.name ?? 'Lieferant'} erstellt (${newOrderCurrency} ${newOrderTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 })})`)
     resetNewOrderForm()
     setShowNewOrderDialog(false)
   }
@@ -397,9 +397,9 @@ export default function EinkaufPage() {
   const handleSaveWareneingang = () => {
     if (!showWareneingangDialog) return
     if (bookToInventory) {
-      toast.success(`Wareneingang fuer Bestellung ${showWareneingangDialog.orderNumber} gebucht und im Inventar verbucht`)
+      toast.success(`Wareneingang für Bestellung ${showWareneingangDialog.orderNumber} gebucht und im Inventar verbucht`)
     } else {
-      toast.success(`Wareneingang fuer Bestellung ${showWareneingangDialog.orderNumber} gebucht`)
+      toast.success(`Wareneingang für Bestellung ${showWareneingangDialog.orderNumber} gebucht`)
     }
     setShowWareneingangDialog(null)
   }
@@ -415,7 +415,7 @@ export default function EinkaufPage() {
 
 
   const formatDate = (d: string) =>
-    new Date(d.includes('T') ? d : d + 'T00:00:00').toLocaleDateString('de-CH')
+    new Date(d.includes('T') ? d : d + 'T00:00:00').toLocaleDateString('de-DE')
 
   /** Status timeline for detail panel */
   const renderTimeline = (currentStatus: PurchaseOrder['status']) => {
@@ -510,7 +510,7 @@ export default function EinkaufPage() {
           { key: 'bestellungen' as const, label: `Bestellungen (${purchaseOrders.length})` },
           { key: 'lieferanten' as const, label: `Lieferanten (${activeSupplierCount})` },
           { key: 'katalog' as const, label: `Katalog (${catalogItems.length})` },
-          { key: 'rahmenvertraege' as const, label: `Rahmenvertraege (${frameworkContracts.length})` },
+          { key: 'rahmenverträge' as const, label: `Rahmenverträge (${frameworkContracts.length})` },
         ]).map((t) => (
           <button
             key={t.key}
@@ -772,7 +772,7 @@ export default function EinkaufPage() {
                           : 'bg-error-light text-error'
                       }`}
                     >
-                      {item.available ? 'Verfuegbar' : 'Nicht verfuegbar'}
+                      {item.available ? 'Verfügbar' : 'Nicht verfügbar'}
                     </span>
                   </div>
 
@@ -800,7 +800,7 @@ export default function EinkaufPage() {
                     </div>
                     <button
                       onClick={() =>
-                        toast.success(`"${item.name}" zum Warenkorb hinzugefuegt`)
+                        toast.success(`"${item.name}" zum Warenkorb hinzugefügt`)
                       }
                       className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                     >
@@ -816,12 +816,12 @@ export default function EinkaufPage() {
       )}
 
       {/* ====================== RAHMENVERTRAEGE TAB ====================== */}
-      {tab === 'rahmenvertraege' && (
+      {tab === 'rahmenverträge' && (
         <>
           {frameworkContracts.length === 0 ? (
             <EmptyState
               icon={ScrollText}
-              title="Keine Rahmenvertraege"
+              title="Keine Rahmenverträge"
               description="Erstelle deinen ersten Rahmenvertrag mit einem Lieferanten"
             />
           ) : (
@@ -901,7 +901,7 @@ export default function EinkaufPage() {
                             <thead>
                               <tr className="border-b border-border bg-secondary/30">
                                 <th className="px-4 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Artikel</th>
-                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Stueckpreis</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Stückpreis</th>
                                 <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Vereinbart</th>
                                 <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Abgerufen</th>
                                 <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Offen</th>
@@ -925,14 +925,14 @@ export default function EinkaufPage() {
                                       {formatCurrency(item.unitPrice, contract.currency)}
                                     </td>
                                     <td className="px-4 py-2.5 text-right text-muted-foreground tabular-nums">
-                                      {item.agreedQty.toLocaleString('de-CH')}
+                                      {item.agreedQty.toLocaleString('de-DE')}
                                     </td>
                                     <td className="px-4 py-2.5 text-right text-foreground tabular-nums">
-                                      {item.calledQty.toLocaleString('de-CH')}
+                                      {item.calledQty.toLocaleString('de-DE')}
                                     </td>
                                     <td className="px-4 py-2.5 text-right tabular-nums">
                                       <span className={remaining <= 0 ? 'text-error' : 'text-success'}>
-                                        {remaining.toLocaleString('de-CH')}
+                                        {remaining.toLocaleString('de-DE')}
                                       </span>
                                     </td>
                                   </tr>
@@ -944,7 +944,7 @@ export default function EinkaufPage() {
 
                         <div className="flex items-center justify-end px-4 py-3 border-t border-border-muted">
                           <button
-                            onClick={() => toast.success(`Neuer Abruf fuer "${contract.title}" erstellt`)}
+                            onClick={() => toast.success(`Neuer Abruf für "${contract.title}" erstellt`)}
                             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -1366,7 +1366,7 @@ export default function EinkaufPage() {
                   onChange={(e) => setNewOrderSupplierId(e.target.value)}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 >
-                  <option value="">Lieferant auswaehlen...</option>
+                  <option value="">Lieferant auswählen...</option>
                   {suppliers
                     .filter((s) => s.isActive)
                     .map((s) => (
@@ -1710,7 +1710,7 @@ export default function EinkaufPage() {
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
         title="Bestellung stornieren?"
-        description={`Bestellung ${confirmDelete?.orderNumber} bei ${confirmDelete?.supplierName} wird storniert. Diese Aktion kann nicht rueckgaengig gemacht werden.`}
+        description={`Bestellung ${confirmDelete?.orderNumber} bei ${confirmDelete?.supplierName} wird storniert. Diese Aktion kann nicht rückgängig gemacht werden.`}
         confirmLabel="Stornieren"
         variant="destructive"
         onConfirm={() => confirmDelete && handleCancelOrder(confirmDelete)}

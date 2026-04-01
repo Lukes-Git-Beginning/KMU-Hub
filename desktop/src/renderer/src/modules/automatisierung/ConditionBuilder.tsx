@@ -146,7 +146,7 @@ function ConditionGroup({
 
       {children.length === 0 && (
         <p className="text-xs text-muted-foreground py-2 text-center">
-          Keine Bedingungen. Klicken Sie auf "Bedingung hinzufuegen".
+          Keine Bedingungen. Klicken Sie auf "Bedingung hinzufügen".
         </p>
       )}
     </div>
@@ -179,7 +179,7 @@ function LeafCondition({
         onChange={(e) => onChange({ ...condition, field: e.target.value, operator: '', value: '' })}
         className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-focus-ring"
       >
-        <option value="">Feld waehlen...</option>
+        <option value="">Feld wählen...</option>
         {fields.map((f) => (
           <option key={f.key} value={f.key}>
             {f.label}
@@ -263,7 +263,7 @@ function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
       {/* Available variables */}
       <div>
         <h4 className="text-xs font-medium text-muted-foreground mb-1">
-          Verfuegbare Variablen
+          Verfügbare Variablen
         </h4>
         <div className="flex flex-wrap gap-1">
           {fields.map((f) => (
@@ -448,7 +448,7 @@ export function ConditionBuilder() {
                 className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                Bedingung hinzufuegen
+                Bedingung hinzufügen
               </button>
             </div>
           )}

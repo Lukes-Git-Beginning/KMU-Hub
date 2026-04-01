@@ -26,7 +26,7 @@ export function RecentSearches({
           onClick={onClearAll}
           className="text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
-          Alle loeschen
+          Alle löschen
         </button>
       </div>
       {searches.map((search) => (

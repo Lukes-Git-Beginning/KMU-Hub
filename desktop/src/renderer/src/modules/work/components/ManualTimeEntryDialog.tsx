@@ -225,7 +225,7 @@ export default function ManualTimeEntryDialog({
                 0
             }
           >
-            {editMode ? 'Speichern' : 'Hinzufuegen'}
+            {editMode ? 'Speichern' : 'Hinzufügen'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -198,7 +198,7 @@ export default function MailsPage() {
       deleteMessage.mutate(deleteConfirmId)
       if (selectedMessageId === deleteConfirmId) setSelectedMessageId(null)
       setDeleteConfirmId(null)
-      toast.success('E-Mail geloescht')
+      toast.success('E-Mail gelöscht')
     }
   }
 
@@ -253,12 +253,12 @@ export default function MailsPage() {
     }
 
     actions.push(
-      { label: 'Drucken', icon: Printer, onClick: () => toast.success('Druckvorschau wird geoeffnet...'), separator: true },
+      { label: 'Drucken', icon: Printer, onClick: () => toast.success('Druckvorschau wird geöffnet...'), separator: true },
       { label: 'Exportieren', icon: Download, onClick: () => toast.success('PDF Export wird vorbereitet...') },
     )
 
     actions.push({
-      label: 'Loeschen',
+      label: 'Löschen',
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(msg.id),
@@ -279,7 +279,7 @@ export default function MailsPage() {
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr)
-      return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })
+      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
     } catch {
       return dateStr
     }
@@ -288,7 +288,7 @@ export default function MailsPage() {
   const formatTime = (dateStr: string) => {
     try {
       const d = new Date(dateStr)
-      return d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+      return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
     } catch {
       return ''
     }
@@ -453,7 +453,7 @@ export default function MailsPage() {
                 title="Keine E-Mails"
                 description={
                   searchQuery
-                    ? 'Keine E-Mails fuer diesen Suchbegriff'
+                    ? 'Keine E-Mails für diesen Suchbegriff'
                     : 'Dieser Ordner ist leer'
                 }
               />
@@ -512,7 +512,7 @@ export default function MailsPage() {
                 <button
                   onClick={() => setDeleteConfirmId(selectedMessage.id)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-red-500"
-                  title="Loeschen"
+                  title="Löschen"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -545,7 +545,7 @@ export default function MailsPage() {
                 <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
                   <Users className="h-4 w-4 text-primary" />
                   <span className="text-xs text-primary font-medium">
-                    Mit {crmLinks.length} CRM-Kontakt{crmLinks.length > 1 ? 'en' : ''} verknuepft
+                    Mit {crmLinks.length} CRM-Kontakt{crmLinks.length > 1 ? 'en' : ''} verknüpft
                   </span>
                 </div>
               )}
@@ -620,7 +620,7 @@ export default function MailsPage() {
           <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
             <div className="text-center">
               <Mail className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Waehle eine E-Mail aus</p>
+              <p className="text-sm">Wähle eine E-Mail aus</p>
             </div>
           </div>
         )}
@@ -630,9 +630,9 @@ export default function MailsPage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="E-Mail loeschen?"
-        description={`"${deleteTarget?.subject}" wird geloescht.`}
-        confirmLabel="Loeschen"
+        title="E-Mail löschen?"
+        description={`"${deleteTarget?.subject}" wird gelöscht.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

@@ -68,7 +68,7 @@ export function ShareDialog({
       },
       {
         onSuccess: () => {
-          toast.success('Freigabe hinzugefuegt')
+          toast.success('Freigabe hinzugefügt')
           setSearchUserId('')
         },
         onError: (err) => {
@@ -108,7 +108,7 @@ export function ShareDialog({
         <div className="space-y-4 py-2">
           {/* Add person */}
           <div className="space-y-1.5">
-            <Label>Person hinzufuegen</Label>
+            <Label>Person hinzufügen</Label>
             <div className="flex gap-2">
               <Input
                 placeholder="Benutzer-ID eingeben..."
@@ -176,7 +176,7 @@ export function ShareDialog({
                       </span>
                       <p className="text-[10px] text-muted-foreground">
                         von {s.shared_by_name} &middot;{' '}
-                        {new Date(s.created_at).toLocaleDateString('de-CH')}
+                        {new Date(s.created_at).toLocaleDateString('de-DE')}
                       </p>
                     </div>
                   </div>

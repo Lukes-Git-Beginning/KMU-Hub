@@ -61,7 +61,7 @@ export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
   if (ticketStatus !== 'resolved' && ticketStatus !== 'closed') return null
 
   const handleSubmit = () => {
-    if (rating === 0) { toast.error('Bitte Bewertung auswaehlen'); return }
+    if (rating === 0) { toast.error('Bitte Bewertung auswählen'); return }
     setSubmitted(true)
     toast.success('Kundenfeedback gespeichert')
   }

@@ -42,14 +42,14 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
     const template = selectedTemplate ? templates.find((t) => t.id === selectedTemplate) : null
     addArticle({
       title: title.trim(),
-      content: template?.content ?? '<p>Neuer Artikel — hier Inhalt hinzufuegen.</p>',
+      content: template?.content ?? '<p>Neuer Artikel — hier Inhalt hinzufügen.</p>',
       categoryId: selectedCategoryId ?? 'wc1',
       status: 'draft',
       authorId: 'c1',
-      authorName: 'Anna Mueller',
+      authorName: 'Anna Müller',
       tags: [],
       isPinned: false,
-      lastEditedBy: 'Anna Mueller',
+      lastEditedBy: 'Anna Müller',
       lastEditedAt: new Date().toISOString().split('T')[0],
     })
     toast.success('Artikel erstellt')

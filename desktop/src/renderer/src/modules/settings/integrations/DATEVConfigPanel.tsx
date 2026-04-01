@@ -122,7 +122,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zurueck zu Integrationen
+        Zurück zu Integrationen
       </button>
 
       {/* Header */}
@@ -196,7 +196,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
             />
             <div>
               <span className="text-sm font-medium text-foreground">DATEV-Connect Online (API)</span>
-              <p className="text-[11px] text-muted-foreground">Direkte Uebertragung an DATEV Rechenzentrum</p>
+              <p className="text-[11px] text-muted-foreground">Direkte Übertragung an DATEV Rechenzentrum</p>
             </div>
           </label>
           <label className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-secondary/30 transition-colors">
@@ -220,7 +220,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Konten-Mapping</h3>
         <div className="rounded-lg border border-border overflow-hidden">
           <div className="grid grid-cols-[1fr_120px_80px] gap-3 px-4 py-2 bg-secondary/50 text-xs font-medium text-muted-foreground">
-            <span>KMU Hub Konto</span>
+            <span>Cosmi Konto</span>
             <span>DATEV Konto</span>
             <span className="text-right">Aktion</span>
           </div>
@@ -262,7 +262,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
           className="flex items-center gap-1.5 mt-2 text-xs text-primary hover:text-primary/80 transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
-          Zuordnung hinzufuegen
+          Zuordnung hinzufügen
         </button>
       </div>
 

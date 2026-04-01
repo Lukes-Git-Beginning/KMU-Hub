@@ -8,7 +8,7 @@
  * - Manual upload button with date range picker
  * - Upload log table
  * - "Beleg hochladen" for individual invoice PDFs
- * - Fallback: when not connected, shows "Manueller CSV-Export verfuegbar"
+ * - Fallback: when not connected, shows "Manueller CSV-Export verfügbar"
  */
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -128,7 +128,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
         <DialogHeader>
           <DialogTitle>DATEV-Einstellungen</DialogTitle>
           <DialogDescription>
-            Konfigurieren Sie die DATEV-Anbindung fuer den automatischen oder
+            Konfigurieren Sie die DATEV-Anbindung für den automatischen oder
             manuellen Buchungsexport.
           </DialogDescription>
         </DialogHeader>
@@ -201,7 +201,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
                 className="h-auto p-0 text-yellow-700 dark:text-yellow-400 underline text-xs mt-1"
               >
                 <Download className="h-3 w-3 mr-1" />
-                Manueller CSV-Export verfuegbar
+                Manueller CSV-Export verfügbar
               </Button>
             </div>
           </div>
@@ -332,7 +332,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
                           Belege
                         </th>
                         <th className="text-right px-3 py-2 font-medium">
-                          Groesse
+                          Größe
                         </th>
                         <th className="text-left px-3 py-2 font-medium">
                           Datum

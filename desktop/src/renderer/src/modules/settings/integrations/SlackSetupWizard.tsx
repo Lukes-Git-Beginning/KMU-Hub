@@ -229,7 +229,7 @@ export function SlackSetupWizard({
             disabled={step === 1}
           >
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            Zurueck
+            Zurück
           </Button>
           {step < 4 ? (
             <Button
@@ -306,8 +306,8 @@ function StepPlatform({
       {isEditing ? (
         <div className="rounded-md bg-muted p-3">
           <p className="text-sm text-muted-foreground">
-            Anmeldeinformationen sind bereits konfiguriert. Sie koennen die
-            Kanalzuordnungen im naechsten Schritt anpassen.
+            Anmeldeinformationen sind bereits konfiguriert. Sie können die
+            Kanalzuordnungen im nächsten Schritt anpassen.
           </p>
         </div>
       ) : (
@@ -395,7 +395,7 @@ function StepPlatform({
                 Mit Slack verbinden
               </Button>
               <p className="text-xs text-muted-foreground">
-                Nach der Installation kehren Sie hierher zurueck und fahren
+                Nach der Installation kehren Sie hierher zurück und fahren
                 mit der Kanalzuordnung fort.
               </p>
             </div>
@@ -410,7 +410,7 @@ function StepChannelMapping() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Ordnen Sie Slack-Kanaele den KMU Hub Modulen zu. Benachrichtigungen
+        Ordnen Sie Slack-Kanäle den Cosmi Modulen zu. Benachrichtigungen
         der ausgewaehlten Module werden an den jeweiligen Kanal weitergeleitet.
       </p>
       <ChannelMappingEditor platform="slack" />
@@ -430,7 +430,7 @@ function StepTest({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Senden Sie eine Testbenachrichtigung, um die Verbindung zu pruefen.
+        Senden Sie eine Testbenachrichtigung, um die Verbindung zu prüfen.
       </p>
 
       <Button variant="outline" onClick={onTest} disabled={isTesting}>
@@ -454,7 +454,7 @@ function StepTest({
         <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-50/10 p-3">
           <XCircle className="h-4 w-4 text-red-500 shrink-0" />
           <p className="text-sm text-red-700 dark:text-red-400">
-            Test fehlgeschlagen. Bitte ueberpruefen Sie die Konfiguration.
+            Test fehlgeschlagen. Bitte überprüfen Sie die Konfiguration.
           </p>
         </div>
       )}

@@ -34,7 +34,7 @@ export function PasswordExpiryDialog() {
   const handleSubmit = () => {
     if (!currentPw || !newPw) return
     if (newPw !== confirmPw) {
-      toast.error('Passwoerter stimmen nicht ueberein')
+      toast.error('Passwörter stimmen nicht überein')
       return
     }
     if (newPw.length < 8) {
@@ -100,7 +100,7 @@ export function PasswordExpiryDialog() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Passwort bestaetigen</label>
+            <label className="block text-sm font-medium text-foreground">Passwort bestätigen</label>
             <Input
               type="password"
               value={confirmPw}
@@ -116,7 +116,7 @@ export function PasswordExpiryDialog() {
             className="w-full"
             disabled={!currentPw || !newPw || !confirmPw}
           >
-            Passwort aendern
+            Passwort ändern
           </Button>
         </div>
       </DialogContent>

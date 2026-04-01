@@ -109,7 +109,7 @@ export function FloatingCallBar({ className }: FloatingCallBarProps) {
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') handleBarClick()
       }}
-      aria-label="Zurueck zum Anruf"
+      aria-label="Zurück zum Anruf"
     >
       {/* Pulsing green dot -- call active indicator */}
       <span className="relative flex h-2.5 w-2.5">

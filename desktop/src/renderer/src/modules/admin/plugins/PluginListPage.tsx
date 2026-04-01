@@ -3,11 +3,11 @@
  *
  * Tabbed layout with:
  * - Installierte Plugins: installed plugins with enable/disable/uninstall
- * - Verfuegbare Plugins: manifest marketplace list with install action
+ * - Verfügbare Plugins: manifest marketplace list with install action
  * - Validierungsregeln: CRUD editor for validation rules
  * - Workflow-Regeln: CRUD editor for workflow rules
  * - Branchenvorlagen: gallery of industry templates
- * - Ausfuehrungsprotokolle: execution log viewer
+ * - Ausführungsprotokolle: execution log viewer
  */
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -161,7 +161,7 @@ export default function PluginListPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="available">Verfuegbar</TabsTrigger>
+          <TabsTrigger value="available">Verfügbar</TabsTrigger>
           <TabsTrigger value="validation">Validierung</TabsTrigger>
           <TabsTrigger value="workflows">Workflows</TabsTrigger>
           <TabsTrigger value="templates">Vorlagen</TabsTrigger>
@@ -268,7 +268,7 @@ export default function PluginListPage() {
               <Puzzle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
                 Keine Plugins installiert. Wechseln Sie zum Tab
-                &quot;Verfuegbar&quot; um Plugins zu installieren.
+                &quot;Verfügbar&quot; um Plugins zu installieren.
               </p>
             </div>
           )}
@@ -371,7 +371,7 @@ export default function PluginListPage() {
             <div className="rounded-md border border-border p-8 text-center">
               <Puzzle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
-                Keine Plugin-Manifeste verfuegbar.
+                Keine Plugin-Manifeste verfügbar.
               </p>
             </div>
           )}

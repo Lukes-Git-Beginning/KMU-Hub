@@ -116,7 +116,7 @@ export const chatHandlers = [
           content: body.content ?? '',
           channel_id: id,
           sender_id: 'usr-e1',
-          sender_name: 'Stefan Mueller',
+          sender_name: 'Stefan Müller',
           created_at: new Date().toISOString(),
           reply_count: 0,
           reactions: [],

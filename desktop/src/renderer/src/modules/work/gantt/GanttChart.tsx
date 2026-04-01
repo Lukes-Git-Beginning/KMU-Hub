@@ -256,12 +256,12 @@ export default function GanttChart({ projectId }: GanttChartProps) {
         {
           onSuccess: () => {
             toast.success('Aufgabenzeitraum aktualisiert', {
-              description: `Neues Faelligkeitsdatum: ${format(newEnd, 'dd.MM.yyyy', { locale: de })}`,
+              description: `Neues Fälligkeitsdatum: ${format(newEnd, 'dd.MM.yyyy', { locale: de })}`,
             })
           },
           onError: () => {
             toast.error('Fehler beim Aktualisieren', {
-              description: 'Die Aenderung konnte nicht gespeichert werden.',
+              description: 'Die Änderung konnte nicht gespeichert werden.',
             })
           },
         }
@@ -306,7 +306,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
         <div className="text-center">
           <AlertTriangle className="mx-auto h-12 w-12 text-warning" />
           <p className="mt-4 text-lg font-semibold text-foreground">
-            Zu viele Aufgaben fuer Gantt-Ansicht
+            Zu viele Aufgaben für Gantt-Ansicht
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             Dieses Projekt hat mehr als {MAX_GANTT_TASKS} Aufgaben.

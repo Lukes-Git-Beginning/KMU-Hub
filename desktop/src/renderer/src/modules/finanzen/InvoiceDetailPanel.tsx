@@ -57,7 +57,7 @@ const statusConfig: Record<
     icon: CheckCircle2,
   },
   overdue: {
-    label: 'Ueberfaellig',
+    label: 'Ueberfällig',
     color: 'text-error',
     bg: 'bg-error-light',
     icon: AlertCircle,
@@ -71,7 +71,7 @@ const statusConfig: Record<
 }
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  bank_transfer: 'Ueberweisung',
+  bank_transfer: 'Überweisung',
   cash: 'Barzahlung',
   credit_card: 'Kreditkarte',
   other: 'Sonstige',
@@ -183,7 +183,7 @@ export function InvoiceDetailPanel({
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Faellig</p>
+              <p className="text-[10px] text-muted-foreground">Fällig</p>
               <p className="text-foreground">
                 {new Date(invoice.due_date).toLocaleDateString('de-DE')}
               </p>
@@ -334,13 +334,13 @@ export function InvoiceDetailPanel({
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
             <Shield className="h-3 w-3" />
-            GoBD-Aenderungsprotokoll
+            GoBD-Änderungsprotokoll
           </h4>
           <div className="rounded-md border border-border overflow-hidden">
             {[
               {
                 action: 'Rechnung erstellt',
-                user: 'Max Mueller',
+                user: 'Max Müller',
                 date: invoice.invoice_date,
                 detail: `Nummer: ${invoice.invoice_number}`,
               },
@@ -348,7 +348,7 @@ export function InvoiceDetailPanel({
                 ? [
                     {
                       action: 'Rechnung gesendet',
-                      user: 'Max Mueller',
+                      user: 'Max Müller',
                       date: invoice.invoice_date,
                       detail: `An: ${invoice.customer.email}`,
                     },
@@ -358,7 +358,7 @@ export function InvoiceDetailPanel({
                 ? [
                     {
                       action: 'Rechnung storniert',
-                      user: 'Max Mueller',
+                      user: 'Max Müller',
                       date: new Date().toISOString().split('T')[0],
                       detail: 'Storno (keine Loeschung)',
                     },

@@ -42,7 +42,7 @@ export function PDFPreviewPanel({
         </h4>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => toast.success('Vollbild-Vorschau geoeffnet')}
+            onClick={() => toast.success('Vollbild-Vorschau geöffnet')}
             className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             title="Vollbild"
           >
@@ -73,9 +73,9 @@ export function PDFPreviewPanel({
           <div className="flex items-start justify-between">
             <div>
               <div className="h-8 w-32 rounded bg-gray-200 mb-2" />
-              <p className="text-[9px] text-gray-400">KMU Hub AG</p>
+              <p className="text-[9px] text-gray-400">Cosmi AG</p>
               <p className="text-[9px] text-gray-400">Bahnhofstrasse 42</p>
-              <p className="text-[9px] text-gray-400">8001 Zuerich</p>
+              <p className="text-[9px] text-gray-400">8001 Zürich</p>
             </div>
             <div className="text-right">
               <p className="text-sm font-bold text-gray-800">RECHNUNG</p>

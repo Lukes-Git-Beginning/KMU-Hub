@@ -122,16 +122,16 @@ interface ThreadMessage {
 const MOCK_THREADS: Record<string, ThreadMessage[]> = {
   'tk-1': [
     { id: 'm1', author: 'Brigitte Schaerer', role: 'customer', text: 'Der Drucker im 2. OG zeigt seit heute Morgen "Offline" an. Mehrere Kollegen haben das gleiche Problem.', timestamp: '2026-02-15T08:30:00' },
-    { id: 'm2', author: 'Marco Hartmann', role: 'agent', text: 'Danke fuer die Meldung. Ich pruefe den Druckserver und die Netzwerkverbindung. Bitte kurz Geduld.', timestamp: '2026-02-15T09:15:00' },
+    { id: 'm2', author: 'Marco Hartmann', role: 'agent', text: 'Danke für die Meldung. Ich prüfe den Druckserver und die Netzwerkverbindung. Bitte kurz Geduld.', timestamp: '2026-02-15T09:15:00' },
     { id: 'm3', author: 'Marco Hartmann', role: 'agent', text: 'Der Druckspooler-Dienst wurde neu gestartet. Bitte testen Sie erneut.', timestamp: '2026-02-15T09:45:00' },
   ],
   'tk-2': [
-    { id: 'm1', author: 'Stefan Wenger', role: 'customer', text: 'Meine VPN-Verbindung trennt sich alle 10 Minuten. Arbeiten im Home-Office ist so nicht moeglich.', timestamp: '2026-02-14T17:45:00' },
+    { id: 'm1', author: 'Stefan Wenger', role: 'customer', text: 'Meine VPN-Verbindung trennt sich alle 10 Minuten. Arbeiten im Home-Office ist so nicht möglich.', timestamp: '2026-02-14T17:45:00' },
     { id: 'm2', author: 'Marco Hartmann', role: 'agent', text: 'Welchen VPN-Client nutzen Sie? Bitte senden Sie mir die Logdatei.', timestamp: '2026-02-15T08:00:00' },
     { id: 'm3', author: 'Stefan Wenger', role: 'customer', text: 'Cisco AnyConnect 4.10. Logs sind im Anhang.', timestamp: '2026-02-15T08:30:00' },
   ],
   'tk-3': [
-    { id: 'm1', author: 'Karin Pfister', role: 'customer', text: 'Neuer Mitarbeiter Lukas Meier startet am 01.03. in der Buchhaltung. Bitte alle Standardzugaenge einrichten.', timestamp: '2026-02-14T14:00:00' },
+    { id: 'm1', author: 'Karin Pfister', role: 'customer', text: 'Neuer Mitarbeiter Lukas Meier startet am 01.03. in der Buchhaltung. Bitte alle Standardzugänge einrichten.', timestamp: '2026-02-14T14:00:00' },
     { id: 'm2', author: 'Sandra Buerki', role: 'agent', text: 'Wird vorbereitet. AD-Konto, E-Mail, ERP und Zeiterfassung.', timestamp: '2026-02-14T15:00:00', isInternal: true },
   ],
 }
@@ -148,8 +148,8 @@ function getThread(ticketId: string): ThreadMessage[] {
 
 const KB_BODIES: Record<string, string> = {
   'kb-1': `Schritt 1: Laden Sie den Cisco AnyConnect Client von unserem Self-Service Portal herunter.\n\nSchritt 2: Installieren Sie den Client und starten Sie ihn. Geben Sie als Server-Adresse "vpn.firma.ch" ein.\n\nSchritt 3: Melden Sie sich mit Ihren Active-Directory Zugangsdaten an (gleiche wie Windows-Login). Bei der ersten Verbindung muessen Sie das Zertifikat akzeptieren.\n\nBei Problemen kontaktieren Sie bitte den Helpdesk unter Ticket-Kategorie "Netzwerk".`,
-  'kb-2': `Netzwerkdrucker unter Windows hinzufuegen:\n\n1. Oeffnen Sie die Windows-Einstellungen → Geraete → Drucker und Scanner.\n2. Klicken Sie auf "Drucker oder Scanner hinzufuegen".\n3. Falls der Drucker nicht automatisch gefunden wird, klicken Sie auf "Der gewuenschte Drucker ist nicht aufgelistet".\n4. Waehlen Sie "Freigegebenen Drucker ueber den Namen auswaehlen" und geben Sie den Pfad ein (z.B. \\\\printserver\\HP-2OG).\n\nTreiber werden automatisch installiert. Bei macOS verwenden Sie das Druckdienstprogramm unter Systemeinstellungen.`,
-  'kb-3': `Passwort-Reset ueber Self-Service Portal:\n\nBesuchen Sie https://password.firma.ch und melden Sie sich mit Ihrem Benutzernamen an. Sie erhalten einen Bestaetigungscode per SMS.\n\nGeben Sie den Code ein und setzen Sie ein neues Passwort. Das Passwort muss mindestens 12 Zeichen lang sein.\n\nNach dem Reset muessen Sie sich auf allen Geraeten neu anmelden.`,
+  'kb-2': `Netzwerkdrucker unter Windows hinzufügen:\n\n1. Öffnen Sie die Windows-Einstellungen → Geräte → Drucker und Scanner.\n2. Klicken Sie auf "Drucker oder Scanner hinzufügen".\n3. Falls der Drucker nicht automatisch gefunden wird, klicken Sie auf "Der gewünschte Drucker ist nicht aufgelistet".\n4. Wählen Sie "Freigegebenen Drucker ueber den Namen auswählen" und geben Sie den Pfad ein (z.B. \\\\printserver\\HP-2OG).\n\nTreiber werden automatisch installiert. Bei macOS verwenden Sie das Druckdienstprogramm unter Systemeinstellungen.`,
+  'kb-3': `Passwort-Reset ueber Self-Service Portal:\n\nBesuchen Sie https://password.firma.ch und melden Sie sich mit Ihrem Benutzernamen an. Sie erhalten einen Bestaetigungscode per SMS.\n\nGeben Sie den Code ein und setzen Sie ein neues Passwort. Das Passwort muss mindestens 12 Zeichen lang sein.\n\nNach dem Reset muessen Sie sich auf allen Geräten neu anmelden.`,
   'kb-4': `E-Mail Signatur einrichten:\n\nVerwenden Sie die offizielle Vorlage aus dem Intranet unter "Vorlagen → E-Mail Signatur". Kopieren Sie den HTML-Code und fuegen Sie ihn in Outlook unter Datei → Optionen → E-Mail → Signaturen ein.\n\nBitte achten Sie auf die korrekte Schreibweise.`,
   'kb-5': `Home-Office IT-Checkliste:\n\n- VPN-Zugang eingerichtet und getestet\n- Softphone oder Rufweiterleitung konfiguriert\n- Laptop mit aktuellem Betriebssystem und Virenscanner\n- Stabile Internetverbindung (mind. 20 Mbit/s empfohlen)\n- Bildschirmsperre aktiviert (max. 5 Min. Timeout)\n- Keine vertraulichen Dokumente ausdrucken\n\nBei Fragen wenden Sie sich an den Helpdesk.`,
 }
@@ -366,7 +366,7 @@ export default function HelpdeskPage() {
                 onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setCategoryFilter('all') }}
                 className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Filter zuruecksetzen
+                Filter zurücksetzen
               </button>
             )}
           </div>
@@ -423,7 +423,7 @@ export default function HelpdeskPage() {
                         <SLABadge overdue={ticket.slaOverdue} remaining={ticket.slaRemaining} dueAt={ticket.slaDueAt} compact />
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {new Date(ticket.createdAt).toLocaleDateString('de-CH')}
+                        {new Date(ticket.createdAt).toLocaleDateString('de-DE')}
                       </td>
                     </tr>
                   ))}
@@ -464,7 +464,7 @@ export default function HelpdeskPage() {
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="text-sm font-medium text-foreground line-clamp-2">{article.title}</h4>
                       {article.published ? (
-                        <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">Veroeffentlicht</span>
+                        <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">Veröffentlicht</span>
                       ) : (
                         <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">Entwurf</span>
                       )}
@@ -473,7 +473,7 @@ export default function HelpdeskPage() {
                     <p className="text-xs text-muted-foreground line-clamp-3 mb-3">{article.excerpt}</p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{article.views}</span>
-                      <span>{new Date(article.updatedAt).toLocaleDateString('de-CH')}</span>
+                      <span>{new Date(article.updatedAt).toLocaleDateString('de-DE')}</span>
                     </div>
                   </button>
                 ))
@@ -674,11 +674,11 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
     setAISuggestionLoading(true)
     setTimeout(() => {
       const suggestions: Record<string, string> = {
-        'tk-1': 'Guten Tag,\n\nder Drucker im 2. OG wurde erfolgreich neu konfiguriert. Bitte testen Sie den Druckvorgang erneut. Falls das Problem weiterhin besteht, pruefen Sie bitte die Netzwerkverbindung des Druckers (Kabel am Port 3 im Patchfeld).\n\nBei weiteren Fragen stehe ich Ihnen gerne zur Verfuegung.',
-        'tk-2': 'Hallo,\n\nbasierend auf den Logs liegt das Problem an einem veralteten VPN-Profil. Bitte fuehren Sie folgende Schritte aus:\n\n1. Oeffnen Sie AnyConnect → Einstellungen → Profile\n2. Loeschen Sie das bestehende Profil "Firma-VPN"\n3. Verbinden Sie sich erneut mit vpn.firma.ch\n\nDas neue Profil wird automatisch heruntergeladen.',
-        'tk-3': 'Hallo,\n\nalle Zugaenge fuer den neuen Mitarbeiter wurden eingerichtet:\n\n- Active Directory Konto\n- E-Mail-Konto\n- ERP-Zugang: Standardrolle\n- Zeiterfassung: Profil angelegt\n\nDie Zugangsdaten werden am ersten Arbeitstag persoenlich uebergeben.',
+        'tk-1': 'Guten Tag,\n\nder Drucker im 2. OG wurde erfolgreich neu konfiguriert. Bitte testen Sie den Druckvorgang erneut. Falls das Problem weiterhin besteht, prüfen Sie bitte die Netzwerkverbindung des Druckers (Kabel am Port 3 im Patchfeld).\n\nBei weiteren Fragen stehe ich Ihnen gerne zur Verfuegung.',
+        'tk-2': 'Hallo,\n\nbasierend auf den Logs liegt das Problem an einem veralteten VPN-Profil. Bitte fuehren Sie folgende Schritte aus:\n\n1. Öffnen Sie AnyConnect → Einstellungen → Profile\n2. Löschen Sie das bestehende Profil "Firma-VPN"\n3. Verbinden Sie sich erneut mit vpn.firma.ch\n\nDas neue Profil wird automatisch heruntergeladen.',
+        'tk-3': 'Hallo,\n\nalle Zugänge für den neuen Mitarbeiter wurden eingerichtet:\n\n- Active Directory Konto\n- E-Mail-Konto\n- ERP-Zugang: Standardrolle\n- Zeiterfassung: Profil angelegt\n\nDie Zugangsdaten werden am ersten Arbeitstag persönlich übergeben.',
       }
-      const suggestion = suggestions[ticket.id] ?? 'Vielen Dank fuer Ihre Anfrage. Wir haben Ihr Anliegen geprueft und arbeiten an einer Loesung. Wir melden uns kurzfristig mit weiteren Informationen.\n\nMit freundlichen Gruessen'
+      const suggestion = suggestions[ticket.id] ?? 'Vielen Dank für Ihre Anfrage. Wir haben Ihr Anliegen geprüft und arbeiten an einer Loesung. Wir melden uns kurzfristig mit weiteren Informationen.\n\nMit freundlichen Grüßen'
       onReplyChange(suggestion)
       setAISuggestionLoading(false)
       useAIStore.getState().addActivityLog({
@@ -782,17 +782,17 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Erstellt</p>
-            <p className="text-sm text-foreground">{new Date(ticket.createdAt).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+            <p className="text-sm text-foreground">{new Date(ticket.createdAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Aktualisiert</p>
-            <p className="text-sm text-foreground">{new Date(ticket.updatedAt).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+            <p className="text-sm text-foreground">{new Date(ticket.updatedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
         </div>
 
         {/* Status change */}
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Status aendern</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Status ändern</p>
           <div className="relative">
             <button onClick={() => setStatusDropdownOpen(!statusDropdownOpen)} className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
               <span className="flex items-center gap-2">
@@ -842,7 +842,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
                     )}
                   </div>
                   <p className="text-xs leading-relaxed">{msg.text}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(msg.timestamp).toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(msg.timestamp).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
             ))}
@@ -918,7 +918,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
   return (
     <div className="max-w-3xl mx-auto">
       <button onClick={onBack} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors mb-5">
-        <ArrowLeft className="h-3.5 w-3.5" />Zurueck zur Uebersicht
+        <ArrowLeft className="h-3.5 w-3.5" />Zurück zur Übersicht
       </button>
 
       <div className="rounded-lg border border-border bg-card p-6">
@@ -928,7 +928,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
             <div className="flex items-center gap-3">
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
               {article.published ? (
-                <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">Veroeffentlicht</span>
+                <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">Veröffentlicht</span>
               ) : (
                 <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">Entwurf</span>
               )}
@@ -970,7 +970,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
 
         <div className="border-t border-border mt-6 pt-4 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            Zuletzt aktualisiert: {new Date(article.updatedAt).toLocaleDateString('de-CH', { day: '2-digit', month: 'long', year: 'numeric' })}
+            Zuletzt aktualisiert: {new Date(article.updatedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
           <button onClick={() => toast.info('Artikel-Feedback gesendet')} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
             War dieser Artikel hilfreich?

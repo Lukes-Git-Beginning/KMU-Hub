@@ -258,7 +258,7 @@ export function OrgChart() {
           <p className="text-lg font-semibold text-foreground">{departments.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Fuehrungskraefte</p>
+          <p className="text-xs text-muted-foreground mb-1">Führungskraefte</p>
           <p className="text-lg font-semibold text-foreground">{managers.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
@@ -291,14 +291,14 @@ export function OrgChart() {
           <button
             onClick={() => setZoom((z) => Math.min(150, z + 10))}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-            title="Vergroessern"
+            title="Vergrößern"
           >
             <ZoomIn className="h-4 w-4" />
           </button>
           <button
             onClick={() => setZoom(100)}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-            title="Zuruecksetzen"
+            title="Zurücksetzen"
           >
             <Maximize2 className="h-4 w-4" />
           </button>

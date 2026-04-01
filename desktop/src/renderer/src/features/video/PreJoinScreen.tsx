@@ -3,7 +3,7 @@
  *
  * Uses the @livekit/components-react PreJoin prefab component for
  * device enumeration, camera preview, and mic level visualization.
- * Styled with Tailwind to match the KMU Hub design system.
+ * Styled with Tailwind to match the Cosmi design system.
  */
 import { useCallback } from 'react'
 import { PreJoin, type LocalUserChoices } from '@livekit/components-react'
@@ -52,7 +52,7 @@ export function PreJoinScreen({
         Anruf beitreten
       </h2>
       <p className="text-sm text-zinc-400">
-        Ueberpruefen Sie Ihre Kamera und Ihr Mikrofon bevor Sie beitreten.
+        Überprüfen Sie Ihre Kamera und Ihr Mikrofon bevor Sie beitreten.
       </p>
 
       <div className="w-full max-w-lg rounded-xl bg-zinc-900 p-6">

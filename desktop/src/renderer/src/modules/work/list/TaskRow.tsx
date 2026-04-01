@@ -219,7 +219,7 @@ export default function TaskRow({
             className="text-sm text-left truncate w-full hover:underline cursor-pointer"
             onClick={() => task.id && openTaskPanel(task.id)}
             onDoubleClick={() => setEditingTitle(true)}
-            title="Klicken zum Oeffnen, Doppelklick zum Bearbeiten"
+            title="Klicken zum Öffnen, Doppelklick zum Bearbeiten"
           >
             {task.title}
           </button>

@@ -25,7 +25,7 @@ const STEPS: OnboardingStep[] = [
     icon: Sparkles,
     iconColor: 'text-primary',
     iconBg: 'bg-primary/10',
-    title: 'Willkommen bei KMU Hub!',
+    title: 'Willkommen bei Cosmi!',
     description: 'Dein All-in-One Arbeitsplatz für dein Unternehmen. Lass uns die wichtigsten Funktionen entdecken.',
   },
   {
@@ -47,7 +47,7 @@ const STEPS: OnboardingStep[] = [
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     iconBg: 'bg-emerald-500/10',
     title: 'Deine Module',
-    description: 'KMU Hub vereint alles, was du zum Arbeiten brauchst.',
+    description: 'Cosmi vereint alles, was du zum Arbeiten brauchst.',
     features: [
       'Projekte & Aufgaben verwalten',
       'Chat & Meetings mit dem Team',
@@ -62,7 +62,7 @@ const STEPS: OnboardingStep[] = [
     iconColor: 'text-purple-600 dark:text-purple-400',
     iconBg: 'bg-purple-500/10',
     title: 'Navigation',
-    description: 'Finde dich schnell in KMU Hub zurecht.',
+    description: 'Finde dich schnell in Cosmi zurecht.',
     features: [
       'Sidebar links für alle Module',
       'Ctrl+K für die globale Suche',
@@ -90,7 +90,7 @@ const STEPS: OnboardingStep[] = [
     iconColor: 'text-primary',
     iconBg: 'bg-primary/10',
     title: 'Alles bereit!',
-    description: 'Du bist startklar. Erkunde KMU Hub und mach dein Team produktiver.',
+    description: 'Du bist startklar. Erkunde Cosmi und mach dein Team produktiver.',
   },
 ]
 
@@ -177,7 +177,7 @@ export function OnboardingWizard() {
               {!isFirst && (
                 <Button variant="ghost" size="sm" onClick={() => setCurrentStep((s) => s - 1)}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  Zurueck
+                  Zurück
                 </Button>
               )}
             </div>

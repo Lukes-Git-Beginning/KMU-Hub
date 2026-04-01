@@ -121,7 +121,7 @@ const consentSources = [
   'Vertrag',
   'E-Mail-Bestaetigung',
   'Muendlich (Telefon)',
-  'Muendlich (persoenlich)',
+  'Muendlich (persönlich)',
   'Import',
 ]
 
@@ -280,7 +280,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
       <div className="flex items-start gap-2 rounded-md bg-info-light/50 px-3 py-2">
         <Info className="h-3.5 w-3.5 text-info mt-0.5 shrink-0" />
         <p className="text-[11px] text-info">
-          Einwilligungen fuer {contactName}. Jede Aenderung wird mit Zeitstempel und Quelle protokolliert.
+          Einwilligungen für {contactName}. Jede Änderung wird mit Zeitstempel und Quelle protokolliert.
         </p>
       </div>
 
@@ -401,7 +401,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                     onClick={() => handleGrant(consent.id)}
                     className="h-7 rounded-md bg-success px-3 text-xs font-medium text-white hover:bg-success/90 transition-colors"
                   >
-                    Bestaetigen
+                    Bestätigen
                   </button>
                   <button
                     onClick={() => setGrantingId(null)}

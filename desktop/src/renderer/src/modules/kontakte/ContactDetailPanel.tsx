@@ -205,7 +205,7 @@ export function ContactDetailPanel({
             <div className="flex items-center gap-3 text-sm">
               <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground">
-                Letzter Kontakt: {new Date(contact.lastContact).toLocaleDateString('de-CH')}
+                Letzter Kontakt: {new Date(contact.lastContact).toLocaleDateString('de-DE')}
               </span>
             </div>
           </div>
@@ -304,7 +304,7 @@ export function ContactDetailPanel({
                             {activityLabels[activity.type]}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            · {new Date(activity.date).toLocaleDateString('de-CH')}
+                            · {new Date(activity.date).toLocaleDateString('de-DE')}
                           </span>
                         </div>
                       </div>
@@ -331,7 +331,7 @@ export function ContactDetailPanel({
         <Separator />
         <section className="pb-4">
           <p className="text-xs text-muted-foreground">
-            Erstellt am {new Date(contact.createdAt).toLocaleDateString('de-CH')}
+            Erstellt am {new Date(contact.createdAt).toLocaleDateString('de-DE')}
           </p>
         </section>
       </div>

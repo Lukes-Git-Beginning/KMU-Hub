@@ -48,7 +48,7 @@ function buildSearchResults(query: string) {
     results.push({ type: 'document', id: 'file-010', title: 'Brandbook_2026.pdf', subtitle: 'Marketing — 14.9 MB', url: '/documents/file-010', score: 78 })
   }
   if ('vertrag'.includes(q) || q.includes('vertrag')) {
-    results.push({ type: 'document', id: 'file-005', title: 'Vertrag_Gruber_Maschinenbau.pdf', subtitle: 'Vertraege — 527 KB', url: '/documents/file-005', score: 82 })
+    results.push({ type: 'document', id: 'file-005', title: 'Vertrag_Gruber_Maschinenbau.pdf', subtitle: 'Verträge — 527 KB', url: '/documents/file-005', score: 82 })
   }
 
   // Employees

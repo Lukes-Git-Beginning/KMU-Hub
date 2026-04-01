@@ -124,7 +124,7 @@ export default function ESignaturDialog({
       return
     }
     if (!newEmail.trim() || !newEmail.includes('@')) {
-      toast.error('Bitte eine gueltige E-Mail eingeben')
+      toast.error('Bitte eine gültige E-Mail eingeben')
       return
     }
     const signer: ContractSigner = {
@@ -146,7 +146,7 @@ export default function ESignaturDialog({
 
   const handleSend = () => {
     if (signers.length === 0) {
-      toast.error('Bitte mindestens einen Unterzeichner hinzufuegen')
+      toast.error('Bitte mindestens einen Unterzeichner hinzufügen')
       return
     }
     onUpdateSigners(signers.map((s) => ({ ...s, status: s.status === 'pending' ? 'sent' : s.status })))
@@ -221,13 +221,13 @@ export default function ESignaturDialog({
               className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
             >
               <UserPlus className="h-3 w-3" />
-              Unterzeichner hinzufuegen
+              Unterzeichner hinzufügen
             </button>
           </div>
 
           {signers.length === 0 && !showAddForm && (
             <p className="text-sm text-muted-foreground py-4 text-center border border-dashed border-border rounded-lg">
-              Noch keine Unterzeichner hinzugefuegt
+              Noch keine Unterzeichner hinzugefügt
             </p>
           )}
 
@@ -319,7 +319,7 @@ export default function ESignaturDialog({
                   onClick={handleAddSigner}
                   className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                 >
-                  Hinzufuegen
+                  Hinzufügen
                 </button>
                 <button
                   onClick={() => { setShowAddForm(false); setNewName(''); setNewEmail('') }}
@@ -338,7 +338,7 @@ export default function ESignaturDialog({
             Status-Verlauf
           </h4>
           {timeline.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">Keine Eintraege</p>
+            <p className="text-xs text-muted-foreground py-2">Keine Einträge</p>
           ) : (
             <div className="space-y-0 pl-1">
               {timeline.map((event, idx) => {
@@ -358,7 +358,7 @@ export default function ESignaturDialog({
                     <div className="min-w-0 pb-1">
                       <p className="text-sm text-foreground">{event.label}</p>
                       <span className="text-[10px] text-muted-foreground">
-                        {new Date(event.date + 'T00:00:00').toLocaleDateString('de-CH')}
+                        {new Date(event.date + 'T00:00:00').toLocaleDateString('de-DE')}
                       </span>
                     </div>
                   </div>

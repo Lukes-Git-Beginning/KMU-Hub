@@ -45,7 +45,7 @@ function formatBytes(bytes: number): string {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-CH', {
+  return new Date(dateStr).toLocaleDateString('de-DE', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -252,7 +252,7 @@ export function VersionHistoryPanel({
               onKeyDown={(e) => e.key === 'Enter' && handleCreateVersion()}
             />
             <p className="text-xs text-muted-foreground">
-              Ein Label hilft, diese Version spaeter wiederzufinden.
+              Ein Label hilft, diese Version später wiederzufinden.
             </p>
           </div>
           <DialogFooter>

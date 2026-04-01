@@ -30,7 +30,7 @@ const workflows = [
   {
     id: IDS.workflows.onboardingEmail,
     name: 'Onboarding E-Mail Serie',
-    description: 'Willkommens-E-Mails fuer neue Kunden: Tag 0, Tag 3, Tag 7',
+    description: 'Willkommens-E-Mails für neue Kunden: Tag 0, Tag 3, Tag 7',
     status: 'active',
     trigger: { type: 'event', event: 'deal.won' },
     actions: [
@@ -64,7 +64,7 @@ const workflows = [
   {
     id: IDS.workflows.rechnungsMahnung,
     name: 'Rechnungs-Mahnung',
-    description: 'Automatische Zahlungserinnerung bei ueberfaelligen Rechnungen',
+    description: 'Automatische Zahlungserinnerung bei überfälligen Rechnungen',
     status: 'paused',
     trigger: { type: 'schedule', cron: '0 9 * * 1-5' },
     actions: [
@@ -81,7 +81,7 @@ const workflows = [
   {
     id: IDS.workflows.dailyReport,
     name: 'Taeglicher Report',
-    description: 'Zusammenfassung aller Aktivitaeten per E-Mail an Geschaeftsfuehrung',
+    description: 'Zusammenfassung aller Aktivitaeten per E-Mail an Geschaeftsführung',
     status: 'active',
     trigger: { type: 'schedule', cron: '0 18 * * 1-5' },
     actions: [
@@ -96,7 +96,7 @@ const workflows = [
   },
   {
     id: IDS.workflows.backupCheck,
-    name: 'Backup Pruefung',
+    name: 'Backup Prüfung',
     description: 'Taegliche Backup-Verifizierung — Alarm bei Fehler',
     status: 'active',
     trigger: { type: 'schedule', cron: '0 3 * * *' },
@@ -179,16 +179,16 @@ const actionTypes = [
   { type: 'score', label: 'Scoring', icon: 'bar-chart' },
   { type: 'enrich', label: 'Daten anreichern', icon: 'database' },
   { type: 'aggregate', label: 'Aggregieren', icon: 'layers' },
-  { type: 'check', label: 'Status pruefen', icon: 'check-circle' },
+  { type: 'check', label: 'Status prüfen', icon: 'check-circle' },
   { type: 'log', label: 'Protokollieren', icon: 'file-text' },
   { type: 'webhook', label: 'Webhook aufrufen', icon: 'globe' },
 ]
 
 const templates = [
   { id: 'tpl-001', name: 'Lead Qualifizierung', description: 'Neue Leads automatisch bewerten und zuweisen', category: 'sales' },
-  { id: 'tpl-002', name: 'Willkommens-Serie', description: 'E-Mail-Sequenz fuer neue Kunden', category: 'marketing' },
+  { id: 'tpl-002', name: 'Willkommens-Serie', description: 'E-Mail-Sequenz für neue Kunden', category: 'marketing' },
   { id: 'tpl-003', name: 'Ticket SLA Warnung', description: 'Eskalation bei SLA-Verletzung', category: 'support' },
-  { id: 'tpl-004', name: 'Rechnungserinnerung', description: 'Automatische Mahnung bei ueberfaelligen Rechnungen', category: 'finance' },
+  { id: 'tpl-004', name: 'Rechnungserinnerung', description: 'Automatische Mahnung bei überfälligen Rechnungen', category: 'finance' },
   { id: 'tpl-005', name: 'Geburtstags-Gruss', description: 'Automatische Geburtstagsnachricht an Kontakte', category: 'crm' },
 ]
 

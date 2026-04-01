@@ -51,7 +51,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-secondary transition-colors"
-        title="Textbaustein einfuegen"
+        title="Textbaustein einfügen"
       >
         <Zap className="h-3.5 w-3.5" />
         Vorlagen

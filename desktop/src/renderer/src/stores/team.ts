@@ -50,7 +50,7 @@ interface TeamStore {
 }
 
 const INITIAL_PAYROLL: PayrollEntry[] = [
-  { id: 'pay1', memberId: 'e1', memberName: 'Stefan Vogel', department: 'Geschaeftsfuehrung', employmentType: 'fulltime', grossSalary: 12500, month: '2026-01', status: 'paid', deductions: { ahv: 1188, pension: 938, tax: 2875, other: 62 }, netSalary: 7437 },
+  { id: 'pay1', memberId: 'e1', memberName: 'Stefan Vogel', department: 'Geschaeftsführung', employmentType: 'fulltime', grossSalary: 12500, month: '2026-01', status: 'paid', deductions: { ahv: 1188, pension: 938, tax: 2875, other: 62 }, netSalary: 7437 },
   { id: 'pay2', memberId: 'e2', memberName: 'Markus Weber', department: 'Entwicklung', employmentType: 'fulltime', grossSalary: 9800, month: '2026-01', status: 'paid', deductions: { ahv: 931, pension: 735, tax: 2058, other: 49 }, netSalary: 6027 },
   { id: 'pay3', memberId: 'e3', memberName: 'Thomas Meier', department: 'Vertrieb', employmentType: 'fulltime', grossSalary: 8500, month: '2026-01', status: 'paid', deductions: { ahv: 808, pension: 638, tax: 1700, other: 43 }, netSalary: 5311 },
   { id: 'pay4', memberId: 'e4', memberName: 'Laura Neumann', department: 'Entwicklung', employmentType: 'fulltime', grossSalary: 7200, month: '2026-01', status: 'paid', deductions: { ahv: 684, pension: 540, tax: 1368, other: 36 }, netSalary: 4572 },
@@ -67,10 +67,10 @@ const INITIAL_PAYROLL: PayrollEntry[] = [
 const INITIAL_TRAININGS: Training[] = [
   { id: 'tr1', name: 'Erste Hilfe', type: 'safety', duration: '1 Tag', mandatory: true, provider: 'Deutsches Rotes Kreuz', validityMonths: 24 },
   { id: 'tr2', name: 'Arbeitssicherheit', type: 'safety', duration: '4 Stunden', mandatory: true, provider: 'BG ETEM', validityMonths: 12 },
-  { id: 'tr3', name: 'React Advanced', type: 'technical', duration: '2 Tage', mandatory: false, provider: 'TU Muenchen Weiterbildung', validityMonths: 0 },
-  { id: 'tr4', name: 'Datenschutz DSGVO', type: 'compliance', duration: '3 Stunden', mandatory: true, provider: 'IHK Muenchen', validityMonths: 12 },
+  { id: 'tr3', name: 'React Advanced', type: 'technical', duration: '2 Tage', mandatory: false, provider: 'TU München Weiterbildung', validityMonths: 0 },
+  { id: 'tr4', name: 'Datenschutz DSGVO', type: 'compliance', duration: '3 Stunden', mandatory: true, provider: 'IHK München', validityMonths: 12 },
   { id: 'tr5', name: 'ITIL Foundation', type: 'certification', duration: '3 Tage', mandatory: false, provider: 'SERVIEW GmbH', validityMonths: 0 },
-  { id: 'tr6', name: 'Fuehrungskompetenz', type: 'soft_skills', duration: '2 Tage', mandatory: false, provider: 'WHU Executive Education', validityMonths: 0 },
+  { id: 'tr6', name: 'Führungskompetenz', type: 'soft_skills', duration: '2 Tage', mandatory: false, provider: 'WHU Executive Education', validityMonths: 0 },
 ]
 
 const INITIAL_PARTICIPATIONS: TrainingParticipation[] = [

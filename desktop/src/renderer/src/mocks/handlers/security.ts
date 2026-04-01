@@ -20,9 +20,9 @@ const auditLogs = [
   { id: 'aud-008', action: 'login', user_id: IDS.users.julia, user_name: 'Julia Hofmann', ip: '192.168.1.112', details: 'Desktop App Login', created_at: hoursAgo(2) },
   { id: 'aud-009', action: 'deal_created', user_id: IDS.users.thomas, user_name: 'Thomas Meier', ip: '192.168.1.103', details: 'Deal "KI Beratung" erstellt', created_at: hoursAgo(3) },
   { id: 'aud-010', action: 'invoice_sent', user_id: IDS.users.michael, user_name: 'Petra Zimmermann', ip: '192.168.1.113', details: 'Rechnung RE-2026-080 versendet', created_at: hoursAgo(3) },
-  { id: 'aud-011', action: 'document_deleted', user_id: IDS.users.felix, user_name: 'Felix Krause', ip: '192.168.1.105', details: 'Entwurf_alt.pdf geloescht', created_at: hoursAgo(4) },
+  { id: 'aud-011', action: 'document_deleted', user_id: IDS.users.felix, user_name: 'Felix Krause', ip: '192.168.1.105', details: 'Entwurf_alt.pdf gelöscht', created_at: hoursAgo(4) },
   { id: 'aud-012', action: 'login', user_id: IDS.users.nina, user_name: 'Elena Schuster', ip: '192.168.1.115', details: 'Desktop App Login', created_at: hoursAgo(4) },
-  { id: 'aud-013', action: 'contact_updated', user_id: IDS.users.laura, user_name: 'Sabine Fischer', ip: '192.168.1.110', details: 'Kontakt: Hans Mueller — E-Mail aktualisiert', created_at: hoursAgo(5) },
+  { id: 'aud-013', action: 'contact_updated', user_id: IDS.users.laura, user_name: 'Sabine Fischer', ip: '192.168.1.110', details: 'Kontakt: Hans Müller — E-Mail aktualisiert', created_at: hoursAgo(5) },
   { id: 'aud-014', action: 'project_created', user_id: IDS.users.elena, user_name: 'Sarah Beck', ip: '192.168.1.118', details: 'Projekt "Datenschutz Audit" erstellt', created_at: hoursAgo(5) },
   { id: 'aud-015', action: 'login_failed', user_id: null, user_name: 'unbekannt', ip: '203.0.113.42', details: 'Fehlgeschlagener Login: admin@techvision.de', created_at: hoursAgo(6) },
   { id: 'aud-016', action: 'password_changed', user_id: IDS.users.lena, user_name: 'Lena Braun', ip: '192.168.1.109', details: 'Passwort geaendert', created_at: hoursAgo(6) },
@@ -46,7 +46,7 @@ const auditLogs = [
   { id: 'aud-034', action: 'document_uploaded', user_id: IDS.users.nina, user_name: 'Elena Schuster', ip: '192.168.1.115', details: 'Onboarding_Checkliste.pdf hochgeladen', created_at: daysAgo(2) },
   { id: 'aud-035', action: 'invoice_paid', user_id: IDS.users.michael, user_name: 'Petra Zimmermann', ip: '192.168.1.113', details: 'Rechnung RE-2026-077 als bezahlt markiert', created_at: daysAgo(3) },
   { id: 'aud-036', action: 'login', user_id: IDS.users.jan, user_name: 'Jonas Schmitt', ip: '192.168.1.117', details: 'Desktop App Login', created_at: daysAgo(3) },
-  { id: 'aud-037', action: 'contact_deleted', user_id: IDS.users.thomas, user_name: 'Thomas Meier', ip: '192.168.1.103', details: 'Kontakt: Duplikat "Test Kontakt" geloescht', created_at: daysAgo(3) },
+  { id: 'aud-037', action: 'contact_deleted', user_id: IDS.users.thomas, user_name: 'Thomas Meier', ip: '192.168.1.103', details: 'Kontakt: Duplikat "Test Kontakt" gelöscht', created_at: daysAgo(3) },
   { id: 'aud-038', action: 'deal_updated', user_id: IDS.users.thomas, user_name: 'Thomas Meier', ip: '192.168.1.103', details: 'Deal "Support Vertrag" Wert angepasst', created_at: daysAgo(3) },
   { id: 'aud-039', action: 'login', user_id: IDS.users.david, user_name: 'Kevin Baumann', ip: '192.168.1.111', details: 'Desktop App Login', created_at: daysAgo(4) },
   { id: 'aud-040', action: 'settings_changed', user_id: IDS.users.markus, user_name: 'Markus Weber', ip: '192.168.1.102', details: 'E-Mail-SMTP konfiguriert', created_at: daysAgo(4) },
@@ -83,7 +83,7 @@ const passwordPolicy = {
 // ---------------------------------------------------------------------------
 
 const ipRules = [
-  { id: 'ipr-001', type: 'allow', cidr: '192.168.1.0/24', description: 'Buero-Netzwerk Muenchen', created_at: daysAgo(90) },
+  { id: 'ipr-001', type: 'allow', cidr: '192.168.1.0/24', description: 'Büro-Netzwerk München', created_at: daysAgo(90) },
   { id: 'ipr-002', type: 'allow', cidr: '10.0.0.0/8', description: 'VPN', created_at: daysAgo(90) },
   { id: 'ipr-003', type: 'block', cidr: '203.0.113.0/24', description: 'Bekannte Angreifer-Range', created_at: daysAgo(5) },
 ]

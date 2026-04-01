@@ -68,7 +68,7 @@ export function ChannelMappingEditor({
       return
     }
     if (form.modules.length === 0) {
-      toast.error('Bitte mindestens ein Modul auswaehlen')
+      toast.error('Bitte mindestens ein Modul auswählen')
       return
     }
     await createMapping.mutateAsync({
@@ -182,7 +182,7 @@ export function ChannelMappingEditor({
                             onClick={() => handleDelete(mapping.id)}
                             className="h-7 px-2 text-red-500 hover:text-red-600"
                           >
-                            Loeschen
+                            Löschen
                           </Button>
                           <Button
                             variant="ghost"

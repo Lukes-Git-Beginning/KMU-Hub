@@ -233,10 +233,10 @@ export function useDeleteChannelMapping(platform: Platform) {
       qc.invalidateQueries({
         queryKey: integrationKeys.mappings(platform),
       })
-      toast.success('Kanalzuordnung geloescht')
+      toast.success('Kanalzuordnung gelöscht')
     },
     onError: () => {
-      toast.error('Fehler beim Loeschen der Kanalzuordnung')
+      toast.error('Fehler beim Löschen der Kanalzuordnung')
     },
   })
 }
@@ -268,10 +268,10 @@ export function useLinkAccount() {
       qc.invalidateQueries({
         queryKey: ['integration', 'link'],
       })
-      toast.success('Konto verknuepft')
+      toast.success('Konto verknüpft')
     },
     onError: () => {
-      toast.error('Token ungueltig oder abgelaufen')
+      toast.error('Token ungültig oder abgelaufen')
     },
   })
 }
@@ -285,10 +285,10 @@ export function useUnlinkAccount(platform: Platform) {
       qc.invalidateQueries({
         queryKey: integrationKeys.link(platform),
       })
-      toast.success('Kontoverknuepfung aufgehoben')
+      toast.success('Kontoverknüpfung aufgehoben')
     },
     onError: () => {
-      toast.error('Fehler beim Aufheben der Verknuepfung')
+      toast.error('Fehler beim Aufheben der Verknüpfung')
     },
   })
 }

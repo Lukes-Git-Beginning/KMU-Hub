@@ -88,7 +88,7 @@ describe('InvoiceFormDialog', () => {
     const descriptions = screen.getAllByPlaceholderText('Beschreibung...')
     expect(descriptions).toHaveLength(1)
 
-    // Click "Position hinzufuegen"
+    // Click "Position hinzufügen"
     await user.click(screen.getByText(/Position hinzuf/))
 
     // Now two line items

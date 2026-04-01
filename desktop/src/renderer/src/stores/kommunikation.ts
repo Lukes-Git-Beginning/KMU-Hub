@@ -53,7 +53,7 @@ const mockCannedResponses: CannedResponse[] = [
     content: 'Guten Tag! Vielen Dank für Ihre Nachricht. Wie kann ich Ihnen helfen?',
     category: 'allgemein',
     shortcut: '/hi',
-    createdBy: 'Anna Mueller',
+    createdBy: 'Anna Müller',
     usageCount: 47,
   },
   {

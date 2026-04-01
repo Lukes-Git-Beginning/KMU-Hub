@@ -53,7 +53,7 @@ function KpiTasks(_props: WidgetProps) {
   const segments = [
     { label: 'Erledigt', count: done, color: 'bg-success', textColor: 'text-success', icon: CheckCircle2 },
     { label: 'In Arbeit', count: inProgress, color: 'bg-blue-500', textColor: 'text-blue-600', icon: Circle },
-    { label: 'Ueberfaellig', count: overdue, color: 'bg-destructive', textColor: 'text-destructive', icon: AlertTriangle },
+    { label: 'Ueberfällig', count: overdue, color: 'bg-destructive', textColor: 'text-destructive', icon: AlertTriangle },
   ]
 
   return (

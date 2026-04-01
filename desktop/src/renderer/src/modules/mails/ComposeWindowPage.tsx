@@ -225,7 +225,7 @@ export default function ComposeWindowPage() {
             onClick={() => setTemplateOpen(true)}
             className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors flex items-center gap-1"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            title="Vorlage einfuegen"
+            title="Vorlage einfügen"
           >
             <FileText className="h-3.5 w-3.5" />
             Vorlage
@@ -257,7 +257,7 @@ export default function ComposeWindowPage() {
               onClick={() => setShowCcBcc(true)}
               className="text-xs text-primary hover:underline ml-1"
             >
-              Cc/Bcc hinzufuegen
+              Cc/Bcc hinzufügen
             </button>
           )}
 

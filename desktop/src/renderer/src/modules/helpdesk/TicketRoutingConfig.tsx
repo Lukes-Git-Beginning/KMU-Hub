@@ -43,7 +43,7 @@ const INITIAL_RULES: RoutingRule[] = [
 ]
 
 const PRIORITY_LABELS: Record<string, string> = {
-  '': 'Keine Aenderung', low: 'Niedrig', medium: 'Mittel', high: 'Hoch', critical: 'Kritisch',
+  '': 'Keine Änderung', low: 'Niedrig', medium: 'Mittel', high: 'Hoch', critical: 'Kritisch',
 }
 
 interface TicketRoutingConfigProps { open: boolean; onClose: () => void }
@@ -65,7 +65,7 @@ export function TicketRoutingConfig({ open, onClose }: TicketRoutingConfigProps)
             <Route className="h-4 w-4 text-primary" />
             <DialogTitle className="text-base font-semibold text-foreground">Ticket-Routing konfigurieren</DialogTitle>
           </div>
-          <DialogDescription className="sr-only">Routing-Regeln fuer Ticket-Zuweisung konfigurieren</DialogDescription>
+          <DialogDescription className="sr-only">Routing-Regeln für Ticket-Zuweisung konfigurieren</DialogDescription>
         </DialogHeader>
 
         {/* Body */}

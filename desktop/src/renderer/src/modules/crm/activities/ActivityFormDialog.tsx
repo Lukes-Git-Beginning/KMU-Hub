@@ -133,7 +133,7 @@ export function ActivityFormDialog({
           {/* Due Date */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Faellig am
+              Fällig am
             </label>
             <input
               type="date"

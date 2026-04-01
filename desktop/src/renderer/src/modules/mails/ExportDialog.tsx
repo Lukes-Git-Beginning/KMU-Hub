@@ -107,7 +107,7 @@ export default function ExportDialog({
               >
                 <p className="text-sm font-medium">CSV</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Fuer Excel, Google Sheets
+                  Für Excel, Google Sheets
                 </p>
               </button>
               <button
@@ -121,7 +121,7 @@ export default function ExportDialog({
               >
                 <p className="text-sm font-medium">vCard</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Fuer Outlook, Apple Kontakte
+                  Für Outlook, Apple Kontakte
                 </p>
               </button>
             </div>
@@ -139,8 +139,8 @@ export default function ExportDialog({
                   onClick={toggleAll}
                 >
                   {selectedFields.size === EXPORT_FIELDS.length
-                    ? 'Keine auswaehlen'
-                    : 'Alle auswaehlen'}
+                    ? 'Keine auswählen'
+                    : 'Alle auswählen'}
                 </Button>
               </div>
               <div className="space-y-2">

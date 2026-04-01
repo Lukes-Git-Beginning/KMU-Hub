@@ -37,7 +37,7 @@ export function InternalNoteComposer({ onSend }: InternalNoteComposerProps) {
       <div className="flex items-center gap-1.5 mb-2">
         <StickyNote className="h-3.5 w-3.5 text-warning" />
         <span className="text-[11px] font-medium text-warning">Interne Notiz</span>
-        <span className="text-[10px] text-muted-foreground">— nur fuer dein Team sichtbar</span>
+        <span className="text-[10px] text-muted-foreground">— nur für dein Team sichtbar</span>
       </div>
       <textarea
         value={text}
@@ -52,7 +52,7 @@ export function InternalNoteComposer({ onSend }: InternalNoteComposerProps) {
             setText('')
           }
         }}
-        placeholder="Notiz fuer Kollegen schreiben..."
+        placeholder="Notiz für Kollegen schreiben..."
         rows={2}
         className="w-full rounded-md border border-warning/20 bg-transparent px-2.5 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-warning/40 resize-none"
         autoFocus

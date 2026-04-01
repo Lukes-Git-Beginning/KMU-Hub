@@ -130,9 +130,9 @@ const INITIAL_FORM: EmployeeFormData = {
 const STEPS = [
   { label: 'Account', icon: User, desc: 'Login & Systemrollen' },
   { label: 'Arbeit', icon: Briefcase, desc: 'Vertrag & Abteilung' },
-  { label: 'Persoenlich', icon: Home, desc: 'Adresse & Notfall' },
-  { label: 'Dokumente', icon: FileText, desc: 'Vertraege & Unterlagen' },
-  { label: 'Uebersicht', icon: CheckCircle, desc: 'Pruefen & Erstellen' },
+  { label: 'Persönlich', icon: Home, desc: 'Adresse & Notfall' },
+  { label: 'Dokumente', icon: FileText, desc: 'Verträge & Unterlagen' },
+  { label: 'Übersicht', icon: CheckCircle, desc: 'Prüfen & Erstellen' },
 ]
 
 const ROLE_OPTIONS = [
@@ -310,7 +310,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
             <button
               onClick={handlePopOut}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              title="Als Fenster oeffnen"
+              title="Als Fenster öffnen"
             >
               <Maximize2 className="h-4 w-4" />
             </button>
@@ -418,7 +418,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
           className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
-          Zurueck
+          Zurück
         </button>
 
         {step < 4 ? (
@@ -562,7 +562,7 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
           <FormField
             label="Temporaeres Passwort"
             required
-            hint="Der Mitarbeiter wird aufgefordert, das Passwort beim ersten Login zu aendern."
+            hint="Der Mitarbeiter wird aufgefordert, das Passwort beim ersten Login zu ändern."
           >
             <div className="relative">
               <Input
@@ -585,7 +585,7 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
 
       <SectionCard title="Systemrollen" icon={Shield}>
         <p className="text-xs text-muted-foreground mb-3">
-          Mindestens eine Rolle auswaehlen. Mehrfachauswahl moeglich.
+          Mindestens eine Rolle auswählen. Mehrfachauswahl möglich.
         </p>
         <div className="grid grid-cols-3 gap-2">
           {ROLE_OPTIONS.map((role) => {
@@ -646,7 +646,7 @@ function EmploymentStep({
           <FormField label="Abteilung">
             <Select value={form.department} onValueChange={(v) => update('department', v)}>
               <SelectTrigger>
-                <SelectValue placeholder="Waehlen..." />
+                <SelectValue placeholder="Wählen..." />
               </SelectTrigger>
               <SelectContent>
                 {departments.map((d) => (
@@ -731,7 +731,7 @@ function EmploymentStep({
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Standort">
             <Input
-              placeholder="z.B. Zuerich"
+              placeholder="z.B. Zürich"
               value={form.location}
               onChange={(e) => update('location', e.target.value)}
             />
@@ -776,7 +776,7 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
             <div className="col-span-2">
               <FormField label="Ort">
                 <Input
-                  placeholder="Zuerich"
+                  placeholder="Zürich"
                   value={form.addressCity}
                   onChange={(e) => update('addressCity', e.target.value)}
                 />
@@ -821,7 +821,7 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
       <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 flex items-start gap-3">
         <AlertTriangle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
-          Persoenliche Daten sind optional und koennen auch spaeter vom Mitarbeiter
+          Persönliche Daten sind optional und können auch später vom Mitarbeiter
           selbst ergaenzt werden.
         </p>
       </div>
@@ -840,7 +840,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
 
   const addDocument = () => {
     if (!fileName.trim()) {
-      toast.error('Bitte waehlen Sie eine Datei')
+      toast.error('Bitte wählen Sie eine Datei')
       return
     }
     const entry: DocumentEntry = {
@@ -852,7 +852,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
     update('documents', [...form.documents, entry])
     setFileName('')
     setNotes('')
-    toast.success(`"${entry.fileName}" hinzugefuegt`)
+    toast.success(`"${entry.fileName}" hinzugefügt`)
   }
 
   const removeDocument = (id: string) => {
@@ -866,7 +866,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
     <div className="space-y-5">
       {/* Uploaded list */}
       {form.documents.length > 0 && (
-        <SectionCard title={`Hinzugefuegt (${form.documents.length})`} icon={FileText}>
+        <SectionCard title={`Hinzugefügt (${form.documents.length})`} icon={FileText}>
           <div className="space-y-2">
             {form.documents.map((doc) => (
               <div
@@ -896,7 +896,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
       )}
 
       {/* Upload form */}
-      <SectionCard title="Dokument hinzufuegen" icon={Upload}>
+      <SectionCard title="Dokument hinzufügen" icon={Upload}>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Kategorie">
             <Select value={category} onValueChange={setCategory}>
@@ -926,7 +926,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
         <div className="mt-4">
           <FormField label="Notizen">
             <Input
-              placeholder="Optional — z.B. Befristung, Gueltigkeitsdatum"
+              placeholder="Optional — z.B. Befristung, Gültigkeitsdatum"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -935,7 +935,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
         <div className="mt-4">
           <Button variant="outline" size="sm" onClick={addDocument} disabled={!fileName.trim()}>
             <Upload className="h-3.5 w-3.5 mr-1.5" />
-            Hinzufuegen
+            Hinzufügen
           </Button>
         </div>
       </SectionCard>
@@ -943,7 +943,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
       <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 flex items-start gap-3">
         <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
-          Dieser Schritt ist optional. Dokumente koennen auch spaeter im Mitarbeiterprofil
+          Dieser Schritt ist optional. Dokumente können auch später im Mitarbeiterprofil
           hochgeladen werden.
         </p>
       </div>
@@ -990,7 +990,7 @@ function SummaryStep({ form, update }: { form: EmployeeFormData; update: UpdateF
 
       {/* Personal */}
       {(form.addressStreet || form.emergencyContactName) && (
-        <SummaryCard title="Persoenlich" icon={Home}>
+        <SummaryCard title="Persönlich" icon={Home}>
           {form.addressStreet && (
             <SummaryRow
               label="Adresse"

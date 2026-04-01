@@ -93,9 +93,9 @@ export default function ActivitiesListPage() {
   async function handleDelete(id: string) {
     try {
       await deleteActivity.mutateAsync(id)
-      toast.success('Aktivitaet geloescht')
+      toast.success('Aktivitaet gelöscht')
     } catch {
-      toast.error('Fehler beim Loeschen')
+      toast.error('Fehler beim Löschen')
     }
   }
 
@@ -229,7 +229,7 @@ export default function ActivitiesListPage() {
                       )}
                       {activity.due_date && (
                         <span>
-                          Faellig:{' '}
+                          Fällig:{' '}
                           {new Date(activity.due_date).toLocaleDateString(
                             'de-DE'
                           )}

@@ -36,7 +36,7 @@ export function SidebarBranding({ collapsed, onToggle, onOpenModules }: SidebarB
         {/* Branding text */}
         {!collapsed && (
           <span className="text-sm font-bold text-sidebar-foreground truncate select-none">
-            KMU Hub
+            Cosmi
           </span>
         )}
 

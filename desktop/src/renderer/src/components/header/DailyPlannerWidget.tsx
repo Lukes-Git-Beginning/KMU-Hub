@@ -222,7 +222,7 @@ export function DailyPlannerWidget() {
                     onClick={addTask}
                     className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:opacity-90"
                   >
-                    Hinzufuegen
+                    Hinzufügen
                   </button>
                 </div>
               </div>

@@ -115,7 +115,7 @@ export function TeamInboxSettings({
           <DialogHeader>
             <DialogTitle>Team-Postfach: {team.name}</DialogTitle>
             <DialogDescription>
-              Einstellungen fuer das Team-Postfach bearbeiten.
+              Einstellungen für das Team-Postfach bearbeiten.
             </DialogDescription>
           </DialogHeader>
 
@@ -290,7 +290,7 @@ export function TeamInboxSettings({
                 className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Loeschen
+                Löschen
               </button>
               <div className="flex gap-2">
                 <button
@@ -315,9 +315,9 @@ export function TeamInboxSettings({
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
-        title="Team-Postfach loeschen?"
-        description={`"${team.name}" wird dauerhaft geloescht. Diese Aktion kann nicht rueckgaengig gemacht werden.`}
-        confirmLabel="Loeschen"
+        title="Team-Postfach löschen?"
+        description={`"${team.name}" wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

@@ -129,7 +129,7 @@ export function ConversationList({ messages, isLoading, onNewConversation }: Con
             title="Keine Konversationen"
             description={
               searchQuery
-                ? 'Keine Treffer fuer diese Suche.'
+                ? 'Keine Treffer für diese Suche.'
                 : 'Noch keine Konversationen in diesem Kanal.'
             }
           />

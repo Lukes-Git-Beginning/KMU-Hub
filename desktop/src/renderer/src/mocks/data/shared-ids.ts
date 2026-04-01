@@ -155,7 +155,7 @@ export const IDS = {
   folders: {
     root: 'fld-root',
     projekte: 'fld-projekte',
-    vertraege: 'fld-vertraege',
+    verträge: 'fld-verträge',
     rechnungen: 'fld-rechnungen',
     marketing: 'fld-marketing',
     vorlagen: 'fld-vorlagen',

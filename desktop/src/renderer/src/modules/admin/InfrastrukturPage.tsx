@@ -436,7 +436,7 @@ function BackupsTab({
             </div>
             <Button variant="outline" size="sm" onClick={() => toast.info('Speicherort-Konfiguration wird geöffnet...')}>
               <Settings className="mr-1.5 h-3.5 w-3.5" />
-              Aendern
+              Ändern
             </Button>
           </div>
         </div>
@@ -598,7 +598,7 @@ function SecurityTab() {
           </div>
           <div>
             <h3 className="text-sm font-medium text-foreground">SSL/TLS-Zertifikat</h3>
-            <p className="text-xs text-success font-medium">Gueltig bis 15.06.2026</p>
+            <p className="text-xs text-success font-medium">Gültig bis 15.06.2026</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -639,10 +639,10 @@ function SecurityTab() {
 
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-foreground">Verschluesselung (at rest)</p>
-            <p className="text-xs text-muted-foreground">Datenbank und Dateien verschluesselt speichern</p>
+            <p className="text-sm text-foreground">Verschlüsselung (at rest)</p>
+            <p className="text-xs text-muted-foreground">Datenbank und Dateien verschlüsselt speichern</p>
           </div>
-          <Switch checked={encryptionEnabled} onCheckedChange={(v) => { setEncryptionEnabled(v); toast.success(v ? 'Verschluesselung aktiviert' : 'Verschluesselung deaktiviert') }} />
+          <Switch checked={encryptionEnabled} onCheckedChange={(v) => { setEncryptionEnabled(v); toast.success(v ? 'Verschlüsselung aktiviert' : 'Verschlüsselung deaktiviert') }} />
         </div>
 
         <div className="flex items-center justify-between py-2">
@@ -712,7 +712,7 @@ function UpdatesTab() {
         </div>
         <div className="rounded-lg bg-success/5 border border-success/20 p-3">
           <p className="text-sm text-success font-medium">System ist auf dem neuesten Stand</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Letzte Pruefung: Heute um 06:00</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Letzte Prüfung: Heute um 06:00</p>
         </div>
       </div>
 

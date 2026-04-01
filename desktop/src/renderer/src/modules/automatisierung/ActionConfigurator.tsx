@@ -110,7 +110,7 @@ function ActionSlot({
             {index + 1}
           </span>
           <span className="text-xs font-medium text-foreground">
-            {actionDef?.name ?? (action.type || 'Aktion waehlen')}
+            {actionDef?.name ?? (action.type || 'Aktion wählen')}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -148,7 +148,7 @@ function ActionSlot({
             onChange={(e) => handleTypeChange(e.target.value)}
             className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-focus-ring"
           >
-            <option value="">Aktion waehlen...</option>
+            <option value="">Aktion wählen...</option>
             {Object.entries(grouped).map(([mod, defs]) => (
               <optgroup key={mod} label={MODULE_LABELS[mod] ?? mod}>
                 {defs.map((def) => (
@@ -184,7 +184,7 @@ function ActionSlot({
               className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <Variable className="h-3 w-3" />
-              {showVars ? 'Variablen ausblenden' : 'Verfuegbare Variablen'}
+              {showVars ? 'Variablen ausblenden' : 'Verfügbare Variablen'}
             </button>
             {showVars && (
               <div className="mt-1 flex flex-wrap gap-1">
@@ -193,7 +193,7 @@ function ActionSlot({
                     key={v}
                     onClick={() => insertVariable(v)}
                     className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
-                    title={`{{${v}}} einfuegen`}
+                    title={`{{${v}}} einfügen`}
                   >
                     {`{{${v}}}`}
                   </button>
@@ -388,7 +388,7 @@ export function ActionConfigurator() {
         className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-4 py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
       >
         <Plus className="h-3.5 w-3.5" />
-        Aktion hinzufuegen
+        Aktion hinzufügen
       </button>
 
       {actions.length === 0 && (

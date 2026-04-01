@@ -12,7 +12,7 @@ export const mockChannels = {
       name: 'allgemein',
       is_dm: false,
       is_private: false,
-      description: 'Allgemeiner Kanal fuer das ganze Team',
+      description: 'Allgemeiner Kanal für das ganze Team',
       member_count: 18,
       created_at: daysAgo(180),
     },
@@ -57,7 +57,7 @@ export const mockChannels = {
       name: 'random',
       is_dm: false,
       is_private: false,
-      description: 'Off-topic, Memes und Pausengespraeche',
+      description: 'Off-topic, Memes und Pausengespräche',
       member_count: 18,
       created_at: daysAgo(180),
     },
@@ -72,10 +72,10 @@ export const mockChannels = {
     },
     {
       id: IDS.channels.announcements,
-      name: 'ankuendigungen',
+      name: 'ankündigungen',
       is_dm: false,
       is_private: false,
-      description: 'Offizielle Ankuendigungen der Geschaeftsleitung',
+      description: 'Offizielle Ankündigungen der Geschaeftsleitung',
       member_count: 18,
       created_at: daysAgo(180),
     },
@@ -149,7 +149,7 @@ export const mockMessagesByChannel: Record<
         content: 'Guten Morgen zusammen! Schoenen Start in die Woche.',
         channel_id: IDS.channels.allgemein,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(4),
         reply_count: 0,
         reactions: [{ emoji: '👋', count: 6 }],
@@ -212,7 +212,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-a-007',
-        content: 'Wer ist naechste Woche im Office? Brauche jemanden fuer den Kunden-Termin am Mittwoch.',
+        content: 'Wer ist nächste Woche im Office? Brauche jemanden für den Kunden-Termin am Mittwoch.',
         channel_id: IDS.channels.allgemein,
         sender_id: IDS.users.markus,
         sender_name: 'Markus Weber',
@@ -311,7 +311,7 @@ export const mockMessagesByChannel: Record<
           'Hab den Memory Leak in der WebSocket-Connection gefixed. War ein fehlender Cleanup im useEffect.',
         channel_id: IDS.channels.entwicklung,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(4),
         reply_count: 1,
         reactions: [{ emoji: '🎉', count: 3 }],
@@ -355,7 +355,7 @@ export const mockMessagesByChannel: Record<
       {
         id: 'msg-e-007',
         content:
-          'Frage: Sollen wir fuer die neue Suchfunktion Elasticsearch oder PostgreSQL Full-Text verwenden?',
+          'Frage: Sollen wir für die neue Suchfunktion Elasticsearch oder PostgreSQL Full-Text verwenden?',
         channel_id: IDS.channels.entwicklung,
         sender_id: IDS.users.lena,
         sender_name: 'Lena Hartmann',
@@ -367,7 +367,7 @@ export const mockMessagesByChannel: Record<
       {
         id: 'msg-e-008',
         content:
-          'Fuer unsere Groesse reicht PostgreSQL FTS locker. Elasticsearch koennen wir spaeter immer noch einbauen.',
+          'Für unsere Größe reicht PostgreSQL FTS locker. Elasticsearch können wir später immer noch einbauen.',
         channel_id: IDS.channels.entwicklung,
         sender_id: IDS.users.thomas,
         sender_name: 'Thomas Braun',
@@ -381,7 +381,7 @@ export const mockMessagesByChannel: Record<
         content: 'Sehe ich genauso. KISS-Prinzip.',
         channel_id: IDS.channels.entwicklung,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(1.5),
         reply_count: 0,
         reactions: [],
@@ -401,7 +401,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-e-011',
-        content: 'Hab gerade den neuen Rate-Limiter fuer die API fertig. 100 req/min pro User, konfigurierbar.',
+        content: 'Hab gerade den neuen Rate-Limiter für die API fertig. 100 req/min pro User, konfigurierbar.',
         channel_id: IDS.channels.entwicklung,
         sender_id: IDS.users.david,
         sender_name: 'David Lang',
@@ -415,7 +415,7 @@ export const mockMessagesByChannel: Record<
         content: 'Bitte auch den Burst-Wert dokumentieren, damit Support Bescheid weiss.',
         channel_id: IDS.channels.entwicklung,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: minutesAgo(20),
         reply_count: 0,
         reactions: [],
@@ -456,7 +456,7 @@ export const mockMessagesByChannel: Record<
       {
         id: 'msg-v-003',
         content:
-          'Helvetia Software moechte eine Demo naechste Woche. Wer kann den technischen Part uebernehmen?',
+          'Helvetia Software moechte eine Demo nächste Woche. Wer kann den technischen Part übernehmen?',
         channel_id: IDS.channels.vertrieb,
         sender_id: IDS.users.laura,
         sender_name: 'Laura Fischer',
@@ -470,7 +470,7 @@ export const mockMessagesByChannel: Record<
         content: 'Kann ich machen, Dienstag oder Mittwoch passt bei mir.',
         channel_id: IDS.channels.vertrieb,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(3.5),
         reply_count: 0,
         reactions: [{ emoji: '🙏', count: 1 }],
@@ -491,7 +491,7 @@ export const mockMessagesByChannel: Record<
       {
         id: 'msg-v-006',
         content:
-          'Alpen Logistik hat nach einer Self-Hosted-Option gefragt. Ist das schon moeglich?',
+          'Alpen Logistik hat nach einer Self-Hosted-Option gefragt. Ist das schon möglich?',
         channel_id: IDS.channels.vertrieb,
         sender_id: IDS.users.nina,
         sender_name: 'Nina Becker',
@@ -502,7 +502,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-v-007',
-        content: 'Docker-Compose Setup steht. Koennen wir anbieten, muessen aber Onboarding-Aufwand einplanen.',
+        content: 'Docker-Compose Setup steht. Können wir anbieten, muessen aber Onboarding-Aufwand einplanen.',
         channel_id: IDS.channels.vertrieb,
         sender_id: IDS.users.thomas,
         sender_name: 'Thomas Braun',
@@ -524,7 +524,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-v-009',
-        content: 'Angebots-Template fuer Enterprise ist aktualisiert. Link im Wiki.',
+        content: 'Angebots-Template für Enterprise ist aktualisiert. Link im Wiki.',
         channel_id: IDS.channels.vertrieb,
         sender_id: IDS.users.laura,
         sender_name: 'Laura Fischer',
@@ -553,7 +553,7 @@ export const mockMessagesByChannel: Record<
     messages: [
       {
         id: 'msg-d-001',
-        content: 'Neue Mockups fuer das Dashboard sind im Figma. Bitte Feedback bis morgen.',
+        content: 'Neue Mockups für das Dashboard sind im Figma. Bitte Feedback bis morgen.',
         channel_id: IDS.channels.design,
         sender_id: IDS.users.sophie,
         sender_name: 'Sophie Meier',
@@ -567,7 +567,7 @@ export const mockMessagesByChannel: Record<
         content: 'Die Farben im Dark Mode brauchen noch etwas Kontrast. Sonst sieht es super aus!',
         channel_id: IDS.channels.design,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(4.5),
         reply_count: 0,
         reactions: [],
@@ -598,7 +598,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-d-005',
-        content: 'Sollen wir fuer die Mobile-Version ein eigenes Icon-Set machen oder das gleiche nutzen?',
+        content: 'Sollen wir für die Mobile-Version ein eigenes Icon-Set machen oder das gleiche nutzen?',
         channel_id: IDS.channels.design,
         sender_id: IDS.users.lena,
         sender_name: 'Lena Hartmann',
@@ -632,7 +632,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-d-008',
-        content: 'Der Kunde von Rhein Consulting hat sich ein blaues Theme gewuenscht. Mach ich morgen.',
+        content: 'Der Kunde von Rhein Consulting hat sich ein blaues Theme gewünscht. Mach ich morgen.',
         channel_id: IDS.channels.design,
         sender_id: IDS.users.sophie,
         sender_name: 'Sophie Meier',
@@ -683,7 +683,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-s-002',
-        content: 'Pruefen ob SMS-Provider Probleme hat. Letzte Woche gab es schon Verzoegerungen.',
+        content: 'Prüfen ob SMS-Provider Probleme hat. Letzte Woche gab es schon Verzoegerungen.',
         channel_id: IDS.channels.support,
         sender_id: IDS.users.thomas,
         sender_name: 'Thomas Braun',
@@ -762,10 +762,10 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-s-009',
-        content: 'Steht auf der Roadmap fuer Q3. Erstmal manuell uebersetzen.',
+        content: 'Steht auf der Roadmap für Q3. Erstmal manuell übersetzen.',
         channel_id: IDS.channels.support,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: minutesAgo(40),
         reply_count: 0,
         reactions: [{ emoji: '👍', count: 1 }],
@@ -791,7 +791,7 @@ export const mockMessagesByChannel: Record<
     messages: [
       {
         id: 'msg-r-001',
-        content: 'Hat jemand eine gute Restaurant-Empfehlung fuer das Team-Dinner am Freitag?',
+        content: 'Hat jemand eine gute Restaurant-Empfehlung für das Team-Dinner am Freitag?',
         channel_id: IDS.channels.random,
         sender_id: IDS.users.nina,
         sender_name: 'Nina Becker',
@@ -846,7 +846,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-r-006',
-        content: 'Hat jemand das EM-Spiel gestern gesehen? Was fuer ein Finale!',
+        content: 'Hat jemand das EM-Spiel gestern gesehen? Was für ein Finale!',
         channel_id: IDS.channels.random,
         sender_id: IDS.users.christian,
         sender_name: 'Christian Wolf',
@@ -901,7 +901,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-r-011',
-        content: 'Neues Spotify-Playlist-Update fuer das Buero: https://open.spotify.com/playlist/abc',
+        content: 'Neues Spotify-Playlist-Update für das Büro: https://open.spotify.com/playlist/abc',
         channel_id: IDS.channels.random,
         sender_id: IDS.users.sophie,
         sender_name: 'Sophie Meier',
@@ -922,7 +922,7 @@ export const mockMessagesByChannel: Record<
         content: 'Kickoff-Meeting war produktiv. Zusammenfassung im Wiki.',
         channel_id: IDS.channels.projektAlpha,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(6),
         reply_count: 0,
         reactions: [{ emoji: '✅', count: 3 }],
@@ -942,7 +942,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-pa-003',
-        content: 'Budget fuer Phase 1 ist freigegeben: 85k. Timeline: 6 Wochen.',
+        content: 'Budget für Phase 1 ist freigegeben: 85k. Timeline: 6 Wochen.',
         channel_id: IDS.channels.projektAlpha,
         sender_id: IDS.users.julia,
         sender_name: 'Julia Hoffmann',
@@ -964,7 +964,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-pa-005',
-        content: 'Hab einen Proof-of-Concept fuer die Legacy-Anbindung gemacht. Geht ueber SOAP, nicht REST.',
+        content: 'Hab einen Proof-of-Concept für die Legacy-Anbindung gemacht. Geht ueber SOAP, nicht REST.',
         channel_id: IDS.channels.projektAlpha,
         sender_id: IDS.users.thomas,
         sender_name: 'Thomas Braun',
@@ -978,7 +978,7 @@ export const mockMessagesByChannel: Record<
         content: 'SOAP... na gut, bauen wir einen Adapter. Hauptsache es funktioniert.',
         channel_id: IDS.channels.projektAlpha,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(1.5),
         reply_count: 0,
         reactions: [{ emoji: '💪', count: 2 }],
@@ -997,10 +997,10 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-pa-008',
-        content: 'Naechstes Meeting: Donnerstag 10 Uhr. Bitte alle den Architektur-Entwurf vorher lesen.',
+        content: 'Nächstes Meeting: Donnerstag 10 Uhr. Bitte alle den Architektur-Entwurf vorher lesen.',
         channel_id: IDS.channels.projektAlpha,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: minutesAgo(30),
         reply_count: 0,
         reactions: [{ emoji: '👍', count: 3 }],
@@ -1010,16 +1010,16 @@ export const mockMessagesByChannel: Record<
     has_more: false,
   },
 
-  // ---- ankuendigungen ----
+  // ---- ankündigungen ----
   [IDS.channels.announcements]: {
     messages: [
       {
         id: 'msg-ann-001',
         content:
-          'Willkommen im neuen Quartal! Unsere Ziele fuer Q2: 20 neue Kunden, 500k ARR, iOS-App Beta.',
+          'Willkommen im neuen Quartal! Unsere Ziele für Q2: 20 neue Kunden, 500k ARR, iOS-App Beta.',
         channel_id: IDS.channels.announcements,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: daysAgo(5),
         reply_count: 0,
         reactions: [
@@ -1046,7 +1046,7 @@ export const mockMessagesByChannel: Record<
       {
         id: 'msg-ann-003',
         content:
-          'Server-Wartung am Samstag von 02:00 bis 06:00 Uhr. Kurze Downtime moeglich.',
+          'Server-Wartung am Samstag von 02:00 bis 06:00 Uhr. Kurze Downtime möglich.',
         channel_id: IDS.channels.announcements,
         sender_id: IDS.users.thomas,
         sender_name: 'Thomas Braun',
@@ -1058,10 +1058,10 @@ export const mockMessagesByChannel: Record<
       {
         id: 'msg-ann-004',
         content:
-          'Ab sofort koennt ihr Homeoffice-Tage direkt im Hub eintragen. Neues Feature unter "Mein Profil".',
+          'Ab sofort könnt ihr Homeoffice-Tage direkt im Hub eintragen. Neues Feature unter "Mein Profil".',
         channel_id: IDS.channels.announcements,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: daysAgo(1),
         reply_count: 0,
         reactions: [
@@ -1094,10 +1094,10 @@ export const mockMessagesByChannel: Record<
     messages: [
       {
         id: 'msg-dm1-001',
-        content: 'Hey, hast du die Zahlen fuer das Gruber-Angebot?',
+        content: 'Hey, hast du die Zahlen für das Gruber-Angebot?',
         channel_id: IDS.dms.stefanMarkus,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(3),
         reply_count: 0,
         reactions: [],
@@ -1119,7 +1119,7 @@ export const mockMessagesByChannel: Record<
         content: 'Super, danke! Passt zum Budget.',
         channel_id: IDS.dms.stefanMarkus,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(2.5),
         reply_count: 0,
         reactions: [{ emoji: '👍', count: 1 }],
@@ -1127,7 +1127,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-dm1-004',
-        content: 'Noch was — der Kunde hat nach einer Referenz gefragt. Koennen wir Bavaria Elektro nennen?',
+        content: 'Noch was — der Kunde hat nach einer Referenz gefragt. Können wir Bavaria Elektro nennen?',
         channel_id: IDS.dms.stefanMarkus,
         sender_id: IDS.users.markus,
         sender_name: 'Markus Weber',
@@ -1141,7 +1141,7 @@ export const mockMessagesByChannel: Record<
         content: 'Klar, die sind happy mit uns. Frag aber vorher nochmal bei denen nach.',
         channel_id: IDS.dms.stefanMarkus,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(1.5),
         reply_count: 0,
         reactions: [],
@@ -1166,10 +1166,10 @@ export const mockMessagesByChannel: Record<
     messages: [
       {
         id: 'msg-dm2-001',
-        content: 'Kurze Frage: Ist das Budget fuer die neue Stelle schon freigegeben?',
+        content: 'Kurze Frage: Ist das Budget für die neue Stelle schon freigegeben?',
         channel_id: IDS.dms.stefanJulia,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(4),
         reply_count: 0,
         reactions: [],
@@ -1188,10 +1188,10 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-dm2-003',
-        content: 'Perfekt. Soll ich die technischen Anforderungen nochmal pruefen?',
+        content: 'Perfekt. Soll ich die technischen Anforderungen nochmal prüfen?',
         channel_id: IDS.dms.stefanJulia,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(3),
         reply_count: 0,
         reactions: [],
@@ -1210,7 +1210,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-dm2-005',
-        content: 'Und vergiss bitte nicht die Praesentation fuer den Board-Call am Freitag.',
+        content: 'Und vergiss bitte nicht die Praesentation für den Board-Call am Freitag.',
         channel_id: IDS.dms.stefanJulia,
         sender_id: IDS.users.julia,
         sender_name: 'Julia Hoffmann',
@@ -1224,7 +1224,7 @@ export const mockMessagesByChannel: Record<
         content: 'Ist fast fertig, fehlen nur noch die Finanzzahlen von Markus.',
         channel_id: IDS.dms.stefanJulia,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(1.8),
         reply_count: 0,
         reactions: [{ emoji: '👍', count: 1 }],
@@ -1241,7 +1241,7 @@ export const mockMessagesByChannel: Record<
         content: 'Thomas, kannst du dir mal den Deployment-Fehler anschauen? Logs sehen komisch aus.',
         channel_id: IDS.dms.stefanThomas,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(2),
         reply_count: 0,
         reactions: [],
@@ -1271,10 +1271,10 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-dm3-004',
-        content: 'Danke, schnelle Loesung! Sollen wir das als Standard fuer alle Services setzen?',
+        content: 'Danke, schnelle Loesung! Sollen wir das als Standard für alle Services setzen?',
         channel_id: IDS.dms.stefanThomas,
         sender_id: IDS.users.stefan,
-        sender_name: 'Stefan Mueller',
+        sender_name: 'Stefan Müller',
         created_at: hoursAgo(1.2),
         reply_count: 0,
         reactions: [],
@@ -1282,7 +1282,7 @@ export const mockMessagesByChannel: Record<
       },
       {
         id: 'msg-dm3-005',
-        content: 'Ja, mache ich. Erstelle ein Ticket fuer einheitliche Resource-Limits.',
+        content: 'Ja, mache ich. Erstelle ein Ticket für einheitliche Resource-Limits.',
         channel_id: IDS.dms.stefanThomas,
         sender_id: IDS.users.thomas,
         sender_name: 'Thomas Braun',
@@ -1304,7 +1304,7 @@ export const mockChannelMembers = {
   members: [
     {
       user_id: IDS.users.stefan,
-      name: 'Stefan Mueller',
+      name: 'Stefan Müller',
       role: 'admin',
       joined_at: daysAgo(180),
     },

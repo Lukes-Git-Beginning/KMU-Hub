@@ -31,7 +31,7 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
 
   const handleSubmit = () => {
     if (!isValid) {
-      toast.error('Bitte alle Felder korrekt ausfuellen')
+      toast.error('Bitte alle Felder korrekt ausfüllen')
       return
     }
     if (date > todayStr()) {

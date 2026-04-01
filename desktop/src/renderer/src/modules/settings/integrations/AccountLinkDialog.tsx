@@ -72,9 +72,9 @@ export function AccountLinkDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Konto verknuepfen</DialogTitle>
+          <DialogTitle>Konto verknüpfen</DialogTitle>
           <DialogDescription>
-            Verknuepfen Sie Ihr {platformLabel}-Konto mit KMU Hub
+            Verknüpfen Sie Ihr {platformLabel}-Konto mit Cosmi
           </DialogDescription>
         </DialogHeader>
 
@@ -83,7 +83,7 @@ export function AccountLinkDialog({
             <div className="flex flex-col items-center gap-3 py-4">
               <CheckCircle className="h-12 w-12 text-green-500" />
               <p className="text-sm font-medium text-green-700 dark:text-green-400">
-                Konto verknuepft!
+                Konto verknüpft!
               </p>
               <p className="text-xs text-muted-foreground">
                 Dieses Fenster schliesst sich automatisch...
@@ -121,7 +121,7 @@ export function AccountLinkDialog({
                 <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-50/10 p-2.5">
                   <XCircle className="h-4 w-4 text-red-500 shrink-0" />
                   <p className="text-sm text-red-700 dark:text-red-400">
-                    Token ungueltig oder abgelaufen. Bitte versuchen Sie es
+                    Token ungültig oder abgelaufen. Bitte versuchen Sie es
                     erneut.
                   </p>
                 </div>
@@ -140,7 +140,7 @@ export function AccountLinkDialog({
                   {linkAccount.isPending && (
                     <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
                   )}
-                  Verknuepfen
+                  Verknüpfen
                 </Button>
               </div>
             </>

@@ -655,23 +655,23 @@ export default function SketchCanvas({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            title="Rueckgaengig"
+            title="Rückgängig"
             onClick={handleUndo}
             disabled={strokes.length === 0}
             className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs hover:bg-muted disabled:opacity-40 disabled:pointer-events-none"
           >
             <Undo2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Rueckgaengig</span>
+            <span className="hidden sm:inline">Rückgängig</span>
           </button>
           <button
             type="button"
-            title="Alles loeschen"
+            title="Alles löschen"
             onClick={handleClear}
             disabled={strokes.length === 0}
             className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:pointer-events-none"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Loeschen</span>
+            <span className="hidden sm:inline">Löschen</span>
           </button>
           {onSave && (
             <button

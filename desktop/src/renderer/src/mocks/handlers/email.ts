@@ -60,7 +60,7 @@ export const emailHandlers = [
         message: {
           id: `em-sent-${Date.now()}`,
           subject: body.subject ?? '',
-          from: { name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de' },
+          from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
           to: body.to ?? [],
           date: new Date().toISOString(),
           folder_id: 'ef-sent',
@@ -82,7 +82,7 @@ export const emailHandlers = [
         message: {
           id: `em-draft-${Date.now()}`,
           subject: body.subject ?? '(Kein Betreff)',
-          from: { name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de' },
+          from: { name: 'Stefan Müller', email: 'stefan.mueller@techvision.de' },
           to: body.to ?? [],
           date: new Date().toISOString(),
           folder_id: 'ef-drafts',

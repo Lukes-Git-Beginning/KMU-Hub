@@ -182,7 +182,7 @@ export default function ZustandsprotokollDialog({
             <div className="inline-flex rounded-lg border border-border overflow-hidden">
               {([
                 { key: 'pickup' as const, label: 'Abholung' },
-                { key: 'return' as const, label: 'Rueckgabe' },
+                { key: 'return' as const, label: 'Rückgabe' },
               ]).map((opt) => (
                 <button
                   key={opt.key}
@@ -247,7 +247,7 @@ export default function ZustandsprotokollDialog({
                         value={item.label}
                         onChange={(e) => updateChecklistItem(idx, { label: e.target.value })}
                         placeholder="Prüfpunkt..."
-                        aria-label={`Pruefpunkt ${idx + 1}`}
+                        aria-label={`Prüfpunkt ${idx + 1}`}
                         className="flex-1 min-w-0 bg-transparent text-sm text-foreground placeholder:text-input-placeholder focus:outline-none"
                       />
 
@@ -298,7 +298,7 @@ export default function ZustandsprotokollDialog({
                         value={item.note}
                         onChange={(e) => updateChecklistItem(idx, { note: e.target.value })}
                         placeholder="Anmerkung zur Abweichung..."
-                        aria-label={`Anmerkung fuer ${item.label || `Punkt ${idx + 1}`}`}
+                        aria-label={`Anmerkung für ${item.label || `Punkt ${idx + 1}`}`}
                         className="mt-2 w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                       />
                     )}
@@ -320,7 +320,7 @@ export default function ZustandsprotokollDialog({
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
               >
                 <Camera className="h-4 w-4" />
-                Foto hinzufuegen
+                Foto hinzufügen
               </button>
               <span className="text-sm text-foreground font-medium tabular-nums">
                 {photoCount} {photoCount === 1 ? 'Foto' : 'Fotos'}

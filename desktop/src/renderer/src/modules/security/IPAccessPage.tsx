@@ -220,7 +220,7 @@ export default function IPAccessPage() {
               <DialogTitle className="text-lg font-semibold text-foreground">
                 <FormattedMessage id="ipAccess.addRule" />
               </DialogTitle>
-              <DialogDescription className="sr-only">Neue IP-Regel hinzufuegen</DialogDescription>
+              <DialogDescription className="sr-only">Neue IP-Regel hinzufügen</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -298,7 +298,7 @@ export default function IPAccessPage() {
               <DialogTitle className="text-lg font-semibold text-foreground">
                 <FormattedMessage id="ipAccess.deleteConfirm" />
               </DialogTitle>
-              <DialogDescription className="sr-only">IP-Regel loeschen bestaetigen</DialogDescription>
+              <DialogDescription className="sr-only">IP-Regel löschen bestätigen</DialogDescription>
             </DialogHeader>
             <DialogFooter className="mt-6">
               <button

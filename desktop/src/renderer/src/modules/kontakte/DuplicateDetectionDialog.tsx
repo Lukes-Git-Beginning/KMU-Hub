@@ -161,8 +161,8 @@ export function DuplicateDetectionDialog({
           </DialogTitle>
           <DialogDescription>
             {step === 'list'
-              ? `Moegliche Duplikate fuer "${targetContact.firstName} ${targetContact.lastName}".`
-              : 'Waehle fuer jedes Feld den Wert den du behalten moechtest.'}
+              ? `Mögliche Duplikate für "${targetContact.firstName} ${targetContact.lastName}".`
+              : 'Wähle für jedes Feld den Wert den du behalten moechtest.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -179,8 +179,8 @@ export function DuplicateDetectionDialog({
             ) : (
               <>
                 <p className="text-xs text-muted-foreground">
-                  {duplicates.length} moegliche{duplicates.length === 1 ? 's' : ''} Duplikat{duplicates.length !== 1 ? 'e' : ''} gefunden.
-                  Waehle einen Eintrag zum Zusammenfuehren.
+                  {duplicates.length} mögliche{duplicates.length === 1 ? 's' : ''} Duplikat{duplicates.length !== 1 ? 'e' : ''} gefunden.
+                  Wähle einen Eintrag zum Zusammenfuehren.
                 </p>
                 <div className="space-y-2">
                   {duplicates.map((dup) => (
@@ -298,7 +298,7 @@ export function DuplicateDetectionDialog({
                 onClick={handleBack}
                 className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
               >
-                Zurueck
+                Zurück
               </button>
               <button
                 onClick={handleMerge}

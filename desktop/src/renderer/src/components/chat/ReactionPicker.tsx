@@ -30,7 +30,7 @@ interface ReactionPickerProps {
 const QUICK_REACTIONS = [
   { emoji: '\uD83D\uDC4D', label: 'Daumen hoch' },
   { emoji: '\u2764\uFE0F', label: 'Herz' },
-  { emoji: '\uD83D\uDE02', label: 'Traenen lachend' },
+  { emoji: '\uD83D\uDE02', label: 'Tränen lachend' },
   { emoji: '\uD83D\uDC4F', label: 'Klatschen' },
   { emoji: '\uD83E\uDD14', label: 'Nachdenklich' },
   { emoji: '\uD83D\uDE80', label: 'Rakete' },
@@ -58,7 +58,7 @@ export function ReactionPicker({ messageId }: ReactionPickerProps) {
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              aria-label="Reaktion hinzufuegen"
+              aria-label="Reaktion hinzufügen"
             >
               <Smile className="h-3.5 w-3.5" />
             </Button>

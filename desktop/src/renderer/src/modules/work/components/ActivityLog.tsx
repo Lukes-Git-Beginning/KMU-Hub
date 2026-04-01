@@ -117,7 +117,7 @@ function formatActivityDescription(activity: TaskActivity): string {
     case 'attachment_removed':
       return `${actor} hat "${oldVal}" entfernt`
     case 'linked':
-      return `${actor} hat ${newVal} verknuepft`
+      return `${actor} hat ${newVal} verknüpft`
     case 'unlinked':
       return `${actor} hat ${oldVal} entfernt`
     case 'dependency_added':

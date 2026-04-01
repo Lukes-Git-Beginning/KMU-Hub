@@ -187,12 +187,12 @@ export function FileContextMenu({
   )
 
   const items: MenuItem[] = [
-    { label: 'Oeffnen', icon: ExternalLink, onClick: onOpen },
+    { label: 'Öffnen', icon: ExternalLink, onClick: onOpen },
     ...(onEditInOnlyOffice
       ? [{ label: 'In OnlyOffice bearbeiten', icon: FileEdit, onClick: onEditInOnlyOffice }]
       : []),
     ...(onOpenInOffice
-      ? [{ label: 'In Office oeffnen', icon: AppWindow, onClick: onOpenInOffice }]
+      ? [{ label: 'In Office öffnen', icon: AppWindow, onClick: onOpenInOffice }]
       : []),
     { label: 'Herunterladen', icon: Download, onClick: onDownload },
     { label: 'Umbenennen', icon: Pencil, onClick: onRename, separator: true },
@@ -204,7 +204,7 @@ export function FileContextMenu({
       : []),
     { label: 'Versionsverlauf', icon: History, onClick: onVersionHistory },
     {
-      label: 'Loeschen',
+      label: 'Löschen',
       icon: Trash2,
       onClick: onDelete,
       variant: 'destructive',
@@ -257,7 +257,7 @@ export function FolderContextMenu({
   )
 
   const items: MenuItem[] = [
-    { label: 'Oeffnen', icon: ExternalLink, onClick: onOpen },
+    { label: 'Öffnen', icon: ExternalLink, onClick: onOpen },
     {
       label: 'Neuer Unterordner',
       icon: FolderPlus,
@@ -271,7 +271,7 @@ export function FolderContextMenu({
       separator: true,
     },
     {
-      label: 'Loeschen',
+      label: 'Löschen',
       icon: Trash2,
       onClick: onDelete,
       variant: 'destructive',

@@ -45,7 +45,7 @@ const MUTATION_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH'])
 
 class OfflineError extends Error {
   constructor() {
-    super('Aenderungen sind offline nicht moeglich.')
+    super('Änderungen sind offline nicht möglich.')
     this.name = 'OfflineError'
   }
 }

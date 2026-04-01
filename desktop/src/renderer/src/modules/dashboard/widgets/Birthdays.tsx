@@ -20,7 +20,7 @@ function Birthdays(_props: WidgetProps) {
       {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-2">
         <Cake className="h-4 w-4 text-pink-500" />
-        <span className="text-xs font-medium text-muted-foreground">Naechste Geburtstage</span>
+        <span className="text-xs font-medium text-muted-foreground">Nächste Geburtstage</span>
       </div>
 
       {/* List */}

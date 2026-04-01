@@ -23,7 +23,7 @@ import { formatEUR } from '@/stores/finance'
 import type { PaymentMethod } from '@/types/finance-types'
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: 'bank_transfer', label: 'Ueberweisung' },
+  { value: 'bank_transfer', label: 'Überweisung' },
   { value: 'cash', label: 'Barzahlung' },
   { value: 'credit_card', label: 'Kreditkarte' },
   { value: 'other', label: 'Sonstige' },

@@ -271,7 +271,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
             {previewMutation.isError && (
               <div className="flex items-center gap-2 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4" />
-                Datei konnte nicht gelesen werden. Bitte pruefen Sie das Format.
+                Datei konnte nicht gelesen werden. Bitte prüfen Sie das Format.
               </div>
             )}
           </div>
@@ -357,14 +357,14 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="shared">Geteilt (fuer alle sichtbar)</SelectItem>
-                  <SelectItem value="personal">Persoenlich (nur fuer mich)</SelectItem>
+                  <SelectItem value="shared">Geteilt (für alle sichtbar)</SelectItem>
+                  <SelectItem value="personal">Persönlich (nur für mich)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 {visibility === 'shared'
-                  ? 'Alle Teammitglieder koennen diese Kontakte sehen und bearbeiten.'
-                  : 'Nur Sie koennen diese Kontakte sehen. Admins haben weiterhin Zugriff.'}
+                  ? 'Alle Teammitglieder können diese Kontakte sehen und bearbeiten.'
+                  : 'Nur Sie können diese Kontakte sehen. Admins haben weiterhin Zugriff.'}
               </p>
             </div>
 
@@ -380,7 +380,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                 </Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Kontakte mit gleicher E-Mail-Adresse werden zusammengefuehrt.
-                  Bestehende Felder werden nicht ueberschrieben.
+                  Bestehende Felder werden nicht überschrieben.
                 </p>
               </div>
             </div>
@@ -402,7 +402,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                   </p>
                   <p className="text-sm">
                     <span className="font-medium">Sichtbarkeit:</span>{' '}
-                    {visibility === 'shared' ? 'Geteilt' : 'Persoenlich'}
+                    {visibility === 'shared' ? 'Geteilt' : 'Persönlich'}
                   </p>
                   <p className="text-sm">
                     <span className="font-medium">Duplikate zusammenfuehren:</span>{' '}
@@ -487,7 +487,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                   variant="outline"
                   onClick={() => setStep((s) => Math.max(0, s - 1))}
                 >
-                  Zurueck
+                  Zurück
                 </Button>
               )}
               <Button

@@ -1,7 +1,7 @@
 /**
  * Lexware field mapping editor component.
  *
- * Allows admins to configure field mappings between KMU Hub and Lexware
+ * Allows admins to configure field mappings between Cosmi and Lexware
  * for a given entity type (contact, invoice, quote). Supports add,
  * remove, direction change, and required flag per mapping.
  * Handles nested Lexware field paths in dropdown (e.g. person.firstName).
@@ -90,7 +90,7 @@ export function LexwareFieldMappingEditor({
   }
 
   const handleResetDefaults = () => {
-    if (!confirm('Alle Zuordnungen auf Standard zuruecksetzen?')) return
+    if (!confirm('Alle Zuordnungen auf Standard zurücksetzen?')) return
     setMappings(
       entityType === 'contact' ? [...DEFAULT_CONTACT_MAPPINGS] : [],
     )
@@ -149,7 +149,7 @@ export function LexwareFieldMappingEditor({
       <div className="space-y-2">
         {/* Header */}
         <div className="grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 text-xs text-muted-foreground px-1">
-          <span>KMU Hub</span>
+          <span>Cosmi</span>
           <span className="w-[120px]">Richtung</span>
           <span>Lexware</span>
           <span className="w-10 text-center">Pflicht</span>
@@ -173,7 +173,7 @@ export function LexwareFieldMappingEditor({
                 handleUpdate(index, 'kmuhub_field', e.target.value)
               }
             >
-              <option value="">-- Feld waehlen --</option>
+              <option value="">-- Feld wählen --</option>
               {kmuhubFields.map((f) => (
                 <option key={f.value} value={f.value}>
                   {f.label}
@@ -202,7 +202,7 @@ export function LexwareFieldMappingEditor({
                 handleUpdate(index, 'lexware_field', e.target.value)
               }
             >
-              <option value="">-- Feld waehlen --</option>
+              <option value="">-- Feld wählen --</option>
               {lexwareFields.map((f) => (
                 <option key={f.value} value={f.value}>
                   {f.label}
@@ -242,7 +242,7 @@ export function LexwareFieldMappingEditor({
         className="text-xs"
       >
         <Plus className="h-3 w-3 mr-1" />
-        Zuordnung hinzufuegen
+        Zuordnung hinzufügen
       </Button>
 
       {/* Validation errors */}

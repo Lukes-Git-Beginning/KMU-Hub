@@ -129,10 +129,10 @@ export default function DealDetailPage() {
     if (!id) return
     try {
       await deleteDeal.mutateAsync(id)
-      toast.success('Deal geloescht')
+      toast.success('Deal gelöscht')
       navigate('/crm/deals')
     } catch {
-      toast.error('Fehler beim Loeschen des Deals')
+      toast.error('Fehler beim Löschen des Deals')
     }
   }
 
@@ -195,7 +195,7 @@ export default function DealDetailPage() {
             className="mt-4"
             onClick={() => navigate('/crm/deals')}
           >
-            Zurueck zur Liste
+            Zurück zur Liste
           </Button>
         </div>
       </div>
@@ -213,7 +213,7 @@ export default function DealDetailPage() {
             onClick={() => navigate('/crm/deals')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Zurueck
+            Zurück
           </Button>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
@@ -499,7 +499,7 @@ export default function DealDetailPage() {
             <>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-muted-foreground">
-                  {linkedTasks.length} verknuepfte Aufgabe{linkedTasks.length !== 1 ? 'n' : ''}
+                  {linkedTasks.length} verknüpfte Aufgabe{linkedTasks.length !== 1 ? 'n' : ''}
                 </p>
                 <Button
                   variant="outline"
@@ -514,7 +514,7 @@ export default function DealDetailPage() {
 
               {linkedTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">
-                  Keine Aufgaben mit diesem Deal verknuepft.
+                  Keine Aufgaben mit diesem Deal verknüpft.
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -606,9 +606,9 @@ export default function DealDetailPage() {
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Deal loeschen"
-        description={`Moechtest du "${deal.name}" wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.`}
-        confirmLabel="Loeschen"
+        title="Deal löschen"
+        description={`Moechtest du "${deal.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

@@ -31,7 +31,7 @@ interface MockTimeData {
 // TODO: Replace MOCK_TIME_DATA with API call — Backend needed: GET /api/v1/projects/{id}/time-entries?grouped_by=person
 // This mock provides per-person time entry data for the budget/hours breakdown.
 const MOCK_TIME_DATA: MockTimeData[] = [
-  { person: 'Anna Mueller', hours: 64, rate: 150 },
+  { person: 'Anna Müller', hours: 64, rate: 150 },
   { person: 'Thomas Fischer', hours: 48, rate: 140 },
   { person: 'Max Schmidt', hours: 32, rate: 130 },
   { person: 'Sara Weber', hours: 24, rate: 145 },
@@ -82,7 +82,7 @@ export default function BudgetSection({
       : 'bg-success'
 
   const statusLabel = isOverBudget
-    ? 'Ueber Budget'
+    ? 'Über Budget'
     : isWarning
       ? 'Warnung'
       : 'Im Rahmen'
@@ -200,7 +200,7 @@ export default function BudgetSection({
             {isOverBudget && (
               <div className="flex items-center gap-1.5 text-xs text-destructive mt-1">
                 <AlertTriangle className="h-3 w-3" />
-                Budget um {formatCurrency(Math.abs(remaining))} ueberschritten (
+                Budget um {formatCurrency(Math.abs(remaining))} überschritten (
                 {Math.round(percentage - 100)}% ueber Plan)
               </div>
             )}

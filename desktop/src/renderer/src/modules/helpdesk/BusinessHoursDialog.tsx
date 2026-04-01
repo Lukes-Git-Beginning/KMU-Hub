@@ -105,7 +105,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
             <Clock className="h-4 w-4 text-primary" />
             <DialogTitle className="text-base font-semibold text-foreground">Geschaeftszeiten konfigurieren</DialogTitle>
           </div>
-          <DialogDescription className="sr-only">Oeffnungszeiten und Feiertage konfigurieren</DialogDescription>
+          <DialogDescription className="sr-only">Öffnungszeiten und Feiertage konfigurieren</DialogDescription>
         </DialogHeader>
 
         {/* Body */}
@@ -129,7 +129,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
 
           {/* Business hours table */}
           <div>
-            <h3 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Oeffnungszeiten</h3>
+            <h3 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Öffnungszeiten</h3>
             <div className="rounded-lg border border-border overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
@@ -200,7 +200,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
                     <div className="flex items-center gap-3">
                       <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-mono text-muted-foreground">
-                        {new Date(h.date + 'T00:00:00').toLocaleDateString('de-CH')}
+                        {new Date(h.date + 'T00:00:00').toLocaleDateString('de-DE')}
                       </span>
                       <span className="text-sm text-foreground">{h.name}</span>
                     </div>
@@ -240,7 +240,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
                 className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Hinzufuegen
+                Hinzufügen
               </button>
             </div>
           </div>

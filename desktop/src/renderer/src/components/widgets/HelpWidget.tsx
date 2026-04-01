@@ -200,7 +200,7 @@ export function HelpWidget() {
 
           {/* Footer */}
           <div className="px-4 py-2 border-t border-border">
-            <p className="text-[10px] text-muted-foreground text-center">KMU Hub v0.1.0 (Beta)</p>
+            <p className="text-[10px] text-muted-foreground text-center">Cosmi v0.1.0 (Beta)</p>
           </div>
         </div>
       )}

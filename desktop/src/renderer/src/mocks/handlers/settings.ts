@@ -10,7 +10,7 @@ const API = API_BASE_URL
 const integrationConfigs = [
   { id: 'int-bexio', name: 'Bexio', type: 'accounting', status: 'disconnected', icon: 'bexio', description: 'Schweizer Buchhaltungssoftware — Kontakte, Rechnungen, Zeiterfassung synchronisieren.' },
   { id: 'int-lexware', name: 'Lexware', type: 'accounting', status: 'disconnected', icon: 'lexware', description: 'Deutsche Buchhaltung & Lohn — DATEV-Export, Rechnungsimport.' },
-  { id: 'int-datev', name: 'DATEV', type: 'accounting', status: 'disconnected', icon: 'datev', description: 'Buchungsdaten an den Steuerberater uebermitteln.' },
+  { id: 'int-datev', name: 'DATEV', type: 'accounting', status: 'disconnected', icon: 'datev', description: 'Buchungsdaten an den Steuerberater übermitteln.' },
   { id: 'int-caldav', name: 'CalDAV', type: 'calendar', status: 'disabled', icon: 'calendar', description: 'Kalender-Synchronisation mit externen Anbietern (Google, Outlook, Nextcloud).' },
   { id: 'int-carddav', name: 'CardDAV', type: 'contacts', status: 'disabled', icon: 'contacts', description: 'Kontakt-Synchronisation mit externen Adressbuechern.' },
   { id: 'int-slack', name: 'Slack', type: 'messaging', status: 'disconnected', icon: 'slack', description: 'Benachrichtigungen und Aktionen in Slack-Channels.' },

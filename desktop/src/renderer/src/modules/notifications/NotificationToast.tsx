@@ -136,7 +136,7 @@ function ToastContent({
               <button
                 onClick={() => setShowSnooze(!showSnooze)}
                 className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title="Erinnerung spaeter"
+                title="Erinnerung später"
               >
                 <AlarmClock className="h-3.5 w-3.5" />
               </button>
@@ -178,7 +178,7 @@ function ToastContent({
               <button
                 onClick={() => setShowSnooze(!showSnooze)}
                 className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title="Erinnerung spaeter"
+                title="Erinnerung später"
               >
                 <AlarmClock className="h-3.5 w-3.5" />
               </button>

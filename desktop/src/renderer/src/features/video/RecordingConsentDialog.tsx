@@ -104,11 +104,11 @@ export function RecordingConsentDialog({
             <p>
               Wenn Sie <strong>ablehnen</strong>, werden Sie in der Aufnahme
               unkenntlich gemacht (verschwommenes Video, stummgeschaltetes Audio).
-              Sie koennen weiterhin am Meeting teilnehmen.
+              Sie können weiterhin am Meeting teilnehmen.
             </p>
             <p className="text-xs text-muted-foreground">
-              Gemaess DSGVO Art. 6 Abs. 1 lit. a benoetigen wir Ihre
-              ausdrueckliche Einwilligung fuer die Aufzeichnung.
+              Gemaess DSGVO Art. 6 Abs. 1 lit. a benötigen wir Ihre
+              ausdrueckliche Einwilligung für die Aufzeichnung.
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>

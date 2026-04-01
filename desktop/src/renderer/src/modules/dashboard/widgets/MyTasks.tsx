@@ -90,7 +90,7 @@ function MyTasks(_props: WidgetProps) {
         <span className="text-xs text-muted-foreground">{open.length} offen · {done.length} erledigt</span>
         <span className="flex items-center gap-1 text-xs text-destructive">
           <AlertTriangle className="h-3 w-3" />
-          {open.filter((t) => t.due === 'Heute').length} heute faellig
+          {open.filter((t) => t.due === 'Heute').length} heute fällig
         </span>
       </div>
 

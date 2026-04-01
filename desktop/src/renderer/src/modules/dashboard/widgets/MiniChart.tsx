@@ -85,7 +85,7 @@ function MiniChart(_props: WidgetProps) {
           })
         ) : (
           <div className="flex w-full items-center justify-center">
-            <p className="text-xs text-muted-foreground">Monatsverlauf noch nicht verfuegbar</p>
+            <p className="text-xs text-muted-foreground">Monatsverlauf noch nicht verfügbar</p>
           </div>
         )}
       </div>

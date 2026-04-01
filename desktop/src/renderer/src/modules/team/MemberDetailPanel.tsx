@@ -209,7 +209,7 @@ export function MemberDetailPanel({
                   <span>{balance.used} genommen</span>
                   {balance.carriedOver > 0 && (
                     <span className={balance.carryoverExpired ? 'text-error' : ''}>
-                      {balance.carriedOver} Uebertrag{balance.carryoverExpired ? ' (abgelaufen)' : ''}
+                      {balance.carriedOver} Übertrag{balance.carryoverExpired ? ' (abgelaufen)' : ''}
                     </span>
                   )}
                 </div>
@@ -254,7 +254,7 @@ function DocumentsSection({
 
   const handleUpload = () => {
     if (!categoryId) {
-      toast.error('Bitte Kategorie waehlen')
+      toast.error('Bitte Kategorie wählen')
       return
     }
     // In real app, fileId comes from a file upload service. Here we simulate.
@@ -332,7 +332,7 @@ function DocumentsSection({
                   onChange={(e) => setCategoryId(e.target.value)}
                   className="w-full rounded border border-border bg-input-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 >
-                  <option value="">Waehlen...</option>
+                  <option value="">Wählen...</option>
                   {(categories ?? []).map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
@@ -361,7 +361,7 @@ function DocumentsSection({
                 <Input
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="z.B. Gueltigkeit, Bemerkungen"
+                  placeholder="z.B. Gültigkeit, Bemerkungen"
                   className="text-xs h-8"
                 />
               </div>

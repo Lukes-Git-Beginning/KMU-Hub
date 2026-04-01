@@ -86,7 +86,7 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
   const handleDelete = () => {
     if (!deleteTarget) return
     deleteField(deleteTarget.id)
-    toast.success(`Feld "${deleteTarget.name}" geloescht`)
+    toast.success(`Feld "${deleteTarget.name}" gelöscht`)
     setDeleteTarget(null)
   }
 
@@ -190,7 +190,7 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
                       disabled={!newName.trim()}
                       className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                     >
-                      Hinzufuegen
+                      Hinzufügen
                     </button>
                   </div>
                 </div>
@@ -230,9 +230,9 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={() => setDeleteTarget(null)}
-        title="Feld loeschen"
-        description={`"${deleteTarget?.name}" wird unwiderruflich geloescht. Alle gespeicherten Werte fuer dieses Feld gehen verloren.`}
-        confirmLabel="Loeschen"
+        title="Feld löschen"
+        description={`"${deleteTarget?.name}" wird unwiderruflich gelöscht. Alle gespeicherten Werte für dieses Feld gehen verloren.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

@@ -182,7 +182,7 @@ export default function TaskDetailPage() {
             className="mt-4"
             onClick={() => navigate(`/work/projects/${effectiveProjectId}`)}
           >
-            Zurueck zum Projekt
+            Zurück zum Projekt
           </Button>
         </div>
       </div>
@@ -302,7 +302,7 @@ export default function TaskDetailPage() {
                 onClick={() => setCreateSubtaskOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Hinzufuegen
+                Hinzufügen
               </Button>
             </div>
             {subtasks.length > 0 ? (
@@ -606,7 +606,7 @@ export default function TaskDetailPage() {
           {/* Entity links */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Verknuepfungen
+              Verknüpfungen
             </label>
             <TaskLinkField
               taskId={taskId ?? ''}

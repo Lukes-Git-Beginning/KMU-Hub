@@ -49,14 +49,14 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
             <Calendar className="h-3.5 w-3.5" />
             <div>
               <p className="text-[10px] text-muted-foreground">Datum</p>
-              <p className="text-foreground">{new Date(invoice.date).toLocaleDateString('de-CH')}</p>
+              <p className="text-foreground">{new Date(invoice.date).toLocaleDateString('de-DE')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
             <div>
               <p className="text-[10px] text-muted-foreground">Fällig</p>
-              <p className="text-foreground">{new Date(invoice.dueDate).toLocaleDateString('de-CH')}</p>
+              <p className="text-foreground">{new Date(invoice.dueDate).toLocaleDateString('de-DE')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -135,7 +135,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
                   <div>
                     <p className="text-foreground">{p.method}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {new Date(p.date).toLocaleDateString('de-CH')}
+                      {new Date(p.date).toLocaleDateString('de-DE')}
                       {p.reference && ` · ${p.reference}`}
                     </p>
                   </div>

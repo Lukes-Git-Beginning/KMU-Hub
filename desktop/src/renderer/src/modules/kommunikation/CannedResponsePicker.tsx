@@ -57,7 +57,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
       <PopoverTrigger asChild>
         <button
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          title="Schnellantwort einfuegen"
+          title="Schnellantwort einfügen"
         >
           <Zap className="h-4 w-4" />
         </button>

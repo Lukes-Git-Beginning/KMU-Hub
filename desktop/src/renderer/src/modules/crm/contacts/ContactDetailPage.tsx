@@ -138,10 +138,10 @@ export default function ContactDetailPage() {
     if (!id) return
     try {
       await deleteContact.mutateAsync(id)
-      toast.success('Kontakt geloescht')
+      toast.success('Kontakt gelöscht')
       navigate('/crm/contacts')
     } catch {
-      toast.error('Fehler beim Loeschen des Kontakts')
+      toast.error('Fehler beim Löschen des Kontakts')
     }
   }
 
@@ -185,7 +185,7 @@ export default function ContactDetailPage() {
             className="mt-4"
             onClick={() => navigate('/crm/contacts')}
           >
-            Zurueck zur Liste
+            Zurück zur Liste
           </Button>
         </div>
       </div>
@@ -203,7 +203,7 @@ export default function ContactDetailPage() {
             onClick={() => navigate('/crm/contacts')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Zurueck
+            Zurück
           </Button>
           <h1 className="text-2xl font-semibold text-foreground">
             {contact.firstName} {contact.lastName}
@@ -221,7 +221,7 @@ export default function ContactDetailPage() {
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Loeschen
+            Löschen
           </Button>
         </div>
       </div>
@@ -445,7 +445,7 @@ export default function ContactDetailPage() {
             <>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-muted-foreground">
-                  {linkedTasks.length} verknuepfte Aufgabe{linkedTasks.length !== 1 ? 'n' : ''}
+                  {linkedTasks.length} verknüpfte Aufgabe{linkedTasks.length !== 1 ? 'n' : ''}
                 </p>
                 <Button
                   variant="outline"
@@ -462,7 +462,7 @@ export default function ContactDetailPage() {
 
               {linkedTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">
-                  Keine Aufgaben mit diesem Kontakt verknuepft.
+                  Keine Aufgaben mit diesem Kontakt verknüpft.
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -559,9 +559,9 @@ export default function ContactDetailPage() {
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Kontakt loeschen"
-        description={`Moechtest du "${contact.firstName} ${contact.lastName}" wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.`}
-        confirmLabel="Loeschen"
+        title="Kontakt löschen"
+        description={`Moechtest du "${contact.firstName} ${contact.lastName}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

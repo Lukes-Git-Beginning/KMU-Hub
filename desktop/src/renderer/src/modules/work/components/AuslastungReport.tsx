@@ -61,7 +61,7 @@ interface MemberUtilization {
 // TODO: Replace MOCK_TEAM with API call — Backend needed: GET /api/v1/projects/{id}/team-utilization + capacity endpoint
 // This mock provides team member capacity and utilization data for the workload report.
 const MOCK_TEAM: TeamMember[] = [
-  { id: 'm1', name: 'Anna Mueller', role: 'Frontend Lead', avatarInitial: 'A', weeklyTarget: 40, rate: 150 },
+  { id: 'm1', name: 'Anna Müller', role: 'Frontend Lead', avatarInitial: 'A', weeklyTarget: 40, rate: 150 },
   { id: 'm2', name: 'Thomas Fischer', role: 'Backend Dev', avatarInitial: 'T', weeklyTarget: 40, rate: 140 },
   { id: 'm3', name: 'Max Schmidt', role: 'DevOps', avatarInitial: 'M', weeklyTarget: 32, rate: 130 },
   { id: 'm4', name: 'Sara Weber', role: 'UI/UX Design', avatarInitial: 'S', weeklyTarget: 40, rate: 145 },

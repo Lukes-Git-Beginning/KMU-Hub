@@ -1,7 +1,7 @@
 /**
  * Bexio field mapping editor component.
  *
- * Allows admins to configure field mappings between KMU Hub and Bexio
+ * Allows admins to configure field mappings between Cosmi and Bexio
  * for a given entity type (contact, invoice, quote). Supports add,
  * remove, direction change, and required flag per mapping.
  */
@@ -92,7 +92,7 @@ export function BexioFieldMappingEditor({
   }
 
   const handleResetDefaults = () => {
-    if (!confirm('Alle Zuordnungen auf Standard zuruecksetzen?')) return
+    if (!confirm('Alle Zuordnungen auf Standard zurücksetzen?')) return
     setMappings(
       entityType === 'contact' ? [...DEFAULT_CONTACT_MAPPINGS] : [],
     )
@@ -146,7 +146,7 @@ export function BexioFieldMappingEditor({
       <div className="space-y-2">
         {/* Header */}
         <div className="grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 text-xs text-muted-foreground px-1">
-          <span>KMU Hub</span>
+          <span>Cosmi</span>
           <span className="w-[120px]">Richtung</span>
           <span>Bexio</span>
           <span className="w-10 text-center">Pflicht</span>
@@ -169,7 +169,7 @@ export function BexioFieldMappingEditor({
                 handleUpdate(index, 'kmuhub_field', e.target.value)
               }
             >
-              <option value="">-- Feld waehlen --</option>
+              <option value="">-- Feld wählen --</option>
               {kmuhubFields.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label}
@@ -198,7 +198,7 @@ export function BexioFieldMappingEditor({
                 handleUpdate(index, 'bexio_field', e.target.value)
               }
             >
-              <option value="">-- Feld waehlen --</option>
+              <option value="">-- Feld wählen --</option>
               {bexioFields.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label}
@@ -238,7 +238,7 @@ export function BexioFieldMappingEditor({
         className="text-xs"
       >
         <Plus className="h-3 w-3 mr-1" />
-        Zuordnung hinzufuegen
+        Zuordnung hinzufügen
       </Button>
 
       {/* Validation errors */}

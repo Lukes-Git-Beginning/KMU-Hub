@@ -27,8 +27,8 @@ export interface HeaderWidgetDef {
 export const headerWidgetRegistry: Record<string, HeaderWidgetDef> = {
   'next-meeting': {
     id: 'next-meeting',
-    name: 'Naechster Termin',
-    description: 'Zeigt den naechsten Kalender-Termin an.',
+    name: 'Nächster Termin',
+    description: 'Zeigt den nächsten Kalender-Termin an.',
     icon: Calendar,
     component: NextMeetingWidget,
   },

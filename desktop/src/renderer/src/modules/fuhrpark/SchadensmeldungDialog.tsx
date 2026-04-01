@@ -68,7 +68,7 @@ export default function SchadensmeldungDialog({
 
   const handleSave = () => {
     if (!canSave || !selectedVehicle) {
-      toast.error('Bitte alle Pflichtfelder ausfuellen')
+      toast.error('Bitte alle Pflichtfelder ausfüllen')
       return
     }
 
@@ -96,7 +96,7 @@ export default function SchadensmeldungDialog({
         {/* Header */}
         <DialogHeader className="mb-5">
           <DialogTitle className="text-base font-semibold text-foreground">Schadensmeldung erstellen</DialogTitle>
-          <DialogDescription className="sr-only">Formular fuer eine neue Schadensmeldung</DialogDescription>
+          <DialogDescription className="sr-only">Formular für eine neue Schadensmeldung</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -191,7 +191,7 @@ export default function SchadensmeldungDialog({
                     {photoCount} Foto{photoCount !== 1 ? 's' : ''} ausgewaehlt
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Noch keine Fotos hinzugefuegt</p>
+                  <p className="text-xs text-muted-foreground">Noch keine Fotos hinzugefügt</p>
                 )}
               </div>
               <button
@@ -199,7 +199,7 @@ export default function SchadensmeldungDialog({
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Fotos hinzufuegen
+                Fotos hinzufügen
               </button>
             </div>
           </div>

@@ -446,7 +446,7 @@ export default function DokumentePage() {
     if (deleteConfirmId) {
       deleteFile.mutate(deleteConfirmId, {
         onSuccess: () => {
-          toast.success('Datei geloescht')
+          toast.success('Datei gelöscht')
           if (detailFile?.id === deleteConfirmId) setDetailFile(null)
           setDeleteConfirmId(null)
         },
@@ -462,7 +462,7 @@ export default function DokumentePage() {
     if (deleteFolderConfirmId) {
       deleteFolder.mutate(deleteFolderConfirmId, {
         onSuccess: () => {
-          toast.success('Ordner geloescht')
+          toast.success('Ordner gelöscht')
           if (activeFolderId === deleteFolderConfirmId) {
             navigateToFolder(null)
           }
@@ -484,7 +484,7 @@ export default function DokumentePage() {
       {
         onSuccess: () =>
           toast.success(
-            file.is_favorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten hinzugefuegt',
+            file.is_favorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten hinzugefügt',
           ),
       },
     )
@@ -539,13 +539,13 @@ export default function DokumentePage() {
     return 'Alle Dateien'
   }
 
-  // "In Office oeffnen" handler (Electron only)
+  // "In Office öffnen" handler (Electron only)
   const isElectron = !!window.electronAPI
   const handleOpenInOffice = (file: DocumentFile) => {
     if (isElectron) {
-      toast.success(`"${file.filename}" wird in Office geoeffnet...`)
+      toast.success(`"${file.filename}" wird in Office geöffnet...`)
     } else {
-      toast.info('Nur in der Desktop-App verfuegbar')
+      toast.info('Nur in der Desktop-App verfügbar')
     }
   }
 
@@ -572,7 +572,7 @@ export default function DokumentePage() {
       })
     } catch (err) {
       toast.error(
-        `Editor konnte nicht geoeffnet werden: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`,
+        `Editor konnte nicht geöffnet werden: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`,
       )
     }
   }
@@ -1053,7 +1053,7 @@ export default function DokumentePage() {
                 <div className="space-y-1">
                   <div className="grid grid-cols-[1fr_100px_100px_120px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
                     <span>Name</span>
-                    <span>Groesse</span>
+                    <span>Größe</span>
                     <span>Typ</span>
                     <span>Datum</span>
                   </div>
@@ -1263,9 +1263,9 @@ export default function DokumentePage() {
           <ConfirmDialog
             open={!!deleteConfirmId}
             onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-            title="Datei loeschen?"
-            description={`"${deleteTarget?.filename}" wird unwiderruflich geloescht.`}
-            confirmLabel="Loeschen"
+            title="Datei löschen?"
+            description={`"${deleteTarget?.filename}" wird unwiderruflich gelöscht.`}
+            confirmLabel="Löschen"
             variant="destructive"
             onConfirm={handleDeleteFile}
           />
@@ -1276,9 +1276,9 @@ export default function DokumentePage() {
             onOpenChange={(open) =>
               !open && setDeleteFolderConfirmId(null)
             }
-            title="Ordner loeschen?"
-            description={`"${deleteFolderTarget?.name}" und alle enthaltenen Dateien werden geloescht.`}
-            confirmLabel="Loeschen"
+            title="Ordner löschen?"
+            description={`"${deleteFolderTarget?.name}" und alle enthaltenen Dateien werden gelöscht.`}
+            confirmLabel="Löschen"
             variant="destructive"
             onConfirm={handleDeleteFolder}
           />
@@ -1433,22 +1433,22 @@ function SidebarFolderItem({
 // ---------------------------------------------------------------------------
 
 const CLASSIFICATION_COLORS: Record<ClassificationLevel, string> = {
-  oeffentlich: 'bg-success-light text-success',
+  öffentlich: 'bg-success-light text-success',
   intern: 'bg-info-light text-info',
   vertraulich: 'bg-error-light text-error',
 }
 
 const CLASSIFICATION_LABELS: Record<ClassificationLevel, string> = {
-  oeffentlich: 'Oeffentlich',
+  öffentlich: 'Öffentlich',
   intern: 'Intern',
   vertraulich: 'Vertraulich',
 }
 
 function classifyByFilename(filename: string): ClassificationLevel {
   const lower = filename.toLowerCase()
-  if (/vertrag|gehalt|personal|lohn|kuendigung|zeugnis|steuer|sozialversicherung/.test(lower)) return 'vertraulich'
+  if (/vertrag|gehalt|personal|lohn|kündigung|zeugnis|steuer|sozialversicherung/.test(lower)) return 'vertraulich'
   if (/angebot|bericht|budget|intern|entwurf|protokoll|strategie|planung/.test(lower)) return 'intern'
-  return 'oeffentlich'
+  return 'öffentlich'
 }
 
 function ClassificationBadge({ fileId, filename }: { fileId: string; filename: string }) {
@@ -1519,7 +1519,7 @@ function FileGridCard({
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {formatBytes(file.file_size)} &middot;{' '}
-            {new Date(file.updated_at).toLocaleDateString('de-CH')}
+            {new Date(file.updated_at).toLocaleDateString('de-DE')}
           </p>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
@@ -1613,7 +1613,7 @@ function FileListRow({
         {typeLabels[cat] ?? cat}
       </span>
       <span className="text-xs text-muted-foreground">
-        {new Date(file.updated_at).toLocaleDateString('de-CH')}
+        {new Date(file.updated_at).toLocaleDateString('de-DE')}
       </span>
     </div>
   )

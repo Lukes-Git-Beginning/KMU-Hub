@@ -37,7 +37,7 @@ interface Template {
 
 const CATEGORIES = [
   { id: 'all', label: 'Alle' },
-  { id: 'vertraege', label: 'Vertraege' },
+  { id: 'verträge', label: 'Verträge' },
   { id: 'briefe', label: 'Briefe' },
   { id: 'formulare', label: 'Formulare' },
   { id: 'rechnungen', label: 'Rechnungen' },
@@ -45,23 +45,23 @@ const CATEGORIES = [
 ]
 
 const TEMPLATES: Template[] = [
-  // Vertraege
-  { id: 't1', name: 'Arbeitsvertrag', description: 'Standard-Arbeitsvertrag nach deutschem Recht', category: 'vertraege', icon: FileCheck, format: '.docx' },
-  { id: 't2', name: 'Dienstleistungsvertrag', description: 'Vertrag fuer externe Dienstleister', category: 'vertraege', icon: FileCheck, format: '.docx' },
-  { id: 't3', name: 'NDA (Vertraulichkeit)', description: 'Geheimhaltungsvereinbarung', category: 'vertraege', icon: ScrollText, format: '.docx' },
+  // Verträge
+  { id: 't1', name: 'Arbeitsvertrag', description: 'Standard-Arbeitsvertrag nach deutschem Recht', category: 'verträge', icon: FileCheck, format: '.docx' },
+  { id: 't2', name: 'Dienstleistungsvertrag', description: 'Vertrag für externe Dienstleister', category: 'verträge', icon: FileCheck, format: '.docx' },
+  { id: 't3', name: 'NDA (Vertraulichkeit)', description: 'Geheimhaltungsvereinbarung', category: 'verträge', icon: ScrollText, format: '.docx' },
   // Briefe
   { id: 't4', name: 'Geschaeftsbrief', description: 'Standardbrief mit Kopf- und Fusszeile', category: 'briefe', icon: Mail, format: '.docx' },
-  { id: 't5', name: 'Kuendigungsschreiben', description: 'Vorlage fuer Vertragskundigungen', category: 'briefe', icon: FileText, format: '.docx' },
+  { id: 't5', name: 'Kündigungsschreiben', description: 'Vorlage für Vertragskundigungen', category: 'briefe', icon: FileText, format: '.docx' },
   // Formulare
   { id: 't6', name: 'Urlaubsantrag', description: 'Antrag auf Erholungsurlaub', category: 'formulare', icon: ClipboardList, format: '.docx' },
-  { id: 't7', name: 'Reisekostenabrechnung', description: 'Formular fuer Reisekosten inkl. Belege', category: 'formulare', icon: ClipboardList, format: '.xlsx' },
+  { id: 't7', name: 'Reisekostenabrechnung', description: 'Formular für Reisekosten inkl. Belege', category: 'formulare', icon: ClipboardList, format: '.xlsx' },
   { id: 't8', name: 'Stundenzettel', description: 'Woechentliche Arbeitszeiterfassung', category: 'formulare', icon: ClipboardList, format: '.xlsx' },
   // Rechnungen
   { id: 't9', name: 'Rechnung (Standard)', description: 'Standardrechnung mit MwSt-Ausweis', category: 'rechnungen', icon: Receipt, format: '.xlsx' },
   { id: 't10', name: 'Kleinunternehmer-Rechnung', description: 'Rechnung ohne MwSt (§19 UStG)', category: 'rechnungen', icon: Receipt, format: '.xlsx' },
   // Berichte
   { id: 't11', name: 'Monatsbericht', description: 'Monatliche Zusammenfassung mit KPIs', category: 'berichte', icon: BarChart3, format: '.docx' },
-  { id: 't12', name: 'Projektstatusbericht', description: 'Fortschrittsbericht fuer Projekte', category: 'berichte', icon: Presentation, format: '.pptx' },
+  { id: 't12', name: 'Projektstatusbericht', description: 'Fortschrittsbericht für Projekte', category: 'berichte', icon: Presentation, format: '.pptx' },
 ]
 
 interface TemplateGalleryDialogProps {
@@ -98,7 +98,7 @@ export function TemplateGalleryDialog({ open, onClose }: TemplateGalleryDialogPr
         {/* Header */}
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle className="text-sm font-semibold text-foreground">Neu aus Vorlage</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">{TEMPLATES.length} Vorlagen verfuegbar</DialogDescription>
+          <DialogDescription className="text-xs text-muted-foreground">{TEMPLATES.length} Vorlagen verfügbar</DialogDescription>
         </DialogHeader>
 
         {/* Search + Category filter */}

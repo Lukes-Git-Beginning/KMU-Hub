@@ -31,12 +31,12 @@ import {
 
 const NOTIFICATION_MODULES: { key: NotificationModule; label: string; desc: string }[] = [
   { key: 'messages', label: 'Nachrichten', desc: 'Chat-Nachrichten und DMs' },
-  { key: 'tasks', label: 'Aufgaben', desc: 'Zuweisung, Status-Aenderungen' },
+  { key: 'tasks', label: 'Aufgaben', desc: 'Zuweisung, Status-Änderungen' },
   { key: 'meetings', label: 'Meetings', desc: 'Erinnerungen und Einladungen' },
   { key: 'mails', label: 'E-Mails', desc: 'Neue E-Mails und Antworten' },
-  { key: 'calendar', label: 'Kalender', desc: 'Termine und Aenderungen' },
+  { key: 'calendar', label: 'Kalender', desc: 'Termine und Änderungen' },
   { key: 'team', label: 'Team', desc: 'HR-Antraege und Mitglieder-Updates' },
-  { key: 'finance', label: 'Buchhaltung', desc: 'Zahlungen und Faelligkeiten' },
+  { key: 'finance', label: 'Buchhaltung', desc: 'Zahlungen und Fälligkeiten' },
 ]
 
 const CHANNELS: { key: keyof NotificationPrefs; label: string }[] = [
@@ -90,11 +90,11 @@ export function NotificationSettingsTab() {
   const handleToggleDND = () => {
     if (dndStatus?.is_active) {
       disableDND.mutate(undefined, {
-        onSuccess: () => toast.success('Bitte-nicht-stoeren deaktiviert'),
+        onSuccess: () => toast.success('Bitte-nicht-stören deaktiviert'),
       })
     } else {
       enableDND.mutate(undefined, {
-        onSuccess: () => toast.success('Bitte-nicht-stoeren aktiviert'),
+        onSuccess: () => toast.success('Bitte-nicht-stören aktiviert'),
       })
     }
   }
@@ -145,16 +145,16 @@ export function NotificationSettingsTab() {
           ))}
         </div>
 
-        <p className="text-xs text-muted-foreground mt-3">Aenderungen werden automatisch gespeichert.</p>
+        <p className="text-xs text-muted-foreground mt-3">Änderungen werden automatisch gespeichert.</p>
       </section>
 
       <Separator className="mb-8" />
 
-      {/* ── DND (Bitte nicht stoeren) ────────────────── */}
+      {/* ── DND (Bitte nicht stören) ────────────────── */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <BellOff className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Bitte nicht stoeren</h3>
+          <h3 className="text-sm font-medium text-foreground">Bitte nicht stören</h3>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">

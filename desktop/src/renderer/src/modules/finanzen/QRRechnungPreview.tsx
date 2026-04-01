@@ -55,9 +55,9 @@ interface QRBillData {
 // ---------------------------------------------------------------------------
 
 const mockBillData: QRBillData = {
-  creditorName: 'KMU Hub AG',
+  creditorName: 'Cosmi AG',
   creditorStreet: 'Bahnhofstrasse 42',
-  creditorZipCity: '8001 Zuerich',
+  creditorZipCity: '8001 Zürich',
   creditorCountry: 'CH',
   creditorIBAN: 'CH93 0076 2011 6238 5295 7',
   debtorName: 'Muster AG',
@@ -228,7 +228,7 @@ export function QRRechnungPreview({
             <Info className="h-3.5 w-3.5 text-info mt-0.5 shrink-0" />
             <p className="text-[11px] text-info">
               Swiss QR-bill nach SIX-Standard. Der QR-Code wird vom Backend generiert
-              und enthaelt alle Zahlungsinformationen fuer E-Banking.
+              und enthaelt alle Zahlungsinformationen für E-Banking.
             </p>
           </div>
 

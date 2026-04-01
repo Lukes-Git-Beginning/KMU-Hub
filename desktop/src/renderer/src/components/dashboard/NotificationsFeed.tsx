@@ -46,7 +46,7 @@ const feedData: Record<TabId, FeedNotification[]> = {
   messages: [
     { id: '1', title: 'Michael Berg in #design', description: 'Die neuen Mockups sind fertig! @Anna kannst du mal schauen?', time: 'Vor 5 Minuten', avatar: 'MB' },
     { id: '2', title: 'Sarah Klein in #entwicklung', description: 'API Integration ist jetzt live!', time: 'Vor 30 Minuten', avatar: 'SK' },
-    { id: '3', title: 'Anna Mueller in #allgemein', description: 'Reminder: Team Lunch morgen um 12:30', time: 'Vor 2 Stunden', avatar: 'AM' },
+    { id: '3', title: 'Anna Müller in #allgemein', description: 'Reminder: Team Lunch morgen um 12:30', time: 'Vor 2 Stunden', avatar: 'AM' },
   ],
   projects: [
     { id: '1', title: 'Projekt "Website Relaunch" aktualisiert', description: 'Status geändert: In Progress → Review', time: 'Vor 15 Minuten', avatar: 'MB' },

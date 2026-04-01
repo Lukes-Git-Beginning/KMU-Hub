@@ -26,7 +26,7 @@ const recentActivity: Activity[] = [
   },
   {
     id: 3,
-    user: 'Anna Mueller',
+    user: 'Anna Müller',
     avatar: 'AM',
     action: 'hat Dokument "Q1 Budget.xlsx" hochgeladen',
     time: 'vor 2 Stunden',

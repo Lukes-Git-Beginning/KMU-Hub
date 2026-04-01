@@ -92,7 +92,7 @@ const projectColors: Record<string, string> = {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-CH', {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE', {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -101,7 +101,7 @@ function formatDate(dateStr: string): string {
 }
 
 function formatDateShort(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-CH')
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE')
 }
 
 function calcNetHours(start: string, end: string, breakMin: number): string {
@@ -297,7 +297,7 @@ export default function RapportePage() {
         <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Material-Kosten</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">
-            CHF {materialCostMock.toLocaleString('de-CH')}
+            CHF {materialCostMock.toLocaleString('de-DE')}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
@@ -399,7 +399,7 @@ export default function RapportePage() {
                             {new Date(report.date + 'T00:00:00').getDate()}
                           </span>
                           <span className="text-[10px] text-muted-foreground uppercase">
-                            {new Date(report.date + 'T00:00:00').toLocaleDateString('de-CH', { month: 'short' })}
+                            {new Date(report.date + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' })}
                           </span>
                         </div>
                         <div>

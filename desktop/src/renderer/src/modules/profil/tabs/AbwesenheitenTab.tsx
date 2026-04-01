@@ -91,7 +91,7 @@ export default function AbwesenheitenTab() {
 
   const handleSubmit = () => {
     if (!formStart || !formEnd || !formLeaveTypeId) {
-      toast.error('Bitte alle Pflichtfelder ausfuellen')
+      toast.error('Bitte alle Pflichtfelder ausfüllen')
       return
     }
     if (formEnd < formStart) {
@@ -182,9 +182,9 @@ export default function AbwesenheitenTab() {
         <div className="rounded-lg border border-warning bg-warning-light/30 p-3 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-medium text-warning">Resturlaub-Uebertrag</p>
+            <p className="text-xs font-medium text-warning">Resturlaub-Übertrag</p>
             <p className="text-xs text-muted-foreground">
-              {carriedOver} Urlaubstage aus dem Vorjahr muessen bis 31. Maerz genommen werden.
+              {carriedOver} Urlaubstage aus dem Vorjahr muessen bis 31. März genommen werden.
             </p>
           </div>
         </div>
@@ -195,7 +195,7 @@ export default function AbwesenheitenTab() {
           <div>
             <p className="text-xs font-medium text-error">Resturlaub verfallen</p>
             <p className="text-xs text-muted-foreground">
-              {carriedOver} Urlaubstage aus dem Vorjahr sind am 31. Maerz verfallen.
+              {carriedOver} Urlaubstage aus dem Vorjahr sind am 31. März verfallen.
             </p>
           </div>
         </div>
@@ -320,7 +320,7 @@ export default function AbwesenheitenTab() {
             <p className="text-xs text-muted-foreground">{vacationUsed} Tage genommen</p>
             {carriedOver > 0 && (
               <p className={cn('text-xs', carryoverExpired ? 'text-error' : 'text-muted-foreground')}>
-                {carriedOver} Uebertrag{carryoverExpired ? ' (verfallen)' : ''}
+                {carriedOver} Übertrag{carryoverExpired ? ' (verfallen)' : ''}
               </p>
             )}
           </div>
@@ -329,7 +329,7 @@ export default function AbwesenheitenTab() {
         {/* Yearly Overview */}
         <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            Jahresuebersicht {balance?.year ?? new Date().getFullYear()}
+            Jahresübersicht {balance?.year ?? new Date().getFullYear()}
           </h3>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
@@ -346,7 +346,7 @@ export default function AbwesenheitenTab() {
             </div>
             {carriedOver > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Uebertrag</span>
+                <span className="text-muted-foreground">Übertrag</span>
                 <span className={cn('font-medium', carryoverExpired ? 'text-error line-through' : 'text-foreground')}>
                   {carriedOver} Tage
                 </span>
@@ -367,7 +367,7 @@ export default function AbwesenheitenTab() {
               <label className="text-sm font-medium text-foreground">Art der Abwesenheit *</label>
               <Select value={formLeaveTypeId} onValueChange={setFormLeaveTypeId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Typ waehlen..." />
+                  <SelectValue placeholder="Typ wählen..." />
                 </SelectTrigger>
                 <SelectContent>
                   {(leaveTypes ?? []).map((t) => (
@@ -435,7 +435,7 @@ export default function AbwesenheitenTab() {
                 value={formReason}
                 onChange={(e) => setFormReason(e.target.value)}
                 rows={3}
-                placeholder="Beschreibe den Grund fuer deine Abwesenheit..."
+                placeholder="Beschreibe den Grund für deine Abwesenheit..."
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>

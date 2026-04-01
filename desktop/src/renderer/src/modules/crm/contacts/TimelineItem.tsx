@@ -79,7 +79,7 @@ export function TimelineItem({ entry, isLast }: TimelineItemProps) {
       if (days === 0) return 'Heute'
       if (days === 1) return 'Gestern'
       if (days < 7) return `Vor ${days} Tagen`
-      return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
     } catch {
       return entry.date
     }

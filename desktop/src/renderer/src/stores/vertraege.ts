@@ -55,7 +55,7 @@ const MOCK_TEMPLATES: ContractTemplate[] = [
   {
     id: 'tpl-miet',
     name: 'Standard-Mietvertrag',
-    description: 'Gewerbliche Mietvertraege fuer Buero- und Lagerraeume mit ueblichen Konditionen',
+    description: 'Gewerbliche Mietverträge für Büro- und Lagerraeume mit ueblichen Konditionen',
     type: 'mietvertrag',
     defaultDuration: '36',
     defaultNoticePeriodDays: 90,
@@ -65,7 +65,7 @@ const MOCK_TEMPLATES: ContractTemplate[] = [
   {
     id: 'tpl-service',
     name: 'Servicevertrag (SLA)',
-    description: 'IT- und Facility-Servicevertraege mit definierten Service Level Agreements',
+    description: 'IT- und Facility-Serviceverträge mit definierten Service Level Agreements',
     type: 'servicevertrag',
     defaultDuration: '12',
     defaultNoticePeriodDays: 30,
@@ -75,7 +75,7 @@ const MOCK_TEMPLATES: ContractTemplate[] = [
   {
     id: 'tpl-lizenz',
     name: 'Software-Lizenzvertrag',
-    description: 'Jahreslizenzen fuer Software und Cloud-Dienste mit automatischer Verlaengerung',
+    description: 'Jahreslizenzen für Software und Cloud-Dienste mit automatischer Verlaengerung',
     type: 'lizenz',
     defaultDuration: '12',
     defaultNoticePeriodDays: 30,
@@ -85,7 +85,7 @@ const MOCK_TEMPLATES: ContractTemplate[] = [
   {
     id: 'tpl-liefer',
     name: 'Rahmenvertrag Lieferant',
-    description: 'Rahmenvertraege mit Lieferanten inkl. Mengenrabatte und Zahlungskonditionen',
+    description: 'Rahmenverträge mit Lieferanten inkl. Mengenrabatte und Zahlungskonditionen',
     type: 'liefervertrag',
     defaultDuration: '12',
     defaultNoticePeriodDays: 30,
@@ -94,7 +94,7 @@ const MOCK_TEMPLATES: ContractTemplate[] = [
   {
     id: 'tpl-arbeit',
     name: 'Arbeitsvertrag (unbefristet)',
-    description: 'Standard-Arbeitsvertrag fuer unbefristete Anstellungen nach deutschem Recht',
+    description: 'Standard-Arbeitsvertrag für unbefristete Anstellungen nach deutschem Recht',
     type: 'arbeitsvertrag',
     defaultDuration: '',
     defaultNoticePeriodDays: 90,
@@ -126,8 +126,8 @@ const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'v-1',
     contractNumber: 'MV-2024-001',
-    title: 'Buero-Mietvertrag Zuerich',
-    partner: 'Immobilien Zuerich AG',
+    title: 'Büro-Mietvertrag Zürich',
+    partner: 'Immobilien Zürich AG',
     type: 'mietvertrag',
     status: 'active',
     startDate: '2024-01-01',
@@ -142,8 +142,8 @@ const MOCK_CONTRACTS: Contract[] = [
     reminderDays: [30, 60, 90],
     history: [
       { date: '2024-01-01', action: 'Vertrag unterzeichnet', user: 'Markus Weber' },
-      { date: '2024-01-15', action: 'Bueroeinrichtung abgeschlossen', user: 'Sandra Buerki' },
-      { date: '2025-06-01', action: 'Nebenkostenabrechnung geprueft', user: 'Markus Weber' },
+      { date: '2024-01-15', action: 'Büroeinrichtung abgeschlossen', user: 'Sandra Buerki' },
+      { date: '2025-06-01', action: 'Nebenkostenabrechnung geprüft', user: 'Markus Weber' },
     ],
   },
   {
@@ -160,7 +160,7 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 189,
     totalValue: 4536,
     documentRef: 'DOC-SV-003',
-    notes: 'Business Internet XL mit 10 Gbit/s symmetrisch, inkl. Managed Router und SLA 99.9%. Stoerungshotline 24/7.',
+    notes: 'Business Internet XL mit 10 Gbit/s symmetrisch, inkl. Managed Router und SLA 99.9%. Störungshotline 24/7.',
     currency: 'EUR',
     history: [
       { date: '2025-01-01', action: 'Vertrag aktiviert', user: 'Thomas Keller' },
@@ -181,7 +181,7 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 450,
     totalValue: 5400,
     documentRef: 'DOC-LZ-002',
-    notes: '25 Lizenzen Microsoft 365 Business Premium. Inkl. Exchange Online, Teams, SharePoint und Intune. Verlaengerung muss manuell bestaetigt werden.',
+    notes: '25 Lizenzen Microsoft 365 Business Premium. Inkl. Exchange Online, Teams, SharePoint und Intune. Verlaengerung muss manuell bestätigt werden.',
     currency: 'EUR',
     reminderDays: [30, 60, 90],
     history: [
@@ -215,8 +215,8 @@ const MOCK_CONTRACTS: Contract[] = [
   {
     id: 'v-5',
     contractNumber: 'LF-2025-001',
-    title: 'Mueller Metallbau Rahmenvertrag',
-    partner: 'Mueller Metallbau GmbH',
+    title: 'Müller Metallbau Rahmenvertrag',
+    partner: 'Müller Metallbau GmbH',
     type: 'liefervertrag',
     status: 'active',
     startDate: '2025-03-01',
@@ -225,12 +225,12 @@ const MOCK_CONTRACTS: Contract[] = [
     renewal: 'auto',
     monthlyCost: 2200,
     totalValue: 26400,
-    notes: 'Rahmenvertrag fuer Stahlkomponenten und Sonderanfertigungen. Lieferzeit max. 10 Werktage, Zahlungsziel 30 Tage netto. Mengenrabatt ab CHF 5000 pro Bestellung.',
+    notes: 'Rahmenvertrag für Stahlkomponenten und Sonderanfertigungen. Lieferzeit max. 10 Werktage, Zahlungsziel 30 Tage netto. Mengenrabatt ab CHF 5000 pro Bestellung.',
     currency: 'EUR',
     reminderDays: [30, 60, 90],
     signers: [
       { email: 'l.brunner@firma.de', name: 'Lukas Brunner', status: 'signed', signedAt: '2025-02-28T14:30:00', order: 1 },
-      { email: 'h.mueller@metallbau.de', name: 'Hans Mueller', status: 'pending', order: 2 },
+      { email: 'h.mueller@metallbau.de', name: 'Hans Müller', status: 'pending', order: 2 },
     ],
     history: [
       { date: '2025-03-01', action: 'Rahmenvertrag unterzeichnet', user: 'Lukas Brunner' },
@@ -292,7 +292,7 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 680,
     totalValue: 8160,
     documentRef: 'DOC-LZ-005',
-    notes: '10 Lizenzen Creative Cloud All Apps. Nutzung fuer Marketing-Team und Design-Abteilung. Schulung ueber Adobe Learning inbegriffen.',
+    notes: '10 Lizenzen Creative Cloud All Apps. Nutzung für Marketing-Team und Design-Abteilung. Schulung ueber Adobe Learning inbegriffen.',
     currency: 'EUR',
     history: [
       { date: '2025-01-01', action: 'Jahreslizenz erneuert', user: 'Thomas Keller' },
@@ -312,11 +312,11 @@ const MOCK_CONTRACTS: Contract[] = [
     renewal: 'auto',
     monthlyCost: 320,
     totalValue: 3840,
-    notes: 'Flottenversicherung fuer 3 Firmenfahrzeuge. Vollkasko mit CHF 500 Selbstbehalt. Pannenhilfe Schweiz und Europa inkl.',
+    notes: 'Flottenversicherung für 3 Firmenfahrzeuge. Vollkasko mit CHF 500 Selbstbehalt. Pannenhilfe Schweiz und Europa inkl.',
     currency: 'EUR',
     history: [
       { date: '2025-01-01', action: 'Police erneuert', user: 'Sandra Buerki' },
-      { date: '2025-04-12', action: 'Neues Fahrzeug hinzugefuegt (ZH-345678)', user: 'Sandra Buerki' },
+      { date: '2025-04-12', action: 'Neues Fahrzeug hinzugefügt (ZH-345678)', user: 'Sandra Buerki' },
     ],
   },
   {
@@ -332,12 +332,12 @@ const MOCK_CONTRACTS: Contract[] = [
     renewal: 'manual',
     monthlyCost: 1800,
     totalValue: 43200,
-    notes: 'Rahmenvertrag fuer regelmaessige Warentransporte. Gekuendigt per 31.12.2025 wegen Wechsel zu guenstigerem Anbieter. Restliche Lieferungen werden noch abgewickelt.',
+    notes: 'Rahmenvertrag für regelmaessige Warentransporte. Gekündigt per 31.12.2025 wegen Wechsel zu guenstigerem Anbieter. Restliche Lieferungen werden noch abgewickelt.',
     currency: 'EUR',
     history: [
       { date: '2024-01-01', action: 'Rahmenvertrag unterzeichnet', user: 'Lukas Brunner' },
-      { date: '2025-06-15', action: 'Kuendigung eingereicht', user: 'Markus Weber' },
-      { date: '2025-06-20', action: 'Kuendigung bestaetigt vom Partner', user: 'Sandra Buerki' },
+      { date: '2025-06-15', action: 'Kündigung eingereicht', user: 'Markus Weber' },
+      { date: '2025-06-20', action: 'Kündigung bestätigt vom Partner', user: 'Sandra Buerki' },
     ],
   },
   {
@@ -354,12 +354,12 @@ const MOCK_CONTRACTS: Contract[] = [
     monthlyCost: 1200,
     totalValue: 28800,
     documentRef: 'DOC-MV-002',
-    notes: 'Lagerraum 120m2 im Industriegebiet Winterthur-Toess. Zugang 6-22 Uhr, Rampe fuer LKW-Anlieferung vorhanden. Heizung und Strom inkl.',
+    notes: 'Lagerraum 120m2 im Industriegebiet Winterthur-Toess. Zugang 6-22 Uhr, Rampe für LKW-Anlieferung vorhanden. Heizung und Strom inkl.',
     currency: 'EUR',
     history: [
       { date: '2024-06-01', action: 'Mietvertrag unterzeichnet', user: 'Markus Weber' },
       { date: '2025-01-15', action: 'Lagerregale installiert', user: 'Lukas Brunner' },
-      { date: '2026-01-10', action: 'Erinnerung: Kuendigungsfrist laeuft', user: 'System' },
+      { date: '2026-01-10', action: 'Erinnerung: Kündigungsfrist laeuft', user: 'System' },
     ],
   },
   {
@@ -381,7 +381,7 @@ const MOCK_CONTRACTS: Contract[] = [
     history: [
       { date: '2025-07-01', action: 'Lizenzvertrag aktiviert', user: 'Thomas Keller' },
       { date: '2025-07-20', action: 'Go-Live nach 3 Wochen Implementierung', user: 'Thomas Keller' },
-      { date: '2025-09-15', action: 'Schulung fuer Buchhaltungsteam abgeschlossen', user: 'Sandra Buerki' },
+      { date: '2025-09-15', action: 'Schulung für Buchhaltungsteam abgeschlossen', user: 'Sandra Buerki' },
     ],
   },
 ]
@@ -456,7 +456,7 @@ export const useVertraegeStore = create<VertraegeStore>()(
                     ...c.history,
                     {
                       date,
-                      action: `Kuendigung eingeleitet: ${reason}`,
+                      action: `Kündigung eingeleitet: ${reason}`,
                       user: 'Aktueller Benutzer',
                     },
                   ],
@@ -465,6 +465,6 @@ export const useVertraegeStore = create<VertraegeStore>()(
           ),
         })),
     }),
-    { name: 'kmuhub-vertraege' },
+    { name: 'kmuhub-verträge' },
   ),
 )

@@ -91,10 +91,10 @@ export function useDeleteManifest() {
     mutationFn: (id: string) => pluginClient.deleteManifest(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pluginKeys.manifests() })
-      toast.success('Plugin-Manifest geloescht')
+      toast.success('Plugin-Manifest gelöscht')
     },
     onError: () => {
-      toast.error('Fehler beim Loeschen des Plugin-Manifests')
+      toast.error('Fehler beim Löschen des Plugin-Manifests')
     },
   })
 }
@@ -317,10 +317,10 @@ export function useDeleteValidationRule() {
       qc.invalidateQueries({
         queryKey: ['plugins', 'validation-rules'],
       })
-      toast.success('Validierungsregel geloescht')
+      toast.success('Validierungsregel gelöscht')
     },
     onError: () => {
-      toast.error('Fehler beim Loeschen der Validierungsregel')
+      toast.error('Fehler beim Löschen der Validierungsregel')
     },
   })
 }
@@ -385,10 +385,10 @@ export function useDeleteWorkflowRule() {
       qc.invalidateQueries({
         queryKey: ['plugins', 'workflow-rules'],
       })
-      toast.success('Workflow-Regel geloescht')
+      toast.success('Workflow-Regel gelöscht')
     },
     onError: () => {
-      toast.error('Fehler beim Loeschen der Workflow-Regel')
+      toast.error('Fehler beim Löschen der Workflow-Regel')
     },
   })
 }

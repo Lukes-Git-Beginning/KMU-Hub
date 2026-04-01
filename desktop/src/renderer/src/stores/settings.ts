@@ -159,7 +159,7 @@ export const useSettingsStore = create<SettingsState>()(
         smtpHost: 'smtp.firma.ch',
         smtpPort: 587,
         username: 'darien@firma.ch',
-        signature: '<p>Mit freundlichen Gruessen<br/>Darien Morales<br/>UI/UX Designer</p>',
+        signature: '<p>Mit freundlichen Grüßen<br/>Darien Morales<br/>UI/UX Designer</p>',
         autoReplyEnabled: false,
         autoReplyMessage: 'Vielen Dank für Ihre Nachricht. Ich bin derzeit nicht im Büro und werde mich nach meiner Rückkehr bei Ihnen melden.',
       },

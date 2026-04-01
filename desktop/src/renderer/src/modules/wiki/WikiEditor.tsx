@@ -72,8 +72,8 @@ export function WikiEditor({ content, onChange, onSave, onCancel }: WikiEditorPr
         <ToolbarBtn icon={Bold} title="Fett" onClick={() => insertTag('<strong>', '</strong>')} />
         <ToolbarBtn icon={Italic} title="Kursiv" onClick={() => insertTag('<em>', '</em>')} />
         <div className="mx-1 h-4 w-px bg-border" />
-        <ToolbarBtn icon={Heading2} title="Ueberschrift" onClick={() => insertTag('<h3>', '</h3>')} />
-        <ToolbarBtn icon={List} title="Aufzaehlung" onClick={() => insertTag('<ul><li>', '</li></ul>')} />
+        <ToolbarBtn icon={Heading2} title="Überschrift" onClick={() => insertTag('<h3>', '</h3>')} />
+        <ToolbarBtn icon={List} title="Aufzählung" onClick={() => insertTag('<ul><li>', '</li></ul>')} />
         <ToolbarBtn icon={ListOrdered} title="Nummerierte Liste" onClick={() => insertTag('<ol><li>', '</li></ol>')} />
         <div className="mx-1 h-4 w-px bg-border" />
         <ToolbarBtn icon={Link} title="Link" onClick={() => insertTag('<a href="">', '</a>')} />

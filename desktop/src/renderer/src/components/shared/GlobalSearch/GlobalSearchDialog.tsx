@@ -176,7 +176,7 @@ export function GlobalSearchDialog() {
         default: {
           label: 'KI-Ergebnisse',
           items: [
-            { id: 'ai-1', icon: Sparkles, title: 'Aehnliches Thema im Wiki', subtitle: 'Onboarding-Prozess — 87% Relevanz', route: '/wiki' },
+            { id: 'ai-1', icon: Sparkles, title: 'Ähnliches Thema im Wiki', subtitle: 'Onboarding-Prozess — 87% Relevanz', route: '/wiki' },
             { id: 'ai-2', icon: Sparkles, title: 'Verwandtes Ticket', subtitle: '#1038 PDF-Export — 72% Relevanz', route: '/helpdesk' },
           ],
         },
@@ -343,7 +343,7 @@ export function GlobalSearchDialog() {
             ) : (
               <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                 <Search className="h-8 w-8 opacity-40" />
-                <span className="text-sm">Keine Ergebnisse fuer &quot;{query}&quot;</span>
+                <span className="text-sm">Keine Ergebnisse für &quot;{query}&quot;</span>
               </div>
             )
           ) : (
@@ -372,7 +372,7 @@ export function GlobalSearchDialog() {
           </span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">↵</kbd>
-            Oeffnen
+            Öffnen
           </span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">esc</kbd>

@@ -187,7 +187,7 @@ export function FilePreviewModal({
                   {file.mime_type} &middot; {formatBytes(file.file_size)}
                 </p>
                 <p className="text-xs text-muted-foreground italic">
-                  Vorschau fuer diesen Dateityp nicht verfuegbar
+                  Vorschau für diesen Dateityp nicht verfügbar
                 </p>
               </div>
             </div>
@@ -199,7 +199,7 @@ export function FilePreviewModal({
           <div className="text-xs text-muted-foreground">
             {formatBytes(file.file_size)} &middot; Version{' '}
             {file.current_version} &middot;{' '}
-            {new Date(file.created_at).toLocaleDateString('de-CH')}
+            {new Date(file.created_at).toLocaleDateString('de-DE')}
           </div>
           <Button
             variant="outline"

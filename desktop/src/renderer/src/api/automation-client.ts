@@ -29,7 +29,7 @@ import type {
 class OfflineError extends Error {
   constructor() {
     super(
-      'Aenderungen sind offline nicht moeglich. Bitte stellen Sie die Internetverbindung wieder her.',
+      'Änderungen sind offline nicht möglich. Bitte stellen Sie die Internetverbindung wieder her.',
     )
     this.name = 'OfflineError'
   }

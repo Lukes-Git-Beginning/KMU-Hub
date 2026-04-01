@@ -265,7 +265,7 @@ export function QuoteFormDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Gueltig bis</Label>
+              <Label>Gültig bis</Label>
               <Input
                 type="date"
                 value={validUntil}
@@ -359,7 +359,7 @@ export function QuoteFormDialog({
                 className="flex items-center gap-1.5 w-full px-3 py-2 text-xs text-primary hover:bg-primary/5 transition-colors border-t border-border-muted"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Position hinzufuegen
+                Position hinzufügen
               </button>
             </div>
           </div>

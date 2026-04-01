@@ -239,7 +239,7 @@ export function ComposeInline({
             <button
               onClick={() => setTemplateOpen(true)}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              title="Vorlage einfuegen"
+              title="Vorlage einfügen"
             >
               <FileText className="h-4 w-4" />
             </button>
@@ -259,7 +259,7 @@ export function ComposeInline({
                 onClose()
               }}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              title="Als Fenster oeffnen"
+              title="Als Fenster öffnen"
             >
               <Maximize2 className="h-4 w-4" />
             </button>
@@ -289,7 +289,7 @@ export function ComposeInline({
               onClick={() => setShowCcBcc(true)}
               className="text-xs text-primary hover:underline ml-1"
             >
-              Cc/Bcc hinzufuegen
+              Cc/Bcc hinzufügen
             </button>
           )}
 

@@ -13,7 +13,7 @@ const TOTAL_DAYS = 33 // Feb 3 - Mar 7 inclusive = 33 days (Feb has 28 days in 2
 const DAY_WIDTH = 30
 
 const machineStatusConfig: Record<string, { dot: string; label: string }> = {
-  available: { dot: 'bg-success', label: 'Verfuegbar' },
+  available: { dot: 'bg-success', label: 'Verfügbar' },
   in_use: { dot: 'bg-info', label: 'In Betrieb' },
   maintenance: { dot: 'bg-error', label: 'Wartung' },
 }
@@ -178,7 +178,7 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
         {/* Booking colors — derive from actual data */}
         {bookings.length > 0 && (
           <div className="flex items-center gap-4">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Auftraege:</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Aufträge:</span>
             {Array.from(new Map(bookings.map((b) => [b.orderNr, b])).values()).map((b) => (
               <div key={b.orderNr} className="flex items-center gap-1.5">
                 <span

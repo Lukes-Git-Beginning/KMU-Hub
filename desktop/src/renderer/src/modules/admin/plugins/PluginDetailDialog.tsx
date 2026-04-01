@@ -138,7 +138,7 @@ export function PluginDetailDialog({
               onClick={() => onOpenPermissions(installation)}
             >
               <Shield className="h-3.5 w-3.5 mr-1.5" />
-              Berechtigungen pruefen
+              Berechtigungen prüfen
             </Button>
           )}
 
@@ -259,7 +259,7 @@ export function PluginDetailDialog({
         {/* Recent execution logs */}
         <section>
           <h3 className="text-sm font-medium mb-3">
-            Letzte Ausfuehrungen
+            Letzte Ausführungen
           </h3>
           <ExecutionLogViewer installationId={installation.id} limit={10} />
         </section>

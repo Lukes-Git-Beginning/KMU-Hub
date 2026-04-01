@@ -227,7 +227,7 @@ export default function GanttTaskRow({
   const tooltipText = [
     task.title,
     task.start ? `Start: ${format(task.start, 'dd.MM.yyyy', { locale: de })}` : null,
-    task.end ? `Faellig: ${format(task.end, 'dd.MM.yyyy', { locale: de })}` : null,
+    task.end ? `Fällig: ${format(task.end, 'dd.MM.yyyy', { locale: de })}` : null,
     task.assignee_name ? `Zugewiesen: ${task.assignee_name}` : null,
     task.status_name ? `Status: ${task.status_name}` : null,
   ]
@@ -385,7 +385,7 @@ export default function GanttTaskRow({
             className="absolute flex items-center text-xs text-muted-foreground italic px-2"
             style={{ top: (ROW_HEIGHT - BAR_HEIGHT) / 2, height: BAR_HEIGHT }}
           >
-            Kein Faelligkeitsdatum
+            Kein Fälligkeitsdatum
           </div>
         )}
       </div>

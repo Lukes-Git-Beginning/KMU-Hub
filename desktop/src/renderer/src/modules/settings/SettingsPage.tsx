@@ -68,7 +68,7 @@ const ALL_TABS: TabConfig[] = [
   { key: 'integrations', label: 'Integrationen', icon: Plug, group: 'Admin' },
   { key: 'privacy', label: 'Datenschutz', icon: Lock, group: 'Admin' },
   { key: 'ai', label: 'KI-Assistent', icon: Sparkles, group: 'Admin' },
-  { key: 'about', label: 'Über KMU Hub', icon: Info, group: 'Sonstiges' },
+  { key: 'about', label: 'Über Cosmi', icon: Info, group: 'Sonstiges' },
 ]
 
 const TAB_GROUPS = ['Persönlich', 'Module', 'Admin', 'Sonstiges']
@@ -307,7 +307,7 @@ function AppearanceTab() {
 
       {/* ── COLOR PALETTE PICKER ────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Farbpalette</h3>
-      <p className="text-xs text-muted-foreground mb-3">Waehle die Akzentfarben fuer die gesamte App</p>
+      <p className="text-xs text-muted-foreground mb-3">Wähle die Akzentfarben für die gesamte App</p>
       <PaletteSwitcher className="mb-8" />
 
       {/* ── ACCENT INTENSITY ─────────────────────────── */}
@@ -345,7 +345,7 @@ function AppearanceTab() {
 
       {/* ── NAVIGATION LAYOUT ────────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Navigation</h3>
-      <p className="text-xs text-muted-foreground mb-3">Waehle wie du durch die App navigierst</p>
+      <p className="text-xs text-muted-foreground mb-3">Wähle wie du durch die App navigierst</p>
       <LayoutSwitcher className="mb-8" />
 
       {/* ── FENSTER-STIL ──────────────────────────── */}
@@ -353,7 +353,7 @@ function AppearanceTab() {
       <p className="text-xs text-muted-foreground mb-3">Vollbild oder abgerundetes Fenster mit Rand</p>
       <div className="grid grid-cols-2 gap-3 mb-8">
         {([
-          { id: 'full' as const, label: 'Vollbild', desc: 'Fenster komplett ausgefuellt' },
+          { id: 'full' as const, label: 'Vollbild', desc: 'Fenster komplett ausgefüllt' },
           { id: 'bubble' as const, label: 'Bubble', desc: 'Abgerundeter Rahmen mit Rand' },
         ]).map((style) => (
           <button
@@ -399,7 +399,7 @@ function AppearanceTab() {
 
       {/* ── OBERFLAECHE (SOLID / MILCHGLAS) ─────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Oberflaeche</h3>
-      <p className="text-xs text-muted-foreground mb-3">Standard oder Milchglas-Effekt fuer die gesamte App</p>
+      <p className="text-xs text-muted-foreground mb-3">Standard oder Milchglas-Effekt für die gesamte App</p>
       <div className="grid grid-cols-2 gap-3 mb-8">
         {([
           { id: 'solid' as const, label: 'Standard', desc: 'Solide, deckende Oberflaechen' },
@@ -452,7 +452,7 @@ function AppearanceTab() {
       {uiLook === 'glass' && (
         <>
           <h3 className="text-sm font-medium text-foreground mb-3">Hintergrund</h3>
-          <p className="text-xs text-muted-foreground mb-3">Waehle einen Hintergrund der durch die Milchglas-Oberflaeche scheint</p>
+          <p className="text-xs text-muted-foreground mb-3">Wähle einen Hintergrund der durch die Milchglas-Oberflaeche scheint</p>
           <div className="grid grid-cols-4 gap-2 mb-8">
             <button
               onClick={() => setDeskBackground(null)}
@@ -495,7 +495,7 @@ function AppearanceTab() {
 
       {/* ── HEADER WIDGETS ─────────────────────────── */}
       <h3 className="text-sm font-medium text-foreground mb-3">Header-Widgets</h3>
-      <p className="text-xs text-muted-foreground mb-3">Waehle bis zu 3 Mini-Widgets fuer die Kopfleiste</p>
+      <p className="text-xs text-muted-foreground mb-3">Wähle bis zu 3 Mini-Widgets für die Kopfleiste</p>
       <HeaderWidgetPicker className="mb-8" />
 
       <div className="mt-4 mb-4 border-t border-border" />
@@ -681,7 +681,7 @@ function SecurityTab() {
               <p className="text-sm font-medium text-foreground">
                 {isExpired ? 'Passwort abgelaufen' :
                  isExpiringSoon ? `Passwort laeuft in ${daysUntilExpiry} Tagen ab` :
-                 `Naechste Aenderung in ${daysUntilExpiry} Tagen`}
+                 `Nächste Änderung in ${daysUntilExpiry} Tagen`}
               </p>
               <p className="text-xs text-muted-foreground">
                 Zuletzt geaendert: {lastChanged?.toLocaleDateString('de-DE') ?? 'Unbekannt'}
@@ -692,7 +692,7 @@ function SecurityTab() {
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${
                 isExpired ? 'bg-error/15 text-error' : 'bg-warning/15 text-warning'
               }`}>
-                {isExpired ? 'Sofort aendern' : 'Bald faellig'}
+                {isExpired ? 'Sofort ändern' : 'Bald fällig'}
               </span>
             )}
           </div>
@@ -758,7 +758,7 @@ function SecurityTab() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">2FA nicht aktiviert</p>
-                  <p className="text-xs text-muted-foreground">Schuetze dein Konto mit einem zweiten Faktor</p>
+                  <p className="text-xs text-muted-foreground">Schütze dein Konto mit einem zweiten Faktor</p>
                 </div>
               </div>
               <Button size="sm" onClick={() => setShow2FASetup(true)}>
@@ -810,7 +810,7 @@ function SecurityTab() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">2FA ist aktiv</p>
-                  <p className="text-xs text-muted-foreground">Dein Konto ist durch einen zweiten Faktor geschuetzt</p>
+                  <p className="text-xs text-muted-foreground">Dein Konto ist durch einen zweiten Faktor geschützt</p>
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setShowDisable2FA(true)}>
@@ -885,7 +885,7 @@ function SecurityTab() {
         open={showDisable2FA}
         onOpenChange={setShowDisable2FA}
         title="2FA deaktivieren?"
-        description="Dein Konto wird nur noch durch dein Passwort geschuetzt. Dies wird nicht empfohlen."
+        description="Dein Konto wird nur noch durch dein Passwort geschützt. Dies wird nicht empfohlen."
         confirmLabel="2FA deaktivieren"
         variant="destructive"
         onConfirm={handle2FADisable}
@@ -915,9 +915,9 @@ function AboutTab() {
     <div className="max-w-2xl mx-auto">
       {/* Hero */}
       <div className="rounded-xl bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
-        <h2 className="text-primary-foreground text-xl font-semibold mb-1">KMU Hub</h2>
+        <h2 className="text-primary-foreground text-xl font-semibold mb-1">Cosmi</h2>
         <p className="text-primary-foreground/80 text-sm mb-3">
-          All-in-One Business-Plattform fuer DACH-KMUs
+          All-in-One Business-Plattform für DACH-KMUs
         </p>
         <div className="flex items-center gap-3">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">v0.1.0 Beta</span>

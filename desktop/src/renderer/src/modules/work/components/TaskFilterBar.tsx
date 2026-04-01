@@ -283,7 +283,7 @@ export default function TaskFilterBar({
                 })
               }
             >
-              Datum zuruecksetzen
+              Datum zurücksetzen
             </Button>
           )}
         </PopoverContent>

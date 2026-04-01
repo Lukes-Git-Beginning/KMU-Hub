@@ -152,7 +152,7 @@ export function TourOverlay() {
               className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
             >
               <ChevronLeft className="h-3 w-3" />
-              Zurueck
+              Zurück
             </button>
           )}
           <button

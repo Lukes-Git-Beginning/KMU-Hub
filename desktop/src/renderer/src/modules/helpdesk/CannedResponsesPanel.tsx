@@ -93,7 +93,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
   }
 
   const handleDelete = (r: CannedResponse) => {
-    toast.success(`Textbaustein "${r.title}" geloescht`)
+    toast.success(`Textbaustein "${r.title}" gelöscht`)
   }
 
   const handleInsert = (r: CannedResponse) => {
@@ -126,7 +126,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
               {creating ? 'Neuer Textbaustein' : editing ? 'Textbaustein bearbeiten' : 'Textbausteine'}
             </h3>
             {!isFormMode && (
-              <p className="text-xs text-muted-foreground">{cannedResponses.length} Vorlagen verfuegbar</p>
+              <p className="text-xs text-muted-foreground">{cannedResponses.length} Vorlagen verfügbar</p>
             )}
           </div>
         </div>
@@ -145,7 +145,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
               type="text"
               value={formTitle}
               onChange={(e) => setFormTitle(e.target.value)}
-              placeholder="z.B. Begruessung"
+              placeholder="z.B. Begrüßung"
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -285,7 +285,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
                     <button
                       onClick={() => handleDelete(r)}
                       className="rounded p-1 text-muted-foreground hover:bg-error-light hover:text-error transition-colors"
-                      title="Loeschen"
+                      title="Löschen"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -301,7 +301,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
                     className="flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-xs text-primary font-medium hover:bg-primary/20 transition-colors"
                   >
                     <Copy className="h-3 w-3" />
-                    Einfuegen
+                    Einfügen
                   </button>
                 </div>
               </div>

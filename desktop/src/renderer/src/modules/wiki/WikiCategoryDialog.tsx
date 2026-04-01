@@ -57,7 +57,7 @@ export function WikiCategoryDialog({ open, onOpenChange }: WikiCategoryDialogPro
         <DialogHeader>
           <DialogTitle>Neue Kategorie</DialogTitle>
           <DialogDescription>
-            Erstelle eine neue Kategorie fuer das Wiki.
+            Erstelle eine neue Kategorie für das Wiki.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,7 +1,7 @@
 /**
  * 4-step automation creation wizard.
  *
- * Steps: 1. Trigger, 2. Bedingung, 3. Aktion(en), 4. Uebersicht
+ * Steps: 1. Trigger, 2. Bedingung, 3. Aktion(en), 4. Übersicht
  *
  * Uses Zustand store for draft workflow state (shared with react-flow editor).
  * On submit calls useCreateAutomation() mutation.
@@ -38,7 +38,7 @@ const STEPS = [
   { label: 'Trigger', description: 'Wann soll die Automatisierung ausgeloest werden?' },
   { label: 'Bedingung', description: 'Unter welchen Bedingungen soll sie laufen?' },
   { label: 'Aktion(en)', description: 'Was soll passieren?' },
-  { label: 'Uebersicht', description: 'Zusammenfassung pruefen und speichern' },
+  { label: 'Übersicht', description: 'Zusammenfassung prüfen und speichern' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ function ReviewStep() {
               ? conditions.expression || 'Kein Ausdruck'
               : conditions?.simple
                 ? 'Einfache Bedingung konfiguriert'
-                : 'Keine Bedingung (immer ausfuehren)'}
+                : 'Keine Bedingung (immer ausführen)'}
           </p>
         </div>
 
@@ -215,7 +215,7 @@ function ReviewStep() {
 
             {/* Would execute */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Ausfuehrung:</span>
+              <span className="text-muted-foreground">Ausführung:</span>
               <span className={dryResult.would_execute ? 'text-green-600' : 'text-muted-foreground'}>
                 {dryResult.would_execute
                   ? 'Wuerde ausgefuehrt werden'
@@ -319,7 +319,7 @@ function ScopeSelector() {
           }`}
         >
           {s === 'personal'
-            ? 'Persoenlich'
+            ? 'Persönlich'
             : s === 'team'
               ? 'Team'
               : 'Organisation'}
@@ -439,7 +439,7 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
           className="flex items-center gap-1 rounded-md border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
-          Zurueck
+          Zurück
         </button>
 
         {wizardStep < 3 ? (

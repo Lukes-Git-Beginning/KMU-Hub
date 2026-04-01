@@ -8,7 +8,7 @@ const mockUser = {
   id: IDS.users.stefan,
   email: 'stefan.mueller@techvision.de',
   first_name: 'Stefan',
-  last_name: 'Mueller',
+  last_name: 'Müller',
   roles: ['admin'],
   avatar_url: null,
 }
@@ -47,7 +47,7 @@ export const authHandlers = [
         id: 'sess-001',
         user_id: IDS.users.stefan,
         ip_address: '192.168.1.100',
-        user_agent: 'KMU Hub Desktop/1.0',
+        user_agent: 'Cosmi Desktop/1.0',
         created_at: new Date().toISOString(),
         last_active_at: new Date().toISOString(),
         is_current: true,

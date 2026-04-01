@@ -45,10 +45,10 @@ export function ConversationThread() {
         <div className="text-center space-y-2">
           <MessageSquareText className="h-10 w-10 mx-auto text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">
-            Waehle eine Konversation aus
+            Wähle eine Konversation aus
           </p>
           <p className="text-xs text-muted-foreground/60">
-            j/k zum Navigieren · Escape zum Abwaehlen
+            j/k zum Navigieren · Escape zum Abwählen
           </p>
         </div>
       </div>

@@ -63,7 +63,7 @@ export function ExecutionLogViewer({
   if (!logs || logs.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-4">
-        Keine Ausfuehrungsprotokolle vorhanden.
+        Keine Ausführungsprotokolle vorhanden.
       </p>
     )
   }

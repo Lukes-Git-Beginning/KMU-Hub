@@ -170,7 +170,7 @@ export function FileDetailPanel({
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span className="text-foreground">
-            {new Date(file.created_at).toLocaleDateString('de-CH', {
+            {new Date(file.created_at).toLocaleDateString('de-DE', {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
@@ -283,7 +283,7 @@ export function FileDetailPanel({
           <div>
             <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center gap-1">
               <Link2 className="h-3.5 w-3.5" />
-              Verknuepfungen ({links.length})
+              Verknüpfungen ({links.length})
             </h4>
             <div className="space-y-1.5">
               {links.map((link) => (

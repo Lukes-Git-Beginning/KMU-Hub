@@ -107,7 +107,7 @@ function getDaysRemaining(dueDate: string): number {
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-CH')
+  return new Date(dateStr).toLocaleDateString('de-DE')
 }
 
 function formatDuration(minutes: number): string {
@@ -294,7 +294,7 @@ export default function ProduktionPage() {
                       >
                         <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{order.orderNr}</td>
                         <td className="px-4 py-3 text-foreground font-medium">{order.product}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground text-right">{order.quantity.toLocaleString('de-CH')}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground text-right">{order.quantity.toLocaleString('de-DE')}</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${orderStatusColors[order.status]}`}>
                             {orderStatusLabels[order.status] ?? order.status}
@@ -626,7 +626,7 @@ function OrderDetailPanel({
             <Package className="h-3.5 w-3.5 shrink-0" />
             <div>
               <p className="text-[10px] text-muted-foreground">Menge</p>
-              <p className="text-foreground font-medium">{order.quantity.toLocaleString('de-CH')} Stk</p>
+              <p className="text-foreground font-medium">{order.quantity.toLocaleString('de-DE')} Stk</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -701,14 +701,14 @@ function OrderDetailPanel({
         {materialAvailability && bom && (
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Materialverfuegbarkeit
+              Materialverfügbarkeit
             </h4>
             <div className="rounded-md border border-border p-3 space-y-3">
               {/* Summary */}
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-primary" />
                 <span className="text-xs font-medium text-foreground">
-                  {materialAvailability.available} von {materialAvailability.total} Materialien verfuegbar
+                  {materialAvailability.available} von {materialAvailability.total} Materialien verfügbar
                 </span>
               </div>
 
@@ -716,7 +716,7 @@ function OrderDetailPanel({
               <div className="space-y-1">
                 {materialAvailability.results.map((item, idx) => {
                   const colorMap = {
-                    green: { dot: 'bg-success', text: 'text-success', bg: 'bg-success-light', label: 'Verfuegbar' },
+                    green: { dot: 'bg-success', text: 'text-success', bg: 'bg-success-light', label: 'Verfügbar' },
                     yellow: { dot: 'bg-warning', text: 'text-warning', bg: 'bg-warning-light', label: 'Knapp' },
                     red: { dot: 'bg-error', text: 'text-error', bg: 'bg-error-light', label: 'Fehlt' },
                   }

@@ -33,7 +33,7 @@ function formatRelativeTime(dateStr: string): string {
     if (diffMin < 60) return `${diffMin}m`
     if (diffH < 24) return `${diffH}h`
     if (diffD < 7) return `${diffD}d`
-    return date.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
   } catch {
     return dateStr
   }

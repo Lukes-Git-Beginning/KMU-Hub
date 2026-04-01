@@ -76,7 +76,7 @@ export interface CallHistoryEntry {
 }
 
 const mockCallHistory: CallHistoryEntry[] = [
-  { id: 'ch1', contactName: 'Anna Mueller', contactInitials: 'AM', type: 'video', direction: 'outgoing', date: '2026-02-22', startTime: '09:15', duration: 23 },
+  { id: 'ch1', contactName: 'Anna Müller', contactInitials: 'AM', type: 'video', direction: 'outgoing', date: '2026-02-22', startTime: '09:15', duration: 23 },
   { id: 'ch2', contactName: 'Weber GmbH', contactInitials: 'WG', type: 'audio', direction: 'incoming', date: '2026-02-22', startTime: '08:42', duration: 8 },
   { id: 'ch3', contactName: 'Peter Koch', contactInitials: 'PK', type: 'video', direction: 'missed', date: '2026-02-21', startTime: '17:30', duration: 0 },
   { id: 'ch4', contactName: 'Sarah Klein', contactInitials: 'SK', type: 'video', direction: 'incoming', date: '2026-02-21', startTime: '14:00', duration: 45 },
@@ -141,7 +141,7 @@ const mockMeetings: Meeting[] = [
     reminder: '15min',
     description: 'Wöchentliches Sprint Planning für das Relaunch-Projekt. Besprechung der Tasks für die kommende Woche.',
     participants: [
-      { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
+      { id: 'p1', name: 'Anna Müller', initials: 'AM' },
       { id: 'p2', name: 'Michael Berg', initials: 'MB' },
       { id: 'p3', name: 'Sarah Klein', initials: 'SK' },
     ],
@@ -181,7 +181,7 @@ const mockMeetings: Meeting[] = [
     agenda: [
       { id: 'a5', text: 'Onboarding-Flow Mockups präsentieren', done: true },
       { id: 'a6', text: 'Feedback zum Dashboard-Layout', done: false },
-      { id: 'a7', text: 'Farb- und Icon-Konsistenz pruefen', done: false },
+      { id: 'a7', text: 'Farb- und Icon-Konsistenz prüfen', done: false },
     ],
     notes: '',
     files: [{ id: 'f2', name: 'Mockups-v3.fig', size: '12 MB' }],
@@ -204,7 +204,7 @@ const mockMeetings: Meeting[] = [
     reminder: '30min',
     description: 'Fortschrittspräsentation für Meier AG. Aktueller Stand der CRM-Integration und nächste Schritte.',
     participants: [
-      { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
+      { id: 'p1', name: 'Anna Müller', initials: 'AM' },
       { id: 'p5', name: 'Peter Koch', initials: 'PK' },
       { id: 'p2', name: 'Michael Berg', initials: 'MB' },
     ],
@@ -240,7 +240,7 @@ const mockMeetings: Meeting[] = [
     reminder: '15min',
     description: 'Tägliches Team Standup. Kurzer Austausch über aktuelle Aufgaben und Blocker.',
     participants: [
-      { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
+      { id: 'p1', name: 'Anna Müller', initials: 'AM' },
       { id: 'p2', name: 'Michael Berg', initials: 'MB' },
       { id: 'p3', name: 'Sarah Klein', initials: 'SK' },
       { id: 'p6', name: 'Jonas Diaz', initials: 'JD' },
@@ -272,7 +272,7 @@ const mockMeetings: Meeting[] = [
     reminder: '30min',
     description: 'Rückblick auf Sprint 12. Was lief gut, was können wir verbessern?',
     participants: [
-      { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
+      { id: 'p1', name: 'Anna Müller', initials: 'AM' },
       { id: 'p2', name: 'Michael Berg', initials: 'MB' },
     ],
     organizerId: 'p2',
@@ -301,7 +301,7 @@ const mockMeetings: Meeting[] = [
     reminder: '1h',
     description: 'Jahresbudget-Planung für 2026. Kosten, Investitionen, Personalplanung.',
     participants: [
-      { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
+      { id: 'p1', name: 'Anna Müller', initials: 'AM' },
       { id: 'p5', name: 'Peter Koch', initials: 'PK' },
       { id: 'p7', name: 'Thomas Weber', initials: 'TW' },
     ],
@@ -364,7 +364,7 @@ const mockMeetings: Meeting[] = [
     participants: [
       { id: 'p5', name: 'Peter Koch', initials: 'PK' },
       { id: 'p6', name: 'Jonas Diaz', initials: 'JD' },
-      { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
+      { id: 'p1', name: 'Anna Müller', initials: 'AM' },
     ],
     organizerId: 'p5',
     agenda: [

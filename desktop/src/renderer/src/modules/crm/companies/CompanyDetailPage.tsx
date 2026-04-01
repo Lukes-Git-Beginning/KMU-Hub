@@ -93,10 +93,10 @@ export default function CompanyDetailPage() {
     if (!id) return
     try {
       await deleteCompany.mutateAsync(id)
-      toast.success('Unternehmen geloescht')
+      toast.success('Unternehmen gelöscht')
       navigate('/crm/companies')
     } catch {
-      toast.error('Fehler beim Loeschen des Unternehmens')
+      toast.error('Fehler beim Löschen des Unternehmens')
     }
   }
 
@@ -140,7 +140,7 @@ export default function CompanyDetailPage() {
             className="mt-4"
             onClick={() => navigate('/crm/companies')}
           >
-            Zurueck zur Liste
+            Zurück zur Liste
           </Button>
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function CompanyDetailPage() {
             onClick={() => navigate('/crm/companies')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Zurueck
+            Zurück
           </Button>
           <h1 className="text-2xl font-semibold text-foreground">
             {company.name}
@@ -298,7 +298,7 @@ export default function CompanyDetailPage() {
             <CardContent>
               {contacts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Keine verknuepften Kontakte.
+                  Keine verknüpften Kontakte.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -392,9 +392,9 @@ export default function CompanyDetailPage() {
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Unternehmen loeschen"
-        description={`Moechtest du "${company.name}" wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.`}
-        confirmLabel="Loeschen"
+        title="Unternehmen löschen"
+        description={`Moechtest du "${company.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />

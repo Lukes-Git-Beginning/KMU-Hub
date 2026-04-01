@@ -153,7 +153,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   {
     id: 'teams-graph',
     name: 'Microsoft Teams (Graph)',
-    description: 'MS Graph API fuer Teams-Channels, Bot-Konfiguration und Praesenz',
+    description: 'MS Graph API für Teams-Channels, Bot-Konfiguration und Praesenz',
     category: 'kommunikation',
     icon: MessageSquare,
     iconColor: 'text-blue-600',
@@ -164,7 +164,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
       { id: 'clientId', label: 'Client-ID', type: 'text', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', required: true, section: 'Azure AD', monospace: true },
       { id: 'clientSecret', label: 'Client-Secret', type: 'password', placeholder: '***', required: true, section: 'Azure AD', monospace: true },
       { id: 'botEnabled', label: 'Bot aktiviert', type: 'switch', defaultValue: false, section: 'Bot-Konfiguration', helpText: 'Automatische Nachrichten in Teams-Channels senden' },
-      { id: 'autoCreateChannels', label: 'Channels automatisch erstellen', type: 'switch', defaultValue: false, section: 'Bot-Konfiguration', helpText: 'Channels fuer neue Projekte automatisch anlegen' },
+      { id: 'autoCreateChannels', label: 'Channels automatisch erstellen', type: 'switch', defaultValue: false, section: 'Bot-Konfiguration', helpText: 'Channels für neue Projekte automatisch anlegen' },
     ],
   },
   {
@@ -181,7 +181,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
       { id: 'phoneNumber', label: 'Telefonnummer', type: 'text', placeholder: '+49 170 1234567', required: true, section: 'API-Verbindung' },
       { id: 'accessToken', label: 'Access-Token', type: 'password', placeholder: 'EAAx...', required: true, section: 'API-Verbindung', monospace: true },
       { id: 'webhookUrl', label: 'Webhook-URL', type: 'url', placeholder: 'https://kmuhub.app/api/v1/webhooks/whatsapp', section: 'Webhook', monospace: true },
-      { id: 'verifyToken', label: 'Verify-Token', type: 'password', placeholder: 'Bel. Token fuer Webhook-Verifizierung', section: 'Webhook', monospace: true },
+      { id: 'verifyToken', label: 'Verify-Token', type: 'password', placeholder: 'Bel. Token für Webhook-Verifizierung', section: 'Webhook', monospace: true },
     ],
   },
 
@@ -189,7 +189,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   {
     id: 'skribble',
     name: 'Skribble',
-    description: 'Elektronische Signaturen (SES, AES, QES) fuer Vertraege und Dokumente',
+    description: 'Elektronische Signaturen (SES, AES, QES) für Verträge und Dokumente',
     category: 'dokumente',
     icon: PenTool,
     iconColor: 'text-indigo-600',
@@ -203,7 +203,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   {
     id: 'collabora',
     name: 'Collabora Online',
-    description: 'Online-Office-Editor fuer Dokumente direkt im Browser',
+    description: 'Online-Office-Editor für Dokumente direkt im Browser',
     category: 'dokumente',
     icon: FileText,
     iconColor: 'text-teal-600',
@@ -235,7 +235,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   {
     id: 'livekit',
     name: 'LiveKit',
-    description: 'Self-Hosted Video/Audio-Infrastruktur fuer Meetings und Anrufe',
+    description: 'Self-Hosted Video/Audio-Infrastruktur für Meetings und Anrufe',
     category: 'video',
     icon: Radio,
     iconColor: 'text-rose-500',
@@ -261,7 +261,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     fields: [
       { id: 'apiKey', label: 'API-Schluessel', type: 'password', placeholder: 'xkeysib-...', required: true, section: 'Authentifizierung', monospace: true },
       { id: 'listMapping', label: 'Listen-Zuordnung', type: 'switch', defaultValue: false, section: 'Synchronisation', helpText: 'Kontaktgruppen automatisch als Brevo-Listen synchronisieren' },
-      { id: 'syncEnabled', label: 'Sync aktiviert', type: 'switch', defaultValue: false, section: 'Synchronisation', helpText: 'Neue Kontakte automatisch an Brevo uebertragen' },
+      { id: 'syncEnabled', label: 'Sync aktiviert', type: 'switch', defaultValue: false, section: 'Synchronisation', helpText: 'Neue Kontakte automatisch an Brevo übertragen' },
     ],
   },
 ]

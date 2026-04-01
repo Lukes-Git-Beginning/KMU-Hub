@@ -132,7 +132,7 @@ function ProjectBoardView() {
             className="mt-4"
             onClick={() => navigate('/work/projects')}
           >
-            Zurueck zur Liste
+            Zurück zur Liste
           </Button>
         </div>
       </div>
@@ -160,7 +160,7 @@ function ProjectBoardView() {
             onClick={() => navigate('/work/projects')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Zurueck
+            Zurück
           </Button>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold text-foreground">

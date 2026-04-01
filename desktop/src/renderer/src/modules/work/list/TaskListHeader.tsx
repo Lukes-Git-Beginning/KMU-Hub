@@ -210,7 +210,7 @@ export default function TaskListHeader({
                 onFilterStatusIdChange(null)
               }}
             >
-              Filter zuruecksetzen
+              Filter zurücksetzen
             </Button>
           )}
         </PopoverContent>

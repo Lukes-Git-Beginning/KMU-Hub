@@ -7,7 +7,7 @@ import type { WikiVersion } from '@/types/wiki'
 
 function formatDate(dateStr: string): string {
   try {
-    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-CH', {
+    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',

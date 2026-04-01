@@ -35,7 +35,7 @@ interface CompanyDeal {
 }
 
 const mockCompanyDeals: Record<string, CompanyDeal[]> = {
-  'KMU Hub AG': [
+  'Cosmi AG': [
     { id: 'cd1', name: 'Plattform-Lizenz 2026', value: 120000, currency: 'CHF', stage: 'Gewonnen', stageColor: '#22c55e', probability: 100 },
     { id: 'cd2', name: 'Schulungspaket', value: 15000, currency: 'CHF', stage: 'Angebot', stageColor: '#a78bfa', probability: 50 },
   ],
@@ -195,7 +195,7 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
             Deals ({deals.length})
           </h3>
           {deals.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Keine Deals verknuepft.</p>
+            <p className="text-xs text-muted-foreground">Keine Deals verknüpft.</p>
           ) : (
             <>
               <div className="space-y-1.5">
@@ -213,7 +213,7 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
                       <p className="text-[10px] text-muted-foreground">{deal.stage} · {deal.probability}%</p>
                     </div>
                     <span className="text-xs font-medium text-foreground">
-                      {new Intl.NumberFormat('de-CH', { style: 'currency', currency: deal.currency, maximumFractionDigits: 0 }).format(deal.value)}
+                      {new Intl.NumberFormat('de-DE', { style: 'currency', currency: deal.currency, maximumFractionDigits: 0 }).format(deal.value)}
                     </span>
                   </div>
                 ))}
@@ -224,13 +224,13 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Gesamtwert</span>
                   <span className="font-medium text-foreground">
-                    {new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(totalDealValue)}
+                    {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(totalDealValue)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs mt-0.5">
                   <span className="text-muted-foreground">Gewichtet</span>
                   <span className="font-medium text-primary">
-                    {new Intl.NumberFormat('de-CH', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(weightedValue)}
+                    {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(weightedValue)}
                   </span>
                 </div>
               </div>

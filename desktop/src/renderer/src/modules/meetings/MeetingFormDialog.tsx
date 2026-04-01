@@ -79,7 +79,7 @@ const PRESET_COLORS = [
 ]
 
 const availableParticipants = [
-  { id: 'p1', name: 'Anna Mueller', initials: 'AM' },
+  { id: 'p1', name: 'Anna Müller', initials: 'AM' },
   { id: 'p2', name: 'Michael Berg', initials: 'MB' },
   { id: 'p3', name: 'Sarah Klein', initials: 'SK' },
   { id: 'p4', name: 'Lisa Schmidt', initials: 'LS' },
@@ -468,13 +468,13 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                         </Select>
                       </div>
                       <p className="text-[10px] text-muted-foreground">
-                        Naechste {Math.min(customInterval * 3, 12)} Termine werden automatisch erstellt
+                        Nächste {Math.min(customInterval * 3, 12)} Termine werden automatisch erstellt
                       </p>
                     </div>
                   )}
                   {recurrenceDisplay !== 'none' && recurrenceDisplay !== 'custom' && (
                     <p className="mt-1 text-[10px] text-muted-foreground">
-                      Naechste Termine werden automatisch erstellt
+                      Nächste Termine werden automatisch erstellt
                     </p>
                   )}
                 </div>

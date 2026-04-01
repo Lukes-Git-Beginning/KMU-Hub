@@ -43,14 +43,14 @@ interface TimeEntry {
 // Current API only supports useTimeEntries(taskId) — need project-level endpoint
 // Backend ticket needed: GET /api/v1/projects/{id}/time-entries?billed=false
 const MOCK_TIME_ENTRIES: TimeEntry[] = [
-  { id: 'te-w1', date: '2026-02-20', task: 'Frontend-Entwicklung', person: 'Anna Mueller', hours: 6.0, description: 'React-Komponenten implementiert' },
-  { id: 'te-w2', date: '2026-02-20', task: 'Design-Review', person: 'Anna Mueller', hours: 1.5, description: 'Figma-Prototyp reviewt' },
+  { id: 'te-w1', date: '2026-02-20', task: 'Frontend-Entwicklung', person: 'Anna Müller', hours: 6.0, description: 'React-Komponenten implementiert' },
+  { id: 'te-w2', date: '2026-02-20', task: 'Design-Review', person: 'Anna Müller', hours: 1.5, description: 'Figma-Prototyp reviewt' },
   { id: 'te-w3', date: '2026-02-19', task: 'API-Endpoints', person: 'Thomas Fischer', hours: 5.0, description: 'REST-Endpoints aufgebaut' },
   { id: 'te-w4', date: '2026-02-19', task: 'Testing', person: 'Thomas Fischer', hours: 2.5, description: 'Integration Tests geschrieben' },
   { id: 'te-w5', date: '2026-02-18', task: 'Deployment', person: 'Max Schmidt', hours: 3.0, description: 'CI/CD Pipeline eingerichtet' },
   { id: 'te-w6', date: '2026-02-18', task: 'Datenbank-Migration', person: 'Thomas Fischer', hours: 4.0, description: 'PostgreSQL Migrations' },
   { id: 'te-w7', date: '2026-02-17', task: 'UI-Polishing', person: 'Sara Weber', hours: 5.5, description: 'Feinschliff + Animationen' },
-  { id: 'te-w8', date: '2026-02-17', task: 'Performance', person: 'Anna Mueller', hours: 2.0, description: 'Lighthouse-Optimierung' },
+  { id: 'te-w8', date: '2026-02-17', task: 'Performance', person: 'Anna Müller', hours: 2.0, description: 'Lighthouse-Optimierung' },
 ]
 
 const DEFAULT_HOURLY_RATE = 120
@@ -157,7 +157,7 @@ export default function HoursToInvoiceDialog({
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Calculator className="h-4 w-4" />
               <span>
-                {selectedIds.size} von {MOCK_TIME_ENTRIES.length} Eintraegen ausgewaehlt
+                {selectedIds.size} von {MOCK_TIME_ENTRIES.length} Einträgen ausgewaehlt
               </span>
             </div>
             <button
@@ -165,8 +165,8 @@ export default function HoursToInvoiceDialog({
               className="text-xs text-primary hover:underline"
             >
               {selectedIds.size === MOCK_TIME_ENTRIES.length
-                ? 'Alle abwaehlen'
-                : 'Alle waehlen'}
+                ? 'Alle abwählen'
+                : 'Alle wählen'}
             </button>
           </div>
 
@@ -258,7 +258,7 @@ export default function HoursToInvoiceDialog({
           <div className="flex items-center justify-between rounded-md bg-secondary/50 px-4 py-3">
             <div className="text-xs text-muted-foreground space-x-2">
               <span>
-                <span className="font-medium text-foreground">{selectedIds.size}</span> Eintraege
+                <span className="font-medium text-foreground">{selectedIds.size}</span> Einträge
               </span>
               <span>|</span>
               <span>

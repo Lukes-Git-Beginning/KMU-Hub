@@ -58,7 +58,7 @@ export interface AdminCalDAVUser {
 
 class OfflineError extends Error {
   constructor() {
-    super('Aenderungen sind offline nicht moeglich.')
+    super('Änderungen sind offline nicht möglich.')
     this.name = 'OfflineError'
   }
 }

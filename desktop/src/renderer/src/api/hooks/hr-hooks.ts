@@ -87,11 +87,11 @@ function showArbZGToast(compliance: ArbZGComplianceResult | undefined) {
       toast.info(compliance.message || '8 Stunden erreicht')
       break
     case 'warning':
-      toast.warning(compliance.message || '9 Stunden ueberschritten')
+      toast.warning(compliance.message || '9 Stunden überschritten')
       break
     case 'error':
       toast.error(
-        compliance.message || 'Arbeitszeitgrenze (10h) ueberschritten!',
+        compliance.message || 'Arbeitszeitgrenze (10h) überschritten!',
       )
       break
   }

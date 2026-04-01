@@ -33,7 +33,7 @@ export default function CalDAVAdminPage() {
         </h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6">
-        Organisationsweite Einstellungen fuer die Kalender- und
+        Organisationsweite Einstellungen für die Kalender- und
         Kontakt-Synchronisierung
       </p>
 
@@ -50,7 +50,7 @@ export default function CalDAVAdminPage() {
               CalDAV/CardDAV aktivieren
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ermoeglicht allen Benutzern, Kalender und Kontakte mit externen
+              Ermöglicht allen Benutzern, Kalender und Kontakte mit externen
               Anwendungen zu synchronisieren
             </p>
           </div>
@@ -90,7 +90,7 @@ export default function CalDAVAdminPage() {
                   <th className="px-3 py-2 font-medium">Benutzer</th>
                   <th className="px-3 py-2 font-medium">E-Mail</th>
                   <th className="px-3 py-2 font-medium text-center">
-                    Passwoerter
+                    Passwörter
                   </th>
                   <th className="px-3 py-2 font-medium">Zuletzt</th>
                   <th className="px-3 py-2 font-medium text-right">

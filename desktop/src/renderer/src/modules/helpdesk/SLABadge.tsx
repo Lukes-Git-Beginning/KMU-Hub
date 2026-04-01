@@ -48,7 +48,7 @@ export function SLABadge({ overdue, remaining, dueAt, compact }: SLABadgeProps) 
         colorClass,
         overdue && 'animate-pulse'
       )}
-      title={dueAt ? `Faellig: ${new Date(dueAt).toLocaleString('de-CH')}` : undefined}
+      title={dueAt ? `Fällig: ${new Date(dueAt).toLocaleString('de-DE')}` : undefined}
     >
       <Icon className="h-3.5 w-3.5" />
       <span>{remaining}</span>

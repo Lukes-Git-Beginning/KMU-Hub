@@ -79,7 +79,7 @@ const invoiceStatusConfig: Record<
     icon: CheckCircle2,
   },
   overdue: {
-    label: 'Ueberfaellig',
+    label: 'Ueberfällig',
     colors: 'bg-error-light text-error',
     icon: AlertCircle,
   },
@@ -239,7 +239,7 @@ export default function FinanzenPage() {
     if (!confirmDelete) return
     if (confirmDelete.type === 'quote') {
       deleteQuote.mutate(confirmDelete.id, {
-        onSuccess: () => toast.success(`${confirmDelete.label} geloescht`),
+        onSuccess: () => toast.success(`${confirmDelete.label} gelöscht`),
         onError: (err) => toast.error(err.message),
       })
     }
@@ -372,7 +372,7 @@ export default function FinanzenPage() {
         onClick: () => {},
       })
       actions.push({
-        label: 'Loeschen',
+        label: 'Löschen',
         variant: 'destructive' as const,
         onClick: () =>
           setConfirmDelete({
@@ -514,7 +514,7 @@ export default function FinanzenPage() {
                   draft: 'Entwurf',
                   sent: 'Gesendet',
                   paid: 'Bezahlt',
-                  overdue: 'Ueberfaellig',
+                  overdue: 'Ueberfällig',
                   cancelled: 'Storniert',
                 }
                 return (
@@ -560,7 +560,7 @@ export default function FinanzenPage() {
               <span>Nr.</span>
               <span>Kunde</span>
               <span>Betrag</span>
-              <span>Faellig</span>
+              <span>Fällig</span>
               <span>Offen</span>
               <span>Status</span>
               <span />
@@ -639,7 +639,7 @@ export default function FinanzenPage() {
               <span>Nr.</span>
               <span>Kunde</span>
               <span>Betrag</span>
-              <span>Gueltig bis</span>
+              <span>Gültig bis</span>
               <span>Status</span>
               <span />
             </div>
@@ -786,7 +786,7 @@ export default function FinanzenPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Buchungsstapel fuer DATEV Unternehmen online, Kanzlei-Rechnungswesen und Steuerberater-Software.
+                Buchungsstapel für DATEV Unternehmen online, Kanzlei-Rechnungswesen und Steuerberater-Software.
               </p>
               <button
                 onClick={() => setShowExport(true)}
@@ -830,7 +830,7 @@ export default function FinanzenPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Export fuer BMD NTCS Buchhaltung. Standard in Oesterreich fuer Steuerberater und KMUs.
+                Export für BMD NTCS Buchhaltung. Standard in Oesterreich für Steuerberater und KMUs.
               </p>
               <button
                 onClick={() => toast.success('BMD-Export heruntergeladen')}
@@ -915,9 +915,9 @@ export default function FinanzenPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Eintrag loeschen?"
-        description={`"${confirmDelete?.label}" wird dauerhaft geloescht.`}
-        confirmLabel="Loeschen"
+        title="Eintrag löschen?"
+        description={`"${confirmDelete?.label}" wird dauerhaft gelöscht.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDeleteConfirm}
       />

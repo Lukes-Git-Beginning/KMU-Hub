@@ -46,21 +46,21 @@ const ROOMS: Room[] = [
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8) // 08:00 - 18:00
 
 const MOCK_BOOKINGS: Booking[] = [
-  { id: 'b1', title: 'Sprint Planning', room: 'Raum A — Besprechung', date: '2026-02-09', startTime: '10:00', endTime: '11:30', organizer: 'Anna Mueller', participants: 6 },
+  { id: 'b1', title: 'Sprint Planning', room: 'Raum A — Besprechung', date: '2026-02-09', startTime: '10:00', endTime: '11:30', organizer: 'Anna Müller', participants: 6 },
   { id: 'b2', title: 'Lunch & Learn', room: 'Raum A — Besprechung', date: '2026-02-09', startTime: '12:30', endTime: '13:30', organizer: 'Max Berg', participants: 5 },
-  { id: 'b3', title: 'Product Roadmap', room: 'Raum B — Klein', date: '2026-02-09', startTime: '16:00', endTime: '17:00', organizer: 'Anna Mueller', participants: 3 },
+  { id: 'b3', title: 'Product Roadmap', room: 'Raum B — Klein', date: '2026-02-09', startTime: '16:00', endTime: '17:00', organizer: 'Anna Müller', participants: 3 },
   { id: 'b4', title: '1:1 Sarah', room: 'Telefonkabine 1', date: '2026-02-09', startTime: '14:00', endTime: '15:00', organizer: 'Darien', participants: 2 },
   { id: 'b5', title: 'Kundentermin Meier AG', room: 'Raum A — Besprechung', date: '2026-02-10', startTime: '10:00', endTime: '11:30', organizer: 'Peter Keller', participants: 4 },
   { id: 'b6', title: 'Design Review', room: 'Raum B — Klein', date: '2026-02-10', startTime: '14:00', endTime: '15:30', organizer: 'Jonas Diaz', participants: 3 },
   { id: 'b7', title: 'HR Gespreach', room: 'Telefonkabine 2', date: '2026-02-10', startTime: '10:00', endTime: '11:00', organizer: 'Lisa Weber', participants: 2 },
   { id: 'b8', title: 'Code Review', room: 'Raum B — Klein', date: '2026-02-11', startTime: '09:00', endTime: '10:00', organizer: 'Max Berg', participants: 3 },
-  { id: 'b9', title: 'Sprint Demo', room: 'Raum A — Besprechung', date: '2026-02-13', startTime: '10:00', endTime: '11:00', organizer: 'Anna Mueller', participants: 8 },
-  { id: 'b10', title: 'Retro', room: 'Raum B — Klein', date: '2026-02-13', startTime: '15:00', endTime: '16:00', organizer: 'Anna Mueller', participants: 4 },
+  { id: 'b9', title: 'Sprint Demo', room: 'Raum A — Besprechung', date: '2026-02-13', startTime: '10:00', endTime: '11:00', organizer: 'Anna Müller', participants: 8 },
+  { id: 'b10', title: 'Retro', room: 'Raum B — Klein', date: '2026-02-13', startTime: '15:00', endTime: '16:00', organizer: 'Anna Müller', participants: 4 },
 ]
 
 const DAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr']
 const MONTHS_DE = [
-  'Januar', 'Februar', 'Maerz', 'April', 'Mai', 'Juni',
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
   'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
 ]
 
@@ -134,7 +134,7 @@ function QuickBookDialog({
       <DialogContent className="gap-0 p-0 max-w-sm overflow-hidden">
           <DialogHeader className="border-b border-border px-4 py-3">
             <DialogTitle className="text-sm font-medium text-foreground">Raum buchen</DialogTitle>
-            <DialogDescription className="sr-only">Schnellbuchung fuer einen Raum</DialogDescription>
+            <DialogDescription className="sr-only">Schnellbuchung für einen Raum</DialogDescription>
           </DialogHeader>
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">

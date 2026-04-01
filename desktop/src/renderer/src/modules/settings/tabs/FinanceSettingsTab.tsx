@@ -92,7 +92,7 @@ export function FinanceSettingsTab() {
               <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} placeholder="RE-" />
             </div>
             <div className="space-y-1.5">
-              <Label>Naechste Nummer</Label>
+              <Label>Nächste Nummer</Label>
               <Input type="number" value={nextInvoiceNumber} onChange={(e) => setNextInvoiceNumber(Number(e.target.value))} />
             </div>
           </div>
@@ -115,7 +115,7 @@ export function FinanceSettingsTab() {
               <Select value={defaultPaymentTerms} onValueChange={setDefaultPaymentTerms}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Sofort fällig">Sofort faellig</SelectItem>
+                  <SelectItem value="Sofort fällig">Sofort fällig</SelectItem>
                   <SelectItem value="10 Tage netto">10 Tage netto</SelectItem>
                   <SelectItem value="30 Tage netto">30 Tage netto</SelectItem>
                   <SelectItem value="60 Tage netto">60 Tage netto</SelectItem>
@@ -127,7 +127,7 @@ export function FinanceSettingsTab() {
 
           <div className="rounded-lg border border-border bg-secondary/30 p-3">
             <p className="text-xs text-muted-foreground">
-              Vorschau naechste Rechnung: <span className="font-mono font-medium text-foreground">{invoicePrefix}{nextInvoiceNumber}</span>
+              Vorschau nächste Rechnung: <span className="font-mono font-medium text-foreground">{invoicePrefix}{nextInvoiceNumber}</span>
             </p>
           </div>
         </div>
@@ -145,7 +145,7 @@ export function FinanceSettingsTab() {
           <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-medium text-foreground">DATEV-Export</h3>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">Fuer den automatischen Export an deinen Steuerberater</p>
+        <p className="text-xs text-muted-foreground mb-3">Für den automatischen Export an deinen Steuerberater</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Mandanten-Nummer</Label>
@@ -171,7 +171,7 @@ export function FinanceSettingsTab() {
           <h3 className="text-sm font-medium text-foreground">Mahnwesen</h3>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          Konfiguriere die drei Mahnstufen fuer ueberfaellige Rechnungen
+          Konfiguriere die drei Mahnstufen für überfällige Rechnungen
         </p>
 
         {dunningLoading ? (
@@ -190,11 +190,11 @@ export function FinanceSettingsTab() {
                 </div>
                 <div className="space-y-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Tage nach Faelligkeit</Label>
+                    <Label className="text-xs">Tage nach Fälligkeit</Label>
                     <Input type="number" min={1} value={l1Days} onChange={(e) => setL1Days(Number(e.target.value))} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Mahngebuehr (CHF)</Label>
+                    <Label className="text-xs">Mahngebühr (CHF)</Label>
                     <Input value={l1Fee} onChange={(e) => setL1Fee(e.target.value)} className="font-mono" />
                   </div>
                 </div>
@@ -212,7 +212,7 @@ export function FinanceSettingsTab() {
                     <Input type="number" min={1} value={l2Days} onChange={(e) => setL2Days(Number(e.target.value))} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Mahngebuehr (CHF)</Label>
+                    <Label className="text-xs">Mahngebühr (CHF)</Label>
                     <Input value={l2Fee} onChange={(e) => setL2Fee(e.target.value)} className="font-mono" />
                   </div>
                 </div>
@@ -230,7 +230,7 @@ export function FinanceSettingsTab() {
                     <Input type="number" min={1} value={l3Days} onChange={(e) => setL3Days(Number(e.target.value))} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Mahngebuehr (CHF)</Label>
+                    <Label className="text-xs">Mahngebühr (CHF)</Label>
                     <Input value={l3Fee} onChange={(e) => setL3Fee(e.target.value)} className="font-mono" />
                   </div>
                 </div>

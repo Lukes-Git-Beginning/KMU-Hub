@@ -143,7 +143,7 @@ export default function NotificationCenter() {
                       disabled={page <= 1}
                       onClick={() => setPage(page - 1)}
                     >
-                      Zurueck
+                      Zurück
                     </Button>
                     <Button
                       variant="outline"

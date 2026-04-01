@@ -53,7 +53,7 @@ function formatDuration(minutes: number): string {
 }
 
 function formatDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString('de-CH', {
+  return new Date(isoDate).toLocaleDateString('de-DE', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -322,7 +322,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
                           : 'Aufnahme'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(rec.created_at).toLocaleString('de-CH')}
+                        {new Date(rec.created_at).toLocaleString('de-DE')}
                       </p>
                     </div>
                   </div>

@@ -21,13 +21,13 @@ import { ItemActions } from '@/components/shared'
 
 const statusConfig: Record<string, { label: string; bg: string }> = {
   draft: { label: 'Entwurf', bg: 'bg-secondary text-muted-foreground' },
-  published: { label: 'Veroeffentlicht', bg: 'bg-success-light text-success' },
+  published: { label: 'Veröffentlicht', bg: 'bg-success-light text-success' },
   archived: { label: 'Archiviert', bg: 'bg-warning-light text-warning' },
 }
 
 function formatDate(dateStr: string): string {
   try {
-    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-CH', {
+    return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -117,12 +117,12 @@ export function WikiArticleHeader({
             actions={[
               { label: article.isPinned ? 'Unpin' : 'Anpinnen', icon: Pin, onClick: () => togglePin(article.id) },
               ...(article.status === 'draft'
-                ? [{ label: 'Veroeffentlichen', icon: Send, onClick: () => { publishArticle(article.id); toast.success('Veroeffentlicht') } }]
+                ? [{ label: 'Veröffentlichen', icon: Send, onClick: () => { publishArticle(article.id); toast.success('Veröffentlicht') } }]
                 : []),
               ...(article.status === 'published'
                 ? [{ label: 'Archivieren', icon: Archive, onClick: () => { archiveArticle(article.id); toast.success('Archiviert') } }]
                 : []),
-              { label: 'Loeschen', icon: Trash2, onClick: onDelete, variant: 'destructive' as const },
+              { label: 'Löschen', icon: Trash2, onClick: onDelete, variant: 'destructive' as const },
             ]}
           />
         </div>

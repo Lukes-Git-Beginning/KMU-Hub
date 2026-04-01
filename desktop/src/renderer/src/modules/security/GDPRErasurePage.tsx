@@ -69,7 +69,7 @@ export default function GDPRErasurePage() {
   const mockUsers = [
     { id: 'user-1', name: 'Max Mustermann', email: 'max@example.com' },
     { id: 'user-2', name: 'Anna Schmidt', email: 'anna@example.com' },
-    { id: 'user-3', name: 'Peter Mueller', email: 'peter@example.com' },
+    { id: 'user-3', name: 'Peter Müller', email: 'peter@example.com' },
   ].filter(
     (u) =>
       searchQuery.length >= 2 &&
@@ -341,7 +341,7 @@ export default function GDPRErasurePage() {
               <DialogTitle className="text-lg font-semibold text-foreground">
                 <FormattedMessage id="gdpr.erasure.confirmTitle" />
               </DialogTitle>
-              <DialogDescription className="sr-only">Loeschvorgang bestaetigen</DialogDescription>
+              <DialogDescription className="sr-only">Loeschvorgang bestätigen</DialogDescription>
             </DialogHeader>
 
             <p className="text-sm text-muted-foreground mb-4">

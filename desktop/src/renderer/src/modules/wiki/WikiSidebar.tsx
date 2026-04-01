@@ -116,7 +116,7 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
       {/* Stats footer */}
       <div className="border-t border-border px-3 py-2.5 text-xs text-muted-foreground">
         <div className="flex justify-between">
-          <span>Veroeffentlicht</span>
+          <span>Veröffentlicht</span>
           <span>{publishedCount}</span>
         </div>
         <div className="flex justify-between">

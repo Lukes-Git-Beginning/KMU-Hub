@@ -2,7 +2,7 @@
  * Manual presence status override dropdown.
  *
  * Allows the user to set their status to Online, Abwesend, or
- * Nicht stoeren. "Im Anruf" and "Offline" are automatic only and
+ * Nicht stören. "Im Anruf" and "Offline" are automatic only and
  * cannot be manually selected. Placed in the header or profile area.
  */
 import { cn } from '@/lib/cn'
@@ -24,7 +24,7 @@ const selectableStatuses: Array<{
 }> = [
   { value: 'online', label: 'Online', color: 'bg-green-500' },
   { value: 'away', label: 'Abwesend', color: 'bg-yellow-500' },
-  { value: 'dnd', label: 'Nicht stoeren', color: 'bg-destructive' },
+  { value: 'dnd', label: 'Nicht stören', color: 'bg-destructive' },
 ]
 
 /** Color mapping for display (includes automatic statuses). */
@@ -40,7 +40,7 @@ const statusColors: Record<PresenceLevel, string> = {
 const statusLabels: Record<PresenceLevel, string> = {
   online: 'Online',
   away: 'Abwesend',
-  dnd: 'Nicht stoeren',
+  dnd: 'Nicht stören',
   in_call: 'Im Anruf',
   offline: 'Offline',
 }

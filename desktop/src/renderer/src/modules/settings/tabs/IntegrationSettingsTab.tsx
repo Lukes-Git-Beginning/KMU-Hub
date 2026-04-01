@@ -120,7 +120,7 @@ export function IntegrationSettingsTab() {
     <div className="max-w-4xl">
       <h2 className="text-foreground mb-1">Integrationen</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Alle verfuegbaren Integrationen verbinden und konfigurieren
+        Alle verfügbaren Integrationen verbinden und konfigurieren
       </p>
 
       {CATEGORY_ORDER.map((cat) => {
@@ -211,7 +211,7 @@ function ExistingIntegrationWrapper({
     if (!deleteTarget) return
     deleteMutation.mutate(deleteTarget, {
       onSuccess: () => {
-        toast.success('Integration geloescht')
+        toast.success('Integration gelöscht')
         setDeleteTarget(null)
       },
     })
@@ -223,7 +223,7 @@ function ExistingIntegrationWrapper({
       { platform: platformKey, token: linkToken.trim() },
       {
         onSuccess: () => {
-          toast.success('Account verknuepft')
+          toast.success('Account verknüpft')
           setLinkToken('')
           setShowLinkInput(false)
         },
@@ -242,7 +242,7 @@ function ExistingIntegrationWrapper({
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zurueck zu Integrationen
+        Zurück zu Integrationen
       </button>
 
       {/* Header */}
@@ -256,7 +256,7 @@ function ExistingIntegrationWrapper({
         </div>
         <Button size="sm" onClick={() => setShowAddDialog(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
-          Hinzufuegen
+          Hinzufügen
         </Button>
       </div>
 
@@ -321,10 +321,10 @@ function ExistingIntegrationWrapper({
       {/* Account Linking */}
       {platformKey && platformKey !== 'custom_webhook' && (
         <div className="border-t border-border pt-6 mb-6">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Account-Verknuepfung</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Account-Verknüpfung</h3>
           <div className="flex items-center gap-3 rounded-lg border border-border p-3">
             <div className="flex-1">
-              <p className="text-sm text-foreground">{isLinked ? 'Account verknuepft' : 'Nicht verknuepft'}</p>
+              <p className="text-sm text-foreground">{isLinked ? 'Account verknüpft' : 'Nicht verknüpft'}</p>
             </div>
             {isLinked ? (
               <Button
@@ -333,7 +333,7 @@ function ExistingIntegrationWrapper({
                 className="text-xs"
                 onClick={() =>
                   unlinkMutation.mutate(platformKey, {
-                    onSuccess: () => toast.success('Verknuepfung aufgehoben'),
+                    onSuccess: () => toast.success('Verknüpfung aufgehoben'),
                   })
                 }
                 disabled={unlinkMutation.isPending}
@@ -364,7 +364,7 @@ function ExistingIntegrationWrapper({
                 onClick={() => setShowLinkInput(true)}
               >
                 <Link className="mr-1 h-3 w-3" />
-                Verknuepfen
+                Verknüpfen
               </Button>
             )}
           </div>
@@ -375,7 +375,7 @@ function ExistingIntegrationWrapper({
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{definition.name} hinzufuegen</DialogTitle>
+            <DialogTitle>{definition.name} hinzufügen</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -410,9 +410,9 @@ function ExistingIntegrationWrapper({
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
-        title="Integration loeschen?"
+        title="Integration löschen?"
         description="Alle Channel-Zuordnungen werden ebenfalls entfernt."
-        confirmLabel="Loeschen"
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={handleDelete}
       />
@@ -442,7 +442,7 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
 
   const handleCreate = () => {
     if (!channelId.trim() || !channelName.trim() || selectedModules.length === 0) {
-      toast.error('Bitte alle Felder ausfuellen')
+      toast.error('Bitte alle Felder ausfüllen')
       return
     }
     createMapping.mutate(

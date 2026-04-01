@@ -386,7 +386,7 @@ export function SearchBar() {
                   <div className="py-10 text-center">
                     <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
                     <p className="text-sm text-muted-foreground">
-                      Keine Ergebnisse fuer &ldquo;{debouncedQuery}&rdquo;
+                      Keine Ergebnisse für &ldquo;{debouncedQuery}&rdquo;
                     </p>
                   </div>
                 )}
@@ -413,7 +413,7 @@ export function SearchBar() {
                 <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
                   ↵
                 </kbd>{' '}
-                Oeffnen
+                Öffnen
               </span>
               <span>
                 <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">

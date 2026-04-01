@@ -38,17 +38,17 @@ const templates: EmailTemplate[] = [
     name: 'Angebot',
     category: 'vertrieb',
     icon: FileText,
-    subject: 'Angebot fuer {{firma}}',
+    subject: 'Angebot für {{firma}}',
     placeholders: ['anrede', 'name', 'firma', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
-<p>vielen Dank fuer Ihr Interesse an unseren Leistungen. Gerne unterbreiten wir Ihnen hiermit unser Angebot.</p>
+<p>vielen Dank für Ihr Interesse an unseren Leistungen. Gerne unterbreiten wir Ihnen hiermit unser Angebot.</p>
 <p><strong>Leistungsumfang:</strong></p>
 <ul>
 <li>Leistung 1 — CHF 0.00</li>
 <li>Leistung 2 — CHF 0.00</li>
 <li>Leistung 3 — CHF 0.00</li>
 </ul>
-<p>Das Angebot ist gueltig bis zum {{datum}}. Bei Fragen stehen wir Ihnen jederzeit zur Verfuegung.</p>`,
+<p>Das Angebot ist gültig bis zum {{datum}}. Bei Fragen stehen wir Ihnen jederzeit zur Verfuegung.</p>`,
   },
   {
     id: 'auftragsbestaetigung',
@@ -58,7 +58,7 @@ const templates: EmailTemplate[] = [
     subject: 'Auftragsbestaetigung — {{firma}}',
     placeholders: ['anrede', 'name', 'firma', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
-<p>herzlichen Dank fuer Ihren Auftrag! Wir bestaetigen hiermit den Eingang und die Annahme.</p>
+<p>herzlichen Dank für Ihren Auftrag! Wir bestätigen hiermit den Eingang und die Annahme.</p>
 <p><strong>Auftragsdetails:</strong></p>
 <ul>
 <li><strong>Kunde:</strong> {{firma}}</li>
@@ -72,21 +72,21 @@ const templates: EmailTemplate[] = [
     name: 'Follow-Up',
     category: 'kommunikation',
     icon: MessageSquare,
-    subject: 'Nachfassen: Unser Gespraech',
+    subject: 'Nachfassen: Unser Gespräch',
     placeholders: ['anrede', 'name', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
-<p>vielen Dank fuer unser Gespraech am {{datum}}. Ich moechte kurz die besprochenen Punkte zusammenfassen:</p>
+<p>vielen Dank für unser Gespräch am {{datum}}. Ich moechte kurz die besprochenen Punkte zusammenfassen:</p>
 <ol>
 <li>Punkt 1</li>
 <li>Punkt 2</li>
 <li>Punkt 3</li>
 </ol>
-<p><strong>Naechste Schritte:</strong></p>
+<p><strong>Nächste Schritte:</strong></p>
 <ul>
 <li>Schritt 1 — bis TT.MM.JJJJ</li>
 <li>Schritt 2 — bis TT.MM.JJJJ</li>
 </ul>
-<p>Bitte lassen Sie mich wissen, falls ich etwas uebersehen habe oder Anpassungen noetig sind.</p>`,
+<p>Bitte lassen Sie mich wissen, falls ich etwas übersehen habe oder Anpassungen nötig sind.</p>`,
   },
   {
     id: 'terminbestaetigung',
@@ -96,13 +96,13 @@ const templates: EmailTemplate[] = [
     subject: 'Terminbestaetigung — {{datum}}',
     placeholders: ['anrede', 'name', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
-<p>hiermit bestaetigen wir Ihren Termin:</p>
+<p>hiermit bestätigen wir Ihren Termin:</p>
 <table>
 <tr><td><strong>Datum:</strong></td><td>{{datum}}</td></tr>
 <tr><td><strong>Uhrzeit:</strong></td><td>00:00 Uhr</td></tr>
-<tr><td><strong>Ort:</strong></td><td>Unser Buero / Online (Link folgt)</td></tr>
+<tr><td><strong>Ort:</strong></td><td>Unser Büro / Online (Link folgt)</td></tr>
 </table>
-<p>Bitte geben Sie uns Bescheid, falls Sie den Termin nicht wahrnehmen koennen. Wir freuen uns auf das Gespraech!</p>`,
+<p>Bitte geben Sie uns Bescheid, falls Sie den Termin nicht wahrnehmen können. Wir freuen uns auf das Gespräch!</p>`,
   },
   {
     id: 'willkommen',
@@ -112,14 +112,14 @@ const templates: EmailTemplate[] = [
     subject: 'Willkommen bei {{firma}}!',
     placeholders: ['anrede', 'name', 'firma'],
     body: `<p>{{anrede}} {{name}},</p>
-<p>herzlich willkommen bei {{firma}}! Wir freuen uns, Sie als neuen Kunden / Partner begruessen zu duerfen.</p>
-<p><strong>Ihre naechsten Schritte:</strong></p>
+<p>herzlich willkommen bei {{firma}}! Wir freuen uns, Sie als neuen Kunden / Partner begrüßen zu duerfen.</p>
+<p><strong>Ihre nächsten Schritte:</strong></p>
 <ol>
 <li>Zugang einrichten unter <em>[Link]</em></li>
 <li>Profil vervollstaendigen</li>
 <li>Erste Schritte in der Anleitung lesen</li>
 </ol>
-<p>Bei Fragen steht Ihnen Ihr persoenlicher Ansprechpartner jederzeit zur Verfuegung.</p>`,
+<p>Bei Fragen steht Ihnen Ihr persönlicher Ansprechpartner jederzeit zur Verfuegung.</p>`,
   },
   {
     id: 'zahlungserinnerung',
@@ -129,13 +129,13 @@ const templates: EmailTemplate[] = [
     subject: 'Freundliche Zahlungserinnerung — Rechnung RE-XXXX',
     placeholders: ['anrede', 'name', 'firma', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
-<p>bei der Pruefung unserer offenen Posten ist uns aufgefallen, dass die nachfolgende Rechnung noch nicht beglichen wurde:</p>
+<p>bei der Prüfung unserer offenen Posten ist uns aufgefallen, dass die nachfolgende Rechnung noch nicht beglichen wurde:</p>
 <table>
 <tr><td><strong>Rechnungsnr.:</strong></td><td>RE-XXXX</td></tr>
 <tr><td><strong>Rechnungsdatum:</strong></td><td>{{datum}}</td></tr>
 <tr><td><strong>Betrag:</strong></td><td>CHF 0.00</td></tr>
 </table>
-<p>Wir bitten Sie, die Zahlung innerhalb der naechsten 10 Tage vorzunehmen. Sollte die Zahlung bereits erfolgt sein, betrachten Sie diese E-Mail bitte als gegenstandslos.</p>`,
+<p>Wir bitten Sie, die Zahlung innerhalb der nächsten 10 Tage vorzunehmen. Sollte die Zahlung bereits erfolgt sein, betrachten Sie diese E-Mail bitte als gegenstandslos.</p>`,
   },
 ]
 
@@ -198,7 +198,7 @@ export function EmailTemplateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>E-Mail-Vorlage waehlen</DialogTitle>
+          <DialogTitle>E-Mail-Vorlage wählen</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden gap-4 min-h-0">
@@ -289,7 +289,7 @@ export function EmailTemplateDialog({
                 <div className="text-center">
                   <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">
-                    Waehle eine Vorlage aus der Liste
+                    Wähle eine Vorlage aus der Liste
                   </p>
                 </div>
               </div>
@@ -304,7 +304,7 @@ export function EmailTemplateDialog({
           </Button>
           <Button onClick={handleInsert} disabled={!selected}>
             <FileText className="h-4 w-4 mr-1.5" />
-            Vorlage einfuegen
+            Vorlage einfügen
           </Button>
         </div>
       </DialogContent>

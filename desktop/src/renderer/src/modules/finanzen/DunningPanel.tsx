@@ -80,7 +80,7 @@ export function DunningPanel() {
         toast.success(
           count > 0
             ? `${count} neue Mahnung(en) erstellt`
-            : 'Keine neuen ueberfaelligen Rechnungen gefunden',
+            : 'Keine neuen überfälligen Rechnungen gefunden',
         )
       },
       onError: (err) => toast.error(err.message),
@@ -114,7 +114,7 @@ export function DunningPanel() {
             <p className="text-lg font-semibold text-foreground">{openCount}</p>
           </div>
           <div className="rounded-lg border border-border bg-card p-3 min-w-[120px]">
-            <p className="text-[10px] text-muted-foreground mb-1">Gebuehren gesamt</p>
+            <p className="text-[10px] text-muted-foreground mb-1">Gebühren gesamt</p>
             <p className="text-lg font-semibold text-foreground">{formatEUR(totalAmount)}</p>
           </div>
         </div>
@@ -135,7 +135,7 @@ export function DunningPanel() {
             <RefreshCw
               className={`mr-1.5 h-3.5 w-3.5 ${detectDunnings.isPending ? 'animate-spin' : ''}`}
             />
-            Ueberfaellige Rechnungen pruefen
+            Ueberfällige Rechnungen prüfen
           </Button>
         </div>
       </div>
@@ -196,7 +196,7 @@ export function DunningPanel() {
           title="Keine Mahnungen"
           description={
             dunnings.length === 0
-              ? 'Keine ueberfaelligen Rechnungen gefunden'
+              ? 'Keine überfälligen Rechnungen gefunden'
               : 'Keine Mahnungen mit diesen Filtern gefunden'
           }
         />
@@ -205,7 +205,7 @@ export function DunningPanel() {
           <div className="grid grid-cols-[80px_1fr_100px_140px_100px_80px_160px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
             <span>Rechnung</span>
             <span>Mahnstufe</span>
-            <span>Gebuehr</span>
+            <span>Gebühr</span>
             <span>Zinsen</span>
             <span>Gesendet</span>
             <span>Status</span>
@@ -377,7 +377,7 @@ function DunningConfigDialog({
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Tage nach Faelligkeit</Label>
+                <Label className="text-xs">Tage nach Fälligkeit</Label>
                 <Input
                   type="number"
                   min={1}
@@ -386,7 +386,7 @@ function DunningConfigDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Mahngebuehr (EUR)</Label>
+                <Label className="text-xs">Mahngebühr (EUR)</Label>
                 <Input
                   type="number"
                   min={0}
@@ -414,7 +414,7 @@ function DunningConfigDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Mahngebuehr (EUR)</Label>
+                <Label className="text-xs">Mahngebühr (EUR)</Label>
                 <Input
                   type="number"
                   min={0}
@@ -442,7 +442,7 @@ function DunningConfigDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Mahngebuehr (EUR)</Label>
+                <Label className="text-xs">Mahngebühr (EUR)</Label>
                 <Input
                   type="number"
                   min={0}

@@ -119,7 +119,7 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
               {msg.is_read ? 'Als ungelesen markieren' : 'Als gelesen markieren'}
             </button>
             <button
-              onClick={() => { toast.info('Weiterleitung geoeffnet'); setActionsOpen(false) }}
+              onClick={() => { toast.info('Weiterleitung geöffnet'); setActionsOpen(false) }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               <Forward className="h-3.5 w-3.5" />
@@ -128,13 +128,13 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
             <button
               onClick={() => {
                 // TODO: No internal note API exists yet
-                toast.info('Interne Notizen sind noch nicht per API verfuegbar')
+                toast.info('Interne Notizen sind noch nicht per API verfügbar')
                 setActionsOpen(false)
               }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               <StickyNote className="h-3.5 w-3.5" />
-              Notiz hinzufuegen
+              Notiz hinzufügen
             </button>
             <button
               onClick={() => { toast.success('Aufgabe erstellt'); setActionsOpen(false) }}
@@ -162,7 +162,7 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-error transition-colors hover:bg-error/10"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Loeschen
+              Löschen
             </button>
           </PopoverContent>
         </Popover>

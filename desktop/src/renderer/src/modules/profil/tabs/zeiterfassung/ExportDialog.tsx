@@ -69,11 +69,11 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
 
   const handleExport = () => {
     if (filteredEntries.length === 0) {
-      toast.error('Keine Eintraege im gewaehlten Zeitraum')
+      toast.error('Keine Einträge im gewaehlten Zeitraum')
       return
     }
     const formatLabel = FORMAT_OPTIONS.find((f) => f.key === format)?.label ?? format
-    toast.success(`${formatLabel}-Export gestartet — ${filteredEntries.length} Eintraege`)
+    toast.success(`${formatLabel}-Export gestartet — ${filteredEntries.length} Einträge`)
     onOpenChange(false)
   }
 
@@ -179,7 +179,7 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
                 <p className="text-2xl font-bold text-foreground tabular-nums">
                   {filteredEntries.length}
                 </p>
-                <p className="text-xs text-muted-foreground">Eintraege</p>
+                <p className="text-xs text-muted-foreground">Einträge</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground tabular-nums">

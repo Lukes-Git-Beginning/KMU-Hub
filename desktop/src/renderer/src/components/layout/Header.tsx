@@ -35,7 +35,7 @@ export function Header() {
           <button
             onClick={() => setSidebarMobileOpen(true)}
             className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
-            aria-label="Navigation oeffnen"
+            aria-label="Navigation öffnen"
           >
             <Menu className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>

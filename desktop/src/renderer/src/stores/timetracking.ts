@@ -106,7 +106,7 @@ export interface MockTask {
 }
 
 export const MOCK_PROJECTS: MockProject[] = [
-  { id: 'proj-1', name: 'KMU Hub CRM', key: 'KMU' },
+  { id: 'proj-1', name: 'Cosmi CRM', key: 'KMU' },
   { id: 'proj-2', name: 'Website Redesign', key: 'WEB' },
   { id: 'proj-3', name: 'Mobile App', key: 'MOB' },
 ]
@@ -196,7 +196,7 @@ interface TimeTrackingState {
 const INITIAL_CATEGORIES: TimeCategory[] = [
   { id: 'cat-dev', name: 'Entwicklung', color: '#3b82f6', icon: 'Code', isDefault: true },
   { id: 'cat-meeting', name: 'Meeting', color: '#8b5cf6', icon: 'Users', isDefault: true },
-  { id: 'cat-client', name: 'Kundengespraech', color: '#f59e0b', icon: 'Phone', isDefault: true },
+  { id: 'cat-client', name: 'Kundengespräch', color: '#f59e0b', icon: 'Phone', isDefault: true },
   { id: 'cat-admin', name: 'Admin', color: '#6b7280', icon: 'FileText', isDefault: true },
   { id: 'cat-break', name: 'Pause', color: '#94a3b8', icon: 'Coffee', isDefault: true },
   { id: 'cat-design', name: 'Design', color: '#ec4899', icon: 'Palette', isDefault: true },
@@ -242,7 +242,7 @@ const INITIAL_ENTRIES: TimeEntry[] = [
 ]
 
 const INITIAL_TEAM_ACTIVITY: TeamActivityEntry[] = [
-  { userId: 'm1', userName: 'Anna Mueller', userInitials: 'AM', status: 'tracking', currentCategory: 'Meeting', currentCategoryColor: '#8b5cf6', currentDescription: 'Sprint Planning vorbereiten', startedAt: '09:30' },
+  { userId: 'm1', userName: 'Anna Müller', userInitials: 'AM', status: 'tracking', currentCategory: 'Meeting', currentCategoryColor: '#8b5cf6', currentDescription: 'Sprint Planning vorbereiten', startedAt: '09:30' },
   { userId: 'm2', userName: 'Michael Berg', userInitials: 'MB', status: 'tracking', currentCategory: 'Entwicklung', currentCategoryColor: '#3b82f6', currentDescription: 'API Integration testen', startedAt: '08:15' },
   { userId: 'm3', userName: 'Sarah Klein', userInitials: 'SK', status: 'absent', currentCategory: undefined, currentDescription: 'Urlaub' },
   { userId: 'm4', userName: 'Jonas Diaz', userInitials: 'JD', status: 'tracking', currentCategory: 'Entwicklung', currentCategoryColor: '#3b82f6', currentDescription: 'Bug Fix: iOS Login', startedAt: '10:00' },
@@ -268,8 +268,8 @@ function getWeekStartStr(offset = 0): string {
 
 const INITIAL_WEEK_APPROVALS: WeekApproval[] = [
   { id: 'wa-1', weekStart: getWeekStartStr(0), status: 'draft' },
-  { id: 'wa-2', weekStart: getWeekStartStr(-1), status: 'approved', submittedAt: '2026-02-14T10:00:00Z', reviewedBy: 'Anna Mueller', reviewedAt: '2026-02-14T14:30:00Z' },
-  { id: 'wa-3', weekStart: getWeekStartStr(-2), status: 'rejected', submittedAt: '2026-02-07T09:00:00Z', reviewedBy: 'Anna Mueller', reviewedAt: '2026-02-07T16:00:00Z', comment: 'Bitte Freitag nachtragen' },
+  { id: 'wa-2', weekStart: getWeekStartStr(-1), status: 'approved', submittedAt: '2026-02-14T10:00:00Z', reviewedBy: 'Anna Müller', reviewedAt: '2026-02-14T14:30:00Z' },
+  { id: 'wa-3', weekStart: getWeekStartStr(-2), status: 'rejected', submittedAt: '2026-02-07T09:00:00Z', reviewedBy: 'Anna Müller', reviewedAt: '2026-02-07T16:00:00Z', comment: 'Bitte Freitag nachtragen' },
 ]
 
 // ── Store ──────────────────────────────────────────────────────

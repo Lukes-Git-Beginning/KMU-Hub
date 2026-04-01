@@ -129,9 +129,9 @@ export function CalDAVSettingsTab() {
 
           <div className="flex items-center justify-between rounded-md border border-border p-3">
             <div>
-              <p className="text-sm font-medium">Persoenlicher Zugang</p>
+              <p className="text-sm font-medium">Persönlicher Zugang</p>
               <p className="text-xs text-muted-foreground">
-                CalDAV/CardDAV fuer Ihren Account aktivieren
+                CalDAV/CardDAV für Ihren Account aktivieren
               </p>
             </div>
             <Switch
@@ -150,12 +150,12 @@ export function CalDAVSettingsTab() {
         <div className="flex items-center gap-2 mb-4">
           <Key className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-medium text-foreground">
-            App-spezifische Passwoerter
+            App-spezifische Passwörter
           </h3>
         </div>
 
         <p className="text-xs text-muted-foreground mb-4">
-          Erstellen Sie separate Passwoerter fuer jede Anwendung. Ihr
+          Erstellen Sie separate Passwörter für jede Anwendung. Ihr
           Haupt-Passwort wird nicht verwendet.
         </p>
 
@@ -199,7 +199,7 @@ export function CalDAVSettingsTab() {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground mb-4">
-            Noch keine App-Passwoerter erstellt.
+            Noch keine App-Passwörter erstellt.
           </p>
         )}
 
@@ -280,7 +280,7 @@ export function CalDAVSettingsTab() {
           >
             <div className="space-y-3 text-sm">
               <div>
-                <p className="font-medium mb-1">Kalender hinzufuegen:</p>
+                <p className="font-medium mb-1">Kalender hinzufügen:</p>
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                   <li>
                     Einstellungen &gt; Kalender &gt; Neues Netzwerk-Kalender
@@ -298,7 +298,7 @@ export function CalDAVSettingsTab() {
                 </ol>
               </div>
               <div>
-                <p className="font-medium mb-1">Adressbuch hinzufuegen:</p>
+                <p className="font-medium mb-1">Adressbuch hinzufügen:</p>
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                   <li>
                     Adressbuch &gt; Neues CardDAV-Adressbuch
@@ -326,7 +326,7 @@ export function CalDAVSettingsTab() {
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                 <li>
                   Systemeinstellungen &gt; Internetaccounts &gt; Anderen Account
-                  hinzufuegen &gt; CalDAV-Account
+                  hinzufügen &gt; CalDAV-Account
                 </li>
                 <li>Account-Typ: Manuell</li>
                 <li>
@@ -340,7 +340,7 @@ export function CalDAVSettingsTab() {
                 <li>Passwort: App-spezifisches Passwort (oben erstellen)</li>
               </ol>
               <p className="text-xs text-muted-foreground">
-                macOS unterstuetzt Push-Benachrichtigungen. Aenderungen werden
+                macOS unterstuetzt Push-Benachrichtigungen. Änderungen werden
                 automatisch synchronisiert.
               </p>
             </div>
@@ -452,7 +452,7 @@ function ConnectionTestSection({
           {testMutation.isPending ? 'Teste...' : 'Verbindung testen'}
         </Button>
         <p className="text-xs text-muted-foreground">
-          Prueft ob CalDAV/CardDAV korrekt eingerichtet ist
+          Prüft ob CalDAV/CardDAV korrekt eingerichtet ist
         </p>
       </div>
 
@@ -460,7 +460,7 @@ function ConnectionTestSection({
         <div className="rounded-md border border-yellow-500/30 bg-yellow-50/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
           {!orgEnabled
             ? 'CalDAV/CardDAV ist organisationsweit deaktiviert. Bitte wenden Sie sich an Ihren Administrator.'
-            : 'Aktivieren Sie zuerst Ihren persoenlichen Zugang (oben), um den Verbindungstest ausfuehren zu koennen.'}
+            : 'Aktivieren Sie zuerst Ihren persönlichen Zugang (oben), um den Verbindungstest ausführen zu können.'}
         </div>
       )}
 

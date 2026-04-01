@@ -377,7 +377,7 @@ function EditorInner({ onClose }: { onClose: () => void }) {
         </ReactFlow>
       </div>
       <DialogDescription className="sr-only">
-        Visueller Editor fuer Automatisierungs-Workflows
+        Visueller Editor für Automatisierungs-Workflows
       </DialogDescription>
     </div>
   )

@@ -66,7 +66,7 @@ const MOCK_STATUS_UPDATES: MockStatusUpdate[] = [
   {
     id: 'su1',
     date: '2026-02-20',
-    author: 'Anna Mueller',
+    author: 'Anna Müller',
     text: 'Frontend-Komponenten-Bibliothek zu 85% fertiggestellt. Performance-Benchmarks zeigen deutliche Verbesserungen gegenueber der aktuellen Website.',
     type: 'update',
   },
@@ -74,13 +74,13 @@ const MOCK_STATUS_UPDATES: MockStatusUpdate[] = [
     id: 'su2',
     date: '2026-02-18',
     author: 'Thomas Fischer',
-    text: 'API-Endpoints fuer Kontakte und Produkte implementiert und getestet. Authentifizierung via JWT steht.',
+    text: 'API-Endpoints für Kontakte und Produkte implementiert und getestet. Authentifizierung via JWT steht.',
     type: 'update',
   },
   {
     id: 'su3',
     date: '2026-02-15',
-    author: 'Anna Mueller',
+    author: 'Anna Müller',
     text: 'Meilenstein "Frontend-Grundstruktur" erfolgreich abgeschlossen. Routing, State Management und Design Tokens integriert.',
     type: 'milestone',
   },
@@ -130,7 +130,7 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
                 {project.name}
               </h1>
               <p className="text-xs text-muted-foreground">
-                Projektuebersicht (Gastzugang)
+                Projektübersicht (Gastzugang)
               </p>
             </div>
           </div>
@@ -224,8 +224,8 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
         <div className="max-w-4xl mx-auto px-6 flex items-center justify-center">
           <p className="text-xs text-muted-foreground">
             Powered by{' '}
-            <span className="font-semibold text-foreground">KMU Hub</span>
-            {' '}&mdash; All-in-One CRM fuer DACH-KMUs
+            <span className="font-semibold text-foreground">Cosmi</span>
+            {' '}&mdash; All-in-One CRM für DACH-KMUs
           </p>
         </div>
       </footer>
@@ -301,7 +301,7 @@ function MilestoneRow({ milestone }: { milestone: MockMilestone }) {
           {milestone.title}
         </p>
         <p className="text-[10px] text-muted-foreground">
-          Faellig: {formatDate(milestone.dueDate)}
+          Fällig: {formatDate(milestone.dueDate)}
         </p>
       </div>
 

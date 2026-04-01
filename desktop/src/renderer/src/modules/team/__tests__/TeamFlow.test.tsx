@@ -82,7 +82,7 @@ describe('InviteMemberDialog', () => {
     )
 
     await user.type(screen.getByPlaceholderText('Vorname'), 'Peter')
-    await user.type(screen.getByPlaceholderText('Nachname'), 'Mueller')
+    await user.type(screen.getByPlaceholderText('Nachname'), 'Müller')
     await user.type(screen.getByPlaceholderText('email@firma.ch'), 'peter@firma.ch')
 
     await user.click(screen.getByRole('button', { name: 'Einladung senden' }))
@@ -90,7 +90,7 @@ describe('InviteMemberDialog', () => {
     expect(mockMutate).toHaveBeenCalledTimes(1)
     const callArgs = mockMutate.mock.calls[0][0]
     expect(callArgs.firstName).toBe('Peter')
-    expect(callArgs.lastName).toBe('Mueller')
+    expect(callArgs.lastName).toBe('Müller')
     expect(callArgs.email).toBe('peter@firma.ch')
   })
 

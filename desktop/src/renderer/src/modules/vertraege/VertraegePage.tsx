@@ -57,7 +57,7 @@ const contractTypeConfig: Record<ContractType, { label: string; icon: typeof Bui
 const statusConfig: Record<ContractStatus, { label: string; colorClass: string }> = {
   active: { label: 'Aktiv', colorClass: 'bg-success-light text-success' },
   expiring: { label: 'Auslaufend', colorClass: 'bg-warning-light text-warning' },
-  terminated: { label: 'Gekuendigt', colorClass: 'bg-secondary text-muted-foreground' },
+  terminated: { label: 'Gekündigt', colorClass: 'bg-secondary text-muted-foreground' },
   expired: { label: 'Abgelaufen', colorClass: 'bg-error-light text-error' },
 }
 
@@ -85,7 +85,7 @@ const CURRENCIES = ['EUR', 'CHF', 'USD'] as const
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return 'Unbefristet'
-  return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-CH')
+  return new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('de-DE')
 }
 
 function daysUntil(dateStr: string): number {
@@ -251,7 +251,7 @@ function ContractDialog({
               type="text"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="z.B. Buero-Mietvertrag Zuerich"
+              placeholder="z.B. Büro-Mietvertrag Zürich"
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -335,10 +335,10 @@ function ContractDialog({
             </div>
           </div>
 
-          {/* Kuendigungsfrist + Verlaengerung */}
+          {/* Kündigungsfrist + Verlaengerung */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Kuendigungsfrist (Tage)</label>
+              <label className="text-sm font-medium text-foreground">Kündigungsfrist (Tage)</label>
               <input
                 type="number"
                 min={0}
@@ -399,7 +399,7 @@ function ContractDialog({
             </div>
           </div>
 
-          {/* Dokument-Verknuepfung (10.7) */}
+          {/* Dokument-Verknüpfung (10.7) */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
               Dokument <span className="text-xs text-muted-foreground font-normal">(optional)</span>
@@ -410,7 +410,7 @@ function ContractDialog({
                 onChange={(e) => setForm((f) => ({ ...f, documentRef: e.target.value }))}
                 className="w-full appearance-none rounded-lg border border-border bg-card pl-9 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               >
-                <option value="">Kein Dokument verknuepft</option>
+                <option value="">Kein Dokument verknüpft</option>
                 {MOCK_DOCUMENTS.map((doc) => (
                   <option key={doc} value={doc}>{doc}</option>
                 ))}
@@ -493,7 +493,7 @@ function TerminationDialog({
 
   const handleTerminate = () => {
     if (!terminationDate) {
-      toast.error('Bitte ein Kuendigungsdatum angeben')
+      toast.error('Bitte ein Kündigungsdatum angeben')
       return
     }
     if (!reason.trim()) {
@@ -501,12 +501,12 @@ function TerminationDialog({
       return
     }
     if (!confirmed) {
-      toast.error('Bitte die Kuendigung bestaetigen')
+      toast.error('Bitte die Kündigung bestätigen')
       return
     }
     if (contract) {
       terminateContract(contract.id, reason, terminationDate)
-      toast.success(`Kuendigung fuer "${contract.title}" eingeleitet`)
+      toast.success(`Kündigung für "${contract.title}" eingeleitet`)
     }
     setTerminationDate('')
     setReason('')
@@ -522,7 +522,7 @@ function TerminationDialog({
       <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Kuendigung einleiten</h2>
+            <h2 className="text-lg font-semibold text-foreground">Kündigung einleiten</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{contract.title}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
@@ -535,16 +535,16 @@ function TerminationDialog({
             <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
             <div className="text-xs text-warning">
               <p className="font-medium">Achtung</p>
-              <p>Die Kuendigung kann nicht rueckgaengig gemacht werden. Der Vertrag wird als "Gekuendigt" markiert.</p>
+              <p>Die Kündigung kann nicht rückgängig gemacht werden. Der Vertrag wird als "Gekündigt" markiert.</p>
             </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          {/* Kuendigungsdatum */}
+          {/* Kündigungsdatum */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Kuendigungsdatum <span className="text-destructive">*</span>
+              Kündigungsdatum <span className="text-destructive">*</span>
             </label>
             <input
               type="date"
@@ -554,7 +554,7 @@ function TerminationDialog({
             />
             {contract.noticePeriodDays > 0 && (
               <p className="text-xs text-muted-foreground">
-                Kuendigungsfrist: {contract.noticePeriodDays} Tage
+                Kündigungsfrist: {contract.noticePeriodDays} Tage
               </p>
             )}
           </div>
@@ -567,7 +567,7 @@ function TerminationDialog({
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Grund fuer die Kuendigung..."
+              placeholder="Grund für die Kündigung..."
               rows={3}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
@@ -582,7 +582,7 @@ function TerminationDialog({
               className="mt-0.5 rounded border-border"
             />
             <span className="text-sm text-foreground">
-              Ich bestatige, dass ich die Kuendigung des Vertrags <strong>"{contract.title}"</strong> einleiten moechte.
+              Ich bestatige, dass ich die Kündigung des Vertrags <strong>"{contract.title}"</strong> einleiten moechte.
             </span>
           </label>
         </div>
@@ -600,7 +600,7 @@ function TerminationDialog({
             disabled={!confirmed}
             className="rounded-lg bg-destructive px-4 py-2 text-sm text-white hover:bg-destructive/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Kuendigung einleiten
+            Kündigung einleiten
           </button>
         </div>
       </div>
@@ -889,33 +889,33 @@ export default function VertraegePage() {
     { label: 'Bearbeiten', icon: Edit, onClick: () => openContractDialog(contract) },
     { label: 'Unterschrift', icon: Pen, onClick: () => setESignaturContract(contract) },
     ...(contract.status === 'active' || contract.status === 'expiring'
-      ? [{ label: 'Kuendigung einleiten', icon: Ban, onClick: () => openTerminationDialog(contract), separator: true }]
+      ? [{ label: 'Kündigung einleiten', icon: Ban, onClick: () => openTerminationDialog(contract), separator: true }]
       : []),
-    { separator: true, label: 'Loeschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(contract) },
+    { separator: true, label: 'Löschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(contract) },
   ]
 
   const handleDelete = (contract: Contract) => {
     deleteContract(contract.id)
     setConfirmDelete(null)
     if (selectedContract?.id === contract.id) setSelectedContract(null)
-    toast.success(`"${contract.title}" wurde geloescht`)
+    toast.success(`"${contract.title}" wurde gelöscht`)
   }
 
   // Tab labels for empty states
   const tabEmptyConfig: Record<string, { icon: typeof FileSignature; title: string; desc: string }> = {
-    aktiv: { icon: FileSignature, title: 'Keine aktiven Vertraege', desc: 'Legen Sie Ihren ersten Vertrag an' },
-    auslaufend: { icon: Clock, title: 'Keine auslaufenden Vertraege', desc: 'Kein Vertrag laeuft in den naechsten 90 Tagen aus' },
-    archiv: { icon: Archive, title: 'Kein Archiv vorhanden', desc: 'Gekuendigte und abgelaufene Vertraege erscheinen hier' },
+    aktiv: { icon: FileSignature, title: 'Keine aktiven Verträge', desc: 'Legen Sie Ihren ersten Vertrag an' },
+    auslaufend: { icon: Clock, title: 'Keine auslaufenden Verträge', desc: 'Kein Vertrag laeuft in den nächsten 90 Tagen aus' },
+    archiv: { icon: Archive, title: 'Kein Archiv vorhanden', desc: 'Gekündigte und abgelaufene Verträge erscheinen hier' },
     vorlagen: { icon: LayoutTemplate, title: 'Keine Vorlagen vorhanden', desc: 'Vertragsvorlagen werden hier angezeigt' },
   }
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
-        title="Vertraege"
-        description={`${activeContracts.length} aktive Vertraege${expiringContracts.length > 0 ? ` · ${expiringContracts.length} auslaufend` : ''}`}
+        title="Verträge"
+        description={`${activeContracts.length} aktive Verträge${expiringContracts.length > 0 ? ` · ${expiringContracts.length} auslaufend` : ''}`}
         icon={FileSignature}
-        moduleId="vertraege"
+        moduleId="verträge"
         className="mb-6"
         actions={
           <button
@@ -932,7 +932,7 @@ export default function VertraegePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
           icon={FileSignature}
-          label="Aktive Vertraege"
+          label="Aktive Verträge"
           value={activeContracts.length}
           iconColor="text-primary"
           iconBg="bg-primary-light"
@@ -1037,7 +1037,7 @@ export default function VertraegePage() {
                 className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Filter className="h-3.5 w-3.5" />
-                Filter zuruecksetzen
+                Filter zurücksetzen
               </button>
             )}
           </div>
@@ -1174,7 +1174,7 @@ export default function VertraegePage() {
                   onClick={() => openTerminationDialog(selectedContract)}
                   className="flex-1 rounded-lg bg-destructive px-3 py-2 text-sm text-white hover:bg-destructive/90 transition-colors"
                 >
-                  Kuendigen
+                  Kündigen
                 </button>
               )}
             </div>
@@ -1219,9 +1219,9 @@ export default function VertraegePage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Vertrag loeschen?"
-        description={`"${confirmDelete?.title}" wird unwiderruflich geloescht. Diese Aktion kann nicht rueckgaengig gemacht werden.`}
-        confirmLabel="Loeschen"
+        title="Vertrag löschen?"
+        description={`"${confirmDelete?.title}" wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />
@@ -1310,7 +1310,7 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
                   <div
                     className="absolute inset-y-0 w-0.5 bg-foreground/40"
                     style={{ left: `${Math.max(0, 100 - (contract.noticePeriodDays / Math.max(1, (new Date(contract.endDate + 'T00:00:00').getTime() - new Date(contract.startDate + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))) * 100)}%` }}
-                    title={`Kuendigungsfrist ab ${formatDate(noticeDateStr)}`}
+                    title={`Kündigungsfrist ab ${formatDate(noticeDateStr)}`}
                   />
                 )}
               </div>
@@ -1371,7 +1371,7 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
             </span>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Kuendigungsfrist</p>
+            <p className="text-xs text-muted-foreground">Kündigungsfrist</p>
             <p className="text-sm text-foreground font-medium">{contract.noticePeriodDays} Tage</p>
           </div>
         </div>
@@ -1398,7 +1398,7 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
       {/* Next action hint */}
       {contract.endDate && (contract.status === 'active' || contract.status === 'expiring') && (
         <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Naechste Aktion</h4>
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nächste Aktion</h4>
           <div className={`rounded-lg border p-3 ${
             daysUntilNoticeDeadline <= 30
               ? 'border-warning/30 bg-warning-light/30'
@@ -1409,10 +1409,10 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
                 <Clock className={`h-4 w-4 mt-0.5 shrink-0 ${daysUntilNoticeDeadline <= 30 ? 'text-warning' : 'text-muted-foreground'}`} />
                 <div>
                   <p className="text-sm text-foreground">
-                    Kuendigung moeglich bis <span className="font-medium">{formatDate(noticeDateStr!)}</span>
+                    Kündigung möglich bis <span className="font-medium">{formatDate(noticeDateStr!)}</span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Noch {daysUntilNoticeDeadline} Tage bis zum Ende der Kuendigungsfrist
+                    Noch {daysUntilNoticeDeadline} Tage bis zum Ende der Kündigungsfrist
                   </p>
                 </div>
               </div>
@@ -1422,7 +1422,7 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
                 <div>
                   <p className="text-sm text-foreground">Automatische Verlaengerung</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Kuendigungsfrist abgelaufen. Vertrag wird automatisch verlaengert.
+                    Kündigungsfrist abgelaufen. Vertrag wird automatisch verlaengert.
                   </p>
                 </div>
               </div>
@@ -1432,7 +1432,7 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
                 <div>
                   <p className="text-sm text-foreground">Manuelle Verlaengerung erforderlich</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Kuendigungsfrist abgelaufen. Bitte Verlaengerung pruefen.
+                    Kündigungsfrist abgelaufen. Bitte Verlaengerung prüfen.
                   </p>
                 </div>
               </div>
@@ -1454,7 +1454,7 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dokument</h4>
           <button
-            onClick={() => toast.info(`Dokument "${contract.documentRef}" wird geoeffnet...`)}
+            onClick={() => toast.info(`Dokument "${contract.documentRef}" wird geöffnet...`)}
             className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors w-full text-left"
           >
             <FileText className="h-4 w-4 text-primary shrink-0" />
@@ -1466,10 +1466,10 @@ function DetailPanelContent({ contract }: { contract: Contract }) {
       {/* History timeline */}
       <div className="space-y-2">
         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Aenderungshistorie ({contract.history.length})
+          Änderungshistorie ({contract.history.length})
         </h4>
         {contract.history.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">Keine Eintraege vorhanden</p>
+          <p className="text-xs text-muted-foreground py-2">Keine Einträge vorhanden</p>
         ) : (
           <div className="space-y-0">
             {[...contract.history].reverse().map((entry, idx) => (

@@ -42,7 +42,7 @@ export function TimeCorrectionPanel() {
 
   const handleSubmit = () => {
     if (!originalEntryId || !correctedClockIn || !correctedClockOut || !reason.trim()) {
-      toast.error('Bitte alle Felder ausfuellen')
+      toast.error('Bitte alle Felder ausfüllen')
       return
     }
     submitMutation.mutate(

@@ -141,7 +141,7 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
         <DialogHeader>
           <DialogTitle>Bexio einrichten</DialogTitle>
           <DialogDescription>
-            Verbinden Sie KMU Hub mit Ihrem Bexio-Konto in{' '}
+            Verbinden Sie Cosmi mit Ihrem Bexio-Konto in{' '}
             {step === STEPS.length
               ? 'einem letzten'
               : `${step} von ${STEPS.length}`}{' '}
@@ -226,7 +226,7 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
             disabled={step === 1}
           >
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            Zurueck
+            Zurück
           </Button>
           {step < STEPS.length ? (
             <Button
@@ -269,7 +269,7 @@ function StepOAuth({
     <div className="space-y-4">
       <div className="rounded-md border border-blue-500/30 bg-blue-50/10 p-3">
         <p className="text-sm text-blue-700 dark:text-blue-400">
-          Verbinden Sie KMU Hub mit Ihrem Bexio-Konto ueber OAuth. Sie werden
+          Verbinden Sie Cosmi mit Ihrem Bexio-Konto ueber OAuth. Sie werden
           zu Bexio weitergeleitet, um den Zugriff zu genehmigen.
         </p>
       </div>
@@ -325,7 +325,7 @@ function StepSyncConfig({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Waehlen Sie, welche Daten synchronisiert werden sollen.
+        Wählen Sie, welche Daten synchronisiert werden sollen.
       </p>
 
       <div className="space-y-3">
@@ -335,7 +335,7 @@ function StepSyncConfig({
               Kontakte bidirektional synchronisieren
             </Label>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Kontakte zwischen KMU Hub und Bexio abgleichen
+              Kontakte zwischen Cosmi und Bexio abgleichen
             </p>
           </div>
           <Switch
@@ -399,7 +399,7 @@ function StepSyncConfig({
               Zahlungsstatus von Bexio abfragen
             </Label>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Zahlungseingaenge aus Bexio automatisch erkennen
+              Zahlungseingänge aus Bexio automatisch erkennen
             </p>
           </div>
           <Switch
@@ -437,8 +437,8 @@ function StepFieldMapping() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Ordnen Sie die Kontakt-Felder zwischen KMU Hub und Bexio zu. Sie
-        koennen diese Zuordnungen spaeter jederzeit anpassen.
+        Ordnen Sie die Kontakt-Felder zwischen Cosmi und Bexio zu. Sie
+        können diese Zuordnungen später jederzeit anpassen.
       </p>
       <BexioFieldMappingEditor entityType="contact" compact />
     </div>

@@ -58,7 +58,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Konferenzraum A',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.laura, name: 'Laura Braun', email: 'laura.braun@techvision.de', status: 'accepted' as const },
@@ -80,7 +80,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Konferenzraum B',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.thomas, name: 'Thomas Klein', email: 'thomas.klein@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
@@ -96,14 +96,14 @@ export const mockEvents = {
     {
       id: 'evt-003',
       title: 'Kundentermin Gruber Maschinenbau',
-      description: 'Produktdemo und Anforderungsgespraech fuer CRM-Erweiterung.',
+      description: 'Produktdemo und Anforderungsgespräch für CRM-Erweiterung.',
       calendar_id: IDS.calendars.personal,
       start_time: thisWeekday(2, 14, 0),
       end_time: thisWeekday(2, 15, 30),
       all_day: false,
-      location: 'Gruber Maschinenbau GmbH, Industriestr. 42, Muenchen',
+      location: 'Gruber Maschinenbau GmbH, Industriestr. 42, München',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
         { user_id: IDS.contacts.gruber, name: 'Hans Gruber', email: 'h.gruber@gruber-maschinenbau.de', status: 'accepted' as const },
       ],
@@ -124,7 +124,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Konferenzraum A',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
       ],
@@ -145,7 +145,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Online (LiveKit)',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.laura, name: 'Laura Braun', email: 'laura.braun@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.sophie, name: 'Sophie Lang', email: 'sophie.lang@techvision.de', status: 'pending' as const },
       ],
@@ -166,7 +166,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Konferenzraum A',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
       ],
       organizer_id: IDS.users.stefan,
@@ -184,9 +184,9 @@ export const mockEvents = {
       start_time: thisWeekday(4, 16, 0),
       end_time: thisWeekday(4, 16, 30),
       all_day: false,
-      location: 'Buero Stefan',
+      location: 'Büro Stefan',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
       ],
       organizer_id: IDS.users.stefan,
@@ -206,7 +206,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Konferenzraum A',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
       ],
       organizer_id: IDS.users.stefan,
@@ -226,7 +226,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Restaurant Zum Goldenen Hirschen',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.laura, name: 'Laura Braun', email: 'laura.braun@techvision.de', status: 'pending' as const },
@@ -249,7 +249,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Konferenzraum A',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
       ],
       organizer_id: IDS.users.stefan,
@@ -269,7 +269,7 @@ export const mockEvents = {
       all_day: false,
       location: 'Konferenzraum A',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.thomas, name: 'Thomas Klein', email: 'thomas.klein@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
@@ -284,15 +284,15 @@ export const mockEvents = {
     // 12 — Messebesuch (multi-day, next week Tue-Thu)
     {
       id: 'evt-012',
-      title: 'SaaS Expo Muenchen',
+      title: 'SaaS Expo München',
       description: 'Messebesuch — Stand besuchen, Networking, Vortraege.',
       calendar_id: IDS.calendars.personal,
       start_time: nextWeekday(2, 8, 0),
       end_time: nextWeekday(4, 18, 0),
       all_day: true,
-      location: 'Messe Muenchen, Halle B3',
+      location: 'Messe München, Halle B3',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
       ],
       organizer_id: IDS.users.stefan,
@@ -312,7 +312,7 @@ export const mockEvents = {
       all_day: true,
       location: 'Konferenzraum A + B',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.thomas, name: 'Thomas Klein', email: 'thomas.klein@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.sarah, name: 'Sarah Hoffmann', email: 'sarah.hoffmann@techvision.de', status: 'pending' as const },
       ],
@@ -326,14 +326,14 @@ export const mockEvents = {
     {
       id: 'evt-014',
       title: 'Sprint Retrospektive',
-      description: 'Was lief gut? Was koennen wir verbessern? Action Items.',
+      description: 'Was lief gut? Was können wir verbessern? Action Items.',
       calendar_id: IDS.calendars.team,
       start_time: nextWeekday(5, 14, 0),
       end_time: nextWeekday(5, 15, 30),
       all_day: false,
       location: 'Online (LiveKit)',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.markus, name: 'Markus Weber', email: 'markus.weber@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.julia, name: 'Julia Fischer', email: 'julia.fischer@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.felix, name: 'Felix Hartmann', email: 'felix.hartmann@techvision.de', status: 'accepted' as const },
@@ -344,18 +344,18 @@ export const mockEvents = {
       created_at: daysAgo(90),
     },
 
-    // 15 — Bewerbungsgespraech (Thursday room booking)
+    // 15 — Bewerbungsgespräch (Thursday room booking)
     {
       id: 'evt-015',
-      title: 'Bewerbungsgespraech — Senior Frontend',
-      description: 'Technisches Interview mit Kandidat:in fuer Senior Frontend Position.',
+      title: 'Bewerbungsgespräch — Senior Frontend',
+      description: 'Technisches Interview mit Kandidat:in für Senior Frontend Position.',
       calendar_id: IDS.calendars.meetings,
       start_time: thisWeekday(4, 10, 0),
       end_time: thisWeekday(4, 11, 30),
       all_day: false,
       location: 'Konferenzraum B',
       attendees: [
-        { user_id: IDS.users.stefan, name: 'Stefan Mueller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
+        { user_id: IDS.users.stefan, name: 'Stefan Müller', email: 'stefan.mueller@techvision.de', status: 'accepted' as const },
         { user_id: IDS.users.laura, name: 'Laura Braun', email: 'laura.braun@techvision.de', status: 'accepted' as const },
       ],
       organizer_id: IDS.users.stefan,

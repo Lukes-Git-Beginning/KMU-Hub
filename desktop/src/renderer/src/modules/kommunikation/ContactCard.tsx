@@ -37,7 +37,7 @@ export function ContactCard({ conversation: conv }: ContactCardProps) {
         {conv.contactId && (
           <button
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
-            title="Im CRM oeffnen"
+            title="Im CRM öffnen"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </button>

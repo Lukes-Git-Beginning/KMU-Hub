@@ -37,7 +37,7 @@ const presenceColors: Record<PresenceLevel, string> = {
 const presenceLabels: Record<PresenceLevel, string> = {
   online: 'Online',
   away: 'Abwesend',
-  dnd: 'Nicht stoeren',
+  dnd: 'Nicht stören',
   in_call: 'Im Anruf',
   offline: 'Offline',
 }

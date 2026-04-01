@@ -248,7 +248,7 @@ export const workHandlers = [
       id: `tcm-${Date.now()}`,
       task_id: params.id,
       author_id: body.author_id || 'usr-001',
-      author_name: body.author_name || 'Stefan Mueller',
+      author_name: body.author_name || 'Stefan Müller',
       content: body.content || '',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

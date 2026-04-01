@@ -48,7 +48,7 @@ import { ItemActions, ConfirmDialog, EmptyState, PageHeader } from '@/components
 // Types
 // ============================================================
 
-type TabKey = 'wochenplan' | 'vorlagen' | 'anfragen' | 'verfuegbarkeit'
+type TabKey = 'wochenplan' | 'vorlagen' | 'anfragen' | 'verfügbarkeit'
 
 interface Employee {
   id: string
@@ -133,7 +133,7 @@ const GERMAN_HOLIDAYS_2026: Record<string, string> = {
 const EMPLOYEES: Employee[] = [
   { id: 'u-1', name: 'Thomas Keller', initials: 'TK', availability: 'available', role: 'Produktion' },
   { id: 'u-2', name: 'Lukas Brunner', initials: 'LB', availability: 'available', role: 'Produktion' },
-  { id: 'u-3', name: 'Sandra Mueller', initials: 'SM', availability: 'limited', role: 'Logistik' },
+  { id: 'u-3', name: 'Sandra Müller', initials: 'SM', availability: 'limited', role: 'Logistik' },
   { id: 'u-4', name: 'Reto Aeschlimann', initials: 'RA', availability: 'available', role: 'Produktion' },
   { id: 'u-5', name: 'Daniel Frei', initials: 'DF', availability: 'available', role: 'Lager' },
   { id: 'u-6', name: 'Nicole Berger', initials: 'NB', availability: 'unavailable', role: 'Logistik' },
@@ -157,15 +157,15 @@ const availabilityDot: Record<string, string> = {
 }
 
 const availabilityLabel: Record<string, string> = {
-  available: 'Verfuegbar',
+  available: 'Verfügbar',
   limited: 'Eingeschraenkt',
-  unavailable: 'Nicht verfuegbar',
+  unavailable: 'Nicht verfügbar',
 }
 
 const availabilityLevelColors: Record<AvailabilityLevel, { bg: string; text: string; label: string }> = {
-  green: { bg: 'bg-success/20', text: 'text-success', label: 'Verfuegbar' },
+  green: { bg: 'bg-success/20', text: 'text-success', label: 'Verfügbar' },
   yellow: { bg: 'bg-warning/20', text: 'text-warning', label: 'Eingeschraenkt' },
-  red: { bg: 'bg-error/20', text: 'text-error', label: 'Nicht verfuegbar' },
+  red: { bg: 'bg-error/20', text: 'text-error', label: 'Nicht verfügbar' },
 }
 
 function buildMockAssignments(weekDates: string[]): ShiftAssignment[] {
@@ -298,7 +298,7 @@ function computeViolations(employees: Employee[], assignments: ShiftAssignment[]
     if (weeklyHours > 48) {
       violations.push({
         employeeId: emp.id, employeeName: emp.name, type: 'max_hours', severity: 'error',
-        message: `${emp.name}: ${weeklyHours.toFixed(1)}h/Woche ueberschreitet 48h-Grenze (ArbZG §3)`,
+        message: `${emp.name}: ${weeklyHours.toFixed(1)}h/Woche überschreitet 48h-Grenze (ArbZG §3)`,
       })
     } else if (weeklyHours > 40) {
       violations.push({
@@ -524,7 +524,7 @@ export default function SchichtenPage() {
 
   const handleAssignSubmit = () => {
     if (!assignEmployee || !assignTemplate || !assignDate) {
-      toast.error('Bitte alle Pflichtfelder ausfuellen')
+      toast.error('Bitte alle Pflichtfelder ausfüllen')
       return
     }
     const emp = EMPLOYEES.find((e) => e.id === assignEmployee)
@@ -557,7 +557,7 @@ export default function SchichtenPage() {
 
   const handleDeleteTemplate = (template: ShiftTemplate) => {
     setConfirmDelete(null)
-    toast.success(`Vorlage "${template.name}" wurde geloescht`)
+    toast.success(`Vorlage "${template.name}" wurde gelöscht`)
   }
 
   const handleOpenAssignDialog = () => {
@@ -590,7 +590,7 @@ export default function SchichtenPage() {
   const getTemplateActions = (template: ShiftTemplate) => [
     { label: 'Bearbeiten', onClick: () => toast.info(`Vorlage "${template.name}" bearbeiten`) },
     { separator: true as const, label: '', onClick: () => {} },
-    { label: 'Loeschen', variant: 'destructive' as const, onClick: () => setConfirmDelete(template) },
+    { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete(template) },
   ]
 
   return (
@@ -695,7 +695,7 @@ export default function SchichtenPage() {
           { key: 'wochenplan' as const, label: 'Wochenplan', icon: CalendarDays },
           { key: 'vorlagen' as const, label: `Vorlagen (${templates.length})`, icon: Palette },
           { key: 'anfragen' as const, label: `Tausch-Anfragen (${pendingSwapCount})`, icon: ArrowLeftRight },
-          { key: 'verfuegbarkeit' as const, label: 'Verfuegbarkeit', icon: UserCheck },
+          { key: 'verfügbarkeit' as const, label: 'Verfügbarkeit', icon: UserCheck },
         ]).map((t) => {
           const Icon = t.icon
           return (
@@ -766,7 +766,7 @@ export default function SchichtenPage() {
             <EmptyState
               icon={CalendarDays}
               title="Keine Mitarbeiter gefunden"
-              description={search ? 'Passe deine Suche an' : 'Weise Schichten zu, um den Wochenplan zu fuellen'}
+              description={search ? 'Passe deine Suche an' : 'Weise Schichten zu, um den Wochenplan zu füllen'}
             />
           ) : (
             <div className="rounded-lg border border-border overflow-hidden">
@@ -950,7 +950,7 @@ export default function SchichtenPage() {
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto">
                   <div className="h-2.5 w-2.5 rounded-full bg-success" />
-                  <span className="text-[11px] text-muted-foreground">Verfuegbar</span>
+                  <span className="text-[11px] text-muted-foreground">Verfügbar</span>
                   <div className="h-2.5 w-2.5 rounded-full bg-warning ml-2" />
                   <span className="text-[11px] text-muted-foreground">Eingeschraenkt</span>
                   <div className="h-2.5 w-2.5 rounded-full bg-error ml-2" />
@@ -1159,19 +1159,19 @@ export default function SchichtenPage() {
       {/* ============================================================ */}
       {/* VERFUEGBARKEIT TAB (7.12)                                     */}
       {/* ============================================================ */}
-      {tab === 'verfuegbarkeit' && (
+      {tab === 'verfügbarkeit' && (
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm text-muted-foreground">
-                Mitarbeiter koennen ihre Verfuegbarkeit pro Wochentag angeben.
-                Klicke auf eine Zelle, um den Status zu aendern.
+                Mitarbeiter können ihre Verfügbarkeit pro Wochentag angeben.
+                Klicke auf eine Zelle, um den Status zu ändern.
               </p>
             </div>
             <button
               onClick={() => {
                 setEditingAvailability(!editingAvailability)
-                if (editingAvailability) toast.success('Verfuegbarkeit gespeichert')
+                if (editingAvailability) toast.success('Verfügbarkeit gespeichert')
               }}
               className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${
                 editingAvailability
@@ -1252,7 +1252,7 @@ export default function SchichtenPage() {
                 </div>
               ))}
               {editingAvailability && (
-                <span className="text-[11px] text-primary font-medium ml-auto">Klicke auf Zellen zum Aendern</span>
+                <span className="text-[11px] text-primary font-medium ml-auto">Klicke auf Zellen zum Ändern</span>
               )}
             </div>
           </div>
@@ -1274,14 +1274,14 @@ export default function SchichtenPage() {
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mitarbeiter *</label>
                 <select value={assignEmployee} onChange={(e) => setAssignEmployee(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring">
-                  <option value="">Mitarbeiter waehlen...</option>
+                  <option value="">Mitarbeiter wählen...</option>
                   {EMPLOYEES.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.role})</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">Schichtvorlage *</label>
                 <select value={assignTemplate} onChange={(e) => setAssignTemplate(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring">
-                  <option value="">Vorlage waehlen...</option>
+                  <option value="">Vorlage wählen...</option>
                   {templates.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.startTime} – {t.endTime})</option>)}
                 </select>
               </div>
@@ -1373,9 +1373,9 @@ export default function SchichtenPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Vorlage loeschen?"
-        description={`Die Vorlage "${confirmDelete?.name}" wird geloescht. Bestehende Zuweisungen bleiben erhalten.`}
-        confirmLabel="Loeschen"
+        title="Vorlage löschen?"
+        description={`Die Vorlage "${confirmDelete?.name}" wird gelöscht. Bestehende Zuweisungen bleiben erhalten.`}
+        confirmLabel="Löschen"
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteTemplate(confirmDelete)}
       />

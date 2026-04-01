@@ -56,7 +56,7 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
   const handleSummarize = () => {
     setSummaryLoading(true)
     setTimeout(() => {
-      const summary = `## Zusammenfassung\n\n**Teilnehmer:** 4 Personen\n**Dauer:** ca. 45 Minuten\n\n### Besprochene Themen:\n- Projektfortschritt Q1 wurde positiv bewertet\n- Budget fuer Q2 muss bis Freitag finalisiert werden\n- Neue Kundenanfrage von Mueller GmbH priorisieren\n\n### Action Items:\n- [ ] Budget-Entwurf erstellen (Marco, bis Fr 28.02.)\n- [ ] Angebot fuer Mueller GmbH vorbereiten (Sarah, bis Mi 26.02.)\n- [ ] Naechstes Meeting: Montag 10:00 Uhr\n\n---\n\n`
+      const summary = `## Zusammenfassung\n\n**Teilnehmer:** 4 Personen\n**Dauer:** ca. 45 Minuten\n\n### Besprochene Themen:\n- Projektfortschritt Q1 wurde positiv bewertet\n- Budget für Q2 muss bis Freitag finalisiert werden\n- Neue Kundenanfrage von Müller GmbH priorisieren\n\n### Action Items:\n- [ ] Budget-Entwurf erstellen (Marco, bis Fr 28.02.)\n- [ ] Angebot für Müller GmbH vorbereiten (Sarah, bis Mi 26.02.)\n- [ ] Nächstes Meeting: Montag 10:00 Uhr\n\n---\n\n`
       setContent(summary + content)
       setSummaryLoading(false)
       useAIStore.getState().addActivityLog({

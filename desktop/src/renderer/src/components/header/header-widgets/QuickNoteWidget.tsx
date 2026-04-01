@@ -48,7 +48,7 @@ export function QuickNoteWidget() {
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {note || 'Kurznotiz hinzufuegen'}
+          {note || 'Kurznotiz hinzufügen'}
         </TooltipContent>
       </Tooltip>
 

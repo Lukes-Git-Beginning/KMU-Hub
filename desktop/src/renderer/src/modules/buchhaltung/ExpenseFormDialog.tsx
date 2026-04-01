@@ -21,7 +21,7 @@ import { useFinanceStore } from '@/stores/finance'
 
 const CATEGORIES = [
   'Software', 'Hardware', 'Hosting', 'Reise', 'Verpflegung',
-  'Büro', 'Beratung', 'Bankgebuehren', 'Versicherung', 'Sonstiges',
+  'Büro', 'Beratung', 'Bankgebühren', 'Versicherung', 'Sonstiges',
 ]
 
 interface ExpenseFormDialogProps {

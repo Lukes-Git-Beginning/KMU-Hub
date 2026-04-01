@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type ClassificationLevel = 'oeffentlich' | 'intern' | 'vertraulich'
+export type ClassificationLevel = 'öffentlich' | 'intern' | 'vertraulich'
 
 export interface AIActivityEntry {
   id: string
@@ -42,7 +42,7 @@ const MOCK_ACTIVITY_LOG: AIActivityEntry[] = [
     action: 'Entwurf generiert',
     timestamp: '2026-02-22T10:30:00',
     inputPreview: 'Antwort auf Angebot #2847...',
-    outputPreview: 'Sehr geehrter Herr Mueller, vielen Dank...',
+    outputPreview: 'Sehr geehrter Herr Müller, vielen Dank...',
   },
   {
     id: 'log-2',
@@ -50,14 +50,14 @@ const MOCK_ACTIVITY_LOG: AIActivityEntry[] = [
     action: 'Antwort vorgeschlagen',
     timestamp: '2026-02-22T09:15:00',
     inputPreview: 'Ticket TK-1247: VPN-Problem...',
-    outputPreview: 'Bitte pruefen Sie die Netzwerkeinstellungen...',
+    outputPreview: 'Bitte prüfen Sie die Netzwerkeinstellungen...',
   },
   {
     id: 'log-3',
     module: 'Dokumente',
     action: 'Klassifizierung',
     timestamp: '2026-02-22T08:45:00',
-    inputPreview: 'Vertrag_Mueller_2026.pdf',
+    inputPreview: 'Vertrag_Müller_2026.pdf',
     outputPreview: 'vertraulich',
   },
   {
@@ -105,7 +105,7 @@ const MOCK_ACTIVITY_LOG: AIActivityEntry[] = [
     module: 'Meetings',
     action: 'Zusammenfassung erstellt',
     timestamp: '2026-02-20T15:10:00',
-    inputPreview: 'Kundentermin Mueller GmbH...',
+    inputPreview: 'Kundentermin Müller GmbH...',
     outputPreview: 'Angebot wird bis Freitag erstellt...',
   },
   {

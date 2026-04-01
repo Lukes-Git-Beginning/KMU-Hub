@@ -213,7 +213,7 @@ export function CompanyFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                Groesse
+                Größe
               </label>
               <select
                 value={size}
@@ -332,7 +332,7 @@ export function CompanyFormDialog({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
-                placeholder="Tag hinzufuegen..."
+                placeholder="Tag hinzufügen..."
                 className="h-9 flex-1 rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
               <button

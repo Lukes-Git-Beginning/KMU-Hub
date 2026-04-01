@@ -68,7 +68,7 @@ const mockAccounts: BankAccount[] = [
   },
   {
     id: 'ba2',
-    bankName: 'Sparkasse Muenchen',
+    bankName: 'Sparkasse München',
     iban: 'DE72 7015 0000 0012 3456 78',
     bic: 'SSKMDEMMXXX',
     balance: 85000.00,
@@ -85,7 +85,7 @@ const mockTransactions: BankTransaction[] = [
   { id: 'bt2', date: '2026-02-22', description: 'Eingang DataFlow — Analytics Dashboard', amount: 14000.00, type: 'credit', counterpart: 'DataFlow GmbH', matchStatus: 'matched', matchedInvoice: 'RE-2026-011' },
   { id: 'bt3', date: '2026-02-19', description: 'Eingang Stadler Bau — Intranet Portal', amount: 21000.00, type: 'credit', counterpart: 'Stadler Bauunternehmen GmbH', matchStatus: 'suggested', matchedInvoice: 'RE-2026-008' },
   { id: 'bt4', date: '2026-02-23', description: 'CloudFirst Hosting — Monatsrechnung Feb', amount: -1890.00, type: 'debit', counterpart: 'CloudFirst Hosting GmbH', matchStatus: 'unmatched' },
-  { id: 'bt5', date: '2026-02-21', description: 'Gehaelter Februar 2026', amount: -78500.00, type: 'debit', counterpart: 'Sammelueberweisung', matchStatus: 'unmatched' },
+  { id: 'bt5', date: '2026-02-21', description: 'Gehälter Februar 2026', amount: -78500.00, type: 'debit', counterpart: 'Sammelüberweisung', matchStatus: 'unmatched' },
   { id: 'bt6', date: '2026-02-25', description: 'Eingang Berger — Mobile App Anzahlung', amount: 20000.00, type: 'credit', counterpart: 'Berger & Soehne', matchStatus: 'suggested', matchedInvoice: 'RE-2026-015' },
   { id: 'bt7', date: '2026-02-18', description: 'Adobe Creative Cloud — Jahresrechnung', amount: -4188.00, type: 'debit', counterpart: 'Adobe Inc.', matchStatus: 'unmatched' },
 ]
@@ -109,7 +109,7 @@ export function BankingWidget() {
   }
 
   const handleAcceptMatch = (_txId: string) => {
-    toast.success('Zuordnung bestaetigt')
+    toast.success('Zuordnung bestätigt')
   }
 
   const handleRejectMatch = (_txId: string) => {
@@ -192,7 +192,7 @@ export function BankingWidget() {
         <Zap className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-[11px] text-muted-foreground">
           Bankverbindung via <strong>FinAPI</strong> — Automatischer Kontoabgleich und Zahlungs-Matching.
-          PSD2-konform, verschluesselte Verbindung. Keine Kontodaten auf KMU Hub Servern gespeichert.
+          PSD2-konform, verschlüsselte Verbindung. Keine Kontodaten auf Cosmi Servern gespeichert.
         </p>
       </div>
 
@@ -279,7 +279,7 @@ export function BankingWidget() {
                       <button
                         onClick={() => handleAcceptMatch(tx.id)}
                         className="rounded p-1 text-success hover:bg-success-light transition-colors"
-                        title="Zuordnung bestaetigen"
+                        title="Zuordnung bestätigen"
                       >
                         <Check className="h-3 w-3" />
                       </button>
@@ -294,7 +294,7 @@ export function BankingWidget() {
                   )}
                   {tx.matchStatus === 'unmatched' && tx.type === 'credit' && (
                     <button
-                      onClick={() => toast.success('Manuelle Zuordnung geoeffnet')}
+                      onClick={() => toast.success('Manuelle Zuordnung geöffnet')}
                       className="rounded p-1 text-primary hover:bg-primary/10 transition-colors"
                       title="Manuell zuordnen"
                     >

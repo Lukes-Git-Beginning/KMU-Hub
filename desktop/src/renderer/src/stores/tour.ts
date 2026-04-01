@@ -2,7 +2,7 @@
  * Tour system store.
  *
  * Manages interactive guided tours that highlight UI elements with explanations.
- * Tours are manually startable from "Über KMU Hub" or per-module help menus.
+ * Tours are manually startable from "Über Cosmi" or per-module help menus.
  */
 import { create } from 'zustand'
 
@@ -46,14 +46,14 @@ interface TourState {
 const TOURS: TourDefinition[] = [
   {
     id: 'general',
-    name: 'KMU Hub kennenlernen',
-    description: 'Kurze Einfuehrung in die wichtigsten Bereiche der App',
+    name: 'Cosmi kennenlernen',
+    description: 'Kurze Einführung in die wichtigsten Bereiche der App',
     moduleId: null,
     steps: [
       {
         target: '[data-tour="sidebar"]',
         title: 'Navigation',
-        description: 'Hier findest du alle Module. Klicke auf ein Modul um es zu oeffnen. Du kannst die Sidebar auch einklappen.',
+        description: 'Hier findest du alle Module. Klicke auf ein Modul um es zu öffnen. Du kannst die Sidebar auch einklappen.',
         placement: 'right',
       },
       {
@@ -71,7 +71,7 @@ const TOURS: TourDefinition[] = [
       {
         target: null,
         title: 'Module',
-        description: 'KMU Hub bietet Module fuer CRM, Projekte, Aufgaben, Kalender, Buchhaltung, Team-Management und mehr. Jedes Modul hat eigene Einstellungen.',
+        description: 'Cosmi bietet Module für CRM, Projekte, Aufgaben, Kalender, Buchhaltung, Team-Management und mehr. Jedes Modul hat eigene Einstellungen.',
       },
       {
         target: null,
@@ -83,7 +83,7 @@ const TOURS: TourDefinition[] = [
   {
     id: 'dashboard',
     name: 'Dashboard',
-    description: 'Ueberblick ueber dein persoenliches Dashboard',
+    description: 'Überblick ueber dein persönliches Dashboard',
     moduleId: 'dashboard',
     steps: [
       {
@@ -106,13 +106,13 @@ const TOURS: TourDefinition[] = [
     steps: [
       {
         target: null,
-        title: 'Team-Uebersicht',
+        title: 'Team-Übersicht',
         description: 'Hier siehst du alle Mitarbeiter nach Abteilung. Du kannst zwischen Karten- und Listenansicht wechseln.',
       },
       {
         target: null,
         title: 'Anfragen & Abwesenheiten',
-        description: 'Urlaubsantraege und Krankmeldungen koennen hier genehmigt oder abgelehnt werden. Der Abwesenheitskalender zeigt dir wer wann fehlt.',
+        description: 'Urlaubsantraege und Krankmeldungen können hier genehmigt oder abgelehnt werden. Der Abwesenheitskalender zeigt dir wer wann fehlt.',
       },
       {
         target: null,
@@ -129,7 +129,7 @@ const TOURS: TourDefinition[] = [
     steps: [
       {
         target: null,
-        title: 'Finanz-Uebersicht',
+        title: 'Finanz-Übersicht',
         description: 'Verwalte Rechnungen, Angebote und Ausgaben. Die KPI-Karten oben zeigen dir den aktuellen Stand.',
       },
       {
@@ -142,7 +142,7 @@ const TOURS: TourDefinition[] = [
   {
     id: 'kommunikation',
     name: 'Kommunikation',
-    description: 'Unified Inbox fuer alle Kanaele',
+    description: 'Unified Inbox für alle Kanäle',
     moduleId: 'kommunikation',
     steps: [
       {
@@ -153,7 +153,7 @@ const TOURS: TourDefinition[] = [
       {
         target: null,
         title: 'Konversationen',
-        description: 'Links waehle eine Konversation, in der Mitte siehst du den Nachrichtenverlauf, rechts den CRM-Kontext des Kontakts.',
+        description: 'Links wähle eine Konversation, in der Mitte siehst du den Nachrichtenverlauf, rechts den CRM-Kontext des Kontakts.',
       },
     ],
   },

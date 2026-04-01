@@ -43,9 +43,9 @@ const ALL_MODULES: ModuleConfig[] = [
   { id: 'produktion', name: 'Produktion', description: 'Stücklisten, Aufträge & Qualitätskontrolle', path: '/produktion', stats: { label: 'Aufträge', value: 8 }, isActive: true },
   { id: 'berichte', name: 'Berichte', description: 'KPI-Dashboard, Diagramme & Exporte', path: '/berichte', stats: { label: 'Berichte', value: 3 }, isActive: true },
   { id: 'zeiterfassung', name: 'Zeiterfassung', description: 'Stunden erfassen, Projekte zuordnen & Auswertungen', path: '/zeiterfassung', stats: { label: 'Heute erfasst', value: 6 }, isActive: true },
-  { id: 'vertraege', name: 'Vertraege', description: 'Vertragsverwaltung & Fristen-Tracking', path: '/vertraege', stats: { label: 'Aktive Vertraege', value: 9 }, isActive: true },
-  { id: 'formulare', name: 'Formulare', description: 'Eigene Formulare erstellen & Eingaenge verwalten', path: '/formulare', stats: { label: 'Aktive Formulare', value: 4 }, isActive: true },
-  { id: 'vermietung', name: 'Vermietung', description: 'Objekte, Reservierungen & Verfuegbarkeit', path: '/vermietung', stats: { label: 'Verfuegbare Objekte', value: 5 }, isActive: true },
+  { id: 'vertraege', name: 'Verträge', description: 'Vertragsverwaltung & Fristen-Tracking', path: '/vertraege', stats: { label: 'Aktive Verträge', value: 9 }, isActive: true },
+  { id: 'formulare', name: 'Formulare', description: 'Eigene Formulare erstellen & Eingänge verwalten', path: '/formulare', stats: { label: 'Aktive Formulare', value: 4 }, isActive: true },
+  { id: 'vermietung', name: 'Vermietung', description: 'Objekte, Reservierungen & Verfügbarkeit', path: '/vermietung', stats: { label: 'Verfügbare Objekte', value: 5 }, isActive: true },
   { id: 'rapporte', name: 'Rapporte', description: 'Tagesberichte, Aufmass & Feldberichte', path: '/rapporte', stats: { label: 'Berichte diese Woche', value: 8 }, isActive: true },
 ]
 

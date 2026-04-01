@@ -157,10 +157,10 @@ export function useAdminRevokeUserPasswords() {
       caldavClient.adminRevokeUserPasswords(userId),
     onSuccess: (_data, _userId) => {
       qc.invalidateQueries({ queryKey: caldavKeys.admin.users() })
-      toast.success('Alle Passwoerter des Benutzers widerrufen')
+      toast.success('Alle Passwörter des Benutzers widerrufen')
     },
     onError: () => {
-      toast.error('Fehler beim Widerrufen der Passwoerter')
+      toast.error('Fehler beim Widerrufen der Passwörter')
     },
   })
 }

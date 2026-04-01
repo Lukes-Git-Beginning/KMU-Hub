@@ -72,7 +72,7 @@ export function SidebarModulePanel({ items, onSelect }: SidebarModulePanelProps)
                     ? 'text-primary opacity-80 hover:opacity-100'
                     : 'text-muted-foreground opacity-0 group-hover:opacity-60 hover:!opacity-100'
                 )}
-                title={isPinned ? 'Aus Sidebar entfernen' : 'Zur Sidebar hinzufuegen'}
+                title={isPinned ? 'Aus Sidebar entfernen' : 'Zur Sidebar hinzufügen'}
               >
                 {isPinned ? (
                   <Pin className="h-3 w-3" />

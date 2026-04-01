@@ -42,7 +42,7 @@ async function uploadFile({
           const response = JSON.parse(xhr.responseText)
           resolve(response.file ?? response)
         } catch {
-          reject(new Error('Ungueltige Server-Antwort'))
+          reject(new Error('Ungültige Server-Antwort'))
         }
       } else if (xhr.status === 401) {
         reject(new Error('Session abgelaufen'))

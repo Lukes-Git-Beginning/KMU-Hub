@@ -47,7 +47,7 @@ function formatRelative(dateStr: string): string {
     if (diffH < 24) return `Vor ${diffH}h`
     const diffD = Math.floor(diffH / 24)
     if (diffD < 7) return `Vor ${diffD}d`
-    return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit' })
+    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
   } catch {
     return dateStr
   }
@@ -59,9 +59,9 @@ function formatRelative(dateStr: string): string {
 
 function getMockActivities(contactName: string): Activity[] {
   return [
-    { id: 'act1', type: 'email', description: `E-Mail an ${contactName} gesendet`, timestamp: '2026-02-20T09:15:00', user: 'Anna Mueller' },
+    { id: 'act1', type: 'email', description: `E-Mail an ${contactName} gesendet`, timestamp: '2026-02-20T09:15:00', user: 'Anna Müller' },
     { id: 'act2', type: 'call', description: `Telefonat mit ${contactName}`, timestamp: '2026-02-19T14:30:00', user: 'Peter Schmidt' },
-    { id: 'act3', type: 'note', description: 'Interne Notiz zum Angebot', timestamp: '2026-02-18T16:00:00', user: 'Anna Mueller' },
+    { id: 'act3', type: 'note', description: 'Interne Notiz zum Angebot', timestamp: '2026-02-18T16:00:00', user: 'Anna Müller' },
     { id: 'act4', type: 'meeting', description: `Online-Meeting mit ${contactName}`, timestamp: '2026-02-15T10:00:00', user: 'Thomas Weber' },
     { id: 'act5', type: 'document', description: 'Angebot erstellt (PDF)', timestamp: '2026-02-14T11:30:00', user: 'Peter Schmidt' },
   ]

@@ -71,7 +71,7 @@ export default function CategoriesView() {
     const dh = parseFloat(dailyHours)
     const wh = parseFloat(weeklyHours)
     if (isNaN(dh) || isNaN(wh) || dh <= 0 || wh <= 0) {
-      toast.error('Bitte gueltige Zahlen eingeben')
+      toast.error('Bitte gültige Zahlen eingeben')
       return
     }
     updateTargets({ dailyHours: dh, weeklyHours: wh, monthlyHours: Math.round(wh * 4.33) })
@@ -169,7 +169,7 @@ export default function CategoriesView() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="outline" onClick={() => setShowAddCat(false)}>Abbrechen</Button>
-                <Button size="sm" onClick={handleAddCategory}>Hinzufuegen</Button>
+                <Button size="sm" onClick={handleAddCategory}>Hinzufügen</Button>
               </div>
             </div>
           )}
@@ -244,7 +244,7 @@ export default function CategoriesView() {
               />
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="outline" onClick={() => setShowAddTpl(false)}>Abbrechen</Button>
-                <Button size="sm" onClick={handleAddTemplate}>Hinzufuegen</Button>
+                <Button size="sm" onClick={handleAddTemplate}>Hinzufügen</Button>
               </div>
             </div>
           )}

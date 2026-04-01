@@ -209,7 +209,7 @@ export function OnlyOfficeEditor({
             {fileName}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            OnlyOffice Editor fuer {fileName}
+            OnlyOffice Editor für {fileName}
           </DialogDescription>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary shrink-0">
             Bearbeitung aktiv
@@ -221,7 +221,7 @@ export function OnlyOfficeEditor({
           {showTokenWarning && (
             <div className="flex items-center gap-1.5 rounded-md bg-warning/10 px-3 py-1.5 text-xs text-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
-              <span>Sitzung laeuft bald ab. Aenderungen speichern.</span>
+              <span>Sitzung laeuft bald ab. Änderungen speichern.</span>
             </div>
           )}
 
