@@ -37,7 +37,7 @@ export default function DashboardPage() {
               <TextReveal text={greeting} wordDelay={80} />
             </h1>
             <p className="mt-1 text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: '200ms' }}>
-              Willkommen im KMU Digital Hub &ndash; Ihre All-in-One Plattform
+              Willkommen bei Cosmi &ndash; Ihre All-in-One Plattform
             </p>
           </div>
 

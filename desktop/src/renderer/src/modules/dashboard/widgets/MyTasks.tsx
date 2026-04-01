@@ -67,7 +67,7 @@ function MyTasks(_props: WidgetProps) {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -99,7 +99,9 @@ function MyTasks(_props: WidgetProps) {
         {widgetTasks.map((task) => (
           <div
             key={task.id}
-            className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
+            role="button"
+            tabIndex={0}
+            className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
           >
             {task.done ? (
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />

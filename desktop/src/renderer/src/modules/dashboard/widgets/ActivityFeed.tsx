@@ -88,10 +88,13 @@ function ActivityFeed(_props: WidgetProps) {
         return (
           <div
             key={activity.id}
+            role={linkedPath ? 'button' : undefined}
+            tabIndex={linkedPath ? 0 : undefined}
             className={`flex items-start gap-3 px-4 py-2.5 transition-colors ${
-              linkedPath ? 'cursor-pointer hover:bg-accent/50' : ''
+              linkedPath ? 'cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset' : ''
             }`}
             onClick={() => linkedPath && navigate(linkedPath)}
+            onKeyDown={(e) => { if (linkedPath && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); navigate(linkedPath) } }}
           >
             <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted">
               <Icon className="h-3.5 w-3.5 text-muted-foreground" />

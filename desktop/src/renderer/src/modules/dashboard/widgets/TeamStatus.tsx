@@ -17,7 +17,7 @@ const STATUS_CONFIG: Record<UIStatus, { color: string; label: string }> = {
   online: { color: 'bg-success', label: 'Online' },
   away: { color: 'bg-warning', label: 'Abwesend' },
   busy: { color: 'bg-destructive', label: 'Beschaeftigt' },
-  offline: { color: 'bg-gray-400', label: 'Offline' },
+  offline: { color: 'bg-muted-foreground/50', label: 'Offline' },
 }
 
 const STATUS_ORDER: UIStatus[] = ['online', 'busy', 'away', 'offline']
@@ -111,7 +111,9 @@ function TeamStatus(_props: WidgetProps) {
         {sorted.map((member) => (
           <div
             key={member.id}
-            className="flex items-center gap-3 px-4 py-2 hover:bg-accent/50 cursor-pointer transition-colors"
+            role="button"
+            tabIndex={0}
+            className="flex items-center gap-3 px-4 py-2 hover:bg-accent/50 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
           >
             <div className="relative">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">

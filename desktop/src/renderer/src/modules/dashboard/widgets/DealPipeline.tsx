@@ -81,8 +81,11 @@ function DealPipeline(_props: WidgetProps) {
         return (
           <div
             key={stage.id}
-            className="cursor-pointer rounded-md p-2 transition-colors hover:bg-accent/50"
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer rounded-md p-2 transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
             onClick={() => navigate(`/crm/deals?stage=${stage.id}`)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/crm/deals?stage=${stage.id}`) } }}
           >
             <div className="mb-1 flex items-center justify-between">
               <span className="text-xs font-medium">{stage.name}</span>
@@ -96,7 +99,7 @@ function DealPipeline(_props: WidgetProps) {
                   className="flex h-full items-center rounded px-2 text-[10px] font-semibold text-white transition-all"
                   style={{
                     width: `${barWidth}%`,
-                    backgroundColor: stage.color || '#3b82f6',
+                    backgroundColor: stage.color || 'var(--primary)',
                     minWidth: dealCount > 0 ? '2rem' : undefined,
                   }}
                 >

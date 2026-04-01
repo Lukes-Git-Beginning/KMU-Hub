@@ -73,8 +73,11 @@ function RecentContacts(_props: WidgetProps) {
         return (
           <div
             key={contact.id}
-            className="flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50"
+            role="button"
+            tabIndex={0}
+            className="flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
             onClick={() => navigate(`/crm/contacts/${contact.id}`)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/crm/contacts/${contact.id}`) } }}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
               {initials || '??'}

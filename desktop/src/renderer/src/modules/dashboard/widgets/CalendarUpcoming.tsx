@@ -36,7 +36,7 @@ function CalendarUpcoming(_props: WidgetProps) {
         const diffMin = (eh * 60 + em) - (sh * 60 + sm)
         let duration = ''
         if (uiEvent.isAllDay) {
-          duration = 'Ganztaegig'
+          duration = 'Ganztägig'
         } else if (diffMin >= 60) {
           const hours = Math.floor(diffMin / 60)
           const mins = diffMin % 60
@@ -60,7 +60,7 @@ function CalendarUpcoming(_props: WidgetProps) {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -89,7 +89,9 @@ function CalendarUpcoming(_props: WidgetProps) {
           {events.map((event) => (
             <div
               key={event.id}
-              className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
+              role="button"
+              tabIndex={0}
+              className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
             >
               <div className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: event.color }} />
               <div className="min-w-0 flex-1">
