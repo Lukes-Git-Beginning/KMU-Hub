@@ -229,7 +229,7 @@ export function CalDAVSettingsTab() {
               className="mt-2"
               onClick={() => setShowNewPassword(null)}
             >
-              Schliessen
+              Schließen
             </Button>
           </div>
         )}

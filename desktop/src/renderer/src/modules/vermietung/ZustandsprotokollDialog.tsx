@@ -27,8 +27,8 @@ interface ChecklistRow {
 const DEFAULT_CHECKLIST_LABELS = [
   'Allgemeinzustand',
   'Sauberkeit',
-  'Vollstaendigkeit',
-  'Beschaedigungen',
+  'Vollständigkeit',
+  'Beschädigungen',
   'Funktion',
 ]
 
@@ -48,7 +48,7 @@ const CONDITION_OPTIONS: {
   },
   {
     value: 'damaged',
-    label: 'Beschaedigt',
+    label: 'Beschädigt',
     icon: AlertTriangle,
     dot: 'bg-warning',
     activeBg: 'bg-warning/15 text-warning border-warning/40',

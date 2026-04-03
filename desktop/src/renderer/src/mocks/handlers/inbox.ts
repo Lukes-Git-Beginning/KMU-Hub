@@ -111,23 +111,23 @@ const messages: Record<string, Array<{
   created_at: string
 }>> = {
   'conv-001': [
-    { id: 'msg-001', conversation_id: 'conv-001', direction: 'inbound', sender_name: 'Peter Gruber', sender_email: 'p.gruber@gruber-maschinenbau.de', body: 'Guten Tag, wir sind ein Maschinenbau-Unternehmen mit 45 Mitarbeitern und suchen eine CRM-Loesung. Könnten wir eine Demo vereinbaren?', created_at: daysAgo(2) },
+    { id: 'msg-001', conversation_id: 'conv-001', direction: 'inbound', sender_name: 'Peter Gruber', sender_email: 'p.gruber@gruber-maschinenbau.de', body: 'Guten Tag, wir sind ein Maschinenbau-Unternehmen mit 45 Mitarbeitern und suchen eine CRM-Lösung. Könnten wir eine Demo vereinbaren?', created_at: daysAgo(2) },
     { id: 'msg-002', conversation_id: 'conv-001', direction: 'outbound', sender_name: 'Thomas Meier', sender_email: 'thomas.meier@techvision.de', body: 'Sehr geehrter Herr Gruber, vielen Dank für Ihr Interesse! Gerne vereinbare ich eine Demo. Passt Ihnen nächste Woche Dienstag oder Mittwoch?', created_at: daysAgo(1) },
-    { id: 'msg-003', conversation_id: 'conv-001', direction: 'inbound', sender_name: 'Peter Gruber', sender_email: 'p.gruber@gruber-maschinenbau.de', body: 'Mittwoch 14:00 waere perfekt. Mein CTO Herr Wagner wird auch dabei sein. Bitte schicken Sie den Einladungslink.', created_at: hoursAgo(1) },
+    { id: 'msg-003', conversation_id: 'conv-001', direction: 'inbound', sender_name: 'Peter Gruber', sender_email: 'p.gruber@gruber-maschinenbau.de', body: 'Mittwoch 14:00 wäre perfekt. Mein CTO Herr Wagner wird auch dabei sein. Bitte schicken Sie den Einladungslink.', created_at: hoursAgo(1) },
   ],
   'conv-002': [
-    { id: 'msg-004', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Hallo, wir nutzen die API und stossen an Rate Limits. Welche Limits gelten für den Enterprise-Plan?', created_at: daysAgo(1) },
-    { id: 'msg-005', conversation_id: 'conv-002', direction: 'outbound', sender_name: 'Markus Weber', sender_email: 'markus.weber@techvision.de', body: 'Hallo Frau Schneider, Enterprise hat 1000 req/min. Welche Endpoints nutzen Sie hauptsaechlich?', created_at: daysAgo(1) },
-    { id: 'msg-006', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Hauptsaechlich /contacts und /deals. Wir synchronisieren ca. alle 5 Minuten.', created_at: hoursAgo(6) },
+    { id: 'msg-004', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Hallo, wir nutzen die API und stoßen an Rate Limits. Welche Limits gelten für den Enterprise-Plan?', created_at: daysAgo(1) },
+    { id: 'msg-005', conversation_id: 'conv-002', direction: 'outbound', sender_name: 'Markus Weber', sender_email: 'markus.weber@techvision.de', body: 'Hallo Frau Schneider, Enterprise hat 1000 req/min. Welche Endpoints nutzen Sie hauptsächlich?', created_at: daysAgo(1) },
+    { id: 'msg-006', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Hauptsächlich /contacts und /deals. Wir synchronisieren ca. alle 5 Minuten.', created_at: hoursAgo(6) },
     { id: 'msg-007', conversation_id: 'conv-002', direction: 'outbound', sender_name: 'Markus Weber', sender_email: 'markus.weber@techvision.de', body: 'Empfehlung: Nutzen Sie Webhooks statt Polling. Wir können auch Bulk-Endpoints anbieten. Soll ich ein kurzes Architektur-Gespräch anbieten?', created_at: hoursAgo(4) },
-    { id: 'msg-008', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Ja, das waere super. Nächste Woche waere ideal.', created_at: hoursAgo(3) },
+    { id: 'msg-008', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Ja, das wäre super. Nächste Woche wäre ideal.', created_at: hoursAgo(3) },
   ],
   'conv-003': [
-    { id: 'msg-009', conversation_id: 'conv-003', direction: 'inbound', sender_name: 'Michael Brunner', sender_email: 'm.brunner@donau-pharma.at', body: 'Über das Kontaktformular: Wir suchen eine Business-Loesung für 120 Mitarbeiter. Bitte um Preisangebot für Enterprise inkl. DSGVO-Compliance-Modul.', created_at: hoursAgo(5) },
+    { id: 'msg-009', conversation_id: 'conv-003', direction: 'inbound', sender_name: 'Michael Brunner', sender_email: 'm.brunner@donau-pharma.at', body: 'Über das Kontaktformular: Wir suchen eine Business-Lösung für 120 Mitarbeiter. Bitte um Preisangebot für Enterprise inkl. DSGVO-Compliance-Modul.', created_at: hoursAgo(5) },
   ],
   'conv-004': [
-    { id: 'msg-010', conversation_id: 'conv-004', direction: 'inbound', sender_name: 'Maria Huber', sender_email: 'm.huber@bavaria-elektro.de', body: 'Hallo Herr Meier, unser Wartungsvertrag laeuft nächsten Monat aus. Wie sind die Konditionen für eine Verlaengerung?', created_at: daysAgo(5) },
-    { id: 'msg-011', conversation_id: 'conv-004', direction: 'outbound', sender_name: 'Thomas Meier', sender_email: 'thomas.meier@techvision.de', body: 'Guten Tag Frau Huber, ich bereite ein Angebot vor. Moechten Sie den gleichen Umfang oder erweiterte Leistungen?', created_at: daysAgo(4) },
+    { id: 'msg-010', conversation_id: 'conv-004', direction: 'inbound', sender_name: 'Maria Huber', sender_email: 'm.huber@bavaria-elektro.de', body: 'Hallo Herr Meier, unser Wartungsvertrag läuft nächsten Monat aus. Wie sind die Konditionen für eine Verlängerung?', created_at: daysAgo(5) },
+    { id: 'msg-011', conversation_id: 'conv-004', direction: 'outbound', sender_name: 'Thomas Meier', sender_email: 'thomas.meier@techvision.de', body: 'Guten Tag Frau Huber, ich bereite ein Angebot vor. Möchten Sie den gleichen Umfang oder erweiterte Leistungen?', created_at: daysAgo(4) },
     { id: 'msg-012', conversation_id: 'conv-004', direction: 'inbound', sender_name: 'Maria Huber', sender_email: 'm.huber@bavaria-elektro.de', body: 'Gleicher Umfang reicht. Gibt es einen Rabatt bei 2-Jahres-Bindung?', created_at: daysAgo(2) },
     { id: 'msg-013', conversation_id: 'conv-004', direction: 'outbound', sender_name: 'Thomas Meier', sender_email: 'thomas.meier@techvision.de', body: 'Bei 2 Jahren können wir 10% anbieten. Ich sende Ihnen morgen das aktualisierte Angebot.', created_at: daysAgo(1) },
   ],

@@ -81,8 +81,8 @@ export function ComposeModal({
     setTimeout(() => {
       const isReply = mode === 'reply' || mode === 'reply-all'
       const mockDraft = isReply
-        ? '<p>Sehr geehrter Herr/Frau [Name],</p><p>vielen Dank für Ihre Nachricht. Ich habe Ihr Anliegen geprüft und moechte Ihnen folgendes mitteilen:</p><p>[Hier Ihre Antwort einfügen]</p><p>Sollten Sie weitere Fragen haben, stehe ich Ihnen gerne zur Verfuegung.</p><p>Mit freundlichen Grüßen</p>'
-        : '<p>Sehr geehrte Damen und Herren,</p><p>ich schreibe Ihnen bezueglich [Thema]. Gerne moechte ich folgendes besprechen:</p><p>1. [Punkt 1]</p><p>2. [Punkt 2]</p><p>Ich freue mich auf Ihre Rueckmeldung.</p><p>Mit freundlichen Grüßen</p>'
+        ? '<p>Sehr geehrter Herr/Frau [Name],</p><p>vielen Dank für Ihre Nachricht. Ich habe Ihr Anliegen geprüft und möchte Ihnen folgendes mitteilen:</p><p>[Hier Ihre Antwort einfügen]</p><p>Sollten Sie weitere Fragen haben, stehe ich Ihnen gerne zur Verfügung.</p><p>Mit freundlichen Grüßen</p>'
+        : '<p>Sehr geehrte Damen und Herren,</p><p>ich schreibe Ihnen bezüglich [Thema]. Gerne möchte ich folgendes besprechen:</p><p>1. [Punkt 1]</p><p>2. [Punkt 2]</p><p>Ich freue mich auf Ihre Rückmeldung.</p><p>Mit freundlichen Grüßen</p>'
       setBody(mockDraft)
       setEditorVersion((v) => v + 1)
       setAIDraftLoading(false)

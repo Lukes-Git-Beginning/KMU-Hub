@@ -352,7 +352,7 @@ export default function EinkaufPage() {
       return
     }
     if (newOrderItems.some((i) => !i.name.trim())) {
-      toast.error('Alle Positionen muessen einen Namen haben')
+      toast.error('Alle Positionen müssen einen Namen haben')
       return
     }
     const sup = suppliers.find((s) => s.id === newOrderSupplierId)
@@ -1558,7 +1558,7 @@ export default function EinkaufPage() {
                     type="email"
                     value={newSupEmail}
                     onChange={(e) => setNewSupEmail(e.target.value)}
-                    placeholder="email@firma.ch"
+                    placeholder="email@firma.de"
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                   />
                 </div>
@@ -1568,7 +1568,7 @@ export default function EinkaufPage() {
                     type="tel"
                     value={newSupPhone}
                     onChange={(e) => setNewSupPhone(e.target.value)}
-                    placeholder="+41 ..."
+                    placeholder="+49 ..."
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                   />
                 </div>

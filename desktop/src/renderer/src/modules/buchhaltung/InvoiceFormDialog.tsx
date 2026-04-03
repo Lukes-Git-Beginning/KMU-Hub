@@ -30,8 +30,8 @@ interface InvoiceFormDialogProps {
 
 const VAT_RATES = [
   { value: '0', label: '0%' },
-  { value: '7.7', label: '7.7%' },
-  { value: '8.1', label: '8.1% (Standard)' },
+  { value: '7', label: '7% (Ermäßigt)' },
+  { value: '19', label: '19% (Standard)' },
 ]
 
 const PAYMENT_TERMS = [
@@ -53,7 +53,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
   const [paymentTerms, setPaymentTerms] = useState('30 Tage netto')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<LineItem[]>([
-    { id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 8.1, discount: 0 },
+    { id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 19, discount: 0 },
   ])
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
       setDueDate(editInvoice.dueDate)
       setPaymentTerms(editInvoice.paymentTerms)
       setNotes(editInvoice.notes ?? '')
-      setItems(editInvoice.items.length > 0 ? editInvoice.items : [{ id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 8.1, discount: 0 }])
+      setItems(editInvoice.items.length > 0 ? editInvoice.items : [{ id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 19, discount: 0 }])
     } else {
       setType(defaultType)
       setClient('')
@@ -78,7 +78,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
       setDueDate(due.toISOString().split('T')[0])
       setPaymentTerms('30 Tage netto')
       setNotes('')
-      setItems([{ id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 8.1, discount: 0 }])
+      setItems([{ id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 19, discount: 0 }])
     }
   }, [open, editInvoice, defaultType])
 
@@ -87,7 +87,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
   }
 
   const addItem = () => {
-    setItems((prev) => [...prev, { id: String(Date.now()), description: '', quantity: 1, unitPrice: 0, vatRate: 8.1, discount: 0 }])
+    setItems((prev) => [...prev, { id: String(Date.now()), description: '', quantity: 1, unitPrice: 0, vatRate: 19, discount: 0 }])
   }
 
   const removeItem = (idx: number) => {
@@ -151,7 +151,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
             </div>
             <div className="space-y-1.5">
               <Label>E-Mail</Label>
-              <Input type="email" placeholder="email@firma.ch" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
+              <Input type="email" placeholder="email@firma.de" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
             </div>
           </div>
 

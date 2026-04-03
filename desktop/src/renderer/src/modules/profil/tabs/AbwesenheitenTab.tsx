@@ -184,7 +184,7 @@ export default function AbwesenheitenTab() {
           <div>
             <p className="text-xs font-medium text-warning">Resturlaub-Übertrag</p>
             <p className="text-xs text-muted-foreground">
-              {carriedOver} Urlaubstage aus dem Vorjahr muessen bis 31. März genommen werden.
+              {carriedOver} Urlaubstage aus dem Vorjahr müssen bis 31. März genommen werden.
             </p>
           </div>
         </div>
@@ -478,7 +478,7 @@ export default function AbwesenheitenTab() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Bei Krankheit ueber dem Schwellenwert wird automatisch eine AU-Bescheinigung angefordert.
+              Bei Krankheit über dem Schwellenwert wird automatisch eine AU-Bescheinigung angefordert.
             </p>
           </div>
           <DialogFooter>

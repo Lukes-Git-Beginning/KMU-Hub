@@ -99,7 +99,7 @@ export const useTeamStore = create<TeamStore>()(
         set((state) => {
           const drafts = state.payroll.filter((p) => p.status === 'draft')
           if (drafts.length === 0) {
-            toast.info('Keine Entwuerfe vorhanden')
+            toast.info('Keine Entwürfe vorhanden')
             return state
           }
           toast.success(`${drafts.length} Lohnabrechnungen freigegeben`)

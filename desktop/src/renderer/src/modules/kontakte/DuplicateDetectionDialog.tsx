@@ -155,14 +155,14 @@ export function DuplicateDetectionDialog({
             ) : (
               <>
                 <GitMerge className="h-5 w-5 text-primary" />
-                Kontakte zusammenfuehren
+                Kontakte zusammenführen
               </>
             )}
           </DialogTitle>
           <DialogDescription>
             {step === 'list'
               ? `Mögliche Duplikate für "${targetContact.firstName} ${targetContact.lastName}".`
-              : 'Wähle für jedes Feld den Wert den du behalten moechtest.'}
+              : 'Wähle für jedes Feld den Wert den du behalten möchtest.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -180,7 +180,7 @@ export function DuplicateDetectionDialog({
               <>
                 <p className="text-xs text-muted-foreground">
                   {duplicates.length} mögliche{duplicates.length === 1 ? 's' : ''} Duplikat{duplicates.length !== 1 ? 'e' : ''} gefunden.
-                  Wähle einen Eintrag zum Zusammenfuehren.
+                  Wähle einen Eintrag zum Zusammenführen.
                 </p>
                 <div className="space-y-2">
                   {duplicates.map((dup) => (
@@ -202,7 +202,7 @@ export function DuplicateDetectionDialog({
                 onClick={() => onOpenChange(false)}
                 className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
               >
-                Schliessen
+                Schließen
               </button>
             </div>
           </div>
@@ -305,7 +305,7 @@ export function DuplicateDetectionDialog({
                 className="flex items-center gap-1.5 h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <GitMerge className="h-3.5 w-3.5" />
-                Zusammenfuehren
+                Zusammenführen
               </button>
             </div>
           </div>

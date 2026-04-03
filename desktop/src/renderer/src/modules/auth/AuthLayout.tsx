@@ -21,7 +21,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="relative z-10">
-          <img src={branding.cosmi.icon128} alt="Cosmi" className="h-12 w-auto" />
+          <img src={branding.cosmi.icon128} alt="Cosmi" className="h-20 w-auto" />
         </div>
 
         <div className="relative z-10 space-y-6">
@@ -47,7 +47,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
         <div className="relative z-10">
           <p className="text-xs text-white/40 mb-2">
-            EU-Datensouveraenitaet &middot; DSGVO-konform &middot; Self-Hosted oder Cloud
+            EU-Datensouveränität &middot; DSGVO-konform &middot; Self-Hosted oder Cloud
           </p>
           <p className="text-xs text-white/50">by Zentria</p>
         </div>

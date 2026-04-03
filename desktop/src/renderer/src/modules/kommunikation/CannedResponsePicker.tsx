@@ -76,7 +76,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Suchen oder /kuerzel..."
+              placeholder="Suchen oder /kürzel..."
               className="h-7 w-full rounded border border-border bg-transparent pl-7 pr-2 text-xs outline-none placeholder:text-muted-foreground focus:border-primary"
               autoFocus
             />

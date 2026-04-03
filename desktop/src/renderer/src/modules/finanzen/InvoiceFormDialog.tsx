@@ -40,13 +40,13 @@ type TaxCountry = 'DE' | 'AT' | 'CH'
 const TAX_RATES_BY_COUNTRY: Record<TaxCountry, { value: string; label: string }[]> = {
   DE: [
     { value: '19', label: '19% (Standard)' },
-    { value: '7', label: '7% (Ermaessigt)' },
+    { value: '7', label: '7% (Ermäßigt)' },
     { value: '0', label: '0%' },
   ],
   AT: [
     { value: '20', label: '20% (Standard)' },
-    { value: '13', label: '13% (Ermaessigt)' },
-    { value: '10', label: '10% (Ermaessigt)' },
+    { value: '13', label: '13% (Ermäßigt)' },
+    { value: '10', label: '10% (Ermäßigt)' },
     { value: '0', label: '0%' },
   ],
   CH: [
@@ -59,7 +59,7 @@ const TAX_RATES_BY_COUNTRY: Record<TaxCountry, { value: string; label: string }[
 
 const COUNTRY_LABELS: Record<TaxCountry, string> = {
   DE: 'Deutschland',
-  AT: 'Oesterreich',
+  AT: 'Österreich',
   CH: 'Schweiz',
 }
 
@@ -340,7 +340,7 @@ export function InvoiceFormDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Waehrung</Label>
+              <Label>Währung</Label>
               <Select
                 value={currency}
                 onValueChange={(v) => setCurrency(v as InvoiceCurrency)}
@@ -411,7 +411,7 @@ export function InvoiceFormDialog({
             <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info">
               <Info className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
-                Reverse Charge -- Steuerschuldnerschaft des Leistungsempfaengers
+                Reverse Charge -- Steuerschuldnerschaft des Leistungsempfängers
               </span>
             </div>
           )}
@@ -419,7 +419,7 @@ export function InvoiceFormDialog({
             <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
               <Info className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
-                Kein Ausweis von Umsatzsteuer gemaess Paragraph 19 UStG
+                Kein Ausweis von Umsatzsteuer gemäß Paragraph 19 UStG
               </span>
             </div>
           )}
@@ -538,7 +538,7 @@ export function InvoiceFormDialog({
           <div className="space-y-1.5">
             <Label>Notizen</Label>
             <Textarea
-              placeholder="Zusaetzliche Informationen..."
+              placeholder="Zusätzliche Informationen..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}

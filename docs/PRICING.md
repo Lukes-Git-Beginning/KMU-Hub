@@ -1,12 +1,38 @@
-# Pricing-Modell KMU Hub (v2)
+# Pricing-Modell Cosmi (v3) — Modul-x-User
 
-> Aktualisiert: Februar 2026 — Role-Based Pricing, Einmalkauf-Option, Branchenpakete
+> Aktualisiert: April 2026 — Modul-basiertes Pricing, ORBIT Self-Hosted, Branchenpakete
+> Quelle: Darien (COSMI Preiskonzept + ORBIT Preiskonzept April 2026)
+> Kanonische Knowledge-Base-Note: `.knowledge/pricing.md`
 
 ---
 
-## 1. Markt-Analyse (DACH, Stand 2026)
+## 1. Grundprinzip
 
-### 1.1 CRM-Markt DACH
+Cosmi verwendet ein **Modul-x-User-Modell ohne feste Tiers**. Der Preis ergibt sich ausschliesslich aus der Summe der einem User zugewiesenen Module.
+
+```
+Monatspreis = Summe(Modulpreis x Anzahl User mit Modul) x (1 - Volumen-Rabatt) + Support-Gebuehr
+```
+
+**Was es NICHT gibt:**
+- Kein fixes Light/Standard/Full-Tier-System
+- Keine Grundgebuehr oder Plattform-Fee
+- Keine Mindestanzahl an Modulen
+- Kein Laufzeit-Rabatt oder Jahresvertrag
+
+**Was es gibt:**
+- Modul-Zuweisungen pro User (frei konfigurierbar)
+- Rollenvorlagen als Abkuerzung ("Monteur", "Buero", "Leitung")
+- Volumen-Rabatt nach Gesamtzahl aktiver User
+- Support-Grundgebuehr (Basis 9 EUR Flat, Professional 10%, Premium 15%)
+- Branchenpakete als Onboarding-Vorlage mit 15% Paket-Rabatt
+- Kostenlose Gastnutzer (eingeschraenkter Zugang)
+
+---
+
+## 2. Markt-Analyse (DACH, Stand 2026)
+
+### 2.1 CRM-Markt DACH
 
 | Anbieter | Preis/User/Monat | Zielgruppe | Self-Hosted | Besonderheit |
 |----------|-----------------|------------|-------------|--------------|
@@ -15,354 +41,246 @@
 | Pipedrive | 15-99 EUR | SMB | Nein | Sales-fokussiert |
 | Monday CRM | 10-24 EUR | SMB | Nein | Hybrid Work-/CRM |
 | Zoho CRM | 14-52 EUR | SMB | Nein | Lite User ab 5 USD |
-| MS Dynamics 365 | 8-135 USD | Enterprise | Nein | Team Member 8 USD |
-| weclapp | 39-169 EUR | SMB-Mittelstand | Nein | DACH-fokussiert, modular |
+| weclapp | 39-169 EUR | SMB-Mittelstand | Nein | DACH-fokussiert |
 | Twenty CRM | Open Source | Dev-Teams | Ja | OSS-Newcomer |
-| SuiteCRM | Open Source | SMB | Ja | OSS-Standard |
 
-### 1.2 Branchensoftware-Vergleich
+### 2.2 Pricing-Trends
 
-| Anbieter | Preis/User/Monat | Branche | Modell |
-|----------|-----------------|---------|--------|
-| Plancraft | 29,90-48 EUR | Handwerk | SaaS |
-| HERO Software | 59 EUR | Handwerk | SaaS |
-| openHandwerk | ab 16 EUR | Handwerk | SaaS |
-| Labelwin | 1.850 EUR einmalig | Handwerk | Kauflizenz + Wartung |
-| combit CRM | ab 430 EUR/User einmalig | Cross-Industry | Kauflizenz |
-| 1CRM | 17-55 EUR (Cloud) / 260 EUR/User/Jahr (Perpetual) | Cross-Industry | Hybrid |
-
-### 1.3 Pricing-Trends
-
-- **Subscription Fatigue:** 80% der SMBs fuehlen sich ueber-abonniert (OpenPR 2026)
-- **Hybrid-Pricing:** Kombination aus Abo + Einmalkauf steigert Revenue um 20-40%
-- **Role-Based Pricing:** Waechst 2x schneller im Revenue als reines Per-Seat (OpenView Partners)
-- **IT-Budget KMU:** 2-4% des Umsatzes, 33-52 EUR/Monat/Mitarbeiter fuer Software
+- **Subscription Fatigue:** 80% der SMBs fuehlen sich ueber-abonniert
+- **Modulares Pricing:** Waechst schneller als feste Tiers (OpenView Partners)
+- **IT-Budget KMU:** 2-4% des Umsatzes, 33-52 EUR/Monat/Mitarbeiter
 
 ---
 
-## 2. User-Tier-Modell (Role-Based Pricing)
+## 3. COSMI Modulpreise
 
-### 2.1 Full User (Gesellschafter / Admin / Power User)
+Alle Preise in EUR pro User pro Monat, zzgl. MwSt.
 
-- **Zugriff:** Alle Module — CRM, Chat, Video, Calendar, PM, Email, Documents, Finance, HR, Automation, Unified Inbox, Integrationen
-- **Admin:** Benutzerverwaltung, Einstellungen, Audit Logs, DSGVO-Tools
-- **Extras:** Custom Fields, Workflows, WASM Plugins, API-Zugang
-- **Zielgruppe:** Geschaeftsfuehrer, Abteilungsleiter, Projektmanager
+### 3.1 Kern-Module
 
-### 2.2 Standard User
+| Modul | Preis | Markt-Vergleich | Vorteil |
+|-------|-------|-----------------|---------|
+| CRM & Vertrieb | 6 | Pipedrive ab 14, HubSpot ab 15 | bis 60% guenstiger |
+| Aufgaben | 3 | Asana ab 11, Monday ab 9 | bis 73% guenstiger |
+| Kalender | 2 | M365 (8-22) | Kein Extra-Tool |
+| Dokumente | 2 | Notion ab 8 | bis 75% guenstiger |
 
-- **Zugriff:** CRM (Lesen + eigene Kontakte), Chat, Calendar, PM (Aufgaben), Email, Documents (Lesen + Upload)
-- **Kein Zugriff:** Finance, HR-Admin, Automation-Erstellung, Plugins, API, Audit Logs
-- **Zielgruppe:** Sachbearbeiter, Techniker, Berater, Verkaeufer
+### 3.2 Kommunikation
 
-### 2.3 Light User (Chat & Collaboration)
+| Modul | Preis | Markt-Vergleich | Vorteil |
+|-------|-------|-----------------|---------|
+| Chat | 4 | Slack Pro 7-8 | bis 50% guenstiger |
+| E-Mail | 3 | M365 | Integriert |
+| Meetings | 4 | Zoom Pro 13-15 | bis 73% guenstiger |
+| Telefonie | 5 | VoIP 8-15 | Integriert in Cosmi |
 
-- **Zugriff:** Chat (alle Kanaele), Calendar (eigener + Team), Video-Calls, Documents (Lesen), Presence
-- **Kein Zugriff:** CRM, PM, Email, Finance, HR, Automation
-- **Zielgruppe:** Monteure, Lagerarbeiter, Lehrlinge, Teilzeitkraefte, Freelancer
+### 3.3 Finanzen & Einkauf
 
-### 2.4 Guest User (kostenlos)
+| Modul | Preis | Markt-Vergleich | Vorteil |
+|-------|-------|-----------------|---------|
+| Finanzen | 6 | sevDesk ab 10, Lexoffice ab 7 | Vollintegriert |
+| Einkauf | 5 | Spezialsoftware 10-20 | bis 75% guenstiger |
+| Vertraege | 5 | Spezialsoftware 10-25 | bis 80% guenstiger |
+| Vermietung | 5 | Spezialsoftware 20-40 | bis 88% guenstiger |
 
-- **Zugriff:** Guest-Chat via Token-Link (Phase 17.5)
-- **Limitiert:** 30 Nachrichten/Minute, kein Login/Account noetig
-- **Zielgruppe:** Kunden, Lieferanten, externe Partner
+### 3.4 Team & HR
 
-### 2.5 Feature-Vergleichsmatrix
+| Modul | Preis | Markt-Vergleich | Vorteil |
+|-------|-------|-----------------|---------|
+| Team | 3 | M365/HR-Tools | Kein Wechsel |
+| Schichten | 4 | Spezialsoftware 5-10 | Integriert |
+| Zeiterfassung | 3 | Clockify/Harvest ab 5 | bis 40% guenstiger |
 
-| Feature | Full | Standard | Light | Guest |
-|---------|:----:|:--------:|:-----:|:-----:|
-| CRM (Vollzugriff) | Ja | Lesen + Eigene | — | — |
-| Chat & Messaging | Ja | Ja | Ja | Nur Guest-Chat |
-| Video & Voice | Ja | Ja | Ja | — |
-| Calendar | Ja | Ja | Eigener + Team | — |
-| Project Management | Ja | Aufgaben | — | — |
-| Email Integration | Ja | Ja | — | — |
-| Documents & Files | Ja | Ja | Lesen | — |
-| Finance / Rechnungen | Ja | — | — | — |
-| HR & Zeiterfassung | Ja | Eigene Daten | Stempeln | — |
-| Automation Engine | Ja | Ausloesen | — | — |
-| Unified Inbox | Ja | Ja | — | — |
-| Admin & Settings | Ja | — | — | — |
-| API Access | Ja | — | — | — |
-| WASM Plugins | Ja | — | — | — |
+### 3.5 Projekte & Betrieb
 
----
+| Modul | Preis | Markt-Vergleich | Vorteil |
+|-------|-------|-----------------|---------|
+| Projekte | 5 | Monday 9-16, Asana 11 | bis 69% guenstiger |
+| Produktion | 7 | Spezialsoftware 15-30 | bis 77% guenstiger |
+| Inventar | 5 | Spezialsoftware 8-20 | bis 75% guenstiger |
+| Fuhrpark | 5 | Spezialsoftware 10-20 | bis 75% guenstiger |
+| Helpdesk | 5 | Zendesk ab 19 | bis 74% guenstiger |
+| Rapporte | 3 | Proj.tools ab 24 | Vollintegriert |
 
-## 3. Preismodelle
+### 3.6 Tools & Berichte
 
-### 3.1 SaaS (Cloud, EU-Hosting)
-
-| User-Typ | Monatlich | Jaehrlich (pro Monat) | Ersparnis |
-|----------|-----------|----------------------|-----------|
-| Full User | 49 EUR | 39 EUR | 20% |
-| Standard User | 29 EUR | 23 EUR | 21% |
-| Light User | 9 EUR | 7 EUR | 22% |
-| Guest User | 0 EUR | 0 EUR | — |
-
-Mindestbestellung: 1 Full User.
-
-### 3.2 Self-Hosted Lizenz (jaehrlich)
-
-| Plan | Preis/Jahr | User-Limits | Features |
-|------|-----------|-------------|----------|
-| Standard | 4.000 EUR | 10 Full + 20 Standard + unbegr. Light | Updates, Community Support |
-| Professional | 7.000 EUR | 25 Full + 50 Standard + unbegr. Light | + Priority Support |
-| Enterprise | 12.000 EUR | Unlimited alle Typen | + SLA, + 5h Custom Dev Budget |
-
-### 3.3 VIP Einmalkauf ("Kauflizenz") — Nur Self-Hosted
-
-#### Variante A: Direkte Kauflizenz + Support-Pakete
-
-Einmalige Lizenzgebuehr fuer permanente Nutzung (Self-Hosted):
-
-| Paket | Einmalpreis | Inkl. Support | Inkl. Updates | Max Users |
-|-------|-----------|---------------|---------------|-----------|
-| Starter | 8.000 EUR | 1 Jahr | 1 Jahr | 5 Full + 15 Standard + unbegr. Light |
-| Professional | 15.000 EUR | 2 Jahre | 2 Jahre | 15 Full + 40 Standard + unbegr. Light |
-| Enterprise | 28.000 EUR | 4 Jahre | 4 Jahre | Unlimited |
-
-**Nach Ablauf der inkludierten Periode:**
-- Wartungsvertrag (optional): 20% des Kaufpreises pro Jahr
-- Ohne Wartungsvertrag: Software laeuft weiter, aber keine Updates / kein Support
-- Wartungsvertrag jederzeit wieder aktivierbar (+ Nachzahlung fuer verpasste Update-Zeitraeume)
-
-**Inkludiert:**
-- Permanente Nutzungslizenz (Software gehoert dem Kunden)
-- Alle Module die zum Kaufzeitpunkt verfuegbar sind
-- Basis-Datenmigration
-- 2 Stunden Remote-Onboarding
-
-**Nicht inkludiert:**
-- Onsite-Prozessanalyse (separat buchbar)
-- Custom WASM-Plugins (separat buchbar)
-- Hosting-Infrastruktur (Kunden-Server)
-- Neue Module nach Kauf (nur via aktiven Wartungsvertrag)
-
-#### Variante B: JetBrains-Fallback-Modell
-
-Fuer Kunden die mit SaaS oder Self-Hosted-Abo starten, aber langfristig besitzen wollen:
-
-- Kunde zahlt normale SaaS- oder Self-Hosted-Jahresgebuehr
-- **Nach 12 durchgehenden Monaten:** Perpetual Fallback auf die aktuelle Version
-- **Nach 24 Monaten:** Aktualisierte Fallback-Version
-- Perpetual Fallback = dauerhafte Nutzungslizenz dieser Version (Self-Hosted)
-- Abo kann danach gekuendigt werden — Software laeuft auf der Fallback-Version weiter
-- Abo-Fortsetzung: Weiterhin Updates und Support
-
-**Vorteil:** Kein grosses Upfront-Investment, trotzdem Exit-Sicherheit und kein Vendor-Lock-In.
-
-### 3.4 Zusatz-Optionen
-
-| Option | Preis |
-|--------|-------|
-| LiveKit Video (SaaS) | 5 EUR/User/Monat |
-| Erweiterter Support (SaaS) | 500 EUR/Monat |
-| Custom Development | 150 EUR/Stunde |
+| Modul | Preis | Markt-Vergleich | Vorteil |
+|-------|-------|-----------------|---------|
+| Berichte | 3 | Power BI/Looker ab 10 | Integriert |
+| Formulare | 2 | Typeform ab 25 | bis 92% guenstiger |
+| Wiki | 2 | Notion ab 8, Confluence 5 | bis 75% guenstiger |
 
 ---
 
-## 4. Branchenspezifische Pakete
+## 4. Rabattstruktur
 
-Jedes Branchenpaket umfasst: empfohlene User-Zusammensetzung, vorkonfigurierte Module, branchenspezifische Custom Fields und Automationen.
+### 4.1 Volumen-Rabatt (automatisch, auf Modul-Summe)
 
-### 4.1 Handwerk (Elektrik, Sanitaer, Schreinerei, etc.)
+| User-Staffel | Rabatt | Beispiel (30 EUR Basis) | Effektiv |
+|--------------|--------|-------------------------|----------|
+| 1-9 User | 0% | 30,00 | 30,00 |
+| 10-24 User | 5% | 28,50 | 28,50 |
+| 25-49 User | 10% | 27,00 | 27,00 |
+| 50-99 User | 15% | 25,50 | 25,50 |
+| 100-249 User | 20% | 24,00 | 24,00 |
+| 250+ User | 25% + individuell | 22,50+ | ab 22,50 |
 
-**Typischer Betrieb:** 1 Meister + 2 Buero + 8 Monteure
+### 4.2 Paket-Rabatt (Branchenpakete)
 
-| Rolle | User-Typ | Anzahl | Einzelpreis | Summe |
-|-------|----------|--------|------------|-------|
-| Meister / GF | Full | 1 | 49 EUR | 49 EUR |
-| Buero / Verwaltung | Standard | 2 | 29 EUR | 58 EUR |
-| Monteure | Light | 8 | 9 EUR | 72 EUR |
-| **Gesamt/Monat** | | **11 User** | | **179 EUR** |
-
-> Vergleich Alt-Modell: 11 x 39 EUR = 429 EUR/Monat → **58% guenstiger**
-
-**Vorkonfigurierte Features:**
-- CRM: Kundenkartei, Auftraege, Angebots-Pipeline
-- Chat: Baustellenkanaele, Direktnachrichten an Monteure
-- Calendar: Einsatzplanung, Urlaubskalender
-- PM: Aufgaben pro Baustelle/Auftrag
-- Finance: Angebote → Rechnungen → Mahnung
-- HR: Zeiterfassung (Stempeln per App), Urlaubsantraege
-- Guest-Chat: Kundenanfragen-Widget fuer Website
-
-**Empfohlene Automationen:**
-- Auftrag abgeschlossen → Rechnung-Entwurf erstellen
-- Neuer Kundenanruf → Aufgabe fuer Buero
-- Rechnung ueberfaellig → Mahnung nach 14/28/42 Tagen
-
-**Einmalkauf-Empfehlung:** Professional (15.000 EUR) — adressiert Subscription Fatigue im Handwerk direkt.
-
-### 4.2 Dienstleistung & Beratung (Unternehmensberatung, Rechtsanwalt, Steuerberater)
-
-**Typischer Betrieb:** 3 Partner + 5 Berater + 2 Assistenz
-
-| Rolle | User-Typ | Anzahl | Einzelpreis | Summe |
-|-------|----------|--------|------------|-------|
-| Partner | Full | 3 | 49 EUR | 147 EUR |
-| Berater | Standard | 5 | 29 EUR | 145 EUR |
-| Assistenz | Standard | 2 | 29 EUR | 58 EUR |
-| **Gesamt/Monat** | | **10 User** | | **350 EUR** |
-
-**Vorkonfigurierte Features:**
-- CRM: Mandanten-/Kundenverwaltung, Akquise-Pipeline
-- PM: Projektbasiertes Arbeiten, Zeiterfassung pro Mandat
-- Email: Mandantenbezogene E-Mail-Verknuepfung
-- Calendar: Terminplanung, Videokonferenzen
-- Finance: Honorarabrechnungen nach Aufwand
-- Documents: Vertragsverwaltung, Dokumenten-Sharing
-
-**Empfohlene Automationen:**
-- Neuer Deal → Projekt anlegen + Team zuweisen
-- Zeiterfassung > Budget → Benachrichtigung an Partner
-- Vertrag unterzeichnet → Willkommens-E-Mail + Onboarding-Aufgaben
-
-### 4.3 Handel / Einzelhandel
-
-**Typischer Betrieb:** 1 Inhaber + 1 Einkauf + 3 Verkauf + 2 Lager
-
-| Rolle | User-Typ | Anzahl | Einzelpreis | Summe |
-|-------|----------|--------|------------|-------|
-| Inhaber | Full | 1 | 49 EUR | 49 EUR |
-| Einkauf | Standard | 1 | 29 EUR | 29 EUR |
-| Verkauf | Standard | 3 | 29 EUR | 87 EUR |
-| Lager | Light | 2 | 9 EUR | 18 EUR |
-| **Gesamt/Monat** | | **7 User** | | **183 EUR** |
-
-**Vorkonfigurierte Features:**
-- CRM: Lieferanten + Kundenkontakte, Bestellpipeline
-- Chat: Teamkommunikation, Lieferanten-Guest-Chat
-- Finance: Rechnungen, Lieferscheine, Mahnwesen
-- Calendar: Liefertermine, Messen
-- Email: Bestellbestaetigungen, Kundenkommunikation
-
-**Empfohlene Automationen:**
-- Neue Bestellung → Aufgabe fuer Lager
-- Lieferung eingetroffen → Benachrichtigung an Einkauf
-- Kundenbestellung → Rechnung-Entwurf
-
-### 4.4 IT / Agentur (Webentwicklung, Marketing, MSP)
-
-**Typischer Betrieb:** 2 GF + 8 Entwickler/Designer + 2 PM + 3 Freelancer
-
-| Rolle | User-Typ | Anzahl | Einzelpreis | Summe |
-|-------|----------|--------|------------|-------|
-| Geschaeftsfuehrung | Full | 2 | 49 EUR | 98 EUR |
-| Entwickler / Designer | Standard | 8 | 29 EUR | 232 EUR |
-| Projektmanager | Standard | 2 | 29 EUR | 58 EUR |
-| Freelancer (extern) | Light | 3 | 9 EUR | 27 EUR |
-| **Gesamt/Monat** | | **15 User** | | **415 EUR** |
-
-**Vorkonfigurierte Features:**
-- CRM: Lead-Pipeline, Kundenmanagement
-- PM: Kanban, Gantt, Sprints, Zeiterfassung
-- Chat: Projekt-Channels, Kunden-Guest-Chat
-- Calendar: Projektmeilensteine, Sprint-Planung
-- Video: Screen-Sharing, Daily Standups
-- Finance: Projektbasierte Abrechnung
-
-**Empfohlene Automationen:**
-- Sprint abgeschlossen → Timesheet-Report an GF
-- Neuer Lead → Qualifizierungsaufgabe erstellen
-- Rechnung ueberfaellig → Benachrichtigung an GF
-
-**Einmalkauf-Empfehlung:** JetBrains-Fallback-Modell (Variante B) — tech-affine Zielgruppe kennt und schaetzt dieses Modell.
+15% auf alle im Paket enthaltenen Module, wenn mindestens 80% der Module aktiv bleiben. Zusatzmodule ausserhalb des Pakets zum regulaeren Listenpreis.
 
 ---
 
-## 5. Einmalkosten (Services)
+## 5. Branchenpakete
+
+Onboarding-Vorlagen, kein separater Kaufgegenstand. Definieren vorausgewaehlte Module + aktivieren Paket-Rabatt.
+
+| Paket | Enthaltene Module | ab EUR/User/Mo | Markt-Vergleich |
+|-------|-------------------|----------------|-----------------|
+| Handwerk | CRM, Aufgaben, Kalender, Chat, Zeiterfassung, Finanzen, Rapporte, Schichten | ~26 | ~45 |
+| IT & Agentur | CRM, Aufgaben, Kalender, Chat, E-Mail, Meetings, Projekte, Wiki, Berichte | ~29 | ~50 |
+| Dienstleister | CRM, Aufgaben, Kalender, Chat, E-Mail, Finanzen, Vertraege, Berichte | ~25 | ~43 |
+| Handel & Logistik | CRM, Aufgaben, Kalender, Chat, Inventar, Finanzen, Einkauf | ~26 | ~44 |
+| Produktion | CRM, Aufgaben, Kalender, Chat, Produktion, Inventar, Schichten, Zeiterfassung, Fuhrpark | ~33 | ~56 |
+
+---
+
+## 6. Support-Stufen
+
+| Stufe | Preis | Reaktionszeit | Verfuegbarkeit | Leistungen |
+|-------|-------|---------------|----------------|------------|
+| Basis | 9 EUR/Mo Flat | 2 Werktage | Mo-Fr | Doku, In-App-Hilfe, Community, E-Mail-Ticket |
+| Professional | 10% der Monatssumme, min. 29 EUR | 4h werktags | Mo-Fr | Prioritaets-Ticket, Live-Chat, Onboarding 60 Min., Screen-Sharing |
+| Premium | 15% der Monatssumme, min. 79 EUR | 1h 24/7 | 24/7 | Dedizierter AP, monatl. Check-in, Incident-Hotline |
+
+---
+
+## 7. Abrechnungslogik
+
+| Aspekt | Beschreibung |
+|--------|-------------|
+| Preisberechnung | Summe aller aktiven Modul-Zuweisungen pro User |
+| Zyklus | Monatlich, zum 1. des Monats |
+| User hinzufuegen | Sofort aktiv, anteilige Abrechnung |
+| Modul entfernen | Wirkt ab naechster Periode |
+| Nutzungsanalyse | Monatlich: ungenutzte Module markiert, Abbestell-Vorschlag |
+| Rollenvorlagen | Admin speichert Modul-Sets ("Monteur", "Buero", "Leitung") |
+| Gastnutzer | Kostenlos, eingeschraenkter Zugang |
+
+---
+
+## 8. ORBIT (Self-Hosted)
+
+Zentria liefert physische Hardware (Synology NAS) und installiert vor Ort. Cosmi laeuft lokal. Zentria uebernimmt remote Wartung, Updates, Monitoring, Backup.
+
+### 8.1 Tiers
+
+| Tier | User | Hardware (Kauf) | Leasing/Mo | Setup | Wartung/Mo |
+|------|------|-----------------|------------|-------|------------|
+| Pod | 5-20 | Synology DS423+ ~900 EUR | ~30 EUR | 199 EUR (remote) | 39 EUR |
+| Station | 20-80 | Synology DS1522+ ~2.200 EUR | ~65 EUR | 499 EUR (vor Ort) | 89 EUR |
+| Command | 80-200+ | Synology RS1221+ ab ~5.500 EUR | ab ~150 EUR | 1.490 EUR (vor Ort) | 199 EUR |
+
+### 8.2 ORBIT-Rabatt
+
+20% auf alle Cosmi-Modulpreise (Grund: Zentria stellt keine Cloud-Infrastruktur bereit).
+
+### 8.3 Meeting-Optionen
+
+| Setup | Beschreibung | Fuer wen |
+|-------|-------------|----------|
+| Cloud (Standard) | Jitsi auf Hetzner VPS, im Modulpreis enthalten | Standard fuer alle |
+| Lokal | Jitsi auf Mini-PC vor Ort (600-2.800 EUR) | Hoechster Datenschutz |
+| Hybrid | Intern lokal, extern Cloud | Beste Balance |
+
+### 8.4 Cloud-Backup
+
+| Paket | Groesse | Zentria-Preis/Mo |
+|-------|---------|------------------|
+| S | bis 1 TB | 9 EUR |
+| M | bis 5 TB | 19 EUR |
+| L | bis 20 TB | 59 EUR |
+
+### 8.5 ORBIT-Zielgruppen
+
+- Aerzte, Anwaelte, Steuerberater, Behoerden (strenge Datenschutzanforderungen)
+- Unternehmen mit schlechter Internetanbindung (Produktion, laendlich)
+- Betriebe die keine Daten in der Cloud wollen
+- Groessere Betriebe mit eigener IT-Infrastruktur
+
+---
+
+## 9. Beispielrechnungen
+
+### 9.1 Handwerksbetrieb (20 User, COSMI Cloud, Professional Support)
+
+| Posten | User | EUR/User | Summe/Mo |
+|--------|------|----------|----------|
+| Chat | 20 | 4 | 80 |
+| Meetings | 8 | 4 | 32 |
+| CRM & Vertrieb | 5 | 6 | 30 |
+| Zeiterfassung | 20 | 3 | 60 |
+| Finanzen | 3 | 6 | 18 |
+| Schichten | 20 | 4 | 80 |
+| Zwischensumme | | | 300 |
+| Volumen-Rabatt (20 User, 5%) | | | -15 |
+| Support Professional (10%) | | | 28,50 |
+| **GESAMT (zzgl. MwSt.)** | | | **313,50** |
+
+> Vergleich: Pipedrive + Slack + Clockify + Asana + Zoom = ~1.060 EUR/Mo fuer 20 User, fragmentiert, US-Cloud.
+
+### 9.2 Handwerksbetrieb (30 User, ORBIT Station, Professional Support)
+
+| Posten | Betrag |
+|--------|--------|
+| *Einmalig:* Hardware + Setup | 2.699 EUR |
+| Wartung ORBIT Station | 89 EUR/Mo |
+| Cloud Backup M (5 TB) | 19 EUR/Mo |
+| Cosmi-Lizenz (Handwerk, -20%) | ~624 EUR/Mo |
+| Volumen-Rabatt 30 User (10%) | -62 EUR/Mo |
+| Support Professional (10%) | 67 EUR/Mo |
+| **Monatlich gesamt (zzgl. MwSt.)** | **~737 EUR/Mo** |
+
+> Vergleich: M365 Business Standard (22 EUR/User) fuer 30 User = 660 EUR/Mo, ohne lokale Kontrolle, US-Cloud.
+
+---
+
+## 10. Wettbewerbsvergleich
+
+| Anbieter | Preis/User/Mo | Bereich | EU-Hosting | All-in-One |
+|----------|---------------|---------|------------|------------|
+| Pipedrive | ab 14 EUR | Nur CRM | Bedingt | Nein |
+| HubSpot Starter | 15-20 EUR | CRM + Marketing | Bedingt | Teilweise |
+| Salesforce | ab 25 EUR | CRM Enterprise | US-Cloud | Teilweise |
+| Monday.com | ab 9 EUR | Projekte | Bedingt | Teilweise |
+| Slack + Zoom + Asana etc. | ~54-67 EUR | Fragmentiert | Gemischt | Nein |
+| **Cosmi (Handwerk-Paket)** | **ab 26 EUR** | **All-in-One** | **DE (Hetzner)** | **Ja** |
+
+---
+
+## 11. Differenzierung
+
+1. **Modulares "Zahl nur was du nutzt"** — kein Feature-Bloat, keine Ueberzahlung
+2. **Branchenpakete** — vorkonfigurierte Loesungen, nicht generisches CRM
+3. **Nutzungsanalyse** — aktiver Vorschlag ungenutzte Module abzubestellen (Trust-Signal)
+4. **EU-Datensouveraenitaet** — Hetzner DE, Self-Hosted Option (ORBIT)
+5. **Onsite-Prozessanalyse** — kein anderer CRM-Anbieter macht das
+6. **Kein Vendor-Lock-In** — Self-Hosted + Datenexport
+7. **Faire Preise** — 50-90% guenstiger als fragmentierter Tool-Stack
+
+---
+
+## 12. Einmalkosten (Services)
 
 | Posten | Preis | Anmerkung |
 |--------|-------|-----------|
-| Onsite-Prozessanalyse (1 Woche) | 5.000-8.000 EUR | USP — inkl. Branchenpaket-Konfiguration |
-| Initiales Setup & Konfiguration | Inkludiert (SaaS) / 1.500 EUR (Self-Hosted) | Self-Hosted erfordert Server-Setup |
-| Datenmigration (aus Alt-System) | 1.000-3.000 EUR | Optional, abhaengig von Quelldaten |
-| Custom WASM-Plugins (pro Plugin) | 2.000-10.000 EUR | Optional, abhaengig von Komplexitaet |
-| Branchenpaket-Konfiguration (Remote) | 500-1.500 EUR | Ohne Onsite, basierend auf Standard-Templates |
+| Onsite-Prozessanalyse (1 Woche) | 5.000-8.000 EUR | USP, inkl. Branchenpaket-Konfiguration |
+| Datenmigration (aus Alt-System) | 1.000-3.000 EUR | Abhaengig von Quelldaten |
+| Custom WASM-Plugins (pro Plugin) | 2.000-10.000 EUR | Abhaengig von Komplexitaet |
+| Branchenpaket-Konfiguration (Remote) | 500-1.500 EUR | Ohne Onsite |
 
 ---
 
-## 6. Differenzierung
+## 13. Code-Referenz
 
-1. **Role-Based Pricing** — Kunden zahlen nur fuer die Funktionen die jeder Mitarbeiter braucht (Monteur ≠ Geschaeftsfuehrer)
-2. **VIP Einmalkauf** — einzigartig im DACH-CRM-Markt fuer All-in-One Loesungen
-3. **Branchenpakete** — vorkonfigurierte Loesungen, nicht nur generisches CRM
-4. **Onsite-Prozessanalyse** — kein anderer CRM-Anbieter macht das
-5. **EU-Datensouveraenitaet** — Self-Hosted Option, EU-only Hosting
-6. **Faire Preise** — deutlich unter Salesforce/HubSpot Enterprise
-7. **Kein Vendor-Lock-In** — Self-Hosted + Datenexport + JetBrains-Fallback
-8. **All-in-One** — CRM + Chat + Video in einem Tool (kein Slack + Salesforce + Zoom)
-
----
-
-## 7. Revenue-Projektion
-
-### 7.1 Konservativ (Jahr 1): ~196.000 EUR
-
-**SaaS-Kunden (20 Betriebe):**
-- 8 Handwerksbetriebe: 8 x 179 EUR x 12 = 17.184 EUR
-- 5 Dienstleister: 5 x 350 EUR x 12 = 21.000 EUR
-- 3 Handelsbetriebe: 3 x 183 EUR x 12 = 6.588 EUR
-- 4 IT/Agenturen: 4 x 415 EUR x 12 = 19.920 EUR
-- **SaaS Subtotal: 64.692 EUR** (MRR: ~5.391 EUR)
-
-**Einmalkauf:** 3 Kauflizenzen x 15.000 EUR = **45.000 EUR**
-
-**Self-Hosted (Abo):** 2 x Standard (4.000 EUR) = **8.000 EUR**
-
-**Services:**
-- 10 Onsite-Analysen x 6.500 EUR = 65.000 EUR
-- 5 Datenmigrationen x 2.000 EUR = 10.000 EUR
-- 3 Branchenpaket-Configs x 1.000 EUR = 3.000 EUR
-- **Services Subtotal: 78.000 EUR**
-
-### 7.2 Optimistisch (Jahr 1): ~335.000 EUR
-
-**SaaS-Kunden (32 Betriebe):**
-- 12 Handwerk + 8 Dienstl. + 5 Handel + 7 IT = **105.216 EUR** (MRR: ~8.768 EUR)
-
-**Einmalkauf:** 5 x 15.000 EUR = **75.000 EUR**
-
-**Self-Hosted:** 3 Professional + 1 Enterprise = **33.000 EUR**
-
-**Services:** 15 Onsite + 8 Migrationen + 5 Configs + 20h Custom Dev = **121.500 EUR**
-
-### 7.3 Jahr 2-3 Ausblick
-
-- Wartungsvertraege von Einmalkauf-Kunden (20% p.a.) generieren wiederkehrenden Revenue
-- Cross-Sell: Branchenpakete und Upgrades (Light → Standard, Standard → Full)
-- User-Wachstum bei bestehenden Kunden
-- **Ziel Jahr 2:** 350.000-500.000 EUR
-- **Ziel Jahr 3:** 500.000-800.000 EUR
-
----
-
-## 8. Risikobewertung Einmalkauf-Modell
-
-| Risiko | Wahrscheinlichkeit | Impact | Mitigation |
-|--------|-------------------|--------|------------|
-| Kannibalisiert SaaS-Revenue | Mittel | Hoch | Break-Even erst nach ~43 Monaten SaaS (15k/350) — sicher |
-| Cashflow-Loch nach Einmalzahlung | Mittel | Hoch | Max 30% Gesamtrevenue aus Einmalkauf; max 2-3 Kunden/Quartal |
-| Support-Last ohne laufende Einnahmen | Hoch | Mittel | Klare SLA-Abgrenzung; Wartungsvertrag aktiv empfehlen |
-| 15k zu teuer fuer kleine Betriebe | Mittel | Mittel | Starter-Paket 8k; Ratenzahlung (3-6 Raten) |
-| Neue Module: Kunde fuehlt sich benachteiligt | Mittel | Mittel | Kauflizenz = Module zum Kaufzeitpunkt; neue via Wartungsvertrag |
-| Support-Kosten Self-Hosted hoeher als erwartet | Hoch | Mittel | Docker-Compose standardisieren; Installations-Doku automatisieren |
-
-**Schutzmassnahmen:**
-1. Einmalkauf NUR fuer Self-Hosted (keine SaaS-Lifetime-Lizenzen)
-2. Mindestens 1 Jahr Support/Updates bei Kauf inkludiert
-3. Maximale Einmalkauf-Kapazitaet: 2-3 Kunden pro Quartal (Team-Kapazitaet)
-4. Quartals-Review der Einmalkauf vs. SaaS Ratio
-
----
-
-## 9. Pricing-Regeln & Governance
-
-- **Mindestbestellung:** 1 Full User
-- **Jaehrliche Preisanpassung:** Maximal 5% (Inflationsausgleich)
-- **Downgrade-Policy:** User-Typ-Wechsel zum Monatsende
-- **Branchenpaket-Wechsel:** Jederzeit moeglich (Konfiguration wird nicht geloescht)
-- **Einmalkauf-Rueckgabe:** 30 Tage Widerrufsrecht (gesetzlich DACH)
-- **Wartungsvertrag-Kuendigung:** 3 Monate zum Jahresende
-- **Ratenzahlung (Einmalkauf):** 3-6 Monatsraten, 0% Aufschlag
+Die TypeScript-Datenstrukturen (MODULES, VOLUME_DISCOUNTS, SUPPORT_TIERS, BRANCH_PACKAGES, ORBIT_TIERS, calculatePrice(), calculateOrbitPrice()) sind in den Original-Dokumenten von Darien definiert und werden bei Studio/Billing-Implementierung als kanonische Quelle verwendet.

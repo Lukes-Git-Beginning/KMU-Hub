@@ -67,7 +67,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
         <DialogHeader>
           <DialogTitle>Neue Konversation</DialogTitle>
           <DialogDescription>
-            Starte eine neue externe Konversation ueber einen beliebigen Kanal.
+            Starte eine neue externe Konversation über einen beliebigen Kanal.
           </DialogDescription>
         </DialogHeader>
 
@@ -99,12 +99,12 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
 
           {/* Recipient */}
           <div>
-            <label className="text-xs font-medium text-foreground mb-1 block">Empfaenger</label>
+            <label className="text-xs font-medium text-foreground mb-1 block">Empfänger</label>
             <input
               type="text"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              placeholder={channel === 'email' ? 'name@firma.ch' : 'Name oder Kontakt suchen...'}
+              placeholder={channel === 'email' ? 'name@firma.de' : 'Name oder Kontakt suchen...'}
               className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary transition-colors"
             />
           </div>

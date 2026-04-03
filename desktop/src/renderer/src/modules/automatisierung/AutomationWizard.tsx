@@ -191,7 +191,7 @@ function ReviewStep() {
 
         {!draftWorkflow.id && (
           <p className="text-[11px] text-muted-foreground italic">
-            Speichern Sie die Automatisierung zuerst, um eine Simulation auszufuehren.
+            Speichern Sie die Automatisierung zuerst, um eine Simulation auszuführen.
           </p>
         )}
 
@@ -408,7 +408,7 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
           <button
             onClick={onClose}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            aria-label="Schliessen"
+            aria-label="Schließen"
           >
             <X className="h-5 w-5" />
           </button>

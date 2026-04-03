@@ -48,7 +48,7 @@ const templates: EmailTemplate[] = [
 <li>Leistung 2 — CHF 0.00</li>
 <li>Leistung 3 — CHF 0.00</li>
 </ul>
-<p>Das Angebot ist gültig bis zum {{datum}}. Bei Fragen stehen wir Ihnen jederzeit zur Verfuegung.</p>`,
+<p>Das Angebot ist gültig bis zum {{datum}}. Bei Fragen stehen wir Ihnen jederzeit zur Verfügung.</p>`,
   },
   {
     id: 'auftragsbestaetigung',
@@ -65,7 +65,7 @@ const templates: EmailTemplate[] = [
 <li><strong>Datum:</strong> {{datum}}</li>
 <li><strong>Auftragsnummer:</strong> AUF-2026-XXX</li>
 </ul>
-<p>Wir werden Sie ueber den Fortschritt auf dem Laufenden halten. Bei Rueckfragen erreichen Sie uns jederzeit.</p>`,
+<p>Wir werden Sie über den Fortschritt auf dem Laufenden halten. Bei Rückfragen erreichen Sie uns jederzeit.</p>`,
   },
   {
     id: 'follow-up',
@@ -75,7 +75,7 @@ const templates: EmailTemplate[] = [
     subject: 'Nachfassen: Unser Gespräch',
     placeholders: ['anrede', 'name', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
-<p>vielen Dank für unser Gespräch am {{datum}}. Ich moechte kurz die besprochenen Punkte zusammenfassen:</p>
+<p>vielen Dank für unser Gespräch am {{datum}}. Ich möchte kurz die besprochenen Punkte zusammenfassen:</p>
 <ol>
 <li>Punkt 1</li>
 <li>Punkt 2</li>
@@ -112,14 +112,14 @@ const templates: EmailTemplate[] = [
     subject: 'Willkommen bei {{firma}}!',
     placeholders: ['anrede', 'name', 'firma'],
     body: `<p>{{anrede}} {{name}},</p>
-<p>herzlich willkommen bei {{firma}}! Wir freuen uns, Sie als neuen Kunden / Partner begrüßen zu duerfen.</p>
+<p>herzlich willkommen bei {{firma}}! Wir freuen uns, Sie als neuen Kunden / Partner begrüßen zu dürfen.</p>
 <p><strong>Ihre nächsten Schritte:</strong></p>
 <ol>
 <li>Zugang einrichten unter <em>[Link]</em></li>
-<li>Profil vervollstaendigen</li>
+<li>Profil vervollständigen</li>
 <li>Erste Schritte in der Anleitung lesen</li>
 </ol>
-<p>Bei Fragen steht Ihnen Ihr persönlicher Ansprechpartner jederzeit zur Verfuegung.</p>`,
+<p>Bei Fragen steht Ihnen Ihr persönlicher Ansprechpartner jederzeit zur Verfügung.</p>`,
   },
   {
     id: 'zahlungserinnerung',

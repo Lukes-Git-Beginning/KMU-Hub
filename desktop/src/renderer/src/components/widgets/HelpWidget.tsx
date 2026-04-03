@@ -130,7 +130,7 @@ export function HelpWidget() {
             {/* Shortcuts Section */}
             {!search && (
               <Section
-                title="Tastaturkuerzel"
+                title="Tastaturkürzel"
                 sectionKey="shortcuts"
                 isOpen={openSections.has('shortcuts')}
                 onToggle={toggleSection}
@@ -163,7 +163,7 @@ export function HelpWidget() {
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground">Tel:</span>
-                    <span className="text-foreground">+41 44 123 45 67</span>
+                    <span className="text-foreground">+49 30 123 45 67</span>
                   </div>
                   <button className="flex items-center gap-2 text-xs text-primary hover:text-primary/80 transition-colors mt-1">
                     <ExternalLink className="h-3.5 w-3.5" />

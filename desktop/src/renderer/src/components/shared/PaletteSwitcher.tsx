@@ -40,7 +40,7 @@ const palettes: Array<{
   {
     id: 'wald',
     label: 'Wald',
-    desc: 'Natuerlich, ruhig, Gruen-Akzente',
+    desc: 'Natürlich, ruhig, Grün-Akzente',
     colors: { primary: '#16a34a', accent1: '#ca8a04', accent2: '#0d9488', bg: '#f0f5f0' },
   },
   {

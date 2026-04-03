@@ -184,8 +184,8 @@ function buildMockAssignments(weekDates: string[]): ShiftAssignment[] {
   ]
 
   const templateNames: Record<string, string> = {
-    'tpl-1': 'Fruehschicht',
-    'tpl-2': 'Spaetschicht',
+    'tpl-1': 'Frühschicht',
+    'tpl-2': 'Spätschicht',
     'tpl-3': 'Nachtschicht',
   }
 
@@ -212,7 +212,7 @@ function buildMockAssignments(weekDates: string[]): ShiftAssignment[] {
 const MOCK_SWAP_REQUESTS: ShiftSwapRequest[] = [
   {
     id: 'swap-1', assignmentId: 'mock-sa-3', requestedBy: 'Thomas Keller', swapWithUser: 'Reto Aeschlimann',
-    status: 'pending', reason: 'Arzttermin am Mittwochmorgen, brauche Fruehschicht-Tausch', createdAt: '2026-02-14T10:30:00',
+    status: 'pending', reason: 'Arzttermin am Mittwochmorgen, brauche Frühschicht-Tausch', createdAt: '2026-02-14T10:30:00',
   },
   {
     id: 'swap-2', assignmentId: 'mock-sa-8', requestedBy: 'Lukas Brunner', swapWithUser: 'Marco Hartmann',
@@ -303,7 +303,7 @@ function computeViolations(employees: Employee[], assignments: ShiftAssignment[]
     } else if (weeklyHours > 40) {
       violations.push({
         employeeId: emp.id, employeeName: emp.name, type: 'max_hours', severity: 'warning',
-        message: `${emp.name}: ${weeklyHours.toFixed(1)}h/Woche — ueber 40h Regelarbeitszeit`,
+        message: `${emp.name}: ${weeklyHours.toFixed(1)}h/Woche — über 40h Regelarbeitszeit`,
       })
     }
 
@@ -312,7 +312,7 @@ function computeViolations(employees: Employee[], assignments: ShiftAssignment[]
     for (let i = 1; i < sortedByDate.length; i++) {
       const prev = sortedByDate[i - 1]
       const curr = sortedByDate[i]
-      // Spaetschicht (22:00) followed by Fruehschicht (06:00) next day = 8h rest
+      // Spätschicht (22:00) followed by Frühschicht (06:00) next day = 8h rest
       if (prev.templateId === 'tpl-2' && curr.templateId === 'tpl-1') {
         const prevDate = new Date(prev.date + 'T00:00:00')
         const currDate = new Date(curr.date + 'T00:00:00')
@@ -320,7 +320,7 @@ function computeViolations(employees: Employee[], assignments: ShiftAssignment[]
         if (dayDiff === 1) {
           violations.push({
             employeeId: emp.id, employeeName: emp.name, type: 'rest_period', severity: 'error',
-            message: `${emp.name}: Nur 8h Ruhezeit zwischen Spaet- und Fruehschicht am ${curr.date} (min. 11h, ArbZG §5)`,
+            message: `${emp.name}: Nur 8h Ruhezeit zwischen Spät- und Frühschicht am ${curr.date} (min. 11h, ArbZG §5)`,
           })
         }
       }
@@ -671,7 +671,7 @@ export default function SchichtenPage() {
             <ShieldAlert className={`h-4 w-4 mt-0.5 flex-shrink-0 ${errorCount > 0 ? 'text-error' : 'text-warning'}`} />
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-medium ${errorCount > 0 ? 'text-error' : 'text-warning'}`}>
-                {errorCount > 0 ? `${errorCount} Verstoesse` : ''}{errorCount > 0 && warningCount > 0 ? ' + ' : ''}{warningCount > 0 ? `${warningCount} Warnungen` : ''} — Arbeitszeitgesetz
+                {errorCount > 0 ? `${errorCount} Verstöße` : ''}{errorCount > 0 && warningCount > 0 ? ' + ' : ''}{warningCount > 0 ? `${warningCount} Warnungen` : ''} — Arbeitszeitgesetz
               </p>
               <div className="mt-1 space-y-0.5">
                 {violations.slice(0, 3).map((v, i) => (

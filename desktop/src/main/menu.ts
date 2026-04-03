@@ -45,7 +45,7 @@ export function createMenu(): void {
               type: 'info',
               title: 'About Cosmi',
               message: `Cosmi v${app.getVersion()}`,
-              detail: 'All-in-One Business-Plattform fuer DACH-KMUs\nby Zentria'
+              detail: 'All-in-One Business-Plattform für DACH-KMUs\nby Zentria'
             })
           }
         }

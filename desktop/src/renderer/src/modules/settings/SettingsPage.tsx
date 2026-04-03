@@ -924,7 +924,7 @@ function AboutTab() {
           </div>
         </div>
         <p className="text-primary-foreground/80 text-sm mb-3">
-          All-in-One Business-Plattform fuer DACH-KMUs
+          All-in-One Business-Plattform für DACH-KMUs
         </p>
         <div className="flex items-center gap-3">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">v0.1.0 Beta</span>
@@ -944,7 +944,7 @@ function AboutTab() {
           <p className="text-xs text-muted-foreground">Cloud Platform</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4 flex flex-col items-center gap-2">
-          <img src={branding.zentria.logo} alt="Zentria" className="h-12 w-auto" />
+          <img src={branding.zentria.logoTransparent} alt="Zentria" className="h-12 w-auto" />
           <p className="text-xs text-muted-foreground">Unternehmen</p>
         </div>
       </div>
@@ -974,7 +974,7 @@ function AboutTab() {
               <p className="text-xs text-muted-foreground">Mo-Fr, 09:00-17:00 Uhr</p>
             </div>
           </div>
-          <p className="text-sm text-primary ml-12">+41 44 000 00 00</p>
+          <p className="text-sm text-primary ml-12">+49 30 000 00 00</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-3">
@@ -1002,7 +1002,7 @@ function AboutTab() {
 
       {/* Interactive Tours */}
       <h3 className="text-sm font-medium text-foreground mb-1">Interaktive Touren</h3>
-      <p className="text-xs text-muted-foreground mb-3">Starte eine gefuehrte Tour um die App oder einzelne Module kennenzulernen</p>
+      <p className="text-xs text-muted-foreground mb-3">Starte eine geführte Tour um die App oder einzelne Module kennenzulernen</p>
       <div className="space-y-2 mb-8">
         {tours.map((tour) => (
           <div

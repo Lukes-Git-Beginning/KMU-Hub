@@ -201,7 +201,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
           >
-            Schliessen
+            Schließen
           </button>
           <button
             onClick={() => {

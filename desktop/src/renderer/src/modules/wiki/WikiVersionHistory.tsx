@@ -24,7 +24,7 @@ export function WikiVersionHistory({ versions, open, onClose }: WikiVersionHisto
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Versionen
           </h3>
-          <span className="text-[10px] text-muted-foreground">({versions.length})</span>
+          <span className="text-[10px] text-muted-foreground">({(versions ?? []).length})</span>
         </div>
         <button
           onClick={onClose}
@@ -36,7 +36,7 @@ export function WikiVersionHistory({ versions, open, onClose }: WikiVersionHisto
 
       {/* Version list */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {versions.map((v, idx) => (
+        {(versions ?? []).map((v, idx) => (
           <WikiVersionItem
             key={v.id}
             version={v}

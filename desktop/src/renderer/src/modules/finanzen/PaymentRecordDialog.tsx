@@ -175,7 +175,7 @@ export function PaymentRecordDialog({
           <div className="space-y-1.5">
             <Label>Notizen (optional)</Label>
             <Textarea
-              placeholder="Zusaetzliche Informationen..."
+              placeholder="Zusätzliche Informationen..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}

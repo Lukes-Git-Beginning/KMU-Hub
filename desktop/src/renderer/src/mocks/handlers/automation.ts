@@ -175,7 +175,7 @@ const actionTypes = [
   { type: 'update', label: 'Datensatz aktualisieren', icon: 'edit' },
   { type: 'assign', label: 'Zuweisen', icon: 'user-plus' },
   { type: 'query', label: 'Daten abfragen', icon: 'search' },
-  { type: 'delay', label: 'Verzoegerung', icon: 'clock' },
+  { type: 'delay', label: 'Verzögerung', icon: 'clock' },
   { type: 'score', label: 'Scoring', icon: 'bar-chart' },
   { type: 'enrich', label: 'Daten anreichern', icon: 'database' },
   { type: 'aggregate', label: 'Aggregieren', icon: 'layers' },

@@ -49,7 +49,7 @@ export function QuickStatsSection() {
       <div className="rounded-lg bg-gradient-to-br from-success to-success/80 p-6 text-success-foreground">
         <h3 className="mb-2 text-lg font-semibold">Benötigen Sie Hilfe?</h3>
         <p className="mb-4 text-sm opacity-80">
-          Unser Support-Team steht Ihnen zur Verfuegung
+          Unser Support-Team steht Ihnen zur Verfügung
         </p>
         <button className="w-full rounded-lg bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card/90">
           Support kontaktieren

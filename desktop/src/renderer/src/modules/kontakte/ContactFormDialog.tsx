@@ -78,7 +78,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
   const [street, setStreet] = useState('')
   const [zip, setZip] = useState('')
   const [city, setCity] = useState('')
-  const [country, setCountry] = useState('Schweiz')
+  const [country, setCountry] = useState('Deutschland')
   const [website, setWebsite] = useState('')
   const [category, setCategory] = useState<'employee' | 'customer' | 'partner'>('customer')
   const [status, setStatus] = useState<'active' | 'prospect' | 'inactive'>('active')
@@ -127,7 +127,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
       setStreet('')
       setZip('')
       setCity('')
-      setCountry('Schweiz')
+      setCountry('Deutschland')
       setWebsite('')
       setCategory('customer')
       setStatus('active')
@@ -229,7 +229,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
               <Label>E-Mail</Label>
               <Input
                 type="email"
-                placeholder="max@firma.ch"
+                placeholder="max@firma.de"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -237,7 +237,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
             <div className="space-y-1.5">
               <Label>Telefon</Label>
               <Input
-                placeholder="+41 44 123 45 67"
+                placeholder="+49 30 123 45 67"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
@@ -249,7 +249,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
             <div className="space-y-1.5">
               <Label>Mobil</Label>
               <Input
-                placeholder="+41 79 123 45 67"
+                placeholder="+49 170 123 4567"
                 value={mobile}
                 onChange={(e) => setMobile(e.target.value)}
               />
@@ -257,7 +257,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
             <div className="space-y-1.5">
               <Label>Firma</Label>
               <Input
-                placeholder="Firma AG"
+                placeholder="Firma GmbH"
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
               />
@@ -404,7 +404,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
                   Website
                 </Label>
                 <Input
-                  placeholder="www.firma.ch"
+                  placeholder="www.firma.de"
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                 />
@@ -418,7 +418,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
                     LinkedIn
                   </Label>
                   <Input
-                    placeholder="profil-name"
+                    placeholder="profilname"
                     value={linkedin}
                     onChange={(e) => setLinkedin(e.target.value)}
                   />

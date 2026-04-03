@@ -251,7 +251,7 @@ function SecurityPolicySection() {
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
             <div>
               <p className="text-sm text-foreground">2FA für alle erzwingen</p>
-              <p className="text-xs text-muted-foreground">Alle Mitarbeiter muessen 2FA aktivieren</p>
+              <p className="text-xs text-muted-foreground">Alle Mitarbeiter müssen 2FA aktivieren</p>
             </div>
             <Switch checked={enforce2FA} onCheckedChange={setEnforce2FA} />
           </div>

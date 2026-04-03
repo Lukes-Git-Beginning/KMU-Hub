@@ -89,7 +89,7 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
               Vorlage <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {templates.map((t) => {
+              {(templates ?? []).map((t) => {
                 const TIcon = templateIconMap[t.icon] ?? FileText
                 const isActive = selectedTemplate === t.id
                 return (

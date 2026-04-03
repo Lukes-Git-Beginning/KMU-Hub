@@ -51,7 +51,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
   const [contractType, setContractType] = useState<'Vollzeit' | 'Teilzeit' | 'Praktikum' | 'Freelance'>('Vollzeit')
   const [workload, setWorkload] = useState(100)
   // TODO: location is not in EmployeeProfile — kept for UI but not sent to API
-  const [location, setLocation] = useState('Zürich')
+  const [location, setLocation] = useState('Berlin')
   const [welcomeMessage, setWelcomeMessage] = useState('')
 
   const reset = () => {
@@ -63,7 +63,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
     setDepartment('')
     setContractType('Vollzeit')
     setWorkload(100)
-    setLocation('Zürich')
+    setLocation('Berlin')
     setWelcomeMessage('')
   }
 
@@ -85,7 +85,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
         annualLeaveDays: 25,
         workloadPercent: workload,
         startDate: new Date().toISOString().split('T')[0],
-        addressCountry: 'CH',
+        addressCountry: 'DE',
         sendInviteEmail: true,
       },
       {
@@ -132,7 +132,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
             <Label>E-Mail *</Label>
             <Input
               type="email"
-              placeholder="email@firma.ch"
+              placeholder="email@firma.de"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -142,7 +142,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           <div className="space-y-1.5">
             <Label>Telefon</Label>
             <Input
-              placeholder="+41 79 ..."
+              placeholder="+49 170 ..."
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
@@ -206,7 +206,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           <div className="space-y-1.5">
             <Label>Standort</Label>
             <Input
-              placeholder="Zürich"
+              placeholder="Berlin"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />

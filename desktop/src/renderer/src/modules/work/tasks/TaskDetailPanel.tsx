@@ -208,7 +208,7 @@ export default function TaskDetailPanel() {
               variant="ghost"
               size="sm"
               onClick={closeTaskPanel}
-              title="Schliessen"
+              title="Schließen"
             >
               <X className="h-4 w-4" />
             </Button>

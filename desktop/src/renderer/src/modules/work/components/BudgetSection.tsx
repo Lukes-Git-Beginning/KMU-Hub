@@ -175,7 +175,7 @@ export default function BudgetSection({
               >
                 {formatCurrency(Math.abs(remaining))}
                 {isOverBudget && (
-                  <span className="text-xs font-normal ml-1">ueber Budget</span>
+                  <span className="text-xs font-normal ml-1">über Budget</span>
                 )}
               </p>
             </div>
@@ -201,7 +201,7 @@ export default function BudgetSection({
               <div className="flex items-center gap-1.5 text-xs text-destructive mt-1">
                 <AlertTriangle className="h-3 w-3" />
                 Budget um {formatCurrency(Math.abs(remaining))} überschritten (
-                {Math.round(percentage - 100)}% ueber Plan)
+                {Math.round(percentage - 100)}% über Plan)
               </div>
             )}
           </div>

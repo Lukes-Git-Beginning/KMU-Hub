@@ -251,7 +251,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2.5">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors" aria-label="Schliessen">
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors" aria-label="Schließen">
             <X className="h-4 w-4" />
           </button>
           <DialogTitle className="text-sm font-medium text-foreground">Raumplanung</DialogTitle>
@@ -450,7 +450,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
                   onClick={() => setSelectedBooking(null)}
                   className="flex-1 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
                 >
-                  Schliessen
+                  Schließen
                 </button>
               </div>
             </div>

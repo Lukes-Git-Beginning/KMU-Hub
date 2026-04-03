@@ -193,7 +193,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
             <div>
               <p className="text-sm text-warning">
                 Ohne DATEV-Verbindung steht der manuelle CSV-Export zur
-                Verfuegung.
+                Verfügung.
               </p>
               <Button
                 variant="link"

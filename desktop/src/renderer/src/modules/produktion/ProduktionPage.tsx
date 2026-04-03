@@ -876,7 +876,7 @@ function OrderDetailPanel({
                     <div className="flex items-center gap-2 rounded-md bg-error-light px-3 py-2">
                       <AlertTriangle className="h-3.5 w-3.5 text-error shrink-0" />
                       <span className="text-xs text-error font-medium">
-                        Ausschussrate ueber Zielwert (5%)
+                        Ausschussrate über Zielwert (5%)
                       </span>
                     </div>
                   )}

@@ -227,7 +227,7 @@ export function NewsletterPanel() {
               <div className="mt-1.5 flex items-center gap-4 pl-5">
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Users className="h-2.5 w-2.5" />
-                  {entry.recipients} Empfaenger
+                  {entry.recipients} Empfänger
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Mail className="h-2.5 w-2.5" />

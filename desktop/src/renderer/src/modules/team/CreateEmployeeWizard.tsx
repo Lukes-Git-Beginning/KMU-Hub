@@ -116,7 +116,7 @@ const INITIAL_FORM: EmployeeFormData = {
   addressStreet: '',
   addressCity: '',
   addressPostalCode: '',
-  addressCountry: 'CH',
+  addressCountry: 'DE',
   emergencyContactName: '',
   emergencyContactPhone: '',
   documents: [],
@@ -279,7 +279,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) { if (isWindow) { window.electronAPI?.window.close() } else { onClose() } } }}>
-      <DialogContent className="gap-0 p-0 max-w-full w-screen h-screen rounded-none border-0 [&>button:last-child]:hidden">
+      <DialogContent className="gap-0 p-0 max-w-full w-full h-full rounded-none border-0 [&>button:last-child]:hidden">
     <div className="flex flex-col h-full">
       {/* ── Header ── */}
       <div
@@ -544,14 +544,14 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
           <FormField label="E-Mail" required>
             <Input
               type="email"
-              placeholder="max.muster@firma.ch"
+              placeholder="max.muster@firma.de"
               value={form.email}
               onChange={(e) => update('email', e.target.value)}
             />
           </FormField>
           <FormField label="Telefon">
             <Input
-              placeholder="+41 79 123 45 67"
+              placeholder="+49 170 123 4567"
               value={form.phone}
               onChange={(e) => update('phone', e.target.value)}
             />
@@ -731,7 +731,7 @@ function EmploymentStep({
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Standort">
             <Input
-              placeholder="z.B. Zürich"
+              placeholder="z.B. Berlin"
               value={form.location}
               onChange={(e) => update('location', e.target.value)}
             />
@@ -768,7 +768,7 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
           <div className="grid grid-cols-3 gap-3">
             <FormField label="PLZ">
               <Input
-                placeholder="8000"
+                placeholder="10115"
                 value={form.addressPostalCode}
                 onChange={(e) => update('addressPostalCode', e.target.value)}
               />
@@ -776,7 +776,7 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
             <div className="col-span-2">
               <FormField label="Ort">
                 <Input
-                  placeholder="Zürich"
+                  placeholder="Berlin"
                   value={form.addressCity}
                   onChange={(e) => update('addressCity', e.target.value)}
                 />
@@ -789,9 +789,9 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="CH">Schweiz</SelectItem>
                 <SelectItem value="DE">Deutschland</SelectItem>
                 <SelectItem value="AT">Oesterreich</SelectItem>
+                <SelectItem value="CH">Schweiz</SelectItem>
                 <SelectItem value="LI">Liechtenstein</SelectItem>
               </SelectContent>
             </Select>
@@ -810,7 +810,7 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
           </FormField>
           <FormField label="Telefon">
             <Input
-              placeholder="+41 79 ..."
+              placeholder="+49 170 ..."
               value={form.emergencyContactPhone}
               onChange={(e) => update('emergencyContactPhone', e.target.value)}
             />

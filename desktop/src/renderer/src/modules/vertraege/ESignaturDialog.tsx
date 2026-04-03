@@ -172,7 +172,7 @@ export default function ESignaturDialog({
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 text-info mt-0.5 shrink-0" />
             <p className="text-xs text-info">
-              Digitale Signaturen werden ueber Skribble (eIDAS-konform) abgewickelt.
+              Digitale Signaturen werden über Skribble (eIDAS-konform) abgewickelt.
               Die Unterschriften sind rechtlich bindend.
             </p>
           </div>

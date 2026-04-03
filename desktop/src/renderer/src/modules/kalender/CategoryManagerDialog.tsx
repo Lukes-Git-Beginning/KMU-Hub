@@ -198,7 +198,7 @@ export function CategoryManagerDialog({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Schliessen
+              Schließen
             </Button>
           </DialogFooter>
         </DialogContent>

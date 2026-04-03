@@ -42,7 +42,7 @@ export function PasswordExpiryDialog() {
       return
     }
     updateSecurity({ passwordLastChanged: new Date().toISOString() })
-    toast.success('Passwort erfolgreich geaendert')
+    toast.success('Passwort erfolgreich geändert')
     setCurrentPw('')
     setNewPw('')
     setConfirmPw('')
@@ -59,7 +59,7 @@ export function PasswordExpiryDialog() {
             <div>
               <DialogTitle className="text-lg font-semibold text-foreground">Passwort abgelaufen</DialogTitle>
               <DialogDescription>
-                Dein Passwort muss geaendert werden bevor du fortfahren kannst.
+                Dein Passwort muss geändert werden bevor du fortfahren kannst.
               </DialogDescription>
             </div>
           </div>

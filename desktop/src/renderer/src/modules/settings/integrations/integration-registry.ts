@@ -170,7 +170,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   {
     id: 'whatsapp',
     name: 'WhatsApp Business',
-    description: 'Kunden-Kommunikation ueber WhatsApp Business API',
+    description: 'Kunden-Kommunikation über WhatsApp Business API',
     category: 'kommunikation',
     icon: Phone,
     iconColor: 'text-green-500',
@@ -228,7 +228,7 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     panelType: 'generic',
     fields: [
       { id: 'autoRecord', label: 'Automatisch aufzeichnen', type: 'switch', defaultValue: false, section: 'Meeting-Defaults', helpText: 'Meetings automatisch in der Cloud aufzeichnen' },
-      { id: 'waitingRoom', label: 'Warteraum aktiviert', type: 'switch', defaultValue: true, section: 'Meeting-Defaults', helpText: 'Teilnehmer muessen vom Host zugelassen werden' },
+      { id: 'waitingRoom', label: 'Warteraum aktiviert', type: 'switch', defaultValue: true, section: 'Meeting-Defaults', helpText: 'Teilnehmer müssen vom Host zugelassen werden' },
       { id: 'defaultDuration', label: 'Standard-Dauer', type: 'select', options: [{ value: '30', label: '30 Minuten' }, { value: '60', label: '60 Minuten' }, { value: '90', label: '90 Minuten' }], defaultValue: '60', section: 'Meeting-Defaults' },
     ],
   },

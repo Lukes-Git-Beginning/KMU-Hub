@@ -106,7 +106,7 @@ export function ContactFormDialog({
   const [street, setStreet] = useState('')
   const [zip, setZip] = useState('')
   const [city, setCity] = useState('')
-  const [country, setCountry] = useState('Schweiz')
+  const [country, setCountry] = useState('Deutschland')
   const [website, setWebsite] = useState('')
   const [linkedin, setLinkedin] = useState('')
   const [xing, setXing] = useState('')
@@ -133,7 +133,7 @@ export function ContactFormDialog({
       setStreet(initialData.street ?? '')
       setZip(initialData.zip ?? '')
       setCity(initialData.city ?? '')
-      setCountry(initialData.country ?? 'Schweiz')
+      setCountry(initialData.country ?? 'Deutschland')
       setWebsite(initialData.website ?? '')
       setLinkedin(initialData.linkedin ?? '')
       setXing(initialData.xing ?? '')
@@ -165,7 +165,7 @@ export function ContactFormDialog({
       setStreet('')
       setZip('')
       setCity('')
-      setCountry('Schweiz')
+      setCountry('Deutschland')
       setWebsite('')
       setLinkedin('')
       setXing('')
@@ -302,7 +302,7 @@ export function ContactFormDialog({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="max@firma.ch"
+                placeholder="max@firma.de"
                 className={inputClass}
               />
             </div>
@@ -315,7 +315,7 @@ export function ContactFormDialog({
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+41 44 123 45 67"
+                placeholder="+49 30 123 45 67"
                 className={inputClass}
               />
             </div>
@@ -332,7 +332,7 @@ export function ContactFormDialog({
                 type="text"
                 value={mobile}
                 onChange={(e) => setMobile(e.target.value)}
-                placeholder="+41 79 123 45 67"
+                placeholder="+49 170 123 4567"
                 className={inputClass}
               />
             </div>
@@ -480,7 +480,7 @@ export function ContactFormDialog({
                   type="text"
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
-                  placeholder="www.firma.ch"
+                  placeholder="www.firma.de"
                   className={inputClass}
                 />
               </div>

@@ -496,7 +496,7 @@ function BewegungDialog({
             <textarea
               value={notizen}
               onChange={(e) => setNotizen(e.target.value)}
-              placeholder="Zusaetzliche Informationen..."
+              placeholder="Zusätzliche Informationen..."
               rows={3}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />

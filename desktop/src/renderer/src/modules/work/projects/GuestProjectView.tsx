@@ -67,7 +67,7 @@ const MOCK_STATUS_UPDATES: MockStatusUpdate[] = [
     id: 'su1',
     date: '2026-02-20',
     author: 'Anna Müller',
-    text: 'Frontend-Komponenten-Bibliothek zu 85% fertiggestellt. Performance-Benchmarks zeigen deutliche Verbesserungen gegenueber der aktuellen Website.',
+    text: 'Frontend-Komponenten-Bibliothek zu 85% fertiggestellt. Performance-Benchmarks zeigen deutliche Verbesserungen gegenüber der aktuellen Website.',
     type: 'update',
   },
   {

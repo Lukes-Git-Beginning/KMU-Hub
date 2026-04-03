@@ -49,7 +49,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
   const [addressStreet, setAddressStreet] = useState('')
   const [addressCity, setAddressCity] = useState('')
   const [addressPostalCode, setAddressPostalCode] = useState('')
-  const [addressCountry, setAddressCountry] = useState('CH')
+  const [addressCountry, setAddressCountry] = useState('DE')
   const [emergencyContactName, setEmergencyContactName] = useState('')
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
 
@@ -64,7 +64,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
     setAddressStreet(member.addressStreet ?? '')
     setAddressCity(member.addressCity ?? '')
     setAddressPostalCode(member.addressPostalCode ?? '')
-    setAddressCountry(member.addressCountry ?? 'CH')
+    setAddressCountry(member.addressCountry ?? 'DE')
     setEmergencyContactName(member.emergencyContactName ?? '')
     setEmergencyContactPhone(member.emergencyContactPhone ?? '')
   }, [member, open])
@@ -158,20 +158,20 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>PLZ</Label>
-              <Input placeholder="8000" value={addressPostalCode} onChange={(e) => setAddressPostalCode(e.target.value)} />
+              <Input placeholder="10115" value={addressPostalCode} onChange={(e) => setAddressPostalCode(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Ort</Label>
-              <Input placeholder="Zürich" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} />
+              <Input placeholder="Berlin" value={addressCity} onChange={(e) => setAddressCity(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Land</Label>
               <Select value={addressCountry} onValueChange={setAddressCountry}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="CH">Schweiz</SelectItem>
                   <SelectItem value="DE">Deutschland</SelectItem>
                   <SelectItem value="AT">Oesterreich</SelectItem>
+                  <SelectItem value="CH">Schweiz</SelectItem>
                   <SelectItem value="LI">Liechtenstein</SelectItem>
                 </SelectContent>
               </Select>
@@ -186,7 +186,7 @@ export function EditMemberDialog({ open, onOpenChange, member }: EditMemberDialo
             </div>
             <div className="space-y-1.5">
               <Label>Notfallkontakt Telefon</Label>
-              <Input placeholder="+41 79 ..." value={emergencyContactPhone} onChange={(e) => setEmergencyContactPhone(e.target.value)} />
+              <Input placeholder="+49 170 ..." value={emergencyContactPhone} onChange={(e) => setEmergencyContactPhone(e.target.value)} />
             </div>
           </div>
         </div>

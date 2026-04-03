@@ -38,7 +38,7 @@ const notifications = [
     id: 'notif-003',
     type: 'chat_mention',
     title: 'Nachricht in #entwicklung',
-    body: 'Markus Weber hat dich in #entwicklung erwaehnt: "@Stefan schau dir mal den PR an"',
+    body: 'Markus Weber hat dich in #entwicklung erwähnt: "@Stefan schau dir mal den PR an"',
     read: false,
     actor_id: IDS.users.markus,
     actor_name: 'Markus Weber',
@@ -73,7 +73,7 @@ const notifications = [
   {
     id: 'notif-006',
     type: 'deal_stage_changed',
-    title: 'Deal-Phase geaendert',
+    title: 'Deal-Phase geändert',
     body: 'Deal "ERP Migration" wurde nach "Proposal" verschoben.',
     read: true,
     actor_id: IDS.users.thomas,
@@ -157,12 +157,12 @@ const preferences = {
 
 const eventTypes = [
   { type: 'deal_created', label: 'Deal erstellt', category: 'deals' },
-  { type: 'deal_stage_changed', label: 'Deal-Phase geaendert', category: 'deals' },
+  { type: 'deal_stage_changed', label: 'Deal-Phase geändert', category: 'deals' },
   { type: 'deal_won', label: 'Deal gewonnen', category: 'deals' },
   { type: 'deal_lost', label: 'Deal verloren', category: 'deals' },
   { type: 'task_due', label: 'Task fällig', category: 'tasks' },
   { type: 'task_assigned', label: 'Task zugewiesen', category: 'tasks' },
-  { type: 'chat_mention', label: 'Erwaehnung im Chat', category: 'chat' },
+  { type: 'chat_mention', label: 'Erwähnung im Chat', category: 'chat' },
   { type: 'chat_dm', label: 'Direktnachricht', category: 'chat' },
   { type: 'document_shared', label: 'Dokument geteilt', category: 'documents' },
   { type: 'invoice_paid', label: 'Rechnung bezahlt', category: 'finance' },

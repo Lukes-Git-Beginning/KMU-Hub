@@ -81,7 +81,7 @@ export const navItems: NavItemConfig[] = [
   { id: 'dashboard', to: '/', icon: LayoutDashboard, label: 'Übersicht', enabled: true, section: 'main', color: { h: 240, s: 72 } },
   { id: 'projects', to: '/work/projects', icon: FolderKanban, label: 'Projekte', enabled: true, section: 'main', color: { h: 255, s: 68 } },
   { id: 'tasks', to: '/work/my-tasks', icon: ListChecks, label: 'Aufgaben', enabled: true, section: 'main', badge: { type: 'text', value: '5' }, color: { h: 217, s: 78 } },
-  { id: 'chat', to: '/chat', icon: MessageSquare, label: 'Nachrichten', enabled: true, section: 'main', badge: { type: 'text', value: '3' }, color: { h: 195, s: 82 } },
+  { id: 'chat', to: '/chat', icon: MessageSquare, label: 'Team Chat', enabled: true, section: 'main', badge: { type: 'text', value: '3' }, color: { h: 195, s: 82 } },
   { id: 'contacts', to: '/kontakte', icon: Contact, label: 'Kontakte', enabled: true, section: 'main', color: { h: 162, s: 68 } },
 
   // ── Team & HR ──
@@ -94,7 +94,7 @@ export const navItems: NavItemConfig[] = [
   { id: 'documents', to: '/dokumente', icon: FileText, label: 'Dokumente', enabled: true, section: 'main', color: { h: 152, s: 62 } },
   { id: 'wiki', to: '/wiki', icon: BookOpen, label: 'Wiki', enabled: true, section: 'main', color: { h: 168, s: 58 } },
   { id: 'mail', to: '/mails', icon: Mail, label: 'E-Mail', enabled: true, section: 'main', badge: { type: 'text', value: '12' }, color: { h: 205, s: 78 } },
-  { id: 'kommunikation', to: '/kommunikation', icon: MessageSquareText, label: 'Kommunikation', enabled: true, section: 'main', badge: { type: 'text', value: '' }, color: { h: 185, s: 72 } },
+  { id: 'kommunikation', to: '/kommunikation', icon: MessageSquareText, label: 'Posteingang', enabled: true, section: 'main', badge: { type: 'text', value: '' }, color: { h: 185, s: 72 } },
 
   // ── Finance ──
   { id: 'finance', to: '/finanzen', icon: Receipt, label: 'Finanzen', enabled: true, section: 'main', badge: { type: 'text', value: 'Neu' }, color: { h: 38, s: 88 } },

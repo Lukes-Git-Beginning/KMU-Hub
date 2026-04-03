@@ -110,7 +110,7 @@ export function ActivityFormDialog({
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="z.B. Rueckruf vereinbaren"
+              placeholder="z.B. Rückruf vereinbaren"
               className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               autoFocus
             />

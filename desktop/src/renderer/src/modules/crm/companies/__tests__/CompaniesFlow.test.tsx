@@ -102,13 +102,13 @@ describe('CompanyFormDialog', () => {
         onOpenChange={onOpenChange}
         onSubmit={onSubmit}
         isEdit
-        initialData={{ name: 'Beispiel AG', website: 'beispiel.ch' }}
+        initialData={{ name: 'Beispiel AG', website: 'beispiel.de' }}
       />,
     )
 
     expect(screen.getByText('Unternehmen bearbeiten')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Muster AG')).toHaveValue('Beispiel AG')
-    expect(screen.getByPlaceholderText('www.firma.ch')).toHaveValue('beispiel.ch')
+    expect(screen.getByPlaceholderText('www.firma.de')).toHaveValue('beispiel.de')
   })
 
   it('submits new company with required fields', async () => {

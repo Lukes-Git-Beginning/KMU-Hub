@@ -830,7 +830,7 @@ export default function FinanzenPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Export für BMD NTCS Buchhaltung. Standard in Oesterreich für Steuerberater und KMUs.
+                Export für BMD NTCS Buchhaltung. Standard in Österreich für Steuerberater und KMUs.
               </p>
               <button
                 onClick={() => toast.success('BMD-Export heruntergeladen')}

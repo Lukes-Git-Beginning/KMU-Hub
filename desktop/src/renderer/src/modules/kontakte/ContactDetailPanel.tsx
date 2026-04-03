@@ -190,7 +190,7 @@ export function ContactDetailPanel({
                 <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-foreground">
                   {contact.address.street}, {contact.address.zip} {contact.address.city}
-                  {contact.address.country !== 'Schweiz' ? `, ${contact.address.country}` : ''}
+                  {contact.address.country !== 'Deutschland' ? `, ${contact.address.country}` : ''}
                 </span>
               </div>
             )}

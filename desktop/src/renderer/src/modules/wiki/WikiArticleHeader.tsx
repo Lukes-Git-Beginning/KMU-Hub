@@ -129,9 +129,9 @@ export function WikiArticleHeader({
       </div>
 
       {/* Tags */}
-      {article.tags.length > 0 && (
+      {(article.tags ?? []).length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {article.tags.map((tag) => (
+          {(article.tags ?? []).map((tag) => (
             <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground">
               <Tag className="h-3 w-3" />{tag}
             </span>

@@ -1169,7 +1169,7 @@ export default function FormularePage() {
                     {isEditing && action.type === 'email' && (
                       <div className="mt-3 space-y-2 border-t border-border-muted pt-3">
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Empfaenger</label>
+                          <label className="text-xs font-medium text-muted-foreground">Empfänger</label>
                           <input
                             type="email"
                             value={actionEmailTo}
@@ -2200,7 +2200,7 @@ export default function FormularePage() {
                 onClick={() => setShowShareDialog(null)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Schliessen
+                Schließen
               </button>
             </DialogFooter>
         </DialogContent>

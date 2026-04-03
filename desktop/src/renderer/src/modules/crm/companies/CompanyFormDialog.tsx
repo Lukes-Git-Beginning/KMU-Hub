@@ -101,7 +101,7 @@ export function CompanyFormDialog({
   const [street, setStreet] = useState('')
   const [zip, setZip] = useState('')
   const [city, setCity] = useState('')
-  const [country, setCountry] = useState('Schweiz')
+  const [country, setCountry] = useState('Deutschland')
   const [size, setSize] = useState('')
   const [notes, setNotes] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -118,7 +118,7 @@ export function CompanyFormDialog({
       setStreet(initialData.street ?? '')
       setZip(initialData.zip ?? '')
       setCity(initialData.city ?? '')
-      setCountry(initialData.country ?? 'Schweiz')
+      setCountry(initialData.country ?? 'Deutschland')
       setSize(initialData.size ?? '')
       setNotes(initialData.notes ?? '')
       setTags(initialData.tags ?? [])
@@ -131,7 +131,7 @@ export function CompanyFormDialog({
       setStreet('')
       setZip('')
       setCity('')
-      setCountry('Schweiz')
+      setCountry('Deutschland')
       setSize('')
       setNotes('')
       setTags([])
@@ -239,7 +239,7 @@ export function CompanyFormDialog({
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+41 44 123 45 67"
+                placeholder="+49 30 123 45 67"
                 className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
             </div>
@@ -252,7 +252,7 @@ export function CompanyFormDialog({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="info@firma.ch"
+                placeholder="info@firma.de"
                 className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
             </div>
@@ -268,7 +268,7 @@ export function CompanyFormDialog({
               type="text"
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
-              placeholder="www.firma.ch"
+              placeholder="www.firma.de"
               className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
             />
           </div>

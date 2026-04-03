@@ -171,7 +171,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
         ) : (
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground mb-3">
-              Verbinde dein Bexio-Konto ueber OAuth2 um Daten automatisch zu synchronisieren.
+              Verbinde dein Bexio-Konto über OAuth2 um Daten automatisch zu synchronisieren.
             </p>
             <button
               onClick={handleOAuthConnect}

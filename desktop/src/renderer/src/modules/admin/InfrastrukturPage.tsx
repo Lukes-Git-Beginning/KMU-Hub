@@ -608,7 +608,7 @@ function SecurityTab() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Domain</p>
-            <p className="text-foreground">crm.firma.ch</p>
+            <p className="text-foreground">crm.firma.de</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Typ</p>

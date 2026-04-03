@@ -59,11 +59,11 @@ const createMockConsents = (contactId: string): ConsentEntry[] => {
       description: 'Newsletter und Marketing-E-Mails senden',
       granted: isVip,
       grantedAt: isVip ? '2025-06-15' : null,
-      source: isVip ? 'E-Mail-Bestaetigung' : null,
+      source: isVip ? 'E-Mail-Bestätigung' : null,
       revokedAt: null,
       history: isVip
         ? [
-            { action: 'granted', date: '2025-06-15', source: 'E-Mail-Bestaetigung' },
+            { action: 'granted', date: '2025-06-15', source: 'E-Mail-Bestätigung' },
             { action: 'revoked', date: '2025-04-10', source: 'Webformular' },
             { action: 'granted', date: '2025-03-01', source: 'Webformular' },
           ]
@@ -104,7 +104,7 @@ const createMockConsents = (contactId: string): ConsentEntry[] => {
       revokedAt: contactId === 'c9' ? '2025-11-15' : null,
       history: contactId === 'c9'
         ? [
-            { action: 'revoked', date: '2025-11-15', source: 'E-Mail-Bestaetigung' },
+            { action: 'revoked', date: '2025-11-15', source: 'E-Mail-Bestätigung' },
             { action: 'granted', date: '2025-08-01', source: 'Webformular' },
           ]
         : [],
@@ -119,7 +119,7 @@ const createMockConsents = (contactId: string): ConsentEntry[] => {
 const consentSources = [
   'Webformular',
   'Vertrag',
-  'E-Mail-Bestaetigung',
+  'E-Mail-Bestätigung',
   'Muendlich (Telefon)',
   'Muendlich (persönlich)',
   'Import',
@@ -341,7 +341,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                   {consent.source && (
                     <span>Quelle: {consent.source}</span>
                   )}
-                  {consent.source === 'E-Mail-Bestaetigung' && (
+                  {consent.source === 'E-Mail-Bestätigung' && (
                     <span className="flex items-center gap-1 rounded-full bg-primary-light px-1.5 py-0 text-[9px] font-medium text-primary">
                       <BadgeCheck className="h-2.5 w-2.5" />
                       DOI

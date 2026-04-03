@@ -83,18 +83,18 @@ const TOURS: TourDefinition[] = [
   {
     id: 'dashboard',
     name: 'Dashboard',
-    description: 'Überblick ueber dein persönliches Dashboard',
+    description: 'Überblick über dein persönliches Dashboard',
     moduleId: 'dashboard',
     steps: [
       {
         target: null,
         title: 'Dein Dashboard',
-        description: 'Das Dashboard zeigt dir auf einen Blick deine wichtigsten KPIs, anstehende Termine, offene Aufgaben und Team-Aktivitaeten.',
+        description: 'Das Dashboard zeigt dir auf einen Blick deine wichtigsten KPIs, anstehende Termine, offene Aufgaben und Team-Aktivitäten.',
       },
       {
         target: null,
         title: 'Widgets',
-        description: 'Jedes Widget zeigt Echtzeit-Daten aus den jeweiligen Modulen. Du kannst ueber die Einstellungen festlegen, welche Header-Widgets angezeigt werden.',
+        description: 'Jedes Widget zeigt Echtzeit-Daten aus den jeweiligen Modulen. Du kannst über die Einstellungen festlegen, welche Header-Widgets angezeigt werden.',
       },
     ],
   },

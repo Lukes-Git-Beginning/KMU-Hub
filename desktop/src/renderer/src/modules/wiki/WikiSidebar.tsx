@@ -20,7 +20,7 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
   const setSelectedCategory = useWikiStore((s) => s.setSelectedCategory)
 
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(categories.map((c) => c.id)))
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set((categories ?? []).map((c) => c.id)))
 
   const totalArticles = articles.length
   const publishedCount = articles.filter((a) => a.status === 'published').length
@@ -99,7 +99,7 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
 
         {/* Categories */}
         <div className="space-y-0.5">
-          {categories.map((cat) => (
+          {(categories ?? []).map((cat) => (
             <WikiTreeNode
               key={cat.id}
               category={cat}

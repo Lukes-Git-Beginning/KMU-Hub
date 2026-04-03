@@ -269,7 +269,7 @@ function StepOAuth({
     <div className="space-y-4">
       <div className="rounded-md border border-info/30 bg-info-light p-3">
         <p className="text-sm text-info">
-          Verbinden Sie Cosmi mit Ihrem Bexio-Konto ueber OAuth. Sie werden
+          Verbinden Sie Cosmi mit Ihrem Bexio-Konto über OAuth. Sie werden
           zu Bexio weitergeleitet, um den Zugriff zu genehmigen.
         </p>
       </div>
@@ -486,7 +486,7 @@ function StepInitialSync({
           {isRunning ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Synchronisierung laeuft...
+              Synchronisierung läuft...
             </div>
           ) : (
             syncStatus && (

@@ -309,7 +309,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
   {
     id: 'x3', salutation: 'Herr', title: '', firstName: 'Michael', lastName: 'Berger', initials: 'MB',
     email: 'berger@berger-soehne.de', phone: '+49 911 345 6789', mobile: '+49 172 333 4455',
-    company: 'Berger & Soehne Metallverarbeitung', jobTitle: 'CEO',
+    company: 'Berger & Söhne Metallverarbeitung', jobTitle: 'CEO',
     category: 'customer', status: 'active', city: 'Nürnberg',
     tags: ['Produktion', 'Mobile App'], notes: 'Mobile App für Werkstatt-Terminals. Wichtiger Referenzkunde.',
     lastContact: '2026-02-15',
@@ -439,9 +439,9 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
   {
     id: 'x19', salutation: 'Herr', title: '', firstName: 'Lukas', lastName: 'Pfeifer', initials: 'LP',
     email: 'pfeifer@greentech-sol.de', phone: '+49 6151 999 0011', mobile: '+49 178 990 0112',
-    company: 'GreenTech Solutions UG', jobTitle: 'Gruender',
+    company: 'GreenTech Solutions UG', jobTitle: 'Gründer',
     category: 'prospect', status: 'prospect', city: 'Darmstadt',
-    tags: ['Startup', 'GreenTech', 'Prospect'], notes: 'Startup, 8 MA. Sucht guenstige All-in-One Loesung. Preissensibel.',
+    tags: ['Startup', 'GreenTech', 'Prospect'], notes: 'Startup, 8 MA. Sucht günstige All-in-One Lösung. Preissensibel.',
     lastContact: '2026-02-01',
   },
   {
@@ -449,7 +449,7 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
     email: 'wolf@bvg-medien.de', phone: '+49 89 000 1122', mobile: '+49 179 001 1223',
     company: 'Bayerische Verlagsgruppe AG', jobTitle: 'Marketing-Leiterin',
     category: 'prospect', status: 'prospect', city: 'München',
-    tags: ['Verlag', 'Medien', 'Prospect'], notes: 'Kontakt ueber LinkedIn. Interesse an Marketing-Automatisierung.',
+    tags: ['Verlag', 'Medien', 'Prospect'], notes: 'Kontakt über LinkedIn. Interesse an Marketing-Automatisierung.',
     lastContact: '2026-01-25',
   },
 ]
@@ -487,7 +487,7 @@ export const PROJECTS: MockProject[] = [
     description: 'Migration von Salesforce zu Cosmi CRM. Datentransfer + Schulung.',
   },
   {
-    id: 'p3', name: 'Mobile App', clientId: 'x3', clientName: 'Berger & Soehne Metallverarbeitung',
+    id: 'p3', name: 'Mobile App', clientId: 'x3', clientName: 'Berger & Söhne Metallverarbeitung',
     status: 'aktiv', startDate: '2026-01-15', endDate: '2026-06-30', budget: 62000, progress: 20,
     managerId: 'e18', teamMemberIds: ['e6', 'e4', 'e9'],
     description: 'Native App für Werkstatt-Terminals mit Barcode-Scanner und Auftragsverwaltung.',
@@ -548,17 +548,17 @@ export interface MockDeal {
 
 export const DEALS: MockDeal[] = [
   // Gewonnene Deals (project-linked)
-  { id: 'd1', name: 'Website Relaunch Gruber', contactId: 'x1', contactName: 'Dr. Hans Gruber', company: 'Gruber Maschinenbau GmbH', stage: 'gewonnen', value: 48000, probability: 100, expectedClose: '2025-10-15', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-08-01', notes: 'Vertrag unterschrieben. Projekt laeuft.' },
+  { id: 'd1', name: 'Website Relaunch Gruber', contactId: 'x1', contactName: 'Dr. Hans Gruber', company: 'Gruber Maschinenbau GmbH', stage: 'gewonnen', value: 48000, probability: 100, expectedClose: '2025-10-15', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-08-01', notes: 'Vertrag unterschrieben. Projekt läuft.' },
   { id: 'd2', name: 'CRM Migration RN Logistik', contactId: 'x2', contactName: 'Claudia Hartwig', company: 'Rhein-Neckar Logistik AG', stage: 'gewonnen', value: 35000, probability: 100, expectedClose: '2025-11-20', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-09-10', notes: 'Vertrag + Wartung 12 Monate.' },
-  { id: 'd3', name: 'Mobile App Berger', contactId: 'x3', contactName: 'Michael Berger', company: 'Berger & Soehne', stage: 'gewonnen', value: 62000, probability: 100, expectedClose: '2026-01-10', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2025-10-15', notes: 'Grossprojekt. Phase 1 ab Januar.' },
+  { id: 'd3', name: 'Mobile App Berger', contactId: 'x3', contactName: 'Michael Berger', company: 'Berger & Söhne', stage: 'gewonnen', value: 62000, probability: 100, expectedClose: '2026-01-10', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2025-10-15', notes: 'Großprojekt. Phase 1 ab Januar.' },
   { id: 'd4', name: 'Intranet Stadler', contactId: 'x7', contactName: 'Robert Stadler', company: 'Stadler Bauunternehmen GmbH', stage: 'gewonnen', value: 42000, probability: 100, expectedClose: '2025-09-15', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-07-01', notes: 'Langzeit-Kunde. Weitere Projekte möglich.' },
   { id: 'd5', name: 'Analytics Dashboard DataFlow', contactId: 'x6', contactName: 'Monika Lehmann', company: 'DataFlow GmbH', stage: 'gewonnen', value: 28000, probability: 100, expectedClose: '2025-12-20', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2025-11-01', notes: 'Technisch anspruchsvoll aber spannend.' },
   { id: 'd6', name: 'Security Audit BioTech', contactId: 'x9', contactName: 'Frank Neubauer', company: 'BioTech Solutions GmbH', stage: 'gewonnen', value: 18000, probability: 100, expectedClose: '2026-02-05', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-01-15', notes: 'Dringend. DSGVO-Audit vor Zertifizierung.' },
   // Aktive Pipeline
-  { id: 'd7', name: 'E-Commerce Schwarz AG', contactId: 'x8', contactName: 'Ingrid Schwarz', company: 'Schwarz Einzelhandel AG', stage: 'verhandlung', value: 85000, probability: 75, expectedClose: '2026-02-28', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-12-01', notes: 'Vertragsverhandlung laeuft. Budget bestätigt.' },
+  { id: 'd7', name: 'E-Commerce Schwarz AG', contactId: 'x8', contactName: 'Ingrid Schwarz', company: 'Schwarz Einzelhandel AG', stage: 'verhandlung', value: 85000, probability: 75, expectedClose: '2026-02-28', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2025-12-01', notes: 'Vertragsverhandlung läuft. Budget bestätigt.' },
   { id: 'd8', name: 'HR-Modul Kramer', contactId: 'x10', contactName: 'Susanne Kramer', company: 'Kramer Automotive GmbH', stage: 'angebot', value: 32000, probability: 60, expectedClose: '2026-03-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-01-20', notes: 'Angebot versendet. Warten auf Feedback.' },
   { id: 'd9', name: 'Consulting Paket Weiss', contactId: 'x4', contactName: 'Katrin Weiss', company: 'Weiss Consulting GmbH', stage: 'angebot', value: 15000, probability: 50, expectedClose: '2026-03-31', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-01', notes: 'Erweiterung um Schulungspaket.' },
-  { id: 'd10', name: 'Buchungssystem Alpen', contactId: 'x5', contactName: 'Juergen Becker', company: 'Alpen Tourismus AG', stage: 'qualifiziert', value: 55000, probability: 40, expectedClose: '2026-05-30', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-01-10', notes: 'Anforderungsanalyse geplant für März.' },
+  { id: 'd10', name: 'Buchungssystem Alpen', contactId: 'x5', contactName: 'Jürgen Becker', company: 'Alpen Tourismus AG', stage: 'qualifiziert', value: 55000, probability: 40, expectedClose: '2026-05-30', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-01-10', notes: 'Anforderungsanalyse geplant für März.' },
   { id: 'd11', name: 'Cosmi Lizenz MedTech', contactId: 'x16', contactName: 'Dr. Astrid Vogel', company: 'MedTech Innovations GmbH', stage: 'qualifiziert', value: 24000, probability: 35, expectedClose: '2026-04-30', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-10', notes: 'Demo am 28.02. Entscheidung im März.' },
   { id: 'd12', name: 'CRM Lizenz NordSoft', contactId: 'x17', contactName: 'Henrik Svensson', company: 'NordSoft GmbH', stage: 'lead', value: 18000, probability: 20, expectedClose: '2026-06-30', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-09', notes: 'Erstkontakt. Brauchen DACH-spezifisches CRM.' },
   { id: 'd13', name: 'Buchhaltung Engel STB', contactId: 'x18', contactName: 'Barbara Engel', company: 'Engel Steuerberatung', stage: 'lead', value: 8000, probability: 25, expectedClose: '2026-04-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-04', notes: 'Klein aber gute Referenz für Steuerberater-Branche.' },
@@ -569,7 +569,7 @@ export const DEALS: MockDeal[] = [
   // Extra pipeline deals
   { id: 'd17', name: 'App Erweiterung Gruber Ph.2', contactId: 'x1', contactName: 'Dr. Hans Gruber', company: 'Gruber Maschinenbau GmbH', stage: 'qualifiziert', value: 25000, probability: 60, expectedClose: '2026-06-30', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-02-15', notes: 'Phase 2 Website: Kundenportal + Konfigurator.' },
   { id: 'd18', name: 'Wartungsvertrag RN Logistik', contactId: 'x2', contactName: 'Claudia Hartwig', company: 'Rhein-Neckar Logistik AG', stage: 'verhandlung', value: 12000, probability: 80, expectedClose: '2026-04-01', ownerId: 'e3', ownerName: 'Thomas Meier', createdAt: '2026-02-10', notes: 'Verlaengerung Wartungsvertrag. Fast sicher.' },
-  { id: 'd19', name: 'Schulungspaket Berger', contactId: 'x3', contactName: 'Michael Berger', company: 'Berger & Soehne', stage: 'angebot', value: 8500, probability: 70, expectedClose: '2026-03-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-12', notes: 'Schulung für 20 Werkstatt-Mitarbeiter.' },
+  { id: 'd19', name: 'Schulungspaket Berger', contactId: 'x3', contactName: 'Michael Berger', company: 'Berger & Söhne', stage: 'angebot', value: 8500, probability: 70, expectedClose: '2026-03-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-12', notes: 'Schulung für 20 Werkstatt-Mitarbeiter.' },
   { id: 'd20', name: 'Zusatzmodul Weiss Consulting', contactId: 'x4', contactName: 'Katrin Weiss', company: 'Weiss Consulting GmbH', stage: 'angebot', value: 9500, probability: 55, expectedClose: '2026-04-15', ownerId: 'e11', ownerName: 'Kevin Baumann', createdAt: '2026-02-05', notes: 'Helpdesk + Chat-Modul Erweiterung.' },
   { id: 'd21', name: 'DSGVO Audit Kramer', contactId: 'x10', contactName: 'Susanne Kramer', company: 'Kramer Automotive GmbH', stage: 'qualifiziert', value: 14000, probability: 45, expectedClose: '2026-05-15', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-08', notes: 'Kombination mit HR-Modul möglich.' },
   { id: 'd22', name: 'Analytics Erweiterung DataFlow', contactId: 'x6', contactName: 'Monika Lehmann', company: 'DataFlow GmbH', stage: 'verhandlung', value: 19000, probability: 70, expectedClose: '2026-04-30', ownerId: 'e10', ownerName: 'Sabine Fischer', createdAt: '2026-02-18', notes: 'Phase 2: Predictive Analytics + ML-Pipeline.' },
@@ -796,9 +796,9 @@ export const HELPDESK_TICKETS: MockTicket[] = [
   { id: 'tk-2', subject: 'Datenimport bricht bei Sonderzeichen ab', status: 'open', priority: 'high', contactId: 'x2', contactName: 'Claudia Hartwig', company: 'Rhein-Neckar Logistik AG', assigneeId: 'e17', assigneeName: 'Jonas Schmitt', createdAt: '2026-02-22', category: 'Datenimport' },
   { id: 'tk-3', subject: 'Dashboard laedt langsam bei vielen Widgets', status: 'in_progress', priority: 'medium', contactId: 'x7', contactName: 'Robert Stadler', company: 'Stadler Bauunternehmen GmbH', assigneeId: 'e16', assigneeName: 'Martin Wolf', createdAt: '2026-02-21', category: 'Performance' },
   { id: 'tk-4', subject: 'E-Mail-Benachrichtigungen kommen doppelt', status: 'waiting', priority: 'medium', contactId: 'x4', contactName: 'Katrin Weiss', company: 'Weiss Consulting GmbH', assigneeId: 'e17', assigneeName: 'Jonas Schmitt', createdAt: '2026-02-20', category: 'Benachrichtigungen' },
-  { id: 'tk-5', subject: 'PDF-Export zeigt falsches Datum', status: 'resolved', priority: 'low', contactId: 'x5', contactName: 'Juergen Becker', company: 'Alpen Tourismus AG', assigneeId: 'e16', assigneeName: 'Martin Wolf', createdAt: '2026-02-18', category: 'Export' },
+  { id: 'tk-5', subject: 'PDF-Export zeigt falsches Datum', status: 'resolved', priority: 'low', contactId: 'x5', contactName: 'Jürgen Becker', company: 'Alpen Tourismus AG', assigneeId: 'e16', assigneeName: 'Martin Wolf', createdAt: '2026-02-18', category: 'Export' },
   { id: 'tk-6', subject: 'API Timeout bei grossen Datenmengen', status: 'open', priority: 'urgent', contactId: 'x6', contactName: 'Monika Lehmann', company: 'DataFlow GmbH', assigneeId: 'e16', assigneeName: 'Martin Wolf', createdAt: '2026-02-24', category: 'API' },
-  { id: 'tk-7', subject: 'Benutzerrolle kann nicht geaendert werden', status: 'open', priority: 'medium', contactId: 'x9', contactName: 'Frank Neubauer', company: 'BioTech Solutions GmbH', assigneeId: 'e17', assigneeName: 'Jonas Schmitt', createdAt: '2026-02-23', category: 'Benutzerverwaltung' },
+  { id: 'tk-7', subject: 'Benutzerrolle kann nicht geändert werden', status: 'open', priority: 'medium', contactId: 'x9', contactName: 'Frank Neubauer', company: 'BioTech Solutions GmbH', assigneeId: 'e17', assigneeName: 'Jonas Schmitt', createdAt: '2026-02-23', category: 'Benutzerverwaltung' },
   { id: 'tk-8', subject: 'Kalender-Sync mit Outlook fehlerhaft', status: 'in_progress', priority: 'high', contactId: 'x10', contactName: 'Susanne Kramer', company: 'Kramer Automotive GmbH', assigneeId: 'e16', assigneeName: 'Martin Wolf', createdAt: '2026-02-19', category: 'Kalender' },
 ]
 
@@ -826,19 +826,19 @@ export interface MockTransaction {
 }
 
 export const BANK_ACCOUNTS: MockBankAccount[] = [
-  { id: 'ba1', name: 'Geschaeftskonto', iban: 'DE89 3704 0044 0532 0130 00', balance: 142850.75, currency: 'EUR' },
-  { id: 'ba2', name: 'Ruecklagenkonto', iban: 'DE72 3704 0044 0532 0131 17', balance: 85000.00, currency: 'EUR' },
+  { id: 'ba1', name: 'Geschäftskonto', iban: 'DE89 3704 0044 0532 0130 00', balance: 142850.75, currency: 'EUR' },
+  { id: 'ba2', name: 'Rücklagenkonto', iban: 'DE72 3704 0044 0532 0131 17', balance: 85000.00, currency: 'EUR' },
 ]
 
 export const BANK_TRANSACTIONS: MockTransaction[] = [
-  { id: 'bt1', date: '2026-02-24', description: 'Eingang Gruber Maschinenbau — Abschlag 3', amount: 16000, type: 'eingang', category: 'Projekterloes', counterparty: 'Gruber Maschinenbau GmbH', status: 'gebucht' },
+  { id: 'bt1', date: '2026-02-24', description: 'Eingang Gruber Maschinenbau — Abschlag 3', amount: 16000, type: 'eingang', category: 'Projekterlös', counterparty: 'Gruber Maschinenbau GmbH', status: 'gebucht' },
   { id: 'bt2', date: '2026-02-23', description: 'CloudFirst Hosting — Monatsrechnung Feb', amount: -1890, type: 'ausgang', category: 'Hosting', counterparty: 'CloudFirst Hosting GmbH', status: 'gebucht' },
-  { id: 'bt3', date: '2026-02-22', description: 'Eingang DataFlow — Analytics Dashboard', amount: 14000, type: 'eingang', category: 'Projekterloes', counterparty: 'DataFlow GmbH', status: 'gebucht' },
+  { id: 'bt3', date: '2026-02-22', description: 'Eingang DataFlow — Analytics Dashboard', amount: 14000, type: 'eingang', category: 'Projekterlös', counterparty: 'DataFlow GmbH', status: 'gebucht' },
   { id: 'bt4', date: '2026-02-21', description: 'Gehälter Februar 2026', amount: -78500, type: 'ausgang', category: 'Gehälter', counterparty: 'Sammelüberweisung', status: 'gebucht' },
   { id: 'bt5', date: '2026-02-20', description: 'Büromiete Leopoldstrasse', amount: -4200, type: 'ausgang', category: 'Miete', counterparty: 'Bayerische Hausverwaltung', status: 'gebucht' },
-  { id: 'bt6', date: '2026-02-19', description: 'Eingang Stadler Bau — Intranet Portal', amount: 21000, type: 'eingang', category: 'Projekterloes', counterparty: 'Stadler Bauunternehmen GmbH', status: 'gebucht' },
+  { id: 'bt6', date: '2026-02-19', description: 'Eingang Stadler Bau — Intranet Portal', amount: 21000, type: 'eingang', category: 'Projekterlös', counterparty: 'Stadler Bauunternehmen GmbH', status: 'gebucht' },
   { id: 'bt7', date: '2026-02-18', description: 'Adobe Creative Cloud — Jahresrechnung', amount: -4188, type: 'ausgang', category: 'Software-Lizenzen', counterparty: 'Adobe Inc.', status: 'gebucht' },
-  { id: 'bt8', date: '2026-02-25', description: 'Eingang Berger — Mobile App Anzahlung', amount: 20000, type: 'eingang', category: 'Projekterloes', counterparty: 'Berger & Soehne', status: 'ausstehend' },
+  { id: 'bt8', date: '2026-02-25', description: 'Eingang Berger — Mobile App Anzahlung', amount: 20000, type: 'eingang', category: 'Projekterlös', counterparty: 'Berger & Söhne', status: 'ausstehend' },
   { id: 'bt9', date: '2026-02-26', description: 'DATEV Lizenzgebühr Q1/2026', amount: -890, type: 'ausgang', category: 'Software-Lizenzen', counterparty: 'DATEV eG', status: 'ausstehend' },
 ]
 

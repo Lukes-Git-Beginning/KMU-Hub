@@ -221,7 +221,7 @@ export function OnlyOfficeEditor({
           {showTokenWarning && (
             <div className="flex items-center gap-1.5 rounded-md bg-warning/10 px-3 py-1.5 text-xs text-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
-              <span>Sitzung laeuft bald ab. Änderungen speichern.</span>
+              <span>Sitzung läuft bald ab. Änderungen speichern.</span>
             </div>
           )}
 
@@ -231,7 +231,7 @@ export function OnlyOfficeEditor({
             onClick={handleClose}
           >
             <X className="mr-1.5 h-4 w-4" />
-            Schliessen
+            Schließen
           </Button>
         </div>
       </div>

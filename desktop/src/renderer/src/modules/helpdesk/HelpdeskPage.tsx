@@ -147,10 +147,10 @@ function getThread(ticketId: string): ThreadMessage[] {
 // ---------------------------------------------------------------------------
 
 const KB_BODIES: Record<string, string> = {
-  'kb-1': `Schritt 1: Laden Sie den Cisco AnyConnect Client von unserem Self-Service Portal herunter.\n\nSchritt 2: Installieren Sie den Client und starten Sie ihn. Geben Sie als Server-Adresse "vpn.firma.ch" ein.\n\nSchritt 3: Melden Sie sich mit Ihren Active-Directory Zugangsdaten an (gleiche wie Windows-Login). Bei der ersten Verbindung muessen Sie das Zertifikat akzeptieren.\n\nBei Problemen kontaktieren Sie bitte den Helpdesk unter Ticket-Kategorie "Netzwerk".`,
-  'kb-2': `Netzwerkdrucker unter Windows hinzufügen:\n\n1. Öffnen Sie die Windows-Einstellungen → Geräte → Drucker und Scanner.\n2. Klicken Sie auf "Drucker oder Scanner hinzufügen".\n3. Falls der Drucker nicht automatisch gefunden wird, klicken Sie auf "Der gewünschte Drucker ist nicht aufgelistet".\n4. Wählen Sie "Freigegebenen Drucker ueber den Namen auswählen" und geben Sie den Pfad ein (z.B. \\\\printserver\\HP-2OG).\n\nTreiber werden automatisch installiert. Bei macOS verwenden Sie das Druckdienstprogramm unter Systemeinstellungen.`,
-  'kb-3': `Passwort-Reset ueber Self-Service Portal:\n\nBesuchen Sie https://password.firma.ch und melden Sie sich mit Ihrem Benutzernamen an. Sie erhalten einen Bestaetigungscode per SMS.\n\nGeben Sie den Code ein und setzen Sie ein neues Passwort. Das Passwort muss mindestens 12 Zeichen lang sein.\n\nNach dem Reset muessen Sie sich auf allen Geräten neu anmelden.`,
-  'kb-4': `E-Mail Signatur einrichten:\n\nVerwenden Sie die offizielle Vorlage aus dem Intranet unter "Vorlagen → E-Mail Signatur". Kopieren Sie den HTML-Code und fuegen Sie ihn in Outlook unter Datei → Optionen → E-Mail → Signaturen ein.\n\nBitte achten Sie auf die korrekte Schreibweise.`,
+  'kb-1': `Schritt 1: Laden Sie den Cisco AnyConnect Client von unserem Self-Service Portal herunter.\n\nSchritt 2: Installieren Sie den Client und starten Sie ihn. Geben Sie als Server-Adresse "vpn.firma.de" ein.\n\nSchritt 3: Melden Sie sich mit Ihren Active-Directory Zugangsdaten an (gleiche wie Windows-Login). Bei der ersten Verbindung müssen Sie das Zertifikat akzeptieren.\n\nBei Problemen kontaktieren Sie bitte den Helpdesk unter Ticket-Kategorie "Netzwerk".`,
+  'kb-2': `Netzwerkdrucker unter Windows hinzufügen:\n\n1. Öffnen Sie die Windows-Einstellungen → Geräte → Drucker und Scanner.\n2. Klicken Sie auf "Drucker oder Scanner hinzufügen".\n3. Falls der Drucker nicht automatisch gefunden wird, klicken Sie auf "Der gewünschte Drucker ist nicht aufgelistet".\n4. Wählen Sie "Freigegebenen Drucker über den Namen auswählen" und geben Sie den Pfad ein (z.B. \\\\printserver\\HP-2OG).\n\nTreiber werden automatisch installiert. Bei macOS verwenden Sie das Druckdienstprogramm unter Systemeinstellungen.`,
+  'kb-3': `Passwort-Reset über Self-Service Portal:\n\nBesuchen Sie https://password.firma.de und melden Sie sich mit Ihrem Benutzernamen an. Sie erhalten einen Bestätigungscode per SMS.\n\nGeben Sie den Code ein und setzen Sie ein neues Passwort. Das Passwort muss mindestens 12 Zeichen lang sein.\n\nNach dem Reset müssen Sie sich auf allen Geräten neu anmelden.`,
+  'kb-4': `E-Mail Signatur einrichten:\n\nVerwenden Sie die offizielle Vorlage aus dem Intranet unter "Vorlagen → E-Mail Signatur". Kopieren Sie den HTML-Code und fügen Sie ihn in Outlook unter Datei → Optionen → E-Mail → Signaturen ein.\n\nBitte achten Sie auf die korrekte Schreibweise.`,
   'kb-5': `Home-Office IT-Checkliste:\n\n- VPN-Zugang eingerichtet und getestet\n- Softphone oder Rufweiterleitung konfiguriert\n- Laptop mit aktuellem Betriebssystem und Virenscanner\n- Stabile Internetverbindung (mind. 20 Mbit/s empfohlen)\n- Bildschirmsperre aktiviert (max. 5 Min. Timeout)\n- Keine vertraulichen Dokumente ausdrucken\n\nBei Fragen wenden Sie sich an den Helpdesk.`,
 }
 
@@ -234,7 +234,7 @@ export default function HelpdeskPage() {
   }
 
   const handleStatusChange = (newStatus: TicketType['status']) => {
-    if (selectedTicket) toast.info(`Status geaendert: ${statusLabels[newStatus]}`)
+    if (selectedTicket) toast.info(`Status geändert: ${statusLabels[newStatus]}`)
   }
 
   const handleTicketRowClick = (id: string) => {
@@ -674,11 +674,11 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
     setAISuggestionLoading(true)
     setTimeout(() => {
       const suggestions: Record<string, string> = {
-        'tk-1': 'Guten Tag,\n\nder Drucker im 2. OG wurde erfolgreich neu konfiguriert. Bitte testen Sie den Druckvorgang erneut. Falls das Problem weiterhin besteht, prüfen Sie bitte die Netzwerkverbindung des Druckers (Kabel am Port 3 im Patchfeld).\n\nBei weiteren Fragen stehe ich Ihnen gerne zur Verfuegung.',
-        'tk-2': 'Hallo,\n\nbasierend auf den Logs liegt das Problem an einem veralteten VPN-Profil. Bitte fuehren Sie folgende Schritte aus:\n\n1. Öffnen Sie AnyConnect → Einstellungen → Profile\n2. Löschen Sie das bestehende Profil "Firma-VPN"\n3. Verbinden Sie sich erneut mit vpn.firma.ch\n\nDas neue Profil wird automatisch heruntergeladen.',
+        'tk-1': 'Guten Tag,\n\nder Drucker im 2. OG wurde erfolgreich neu konfiguriert. Bitte testen Sie den Druckvorgang erneut. Falls das Problem weiterhin besteht, prüfen Sie bitte die Netzwerkverbindung des Druckers (Kabel am Port 3 im Patchfeld).\n\nBei weiteren Fragen stehe ich Ihnen gerne zur Verfügung.',
+        'tk-2': 'Hallo,\n\nbasierend auf den Logs liegt das Problem an einem veralteten VPN-Profil. Bitte führen Sie folgende Schritte aus:\n\n1. Öffnen Sie AnyConnect → Einstellungen → Profile\n2. Löschen Sie das bestehende Profil "Firma-VPN"\n3. Verbinden Sie sich erneut mit vpn.firma.de\n\nDas neue Profil wird automatisch heruntergeladen.',
         'tk-3': 'Hallo,\n\nalle Zugänge für den neuen Mitarbeiter wurden eingerichtet:\n\n- Active Directory Konto\n- E-Mail-Konto\n- ERP-Zugang: Standardrolle\n- Zeiterfassung: Profil angelegt\n\nDie Zugangsdaten werden am ersten Arbeitstag persönlich übergeben.',
       }
-      const suggestion = suggestions[ticket.id] ?? 'Vielen Dank für Ihre Anfrage. Wir haben Ihr Anliegen geprüft und arbeiten an einer Loesung. Wir melden uns kurzfristig mit weiteren Informationen.\n\nMit freundlichen Grüßen'
+      const suggestion = suggestions[ticket.id] ?? 'Vielen Dank für Ihre Anfrage. Wir haben Ihr Anliegen geprüft und arbeiten an einer Lösung. Wir melden uns kurzfristig mit weiteren Informationen.\n\nMit freundlichen Grüßen'
       onReplyChange(suggestion)
       setAISuggestionLoading(false)
       useAIStore.getState().addActivityLog({

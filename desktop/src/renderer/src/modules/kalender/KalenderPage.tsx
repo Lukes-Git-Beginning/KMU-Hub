@@ -1813,7 +1813,7 @@ function WeekView({
         newEndMin = Math.max(origStartMin + 15, Math.min(END_HOUR * 60, newEndMin))
         const newEndTime = minutesToTime(newEndMin)
         onUpdateEvent(dragState.eventId, { endTime: newEndTime })
-        toast.success(`Dauer geaendert bis ${newEndTime}`)
+        toast.success(`Dauer geändert bis ${newEndTime}`)
       }
       setDragState(null)
     }
@@ -2140,7 +2140,7 @@ function DayView({
         newEndMin = Math.max(origStartMin + 15, Math.min(END_HOUR * 60, newEndMin))
         const newEndTime = minutesToTime(newEndMin)
         onUpdateEvent(dragState.eventId, { endTime: newEndTime })
-        toast.success(`Dauer geaendert bis ${newEndTime}`)
+        toast.success(`Dauer geändert bis ${newEndTime}`)
       }
       setDragState(null)
     }

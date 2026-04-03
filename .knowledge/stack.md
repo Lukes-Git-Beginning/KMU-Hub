@@ -8,7 +8,7 @@ updated: 2026-03-05
 - **Deutschland-First**: EUR default, 19%/7% MWSt, de-DE locale for beta
 - **Payroll anti-feature**: NEVER built, integration only (Bexio/Lexware)
 - **Collabora replaces OnlyOffice** (MPL 2.0 safer than AGPL)
-- **3-tier pricing**: Starter, Business (+TipTap), Enterprise (+WebDAV)
+- **Modul-x-User pricing**: Kein fixes Tier-System, 23 Module (2-7 EUR/User/Mo), Branchenpakete mit 15% Rabatt — siehe [[pricing]]
 - **"Kommunikation" module** = frontend name for Unified Inbox
 - **Industry modules** = Phase 20 plugin candidates, NOT core
 - **Scope rename**: buchhaltung -> finanzen (invoices, quotes, dunning, DATEV only)

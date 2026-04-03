@@ -20,7 +20,7 @@ interface RetentionEntry {
 
 const COUNTRY_LABELS: Record<Country, string> = {
   de: 'Deutschland',
-  at: 'Oesterreich',
+  at: 'Österreich',
   ch: 'Schweiz',
 }
 
@@ -35,9 +35,9 @@ const RETENTION_DATA: Record<Country, RetentionEntry[]> = {
     { type: 'Rechnungen (eingehend/ausgehend)', period: '10 Jahre', basis: '\u00A7 147 AO, \u00A7 14b UStG', status: 'aktiv' },
     { type: 'Jahresabschluesse', period: '10 Jahre', basis: '\u00A7 257 HGB', status: 'aktiv' },
     { type: 'Buchungsbelege', period: '10 Jahre', basis: '\u00A7 147 AO', status: 'aktiv' },
-    { type: 'Geschaeftsbriefe (empfangen/gesendet)', period: '6 Jahre', basis: '\u00A7 257 HGB', status: 'aktiv' },
+    { type: 'Geschäftsbriefe (empfangen/gesendet)', period: '6 Jahre', basis: '\u00A7 257 HGB', status: 'aktiv' },
     { type: 'Verträge', period: '10 Jahre nach Ende', basis: '\u00A7 147 AO', status: 'aktiv' },
-    { type: 'E-Mails (geschaeftlich)', period: '6\u201310 Jahre', basis: 'GoBD', status: 'aktiv' },
+    { type: 'E-Mails (geschäftlich)', period: '6\u201310 Jahre', basis: 'GoBD', status: 'aktiv' },
     { type: 'Personalakten', period: '3 Jahre nach Austritt', basis: '\u00A7 195 BGB', status: 'aktiv' },
     { type: 'Bewerbungsunterlagen (abgelehnt)', period: '6 Monate', basis: 'AGG', status: 'aktiv' },
     { type: 'Arbeitszeitnachweise', period: '2 Jahre', basis: '\u00A7 16 ArbZG', status: 'aktiv' },
@@ -48,9 +48,9 @@ const RETENTION_DATA: Record<Country, RetentionEntry[]> = {
   at: [
     { type: 'Rechnungen / Buchungsbelege', period: '7 Jahre', basis: '\u00A7 132 BAO', status: 'aktiv' },
     { type: 'Jahresabschluesse', period: '7 Jahre', basis: '\u00A7 212 UGB', status: 'aktiv' },
-    { type: 'Geschaeftsbriefe', period: '7 Jahre', basis: '\u00A7 212 UGB', status: 'aktiv' },
+    { type: 'Geschäftsbriefe', period: '7 Jahre', basis: '\u00A7 212 UGB', status: 'aktiv' },
     { type: 'Verträge', period: '7 Jahre nach Ende', basis: '\u00A7 132 BAO', status: 'aktiv' },
-    { type: 'E-Mails (geschaeftlich)', period: '7 Jahre', basis: 'BAO', status: 'aktiv' },
+    { type: 'E-Mails (geschäftlich)', period: '7 Jahre', basis: 'BAO', status: 'aktiv' },
     { type: 'Personalakten', period: '3 Jahre nach Austritt', basis: 'ABGB', status: 'aktiv' },
     { type: 'Arbeitszeitnachweise', period: '2 Jahre', basis: 'AZG', status: 'aktiv' },
     { type: 'DSGVO-Einwilligungen', period: 'Bis Widerruf + 3 Jahre', basis: 'Art. 7 DSGVO', status: 'aktiv' },
@@ -58,9 +58,9 @@ const RETENTION_DATA: Record<Country, RetentionEntry[]> = {
   ch: [
     { type: 'Rechnungen / Buchungsbelege', period: '10 Jahre', basis: 'Art. 958f OR', status: 'aktiv' },
     { type: 'Jahresabschluesse', period: '10 Jahre', basis: 'Art. 958f OR', status: 'aktiv' },
-    { type: 'Geschaeftsbriefe', period: '10 Jahre', basis: 'Art. 962 OR', status: 'aktiv' },
+    { type: 'Geschäftsbriefe', period: '10 Jahre', basis: 'Art. 962 OR', status: 'aktiv' },
     { type: 'Verträge', period: '10 Jahre nach Ende', basis: 'Art. 127 OR', status: 'aktiv' },
-    { type: 'E-Mails (geschaeftlich)', period: '10 Jahre', basis: 'GeBueV', status: 'aktiv' },
+    { type: 'E-Mails (geschäftlich)', period: '10 Jahre', basis: 'GeBüV', status: 'aktiv' },
     { type: 'Personalakten', period: '5 Jahre nach Austritt', basis: 'Art. 128a OR', status: 'aktiv' },
     { type: 'Arbeitszeitnachweise', period: '5 Jahre', basis: 'ArG', status: 'aktiv' },
     { type: 'AHV/BVG-Unterlagen', period: '10 Jahre', basis: 'AHVG/BVG', status: 'aktiv' },

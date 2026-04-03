@@ -75,8 +75,8 @@ const standardConfig: Record<
 const profileDescriptions: Record<ZUGFeRDProfile, string> = {
   MINIMUM: 'Minimale strukturierte Daten — nur Rechnungskopf',
   BASIC: 'Grundlegende Rechnungsdaten — Positionen ohne Details',
-  COMFORT: 'Erweiterte Daten — vollstaendige Positionen + Steuerdetails',
-  EXTENDED: 'Maximale Details — Liefer-/Leistungsdaten, Rabatte, Zuschlaege',
+  COMFORT: 'Erweiterte Daten — vollständige Positionen + Steuerdetails',
+  EXTENDED: 'Maximale Details — Liefer-/Leistungsdaten, Rabatte, Zuschläge',
 }
 
 // ---------------------------------------------------------------------------

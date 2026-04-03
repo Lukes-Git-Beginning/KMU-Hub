@@ -28,6 +28,9 @@ updated: 2026-04-01
 
 ## Notes
 
+### Business
+- [[pricing]] — Modul-x-User Preismodell (COSMI + ORBIT), Branchenpakete, Support-Stufen
+
 ### Kern
 - [[architektur]] — Go Microservices, Frontend, Auth, CI/CD
 - [[stack]] — Tech-Stack Entscheidungen und Strategy

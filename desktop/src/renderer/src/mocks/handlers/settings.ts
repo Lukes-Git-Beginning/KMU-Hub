@@ -12,10 +12,10 @@ const integrationConfigs = [
   { id: 'int-lexware', name: 'Lexware', type: 'accounting', status: 'disconnected', icon: 'lexware', description: 'Deutsche Buchhaltung & Lohn — DATEV-Export, Rechnungsimport.' },
   { id: 'int-datev', name: 'DATEV', type: 'accounting', status: 'disconnected', icon: 'datev', description: 'Buchungsdaten an den Steuerberater übermitteln.' },
   { id: 'int-caldav', name: 'CalDAV', type: 'calendar', status: 'disabled', icon: 'calendar', description: 'Kalender-Synchronisation mit externen Anbietern (Google, Outlook, Nextcloud).' },
-  { id: 'int-carddav', name: 'CardDAV', type: 'contacts', status: 'disabled', icon: 'contacts', description: 'Kontakt-Synchronisation mit externen Adressbuechern.' },
+  { id: 'int-carddav', name: 'CardDAV', type: 'contacts', status: 'disabled', icon: 'contacts', description: 'Kontakt-Synchronisation mit externen Adressbüchern.' },
   { id: 'int-slack', name: 'Slack', type: 'messaging', status: 'disconnected', icon: 'slack', description: 'Benachrichtigungen und Aktionen in Slack-Channels.' },
   { id: 'int-teams', name: 'Microsoft Teams', type: 'messaging', status: 'disconnected', icon: 'teams', description: 'Meetings und Benachrichtigungen via Teams.' },
-  { id: 'int-smtp', name: 'E-Mail (SMTP)', type: 'email', status: 'disconnected', icon: 'mail', description: 'Ausgehende E-Mails ueber eigenen Mailserver versenden.' },
+  { id: 'int-smtp', name: 'E-Mail (SMTP)', type: 'email', status: 'disconnected', icon: 'mail', description: 'Ausgehende E-Mails über eigenen Mailserver versenden.' },
   { id: 'int-imap', name: 'E-Mail (IMAP)', type: 'email', status: 'disconnected', icon: 'mail', description: 'E-Mail-Postfach einbinden und synchronisieren.' },
 ]
 

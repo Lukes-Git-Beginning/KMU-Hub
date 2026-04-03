@@ -33,7 +33,7 @@ const ALL_MODULES: ModuleConfig[] = [
   { id: 'tasks', name: 'Aufgabenverwaltung', description: 'To-Dos, Deadlines & Team-Zuweisungen', path: '/work/my-tasks', stats: { label: 'Offene Aufgaben', value: 142 }, isActive: true },
   { id: 'documents', name: 'Dokumentenmanagement', description: 'Zentrale Ablage mit Versionierung', path: '/dokumente', stats: { label: 'Dokumente', value: 89 }, isActive: true },
   { id: 'finance', name: 'Finanzen', description: 'Rechnungen, Angebote & DATEV-Export', path: '/finanzen', stats: { label: 'Rechnungen', value: 18 }, isActive: true, badge: 'Neu' },
-  { id: 'chat', name: 'Kommunikation', description: 'Team-Chat & Channels', path: '/chat', stats: { label: 'Neue Nachrichten', value: 37 }, isActive: true },
+  { id: 'chat', name: 'Team Chat', description: 'Team-Chat & Channels', path: '/chat', stats: { label: 'Neue Nachrichten', value: 37 }, isActive: true },
   { id: 'crm', name: 'Team & CRM', description: 'Mitarbeiterverwaltung & Kontakte', path: '/crm', stats: { label: 'Team-Mitglieder', value: 12 }, isActive: true },
   { id: 'inventar', name: 'Inventar', description: 'Lagerverwaltung mit Barcode-Scanning', path: '/inventar', stats: { label: 'Artikel', value: 245 }, isActive: true },
   { id: 'schichten', name: 'Schichtplanung', description: 'Wochenpläne, Vorlagen & Tausch-Anfragen', path: '/schichten', stats: { label: 'Diese Woche', value: 32 }, isActive: true },

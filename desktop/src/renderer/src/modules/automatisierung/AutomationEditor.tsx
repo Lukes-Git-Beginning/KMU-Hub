@@ -338,7 +338,7 @@ function EditorInner({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
           >
-            Schliessen
+            Schließen
           </button>
         </div>
       </div>

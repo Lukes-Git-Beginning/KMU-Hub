@@ -112,15 +112,11 @@ Verbindung: "An Kollege weiterleiten" (Kommunikation → Chat), "Ticket erstelle
 
 ## Preismodell
 
-| Tier | Preis/User/Mo | Enthalten |
-|------|--------------|-----------|
-| Starter | 12 EUR | Kernmodule, 25 GB, Basis-Video (Zoom), lokales Office oeffnen |
-| Business | 19 EUR | + TipTap Rich-Text (Wiki/Mail), LiveKit Video, Newsletter |
-| Enterprise | 25 EUR | + Collabora Online (Word/Excel/PPT im Browser), Banking, SSO, SLA, 500 GB |
-
-- Hosting kostet uns ~2 EUR/Kunde/Mo → **97%+ Bruttomarge**
-- **Break-Even: ~37 Kunden**
-- 15 User Business = 285 EUR/Mo (vs. Pipedrive+Clockodo+Freshdesk = 627 EUR)
+> **VERALTET** — Dieses Dokument stammt von Feb 2026. Das aktuelle Preismodell (April 2026) ist ein
+> Modul-x-User-System ohne feste Tiers. Siehe `.knowledge/pricing.md` fuer die kanonische Referenz.
+>
+> Kurzfassung: 23 Module (2-7 EUR/User/Mo), frei kombinierbar, Branchenpakete mit 15% Rabatt,
+> Volumen-Rabatt ab 10 User, ORBIT (Self-Hosted) mit 20% Modulrabatt.
 
 ---
 

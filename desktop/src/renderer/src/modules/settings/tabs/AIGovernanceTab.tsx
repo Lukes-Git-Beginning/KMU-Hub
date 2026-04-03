@@ -14,10 +14,10 @@ import { Switch } from '@/components/ui/switch'
 import { useAIStore } from '@/stores/ai'
 
 const MODULE_CONFIG = [
-  { key: 'email', label: 'E-Mail-Entwuerfe', description: 'KI-generierte Antwortvorschlaege im E-Mail-Composer', icon: Mail },
+  { key: 'email', label: 'E-Mail-Entwürfe', description: 'KI-generierte Antwortvorschläge im E-Mail-Composer', icon: Mail },
   { key: 'meetings', label: 'Meeting-Zusammenfassungen', description: 'Automatische Zusammenfassung von Meeting-Notizen', icon: MessageSquare },
-  { key: 'helpdesk', label: 'Ticket-Antwortvorschlaege', description: 'KI-basierte Antwortvorschlaege für Helpdesk-Tickets', icon: Headphones },
-  { key: 'search', label: 'Semantische Suche', description: 'Natuerlichsprachliche Suche ueber alle Module', icon: Search },
+  { key: 'helpdesk', label: 'Ticket-Antwortvorschläge', description: 'KI-basierte Antwortvorschläge für Helpdesk-Tickets', icon: Headphones },
+  { key: 'search', label: 'Semantische Suche', description: 'Natürlichsprachliche Suche über alle Module', icon: Search },
   { key: 'docs', label: 'Dokument-Klassifizierung', description: 'Automatische Einstufung als öffentlich/intern/vertraulich', icon: FileText },
 ] as const
 

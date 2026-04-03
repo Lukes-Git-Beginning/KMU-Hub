@@ -58,7 +58,7 @@ describe('ContactFormDialog', () => {
         initialData={{
           firstName: 'Anna',
           lastName: 'Beispiel',
-          email: 'anna@firma.ch',
+          email: 'anna@firma.de',
         }}
       />,
     )
@@ -66,7 +66,7 @@ describe('ContactFormDialog', () => {
     expect(screen.getByText('Kontakt bearbeiten')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Max')).toHaveValue('Anna')
     expect(screen.getByPlaceholderText('Muster')).toHaveValue('Beispiel')
-    expect(screen.getByPlaceholderText('max@firma.ch')).toHaveValue('anna@firma.ch')
+    expect(screen.getByPlaceholderText('max@firma.de')).toHaveValue('anna@firma.de')
   })
 
   it('submits new contact with filled fields', async () => {
@@ -81,7 +81,7 @@ describe('ContactFormDialog', () => {
 
     await user.type(screen.getByPlaceholderText('Max'), 'Peter')
     await user.type(screen.getByPlaceholderText('Muster'), 'Meier')
-    await user.type(screen.getByPlaceholderText('max@firma.ch'), 'peter@meier.ch')
+    await user.type(screen.getByPlaceholderText('max@firma.de'), 'peter@meier.de')
 
     await user.click(screen.getByRole('button', { name: 'Erstellen' }))
 
@@ -89,7 +89,7 @@ describe('ContactFormDialog', () => {
     const submitted = onSubmit.mock.calls[0][0] as ContactFormData
     expect(submitted.firstName).toBe('Peter')
     expect(submitted.lastName).toBe('Meier')
-    expect(submitted.email).toBe('peter@meier.ch')
+    expect(submitted.email).toBe('peter@meier.de')
   })
 
   it('prevents submission without required fields', async () => {
@@ -140,7 +140,7 @@ describe('Contact API integration', () => {
       body: JSON.stringify({
         first_name: 'Neu',
         last_name: 'Kontakt',
-        email: 'neu@firma.ch',
+        email: 'neu@firma.de',
       }),
     })
 

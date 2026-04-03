@@ -24,7 +24,7 @@ export function CompanySettingsTab() {
   const [street, setStreet] = useState('')
   const [plz, setPlz] = useState('')
   const [city, setCity] = useState('')
-  const [country, setCountry] = useState('CH')
+  const [country, setCountry] = useState('DE')
 
   // --- Steuer & Recht ---
   const [steuernummer, setSteuernummer] = useState('')
@@ -51,7 +51,7 @@ export function CompanySettingsTab() {
     setStreet(settings.street ?? '')
     setPlz(settings.plz ?? '')
     setCity(settings.city ?? '')
-    setCountry(settings.country ?? 'CH')
+    setCountry(settings.country ?? 'DE')
     setSteuernummer(settings.steuernummer ?? '')
     setUstIdNr(settings.ust_id_nr ?? '')
     setHandelsregister(settings.handelsregister ?? '')
@@ -132,21 +132,21 @@ export function CompanySettingsTab() {
           </div>
           <div className="space-y-1.5">
             <Label>Strasse</Label>
-            <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Bahnhofstrasse 42" />
+            <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Musterstraße 42" />
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-3">
             <div className="space-y-1.5">
               <Label>PLZ</Label>
-              <Input value={plz} onChange={(e) => setPlz(e.target.value)} placeholder="8001" />
+              <Input value={plz} onChange={(e) => setPlz(e.target.value)} placeholder="10115" />
             </div>
             <div className="space-y-1.5">
               <Label>Ort</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Zürich" />
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Berlin" />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label>Land</Label>
-            <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="CH" />
+            <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="DE" />
           </div>
         </div>
         <Button onClick={handleSaveCompany} className="mt-4" size="sm" disabled={updateMutation.isPending}>
@@ -178,7 +178,7 @@ export function CompanySettingsTab() {
             <Input
               value={ustIdNr}
               onChange={(e) => setUstIdNr(e.target.value)}
-              placeholder="CHE-123.456.789 MWST"
+              placeholder="DE123456789"
               className="font-mono text-xs"
             />
           </div>
@@ -187,7 +187,7 @@ export function CompanySettingsTab() {
             <Input
               value={handelsregister}
               onChange={(e) => setHandelsregister(e.target.value)}
-              placeholder="HRB 12345, Amtsgericht Zürich"
+              placeholder="HRB 12345, Amtsgericht Berlin"
             />
           </div>
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
@@ -215,16 +215,16 @@ export function CompanySettingsTab() {
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Bank</Label>
-            <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Zuercher Kantonalbank" />
+            <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Deutsche Bank" />
           </div>
           <div className="grid grid-cols-[1fr_150px] gap-3">
             <div className="space-y-1.5">
               <Label>IBAN</Label>
-              <Input value={iban} onChange={(e) => setIban(e.target.value)} className="font-mono text-xs" placeholder="CH93 0070 0110 0000 5000 6" />
+              <Input value={iban} onChange={(e) => setIban(e.target.value)} className="font-mono text-xs" placeholder="DE89 3704 0044 0532 0130 00" />
             </div>
             <div className="space-y-1.5">
               <Label>BIC/SWIFT</Label>
-              <Input value={bic} onChange={(e) => setBic(e.target.value)} className="font-mono text-xs" placeholder="ZKBKCHZZ80A" />
+              <Input value={bic} onChange={(e) => setBic(e.target.value)} className="font-mono text-xs" placeholder="COBADEFFXXX" />
             </div>
           </div>
         </div>
@@ -245,7 +245,7 @@ export function CompanySettingsTab() {
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Logo-URL</Label>
-            <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://firma.ch/logo.png" />
+            <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://firma.de/logo.png" />
           </div>
           <div className="space-y-1.5">
             <Label>Akzentfarbe</Label>

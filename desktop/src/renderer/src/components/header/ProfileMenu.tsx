@@ -157,13 +157,13 @@ export function ProfileMenu() {
               </button>
 
               <button
-                onClick={() => toast.info('Tastaturkuerzel: Ctrl+K (Suche), Ctrl+N (Neu), Ctrl+, (Einstellungen), Esc (Schliessen)')}
+                onClick={() => toast.info('Tastaturkürzel: Ctrl+K (Suche), Ctrl+N (Neu), Ctrl+, (Einstellungen), Esc (Schließen)')}
                 className="w-full flex items-center gap-3 px-3 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10">
                   <Keyboard className="h-4 w-4 text-warning-foreground" />
                 </div>
-                <span className="text-sm">Tastaturkuerzel</span>
+                <span className="text-sm">Tastaturkürzel</span>
               </button>
 
               {/* Divider */}

@@ -376,7 +376,7 @@ export function GlobalSearchDialog() {
           </span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">esc</kbd>
-            Schliessen
+            Schließen
           </span>
         </div>
       </DialogContent>

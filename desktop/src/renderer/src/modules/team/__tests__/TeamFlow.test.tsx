@@ -22,8 +22,8 @@ vi.mock('@/api/hooks/hr-hooks', () => ({
   useEmployees: () => ({
     data: {
       employees: [
-        { id: 'emp-001', firstName: 'Anna', lastName: 'Beispiel', email: 'anna@firma.ch', department: 'Engineering' },
-        { id: 'emp-002', firstName: 'Hans', lastName: 'Test', email: 'hans@firma.ch', department: 'Marketing' },
+        { id: 'emp-001', firstName: 'Anna', lastName: 'Beispiel', email: 'anna@firma.de', department: 'Engineering' },
+        { id: 'emp-002', firstName: 'Hans', lastName: 'Test', email: 'hans@firma.de', department: 'Marketing' },
       ],
       total: 2,
     },
@@ -72,7 +72,7 @@ describe('InviteMemberDialog', () => {
     expect(screen.getByText('Mitglied einladen')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Vorname')).toHaveValue('')
     expect(screen.getByPlaceholderText('Nachname')).toHaveValue('')
-    expect(screen.getByPlaceholderText('email@firma.ch')).toHaveValue('')
+    expect(screen.getByPlaceholderText('email@firma.de')).toHaveValue('')
   })
 
   it('submits invite with required fields', async () => {
@@ -83,7 +83,7 @@ describe('InviteMemberDialog', () => {
 
     await user.type(screen.getByPlaceholderText('Vorname'), 'Peter')
     await user.type(screen.getByPlaceholderText('Nachname'), 'Müller')
-    await user.type(screen.getByPlaceholderText('email@firma.ch'), 'peter@firma.ch')
+    await user.type(screen.getByPlaceholderText('email@firma.de'), 'peter@firma.de')
 
     await user.click(screen.getByRole('button', { name: 'Einladung senden' }))
 
@@ -91,7 +91,7 @@ describe('InviteMemberDialog', () => {
     const callArgs = mockMutate.mock.calls[0][0]
     expect(callArgs.firstName).toBe('Peter')
     expect(callArgs.lastName).toBe('Müller')
-    expect(callArgs.email).toBe('peter@firma.ch')
+    expect(callArgs.email).toBe('peter@firma.de')
   })
 
   it('disables submit without required fields', () => {

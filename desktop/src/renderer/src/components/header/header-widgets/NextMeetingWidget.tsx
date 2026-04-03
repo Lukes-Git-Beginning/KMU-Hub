@@ -1,7 +1,9 @@
 /**
  * Header mini-widget — shows the next upcoming meeting.
+ * Clicking navigates to the calendar.
  */
 import { Calendar, Clock } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import {
   Tooltip,
   TooltipContent,
@@ -15,10 +17,15 @@ const MOCK_NEXT = {
 }
 
 export function NextMeetingWidget() {
+  const navigate = useNavigate()
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs hover:bg-accent transition-colors">
+        <button
+          onClick={() => navigate('/kalender')}
+          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs hover:bg-accent transition-colors"
+        >
           <Calendar className="h-3.5 w-3.5 text-primary" />
           <span className="hidden md:inline text-muted-foreground font-medium max-w-[100px] truncate">
             {MOCK_NEXT.title}

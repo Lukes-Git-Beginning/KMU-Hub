@@ -58,7 +58,7 @@ export default function CompanyDetailPage() {
       street: addressParts[0] ?? '',
       zip: addressParts[1]?.split(' ')[0] ?? '',
       city: addressParts[1]?.split(' ').slice(1).join(' ') ?? '',
-      country: addressParts[2] ?? 'Schweiz',
+      country: addressParts[2] ?? 'Deutschland',
       size: (cf._size as string) ?? '',
       notes: company.notes ?? '',
       tags: (cf._tags as string[]) ?? [],

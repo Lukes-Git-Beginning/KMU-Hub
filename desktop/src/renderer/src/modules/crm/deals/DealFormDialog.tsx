@@ -38,8 +38,8 @@ const pipelineStages = [
 ]
 
 const currencies = [
-  { value: 'CHF', label: 'CHF (Schweizer Franken)' },
   { value: 'EUR', label: 'EUR (Euro)' },
+  { value: 'CHF', label: 'CHF (Schweizer Franken)' },
   { value: 'USD', label: 'USD (US-Dollar)' },
 ]
 
@@ -98,7 +98,7 @@ export function DealFormDialog({
 }: DealFormDialogProps) {
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
-  const [currency, setCurrency] = useState('CHF')
+  const [currency, setCurrency] = useState('EUR')
   const [stage, setStage] = useState('lead')
   const [priority, setPriority] = useState('normal')
   const [probability, setProbability] = useState('50')
@@ -114,7 +114,7 @@ export function DealFormDialog({
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from prop/API data
       setName(initialData.name ?? '')
       setValue(initialData.value != null ? String(initialData.value) : '')
-      setCurrency(initialData.currency ?? 'CHF')
+      setCurrency(initialData.currency ?? 'EUR')
       setStage(initialData.stage ?? 'lead')
       setPriority(initialData.priority ?? 'normal')
       setProbability(initialData.probability != null ? String(initialData.probability) : '50')
@@ -126,7 +126,7 @@ export function DealFormDialog({
     } else if (open) {
       setName('')
       setValue('')
-      setCurrency('CHF')
+      setCurrency('EUR')
       setStage(stagesProp?.[0]?.id ?? 'lead')
       setPriority('normal')
       setProbability(stagesProp?.[0]?.probability != null ? String(stagesProp[0].probability) : '50')

@@ -125,15 +125,15 @@ export default function ProjectCreateDialog({
       return
     }
     if (!key.trim() || key.length < 2) {
-      setError('Projektkuerzel muss mindestens 2 Zeichen lang sein.')
+      setError('Projektkürzel muss mindestens 2 Zeichen lang sein.')
       return
     }
     if (!/^[A-Z0-9]+$/.test(key)) {
-      setError('Projektkuerzel darf nur Grossbuchstaben und Zahlen enthalten.')
+      setError('Projektkürzel darf nur Grossbuchstaben und Zahlen enthalten.')
       return
     }
     if (statuses.some((s) => !s.name.trim())) {
-      setError('Alle Status muessen einen Namen haben.')
+      setError('Alle Status müssen einen Namen haben.')
       return
     }
 
@@ -177,7 +177,7 @@ export default function ProjectCreateDialog({
 
           {/* Key */}
           <div className="space-y-2">
-            <Label htmlFor="project-key">Projektkuerzel *</Label>
+            <Label htmlFor="project-key">Projektkürzel *</Label>
             <Input
               id="project-key"
               placeholder="z.B. WEB"

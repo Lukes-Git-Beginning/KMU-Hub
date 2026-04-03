@@ -162,7 +162,7 @@ export function RecipientField({
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={recipients.length === 0 ? 'Empfaenger...' : ''}
+            placeholder={recipients.length === 0 ? 'Empfänger...' : ''}
             className="flex-1 min-w-[120px] bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>

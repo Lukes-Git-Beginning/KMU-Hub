@@ -107,7 +107,7 @@ function parseCSV(text: string): ParsedContact[] {
       company: '',
       jobTitle: '',
       department: '',
-      address: { street: '', zip: '', city: '', country: 'Schweiz' },
+      address: { street: '', zip: '', city: '', country: 'Deutschland' },
       website: '',
       category: 'customer',
       status: 'active',

@@ -34,11 +34,11 @@ interface ChannelConfig {
 }
 
 const defaultChannels: ChannelConfig[] = [
-  { id: 'email', label: 'E-Mail', icon: Mail, color: 'text-blue-500', connected: true, account: 'info@firma.ch', lastSync: '2026-02-20T10:30:00' },
-  { id: 'teams', label: 'Microsoft Teams', icon: Users, color: 'text-violet-500', connected: true, account: 'Organisation: Firma AG', lastSync: '2026-02-20T10:28:00' },
+  { id: 'email', label: 'E-Mail', icon: Mail, color: 'text-blue-500', connected: true, account: 'info@firma.de', lastSync: '2026-02-20T10:30:00' },
+  { id: 'teams', label: 'Microsoft Teams', icon: Users, color: 'text-violet-500', connected: true, account: 'Organisation: Firma GmbH', lastSync: '2026-02-20T10:28:00' },
   { id: 'whatsapp', label: 'WhatsApp Business', icon: MessageCircle, color: 'text-green-500', connected: false },
-  { id: 'widget', label: 'Website-Widget', icon: Globe, color: 'text-orange-500', connected: true, account: 'firma.ch/chat', lastSync: '2026-02-20T10:25:00' },
-  { id: 'portal', label: 'Kundenportal', icon: Headphones, color: 'text-teal-500', connected: true, account: 'portal.firma.ch', lastSync: '2026-02-20T09:00:00' },
+  { id: 'widget', label: 'Website-Widget', icon: Globe, color: 'text-orange-500', connected: true, account: 'firma.de/chat', lastSync: '2026-02-20T10:25:00' },
+  { id: 'portal', label: 'Kundenportal', icon: Headphones, color: 'text-teal-500', connected: true, account: 'portal.firma.de', lastSync: '2026-02-20T09:00:00' },
 ]
 
 // ---------------------------------------------------------------------------

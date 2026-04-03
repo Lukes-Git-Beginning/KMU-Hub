@@ -55,7 +55,7 @@ export function backendContactToUI(c: BackendContact): Contact {
     company: c.companyName ?? '',
     jobTitle: extra._jobTitle ?? '',
     department: extra._department ?? '',
-    address: extra._address ?? { street: '', zip: '', city: '', country: 'Schweiz' },
+    address: extra._address ?? { street: '', zip: '', city: '', country: 'Deutschland' },
     website: extra._website ?? '',
     category: (extra._category as 'employee' | 'customer' | 'partner') ?? 'customer',
     status: (extra._status as 'active' | 'prospect' | 'inactive') ?? 'active',

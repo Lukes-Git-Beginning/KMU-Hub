@@ -412,7 +412,7 @@ export default function CommentThread({
                 : 'rounded-md'
             )}
             rows={2}
-            placeholder="Kommentar schreiben... (@erwaehnen, Shift+Enter für neue Zeile)"
+            placeholder="Kommentar schreiben... (@erwähnen, Shift+Enter für neue Zeile)"
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}

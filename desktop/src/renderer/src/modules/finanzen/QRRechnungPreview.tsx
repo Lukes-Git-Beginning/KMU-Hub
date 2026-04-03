@@ -166,7 +166,7 @@ function QRBillSlip({ data }: { data: QRBillData }) {
               </div>
 
               <div>
-                <p className="text-[8px] font-bold">Zusaetzliche Informationen</p>
+                <p className="text-[8px] font-bold">Zusätzliche Informationen</p>
                 <p className="text-[9px]">{data.additionalInfo}</p>
               </div>
 
@@ -275,7 +275,7 @@ export function QRRechnungPreview({
                 <span className="text-sm font-medium text-foreground">{data.currency} {data.amount}</span>
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-2 items-center">
-                <span className="text-[11px] text-muted-foreground">Empfaenger</span>
+                <span className="text-[11px] text-muted-foreground">Empfänger</span>
                 <span className="text-sm text-foreground">{data.creditorName}, {data.creditorZipCity}</span>
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-2 items-center">
@@ -309,7 +309,7 @@ export function QRRechnungPreview({
               className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <Check className="h-3.5 w-3.5" />
-              An Rechnung anfuegen
+              An Rechnung anfügen
             </button>
           </div>
         </div>

@@ -124,8 +124,8 @@ export const useSettingsStore = create<SettingsState>()(
       profile: {
         firstName: 'Darien',
         lastName: 'Morales',
-        email: 'darien@firma.ch',
-        phone: '+41 79 123 45 67',
+        email: 'darien@firma.de',
+        phone: '+49 170 123 45 67',
         position: 'UI/UX Designer',
         bio: 'Designer mit Leidenschaft für schöne und funktionale Interfaces.',
         avatarUrl: null,
@@ -139,7 +139,7 @@ export const useSettingsStore = create<SettingsState>()(
 
       language: {
         locale: 'de',
-        timezone: 'Europe/Zurich',
+        timezone: 'Europe/Berlin',
         dateFormat: 'DD.MM.YYYY',
       },
 
@@ -154,11 +154,11 @@ export const useSettingsStore = create<SettingsState>()(
       },
 
       mail: {
-        imapHost: 'imap.firma.ch',
+        imapHost: 'imap.firma.de',
         imapPort: 993,
-        smtpHost: 'smtp.firma.ch',
+        smtpHost: 'smtp.firma.de',
         smtpPort: 587,
-        username: 'darien@firma.ch',
+        username: 'darien@firma.de',
         signature: '<p>Mit freundlichen Grüßen<br/>Darien Morales<br/>UI/UX Designer</p>',
         autoReplyEnabled: false,
         autoReplyMessage: 'Vielen Dank für Ihre Nachricht. Ich bin derzeit nicht im Büro und werde mich nach meiner Rückkehr bei Ihnen melden.',
@@ -169,18 +169,18 @@ export const useSettingsStore = create<SettingsState>()(
         workStartHour: 8,
         workEndHour: 17,
         defaultReminder: 15,
-        holidayRegion: 'CH-ZH',
+        holidayRegion: 'DE-BY',
         weekStartsOn: 'monday',
       },
 
       finance: {
         companyName: 'Morales Design GmbH',
-        companyAddress: 'Bahnhofstrasse 42, 8001 Zürich',
-        bankName: 'Zuercher Kantonalbank',
-        iban: 'CH93 0070 0110 0000 5000 6',
-        bic: 'ZKBKCHZZ80A',
-        vatNumber: 'CHE-123.456.789 MWST',
-        defaultVatRate: 8.1,
+        companyAddress: 'Leopoldstraße 42, 80802 München',
+        bankName: 'Commerzbank AG',
+        iban: 'DE89 3704 0044 0532 0130 00',
+        bic: 'COBADEFFXXX',
+        vatNumber: 'DE123456789',
+        defaultVatRate: 19,
         invoicePrefix: 'RE-',
         nextInvoiceNumber: 2026001,
         defaultPaymentTerms: '30 Tage netto',

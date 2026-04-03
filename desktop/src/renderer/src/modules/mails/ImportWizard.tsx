@@ -376,7 +376,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
               />
               <div>
                 <Label htmlFor="merge" className="text-sm font-medium cursor-pointer">
-                  Duplikate automatisch zusammenfuehren
+                  Duplikate automatisch zusammenführen
                 </Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Kontakte mit gleicher E-Mail-Adresse werden zusammengefuehrt.
@@ -405,7 +405,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                     {visibility === 'shared' ? 'Geteilt' : 'Persönlich'}
                   </p>
                   <p className="text-sm">
-                    <span className="font-medium">Duplikate zusammenfuehren:</span>{' '}
+                    <span className="font-medium">Duplikate zusammenführen:</span>{' '}
                     {mergeByEmail ? 'Ja' : 'Nein'}
                   </p>
                   {fileType === 'csv' && (

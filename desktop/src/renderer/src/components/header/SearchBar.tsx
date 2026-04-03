@@ -419,7 +419,7 @@ export function SearchBar() {
                 <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
                   Esc
                 </kbd>{' '}
-                Schliessen
+                Schließen
               </span>
             </div>
           </div>

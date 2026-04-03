@@ -73,7 +73,7 @@ interface BerichteStore {
 }
 
 const MOCK_KPIS: KPI[] = [
-  { id: 'kpi-1', label: 'Umsatz (Monat)', value: '284\'350', unit: 'CHF', changePercent: 12.4, moduleId: 'finanzen' },
+  { id: 'kpi-1', label: 'Umsatz (Monat)', value: '284.350', unit: 'EUR', changePercent: 12.4, moduleId: 'finanzen' },
   { id: 'kpi-2', label: 'Offene Aufträge', value: '47', unit: '', changePercent: -3.2, moduleId: 'aufträge' },
   { id: 'kpi-3', label: 'Kundenzufriedenheit', value: '4.6', unit: '/ 5.0', changePercent: 0.2, moduleId: 'crm' },
   { id: 'kpi-4', label: 'Durchschn. Reaktionszeit', value: '2.4', unit: 'Std.', changePercent: -18.0, moduleId: 'helpdesk' },
@@ -108,8 +108,8 @@ const MOCK_SAVED_REPORTS: SavedReport[] = [
 ]
 
 const MOCK_SCHEDULED_REPORTS: ScheduledReport[] = [
-  { id: 'sched-1', reportId: 'rpt-1', name: 'Monatlicher Umsatzbericht', schedule: 'monthly', recipients: ['geschaeftsleitung@firma.ch', 'finanzen@firma.ch'], lastRun: '2026-02-01T06:00:00', active: true },
-  { id: 'sched-2', reportId: 'rpt-3', name: 'Helpdesk SLA-Report', schedule: 'weekly', recipients: ['it-leitung@firma.ch', 'support@firma.ch'], lastRun: '2026-02-10T06:00:00', active: true },
+  { id: 'sched-1', reportId: 'rpt-1', name: 'Monatlicher Umsatzbericht', schedule: 'monthly', recipients: ['geschaeftsleitung@firma.de', 'finanzen@firma.de'], lastRun: '2026-02-01T06:00:00', active: true },
+  { id: 'sched-2', reportId: 'rpt-3', name: 'Helpdesk SLA-Report', schedule: 'weekly', recipients: ['it-leitung@firma.de', 'support@firma.de'], lastRun: '2026-02-10T06:00:00', active: true },
 ]
 
 const MOCK_DRILLDOWN: Record<string, KPIDrilldownRow[]> = {

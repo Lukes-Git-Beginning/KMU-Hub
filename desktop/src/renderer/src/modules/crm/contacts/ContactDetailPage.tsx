@@ -90,7 +90,7 @@ export default function ContactDetailPage() {
       street: addr.street ?? '',
       zip: addr.zip ?? '',
       city: addr.city ?? '',
-      country: addr.country ?? 'Schweiz',
+      country: addr.country ?? 'Deutschland',
       website: (cf._website as string) ?? '',
       linkedin: social.linkedin ?? '',
       xing: social.xing ?? '',

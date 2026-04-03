@@ -280,7 +280,7 @@ export function WorkflowRulesEditor({
                   <option value="contact.created">Kontakt erstellt</option>
                   <option value="contact.updated">Kontakt aktualisiert</option>
                   <option value="deal.created">Deal erstellt</option>
-                  <option value="deal.stage_changed">Deal-Phase geaendert</option>
+                  <option value="deal.stage_changed">Deal-Phase geändert</option>
                   <option value="deal.won">Deal gewonnen</option>
                   <option value="deal.lost">Deal verloren</option>
                   <option value="invoice.created">Rechnung erstellt</option>

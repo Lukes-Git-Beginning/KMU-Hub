@@ -108,7 +108,7 @@ export function CalendarBrowseDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Schliessen
+            Schließen
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -218,7 +218,7 @@ export default function BerichtePage() {
       return
     }
     if (schedDialogRecipients.length === 0) {
-      toast.error('Bitte mindestens einen Empfaenger hinzufügen')
+      toast.error('Bitte mindestens einen Empfänger hinzufügen')
       return
     }
     toast.success('Geplanter Bericht wurde gespeichert')
@@ -820,7 +820,7 @@ export default function BerichtePage() {
                       Zeitplan
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Empfaenger
+                      Empfänger
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                       Letzter Lauf
@@ -1103,14 +1103,14 @@ export default function BerichtePage() {
               {/* Recipients */}
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Empfaenger
+                  Empfänger
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="email"
-                      placeholder="email@firma.ch"
+                      placeholder="email@firma.de"
                       value={schedDialogEmail}
                       onChange={(e) => setSchedDialogEmail(e.target.value)}
                       onKeyDown={(e) => {
@@ -1151,7 +1151,7 @@ export default function BerichtePage() {
                 )}
                 {schedDialogRecipients.length === 0 && (
                   <p className="mt-1.5 text-[10px] text-muted-foreground/60">
-                    Mindestens ein Empfaenger erforderlich
+                    Mindestens ein Empfänger erforderlich
                   </p>
                 )}
               </div>

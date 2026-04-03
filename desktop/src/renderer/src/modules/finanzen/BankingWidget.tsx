@@ -205,7 +205,7 @@ export function BankingWidget() {
               {([
                 ['all', `Alle (${mockTransactions.length})`],
                 ['matched', `Zugeordnet (${matchedCount})`],
-                ['suggested', `Vorschlaege (${suggestedCount})`],
+                ['suggested', `Vorschläge (${suggestedCount})`],
                 ['unmatched', `Offen (${unmatchedCount})`],
               ] as const).map(([key, label]) => (
                 <button

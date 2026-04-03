@@ -76,7 +76,7 @@ describe('DashboardPage', () => {
   it('renders welcome message', () => {
     renderDashboard()
 
-    expect(screen.getByText(/Willkommen im KMU Digital Hub/)).toBeInTheDocument()
+    expect(screen.getByText(/Willkommen bei Cosmi/)).toBeInTheDocument()
   })
 
   it('renders edit button "Dashboard anpassen"', () => {

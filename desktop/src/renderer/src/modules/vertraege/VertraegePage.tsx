@@ -448,7 +448,7 @@ function ContractDialog({
             <textarea
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="Zusaetzliche Informationen zum Vertrag..."
+              placeholder="Zusätzliche Informationen zum Vertrag..."
               rows={3}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
@@ -573,7 +573,7 @@ function TerminationDialog({
             />
           </div>
 
-          {/* Bestaetigung */}
+          {/* Bestätigung */}
           <label className="flex items-start gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -582,7 +582,7 @@ function TerminationDialog({
               className="mt-0.5 rounded border-border"
             />
             <span className="text-sm text-foreground">
-              Ich bestatige, dass ich die Kündigung des Vertrags <strong>"{contract.title}"</strong> einleiten moechte.
+              Ich bestätige, dass ich die Kündigung des Vertrags <strong>"{contract.title}"</strong> einleiten möchte.
             </span>
           </label>
         </div>
@@ -904,7 +904,7 @@ export default function VertraegePage() {
   // Tab labels for empty states
   const tabEmptyConfig: Record<string, { icon: typeof FileSignature; title: string; desc: string }> = {
     aktiv: { icon: FileSignature, title: 'Keine aktiven Verträge', desc: 'Legen Sie Ihren ersten Vertrag an' },
-    auslaufend: { icon: Clock, title: 'Keine auslaufenden Verträge', desc: 'Kein Vertrag laeuft in den nächsten 90 Tagen aus' },
+    auslaufend: { icon: Clock, title: 'Keine auslaufenden Verträge', desc: 'Kein Vertrag läuft in den nächsten 90 Tagen aus' },
     archiv: { icon: Archive, title: 'Kein Archiv vorhanden', desc: 'Gekündigte und abgelaufene Verträge erscheinen hier' },
     vorlagen: { icon: LayoutTemplate, title: 'Keine Vorlagen vorhanden', desc: 'Vertragsvorlagen werden hier angezeigt' },
   }
