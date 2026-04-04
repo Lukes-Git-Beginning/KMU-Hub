@@ -19,7 +19,7 @@ function createWindow(): void {
     minHeight: 700,
     show: false,
     title: 'Cosmi',
-    icon: nativeImage.createFromPath(getResourcePath('tray-icon@2x.png')),
+    icon: nativeImage.createFromPath(getResourcePath('app-icon.png')),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
