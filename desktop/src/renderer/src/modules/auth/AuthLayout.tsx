@@ -21,7 +21,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="relative z-10">
-          <img src={branding.cosmi.icon128} alt="Cosmi" className="h-20 w-auto" />
+          <img src={branding.cosmi.icon128} alt="Cosmi" className="h-auto w-auto max-h-20 object-contain" />
         </div>
 
         <div className="relative z-10 space-y-6">

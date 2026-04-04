@@ -39,7 +39,7 @@ export function SidebarBranding({ collapsed, onToggle, onOpenModules }: SidebarB
           <img
             src={branding.cosmi.icon64}
             alt="Cosmi"
-            className="h-6 w-auto select-none"
+            className="max-h-6 w-auto select-none object-contain"
           />
         )}
 

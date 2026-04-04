@@ -917,7 +917,7 @@ function AboutTab() {
       {/* Hero */}
       <div className="rounded-xl bg-gradient-to-br from-primary to-primary-dark p-8 mb-6">
         <div className="flex items-center gap-4 mb-3">
-          <img src={branding.cosmi.icon128} alt="Cosmi" className="h-14 w-auto" />
+          <img src={branding.cosmi.icon128} alt="Cosmi" className="max-h-14 w-auto object-contain" />
           <div>
             <h2 className="text-primary-foreground text-xl font-semibold mb-0.5">Cosmi</h2>
             <p className="text-primary-foreground/50 text-xs">by Zentria</p>
@@ -936,15 +936,15 @@ function AboutTab() {
       <h3 className="text-sm font-medium text-foreground mb-3">Produkt-Familie</h3>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
         <div className="rounded-lg border border-border bg-card p-4 flex flex-col items-center gap-2">
-          <img src={branding.cosmi.logoTransparent} alt="Cosmi" className="h-12 w-auto" />
+          <img src={branding.cosmi.logoTransparent} alt="Cosmi" className="max-h-12 w-auto object-contain" />
           <p className="text-xs text-muted-foreground">Desktop App</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4 flex flex-col items-center gap-2">
-          <img src={branding.orbit.logoTransparent} alt="Orbit" className="h-12 w-auto" />
+          <img src={branding.orbit.logoTransparent} alt="Orbit" className="max-h-12 w-auto object-contain" />
           <p className="text-xs text-muted-foreground">Cloud Platform</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4 flex flex-col items-center gap-2">
-          <img src={branding.zentria.logoTransparent} alt="Zentria" className="h-12 w-auto" />
+          <img src={branding.zentria.logoTransparent} alt="Zentria" className="max-h-12 w-auto object-contain" />
           <p className="text-xs text-muted-foreground">Unternehmen</p>
         </div>
       </div>
