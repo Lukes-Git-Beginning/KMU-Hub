@@ -10,7 +10,7 @@
  */
 import { useState, useCallback, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FormattedMessage, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,7 +27,7 @@ import { AuthLayout } from './AuthLayout'
 type LoginStage = 'credentials' | '2fa_prompt'
 
 export default function LoginPage() {
-  const intl = useIntl()
+  const { t } = useTranslation()
 
   // Credentials state
   const [email, setEmail] = useState('')
@@ -65,14 +65,14 @@ export default function LoginPage() {
           setError(
             err instanceof Error
               ? err.message
-              : intl.formatMessage({ id: 'auth.loginFailed' }),
+              : t('auth.loginFailed'),
           )
         }
       } finally {
         setIsSubmitting(false)
       }
     },
-    [email, password, login, navigate, intl],
+    [email, password, login, navigate, t],
   )
 
   const handle2FASubmit = useCallback(
@@ -89,13 +89,13 @@ export default function LoginPage() {
         setError(
           err instanceof Error
             ? err.message
-            : intl.formatMessage({ id: 'security.2fa.invalidCode' }),
+            : t('security.2fa.invalidCode'),
         )
       } finally {
         setIsSubmitting(false)
       }
     },
-    [pendingToken, totpCode, complete2FALogin, navigate, intl],
+    [pendingToken, totpCode, complete2FALogin, navigate, t],
   )
 
   const handleBackToCredentials = useCallback(() => {
@@ -113,14 +113,10 @@ export default function LoginPage() {
         <Card className="w-full max-w-sm border-0 shadow-lg bg-card/80 backdrop-blur-sm">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold tracking-tight">
-              <FormattedMessage id="security.2fa.title" />
+              {t('security.2fa.title')}
             </CardTitle>
             <CardDescription>
-              {useRecovery ? (
-                <FormattedMessage id="security.2fa.useRecoveryCode" />
-              ) : (
-                <FormattedMessage id="security.2fa.loginPrompt" />
-              )}
+              {useRecovery ? t('security.2fa.useRecoveryCode') : t('security.2fa.loginPrompt')}
             </CardDescription>
           </CardHeader>
 
@@ -128,11 +124,7 @@ export default function LoginPage() {
             <form onSubmit={handle2FASubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="totp-code">
-                  {useRecovery ? (
-                    <FormattedMessage id="security.2fa.useRecoveryCode" />
-                  ) : (
-                    <FormattedMessage id="security.2fa.enterCode" />
-                  )}
+                  {useRecovery ? t('security.2fa.useRecoveryCode') : t('security.2fa.enterCode')}
                 </Label>
                 <Input
                   id="totp-code"
@@ -166,10 +158,10 @@ export default function LoginPage() {
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                    <FormattedMessage id="common.loading" />
+                    {t('common.loading')}
                   </span>
                 ) : (
-                  <FormattedMessage id="security.2fa.verify" />
+                  t('security.2fa.verify')
                 )}
               </Button>
 
@@ -183,18 +175,14 @@ export default function LoginPage() {
                     setError(null)
                   }}
                 >
-                  {useRecovery ? (
-                    <FormattedMessage id="security.2fa.enterCode" />
-                  ) : (
-                    <FormattedMessage id="security.2fa.useRecoveryCode" />
-                  )}
+                  {useRecovery ? t('security.2fa.enterCode') : t('security.2fa.useRecoveryCode')}
                 </button>
                 <button
                   type="button"
                   className="text-muted-foreground underline-offset-2 hover:underline"
                   onClick={handleBackToCredentials}
                 >
-                  <FormattedMessage id="common.back" />
+                  {t('common.back')}
                 </button>
               </div>
             </form>
@@ -220,7 +208,7 @@ export default function LoginPage() {
             Cosmi
           </CardTitle>
           <CardDescription className="animate-fade-up" style={{ animationDelay: '200ms' }}>
-            <FormattedMessage id="auth.login" />
+            {t('auth.login')}
           </CardDescription>
         </CardHeader>
 
@@ -228,7 +216,7 @@ export default function LoginPage() {
           <form onSubmit={handleCredentialsSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">
-                <FormattedMessage id="auth.email" />
+                {t('auth.email')}
               </Label>
               <Input
                 id="email"
@@ -244,7 +232,7 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">
-                <FormattedMessage id="auth.password" />
+                {t('auth.password')}
               </Label>
               <Input
                 id="password"
@@ -268,17 +256,17 @@ export default function LoginPage() {
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  <FormattedMessage id="common.loading" />
+                  {t('common.loading')}
                 </span>
               ) : (
-                <FormattedMessage id="auth.login" />
+                t('auth.login')
               )}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              <FormattedMessage id="auth.noAccount" />{' '}
+              {t('auth.noAccount')}{' '}
               <Link to="/register" className="text-primary underline-offset-2 hover:underline">
-                <FormattedMessage id="auth.register" />
+                {t('auth.register')}
               </Link>
             </p>
           </form>

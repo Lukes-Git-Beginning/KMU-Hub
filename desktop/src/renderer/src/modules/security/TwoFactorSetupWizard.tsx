@@ -11,7 +11,7 @@
  * when 2FA is already enabled.
  */
 import { useState, useCallback } from 'react'
-import { FormattedMessage, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -65,7 +65,7 @@ export default function TwoFactorSetupWizard({
   twoFactorEnabled,
   onStateChange,
 }: TwoFactorSetupWizardProps) {
-  const intl = useIntl()
+  const { t } = useTranslation()
   const [step, setStep] = useState<WizardStep>('intro')
   const [qrCodePng, setQrCodePng] = useState('')
   const [manualSecret, setManualSecret] = useState('')
@@ -106,10 +106,10 @@ export default function TwoFactorSetupWizard({
       setStep('qr')
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }),
+        err instanceof Error ? err.message : t('common.error'),
       )
     }
-  }, [setupMutation, intl])
+  }, [setupMutation, t])
 
   // Step 3: Verify TOTP code
   const handleVerify = useCallback(async () => {
@@ -119,31 +119,31 @@ export default function TwoFactorSetupWizard({
       setRecoveryCodes(result.codes)
       setStep('recovery')
       onStateChange?.()
-      toast.success(intl.formatMessage({ id: 'security.2fa.enabled' }))
+      toast.success(t('security.2fa.enabled'))
     } catch (err) {
       toast.error(
         err instanceof Error
           ? err.message
-          : intl.formatMessage({ id: 'security.2fa.invalidCode' }),
+          : t('security.2fa.invalidCode'),
       )
     }
-  }, [totpCode, verifyMutation, intl, onStateChange])
+  }, [totpCode, verifyMutation, t, onStateChange])
 
   // Disable 2FA
   const handleDisable = useCallback(async () => {
     try {
       await disableMutation.mutateAsync(disableCode)
       onStateChange?.()
-      toast.success(intl.formatMessage({ id: 'security.2fa.disable' }))
+      toast.success(t('security.2fa.disable'))
       handleClose(false)
     } catch (err) {
       toast.error(
         err instanceof Error
           ? err.message
-          : intl.formatMessage({ id: 'security.2fa.invalidCode' }),
+          : t('security.2fa.invalidCode'),
       )
     }
-  }, [disableCode, disableMutation, intl, onStateChange, handleClose])
+  }, [disableCode, disableMutation, t, onStateChange, handleClose])
 
   // Regenerate recovery codes
   const handleRegenerate = useCallback(async () => {
@@ -151,13 +151,13 @@ export default function TwoFactorSetupWizard({
       const result = await regenerateMutation.mutateAsync()
       setRecoveryCodes(result.codes)
       setStep('recovery')
-      toast.success(intl.formatMessage({ id: 'security.2fa.regenerateCodes' }))
+      toast.success(t('security.2fa.regenerateCodes'))
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }),
+        err instanceof Error ? err.message : t('common.error'),
       )
     }
-  }, [regenerateMutation, intl])
+  }, [regenerateMutation, t])
 
   // Download recovery codes as .txt
   const handleDownloadCodes = useCallback(() => {
@@ -177,11 +177,11 @@ export default function TwoFactorSetupWizard({
   const handleCopyCodes = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(recoveryCodes.join('\n'))
-      toast.success(intl.formatMessage({ id: 'common.copied' }))
+      toast.success(t('common.copied'))
     } catch {
-      toast.error(intl.formatMessage({ id: 'common.error' }))
+      toast.error(t('common.error'))
     }
-  }, [recoveryCodes, intl])
+  }, [recoveryCodes, t])
 
   // Render "already enabled" management view
   if (twoFactorEnabled && step === 'intro') {
@@ -191,11 +191,11 @@ export default function TwoFactorSetupWizard({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              <FormattedMessage id="security.2fa.title" />
+              {t('security.2fa.title')}
             </DialogTitle>
             <DialogDescription>
               <span className="inline-flex mt-2 rounded-full bg-success-light px-2.5 py-0.5 text-xs font-medium text-success">
-                <FormattedMessage id="security.2fa.enabled" />
+                {t('security.2fa.enabled')}
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -205,27 +205,27 @@ export default function TwoFactorSetupWizard({
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" className="w-full">
-                  <FormattedMessage id="security.2fa.regenerateCodes" />
+                  {t('security.2fa.regenerateCodes')}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent className="glass-elevated">
                 <AlertDialogHeader>
                   <AlertDialogTitle>
-                    <FormattedMessage id="security.2fa.regenerateCodes" />
+                    {t('security.2fa.regenerateCodes')}
                   </AlertDialogTitle>
                   <AlertDialogDescription>
-                    <FormattedMessage id="security.2fa.regenerateWarning" />
+                    {t('security.2fa.regenerateWarning')}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>
-                    <FormattedMessage id="common.cancel" />
+                    {t('common.cancel')}
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleRegenerate}
                     disabled={regenerateMutation.isPending}
                   >
-                    <FormattedMessage id="common.confirm" />
+                    {t('common.confirm')}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -237,34 +237,34 @@ export default function TwoFactorSetupWizard({
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
-                placeholder={intl.formatMessage({ id: 'security.2fa.enterCode' })}
+                placeholder={t('security.2fa.enterCode')}
                 value={disableCode}
                 onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ''))}
               />
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="w-full" disabled={disableCode.length < 6}>
-                    <FormattedMessage id="security.2fa.disable" />
+                    {t('security.2fa.disable')}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent className="glass-elevated">
                   <AlertDialogHeader>
                     <AlertDialogTitle>
-                      <FormattedMessage id="security.2fa.disable" />
+                      {t('security.2fa.disable')}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      <FormattedMessage id="security.2fa.enableDescription" />
+                      {t('security.2fa.enableDescription')}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>
-                      <FormattedMessage id="common.cancel" />
+                      {t('common.cancel')}
                     </AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDisable}
                       disabled={disableMutation.isPending}
                     >
-                      <FormattedMessage id="common.confirm" />
+                      {t('common.confirm')}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -284,10 +284,10 @@ export default function TwoFactorSetupWizard({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              <FormattedMessage id="security.2fa.recoveryCodes" />
+              {t('security.2fa.recoveryCodes')}
             </DialogTitle>
             <DialogDescription>
-              <FormattedMessage id="security.2fa.recoveryDescription" />
+              {t('security.2fa.recoveryDescription')}
             </DialogDescription>
           </DialogHeader>
 
@@ -301,13 +301,13 @@ export default function TwoFactorSetupWizard({
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={handleDownloadCodes}>
-              <FormattedMessage id="security.2fa.downloadCodes" />
+              {t('security.2fa.downloadCodes')}
             </Button>
             <Button variant="outline" onClick={handleCopyCodes}>
-              <FormattedMessage id="security.2fa.copyCodes" />
+              {t('security.2fa.copyCodes')}
             </Button>
             <Button onClick={() => handleClose(false)}>
-              <FormattedMessage id="common.close" />
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -322,11 +322,11 @@ export default function TwoFactorSetupWizard({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            <FormattedMessage id="security.2fa.title" />
+            {t('security.2fa.title')}
           </DialogTitle>
           <DialogDescription>
             <span className="text-xs text-muted-foreground">
-              {intl.formatMessage({ id: 'security.2fa.step.install' })} {stepIndex(step)}/4
+              {t('security.2fa.step.install')} {stepIndex(step)}/4
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -347,7 +347,7 @@ export default function TwoFactorSetupWizard({
         {step === 'intro' && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              <FormattedMessage id="security.2fa.enableDescription" />
+              {t('security.2fa.enableDescription')}
             </p>
             <Button
               className="w-full"
@@ -357,10 +357,10 @@ export default function TwoFactorSetupWizard({
               {setupMutation.isPending ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  <FormattedMessage id="common.loading" />
+                  {t('common.loading')}
                 </span>
               ) : (
-                <FormattedMessage id="security.2fa.enable" />
+                t('security.2fa.enable')
               )}
             </Button>
           </div>
@@ -370,7 +370,7 @@ export default function TwoFactorSetupWizard({
         {step === 'qr' && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              <FormattedMessage id="security.2fa.scanQR" />
+              {t('security.2fa.scanQR')}
             </p>
             <div className="flex justify-center">
               <img
@@ -381,7 +381,7 @@ export default function TwoFactorSetupWizard({
             </div>
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground">
-                <FormattedMessage id="security.2fa.manualEntry" />
+                {t('security.2fa.manualEntry')}
               </p>
               <code className="block rounded-lg border border-border bg-secondary/50 p-2 text-center text-sm font-mono text-foreground select-all">
                 {manualSecret}
@@ -389,7 +389,7 @@ export default function TwoFactorSetupWizard({
             </div>
             <DialogFooter>
               <Button onClick={() => setStep('verify')}>
-                <FormattedMessage id="common.next" />
+                {t('common.next')}
               </Button>
             </DialogFooter>
           </div>
@@ -399,20 +399,20 @@ export default function TwoFactorSetupWizard({
         {step === 'verify' && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              <FormattedMessage id="security.2fa.step.verify" />
+              {t('security.2fa.step.verify')}
             </p>
             <Input
               type="text"
               inputMode="numeric"
               maxLength={6}
-              placeholder={intl.formatMessage({ id: 'security.2fa.enterCode' })}
+              placeholder={t('security.2fa.enterCode')}
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
               autoFocus
             />
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setStep('qr')}>
-                <FormattedMessage id="common.back" />
+                {t('common.back')}
               </Button>
               <Button
                 onClick={handleVerify}
@@ -421,10 +421,10 @@ export default function TwoFactorSetupWizard({
                 {verifyMutation.isPending ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                    <FormattedMessage id="common.loading" />
+                    {t('common.loading')}
                   </span>
                 ) : (
-                  <FormattedMessage id="security.2fa.verify" />
+                  t('security.2fa.verify')
                 )}
               </Button>
             </DialogFooter>
@@ -435,7 +435,7 @@ export default function TwoFactorSetupWizard({
         {step === 'recovery' && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              <FormattedMessage id="security.2fa.recoveryDescription" />
+              {t('security.2fa.recoveryDescription')}
             </p>
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/50 p-4 font-mono text-sm text-foreground">
               {recoveryCodes.map((code) => (
@@ -446,13 +446,13 @@ export default function TwoFactorSetupWizard({
             </div>
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={handleDownloadCodes}>
-                <FormattedMessage id="security.2fa.downloadCodes" />
+                {t('security.2fa.downloadCodes')}
               </Button>
               <Button variant="outline" onClick={handleCopyCodes}>
-                <FormattedMessage id="security.2fa.copyCodes" />
+                {t('security.2fa.copyCodes')}
               </Button>
               <Button onClick={() => handleClose(false)}>
-                <FormattedMessage id="common.close" />
+                {t('common.close')}
               </Button>
             </DialogFooter>
           </div>

@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
 import { KeyRound, Save, Info, TestTube } from 'lucide-react'
-import { FormattedMessage, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/stores/auth'
@@ -26,6 +26,8 @@ function StrengthBar({ score }: { score: number }) {
           ? { labelId: 'password.policy.strength.fair', color: 'bg-warning', pct: 50 }
           : { labelId: 'password.policy.strength.weak', color: 'bg-error', pct: 25 }
 
+  const { t } = useTranslation()
+
   return (
     <div className="space-y-1">
       <div className="h-2 w-full rounded-full bg-secondary">
@@ -35,14 +37,14 @@ function StrengthBar({ score }: { score: number }) {
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        <FormattedMessage id={level.labelId} /> ({Math.round(score)} bits)
+        {t(level.labelId)} ({Math.round(score)} bits)
       </p>
     </div>
   )
 }
 
 export default function PasswordPolicyPage() {
-  const intl = useIntl()
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -92,14 +94,14 @@ export default function PasswordPolicyPage() {
         require_special: requireSpecial,
       } as Parameters<typeof updatePolicy.mutate>[0],
       {
-        onSuccess: () => toast.success(intl.formatMessage({ id: 'password.policy.saved' })),
-        onError: () => toast.error(intl.formatMessage({ id: 'common.error' })),
+        onSuccess: () => toast.success(t('password.policy.saved')),
+        onError: () => toast.error(t('common.error')),
       },
     )
   }, [
     minLength, minEntropy, maxAgeDays, reuseCount,
     requireUppercase, requireLowercase, requireDigit, requireSpecial,
-    updatePolicy, intl,
+    updatePolicy, t,
   ])
 
   // Compute policy strength indicator
@@ -130,7 +132,7 @@ export default function PasswordPolicyPage() {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-sm text-muted-foreground">
-          <FormattedMessage id="common.loading" />
+          {t('common.loading')}
         </p>
       </div>
     )
@@ -154,7 +156,7 @@ export default function PasswordPolicyPage() {
             </div>
             <div>
               <h1 className="text-foreground">
-                <FormattedMessage id="password.policy.title" />
+                {t('password.policy.title')}
               </h1>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${strengthLabel.css}`}>
@@ -169,21 +171,21 @@ export default function PasswordPolicyPage() {
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
-            <FormattedMessage id="common.save" />
+            {t('common.save')}
           </button>
         </div>
 
         {/* Core Settings */}
         <div className="rounded-lg border border-border bg-card p-6 glass-surface mb-6">
           <h3 className="text-base font-semibold text-foreground mb-5">
-            <FormattedMessage id="password.policy.title" />
+            {t('password.policy.title')}
           </h3>
 
           {/* Min Length & Entropy */}
           <div className="grid grid-cols-2 gap-4 mb-5">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                <FormattedMessage id="password.policy.minLength" />
+                {t('password.policy.minLength')}
               </label>
               <input
                 type="number"
@@ -194,12 +196,12 @@ export default function PasswordPolicyPage() {
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
               <p className="text-xs text-muted-foreground">
-                <FormattedMessage id="password.policy.minLengthChars" values={{ count: minLength }} />
+                {t('password.policy.minLengthChars', { count: minLength })}
               </p>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                <FormattedMessage id="password.policy.minEntropy" />
+                {t('password.policy.minEntropy')}
               </label>
               <input
                 type="number"
@@ -217,7 +219,7 @@ export default function PasswordPolicyPage() {
           <div className="grid grid-cols-2 gap-4 mb-5">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                <FormattedMessage id="password.policy.maxAge" />
+                {t('password.policy.maxAge')}
               </label>
               <input
                 type="number"
@@ -230,13 +232,13 @@ export default function PasswordPolicyPage() {
               />
               {maxAgeDays > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  <FormattedMessage id="password.policy.maxAgeDays" values={{ days: maxAgeDays }} />
+                  {t('password.policy.maxAgeDays', { days: maxAgeDays })}
                 </p>
               )}
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                <FormattedMessage id="password.policy.reuseCount" />
+                {t('password.policy.reuseCount')}
               </label>
               <input
                 type="number"
@@ -247,7 +249,7 @@ export default function PasswordPolicyPage() {
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
               <p className="text-xs text-muted-foreground">
-                <FormattedMessage id="password.policy.reuseCountPasswords" values={{ count: reuseCount }} />
+                {t('password.policy.reuseCountPasswords', { count: reuseCount })}
               </p>
             </div>
           </div>
@@ -262,7 +264,7 @@ export default function PasswordPolicyPage() {
                 }`}
               >
                 <label className="text-sm text-foreground">
-                  <FormattedMessage id={row.labelId} />
+                  {t(row.labelId)}
                 </label>
                 <Switch checked={row.checked} onCheckedChange={row.onChange} />
               </div>
@@ -273,7 +275,7 @@ export default function PasswordPolicyPage() {
           <div className="flex gap-3 rounded-lg bg-info-light p-4">
             <Info className="h-5 w-5 shrink-0 text-info mt-0.5" />
             <p className="text-sm text-info">
-              <FormattedMessage id="password.policy.entropyInfo" />
+              {t('password.policy.entropyInfo')}
             </p>
           </div>
         </div>
@@ -283,7 +285,7 @@ export default function PasswordPolicyPage() {
           <div className="flex items-center gap-2 mb-4">
             <TestTube className="h-5 w-5 text-primary" />
             <h3 className="text-base font-semibold text-foreground">
-              <FormattedMessage id="password.policy.testPassword" />
+              {t('password.policy.testPassword')}
             </h3>
           </div>
 
@@ -300,7 +302,7 @@ export default function PasswordPolicyPage() {
               disabled={!testPassword || validatePw.isPending}
               className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
             >
-              <FormattedMessage id="password.policy.testPassword" />
+              {t('password.policy.testPassword')}
             </button>
           </div>
 
@@ -316,7 +318,7 @@ export default function PasswordPolicyPage() {
               )}
               {validatePw.data.valid && (
                 <p className="text-xs text-success font-medium">
-                  <FormattedMessage id="common.success" />
+                  {t('common.success')}
                 </p>
               )}
             </div>

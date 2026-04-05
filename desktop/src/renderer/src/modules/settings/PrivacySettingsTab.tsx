@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   ExternalLink,
 } from 'lucide-react'
-import { FormattedMessage, FormattedDate } from 'react-intl'
+import { useTranslation } from 'react-i18next'
+import { useFormatDate } from '@/hooks/useFormatters'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,6 +57,8 @@ const STATUS_CONFIG: Record<
 }
 
 export function PrivacySettingsTab() {
+  const { t } = useTranslation()
+  const formatDate = useFormatDate()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -64,8 +67,8 @@ export function PrivacySettingsTab() {
 
   const handleRequestExport = () => {
     requestExport.mutate(undefined, {
-      onSuccess: () => toast.success(<FormattedMessage id="gdpr.exportProcessing" />),
-      onError: () => toast.error(<FormattedMessage id="common.error" />),
+      onSuccess: () => toast.success(t('gdpr.exportProcessing')),
+      onError: () => toast.error(t('common.error')),
     })
   }
 
@@ -73,10 +76,10 @@ export function PrivacySettingsTab() {
     <div className="mx-auto max-w-2xl px-6 py-6 space-y-8">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">
-          <FormattedMessage id="settings.privacy.title" />
+          {t('settings.privacy.title')}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          <FormattedMessage id="settings.privacy.subtitle" />
+          {t('settings.privacy.subtitle')}
         </p>
       </div>
 
@@ -85,10 +88,10 @@ export function PrivacySettingsTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="h-5 w-5" />
-            <FormattedMessage id="gdpr.exportTitle" />
+            {t('gdpr.exportTitle')}
           </CardTitle>
           <CardDescription>
-            <FormattedMessage id="gdpr.exportDescription" />
+            {t('gdpr.exportDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -97,13 +100,13 @@ export function PrivacySettingsTab() {
             disabled={requestExport.isPending}
           >
             <Download className="mr-2 h-4 w-4" />
-            <FormattedMessage id="gdpr.requestExport" />
+            {t('gdpr.requestExport')}
           </Button>
 
           {/* Export requests list */}
           {isLoading ? (
             <p className="text-sm text-muted-foreground">
-              <FormattedMessage id="common.loading" />
+              {t('common.loading')}
             </p>
           ) : (exports ?? []).length > 0 ? (
             <div className="space-y-2">
@@ -118,21 +121,14 @@ export function PrivacySettingsTab() {
                     <StatusIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground">
-                        <FormattedMessage id={config.labelId} />
+                        {t(config.labelId)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        <FormattedDate
-                          value={exp.requested_at}
-                          year="numeric"
-                          month="short"
-                          day="numeric"
-                          hour="numeric"
-                          minute="numeric"
-                        />
+                        {formatDate(exp.requested_at, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric' })}
                       </p>
                     </div>
                     <Badge variant="secondary" className={config.badgeClass}>
-                      <FormattedMessage id={config.labelId} />
+                      {t(config.labelId)}
                     </Badge>
                     {exp.status === 'ready' && exp.download_token && (
                       <Button
@@ -142,7 +138,7 @@ export function PrivacySettingsTab() {
                       >
                         <a href={`/api/v1/gdpr/exports/${exp.id}/download?token=${exp.download_token}`} download>
                           <Download className="mr-1 h-3 w-3" />
-                          <FormattedMessage id="gdpr.downloadExport" />
+                          {t('gdpr.downloadExport')}
                         </a>
                       </Button>
                     )}
@@ -159,15 +155,15 @@ export function PrivacySettingsTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <AlertTriangle className="h-5 w-5" />
-            <FormattedMessage id="gdpr.deleteTitle" />
+            {t('gdpr.deleteTitle')}
           </CardTitle>
           <CardDescription>
-            <FormattedMessage id="gdpr.deleteDescription" />
+            {t('gdpr.deleteDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            <FormattedMessage id="settings.privacy.deletionInfo" />
+            {t('settings.privacy.deletionInfo')}
           </p>
 
           {isAdmin && (
@@ -175,7 +171,7 @@ export function PrivacySettingsTab() {
               to="/admin/security"
               className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
             >
-              <FormattedMessage id="settings.privacy.adminErasureLink" />
+              {t('settings.privacy.adminErasureLink')}
               <ExternalLink className="h-3 w-3" />
             </Link>
           )}

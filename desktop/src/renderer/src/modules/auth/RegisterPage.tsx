@@ -1,6 +1,6 @@
 import { useState, useCallback, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FormattedMessage, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,7 +15,7 @@ import {
 import { AuthLayout } from './AuthLayout'
 
 export default function RegisterPage() {
-  const intl = useIntl()
+  const { t } = useTranslation()
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -34,12 +34,12 @@ export default function RegisterPage() {
       setError(null)
 
       if (password !== confirmPassword) {
-        setError(intl.formatMessage({ id: 'auth.passwordMismatch' }))
+        setError(t('auth.passwordMismatch'))
         return
       }
 
       if (password.length < 8) {
-        setError(intl.formatMessage({ id: 'auth.passwordTooShort' }))
+        setError(t('auth.passwordTooShort'))
         return
       }
 
@@ -52,13 +52,13 @@ export default function RegisterPage() {
         setError(
           err instanceof Error
             ? err.message
-            : intl.formatMessage({ id: 'auth.registerFailed' }),
+            : t('auth.registerFailed'),
         )
       } finally {
         setIsSubmitting(false)
       }
     },
-    [firstName, lastName, email, password, confirmPassword, register, navigate, intl],
+    [firstName, lastName, email, password, confirmPassword, register, navigate, t],
   )
 
   return (
@@ -76,7 +76,7 @@ export default function RegisterPage() {
             Cosmi
           </CardTitle>
           <CardDescription className="animate-fade-up" style={{ animationDelay: '200ms' }}>
-            <FormattedMessage id="auth.register" />
+            {t('auth.register')}
           </CardDescription>
         </CardHeader>
 
@@ -85,7 +85,7 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="firstName">
-                  <FormattedMessage id="auth.firstName" />
+                  {t('auth.firstName')}
                 </Label>
                 <Input
                   id="firstName"
@@ -99,7 +99,7 @@ export default function RegisterPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">
-                  <FormattedMessage id="auth.lastName" />
+                  {t('auth.lastName')}
                 </Label>
                 <Input
                   id="lastName"
@@ -114,7 +114,7 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="email">
-                <FormattedMessage id="auth.email" />
+                {t('auth.email')}
               </Label>
               <Input
                 id="email"
@@ -129,7 +129,7 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">
-                <FormattedMessage id="auth.password" />
+                {t('auth.password')}
               </Label>
               <Input
                 id="password"
@@ -143,7 +143,7 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">
-                <FormattedMessage id="auth.confirmPassword" />
+                {t('auth.confirmPassword')}
               </Label>
               <Input
                 id="confirmPassword"
@@ -167,17 +167,17 @@ export default function RegisterPage() {
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  <FormattedMessage id="common.loading" />
+                  {t('common.loading')}
                 </span>
               ) : (
-                <FormattedMessage id="auth.register" />
+                t('auth.register')
               )}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              <FormattedMessage id="auth.alreadyHaveAccount" />{' '}
+              {t('auth.alreadyHaveAccount')}{' '}
               <Link to="/login" className="text-primary underline-offset-2 hover:underline">
-                <FormattedMessage id="auth.login" />
+                {t('auth.login')}
               </Link>
             </p>
           </form>

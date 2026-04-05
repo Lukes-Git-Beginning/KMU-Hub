@@ -23,7 +23,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
+import { useFormatDate } from '@/hooks/useFormatters'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
 import { useGDPRExports, useApproveExport, useDenyExport } from '@/api/hooks/useSecurity'
@@ -46,7 +47,8 @@ const STATUS_BADGE: Record<string, { className: string; labelId: string }> = {
 }
 
 export default function GDPRExportPage() {
-  const intl = useIntl()
+  const { t } = useTranslation()
+  const formatDate = useFormatDate()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -75,11 +77,11 @@ export default function GDPRExportPage() {
   const handleApprove = useCallback(
     (id: string) => {
       approveExport.mutate({ id }, {
-        onSuccess: () => toast.success(intl.formatMessage({ id: 'gdpr.exportApproved' })),
-        onError: () => toast.error(intl.formatMessage({ id: 'common.error' })),
+        onSuccess: () => toast.success(t('gdpr.exportApproved')),
+        onError: () => toast.error(t('common.error')),
       })
     },
-    [approveExport, intl],
+    [approveExport, t],
   )
 
   const handleDeny = useCallback(() => {
@@ -88,14 +90,14 @@ export default function GDPRExportPage() {
       { id: denyId, note: denyReason.trim() },
       {
         onSuccess: () => {
-          toast.success(intl.formatMessage({ id: 'gdpr.exportDenied' }))
+          toast.success(t('gdpr.exportDenied'))
           setDenyId(null)
           setDenyReason('')
         },
-        onError: () => toast.error(intl.formatMessage({ id: 'common.error' })),
+        onError: () => toast.error(t('common.error')),
       },
     )
-  }, [denyId, denyReason, denyExport, intl])
+  }, [denyId, denyReason, denyExport, t])
 
   if (!isAdmin) {
     return <Navigate to="/" replace />
@@ -111,7 +113,7 @@ export default function GDPRExportPage() {
           </div>
           <div>
             <h1 className="text-foreground">
-              <FormattedMessage id="gdpr.admin.title" />
+              {t('gdpr.admin.title')}
             </h1>
             <div className="flex items-center gap-2 mt-1">
               {pendingCount > 0 && (
@@ -153,7 +155,7 @@ export default function GDPRExportPage() {
                 : 'text-muted-foreground hover:bg-secondary'
             }`}
           >
-            <FormattedMessage id={opt.labelId} />
+            {t(opt.labelId)}
           </button>
         ))}
       </div>
@@ -164,14 +166,14 @@ export default function GDPRExportPage() {
           {isLoading ? (
             <div className="py-12 text-center">
               <p className="text-sm text-muted-foreground">
-                <FormattedMessage id="common.loading" />
+                {t('common.loading')}
               </p>
             </div>
           ) : filteredExports.length === 0 ? (
             <div className="py-12 text-center">
               <FileText className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2" />
               <p className="text-sm text-muted-foreground">
-                <FormattedMessage id="common.noResults" />
+                {t('common.noResults')}
               </p>
             </div>
           ) : (
@@ -179,19 +181,19 @@ export default function GDPRExportPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    <FormattedMessage id="gdpr.admin.requestedBy" />
+                    {t('gdpr.admin.requestedBy')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    <FormattedMessage id="common.status" />
+                    {t('common.status')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    <FormattedMessage id="gdpr.admin.requestedAt" />
+                    {t('gdpr.admin.requestedAt')}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                    <FormattedMessage id="gdpr.admin.reviewedBy" />
+                    {t('gdpr.admin.reviewedBy')}
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                    <FormattedMessage id="common.actions" />
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
@@ -208,16 +210,15 @@ export default function GDPRExportPage() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>
-                          <FormattedMessage id={badge.labelId} />
+                          {t(badge.labelId)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
-                        <FormattedDate
-                          value={exp.requested_at}
-                          year="numeric"
-                          month="short"
-                          day="numeric"
-                        />
+                        {formatDate(exp.requested_at, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
                         {exp.reviewed_by ?? '-'}
@@ -240,14 +241,14 @@ export default function GDPRExportPage() {
                               className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
                             >
                               <CheckCircle className="h-3 w-3 text-success" />
-                              <FormattedMessage id="gdpr.admin.approve" />
+                              {t('gdpr.admin.approve')}
                             </button>
                             <button
                               onClick={() => setDenyId(exp.id)}
                               className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-error hover:bg-error-light transition-colors"
                             >
                               <XCircle className="h-3 w-3" />
-                              <FormattedMessage id="gdpr.admin.deny" />
+                              {t('gdpr.admin.deny')}
                             </button>
                           </div>
                         )}
@@ -263,7 +264,7 @@ export default function GDPRExportPage() {
                               className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                             >
                               <Download className="h-3 w-3" />
-                              <FormattedMessage id="gdpr.downloadExport" />
+                              {t('gdpr.downloadExport')}
                             </a>
                           </div>
                         )}
@@ -283,10 +284,10 @@ export default function GDPRExportPage() {
           <div className="p-6">
             <DialogHeader className="mb-5">
               <DialogTitle className="text-lg font-semibold text-foreground">
-                <FormattedMessage id="gdpr.admin.deny" />
+                {t('gdpr.admin.deny')}
               </DialogTitle>
               <DialogDescription className="text-sm text-muted-foreground">
-                <FormattedMessage id="gdpr.admin.denyReason" />
+                {t('gdpr.admin.denyReason')}
               </DialogDescription>
             </DialogHeader>
 
@@ -304,14 +305,14 @@ export default function GDPRExportPage() {
                 onClick={() => { setDenyId(null); setDenyReason('') }}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                <FormattedMessage id="common.cancel" />
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDeny}
                 disabled={!denyReason.trim() || denyExport.isPending}
                 className="rounded-lg bg-error px-4 py-2 text-sm text-white hover:bg-error/90 transition-colors disabled:opacity-50"
               >
-                <FormattedMessage id="gdpr.admin.deny" />
+                {t('gdpr.admin.deny')}
               </button>
             </DialogFooter>
           </div>

@@ -6,7 +6,8 @@
  * Secret values are never cached in TanStack Query (mutation-based retrieval).
  */
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
+import { useFormatDate } from '@/hooks/useFormatters'
 import { toast } from 'sonner'
 import { Lock, Plus, Eye, EyeOff, Edit, Trash2, X, Clock } from 'lucide-react'
 import {
@@ -37,7 +38,8 @@ interface RevealedSecret {
 }
 
 export default function VaultPage() {
-  const intl = useIntl()
+  const { t } = useTranslation()
+  const formatDate = useFormatDate()
   const { data: secrets, isLoading } = useVaultSecrets()
   const revealMutation = useGetVaultSecret()
   const setMutation = useSetVaultSecret()
@@ -113,11 +115,11 @@ export default function VaultPage() {
           })
         },
         onError: (err) => {
-          toast.error(err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }))
+          toast.error(err instanceof Error ? err.message : t('common.error'))
         },
       })
     },
-    [revealed, revealMutation, intl],
+    [revealed, revealMutation, t],
   )
 
   const handleOpenAdd = useCallback(() => {
@@ -147,21 +149,21 @@ export default function VaultPage() {
       { keyName, value: formValue, description: formDescription || undefined },
       {
         onSuccess: () => {
-          toast.success(intl.formatMessage({ id: 'common.success' }))
+          toast.success(t('common.success'))
           setDialogOpen(false)
         },
         onError: (err) => {
-          toast.error(err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }))
+          toast.error(err instanceof Error ? err.message : t('common.error'))
         },
       },
     )
-  }, [isEditing, editKeyName, formKeyName, formValue, formDescription, setMutation, intl])
+  }, [isEditing, editKeyName, formKeyName, formValue, formDescription, setMutation, t])
 
   const handleDelete = useCallback(
     (keyName: string) => {
       deleteMutation.mutate(keyName, {
         onSuccess: () => {
-          toast.success(intl.formatMessage({ id: 'common.success' }))
+          toast.success(t('common.success'))
           setRevealed((prev) => {
             const next = new Map(prev)
             next.delete(keyName)
@@ -169,11 +171,11 @@ export default function VaultPage() {
           })
         },
         onError: (err) => {
-          toast.error(err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }))
+          toast.error(err instanceof Error ? err.message : t('common.error'))
         },
       })
     },
-    [deleteMutation, intl],
+    [deleteMutation, t],
   )
 
   const secretsList = secrets ?? []
@@ -188,7 +190,7 @@ export default function VaultPage() {
           </div>
           <div>
             <h1 className="text-foreground">
-              <FormattedMessage id="vault.title" />
+              {t('vault.title')}
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -207,7 +209,7 @@ export default function VaultPage() {
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
         >
           <Plus className="h-4 w-4" />
-          <FormattedMessage id="vault.addSecret" />
+          {t('vault.addSecret')}
         </button>
       </div>
 
@@ -218,22 +220,22 @@ export default function VaultPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="vault.keyName" />
+                  {t('vault.keyName')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="vault.description_field" />
+                  {t('vault.description_field')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="vault.value" />
+                  {t('vault.value')}
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
                   Version
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="audit.timestamp" />
+                  {t('audit.timestamp')}
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="common.actions" />
+                  {t('common.actions')}
                 </th>
               </tr>
             </thead>
@@ -241,7 +243,7 @@ export default function VaultPage() {
               {isLoading && (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-muted-foreground">
-                    <FormattedMessage id="common.loading" />
+                    {t('common.loading')}
                   </td>
                 </tr>
               )}
@@ -250,7 +252,7 @@ export default function VaultPage() {
                   <td colSpan={6} className="text-center py-12">
                     <Lock className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      <FormattedMessage id="vault.empty" />
+                      {t('vault.empty')}
                     </p>
                   </td>
                 </tr>
@@ -286,7 +288,7 @@ export default function VaultPage() {
                         </span>
                       ) : (
                         <span className="text-muted-foreground/60">
-                          <FormattedMessage id="vault.valueHidden" />
+                          {t('vault.valueHidden')}
                         </span>
                       )}
                     </td>
@@ -296,12 +298,11 @@ export default function VaultPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                      <FormattedDate
-                        value={secret.updated_at}
-                        year="numeric"
-                        month="2-digit"
-                        day="2-digit"
-                      />
+                      {formatDate(secret.updated_at, {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                      })}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
@@ -309,14 +310,14 @@ export default function VaultPage() {
                           onClick={() => handleReveal(secret.key_name)}
                           disabled={revealMutation.isPending}
                           className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
-                          title={intl.formatMessage({ id: revealedEntry ? 'vault.hideValue' : 'vault.showValue' })}
+                          title={t(revealedEntry ? 'vault.hideValue' : 'vault.showValue')}
                         >
                           {revealedEntry ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                         <button
                           onClick={() => handleOpenEdit(secret.key_name, secret.description)}
                           className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                          title={intl.formatMessage({ id: 'common.edit' })}
+                          title={t('common.edit')}
                         >
                           <Edit className="h-4 w-4" />
                         </button>
@@ -324,7 +325,7 @@ export default function VaultPage() {
                           <AlertDialogTrigger asChild>
                             <button
                               className="rounded-lg p-1.5 text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-                              title={intl.formatMessage({ id: 'common.delete' })}
+                              title={t('common.delete')}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -332,24 +333,21 @@ export default function VaultPage() {
                           <AlertDialogContent className="glass-elevated">
                             <AlertDialogHeader>
                               <AlertDialogTitle>
-                                <FormattedMessage id="vault.deleteSecret" />
+                                {t('vault.deleteSecret')}
                               </AlertDialogTitle>
                               <AlertDialogDescription>
-                                <FormattedMessage
-                                  id="vault.deleteConfirm"
-                                  values={{ key: secret.key_name }}
-                                />
+                                {t('vault.deleteConfirm', { key: secret.key_name })}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>
-                                <FormattedMessage id="common.cancel" />
+                                {t('common.cancel')}
                               </AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => handleDelete(secret.key_name)}
                                 disabled={deleteMutation.isPending}
                               >
-                                <FormattedMessage id="common.confirm" />
+                                {t('common.confirm')}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -371,7 +369,7 @@ export default function VaultPage() {
           <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold text-foreground">
-                <FormattedMessage id={isEditing ? 'vault.editSecret' : 'vault.addSecret'} />
+                {t(isEditing ? 'vault.editSecret' : 'vault.addSecret')}
               </h2>
               <button
                 onClick={() => setDialogOpen(false)}
@@ -384,7 +382,7 @@ export default function VaultPage() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  <FormattedMessage id="vault.keyName" />
+                  {t('vault.keyName')}
                 </label>
                 <input
                   value={formKeyName}
@@ -397,12 +395,12 @@ export default function VaultPage() {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  <FormattedMessage id="vault.value" />
+                  {t('vault.value')}
                 </label>
                 <textarea
                   value={formValue}
                   onChange={(e) => setFormValue(e.target.value)}
-                  placeholder={intl.formatMessage({ id: 'vault.value' })}
+                  placeholder={t('vault.value')}
                   rows={3}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground font-mono placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
                 />
@@ -410,15 +408,15 @@ export default function VaultPage() {
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  <FormattedMessage id="vault.description_field" />{' '}
+                  {t('vault.description_field')}{' '}
                   <span className="text-xs text-muted-foreground font-normal">
-                    (<FormattedMessage id="common.optional" />)
+                    ({t('common.optional')})
                   </span>
                 </label>
                 <input
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder={intl.formatMessage({ id: 'common.optional' })}
+                  placeholder={t('common.optional')}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
@@ -429,7 +427,7 @@ export default function VaultPage() {
                 onClick={() => setDialogOpen(false)}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                <FormattedMessage id="common.cancel" />
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleSave}
@@ -439,10 +437,10 @@ export default function VaultPage() {
                 {setMutation.isPending ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                    <FormattedMessage id="common.loading" />
+                    {t('common.loading')}
                   </span>
                 ) : (
-                  <FormattedMessage id="common.save" />
+                  t('common.save')
                 )}
               </button>
             </div>

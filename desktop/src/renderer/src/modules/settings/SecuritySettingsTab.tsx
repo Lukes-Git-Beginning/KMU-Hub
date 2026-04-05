@@ -2,7 +2,7 @@
  * Security settings tab: 2FA setup, active sessions overview, password change.
  *
  * Wired to real hooks from api/hooks (created by parallel agent 09-08).
- * Uses react-intl FormattedMessage for all user-visible text.
+ * Uses i18next for all user-visible text.
  */
 import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
@@ -16,7 +16,7 @@ import {
   HelpCircle,
   ExternalLink,
 } from 'lucide-react'
-import { FormattedMessage } from 'react-intl'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +38,7 @@ const DEVICE_ICONS: Record<string, typeof Monitor> = {
  * Renders the password strength meter based on validation result.
  */
 function StrengthMeter({ valid, failures }: { valid: boolean; failures: string[] }) {
+  const { t } = useTranslation()
   const score = valid ? 100 : Math.max(0, 100 - failures.length * 25)
   const level =
     score >= 100
@@ -57,13 +58,15 @@ function StrengthMeter({ valid, failures }: { valid: boolean; failures: string[]
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        <FormattedMessage id={level.label} />
+        {t(level.label)}
       </p>
     </div>
   )
 }
 
 export function SecuritySettingsTab() {
+  const { t } = useTranslation()
+
   // 2FA state
   const [show2FASetup, setShow2FASetup] = useState(false)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
@@ -94,10 +97,10 @@ export function SecuritySettingsTab() {
   const handlePasswordChange = useCallback(() => {
     if (!currentPw || !newPw) return
     if (newPw !== confirmPw) {
-      toast.error(<FormattedMessage id="password.mismatch" />)
+      toast.error(t('password.mismatch'))
       return
     }
-    toast.success(<FormattedMessage id="password.changed" />)
+    toast.success(t('password.changed'))
     setCurrentPw('')
     setNewPw('')
     setConfirmPw('')
@@ -107,14 +110,14 @@ export function SecuritySettingsTab() {
     disable2FA.mutate(undefined, {
       onSuccess: () => {
         setTwoFactorEnabled(false)
-        toast.success(<FormattedMessage id="security.2fa.disable" />)
+        toast.success(t('security.2fa.disable'))
       },
     })
   }, [disable2FA])
 
   const handleRegenerateCodes = useCallback(() => {
     regenerateCodes.mutate(undefined, {
-      onSuccess: () => toast.success(<FormattedMessage id="security.2fa.regenerateCodes" />),
+      onSuccess: () => toast.success(t('security.2fa.regenerateCodes')),
     })
   }, [regenerateCodes])
 
@@ -122,10 +125,10 @@ export function SecuritySettingsTab() {
     <div className="mx-auto max-w-2xl px-6 py-6 space-y-8">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">
-          <FormattedMessage id="settings.security.title" />
+          {t('settings.security.title')}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          <FormattedMessage id="settings.security.subtitle" />
+          {t('settings.security.subtitle')}
         </p>
       </div>
 
@@ -134,10 +137,10 @@ export function SecuritySettingsTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Key className="h-5 w-5" />
-            <FormattedMessage id="security.2fa.title" />
+            {t('security.2fa.title')}
           </CardTitle>
           <CardDescription>
-            <FormattedMessage id="security.2fa.enableDescription" />
+            {t('security.2fa.enableDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -145,18 +148,18 @@ export function SecuritySettingsTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">
-                  <FormattedMessage id="security.2fa.notEnabled" />
+                  {t('security.2fa.notEnabled')}
                 </p>
               </div>
               <Button size="sm" onClick={() => setShow2FASetup(true)}>
-                <FormattedMessage id="security.2fa.enable" />
+                {t('security.2fa.enable')}
               </Button>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Badge variant="secondary" className="bg-success-light text-success">
-                  <FormattedMessage id="security.2fa.enabled" />
+                  {t('security.2fa.enabled')}
                 </Badge>
                 <div className="flex gap-2">
                   <Button
@@ -165,7 +168,7 @@ export function SecuritySettingsTab() {
                     onClick={handleRegenerateCodes}
                     disabled={regenerateCodes.isPending}
                   >
-                    <FormattedMessage id="security.2fa.regenerateCodes" />
+                    {t('security.2fa.regenerateCodes')}
                   </Button>
                   <Button
                     variant="destructive"
@@ -173,7 +176,7 @@ export function SecuritySettingsTab() {
                     onClick={handleDisable2FA}
                     disabled={disable2FA.isPending}
                   >
-                    <FormattedMessage id="security.2fa.disable" />
+                    {t('security.2fa.disable')}
                   </Button>
                 </div>
               </div>
@@ -195,17 +198,17 @@ export function SecuritySettingsTab() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-lg">
-                <FormattedMessage id="session.title" />
+                {t('session.title')}
               </CardTitle>
               <CardDescription>
-                <FormattedMessage id="session.description" />
+                {t('session.description')}
               </CardDescription>
             </div>
             <Link
               to="/admin/security"
               className="text-sm text-primary hover:underline flex items-center gap-1"
             >
-              <FormattedMessage id="common.details" />
+              {t('common.details')}
               <ExternalLink className="h-3 w-3" />
             </Link>
           </div>
@@ -233,7 +236,7 @@ export function SecuritySettingsTab() {
                   </div>
                   {session.is_current ? (
                     <Badge variant="secondary">
-                      <FormattedMessage id="session.current" />
+                      {t('session.current')}
                     </Badge>
                   ) : (
                     <Button
@@ -243,12 +246,12 @@ export function SecuritySettingsTab() {
                       onClick={() =>
                         terminateSession.mutate(session.id, {
                           onSuccess: () =>
-                            toast.success(<FormattedMessage id="session.terminated" />),
+                            toast.success(t('session.terminated')),
                         })
                       }
                       disabled={terminateSession.isPending}
                     >
-                      <FormattedMessage id="session.terminate" />
+                      {t('session.terminate')}
                     </Button>
                   )}
                 </div>
@@ -257,7 +260,7 @@ export function SecuritySettingsTab() {
 
             {(!sessions || sessions.length === 0) && (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                <FormattedMessage id="common.loading" />
+                {t('common.loading')}
               </p>
             )}
           </div>
@@ -268,13 +271,13 @@ export function SecuritySettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            <FormattedMessage id="password.change" />
+            {t('password.change')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              <FormattedMessage id="password.current" />
+              {t('password.current')}
             </label>
             <div className="relative">
               <Input
@@ -298,7 +301,7 @@ export function SecuritySettingsTab() {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              <FormattedMessage id="password.new" />
+              {t('password.new')}
             </label>
             <div className="relative">
               <Input
@@ -328,7 +331,7 @@ export function SecuritySettingsTab() {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              <FormattedMessage id="password.confirm" />
+              {t('password.confirm')}
             </label>
             <Input
               type="password"
@@ -337,7 +340,7 @@ export function SecuritySettingsTab() {
             />
             {confirmPw && newPw !== confirmPw && (
               <p className="text-xs text-destructive">
-                <FormattedMessage id="password.mismatch" />
+                {t('password.mismatch')}
               </p>
             )}
           </div>
@@ -346,7 +349,7 @@ export function SecuritySettingsTab() {
             onClick={handlePasswordChange}
             disabled={!currentPw || !newPw || !confirmPw || newPw !== confirmPw}
           >
-            <FormattedMessage id="password.change" />
+            {t('password.change')}
           </Button>
         </CardContent>
       </Card>

@@ -41,13 +41,14 @@ vi.mock('@/api/websocket', () => ({
   },
 }))
 
-// Mock react-intl to return message IDs directly
-vi.mock('react-intl', () => ({
-  FormattedMessage: ({ id }: { id: string }) => id,
-  useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+// Mock react-i18next to return translation keys directly
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'de', changeLanguage: vi.fn() },
   }),
-  IntlProvider: ({ children }: { children: React.ReactNode }) => children,
+  I18nextProvider: ({ children }: { children: React.ReactNode }) => children,
+  Trans: ({ children }: { children: React.ReactNode }) => children,
 }))
 
 // Mock react-router-dom navigate

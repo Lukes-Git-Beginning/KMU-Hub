@@ -2,11 +2,12 @@
  * Language settings tab: locale picker with format previews.
  *
  * Provides locale switching (DE/EN/FR/IT), auto-detect option,
- * and real-time date/number format previews using react-intl.
+ * and real-time date/number format previews using i18next and useFormatters.
  * Wired to useLocale hook for persisted locale state.
  */
 import { Check, Globe } from 'lucide-react'
-import { FormattedMessage, FormattedDate, FormattedNumber } from 'react-intl'
+import { useTranslation } from 'react-i18next'
+import { useFormatDate, useFormatNumber } from '@/hooks/useFormatters'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useLocale, LOCALE_DISPLAY_NAMES, AVAILABLE_LOCALES } from '@/hooks/useLocale'
@@ -21,6 +22,9 @@ const LOCALE_FLAGS: Record<SupportedLocale, string> = {
 }
 
 export function LanguageSettingsTab() {
+  const { t } = useTranslation()
+  const formatDate = useFormatDate()
+  const formatNumber = useFormatNumber()
   const { locale, setLocale, resetToAuto, isAutoDetected } = useLocale()
 
   /** Detect the browser's preferred language for display. */
@@ -40,10 +44,10 @@ export function LanguageSettingsTab() {
     <div className="mx-auto max-w-2xl px-6 py-6 space-y-8">
       <div>
         <h2 className="text-2xl font-semibold text-foreground">
-          <FormattedMessage id="settings.language.title" />
+          {t('settings.language.title')}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          <FormattedMessage id="settings.language.subtitle" />
+          {t('settings.language.subtitle')}
         </p>
       </div>
 
@@ -52,13 +56,10 @@ export function LanguageSettingsTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Globe className="h-5 w-5" />
-            <FormattedMessage id="settings.language.title" />
+            {t('settings.language.title')}
           </CardTitle>
           <CardDescription>
-            <FormattedMessage
-              id="settings.language.current"
-              values={{ language: LOCALE_DISPLAY_NAMES[locale] }}
-            />
+            {t('settings.language.current', { language: LOCALE_DISPLAY_NAMES[locale] })}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -75,7 +76,7 @@ export function LanguageSettingsTab() {
               A
             </span>
             <span className="flex-1 text-left text-sm text-foreground">
-              <FormattedMessage id="settings.language.auto" />
+              {t('settings.language.auto')}
             </span>
             {isAutoDetected && <Check className="h-4 w-4 text-primary" />}
           </button>
@@ -110,38 +111,32 @@ export function LanguageSettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            <FormattedMessage id="settings.language.datePreview" />
+            {t('settings.language.datePreview')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs text-muted-foreground mb-1">
-                <FormattedMessage id="settings.language.datePreview" />
+                {t('settings.language.datePreview')}
               </p>
               <p className="text-sm font-medium text-foreground">
-                <FormattedDate
-                  value={now}
-                  year="numeric"
-                  month="long"
-                  day="numeric"
-                  weekday="long"
-                />
+                {formatDate(now, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
               </p>
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs text-muted-foreground mb-1">
-                <FormattedMessage id="settings.language.numberPreview" />
+                {t('settings.language.numberPreview')}
               </p>
               <p className="text-sm font-medium text-foreground">
-                <FormattedNumber value={1234567.89} style="decimal" />
+                {formatNumber(1234567.89, { style: 'decimal' })}
               </p>
             </div>
           </div>
 
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground mb-1">
-              <FormattedMessage id="settings.language.browserLanguage" />
+              {t('settings.language.browserLanguage')}
             </p>
             <p className="text-sm text-foreground">{browserLang}</p>
           </div>
@@ -151,7 +146,7 @@ export function LanguageSettingsTab() {
       {/* Reset */}
       {!isAutoDetected && (
         <Button variant="outline" onClick={resetToAuto}>
-          <FormattedMessage id="settings.language.auto" />
+          {t('settings.language.auto')}
         </Button>
       )}
     </div>

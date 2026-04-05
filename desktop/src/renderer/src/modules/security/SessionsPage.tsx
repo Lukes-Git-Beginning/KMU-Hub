@@ -6,7 +6,8 @@
  * Admin view toggles to show all users' sessions.
  */
 import { useState, useCallback } from 'react'
-import { FormattedMessage, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
+import { useFormatDate } from '@/hooks/useFormatters'
 import { toast } from 'sonner'
 import { Monitor, Smartphone, Tablet, MapPin, Wifi } from 'lucide-react'
 import {
@@ -55,7 +56,8 @@ interface SessionCardProps {
 }
 
 function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) {
-  const intl = useIntl()
+  const { t } = useTranslation()
+  const formatDate = useFormatDate()
   const device = getDeviceConfig(session.device_type)
   const DeviceIcon = device.icon
 
@@ -77,11 +79,11 @@ function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm text-foreground truncate">
-              {session.device_name || intl.formatMessage({ id: deviceTypeMessageId(session.device_type) })}
+              {session.device_name || t(deviceTypeMessageId(session.device_type))}
             </span>
             {session.is_current && (
               <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success shrink-0">
-                <FormattedMessage id="session.current" />
+                {t('session.current')}
               </span>
             )}
           </div>
@@ -98,32 +100,26 @@ function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) 
               </span>
             )}
             <span className="text-xs text-muted-foreground">
-              <FormattedMessage
-                id="session.createdAt"
-                values={{
-                  time: intl.formatDate(session.created_at, {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }),
-                }}
-              />
+              {t('session.createdAt', {
+                time: formatDate(session.created_at, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+              })}
             </span>
             <span className="text-xs text-muted-foreground">
-              <FormattedMessage
-                id="session.lastActive"
-                values={{
-                  time: intl.formatDate(session.last_active_at, {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }),
-                }}
-              />
+              {t('session.lastActive', {
+                time: formatDate(session.last_active_at, {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }),
+              })}
             </span>
           </div>
         </div>
@@ -136,24 +132,24 @@ function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) 
                 disabled={isTerminating}
                 className="shrink-0 rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-error hover:bg-error-light transition-colors disabled:opacity-40"
               >
-                <FormattedMessage id="session.terminate" />
+                {t('session.terminate')}
               </button>
             </AlertDialogTrigger>
             <AlertDialogContent className="glass-elevated">
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  <FormattedMessage id="session.terminate" />
+                  {t('session.terminate')}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  <FormattedMessage id="session.terminateConfirm" />
+                  {t('session.terminateConfirm')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>
-                  <FormattedMessage id="common.cancel" />
+                  {t('common.cancel')}
                 </AlertDialogCancel>
                 <AlertDialogAction onClick={() => onTerminate(session.id)}>
-                  <FormattedMessage id="common.confirm" />
+                  {t('common.confirm')}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -165,7 +161,7 @@ function SessionCard({ session, onTerminate, isTerminating }: SessionCardProps) 
 }
 
 export default function SessionsPage() {
-  const intl = useIntl()
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin') ?? false
 
@@ -186,26 +182,26 @@ export default function SessionsPage() {
     (sessionId: string) => {
       terminateMutation.mutate(sessionId, {
         onSuccess: () => {
-          toast.success(intl.formatMessage({ id: 'session.terminated' }))
+          toast.success(t('session.terminated'))
         },
         onError: (err) => {
-          toast.error(err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }))
+          toast.error(err instanceof Error ? err.message : t('common.error'))
         },
       })
     },
-    [terminateMutation, intl],
+    [terminateMutation, t],
   )
 
   const handleTerminateAll = useCallback(() => {
     terminateAllMutation.mutate(undefined, {
       onSuccess: () => {
-        toast.success(intl.formatMessage({ id: 'session.terminated' }))
+        toast.success(t('session.terminated'))
       },
       onError: (err) => {
-        toast.error(err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }))
+        toast.error(err instanceof Error ? err.message : t('common.error'))
       },
     })
-  }, [terminateAllMutation, intl])
+  }, [terminateAllMutation, t])
 
   // Sort: current session first, then by last_active_at descending
   const sortedSessions = [...sessions].sort((a, b) => {
@@ -224,7 +220,7 @@ export default function SessionsPage() {
           </div>
           <div>
             <h1 className="text-foreground">
-              <FormattedMessage id="session.title" />
+              {t('session.title')}
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="rounded-full bg-info-light px-2.5 py-0.5 text-xs font-medium text-info">
@@ -253,24 +249,24 @@ export default function SessionsPage() {
                 disabled={terminateAllMutation.isPending || sessions.length <= 1}
                 className="rounded-lg bg-error px-3 py-2 text-sm text-white hover:bg-error/90 transition-colors disabled:opacity-40"
               >
-                <FormattedMessage id="session.terminateAll" />
+                {t('session.terminateAll')}
               </button>
             </AlertDialogTrigger>
             <AlertDialogContent className="glass-elevated">
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  <FormattedMessage id="session.terminateAll" />
+                  {t('session.terminateAll')}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  <FormattedMessage id="session.terminateAllConfirm" />
+                  {t('session.terminateAllConfirm')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>
-                  <FormattedMessage id="common.cancel" />
+                  {t('common.cancel')}
                 </AlertDialogCancel>
                 <AlertDialogAction onClick={handleTerminateAll}>
-                  <FormattedMessage id="common.confirm" />
+                  {t('common.confirm')}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -283,7 +279,7 @@ export default function SessionsPage() {
         <div className="py-12 text-center">
           <Monitor className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2 animate-pulse" />
           <p className="text-sm text-muted-foreground">
-            <FormattedMessage id="common.loading" />
+            {t('common.loading')}
           </p>
         </div>
       )}
@@ -292,7 +288,7 @@ export default function SessionsPage() {
         <div className="py-12 text-center">
           <Monitor className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2" />
           <p className="text-sm text-muted-foreground">
-            <FormattedMessage id="common.noResults" />
+            {t('common.noResults')}
           </p>
         </div>
       )}

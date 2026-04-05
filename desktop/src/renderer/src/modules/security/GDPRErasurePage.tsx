@@ -19,7 +19,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { FormattedMessage, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
   Select,
@@ -45,7 +45,7 @@ const ACTION_BADGE: Record<ModuleAction, string> = {
 }
 
 export default function GDPRErasurePage() {
-  const intl = useIntl()
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -133,10 +133,10 @@ export default function GDPRErasurePage() {
         setAdminPassword('')
         setExecutionProgress(0)
         setIsCompleted(true)
-        toast.success(intl.formatMessage({ id: 'gdpr.erasure.success' }))
+        toast.success(t('gdpr.erasure.success'))
       }
     }, 150)
-  }, [adminPassword, previewData, selectedUserId, intl])
+  }, [adminPassword, previewData, selectedUserId, t])
 
   const handleDownloadReceipt = useCallback(() => {
     toast.success('Loeschprotokoll wird heruntergeladen...')
@@ -161,10 +161,10 @@ export default function GDPRErasurePage() {
           </div>
           <div>
             <h1 className="text-foreground">
-              <FormattedMessage id="gdpr.erasure.title" />
+              {t('gdpr.erasure.title')}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              <FormattedMessage id="gdpr.erasure.description" />
+              {t('gdpr.erasure.description')}
             </p>
           </div>
         </div>
@@ -173,14 +173,14 @@ export default function GDPRErasurePage() {
         <div className="flex gap-3 rounded-lg bg-error-light p-4 mb-6">
           <AlertTriangle className="h-5 w-5 shrink-0 text-error mt-0.5" />
           <p className="text-sm text-error font-medium">
-            <FormattedMessage id="gdpr.erasureWarning" />
+            {t('gdpr.erasureWarning')}
           </p>
         </div>
 
         {/* User Selection */}
         <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
           <h3 className="text-base font-semibold text-foreground mb-4">
-            <FormattedMessage id="gdpr.erasure.selectUser" />
+            {t('gdpr.erasure.selectUser')}
           </h3>
 
           <div className="relative mb-3">
@@ -227,7 +227,7 @@ export default function GDPRErasurePage() {
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
               >
                 <Eye className="h-3.5 w-3.5" />
-                <FormattedMessage id="gdpr.erasure.preview" />
+                {t('gdpr.erasure.preview')}
               </button>
             </div>
           )}
@@ -237,12 +237,12 @@ export default function GDPRErasurePage() {
         {previewData && !isCompleted && (
           <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
             <h3 className="text-base font-semibold text-foreground mb-1">
-              <FormattedMessage id="gdpr.erasurePreview" />
+              {t('gdpr.erasurePreview')}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              <FormattedMessage id="gdpr.recordsAffected" values={{ count: totalRecords }} />
+              {t('gdpr.recordsAffected', { count: totalRecords })}
               {' '}&middot;{' '}
-              <FormattedMessage id="gdpr.modulesAffected" values={{ count: previewData.length }} />
+              {t('gdpr.modulesAffected', { count: previewData.length })}
             </p>
 
             <div className="rounded-lg border border-border overflow-hidden mb-5">
@@ -250,13 +250,13 @@ export default function GDPRErasurePage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      <FormattedMessage id="gdpr.erasure.module" />
+                      {t('gdpr.erasure.module')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      <FormattedMessage id="gdpr.erasure.records" />
+                      {t('gdpr.erasure.records')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      <FormattedMessage id="gdpr.erasure.action" />
+                      {t('gdpr.erasure.action')}
                     </th>
                   </tr>
                 </thead>
@@ -279,13 +279,13 @@ export default function GDPRErasurePage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="anonymize">
-                              <FormattedMessage id="gdpr.moduleAction.anonymize" />
+                              {t('gdpr.moduleAction.anonymize')}
                             </SelectItem>
                             <SelectItem value="delete">
-                              <FormattedMessage id="gdpr.moduleAction.delete" />
+                              {t('gdpr.moduleAction.delete')}
                             </SelectItem>
                             <SelectItem value="retain">
-                              <FormattedMessage id="gdpr.moduleAction.retain" />
+                              {t('gdpr.moduleAction.retain')}
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -301,7 +301,7 @@ export default function GDPRErasurePage() {
               className="flex items-center gap-2 rounded-lg bg-error px-4 py-2 text-sm text-white hover:bg-error/90 transition-colors"
             >
               <Trash2 className="h-4 w-4" />
-              <FormattedMessage id="gdpr.erasure.execute" />
+              {t('gdpr.erasure.execute')}
             </button>
           </div>
         )}
@@ -313,14 +313,11 @@ export default function GDPRErasurePage() {
               <CheckCircle className="h-6 w-6 text-success" />
             </div>
             <p className="text-lg font-medium text-foreground">
-              <FormattedMessage id="gdpr.erasure.success" />
+              {t('gdpr.erasure.success')}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {selectedUserName} &rarr;{' '}
-              <FormattedMessage
-                id="gdpr.anonymizedUser"
-                values={{ id: selectedUserId?.slice(-4) ?? '0000' }}
-              />
+              {t('gdpr.anonymizedUser', { id: selectedUserId?.slice(-4) ?? '0000' })}
             </p>
             <button
               onClick={handleDownloadReceipt}
@@ -339,23 +336,23 @@ export default function GDPRErasurePage() {
           <div className="p-6">
             <DialogHeader className="mb-5">
               <DialogTitle className="text-lg font-semibold text-foreground">
-                <FormattedMessage id="gdpr.erasure.confirmTitle" />
+                {t('gdpr.erasure.confirmTitle')}
               </DialogTitle>
               <DialogDescription className="sr-only">Loeschvorgang bestätigen</DialogDescription>
             </DialogHeader>
 
             <p className="text-sm text-muted-foreground mb-4">
-              <FormattedMessage id="gdpr.erasure.confirmDescription" />
+              {t('gdpr.erasure.confirmDescription')}
             </p>
 
             {/* Warning summary */}
             <div className="rounded-lg bg-error-light p-3 mb-4">
               <p className="text-sm text-error font-medium">
-                <FormattedMessage id="gdpr.erasureWarning" />
+                {t('gdpr.erasureWarning')}
               </p>
               <p className="mt-1 text-sm text-error/80">
                 {selectedUserName} &middot;{' '}
-                <FormattedMessage id="gdpr.recordsAffected" values={{ count: totalRecords }} />
+                {t('gdpr.recordsAffected', { count: totalRecords })}
               </p>
             </div>
 
@@ -365,7 +362,7 @@ export default function GDPRErasurePage() {
                 <div key={mod.module} className="flex items-center justify-between text-sm">
                   <span className="text-foreground">{mod.module}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${ACTION_BADGE[mod.action]}`}>
-                    <FormattedMessage id={`gdpr.moduleAction.${mod.action}`} />
+                    {t(`gdpr.moduleAction.${mod.action}`)}
                   </span>
                 </div>
               ))}
@@ -374,7 +371,7 @@ export default function GDPRErasurePage() {
             {/* Admin password */}
             <div className="space-y-1.5 mb-6">
               <label className="text-sm font-medium text-foreground">
-                <FormattedMessage id="gdpr.erasurePasswordConfirm" />
+                {t('gdpr.erasurePasswordConfirm')}
               </label>
               <input
                 type="password"
@@ -390,7 +387,7 @@ export default function GDPRErasurePage() {
                 onClick={() => { setShowConfirm(false); setAdminPassword('') }}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                <FormattedMessage id="common.cancel" />
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleExecute}
@@ -403,7 +400,7 @@ export default function GDPRErasurePage() {
                     {executionProgress}%
                   </span>
                 ) : (
-                  <FormattedMessage id="gdpr.erasureConfirm" />
+                  t('gdpr.erasureConfirm')
                 )}
               </button>
             </DialogFooter>

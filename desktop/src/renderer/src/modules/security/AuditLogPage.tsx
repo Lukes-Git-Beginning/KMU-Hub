@@ -5,7 +5,8 @@
  * Supports CSV/JSON export and integrity verification of the audit chain.
  */
 import { useState, useCallback, useMemo } from 'react'
-import { FormattedMessage, FormattedDate, useIntl } from 'react-intl'
+import { useTranslation } from 'react-i18next'
+import { useFormatDate } from '@/hooks/useFormatters'
 import { toast } from 'sonner'
 import {
   Shield,
@@ -39,7 +40,8 @@ const RESULT_OPTIONS = [
 ] as const
 
 export default function AuditLogPage() {
-  const intl = useIntl()
+  const { t } = useTranslation()
+  const formatDate = useFormatDate()
 
   // Filter state
   const [dateFrom, setDateFrom] = useState('')
@@ -72,12 +74,12 @@ export default function AuditLogPage() {
         { filter: filterWithoutPaging, format },
         {
           onError: (err) => {
-            toast.error(err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }))
+            toast.error(err instanceof Error ? err.message : t('common.error'))
           },
         },
       )
     },
-    [filter, exportMutation, intl],
+    [filter, exportMutation, t],
   )
 
   const handleVerifyChain = useCallback(() => {
@@ -90,22 +92,19 @@ export default function AuditLogPage() {
       {
         onSuccess: (result) => {
           if (result.valid) {
-            toast.success(intl.formatMessage({ id: 'audit.chainValid' }))
+            toast.success(t('audit.chainValid'))
           } else {
             toast.error(
-              intl.formatMessage(
-                { id: 'audit.chainBroken' },
-                { sequence: result.broken_at_sequence ?? 0 },
-              ),
+              t('audit.chainBroken', { sequence: result.broken_at_sequence ?? 0 }),
             )
           }
         },
         onError: (err) => {
-          toast.error(err instanceof Error ? err.message : intl.formatMessage({ id: 'common.error' }))
+          toast.error(err instanceof Error ? err.message : t('common.error'))
         },
       },
     )
-  }, [entries, verifyMutation, intl])
+  }, [entries, verifyMutation, t])
 
   const handleResetFilters = useCallback(() => {
     setDateFrom('')
@@ -127,12 +126,12 @@ export default function AuditLogPage() {
           </div>
           <div>
             <h1 className="text-foreground">
-              <FormattedMessage id="audit.title" />
+              {t('audit.title')}
             </h1>
             <div className="flex items-center gap-2 mt-1">
               {total > 0 && (
                 <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="audit.totalEntries" values={{ count: total }} />
+                  {t('audit.totalEntries', { count: total })}
                 </span>
               )}
             </div>
@@ -145,7 +144,7 @@ export default function AuditLogPage() {
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
-            <FormattedMessage id="audit.exportCSV" />
+            {t('audit.exportCSV')}
           </button>
           <button
             onClick={() => handleExport('json')}
@@ -153,7 +152,7 @@ export default function AuditLogPage() {
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
-            <FormattedMessage id="audit.exportJSON" />
+            {t('audit.exportJSON')}
           </button>
           <button
             onClick={handleVerifyChain}
@@ -161,7 +160,7 @@ export default function AuditLogPage() {
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
           >
             <ShieldCheck className="h-3.5 w-3.5" />
-            <FormattedMessage id="audit.verifyChain" />
+            {t('audit.verifyChain')}
           </button>
         </div>
       </div>
@@ -171,7 +170,7 @@ export default function AuditLogPage() {
         {/* Date range */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">
-            <FormattedMessage id="audit.filter.dateRange" />
+            {t('audit.filter.dateRange')}
           </label>
           <div className="flex items-center gap-1.5">
             <input
@@ -193,13 +192,13 @@ export default function AuditLogPage() {
         {/* Action search */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">
-            <FormattedMessage id="audit.filter.actionType" />
+            {t('audit.filter.actionType')}
           </label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder={intl.formatMessage({ id: 'common.search' })}
+              placeholder={t('common.search')}
               value={actionFilter}
               onChange={(e) => { setActionFilter(e.target.value); setPage(0) }}
               className="h-9 w-40 rounded-lg border border-border bg-card pl-9 pr-3 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -210,7 +209,7 @@ export default function AuditLogPage() {
         {/* Result filter */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">
-            <FormattedMessage id="audit.result" />
+            {t('audit.result')}
           </label>
           <Select
             value={resultFilter}
@@ -222,7 +221,7 @@ export default function AuditLogPage() {
             <SelectContent>
               {RESULT_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
-                  {intl.formatMessage({ id: opt.labelId })}
+                  {t(opt.labelId)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -236,7 +235,7 @@ export default function AuditLogPage() {
             className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors h-9"
           >
             <Filter className="h-3.5 w-3.5" />
-            <FormattedMessage id="common.resetFilters" />
+            {t('common.resetFilters')}
           </button>
         )}
       </div>
@@ -248,22 +247,22 @@ export default function AuditLogPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="audit.timestamp" />
+                  {t('audit.timestamp')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="audit.user" />
+                  {t('audit.user')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="audit.action" />
+                  {t('audit.action')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="audit.target" />
+                  {t('audit.target')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="audit.ip" />
+                  {t('audit.ip')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                  <FormattedMessage id="audit.result" />
+                  {t('audit.result')}
                 </th>
               </tr>
             </thead>
@@ -271,7 +270,7 @@ export default function AuditLogPage() {
               {isLoading && (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-muted-foreground">
-                    <FormattedMessage id="common.loading" />
+                    {t('common.loading')}
                   </td>
                 </tr>
               )}
@@ -280,7 +279,7 @@ export default function AuditLogPage() {
                   <td colSpan={6} className="text-center py-12">
                     <Shield className="mx-auto h-10 w-10 text-muted-foreground/40 mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      <FormattedMessage id="common.noResults" />
+                      {t('common.noResults')}
                     </p>
                   </td>
                 </tr>
@@ -291,15 +290,14 @@ export default function AuditLogPage() {
                   className="border-b border-border-muted last:border-0 hover:bg-secondary/50 transition-colors"
                 >
                   <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
-                    <FormattedDate
-                      value={entry.timestamp}
-                      year="numeric"
-                      month="2-digit"
-                      day="2-digit"
-                      hour="2-digit"
-                      minute="2-digit"
-                      second="2-digit"
-                    />
+                    {formatDate(entry.timestamp, {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })}
                   </td>
                   <td className="px-4 py-3 text-sm text-foreground">
                     {entry.user_name || entry.user_id}
@@ -326,9 +324,7 @@ export default function AuditLogPage() {
                           : 'bg-error-light text-error'
                       }`}
                     >
-                      <FormattedMessage
-                        id={entry.result === 'success' ? 'audit.result.success' : 'audit.result.failure'}
-                      />
+                      {t(entry.result === 'success' ? 'audit.result.success' : 'audit.result.failure')}
                     </span>
                   </td>
                 </tr>
@@ -351,14 +347,14 @@ export default function AuditLogPage() {
               className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
-              <FormattedMessage id="common.back" />
+              {t('common.back')}
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page >= totalPages - 1}
               className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
             >
-              <FormattedMessage id="common.next" />
+              {t('common.next')}
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
