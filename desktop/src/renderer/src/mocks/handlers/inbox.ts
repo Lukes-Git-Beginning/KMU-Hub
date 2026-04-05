@@ -1,176 +1,281 @@
 import { http, HttpResponse } from 'msw'
 import { API_BASE_URL } from '@/lib/constants'
 import { IDS } from '../data/shared-ids'
-import { hoursAgo, daysAgo } from '../data/date-helpers'
+import { hoursAgo, daysAgo, minutesAgo } from '../data/date-helpers'
 
 const API = API_BASE_URL
 
 // ---------------------------------------------------------------------------
-// Unified inbox conversations (5 — mix of email, chat, form)
+// Unified inbox messages matching InboxMessage interface
 // ---------------------------------------------------------------------------
 
-const conversations = [
+const inboxMessages = [
   {
-    id: 'conv-001',
-    source: 'email',
+    id: 'msg-001',
+    user_id: IDS.users.thomas,
+    channel: 'email' as const,
+    source_id: 'email-001',
+    sender_name: 'Peter Gruber',
+    sender_id: IDS.contacts.gruber,
+    sender_email: 'p.gruber@gruber-maschinenbau.de',
     subject: 'Anfrage: CRM-Demo für unser Team',
-    status: 'open',
-    priority: 'high',
-    contact_id: IDS.contacts.gruber,
-    contact_name: 'Peter Gruber',
-    contact_email: 'p.gruber@gruber-maschinenbau.de',
+    preview: 'Mittwoch 14:00 wäre perfekt. Mein CTO Herr Wagner wird auch dabei sein. Bitte schicken Sie den Einladungslink.',
+    is_read: false,
+    is_starred: true,
+    is_archived: false,
     assigned_to: IDS.users.thomas,
-    assigned_to_name: 'Thomas Meier',
-    last_message_at: hoursAgo(1),
-    message_count: 3,
-    unread: true,
     tags: ['Demo', 'Enterprise'],
+    deep_link: '/crm/contacts/' + IDS.contacts.gruber,
+    crm_contact_id: IDS.contacts.gruber,
+    received_at: hoursAgo(1),
     created_at: daysAgo(2),
+    updated_at: hoursAgo(1),
   },
   {
-    id: 'conv-002',
-    source: 'chat',
+    id: 'msg-002',
+    user_id: IDS.users.markus,
+    channel: 'chat' as const,
+    source_id: 'chat-001',
+    sender_name: 'Anna Schneider',
+    sender_id: IDS.contacts.schneider,
+    sender_email: 'a.schneider@helvetia-software.ch',
     subject: 'Technische Frage: API Rate Limiting',
-    status: 'open',
-    priority: 'normal',
-    contact_id: IDS.contacts.schneider,
-    contact_name: 'Anna Schneider',
-    contact_email: 'a.schneider@helvetia-software.ch',
+    preview: 'Ja, das wäre super. Nächste Woche wäre ideal.',
+    is_read: false,
+    is_starred: false,
+    is_archived: false,
     assigned_to: IDS.users.markus,
-    assigned_to_name: 'Markus Weber',
-    last_message_at: hoursAgo(3),
-    message_count: 5,
-    unread: true,
     tags: ['Support', 'Technik'],
+    deep_link: '/crm/contacts/' + IDS.contacts.schneider,
+    crm_contact_id: IDS.contacts.schneider,
+    received_at: hoursAgo(3),
     created_at: daysAgo(1),
+    updated_at: hoursAgo(3),
   },
   {
-    id: 'conv-003',
-    source: 'form',
+    id: 'msg-003',
+    user_id: IDS.users.stefan,
+    channel: 'notification' as const,
+    source_id: 'form-001',
+    sender_name: 'Michael Brunner',
+    sender_email: 'm.brunner@donau-pharma.at',
     subject: 'Kontaktformular: Preisanfrage',
-    status: 'open',
-    priority: 'normal',
-    contact_id: null,
-    contact_name: 'Michael Brunner',
-    contact_email: 'm.brunner@donau-pharma.at',
-    assigned_to: null,
-    assigned_to_name: null,
-    last_message_at: hoursAgo(5),
-    message_count: 1,
-    unread: true,
+    preview: 'Wir suchen eine Business-Lösung für 120 Mitarbeiter. Bitte um Preisangebot für Enterprise inkl. DSGVO-Compliance-Modul.',
+    is_read: false,
+    is_starred: false,
+    is_archived: false,
     tags: ['Lead'],
+    deep_link: '/kommunikation/msg-003',
+    received_at: hoursAgo(5),
     created_at: hoursAgo(5),
+    updated_at: hoursAgo(5),
   },
   {
-    id: 'conv-004',
-    source: 'email',
-    subject: 'Re: Wartungsvertrag Verlaengerung',
-    status: 'pending',
-    priority: 'normal',
-    contact_id: IDS.contacts.huber,
-    contact_name: 'Maria Huber',
-    contact_email: 'm.huber@bavaria-elektro.de',
+    id: 'msg-004',
+    user_id: IDS.users.thomas,
+    channel: 'email' as const,
+    source_id: 'email-002',
+    sender_name: 'Maria Huber',
+    sender_id: IDS.contacts.huber,
+    sender_email: 'm.huber@bavaria-elektro.de',
+    subject: 'Re: Wartungsvertrag Verlängerung',
+    preview: 'Bei 2 Jahren können wir 10% anbieten. Ich sende Ihnen morgen das aktualisierte Angebot.',
+    is_read: true,
+    is_starred: false,
+    is_archived: false,
     assigned_to: IDS.users.thomas,
-    assigned_to_name: 'Thomas Meier',
-    last_message_at: daysAgo(1),
-    message_count: 4,
-    unread: false,
     tags: ['Vertrag'],
+    deep_link: '/crm/contacts/' + IDS.contacts.huber,
+    crm_contact_id: IDS.contacts.huber,
+    received_at: daysAgo(1),
     created_at: daysAgo(5),
+    updated_at: daysAgo(1),
   },
   {
-    id: 'conv-005',
-    source: 'email',
+    id: 'msg-005',
+    user_id: IDS.users.julia,
+    channel: 'email' as const,
+    source_id: 'email-003',
+    sender_name: 'Christian Berger',
+    sender_id: IDS.contacts.berger,
+    sender_email: 'c.berger@rhein-consulting.de',
     subject: 'Feedback: Sehr zufrieden mit dem Onboarding',
-    status: 'closed',
-    priority: 'low',
-    contact_id: IDS.contacts.berger,
-    contact_name: 'Christian Berger',
-    contact_email: 'c.berger@rhein-consulting.de',
+    preview: 'Das Onboarding war exzellent. Unser Team ist innerhalb von 2 Tagen produktiv gewesen.',
+    is_read: true,
+    is_starred: false,
+    is_archived: true,
     assigned_to: IDS.users.julia,
-    assigned_to_name: 'Julia Hofmann',
-    last_message_at: daysAgo(3),
-    message_count: 2,
-    unread: false,
     tags: ['Feedback'],
+    deep_link: '/crm/contacts/' + IDS.contacts.berger,
+    crm_contact_id: IDS.contacts.berger,
+    received_at: daysAgo(3),
     created_at: daysAgo(4),
+    updated_at: daysAgo(3),
+  },
+  {
+    id: 'msg-006',
+    user_id: IDS.users.thomas,
+    channel: 'email' as const,
+    source_id: 'email-004',
+    sender_name: 'Werner Koch',
+    sender_email: 'w.koch@alpine-bau.at',
+    subject: 'Angebot für Bauprojekt Innsbruck',
+    preview: 'Könnten Sie uns ein Angebot für die CRM-Anbindung an unser ERP-System schicken?',
+    is_read: false,
+    is_starred: false,
+    is_archived: false,
+    assigned_to: IDS.users.thomas,
+    tags: ['Angebot'],
+    deep_link: '/kommunikation/msg-006',
+    received_at: minutesAgo(45),
+    created_at: minutesAgo(45),
+    updated_at: minutesAgo(45),
+  },
+  {
+    id: 'msg-007',
+    user_id: IDS.users.stefan,
+    channel: 'notification' as const,
+    source_id: 'sys-001',
+    sender_name: 'System',
+    subject: 'Backup erfolgreich abgeschlossen',
+    preview: 'Das tägliche Backup wurde um 02:00 UTC erfolgreich durchgeführt. Größe: 2.4 GB.',
+    is_read: true,
+    is_starred: false,
+    is_archived: false,
+    tags: ['System'],
+    deep_link: '/einstellungen/backups',
+    received_at: hoursAgo(8),
+    created_at: hoursAgo(8),
+    updated_at: hoursAgo(8),
+  },
+  {
+    id: 'msg-008',
+    user_id: IDS.users.lena,
+    channel: 'chat' as const,
+    source_id: 'chat-002',
+    sender_name: 'Sophie Lang',
+    sender_id: IDS.users.sophie,
+    sender_email: 'sophie.lang@techvision.de',
+    subject: 'Design Review: Neue Landing Page',
+    preview: 'Kannst du dir mal die neuen Mockups anschauen? Ich hab sie in den Marketing-Ordner gelegt.',
+    is_read: true,
+    is_starred: true,
+    is_archived: false,
+    assigned_to: IDS.users.lena,
+    tags: ['Design', 'Intern'],
+    deep_link: '/kommunikation/msg-008',
+    received_at: hoursAgo(2),
+    created_at: hoursAgo(2),
+    updated_at: hoursAgo(2),
   },
 ]
-
-// ---------------------------------------------------------------------------
-// Messages per conversation
-// ---------------------------------------------------------------------------
-
-const messages: Record<string, Array<{
-  id: string
-  conversation_id: string
-  direction: 'inbound' | 'outbound'
-  sender_name: string
-  sender_email: string
-  body: string
-  created_at: string
-}>> = {
-  'conv-001': [
-    { id: 'msg-001', conversation_id: 'conv-001', direction: 'inbound', sender_name: 'Peter Gruber', sender_email: 'p.gruber@gruber-maschinenbau.de', body: 'Guten Tag, wir sind ein Maschinenbau-Unternehmen mit 45 Mitarbeitern und suchen eine CRM-Lösung. Könnten wir eine Demo vereinbaren?', created_at: daysAgo(2) },
-    { id: 'msg-002', conversation_id: 'conv-001', direction: 'outbound', sender_name: 'Thomas Meier', sender_email: 'thomas.meier@techvision.de', body: 'Sehr geehrter Herr Gruber, vielen Dank für Ihr Interesse! Gerne vereinbare ich eine Demo. Passt Ihnen nächste Woche Dienstag oder Mittwoch?', created_at: daysAgo(1) },
-    { id: 'msg-003', conversation_id: 'conv-001', direction: 'inbound', sender_name: 'Peter Gruber', sender_email: 'p.gruber@gruber-maschinenbau.de', body: 'Mittwoch 14:00 wäre perfekt. Mein CTO Herr Wagner wird auch dabei sein. Bitte schicken Sie den Einladungslink.', created_at: hoursAgo(1) },
-  ],
-  'conv-002': [
-    { id: 'msg-004', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Hallo, wir nutzen die API und stoßen an Rate Limits. Welche Limits gelten für den Enterprise-Plan?', created_at: daysAgo(1) },
-    { id: 'msg-005', conversation_id: 'conv-002', direction: 'outbound', sender_name: 'Markus Weber', sender_email: 'markus.weber@techvision.de', body: 'Hallo Frau Schneider, Enterprise hat 1000 req/min. Welche Endpoints nutzen Sie hauptsächlich?', created_at: daysAgo(1) },
-    { id: 'msg-006', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Hauptsächlich /contacts und /deals. Wir synchronisieren ca. alle 5 Minuten.', created_at: hoursAgo(6) },
-    { id: 'msg-007', conversation_id: 'conv-002', direction: 'outbound', sender_name: 'Markus Weber', sender_email: 'markus.weber@techvision.de', body: 'Empfehlung: Nutzen Sie Webhooks statt Polling. Wir können auch Bulk-Endpoints anbieten. Soll ich ein kurzes Architektur-Gespräch anbieten?', created_at: hoursAgo(4) },
-    { id: 'msg-008', conversation_id: 'conv-002', direction: 'inbound', sender_name: 'Anna Schneider', sender_email: 'a.schneider@helvetia-software.ch', body: 'Ja, das wäre super. Nächste Woche wäre ideal.', created_at: hoursAgo(3) },
-  ],
-  'conv-003': [
-    { id: 'msg-009', conversation_id: 'conv-003', direction: 'inbound', sender_name: 'Michael Brunner', sender_email: 'm.brunner@donau-pharma.at', body: 'Über das Kontaktformular: Wir suchen eine Business-Lösung für 120 Mitarbeiter. Bitte um Preisangebot für Enterprise inkl. DSGVO-Compliance-Modul.', created_at: hoursAgo(5) },
-  ],
-  'conv-004': [
-    { id: 'msg-010', conversation_id: 'conv-004', direction: 'inbound', sender_name: 'Maria Huber', sender_email: 'm.huber@bavaria-elektro.de', body: 'Hallo Herr Meier, unser Wartungsvertrag läuft nächsten Monat aus. Wie sind die Konditionen für eine Verlängerung?', created_at: daysAgo(5) },
-    { id: 'msg-011', conversation_id: 'conv-004', direction: 'outbound', sender_name: 'Thomas Meier', sender_email: 'thomas.meier@techvision.de', body: 'Guten Tag Frau Huber, ich bereite ein Angebot vor. Möchten Sie den gleichen Umfang oder erweiterte Leistungen?', created_at: daysAgo(4) },
-    { id: 'msg-012', conversation_id: 'conv-004', direction: 'inbound', sender_name: 'Maria Huber', sender_email: 'm.huber@bavaria-elektro.de', body: 'Gleicher Umfang reicht. Gibt es einen Rabatt bei 2-Jahres-Bindung?', created_at: daysAgo(2) },
-    { id: 'msg-013', conversation_id: 'conv-004', direction: 'outbound', sender_name: 'Thomas Meier', sender_email: 'thomas.meier@techvision.de', body: 'Bei 2 Jahren können wir 10% anbieten. Ich sende Ihnen morgen das aktualisierte Angebot.', created_at: daysAgo(1) },
-  ],
-  'conv-005': [
-    { id: 'msg-014', conversation_id: 'conv-005', direction: 'inbound', sender_name: 'Christian Berger', sender_email: 'c.berger@rhein-consulting.de', body: 'Das Onboarding war exzellent. Unser Team ist innerhalb von 2 Tagen produktiv gewesen. Besonderer Dank an Ihren Support.', created_at: daysAgo(4) },
-    { id: 'msg-015', conversation_id: 'conv-005', direction: 'outbound', sender_name: 'Julia Hofmann', sender_email: 'julia.hofmann@techvision.de', body: 'Vielen Dank für das tolle Feedback, Herr Berger! Das freut unser ganzes Team. Bei Fragen sind wir jederzeit erreichbar.', created_at: daysAgo(3) },
-  ],
-}
 
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
 
 export const inboxHandlers = [
-  // List conversations
-  http.get(`${API}/api/v1/inbox/conversations`, ({ request }) => {
+  // List messages (matches InboxMessageList response)
+  http.get(`${API}/api/v1/inbox/messages`, ({ request }) => {
     const url = new URL(request.url)
-    const status = url.searchParams.get('status')
-    const source = url.searchParams.get('source')
+    const channel = url.searchParams.get('channel')
+    const isRead = url.searchParams.get('is_read')
+    const isStarred = url.searchParams.get('is_starred')
+    const isArchived = url.searchParams.get('is_archived')
+    const search = url.searchParams.get('search')
 
-    let filtered = [...conversations]
-    if (status) {
-      filtered = filtered.filter((c) => c.status === status)
+    let filtered = [...inboxMessages]
+
+    if (channel) {
+      filtered = filtered.filter((m) => m.channel === channel)
     }
-    if (source) {
-      filtered = filtered.filter((c) => c.source === source)
+    if (isRead !== null) {
+      filtered = filtered.filter((m) => m.is_read === (isRead === 'true'))
+    }
+    if (isStarred === 'true') {
+      filtered = filtered.filter((m) => m.is_starred)
+    }
+    if (isArchived !== null) {
+      filtered = filtered.filter((m) => m.is_archived === (isArchived === 'true'))
+    }
+    if (search) {
+      const q = search.toLowerCase()
+      filtered = filtered.filter(
+        (m) =>
+          m.subject.toLowerCase().includes(q) ||
+          m.sender_name.toLowerCase().includes(q) ||
+          m.preview.toLowerCase().includes(q),
+      )
     }
 
-    return HttpResponse.json({ conversations: filtered, total: filtered.length })
+    return HttpResponse.json({
+      messages: filtered,
+      total_count: filtered.length,
+    })
   }),
 
-  // Conversation detail
-  http.get(`${API}/api/v1/inbox/conversations/:id`, ({ params }) => {
-    const conv = conversations.find((c) => c.id === params.id)
-    if (!conv) {
-      return HttpResponse.json({ error: 'Conversation not found' }, { status: 404 })
-    }
-    return HttpResponse.json({ conversation: conv })
+  // Message detail
+  http.get(`${API}/api/v1/inbox/messages/unread-count`, () => {
+    const unreadEmail = inboxMessages.filter((m) => !m.is_read && m.channel === 'email').length
+    const unreadChat = inboxMessages.filter((m) => !m.is_read && m.channel === 'chat').length
+    const unreadNotification = inboxMessages.filter((m) => !m.is_read && m.channel === 'notification').length
+
+    return HttpResponse.json({
+      counts: [
+        { channel: 'email', count: unreadEmail },
+        { channel: 'chat', count: unreadChat },
+        { channel: 'notification', count: unreadNotification },
+      ],
+      total: unreadEmail + unreadChat + unreadNotification,
+    })
   }),
 
-  // Conversation messages
-  http.get(`${API}/api/v1/inbox/conversations/:id/messages`, ({ params }) => {
-    const convMessages = messages[params.id as string] || []
-    return HttpResponse.json({ messages: convMessages, total: convMessages.length })
+  // Single message
+  http.get(`${API}/api/v1/inbox/messages/:id`, ({ params }) => {
+    const msg = inboxMessages.find((m) => m.id === params.id)
+    if (!msg) {
+      return HttpResponse.json({ error: 'Message not found' }, { status: 404 })
+    }
+    return HttpResponse.json(msg)
+  }),
+
+  // Mark read
+  http.post(`${API}/api/v1/inbox/messages/:id/read`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Mark unread
+  http.post(`${API}/api/v1/inbox/messages/:id/unread`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Toggle star
+  http.post(`${API}/api/v1/inbox/messages/:id/star`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Archive
+  http.post(`${API}/api/v1/inbox/messages/:id/archive`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Reply
+  http.post(`${API}/api/v1/inbox/messages/:id/reply`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Assign
+  http.post(`${API}/api/v1/inbox/messages/:id/assign`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Bulk read
+  http.post(`${API}/api/v1/inbox/messages/bulk/read`, () => {
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  // Bulk archive
+  http.post(`${API}/api/v1/inbox/messages/bulk/archive`, () => {
+    return new HttpResponse(null, { status: 204 })
   }),
 ]

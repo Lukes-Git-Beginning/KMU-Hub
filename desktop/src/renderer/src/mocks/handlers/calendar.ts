@@ -11,11 +11,11 @@ export const calendarHandlers = [
   }),
 
   // List events (supports ?start=...&end=... date range filter)
-  http.get(`${API}/api/v1/events`, ({ request }) => {
+  http.get(`${API}/api/v1/calendar/events`, ({ request }) => {
     const url = new URL(request.url)
     const start = url.searchParams.get('start')
     const end = url.searchParams.get('end')
-    const calendarId = url.searchParams.get('calendar_id')
+    const calendarId = url.searchParams.get('calendar_ids') || url.searchParams.get('calendar_id')
 
     let filtered = [...mockEvents.events]
 
@@ -33,7 +33,7 @@ export const calendarHandlers = [
   }),
 
   // Event detail
-  http.get(`${API}/api/v1/events/:id`, ({ params }) => {
+  http.get(`${API}/api/v1/calendar/events/:id`, ({ params }) => {
     const event = mockEvents.events.find((e) => e.id === params.id)
     if (!event) {
       return HttpResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -42,7 +42,7 @@ export const calendarHandlers = [
   }),
 
   // Create event
-  http.post(`${API}/api/v1/events`, async ({ request }) => {
+  http.post(`${API}/api/v1/calendar/events`, async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>
     const newEvent = {
       id: `evt-${Date.now()}`,
@@ -53,7 +53,7 @@ export const calendarHandlers = [
   }),
 
   // Update event
-  http.put(`${API}/api/v1/events/:id`, async ({ params, request }) => {
+  http.put(`${API}/api/v1/calendar/events/:id`, async ({ params, request }) => {
     const existing = mockEvents.events.find((e) => e.id === params.id)
     if (!existing) {
       return HttpResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -64,7 +64,7 @@ export const calendarHandlers = [
   }),
 
   // Delete event
-  http.delete(`${API}/api/v1/events/:id`, ({ params }) => {
+  http.delete(`${API}/api/v1/calendar/events/:id`, ({ params }) => {
     const exists = mockEvents.events.some((e) => e.id === params.id)
     if (!exists) {
       return HttpResponse.json({ error: 'Event not found' }, { status: 404 })

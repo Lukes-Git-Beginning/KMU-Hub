@@ -63,6 +63,7 @@ interface TaskItem {
   title?: string
   project_id?: string
   project_key?: string
+  project_name?: string
   task_number?: number
   status_id?: string
   status_name?: string
@@ -147,7 +148,7 @@ export default function MyTasksPage() {
       if (!map.has(key)) {
         map.set(key, {
           projectId: task.project_id ?? null,
-          projectName: task.project_key ? `Projekt ${task.project_key}` : 'Unbekannt',
+          projectName: task.project_name || (task.project_key ? `Projekt ${task.project_key}` : 'Unbekannt'),
           projectKey: task.project_key ?? '',
           tasks: [],
         })
