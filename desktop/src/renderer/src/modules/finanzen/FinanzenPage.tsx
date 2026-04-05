@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileText,
   Search,
@@ -61,30 +62,30 @@ import { AnimatedCheckmark } from '@/components/shared/AnimatedCheckmark'
 
 const invoiceStatusConfig: Record<
   InvoiceStatus,
-  { label: string; colors: string; icon: typeof CheckCircle2 }
+  { labelKey: string; colors: string; icon: typeof CheckCircle2 }
 > = {
   draft: {
-    label: 'Entwurf',
+    labelKey: 'finanzen.status.draft',
     colors: 'bg-secondary text-muted-foreground',
     icon: FileText,
   },
   sent: {
-    label: 'Gesendet',
+    labelKey: 'finanzen.status.sent',
     colors: 'bg-info-light text-info',
     icon: Clock,
   },
   paid: {
-    label: 'Bezahlt',
+    labelKey: 'finanzen.status.paid',
     colors: 'bg-success-light text-success',
     icon: CheckCircle2,
   },
   overdue: {
-    label: 'Überfällig',
+    labelKey: 'finanzen.status.overdue',
     colors: 'bg-error-light text-error',
     icon: AlertCircle,
   },
   cancelled: {
-    label: 'Storniert',
+    labelKey: 'finanzen.status.cancelled',
     colors: 'bg-secondary text-muted-foreground',
     icon: XCircle,
   },
@@ -92,30 +93,30 @@ const invoiceStatusConfig: Record<
 
 const quoteStatusConfig: Record<
   QuoteStatus,
-  { label: string; colors: string; icon: typeof CheckCircle2 }
+  { labelKey: string; colors: string; icon: typeof CheckCircle2 }
 > = {
   draft: {
-    label: 'Entwurf',
+    labelKey: 'finanzen.status.draft',
     colors: 'bg-secondary text-muted-foreground',
     icon: FileText,
   },
   sent: {
-    label: 'Gesendet',
+    labelKey: 'finanzen.status.sent',
     colors: 'bg-info-light text-info',
     icon: Clock,
   },
   accepted: {
-    label: 'Angenommen',
+    labelKey: 'finanzen.quoteStatus.accepted',
     colors: 'bg-success-light text-success',
     icon: CheckCircle2,
   },
   rejected: {
-    label: 'Abgelehnt',
+    labelKey: 'finanzen.quoteStatus.rejected',
     colors: 'bg-error-light text-error',
     icon: XCircle,
   },
   expired: {
-    label: 'Abgelaufen',
+    labelKey: 'finanzen.quoteStatus.expired',
     colors: 'bg-secondary text-muted-foreground',
     icon: Clock,
   },
@@ -126,6 +127,7 @@ const quoteStatusConfig: Record<
 // ---------------------------------------------------------------------------
 
 export default function FinanzenPage() {
+  const { t } = useTranslation()
   const {
     activeTab,
     setActiveTab,
@@ -239,7 +241,7 @@ export default function FinanzenPage() {
     if (!confirmDelete) return
     if (confirmDelete.type === 'quote') {
       deleteQuote.mutate(confirmDelete.id, {
-        onSuccess: () => toast.success(`${confirmDelete.label} gelöscht`),
+        onSuccess: () => toast.success(t('common.delete') + ': ' + confirmDelete.label),
         onError: (err) => toast.error(err.message),
       })
     }
@@ -253,24 +255,24 @@ export default function FinanzenPage() {
       variant?: 'destructive'
       separator?: true
     }[] = [
-      { label: 'Details ansehen', onClick: () => setSelectedInvoiceId(inv.id) },
+      { label: t('common.details'), onClick: () => setSelectedInvoiceId(inv.id) },
       {
-        label: 'PDF herunterladen',
+        label: t('finanzen.pdf.downloadPdf'),
         onClick: () => downloadInvoicePDF.mutate(inv.id),
       },
     ]
     if (inv.status === 'draft') {
       actions.push({
-        label: 'Bearbeiten',
+        label: t('common.edit'),
         onClick: () => handleEditInvoice(inv),
       })
       actions.push({
-        label: 'Senden',
+        label: t('finanzen.dunning.send'),
         onClick: () => {
           sendInvoice.mutate(inv.id, {
             onSuccess: () => {
               setSentAnimation(inv.invoice_number)
-              toast.success(`${inv.invoice_number} gesendet`)
+              toast.success(`${inv.invoice_number} ${t('finanzen.dunning.sent')}`)
             },
             onError: (err) => toast.error(err.message),
           })
@@ -282,7 +284,7 @@ export default function FinanzenPage() {
       inv.status !== 'cancelled'
     ) {
       actions.push({
-        label: 'Zahlung erfassen',
+        label: t('finanzen.invoiceDetail.recordPayment'),
         onClick: () => setPaymentInvoiceId(inv.id),
       })
     }
@@ -293,12 +295,12 @@ export default function FinanzenPage() {
         onClick: () => {},
       })
       actions.push({
-        label: 'Stornieren',
+        label: t('finanzen.invoiceDetail.cancel'),
         variant: 'destructive' as const,
         onClick: () => {
           cancelInvoice.mutate(inv.id, {
             onSuccess: () =>
-              toast.success(`${inv.invoice_number} storniert`),
+              toast.success(`${inv.invoice_number} ${t('finanzen.status.cancelled')}`),
             onError: (err) => toast.error(err.message),
           })
         },
@@ -315,17 +317,17 @@ export default function FinanzenPage() {
       separator?: true
     }[] = [
       {
-        label: 'PDF herunterladen',
+        label: t('finanzen.pdf.downloadPdf'),
         onClick: () => downloadQuotePDF.mutate(q.id),
       },
     ]
     if (q.status === 'draft') {
       actions.push({
-        label: 'Senden',
+        label: t('finanzen.dunning.send'),
         onClick: () => {
           sendQuote.mutate(q.id, {
             onSuccess: () =>
-              toast.success(`${q.quote_number} gesendet`),
+              toast.success(`${q.quote_number} ${t('finanzen.dunning.sent')}`),
             onError: (err) => toast.error(err.message),
           })
         },
@@ -333,21 +335,21 @@ export default function FinanzenPage() {
     }
     if (q.status === 'sent') {
       actions.push({
-        label: 'Annehmen',
+        label: t('finanzen.page.accept'),
         onClick: () => {
           acceptQuote.mutate(q.id, {
             onSuccess: () =>
-              toast.success(`${q.quote_number} angenommen`),
+              toast.success(`${q.quote_number} ${t('finanzen.quoteStatus.accepted')}`),
             onError: (err) => toast.error(err.message),
           })
         },
       })
       actions.push({
-        label: 'Ablehnen',
+        label: t('finanzen.page.reject'),
         onClick: () => {
           rejectQuote.mutate(q.id, {
             onSuccess: () =>
-              toast.success(`${q.quote_number} abgelehnt`),
+              toast.success(`${q.quote_number} ${t('finanzen.quoteStatus.rejected')}`),
             onError: (err) => toast.error(err.message),
           })
         },
@@ -355,11 +357,11 @@ export default function FinanzenPage() {
     }
     if (q.status === 'accepted') {
       actions.push({
-        label: 'In Rechnung umwandeln',
+        label: t('finanzen.page.convertToInvoice'),
         onClick: () => {
           convertQuote.mutate(q.id, {
             onSuccess: () =>
-              toast.success('Rechnung aus Angebot erstellt'),
+              toast.success(t('finanzen.page.invoiceFromQuoteCreated')),
             onError: (err) => toast.error(err.message),
           })
         },
@@ -372,7 +374,7 @@ export default function FinanzenPage() {
         onClick: () => {},
       })
       actions.push({
-        label: 'Löschen',
+        label: t('common.delete'),
         variant: 'destructive' as const,
         onClick: () =>
           setConfirmDelete({

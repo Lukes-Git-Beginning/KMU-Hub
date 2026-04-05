@@ -4,6 +4,7 @@
  * Shows a styled placeholder representing a generated PDF document.
  * Backend swap: replace mock with actual PDF render via iframe/embed.
  */
+import { useTranslation } from 'react-i18next'
 import {
   Download,
   Printer,
@@ -34,6 +35,7 @@ export function PDFPreviewPanel({
   amount,
   onDownload,
 }: PDFPreviewPanelProps) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -42,23 +44,23 @@ export function PDFPreviewPanel({
         </h4>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => toast.success('Vollbild-Vorschau geöffnet')}
+            onClick={() => toast.success(t('finanzen.pdf.fullscreenOpened'))}
             className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="Vollbild"
+            title={t('finanzen.pdf.fullscreen')}
           >
             <Maximize2 className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => toast.success('PDF wird gedruckt...')}
+            onClick={() => toast.success(t('finanzen.pdf.printing'))}
             className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="Drucken"
+            title={t('finanzen.pdf.print')}
           >
             <Printer className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={onDownload ?? (() => toast.success('PDF heruntergeladen'))}
+            onClick={onDownload ?? (() => toast.success(t('finanzen.pdf.downloaded')))}
             className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="Herunterladen"
+            title={t('common.download')}
           >
             <Download className="h-3.5 w-3.5" />
           </button>
@@ -86,7 +88,7 @@ export function PDFPreviewPanel({
 
           {/* Customer block */}
           <div className="border-l-2 border-gray-300 pl-3">
-            <p className="text-[9px] text-gray-400">Rechnung an:</p>
+            <p className="text-[9px] text-gray-400">{t('finanzen.pdf.invoiceTo')}:</p>
             <p className="text-[10px] text-gray-700 font-medium">{customerName}</p>
             <div className="h-2.5 w-28 rounded bg-gray-100 mt-1" />
             <div className="h-2.5 w-24 rounded bg-gray-100 mt-0.5" />
@@ -145,7 +147,7 @@ export function PDFPreviewPanel({
           <button className="rounded p-0.5 text-muted-foreground hover:text-foreground" disabled>
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
-          <span className="text-[10px] text-muted-foreground">Seite 1 von 1</span>
+          <span className="text-[10px] text-muted-foreground">{t('finanzen.pdf.pageOf', { current: 1, total: 1 })}</span>
           <button className="rounded p-0.5 text-muted-foreground hover:text-foreground" disabled>
             <ChevronRight className="h-3.5 w-3.5" />
           </button>

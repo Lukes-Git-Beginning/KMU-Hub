@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Mail, Phone, Building2, ExternalLink } from 'lucide-react'
 import type { Conversation } from '@/types/communication'
 
@@ -10,6 +11,7 @@ interface ContactCardProps {
 }
 
 export function ContactCard({ conversation: conv }: ContactCardProps) {
+  const { t } = useTranslation()
   const initials = conv.contactName
     .split(' ')
     .map((n) => n[0])
@@ -37,7 +39,7 @@ export function ContactCard({ conversation: conv }: ContactCardProps) {
         {conv.contactId && (
           <button
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
-            title="Im CRM öffnen"
+            title={t('kommunikation.contact.openInCrm')}
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </button>
@@ -55,7 +57,7 @@ export function ContactCard({ conversation: conv }: ContactCardProps) {
         {/* Phone placeholder — would come from CRM contact store */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Phone className="h-3 w-3 shrink-0" />
-          <span className="text-muted-foreground/50">Nicht hinterlegt</span>
+          <span className="text-muted-foreground/50">{t('kommunikation.contact.notProvided')}</span>
         </div>
       </div>
     </div>

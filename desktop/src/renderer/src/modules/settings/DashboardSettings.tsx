@@ -6,6 +6,7 @@
  * Non-admin users are redirected away (guarded by route).
  */
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Navigate } from 'react-router-dom'
 import { Save, RotateCcw, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -19,10 +20,10 @@ import { widgetList } from '@/components/widgets/WidgetRegistry'
 
 type RoleKey = 'admin' | 'manager' | 'member'
 
-const ROLES: { key: RoleKey; label: string; description: string }[] = [
-  { key: 'admin', label: 'Admin', description: 'Administratoren sehen Pipeline und Aktivitäten.' },
-  { key: 'manager', label: 'Manager', description: 'Manager fokussieren auf Pipeline und Kommunikation.' },
-  { key: 'member', label: 'Mitarbeiter', description: 'Mitarbeiter sehen Nachrichten und eigene Aktivitäten.' },
+const ROLES: { key: RoleKey; labelKey: string; descriptionKey: string }[] = [
+  { key: 'admin', labelKey: 'settings.dashboard.roles.admin', descriptionKey: 'settings.dashboard.roles.adminDesc' },
+  { key: 'manager', labelKey: 'settings.dashboard.roles.manager', descriptionKey: 'settings.dashboard.roles.managerDesc' },
+  { key: 'member', labelKey: 'settings.dashboard.roles.member', descriptionKey: 'settings.dashboard.roles.memberDesc' },
 ]
 
 /** Widget toggle card for the widget selector. */
@@ -39,6 +40,7 @@ function WidgetToggle({
   isActive: boolean
   onToggle: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const widget = widgetList.find((w) => w.id === widgetId)
   const Icon = widget?.icon
 
@@ -61,7 +63,7 @@ function WidgetToggle({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium">{name}</p>
-          {isActive && <Badge variant="secondary" className="text-xs">Aktiv</Badge>}
+          {isActive && <Badge variant="secondary" className="text-xs">{t('common.active')}</Badge>}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{description}</p>
       </div>
@@ -71,6 +73,7 @@ function WidgetToggle({
 
 /** Role tab content with widget selector and save controls. */
 function RoleDefaultEditor({ role }: { role: RoleKey }) {
+  const { t } = useTranslation()
   const { data: defaults, isLoading } = useDashboardDefaults(role)
   const saveMutation = useSaveDashboardDefaults()
   const dashboardLayouts = useDashboardStore((s) => s.layouts)
@@ -144,9 +147,9 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
     } catch {
-      setSaveError('Speichern fehlgeschlagen. Bitte erneut versuchen.')
+      setSaveError(t('settings.dashboard.saveError'))
     }
-  }, [role, defaults, localWidgets, activeWidgets, saveMutation])
+  }, [role, defaults, localWidgets, activeWidgets, saveMutation, t])
 
   const handleCopyCurrentLayout = useCallback(async () => {
     setSaveSuccess(false)
@@ -168,14 +171,14 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
     } catch {
-      setSaveError('Speichern fehlgeschlagen. Bitte erneut versuchen.')
+      setSaveError(t('settings.dashboard.saveError'))
     }
-  }, [role, dashboardLayouts, dashboardActiveWidgets, saveMutation])
+  }, [role, dashboardLayouts, dashboardActiveWidgets, saveMutation, t])
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Lade Standard-Layout...</p>
+        <p className="text-sm text-muted-foreground">{t('settings.dashboard.loadingLayout')}</p>
       </div>
     )
   }
@@ -185,9 +188,9 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
       {/* Widget selector */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Widgets</CardTitle>
+          <CardTitle className="text-lg">{t('settings.dashboard.widgets')}</CardTitle>
           <CardDescription>
-            Wählen Sie die Widgets aus, die im Standard-Dashboard für diese Rolle angezeigt werden.
+            {t('settings.dashboard.widgetsDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -210,17 +213,17 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
       <div className="flex items-center gap-3">
         <Button onClick={handleSave} disabled={saveMutation.isPending}>
           <Save className="mr-2 h-4 w-4" />
-          Speichern
+          {t('common.save')}
         </Button>
         <Button variant="outline" onClick={handleCopyCurrentLayout} disabled={saveMutation.isPending}>
           <RotateCcw className="mr-2 h-4 w-4" />
-          Aktuelle Ansicht als Standard speichern
+          {t('settings.dashboard.saveCurrentAsDefault')}
         </Button>
 
         {saveSuccess && (
           <span className="flex items-center gap-1 text-sm text-success">
             <Check className="h-4 w-4" />
-            Gespeichert
+            {t('common.saved')}
           </span>
         )}
         {saveError && (
@@ -235,6 +238,7 @@ function RoleDefaultEditor({ role }: { role: RoleKey }) {
 }
 
 export default function DashboardSettings() {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -247,10 +251,9 @@ export default function DashboardSettings() {
     <div className="h-full overflow-auto">
       <div className="mx-auto max-w-4xl px-6 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">Dashboard-Einstellungen</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{t('settings.dashboard.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Konfigurieren Sie die Standard-Dashboards für jede Benutzerrolle.
-            Benutzer können ihr Dashboard individuell anpassen; hier legen Sie die Ausgangsbasis fest.
+            {t('settings.dashboard.description')}
           </p>
         </div>
 
@@ -258,14 +261,14 @@ export default function DashboardSettings() {
           <TabsList>
             {ROLES.map((role) => (
               <TabsTrigger key={role.key} value={role.key}>
-                {role.label}
+                {t(role.labelKey)}
               </TabsTrigger>
             ))}
           </TabsList>
 
           {ROLES.map((role) => (
             <TabsContent key={role.key} value={role.key}>
-              <p className="mb-4 text-sm text-muted-foreground">{role.description}</p>
+              <p className="mb-4 text-sm text-muted-foreground">{t(role.descriptionKey)}</p>
               <RoleDefaultEditor role={role.key} />
             </TabsContent>
           ))}

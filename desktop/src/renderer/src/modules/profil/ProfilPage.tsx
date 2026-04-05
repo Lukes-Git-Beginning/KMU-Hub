@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { User, Clock, Calendar, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
@@ -9,15 +10,16 @@ const DokumenteTab = lazy(() => import('./tabs/DokumenteTab'))
 
 type TabKey = 'profil' | 'zeiterfassung' | 'abwesenheiten' | 'dokumente'
 
-const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
-  { key: 'profil', label: 'Mein Profil', icon: User },
-  { key: 'zeiterfassung', label: 'Zeiterfassung', icon: Clock },
-  { key: 'abwesenheiten', label: 'Abwesenheiten', icon: Calendar },
-  { key: 'dokumente', label: 'Dokumente', icon: FolderOpen },
-]
-
 export default function ProfilPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabKey>('profil')
+
+  const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
+    { key: 'profil', label: t('profil.tabs.profile'), icon: User },
+    { key: 'zeiterfassung', label: t('profil.tabs.timeTracking'), icon: Clock },
+    { key: 'abwesenheiten', label: t('profil.tabs.absences'), icon: Calendar },
+    { key: 'dokumente', label: t('profil.tabs.documents'), icon: FolderOpen },
+  ]
 
   return (
     <div className="h-full flex flex-col overflow-hidden animate-fade-up">

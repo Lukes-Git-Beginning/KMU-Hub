@@ -6,6 +6,7 @@
  * Different from HRIntegrationPanel's "DATEV Lohn" (payroll).
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Building2, Loader2, Plug, Unlink, RefreshCw, Zap, Plus, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntegrationStore } from '@/stores/integrations'
@@ -35,6 +36,7 @@ interface DATEVConfigPanelProps {
 }
 
 export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
+  const { t } = useTranslation()
   const store = useIntegrationStore()
   const status = store.getStatus('datev-rechnungswesen')
   const integration = store.integrations['datev-rechnungswesen']

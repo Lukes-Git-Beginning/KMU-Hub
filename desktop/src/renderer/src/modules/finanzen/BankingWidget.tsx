@@ -6,6 +6,7 @@
  * Mock data for design — backend: FinAPI integration.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Landmark,
   Link2,
@@ -95,6 +96,7 @@ const mockTransactions: BankTransaction[] = [
 // ---------------------------------------------------------------------------
 
 export function BankingWidget() {
+  const { t } = useTranslation()
   const [syncing, setSyncing] = useState(false)
   const [filter, setFilter] = useState<'all' | 'matched' | 'suggested' | 'unmatched'>('all')
 
@@ -104,16 +106,16 @@ export function BankingWidget() {
     setSyncing(true)
     setTimeout(() => {
       setSyncing(false)
-      toast.success('Kontostand aktualisiert')
+      toast.success(t('finanzen.banking.balanceUpdated'))
     }, 2000)
   }
 
   const handleAcceptMatch = (_txId: string) => {
-    toast.success('Zuordnung bestätigt')
+    toast.success(t('finanzen.banking.matchConfirmed'))
   }
 
   const handleRejectMatch = (_txId: string) => {
-    toast.success('Zuordnung abgelehnt')
+    toast.success(t('finanzen.banking.matchRejected'))
   }
 
   const filteredTx = mockTransactions.filter((tx) => {
@@ -156,7 +158,7 @@ export function BankingWidget() {
               ) : (
                 <button className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
                   <Link2 className="h-3 w-3" />
-                  Verbinden
+                  {t('finanzen.banking.connect')}
                 </button>
               )}
             </div>
@@ -164,13 +166,13 @@ export function BankingWidget() {
             {acc.connected && (
               <div className="flex items-end justify-between">
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Kontostand</p>
+                  <p className="text-[10px] text-muted-foreground">{t('finanzen.banking.balance')}</p>
                   <p className="text-lg font-semibold text-foreground">{formatEUR(acc.balance)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {acc.lastSync && (
                     <span className="text-[9px] text-muted-foreground">
-                      Letzte Sync: {acc.lastSync}
+                      {t('finanzen.banking.lastSync')}: {acc.lastSync}
                     </span>
                   )}
                   <button
@@ -191,8 +193,7 @@ export function BankingWidget() {
       <div className="flex items-start gap-2 rounded-md bg-secondary/50 px-3 py-2">
         <Zap className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-[11px] text-muted-foreground">
-          Bankverbindung via <strong>FinAPI</strong> — Automatischer Kontoabgleich und Zahlungs-Matching.
-          PSD2-konform, verschlüsselte Verbindung. Keine Kontodaten auf Cosmi Servern gespeichert.
+          {t('finanzen.banking.finapiInfo')}
         </p>
       </div>
 
@@ -200,13 +201,13 @@ export function BankingWidget() {
       {connectedAccount && (
         <>
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-foreground">Transaktions-Matching</h3>
+            <h3 className="text-sm font-medium text-foreground">{t('finanzen.banking.transactionMatching')}</h3>
             <div className="flex items-center gap-1.5">
               {([
-                ['all', `Alle (${mockTransactions.length})`],
-                ['matched', `Zugeordnet (${matchedCount})`],
-                ['suggested', `Vorschläge (${suggestedCount})`],
-                ['unmatched', `Offen (${unmatchedCount})`],
+                ['all', `${t('finanzen.banking.filterAll')} (${mockTransactions.length})`],
+                ['matched', `${t('finanzen.banking.filterMatched')} (${matchedCount})`],
+                ['suggested', `${t('finanzen.banking.filterSuggested')} (${suggestedCount})`],
+                ['unmatched', `${t('finanzen.banking.filterUnmatched')} (${unmatchedCount})`],
               ] as const).map(([key, label]) => (
                 <button
                   key={key}
@@ -225,11 +226,11 @@ export function BankingWidget() {
 
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="grid grid-cols-[80px_1fr_120px_90px_100px_70px] gap-2 items-center bg-secondary/30 px-3 py-2 text-[10px] font-medium text-muted-foreground">
-              <span>Datum</span>
-              <span>Beschreibung</span>
-              <span>Gegenpartei</span>
-              <span className="text-right">Betrag</span>
-              <span>Zuordnung</span>
+              <span>{t('finanzen.banking.date')}</span>
+              <span>{t('finanzen.banking.description')}</span>
+              <span>{t('finanzen.banking.counterpart')}</span>
+              <span className="text-right">{t('finanzen.banking.amount')}</span>
+              <span>{t('finanzen.banking.assignment')}</span>
               <span />
             </div>
             {filteredTx.map((tx) => (
@@ -279,14 +280,14 @@ export function BankingWidget() {
                       <button
                         onClick={() => handleAcceptMatch(tx.id)}
                         className="rounded p-1 text-success hover:bg-success-light transition-colors"
-                        title="Zuordnung bestätigen"
+                        title={t('finanzen.banking.confirmMatch')}
                       >
                         <Check className="h-3 w-3" />
                       </button>
                       <button
                         onClick={() => handleRejectMatch(tx.id)}
                         className="rounded p-1 text-muted-foreground hover:bg-accent transition-colors"
-                        title="Zuordnung ablehnen"
+                        title={t('finanzen.banking.rejectMatch')}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -294,9 +295,9 @@ export function BankingWidget() {
                   )}
                   {tx.matchStatus === 'unmatched' && tx.type === 'credit' && (
                     <button
-                      onClick={() => toast.success('Manuelle Zuordnung geöffnet')}
+                      onClick={() => toast.success(t('finanzen.banking.manualMatchOpened'))}
                       className="rounded p-1 text-primary hover:bg-primary/10 transition-colors"
-                      title="Manuell zuordnen"
+                      title={t('finanzen.banking.manualMatch')}
                     >
                       <Search className="h-3 w-3" />
                     </button>

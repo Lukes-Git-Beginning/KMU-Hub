@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   User,
   Calendar,
@@ -107,6 +108,7 @@ const formatEUR = (amount: number) =>
 // ============================================================
 
 export function SelfServiceView() {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<SelfServiceTab>('profil')
 
   return (
@@ -120,7 +122,7 @@ export function SelfServiceView() {
           <div>
             <h2 className="text-lg font-semibold text-foreground">{CURRENT_USER.name}</h2>
             <p className="text-sm text-muted-foreground">{CURRENT_USER.role} · {CURRENT_USER.department}</p>
-            <p className="text-xs text-muted-foreground">Personal-Nr: {CURRENT_USER.employeeId}</p>
+            <p className="text-xs text-muted-foreground">{t('team.selfService.employeeId')}: {CURRENT_USER.employeeId}</p>
           </div>
           <div className="ml-auto flex items-center gap-3">
             {LEAVE_BALANCES.slice(0, 2).map((lb) => (
@@ -136,10 +138,10 @@ export function SelfServiceView() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border">
         {([
-          { key: 'profil' as const, label: 'Mein Profil', icon: User },
-          { key: 'antraege' as const, label: 'Meine Antraege', icon: Send },
-          { key: 'dokumente' as const, label: 'Gehaltsabrechnungen', icon: FileText },
-          { key: 'zeitkonto' as const, label: 'Zeitkonto', icon: Clock },
+          { key: 'profil' as const, label: t('team.selfService.myProfile'), icon: User },
+          { key: 'antraege' as const, label: t('team.selfService.myRequests'), icon: Send },
+          { key: 'dokumente' as const, label: t('team.selfService.salaryStatements'), icon: FileText },
+          { key: 'zeitkonto' as const, label: t('team.selfService.timeAccount'), icon: Clock },
         ]).map((t) => {
           const Icon = t.icon
           return (
@@ -161,17 +163,17 @@ export function SelfServiceView() {
       {tab === 'profil' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-medium text-foreground mb-4">Persönliche Daten</h3>
+            <h3 className="text-sm font-medium text-foreground mb-4">{t('team.selfService.personalData')}</h3>
             <div className="space-y-3">
               {[
-                { icon: User, label: 'Name', value: CURRENT_USER.name },
-                { icon: Mail, label: 'E-Mail', value: CURRENT_USER.email },
-                { icon: Phone, label: 'Telefon', value: CURRENT_USER.phone },
-                { icon: MapPin, label: 'Standort', value: CURRENT_USER.location },
-                { icon: Building2, label: 'Abteilung', value: CURRENT_USER.department },
-                { icon: Briefcase, label: 'Vertragsart', value: `${CURRENT_USER.contractType} (${CURRENT_USER.workload}%)` },
-                { icon: Calendar, label: 'Eintrittsdatum', value: new Date(CURRENT_USER.joinDate).toLocaleDateString('de-DE') },
-                { icon: User, label: 'Vorgesetzte/r', value: CURRENT_USER.manager },
+                { icon: User, label: t('team.selfService.name'), value: CURRENT_USER.name },
+                { icon: Mail, label: t('team.selfService.emailLabel'), value: CURRENT_USER.email },
+                { icon: Phone, label: t('team.selfService.phoneLabel'), value: CURRENT_USER.phone },
+                { icon: MapPin, label: t('team.member.location'), value: CURRENT_USER.location },
+                { icon: Building2, label: t('team.member.department'), value: CURRENT_USER.department },
+                { icon: Briefcase, label: t('team.member.contractType'), value: `${CURRENT_USER.contractType} (${CURRENT_USER.workload}%)` },
+                { icon: Calendar, label: t('team.selfService.joinDate'), value: new Date(CURRENT_USER.joinDate).toLocaleDateString('de-DE') },
+                { icon: User, label: t('team.selfService.manager'), value: CURRENT_USER.manager },
               ].map((item) => {
                 const Icon = item.icon
                 return (
@@ -184,17 +186,17 @@ export function SelfServiceView() {
               })}
             </div>
             <button
-              onClick={() => toast.info('Änderungsantrag gestellt (Mock)')}
+              onClick={() => toast.info(t('team.selfService.changeRequestMock'))}
               className="mt-4 flex items-center gap-1.5 text-xs text-primary hover:underline"
             >
-              Änderung beantragen
+              {t('team.selfService.requestChange')}
               <ChevronRight className="h-3 w-3" />
             </button>
           </div>
 
           <div className="space-y-4">
             <div className="rounded-lg border border-border bg-card p-5">
-              <h3 className="text-sm font-medium text-foreground mb-4">Urlaubskonto</h3>
+              <h3 className="text-sm font-medium text-foreground mb-4">{t('team.selfService.leaveAccount')}</h3>
               <div className="space-y-3">
                 {LEAVE_BALANCES.map((lb) => (
                   <div key={lb.type}>
@@ -218,13 +220,13 @@ export function SelfServiceView() {
             </div>
 
             <div className="rounded-lg border border-border bg-card p-5">
-              <h3 className="text-sm font-medium text-foreground mb-3">Schnellaktionen</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('team.selfService.quickActions')}</h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Urlaub beantragen', icon: Calendar, onClick: () => toast.info('Urlaubsantrag-Dialog (Mock)') },
-                  { label: 'Homeoffice melden', icon: MapPin, onClick: () => toast.info('Homeoffice-Meldung (Mock)') },
-                  { label: 'Krank melden', icon: AlertCircle, onClick: () => toast.info('Krankmeldung (Mock)') },
-                  { label: 'Überstunden melden', icon: Clock, onClick: () => toast.info('Überstunden-Meldung (Mock)') },
+                  { label: t('team.selfService.requestLeave'), icon: Calendar, onClick: () => toast.info('Mock') },
+                  { label: t('team.selfService.reportHomeOffice'), icon: MapPin, onClick: () => toast.info('Mock') },
+                  { label: t('team.selfService.reportSick'), icon: AlertCircle, onClick: () => toast.info('Mock') },
+                  { label: t('team.selfService.reportOvertime'), icon: Clock, onClick: () => toast.info('Mock') },
                 ].map((action) => {
                   const Icon = action.icon
                   return (
@@ -248,13 +250,13 @@ export function SelfServiceView() {
       {tab === 'antraege' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{MY_REQUESTS.length} Antraege</p>
+            <p className="text-sm text-muted-foreground">{MY_REQUESTS.length} {t('team.selfService.requestsCount')}</p>
             <button
-              onClick={() => toast.info('Neuer Antrag (Mock)')}
+              onClick={() => toast.info('Mock')}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Send className="h-3.5 w-3.5" />
-              Neuer Antrag
+              {t('team.selfService.newRequest')}
             </button>
           </div>
           <div className="space-y-3">
@@ -273,7 +275,7 @@ export function SelfServiceView() {
                         <span>
                           {new Date(req.startDate).toLocaleDateString('de-DE')}
                           {req.startDate !== req.endDate && ` – ${new Date(req.endDate).toLocaleDateString('de-DE')}`}
-                          {' '}({req.days} {req.days === 1 ? 'Tag' : 'Tage'})
+                          {' '}({req.days} {req.days === 1 ? t('team.approval.day') : t('team.approval.days')})
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">{req.reason}</p>
@@ -291,16 +293,16 @@ export function SelfServiceView() {
       {/* Documents Tab */}
       {tab === 'dokumente' && (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Letzte Gehaltsabrechnungen zum Download</p>
+          <p className="text-sm text-muted-foreground">{t('team.selfService.recentStatements')}</p>
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/50">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Monat</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Brutto</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Netto</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Aktion</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('team.selfService.month')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('team.integration.gross')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('team.selfService.net')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('common.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -344,7 +346,7 @@ export function SelfServiceView() {
           </div>
 
           <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-medium text-foreground mb-3">Arbeitszeitkonto (letzte 5 Tage)</h3>
+            <h3 className="text-sm font-medium text-foreground mb-3">{t('team.selfService.workTimeAccount')}</h3>
             <div className="space-y-2">
               {[
                 { day: 'Mo, 17.02.', soll: '8:00', ist: '8:30', diff: '+0:30' },

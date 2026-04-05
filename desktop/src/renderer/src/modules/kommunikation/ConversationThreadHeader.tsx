@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   MessageSquare,
@@ -50,6 +51,7 @@ interface ConversationThreadHeaderProps {
 }
 
 export function ConversationThreadHeader({ message: msg }: ConversationThreadHeaderProps) {
+  const { t } = useTranslation()
   const setSelectedConversation = useKommunikationStore((s) => s.setSelectedConversation)
   const markRead = useMarkRead()
   const markUnread = useMarkUnread()
@@ -66,10 +68,10 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
   const handleToggleRead = () => {
     if (msg.is_read) {
       markUnread.mutate(msg.id)
-      toast.success('Als ungelesen markiert')
+      toast.success(t('kommunikation.header.markedUnread'))
     } else {
       markRead.mutate(msg.id)
-      toast.success('Als gelesen markiert')
+      toast.success(t('kommunikation.header.markedRead'))
     }
     setActionsOpen(false)
   }
@@ -98,7 +100,7 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
         <button
           onClick={() => toggleStar.mutate(msg.id)}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          title={msg.is_starred ? 'Stern entfernen' : 'Stern vergeben'}
+          title={msg.is_starred ? t('kommunikation.header.removeStar') : t('kommunikation.header.addStar')}
         >
           <Star className={`h-4 w-4 ${msg.is_starred ? 'fill-warning text-warning' : ''}`} />
         </button>
@@ -116,32 +118,32 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               {msg.is_read ? <MailOpen className="h-3.5 w-3.5" /> : <MailCheck className="h-3.5 w-3.5" />}
-              {msg.is_read ? 'Als ungelesen markieren' : 'Als gelesen markieren'}
+              {msg.is_read ? t('kommunikation.header.markUnread') : t('kommunikation.header.markRead')}
             </button>
             <button
-              onClick={() => { toast.info('Weiterleitung geöffnet'); setActionsOpen(false) }}
+              onClick={() => { toast.info(t('kommunikation.header.forwardOpened')); setActionsOpen(false) }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               <Forward className="h-3.5 w-3.5" />
-              Weiterleiten
+              {t('kommunikation.header.forward')}
             </button>
             <button
               onClick={() => {
                 // TODO: No internal note API exists yet
-                toast.info('Interne Notizen sind noch nicht per API verfügbar')
+                toast.info(t('kommunikation.header.notesNotAvailable'))
                 setActionsOpen(false)
               }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               <StickyNote className="h-3.5 w-3.5" />
-              Notiz hinzufügen
+              {t('kommunikation.header.addNote')}
             </button>
             <button
-              onClick={() => { toast.success('Aufgabe erstellt'); setActionsOpen(false) }}
+              onClick={() => { toast.success(t('kommunikation.header.taskCreated')); setActionsOpen(false) }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               <ListTodo className="h-3.5 w-3.5" />
-              Aufgabe erstellen
+              {t('kommunikation.header.createTask')}
             </button>
             <div className="my-1 border-t border-border" />
             <button
@@ -149,7 +151,7 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
             >
               <Archive className="h-3.5 w-3.5" />
-              Archivieren
+              {t('kommunikation.header.archive')}
             </button>
             <button
               onClick={() => {
@@ -157,12 +159,12 @@ export function ConversationThreadHeader({ message: msg }: ConversationThreadHea
                 archiveMsg.mutate(msg.id)
                 setSelectedConversation(null)
                 setActionsOpen(false)
-                toast.success('Nachricht archiviert')
+                toast.success(t('kommunikation.header.messageArchived'))
               }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-error transition-colors hover:bg-error/10"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Löschen
+              {t('common.delete')}
             </button>
           </PopoverContent>
         </Popover>

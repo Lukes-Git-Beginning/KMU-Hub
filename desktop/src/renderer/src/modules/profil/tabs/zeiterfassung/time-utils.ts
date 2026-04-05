@@ -1,3 +1,5 @@
+import i18next from 'i18next'
+
 /** Format minutes as "Xh Ym" */
 export function formatMinutes(minutes: number): string {
   if (minutes < 0) return '0h 0m'
@@ -77,7 +79,20 @@ export function getDateRangeLabel(dates: Date[]): string {
   if (dates.length === 0) return ''
   const first = dates[0]
   const last = dates[dates.length - 1]
-  const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+  const months = [
+    i18next.t('profil.zeiterfassung.monthShort.jan'),
+    i18next.t('profil.zeiterfassung.monthShort.feb'),
+    i18next.t('profil.zeiterfassung.monthShort.mar'),
+    i18next.t('profil.zeiterfassung.monthShort.apr'),
+    i18next.t('profil.zeiterfassung.monthShort.may'),
+    i18next.t('profil.zeiterfassung.monthShort.jun'),
+    i18next.t('profil.zeiterfassung.monthShort.jul'),
+    i18next.t('profil.zeiterfassung.monthShort.aug'),
+    i18next.t('profil.zeiterfassung.monthShort.sep'),
+    i18next.t('profil.zeiterfassung.monthShort.oct'),
+    i18next.t('profil.zeiterfassung.monthShort.nov'),
+    i18next.t('profil.zeiterfassung.monthShort.dec'),
+  ]
 
   if (first.getMonth() === last.getMonth()) {
     return `${first.getDate()}. - ${last.getDate()}. ${months[first.getMonth()]} ${first.getFullYear()}`
@@ -87,8 +102,29 @@ export function getDateRangeLabel(dates: Date[]): string {
 
 /** Format a Date to a readable German date, e.g. "Mo, 10. Feb" */
 export function formatDateShort(date: Date): string {
-  const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
-  const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+  const days = [
+    i18next.t('profil.zeiterfassung.dayShort.sun'),
+    i18next.t('profil.zeiterfassung.dayShort.mon'),
+    i18next.t('profil.zeiterfassung.dayShort.tue'),
+    i18next.t('profil.zeiterfassung.dayShort.wed'),
+    i18next.t('profil.zeiterfassung.dayShort.thu'),
+    i18next.t('profil.zeiterfassung.dayShort.fri'),
+    i18next.t('profil.zeiterfassung.dayShort.sat'),
+  ]
+  const months = [
+    i18next.t('profil.zeiterfassung.monthShort.jan'),
+    i18next.t('profil.zeiterfassung.monthShort.feb'),
+    i18next.t('profil.zeiterfassung.monthShort.mar'),
+    i18next.t('profil.zeiterfassung.monthShort.apr'),
+    i18next.t('profil.zeiterfassung.monthShort.may'),
+    i18next.t('profil.zeiterfassung.monthShort.jun'),
+    i18next.t('profil.zeiterfassung.monthShort.jul'),
+    i18next.t('profil.zeiterfassung.monthShort.aug'),
+    i18next.t('profil.zeiterfassung.monthShort.sep'),
+    i18next.t('profil.zeiterfassung.monthShort.oct'),
+    i18next.t('profil.zeiterfassung.monthShort.nov'),
+    i18next.t('profil.zeiterfassung.monthShort.dec'),
+  ]
   return `${days[date.getDay()]}, ${date.getDate()}. ${months[date.getMonth()]}`
 }
 
@@ -96,7 +132,20 @@ export function formatDateShort(date: Date): string {
 export function getMonthLabel(monthOffset: number): string {
   const now = new Date()
   const d = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
-  const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+  const months = [
+    i18next.t('profil.zeiterfassung.month.january'),
+    i18next.t('profil.zeiterfassung.month.february'),
+    i18next.t('profil.zeiterfassung.month.march'),
+    i18next.t('profil.zeiterfassung.month.april'),
+    i18next.t('profil.zeiterfassung.month.may'),
+    i18next.t('profil.zeiterfassung.month.june'),
+    i18next.t('profil.zeiterfassung.month.july'),
+    i18next.t('profil.zeiterfassung.month.august'),
+    i18next.t('profil.zeiterfassung.month.september'),
+    i18next.t('profil.zeiterfassung.month.october'),
+    i18next.t('profil.zeiterfassung.month.november'),
+    i18next.t('profil.zeiterfassung.month.december'),
+  ]
   return `${months[d.getMonth()]} ${d.getFullYear()}`
 }
 

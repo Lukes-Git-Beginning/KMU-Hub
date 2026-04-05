@@ -7,6 +7,7 @@
  * All labels in German (Deutschland-First).
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Link2, Unlink, Shield, Loader2 } from 'lucide-react'
@@ -81,6 +82,7 @@ function getConnectionStatus(
 // ---------------------------------------------------------------------------
 
 export function IntegrationsSettingsTab() {
+  const { t } = useTranslation()
   const { data: configs, isLoading } = useIntegrationConfigs()
   const updateTeams = useUpdateIntegrationConfig('teams')
   const updateSlack = useUpdateIntegrationConfig('slack')

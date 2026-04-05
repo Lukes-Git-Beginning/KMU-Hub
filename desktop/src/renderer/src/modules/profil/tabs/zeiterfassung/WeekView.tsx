@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Palmtree, ThermometerSun, Home, BookOpen, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
@@ -17,13 +18,7 @@ const ABSENCE_ICONS: Record<string, typeof Palmtree> = {
   other: Calendar,
 }
 
-const ABSENCE_LABELS: Record<string, string> = {
-  vacation: 'Urlaub',
-  sick: 'Krank',
-  homeoffice: 'Homeoffice',
-  education: 'Weiterbildung',
-  other: 'Sonstiges',
-}
+// ABSENCE_LABELS moved inside component for i18n
 
 const ABSENCE_COLORS: Record<string, string> = {
   vacation: 'text-warning-foreground',
@@ -34,7 +29,16 @@ const ABSENCE_COLORS: Record<string, string> = {
 }
 
 export default function WeekView() {
+  const { t } = useTranslation()
   const [weekOffset, setWeekOffset] = useState(0)
+
+  const ABSENCE_LABELS: Record<string, string> = {
+    vacation: t('profil.zeiterfassung.absenceType.vacation'),
+    sick: t('profil.zeiterfassung.absenceType.sick'),
+    homeoffice: t('profil.zeiterfassung.absenceType.homeoffice'),
+    education: t('profil.zeiterfassung.absenceType.education'),
+    other: t('profil.zeiterfassung.absenceType.other'),
+  }
   const entries = useTimeTrackingStore((s) => s.entries)
   const categories = useTimeTrackingStore((s) => s.categories)
   const targets = useTimeTrackingStore((s) => s.targets)
@@ -122,7 +126,7 @@ export default function WeekView() {
             variant={weekOffset === 0 ? 'default' : 'outline'}
             onClick={() => setWeekOffset(0)}
           >
-            Diese Woche
+            {t('profil.zeiterfassung.overview.thisWeek')}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setWeekOffset((w) => w + 1)}>
             <ChevronRight className="h-4 w-4" />
@@ -136,7 +140,7 @@ export default function WeekView() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-3 text-muted-foreground font-medium w-40">Kategorie</th>
+              <th className="text-left px-4 py-3 text-muted-foreground font-medium w-40">{t('profil.zeiterfassung.manual.category')}</th>
               {weekDates.map((date, i) => {
                 const absType = absenceDays[dateStrings[i]]
                 const AbsIcon = absType ? ABSENCE_ICONS[absType] : null
@@ -196,7 +200,7 @@ export default function WeekView() {
             {activeCats.length === 0 && (
               <tr>
                 <td colSpan={9} className="text-center py-8 text-muted-foreground">
-                  Keine Einträge in dieser Woche
+                  {t('profil.zeiterfassung.week.noEntries')}
                 </td>
               </tr>
             )}
@@ -204,7 +208,7 @@ export default function WeekView() {
           <tfoot>
             {/* Day totals */}
             <tr className="border-t-2 border-border">
-              <td className="px-4 py-2.5 font-semibold text-foreground">Gesamt</td>
+              <td className="px-4 py-2.5 font-semibold text-foreground">{t('profil.zeiterfassung.total')}</td>
               {dateStrings.map((ds, i) => (
                 <td
                   key={i}
@@ -223,7 +227,7 @@ export default function WeekView() {
             </tr>
             {/* Soll row */}
             <tr>
-              <td className="px-4 py-2 text-xs text-muted-foreground">Soll</td>
+              <td className="px-4 py-2 text-xs text-muted-foreground">{t('profil.zeiterfassung.overview.target')}</td>
               {dateStrings.map((_, i) => (
                 <td key={i} className="text-center px-2 py-2 text-xs text-muted-foreground tabular-nums">
                   {i < 5 ? formatHoursDecimal(dailyTarget) : '-'}
@@ -239,7 +243,7 @@ export default function WeekView() {
 
       {/* Week Summary with Overtime (6.8) */}
       <div className="flex items-center gap-4 text-sm">
-        <span className="text-muted-foreground">Wochensaldo:</span>
+        <span className="text-muted-foreground">{t('profil.zeiterfassung.week.weekBalance')}:</span>
         <span className={cn(
           'font-semibold',
           weekOvertime >= 0 ? 'text-success' : 'text-warning-foreground',
@@ -248,7 +252,7 @@ export default function WeekView() {
         </span>
         <span className="text-muted-foreground">|</span>
         <span className="text-muted-foreground">
-          Ist: {formatHoursDecimal(weekTotal)}h / Soll: {formatHoursDecimal(weekTarget)}h
+          {t('profil.zeiterfassung.overview.actual')}: {formatHoursDecimal(weekTotal)}h / {t('profil.zeiterfassung.overview.target')}: {formatHoursDecimal(weekTarget)}h
         </span>
       </div>
     </div>

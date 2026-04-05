@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileText,
   Upload,
@@ -104,6 +105,7 @@ const MOCK_DOCUMENTS: PersonnelDocument[] = [
 // ============================================================
 
 export function PersonnelDocuments() {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<DocCategory | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<DocStatus | 'all'>('all')
@@ -136,11 +138,11 @@ export function PersonnelDocuments() {
   const expiringCount = MOCK_DOCUMENTS.filter((d) => d.status === 'bald_ablaufend').length
 
   const handleDownload = (doc: PersonnelDocument) => {
-    toast.success(`Download gestartet: ${doc.fileName}`)
+    toast.success(t('team.personnelDocs.downloadStarted', { name: doc.fileName }))
   }
 
   const handleUpload = () => {
-    toast.success('Dokument hochgeladen (Mock)')
+    toast.success(t('team.personnelDocs.uploadSuccess'))
     setShowUpload(false)
   }
 
@@ -149,22 +151,22 @@ export function PersonnelDocuments() {
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Dokumente gesamt</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.personnelDocs.totalDocuments')}</p>
           <p className="text-lg font-semibold text-foreground">{totalDocs}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Mitarbeiter</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.personnelDocs.employees')}</p>
           <p className="text-lg font-semibold text-foreground">{new Set(MOCK_DOCUMENTS.map(d => d.employeeId)).size}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Bald ablaufend</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.personnelDocs.expiringSoon')}</p>
           <div className="flex items-center gap-2">
             <p className="text-lg font-semibold text-warning">{expiringCount}</p>
             {expiringCount > 0 && <Clock className="h-4 w-4 text-warning" />}
           </div>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Abgelaufen</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.personnelDocs.expired')}</p>
           <div className="flex items-center gap-2">
             <p className="text-lg font-semibold text-error">{expiredCount}</p>
             {expiredCount > 0 && <AlertTriangle className="h-4 w-4 text-error" />}
@@ -178,7 +180,7 @@ export function PersonnelDocuments() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Dokument oder Mitarbeiter suchen..."
+            placeholder={t('team.personnelDocs.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -190,7 +192,7 @@ export function PersonnelDocuments() {
           onChange={(e) => setCategoryFilter(e.target.value as DocCategory | 'all')}
           className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
         >
-          <option value="all">Alle Kategorien</option>
+          <option value="all">{t('team.personnelDocs.allCategories')}</option>
           {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
 
@@ -199,10 +201,10 @@ export function PersonnelDocuments() {
           onChange={(e) => setStatusFilter(e.target.value as DocStatus | 'all')}
           className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
         >
-          <option value="all">Alle Status</option>
-          <option value="aktuell">Aktuell</option>
-          <option value="bald_ablaufend">Bald ablaufend</option>
-          <option value="abgelaufen">Abgelaufen</option>
+          <option value="all">{t('team.personnelDocs.allStatuses')}</option>
+          <option value="aktuell">{t('team.personnelDocs.statusCurrent')}</option>
+          <option value="bald_ablaufend">{t('team.personnelDocs.statusExpiringSoon')}</option>
+          <option value="abgelaufen">{t('team.personnelDocs.statusExpired')}</option>
         </select>
 
         <button
@@ -218,8 +220,8 @@ export function PersonnelDocuments() {
       {docsByEmployee.length === 0 ? (
         <EmptyState
           icon={FolderOpen}
-          title="Keine Dokumente gefunden"
-          description={search || categoryFilter !== 'all' ? 'Passe deine Filter an' : 'Lade Personaldokumente hoch, um die digitale Akte zu starten'}
+          title={t('team.personnelDocs.noDocuments')}
+          description={search || categoryFilter !== 'all' ? t('team.personnelDocs.adjustFilters') : t('team.personnelDocs.uploadToStart')}
         />
       ) : (
         <div className="space-y-4">
@@ -228,7 +230,7 @@ export function PersonnelDocuments() {
               <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-secondary/30">
                 <FolderOpen className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-foreground">{name}</span>
-                <span className="text-xs text-muted-foreground">({docs.length} Dokumente)</span>
+                <span className="text-xs text-muted-foreground">({docs.length} {t('team.personnelDocs.documentsCount')})</span>
               </div>
               <div className="divide-y divide-border-muted">
                 {docs.map((doc) => {
@@ -249,11 +251,11 @@ export function PersonnelDocuments() {
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                           <span>{doc.fileName} ({doc.fileSize})</span>
-                          <span>Hochgeladen: {new Date(doc.uploadedAt).toLocaleDateString('de-DE')}</span>
+                          <span>{t('team.personnelDocs.uploaded')}: {new Date(doc.uploadedAt).toLocaleDateString('de-DE')}</span>
                           {doc.expiresAt && (
                             <span className={`flex items-center gap-1 ${st.color}`}>
                               <StIcon className="h-3 w-3" />
-                              Ablauf: {new Date(doc.expiresAt).toLocaleDateString('de-DE')}
+                              {t('team.personnelDocs.expires')}: {new Date(doc.expiresAt).toLocaleDateString('de-DE')}
                             </span>
                           )}
                         </div>
@@ -263,9 +265,9 @@ export function PersonnelDocuments() {
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
-                          onClick={() => toast.info(`Vorschau: ${doc.fileName}`)}
+                          onClick={() => toast.info(`${t('team.personnelDocs.preview')}: ${doc.fileName}`)}
                           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                          title="Vorschau"
+                          title={t('team.personnelDocs.preview')}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -291,32 +293,32 @@ export function PersonnelDocuments() {
         <DialogContent className="gap-0 p-0 max-w-md">
           <div className="p-6">
             <DialogHeader className="mb-4">
-              <DialogTitle className="text-base font-semibold text-foreground">Dokument hochladen</DialogTitle>
-              <DialogDescription className="sr-only">Personaldokument hochladen</DialogDescription>
+              <DialogTitle className="text-base font-semibold text-foreground">{t('team.personnelDocs.uploadDocument')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('team.personnelDocs.uploadDocument')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="rounded-lg border-2 border-dashed border-border bg-secondary/20 p-8 text-center">
                 <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Datei hierher ziehen oder klicken</p>
-                <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, JPG (max. 10 MB)</p>
+                <p className="text-sm text-muted-foreground">{t('team.personnelDocs.dropOrClick')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('team.personnelDocs.allowedFormats')}</p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Kategorie</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('team.documents.category')}</label>
                 <select className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring">
                   {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Ablaufdatum (optional)</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('team.personnelDocs.expiryDate')}</label>
                 <input type="date" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
             </div>
             <DialogFooter className="mt-6">
               <button onClick={() => setShowUpload(false)} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button onClick={handleUpload} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
-                Hochladen
+                {t('common.upload')}
               </button>
             </DialogFooter>
           </div>

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Plus, MessageSquareText, Loader2 } from 'lucide-react'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { useKommunikationStore } from '@/stores/kommunikation'
@@ -21,6 +22,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ messages, isLoading, onNewConversation }: ConversationListProps) {
+  const { t } = useTranslation()
   const activeChannel = useKommunikationStore((s) => s.activeChannel)
   const setActiveChannel = useKommunikationStore((s) => s.setActiveChannel)
   const searchQuery = useKommunikationStore((s) => s.searchQuery)
@@ -76,12 +78,12 @@ export function ConversationList({ messages, isLoading, onNewConversation }: Con
           >
             <MessageSquareText className="h-3.5 w-3.5" />
           </div>
-          <h2 className="text-sm font-semibold" style={{ color: moduleHsl('kommunikation') }}>Kommunikation</h2>
+          <h2 className="text-sm font-semibold" style={{ color: moduleHsl('kommunikation') }}>{t('kommunikation.title')}</h2>
         </div>
         <button
           onClick={onNewConversation}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          title="Neue Konversation"
+          title={t('kommunikation.conversation.new')}
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -95,7 +97,7 @@ export function ConversationList({ messages, isLoading, onNewConversation }: Con
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Konversationen suchen..."
+            placeholder={t('kommunikation.conversation.searchPlaceholder')}
             className="h-8 w-full rounded-md border border-border bg-transparent pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
           />
         </div>
@@ -126,11 +128,11 @@ export function ConversationList({ messages, isLoading, onNewConversation }: Con
         ) : sorted.length === 0 ? (
           <EmptyState
             icon={MessageSquareText}
-            title="Keine Konversationen"
+            title={t('kommunikation.conversation.noConversations')}
             description={
               searchQuery
-                ? 'Keine Treffer für diese Suche.'
-                : 'Noch keine Konversationen in diesem Kanal.'
+                ? t('kommunikation.conversation.noSearchResults')
+                : t('kommunikation.conversation.noConversationsInChannel')
             }
           />
         ) : (

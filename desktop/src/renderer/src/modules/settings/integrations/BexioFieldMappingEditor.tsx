@@ -6,6 +6,7 @@
  * remove, direction change, and required flag per mapping.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Loader2, Plus, Trash2, RotateCcw } from 'lucide-react'
 import {
@@ -29,9 +30,9 @@ interface BexioFieldMappingEditorProps {
 }
 
 const DIRECTION_OPTIONS = [
-  { value: 'inbound', label: '\u2190 Eingehend' },
-  { value: 'outbound', label: '\u2192 Ausgehend' },
-  { value: 'both', label: '\u2194 Bidirektional' },
+  { value: 'inbound', labelKey: 'settings.integrations.fieldMapping.inbound' },
+  { value: 'outbound', labelKey: 'settings.integrations.fieldMapping.outbound' },
+  { value: 'both', labelKey: 'settings.integrations.fieldMapping.bidirectional' },
 ] as const
 
 export function BexioFieldMappingEditor({
@@ -39,6 +40,7 @@ export function BexioFieldMappingEditor({
   onSave,
   compact = false,
 }: BexioFieldMappingEditorProps) {
+  const { t } = useTranslation()
   const { data: serverMappings, isLoading } = useBexioFieldMappings(entityType)
   const updateMappings = useBexioUpdateFieldMappings(entityType)
 
@@ -92,7 +94,7 @@ export function BexioFieldMappingEditor({
   }
 
   const handleResetDefaults = () => {
-    if (!confirm('Alle Zuordnungen auf Standard zurücksetzen?')) return
+    if (!confirm(t('settings.integrations.fieldMapping.resetConfirm'))) return
     setMappings(
       entityType === 'contact' ? [...DEFAULT_CONTACT_MAPPINGS] : [],
     )
@@ -117,7 +119,7 @@ export function BexioFieldMappingEditor({
       <div className="flex items-center gap-2 py-4">
         <Loader2 className="h-4 w-4 animate-spin" />
         <span className="text-sm text-muted-foreground">
-          Lade Feld-Zuordnungen...
+          {t('settings.integrations.fieldMapping.loading')}
         </span>
       </div>
     )
@@ -128,7 +130,7 @@ export function BexioFieldMappingEditor({
       {!compact && (
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-medium">
-            Feld-Zuordnung: {entityType === 'contact' ? 'Kontakte' : entityType === 'invoice' ? 'Rechnungen' : 'Offerten'}
+            {t('settings.integrations.fieldMapping.title')}: {entityType === 'contact' ? t('settings.integrations.fieldMapping.contacts') : entityType === 'invoice' ? t('settings.integrations.fieldMapping.invoices') : t('settings.integrations.fieldMapping.quotes')}
           </h4>
           <Button
             variant="ghost"
@@ -137,7 +139,7 @@ export function BexioFieldMappingEditor({
             className="text-xs"
           >
             <RotateCcw className="h-3 w-3 mr-1" />
-            Standard
+            {t('settings.integrations.fieldMapping.default')}
           </Button>
         </div>
       )}
@@ -147,9 +149,9 @@ export function BexioFieldMappingEditor({
         {/* Header */}
         <div className="grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 text-xs text-muted-foreground px-1">
           <span>Cosmi</span>
-          <span className="w-[120px]">Richtung</span>
+          <span className="w-[120px]">{t('settings.integrations.fieldMapping.direction')}</span>
           <span>Bexio</span>
-          <span className="w-10 text-center">Pflicht</span>
+          <span className="w-10 text-center">{t('settings.integrations.fieldMapping.required')}</span>
           <span className="w-8" />
         </div>
 
@@ -169,7 +171,7 @@ export function BexioFieldMappingEditor({
                 handleUpdate(index, 'kmuhub_field', e.target.value)
               }
             >
-              <option value="">-- Feld wählen --</option>
+              <option value="">{t('settings.integrations.fieldMapping.selectField')}</option>
               {kmuhubFields.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label}
@@ -186,7 +188,7 @@ export function BexioFieldMappingEditor({
             >
               {DIRECTION_OPTIONS.map((d) => (
                 <option key={d.value} value={d.value}>
-                  {d.label}
+                  {t(d.labelKey)}
                 </option>
               ))}
             </select>
@@ -198,7 +200,7 @@ export function BexioFieldMappingEditor({
                 handleUpdate(index, 'bexio_field', e.target.value)
               }
             >
-              <option value="">-- Feld wählen --</option>
+              <option value="">{t('settings.integrations.fieldMapping.selectField')}</option>
               {bexioFields.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.label}
@@ -238,13 +240,13 @@ export function BexioFieldMappingEditor({
         className="text-xs"
       >
         <Plus className="h-3 w-3 mr-1" />
-        Zuordnung hinzufügen
+        {t('settings.integrations.fieldMapping.addMapping')}
       </Button>
 
       {/* Validation errors */}
       {duplicateBexioFields.length > 0 && (
         <p className="text-xs text-destructive">
-          Doppelte Bexio-Felder: {[...new Set(duplicateBexioFields)].join(', ')}
+          {t('settings.integrations.fieldMapping.duplicateFields')}: {[...new Set(duplicateBexioFields)].join(', ')}
         </p>
       )}
 
@@ -261,7 +263,7 @@ export function BexioFieldMappingEditor({
             {updateMappings.isPending && (
               <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
             )}
-            Speichern
+            {t('common.save')}
           </Button>
           {compact && (
             <Button
@@ -271,7 +273,7 @@ export function BexioFieldMappingEditor({
               className="text-xs"
             >
               <RotateCcw className="h-3 w-3 mr-1" />
-              Standard wiederherstellen
+              {t('settings.integrations.fieldMapping.resetDefaults')}
             </Button>
           )}
         </div>

@@ -15,7 +15,20 @@ import messagesEN from '@/i18n/messages/en.json'
 import messagesFR from '@/i18n/messages/fr.json'
 import messagesIT from '@/i18n/messages/it.json'
 
+// Module-scoped addition bundles (merged into de during i18n migration)
+import additionsCRM from '@/i18n/additions/crm.json'
+import additionsDashboard from '@/i18n/additions/dashboard.json'
+import additionsWork from '@/i18n/additions/work.json'
+
 import type { SupportedLocale } from '@/stores/locale'
+
+/** Merge addition bundles into the base DE messages. */
+const mergedDE = {
+  ...messagesDE,
+  ...additionsCRM,
+  ...additionsDashboard,
+  ...additionsWork,
+}
 
 export function initI18n(locale: SupportedLocale): typeof i18n {
   if (i18n.isInitialized) return i18n
@@ -32,7 +45,7 @@ export function initI18n(locale: SupportedLocale): typeof i18n {
         escapeValue: false,
       },
       resources: {
-        de: { translation: messagesDE },
+        de: { translation: mergedDE },
         en: { translation: messagesEN },
         fr: { translation: messagesFR },
         it: { translation: messagesIT },

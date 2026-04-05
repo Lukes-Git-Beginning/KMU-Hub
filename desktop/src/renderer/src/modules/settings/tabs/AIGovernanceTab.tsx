@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Sparkles,
   Mail,
@@ -22,6 +23,7 @@ const MODULE_CONFIG = [
 ] as const
 
 export function AIGovernanceTab() {
+  const { t } = useTranslation()
   const {
     aiEnabled,
     setAIEnabled,

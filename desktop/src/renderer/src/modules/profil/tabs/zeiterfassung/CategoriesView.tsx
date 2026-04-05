@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ const COLOR_PRESETS = [
 ]
 
 export default function CategoriesView() {
+  const { t } = useTranslation()
   const categories = useTimeTrackingStore((s) => s.categories)
   const templates = useTimeTrackingStore((s) => s.templates)
   const targets = useTimeTrackingStore((s) => s.targets)
@@ -43,14 +45,14 @@ export default function CategoriesView() {
     addCategory({ name: newCatName, color: newCatColor, icon: 'Tag', isDefault: false })
     setNewCatName('')
     setShowAddCat(false)
-    toast.success('Kategorie hinzugefügt')
+    toast.success(t('profil.zeiterfassung.categories.categoryAdded'))
   }
 
   const handleSaveEdit = (id: string) => {
     if (!editName.trim()) return
     updateCategory(id, { name: editName })
     setEditingCat(null)
-    toast.success('Kategorie aktualisiert')
+    toast.success(t('profil.zeiterfassung.categories.categoryUpdated'))
   }
 
   const handleAddTemplate = () => {
@@ -64,18 +66,18 @@ export default function CategoriesView() {
     setNewTplName('')
     setNewTplDesc('')
     setShowAddTpl(false)
-    toast.success('Vorlage hinzugefügt')
+    toast.success(t('profil.zeiterfassung.categories.templateAdded'))
   }
 
   const handleSaveTargets = () => {
     const dh = parseFloat(dailyHours)
     const wh = parseFloat(weeklyHours)
     if (isNaN(dh) || isNaN(wh) || dh <= 0 || wh <= 0) {
-      toast.error('Bitte gültige Zahlen eingeben')
+      toast.error(t('profil.zeiterfassung.categories.invalidNumbers'))
       return
     }
     updateTargets({ dailyHours: dh, weeklyHours: wh, monthlyHours: Math.round(wh * 4.33) })
-    toast.success('Arbeitsziele aktualisiert')
+    toast.success(t('profil.zeiterfassung.categories.targetsUpdated'))
   }
 
   return (
@@ -83,10 +85,10 @@ export default function CategoriesView() {
       {/* Categories */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-foreground">Kategorien ({categories.length})</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('profil.zeiterfassung.categories.title')} ({categories.length})</h3>
           <Button size="sm" variant="outline" onClick={() => setShowAddCat(true)} className="gap-2">
             <Plus className="h-3.5 w-3.5" />
-            Neue Kategorie
+            {t('profil.zeiterfassung.categories.newCategory')}
           </Button>
         </div>
 
@@ -121,7 +123,7 @@ export default function CategoriesView() {
                 <>
                   <span className="text-sm font-medium text-foreground flex-1">{cat.name}</span>
                   {cat.isDefault && (
-                    <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">Standard</span>
+                    <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{t('profil.zeiterfassung.categories.default')}</span>
                   )}
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -132,7 +134,7 @@ export default function CategoriesView() {
                     </button>
                     {!cat.isDefault && (
                       <button
-                        onClick={() => { deleteCategory(cat.id); toast.success('Kategorie gelöscht') }}
+                        onClick={() => { deleteCategory(cat.id); toast.success(t('profil.zeiterfassung.categories.categoryDeleted')) }}
                         className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -148,7 +150,7 @@ export default function CategoriesView() {
           {showAddCat && (
             <div className="p-4 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 space-y-3">
               <Input
-                placeholder="Kategorie-Name..."
+                placeholder={t('profil.zeiterfassung.categories.categoryNamePlaceholder')}
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
@@ -168,8 +170,8 @@ export default function CategoriesView() {
                 ))}
               </div>
               <div className="flex justify-end gap-2">
-                <Button size="sm" variant="outline" onClick={() => setShowAddCat(false)}>Abbrechen</Button>
-                <Button size="sm" onClick={handleAddCategory}>Hinzufügen</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowAddCat(false)}>{t('common.cancel')}</Button>
+                <Button size="sm" onClick={handleAddCategory}>{t('profil.zeiterfassung.categories.add')}</Button>
               </div>
             </div>
           )}
@@ -179,10 +181,10 @@ export default function CategoriesView() {
       {/* Templates */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-foreground">Vorlagen ({templates.length})</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('profil.zeiterfassung.categories.templates')} ({templates.length})</h3>
           <Button size="sm" variant="outline" onClick={() => { setShowAddTpl(true); setNewTplCatId(categories[0]?.id || '') }} className="gap-2">
             <Plus className="h-3.5 w-3.5" />
-            Neue Vorlage
+            {t('profil.zeiterfassung.categories.newTemplate')}
           </Button>
         </div>
 
@@ -202,7 +204,7 @@ export default function CategoriesView() {
                   </p>
                 </div>
                 <button
-                  onClick={() => { deleteTemplate(tpl.id); toast.success('Vorlage gelöscht') }}
+                  onClick={() => { deleteTemplate(tpl.id); toast.success(t('profil.zeiterfassung.categories.templateDeleted')) }}
                   className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -215,7 +217,7 @@ export default function CategoriesView() {
           {showAddTpl && (
             <div className="p-4 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 space-y-3">
               <Input
-                placeholder="Vorlagen-Name..."
+                placeholder={t('profil.zeiterfassung.categories.templateNamePlaceholder')}
                 value={newTplName}
                 onChange={(e) => setNewTplName(e.target.value)}
                 autoFocus
@@ -232,19 +234,19 @@ export default function CategoriesView() {
                 </select>
                 <Input
                   type="number"
-                  placeholder="Minuten"
+                  placeholder={t('profil.zeiterfassung.categories.minutes')}
                   value={newTplMins}
                   onChange={(e) => setNewTplMins(e.target.value)}
                 />
               </div>
               <Input
-                placeholder="Beschreibung..."
+                placeholder={t('profil.zeiterfassung.categories.descriptionPlaceholder')}
                 value={newTplDesc}
                 onChange={(e) => setNewTplDesc(e.target.value)}
               />
               <div className="flex justify-end gap-2">
-                <Button size="sm" variant="outline" onClick={() => setShowAddTpl(false)}>Abbrechen</Button>
-                <Button size="sm" onClick={handleAddTemplate}>Hinzufügen</Button>
+                <Button size="sm" variant="outline" onClick={() => setShowAddTpl(false)}>{t('common.cancel')}</Button>
+                <Button size="sm" onClick={handleAddTemplate}>{t('profil.zeiterfassung.categories.add')}</Button>
               </div>
             </div>
           )}
@@ -253,11 +255,11 @@ export default function CategoriesView() {
 
       {/* Work Targets */}
       <section>
-        <h3 className="text-sm font-semibold text-foreground mb-4">Arbeitsziele</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-4">{t('profil.zeiterfassung.categories.workTargets')}</h3>
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Stunden / Tag</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.categories.hoursPerDay')}</label>
               <Input
                 type="number"
                 step="0.1"
@@ -266,7 +268,7 @@ export default function CategoriesView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Stunden / Woche</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.categories.hoursPerWeek')}</label>
               <Input
                 type="number"
                 step="0.5"
@@ -276,7 +278,7 @@ export default function CategoriesView() {
             </div>
           </div>
           <div className="flex justify-end">
-            <Button size="sm" onClick={handleSaveTargets}>Speichern</Button>
+            <Button size="sm" onClick={handleSaveTargets}>{t('common.save')}</Button>
           </div>
         </div>
       </section>

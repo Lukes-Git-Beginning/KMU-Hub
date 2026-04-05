@@ -280,9 +280,9 @@ export default function TaskDetailPage() {
                   !task.description && 'text-muted-foreground italic'
                 )}
                 onClick={() => setEditingDesc(true)}
-                title="Klicken zum Bearbeiten"
+                title={t('work.panel.clickToEdit')}
               >
-                {task.description || 'Beschreibung hinzufügen...'}
+                {task.description || t('work.panel.addDescription')}
               </div>
             )}
           </div>
@@ -292,7 +292,7 @@ export default function TaskDetailPage() {
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                 <ListTree className="h-3.5 w-3.5" />
-                Unteraufgaben
+                {t('work.panel.subtasks')}
                 {subtasks.length > 0 && (
                   <span>({subtasks.length})</span>
                 )}
@@ -304,7 +304,7 @@ export default function TaskDetailPage() {
                 onClick={() => setCreateSubtaskOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
-                Hinzufügen
+                {t('work.taskDetail.addSubtask')}
               </Button>
             </div>
             {subtasks.length > 0 ? (
@@ -358,7 +358,7 @@ export default function TaskDetailPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground py-2">
-                Keine Unteraufgaben vorhanden.
+                {t('work.panel.noSubtasks')}
               </p>
             )}
           </div>
@@ -378,7 +378,7 @@ export default function TaskDetailPage() {
                 )}
                 onClick={() => setActiveTab('combined')}
               >
-                Alle
+                {t('work.taskDetail.tabAll')}
               </button>
               <button
                 type="button"
@@ -390,7 +390,7 @@ export default function TaskDetailPage() {
                 )}
                 onClick={() => setActiveTab('comments')}
               >
-                Kommentare
+                {t('work.taskDetail.tabComments')}
               </button>
               <button
                 type="button"
@@ -402,7 +402,7 @@ export default function TaskDetailPage() {
                 )}
                 onClick={() => setActiveTab('activity')}
               >
-                Aktivität
+                {t('work.taskDetail.tabActivity')}
               </button>
             </div>
 
@@ -423,13 +423,13 @@ export default function TaskDetailPage() {
           {/* Status */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Status
+              {t('common.status')}
             </label>
             <Popover>
               <PopoverTrigger asChild>
                 <button type="button" className="cursor-pointer">
                   <StatusBadge
-                    name={task.status_name ?? 'Offen'}
+                    name={task.status_name ?? t('work.status.open')}
                     color={task.status_color}
                     isClosed={task.is_closed}
                   />
@@ -462,7 +462,7 @@ export default function TaskDetailPage() {
           {/* Priority */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Priorität
+              {t('work.tasks.priority')}
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -487,12 +487,12 @@ export default function TaskDetailPage() {
                       <PriorityBadge priority={p} compact />
                       <span>
                         {p === 'urgent'
-                          ? 'Dringend'
+                          ? t('work.priority.urgent')
                           : p === 'high'
-                            ? 'Hoch'
+                            ? t('work.priority.high')
                             : p === 'medium'
-                              ? 'Normal'
-                              : 'Niedrig'}
+                              ? t('work.priority.normal')
+                              : t('work.priority.low')}
                       </span>
                     </button>
                   ))}
@@ -504,7 +504,7 @@ export default function TaskDetailPage() {
           {/* Assignee */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Zuständig
+              {t('work.tasks.assignee')}
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -513,7 +513,7 @@ export default function TaskDetailPage() {
                   className="flex items-center gap-1.5 text-sm cursor-pointer hover:bg-accent/50 rounded px-1 py-0.5 transition-colors"
                 >
                   <User className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{task.assignee_name || 'Nicht zugewiesen'}</span>
+                  <span>{task.assignee_name || t('work.tasks.unassigned')}</span>
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-48 p-1" align="start">
@@ -526,7 +526,7 @@ export default function TaskDetailPage() {
                     )}
                     onClick={() => handleAssigneeChange('__none__')}
                   >
-                    Nicht zugewiesen
+                    {t('work.tasks.unassigned')}
                   </button>
                   {members.map((m) => (
                     <button
@@ -540,7 +540,7 @@ export default function TaskDetailPage() {
                         m.user_id && handleAssigneeChange(m.user_id)
                       }
                     >
-                      {m.display_name || m.email || 'Benutzer'}
+                      {m.display_name || m.email || t('work.tasks.user')}
                     </button>
                   ))}
                 </div>
@@ -551,7 +551,7 @@ export default function TaskDetailPage() {
           {/* Due date */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Fällig am
+              {t('work.tasks.dueAt')}
             </label>
             <Popover>
               <PopoverTrigger asChild>
@@ -563,7 +563,7 @@ export default function TaskDetailPage() {
                   <span>
                     {task.due_date
                       ? new Date(task.due_date).toLocaleDateString('de-DE')
-                      : 'Kein Datum'}
+                      : t('work.tasks.noDate')}
                   </span>
                 </button>
               </PopoverTrigger>
@@ -582,7 +582,7 @@ export default function TaskDetailPage() {
                       className="h-7 w-full text-xs"
                       onClick={() => handleDueDateChange('')}
                     >
-                      Datum entfernen
+                      {t('work.tasks.removeDate')}
                     </Button>
                   )}
                 </div>
@@ -595,7 +595,7 @@ export default function TaskDetailPage() {
           {/* Dependencies */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Abhängigkeiten
+              {t('work.taskDetail.dependencies')}
             </label>
             <DependencyList
               taskId={taskId ?? ''}
@@ -608,7 +608,7 @@ export default function TaskDetailPage() {
           {/* Entity links */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Verknüpfungen
+              {t('work.taskDetail.entityLinks')}
             </label>
             <TaskLinkField
               taskId={taskId ?? ''}
@@ -620,7 +620,7 @@ export default function TaskDetailPage() {
           {/* Custom fields */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Benutzerdefinierte Felder
+              {t('work.taskDetail.customFields')}
             </label>
             <CustomFieldsSection
               taskId={taskId ?? ''}
@@ -633,7 +633,7 @@ export default function TaskDetailPage() {
           {/* File attachments */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Dateien
+              {t('work.taskDetail.files')}
             </label>
             <TaskFileAttachments taskId={taskId ?? ''} />
           </div>
@@ -644,7 +644,7 @@ export default function TaskDetailPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground">
-                Zeiterfassung
+                {t('work.taskDetail.timeTracking')}
               </label>
               <Button
                 variant="ghost"
@@ -652,7 +652,7 @@ export default function TaskDetailPage() {
                 className="h-6 text-xs px-2"
                 onClick={() => setManualTimeEntryOpen(true)}
               >
-                + Manuell
+                {t('work.taskDetail.addManual')}
               </Button>
             </div>
             <TaskTimer taskId={taskId ?? ''} />
@@ -661,7 +661,7 @@ export default function TaskDetailPage() {
           {/* Time entries */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">
-              Zeiteinträge
+              {t('work.taskDetail.timeEntries')}
             </label>
             <TimeEntryList taskId={taskId ?? ''} />
           </div>
@@ -673,7 +673,7 @@ export default function TaskDetailPage() {
             {task.created_by_name && (
               <div className="flex items-center gap-1.5">
                 <User className="h-3 w-3" />
-                <span>Erstellt von {task.created_by_name}</span>
+                <span>{t('work.taskDetail.createdBy', { name: task.created_by_name })}</span>
               </div>
             )}
             {task.created_at && (

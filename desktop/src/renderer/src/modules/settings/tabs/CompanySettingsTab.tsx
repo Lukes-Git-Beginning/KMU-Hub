@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import { toast } from 'sonner'
 import { useCompanySettings, useUpdateCompanySettings } from '@/api/hooks/useFinance'
 
 export function CompanySettingsTab() {
+  const { t } = useTranslation()
   const { data: settings, isLoading } = useCompanySettings()
   const updateMutation = useUpdateCompanySettings()
 

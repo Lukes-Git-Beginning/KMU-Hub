@@ -6,6 +6,7 @@
  * against sample messages.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus,
   Trash2,
@@ -45,29 +46,29 @@ import {
 // ---------------------------------------------------------------------------
 
 const FIELD_OPTIONS = [
-  { value: 'channel', label: 'Kanal' },
-  { value: 'sender_name', label: 'Absender' },
-  { value: 'sender_email', label: 'Absender-E-Mail' },
-  { value: 'subject', label: 'Betreff' },
-  { value: 'preview', label: 'Inhalt' },
-  { value: 'tags', label: 'Tags' },
-  { value: 'crm_contact_id', label: 'CRM-Verknüpfung' },
+  { value: 'channel', labelKey: 'kommunikation.routing.fieldChannel' },
+  { value: 'sender_name', labelKey: 'kommunikation.routing.fieldSender' },
+  { value: 'sender_email', labelKey: 'kommunikation.routing.fieldSenderEmail' },
+  { value: 'subject', labelKey: 'kommunikation.routing.fieldSubject' },
+  { value: 'preview', labelKey: 'kommunikation.routing.fieldContent' },
+  { value: 'tags', labelKey: 'kommunikation.routing.fieldTags' },
+  { value: 'crm_contact_id', labelKey: 'kommunikation.routing.fieldCrmLink' },
 ]
 
 const OPERATOR_OPTIONS = [
-  { value: 'equals', label: 'ist gleich' },
-  { value: 'contains', label: 'enthaelt' },
-  { value: 'starts_with', label: 'beginnt mit' },
-  { value: 'in', label: 'ist in' },
-  { value: 'exists', label: 'existiert' },
-  { value: 'not_equals', label: 'ist nicht gleich' },
+  { value: 'equals', labelKey: 'kommunikation.routing.opEquals' },
+  { value: 'contains', labelKey: 'kommunikation.routing.opContains' },
+  { value: 'starts_with', labelKey: 'kommunikation.routing.opStartsWith' },
+  { value: 'in', labelKey: 'kommunikation.routing.opIn' },
+  { value: 'exists', labelKey: 'kommunikation.routing.opExists' },
+  { value: 'not_equals', labelKey: 'kommunikation.routing.opNotEquals' },
 ]
 
-const ACTION_TYPES: { value: RuleActionType; label: string }[] = [
-  { value: 'route_to_team', label: 'An Team-Postfach weiterleiten' },
-  { value: 'assign_to', label: 'Person zuweisen' },
-  { value: 'add_tags', label: 'Tags hinzufügen' },
-  { value: 'auto_reply', label: 'Automatische Antwort' },
+const ACTION_TYPES: { value: RuleActionType; labelKey: string }[] = [
+  { value: 'route_to_team', labelKey: 'kommunikation.routing.actionRouteToTeam' },
+  { value: 'assign_to', labelKey: 'kommunikation.routing.actionAssignTo' },
+  { value: 'add_tags', labelKey: 'kommunikation.routing.actionAddTags' },
+  { value: 'auto_reply', labelKey: 'kommunikation.routing.actionAutoReply' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,7 @@ function ConditionRow({
   onRemove,
   depth,
 }: ConditionRowProps) {
+  const { t } = useTranslation()
   // Leaf condition (has field)
   if (condition.field !== undefined) {
     return (
@@ -110,7 +112,7 @@ function ConditionRow({
         >
           {FIELD_OPTIONS.map((f) => (
             <option key={f.value} value={f.value}>
-              {f.label}
+              {t(f.labelKey)}
             </option>
           ))}
         </select>
@@ -121,7 +123,7 @@ function ConditionRow({
         >
           {OPERATOR_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.labelKey)}
             </option>
           ))}
         </select>
@@ -130,14 +132,14 @@ function ConditionRow({
             type="text"
             value={condition.value ?? ''}
             onChange={(e) => onChange({ ...condition, value: e.target.value })}
-            placeholder="Wert"
+            placeholder={t('kommunikation.routing.valuePlaceholder')}
             className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
           />
         )}
         <button
           onClick={onRemove}
           className="rounded p-1 text-muted-foreground hover:text-red-500 hover:bg-secondary transition-colors"
-          title="Entfernen"
+          title={t('kommunikation.routing.remove')}
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -189,13 +191,13 @@ function ConditionRow({
           onClick={toggleGroupType}
           className="rounded-md border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-secondary transition-colors"
         >
-          {groupType === 'and' ? 'UND' : 'ODER'}
+          {groupType === 'and' ? t('kommunikation.routing.and') : t('kommunikation.routing.or')}
         </button>
         <div className="flex-1" />
         <button
           onClick={onRemove}
           className="rounded p-1 text-muted-foreground hover:text-red-500 hover:bg-secondary transition-colors"
-          title="Gruppe entfernen"
+          title={t('kommunikation.routing.removeGroup')}
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -217,14 +219,14 @@ function ConditionRow({
           className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
         >
           <Plus className="h-3 w-3" />
-          Bedingung
+          {t('kommunikation.routing.condition')}
         </button>
         <button
           onClick={addGroup}
           className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
         >
           <Plus className="h-3 w-3" />
-          Gruppe
+          {t('kommunikation.routing.group')}
         </button>
       </div>
     </div>
@@ -242,6 +244,7 @@ interface RuleEditorProps {
 }
 
 function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
+  const { t } = useTranslation()
   const isEdit = !!rule?.id
   const [name, setName] = useState(rule?.name ?? '')
   const [channel, setChannel] = useState<InboxChannel | ''>(
@@ -335,11 +338,10 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? 'Regel bearbeiten' : 'Neue Regel erstellen'}
+            {isEdit ? t('kommunikation.routing.editRule') : t('kommunikation.routing.createRule')}
           </DialogTitle>
           <DialogDescription>
-            Definiere Bedingungen und Aktionen für die automatische
-            Nachrichtenverarbeitung.
+            {t('kommunikation.routing.ruleDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -348,7 +350,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-foreground">
-                Name
+                {t('kommunikation.routing.name')}
               </label>
               <input
                 type="text"
@@ -359,7 +361,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
             </div>
             <div>
               <label className="text-xs font-medium text-foreground">
-                Kanal-Filter
+                {t('kommunikation.routing.channelFilter')}
               </label>
               <select
                 value={channel}
@@ -368,10 +370,10 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                 }
                 className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               >
-                <option value="">Alle Kanäle</option>
-                <option value="email">E-Mail</option>
+                <option value="">{t('kommunikation.routing.allChannels')}</option>
+                <option value="email">{t('kommunikation.channels.email')}</option>
                 <option value="chat">Chat</option>
-                <option value="notification">Benachrichtigungen</option>
+                <option value="notification">{t('kommunikation.routing.notifications')}</option>
               </select>
             </div>
           </div>
@@ -379,7 +381,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-foreground">
-                Prioritaet
+                {t('kommunikation.routing.priority')}
               </label>
               <input
                 type="number"
@@ -397,7 +399,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                   onChange={(e) => setIsActive(e.target.checked)}
                   className="accent-primary h-4 w-4"
                 />
-                Aktiv
+                {t('kommunikation.routing.active')}
               </label>
             </div>
           </div>
@@ -405,7 +407,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
           {/* Condition builder */}
           <div>
             <label className="text-xs font-medium text-foreground">
-              Bedingungen
+              {t('kommunikation.routing.conditions')}
             </label>
             <div className="mt-1">
               <ConditionRow
@@ -420,7 +422,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
           {/* Actions */}
           <div>
             <label className="text-xs font-medium text-foreground">
-              Aktionen
+              {t('kommunikation.routing.actions')}
             </label>
             <div className="mt-1 space-y-2">
               {actions.map((action, idx) => (
@@ -441,7 +443,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                   >
                     {ACTION_TYPES.map((a) => (
                       <option key={a.value} value={a.value}>
-                        {a.label}
+                        {t(a.labelKey)}
                       </option>
                     ))}
                   </select>
@@ -458,7 +460,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                             config: { team_inbox_id: e.target.value },
                           })
                         }
-                        placeholder="Team-Postfach-ID"
+                        placeholder={t('kommunikation.routing.teamInboxIdPlaceholder')}
                         className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
                       />
                     )}
@@ -472,7 +474,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                             config: { user_id: e.target.value },
                           })
                         }
-                        placeholder="Benutzer-ID"
+                        placeholder={t('kommunikation.routing.userIdPlaceholder')}
                         className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
                       />
                     )}
@@ -486,7 +488,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                             config: { tags: e.target.value },
                           })
                         }
-                        placeholder="Tags (kommagetrennt)"
+                        placeholder={t('kommunikation.routing.tagsPlaceholder')}
                         className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
                       />
                     )}
@@ -499,7 +501,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                             config: { body: e.target.value },
                           })
                         }
-                        placeholder="Antworttext"
+                        placeholder={t('kommunikation.routing.replyTextPlaceholder')}
                         rows={2}
                         className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring resize-none"
                       />
@@ -509,7 +511,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                   <button
                     onClick={() => removeAction(idx)}
                     className="rounded p-1 text-muted-foreground hover:text-red-500 hover:bg-secondary transition-colors"
-                    title="Aktion entfernen"
+                    title={t('kommunikation.routing.removeAction')}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -520,7 +522,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                 className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Aktion hinzufügen
+                {t('kommunikation.routing.addAction')}
               </button>
             </div>
           </div>
@@ -536,14 +538,14 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
               ) : (
                 <ChevronRight className="h-3.5 w-3.5" />
               )}
-              Regel testen
+              {t('kommunikation.routing.testRule')}
             </button>
             {testExpanded && (
               <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="text-[10px] text-muted-foreground">
-                      Kanal
+                      {t('kommunikation.routing.fieldChannel')}
                     </label>
                     <select
                       value={testChannel}
@@ -552,14 +554,14 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                       }
                       className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-focus-ring"
                     >
-                      <option value="email">E-Mail</option>
+                      <option value="email">{t('kommunikation.channels.email')}</option>
                       <option value="chat">Chat</option>
-                      <option value="notification">Benachrichtigung</option>
+                      <option value="notification">{t('kommunikation.routing.notification')}</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-[10px] text-muted-foreground">
-                      Absender
+                      {t('kommunikation.routing.fieldSender')}
                     </label>
                     <input
                       type="text"
@@ -570,7 +572,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                   </div>
                   <div>
                     <label className="text-[10px] text-muted-foreground">
-                      Betreff
+                      {t('kommunikation.routing.fieldSubject')}
                     </label>
                     <input
                       type="text"
@@ -587,7 +589,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                     className="flex items-center gap-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
                   >
                     <Play className="h-3 w-3" />
-                    Testen
+                    {t('kommunikation.routing.test')}
                   </button>
                   {testResult !== null && (
                     <span
@@ -597,7 +599,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
                           : 'text-red-600 dark:text-red-400'
                       }`}
                     >
-                      {testResult ? 'Trifft zu' : 'Trifft nicht zu'}
+                      {testResult ? t('kommunikation.routing.matches') : t('kommunikation.routing.noMatch')}
                     </span>
                   )}
                 </div>
@@ -611,7 +613,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
               onClick={() => onOpenChange(false)}
               className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -622,7 +624,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
               }
               className="rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
             >
-              {isEdit ? 'Speichern' : 'Erstellen'}
+              {isEdit ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>
@@ -636,6 +638,7 @@ function RuleEditorDialog({ rule, open, onOpenChange }: RuleEditorProps) {
 // ---------------------------------------------------------------------------
 
 export function RoutingRulesEditor() {
+  const { t } = useTranslation()
   const { data: rules, isLoading } = useRoutingRules()
   const deleteRule = useDeleteRoutingRule()
   const updateRule = useUpdateRoutingRule()
@@ -673,13 +676,13 @@ export function RoutingRulesEditor() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-foreground">Routing-Regeln</h3>
+        <h3 className="text-sm font-medium text-foreground">{t('kommunikation.routing.title')}</h3>
         <button
           onClick={handleCreate}
           className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
-          Neue Regel
+          {t('kommunikation.routing.newRule')}
         </button>
       </div>
 
@@ -716,8 +719,7 @@ export function RoutingRulesEditor() {
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground">
-                {rule.actions.length} Aktion
-                {rule.actions.length !== 1 ? 'en' : ''}
+                {t('kommunikation.routing.actionsCount', { count: rule.actions.length })}
               </p>
             </div>
             <button
@@ -727,7 +729,7 @@ export function RoutingRulesEditor() {
                   ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-950/30'
                   : 'text-muted-foreground hover:bg-secondary'
               }`}
-              title={rule.is_active ? 'Deaktivieren' : 'Aktivieren'}
+              title={rule.is_active ? t('kommunikation.routing.deactivate') : t('kommunikation.routing.activate')}
             >
               <Power className="h-4 w-4" />
             </button>
@@ -735,12 +737,12 @@ export function RoutingRulesEditor() {
               onClick={() => handleEdit(rule)}
               className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             >
-              Bearbeiten
+              {t('common.edit')}
             </button>
             <button
               onClick={() => setDeleteConfirmId(rule.id)}
               className="rounded p-1.5 text-muted-foreground hover:text-red-500 hover:bg-secondary transition-colors"
-              title="Löschen"
+              title={t('common.delete')}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -748,7 +750,7 @@ export function RoutingRulesEditor() {
         ))}
         {!isLoading && (!rules || rules.length === 0) && (
           <p className="text-xs text-muted-foreground py-4 text-center">
-            Noch keine Routing-Regeln erstellt.
+            {t('kommunikation.routing.noRules')}
           </p>
         )}
       </div>
@@ -762,9 +764,9 @@ export function RoutingRulesEditor() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Regel löschen?"
-        description="Diese Regel wird dauerhaft gelöscht."
-        confirmLabel="Löschen"
+        title={t('kommunikation.routing.deleteRuleTitle')}
+        description={t('kommunikation.routing.deleteRuleDescription')}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />

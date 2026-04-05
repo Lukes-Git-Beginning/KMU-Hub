@@ -8,6 +8,7 @@
  * Mock data for design — backend generates actual XML payloads.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileCheck2,
   Shield,
@@ -50,33 +51,33 @@ interface EInvoiceStatus {
 
 const standardConfig: Record<
   EInvoiceStandard,
-  { label: string; fullName: string; color: string; bg: string }
+  { label: string; fullNameKey: string; color: string; bg: string }
 > = {
   zugferd: {
     label: 'ZUGFeRD',
-    fullName: 'Zentraler User Guide des Forums elektronische Rechnung Deutschland',
+    fullNameKey: 'finanzen.eInvoice.zugferdFullName',
     color: 'text-primary',
     bg: 'bg-primary/10',
   },
   xrechnung: {
     label: 'XRechnung',
-    fullName: 'Deutscher Standard für öffentliche Auftraggeber (EN 16931)',
+    fullNameKey: 'finanzen.eInvoice.xrechnungFullName',
     color: 'text-info',
     bg: 'bg-info-light',
   },
   none: {
     label: 'Standard',
-    fullName: 'Keine E-Rechnung',
+    fullNameKey: 'finanzen.eInvoice.noneFullName',
     color: 'text-muted-foreground',
     bg: 'bg-secondary',
   },
 }
 
-const profileDescriptions: Record<ZUGFeRDProfile, string> = {
-  MINIMUM: 'Minimale strukturierte Daten — nur Rechnungskopf',
-  BASIC: 'Grundlegende Rechnungsdaten — Positionen ohne Details',
-  COMFORT: 'Erweiterte Daten — vollständige Positionen + Steuerdetails',
-  EXTENDED: 'Maximale Details — Liefer-/Leistungsdaten, Rabatte, Zuschläge',
+const profileDescriptionKeys: Record<ZUGFeRDProfile, string> = {
+  MINIMUM: 'finanzen.eInvoice.profileMinimum',
+  BASIC: 'finanzen.eInvoice.profileBasic',
+  COMFORT: 'finanzen.eInvoice.profileComfort',
+  EXTENDED: 'finanzen.eInvoice.profileExtended',
 }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +164,7 @@ export function EInvoiceDetailDialog({
   onOpenChange,
   invoiceNumber,
 }: EInvoiceDetailDialogProps) {
+  const { t } = useTranslation()
   const status = mockStatuses[invoiceNumber] ?? {
     standard: 'none' as const,
     valid: true,
@@ -188,7 +190,7 @@ export function EInvoiceDetailDialog({
         <div className="space-y-4">
           {/* Standard selector */}
           <div>
-            <p className="text-xs font-medium text-foreground mb-2">E-Rechnungsstandard</p>
+            <p className="text-xs font-medium text-foreground mb-2">{t('finanzen.eInvoice.standard')}</p>
             <div className="grid grid-cols-3 gap-2">
               {(Object.entries(standardConfig) as [EInvoiceStandard, typeof standardConfig.zugferd][]).map(
                 ([key, s]) => (
@@ -216,8 +218,8 @@ export function EInvoiceDetailDialog({
                       {key === 'zugferd'
                         ? 'PDF + XML'
                         : key === 'xrechnung'
-                          ? 'Reines XML'
-                          : 'Nur PDF'}
+                          ? t('finanzen.eInvoice.pureXml')
+                          : t('finanzen.eInvoice.pdfOnly')}
                     </p>
                     {status.standard === key && (
                       <CheckCircle2 className="mx-auto mt-1 h-3.5 w-3.5 text-primary" />
@@ -231,7 +233,7 @@ export function EInvoiceDetailDialog({
           {/* ZUGFeRD Profile selector */}
           {status.standard === 'zugferd' && (
             <div>
-              <p className="text-xs font-medium text-foreground mb-2">ZUGFeRD-Profil</p>
+              <p className="text-xs font-medium text-foreground mb-2">{t('finanzen.eInvoice.zugferdProfile')}</p>
               <div className="space-y-1.5">
                 {(
                   ['MINIMUM', 'BASIC', 'COMFORT', 'EXTENDED'] as ZUGFeRDProfile[]
@@ -257,12 +259,12 @@ export function EInvoiceDetailDialog({
                     <div className="flex-1">
                       <p className="text-sm font-medium text-foreground">{profile}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {profileDescriptions[profile]}
+                        {t(profileDescriptionKeys[profile])}
                       </p>
                     </div>
                     {status.profile === profile && (
                       <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-medium text-primary">
-                        Aktiv
+                        {t('finanzen.eInvoice.active')}
                       </span>
                     )}
                   </button>
@@ -275,23 +277,23 @@ export function EInvoiceDetailDialog({
           {status.standard !== 'none' && (
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-md border border-border p-2.5">
-                <p className="text-[10px] text-muted-foreground">Version</p>
+                <p className="text-[10px] text-muted-foreground">{t('finanzen.eInvoice.version')}</p>
                 <p className="text-sm font-medium text-foreground">
                   {status.version ?? '—'}
                 </p>
               </div>
               <div className="rounded-md border border-border p-2.5">
-                <p className="text-[10px] text-muted-foreground">XML eingebettet</p>
+                <p className="text-[10px] text-muted-foreground">{t('finanzen.eInvoice.xmlEmbedded')}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {status.xmlEmbedded ? (
                     <>
                       <CheckCircle2 className="h-4 w-4 text-success" />
-                      <span className="text-sm font-medium text-success">Ja</span>
+                      <span className="text-sm font-medium text-success">{t('common.yes')}</span>
                     </>
                   ) : (
                     <>
                       <X className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-muted-foreground">Nein</span>
+                      <span className="text-sm font-medium text-muted-foreground">{t('common.no')}</span>
                     </>
                   )}
                 </div>
@@ -302,7 +304,7 @@ export function EInvoiceDetailDialog({
           {/* Validation results */}
           {status.standard !== 'none' && (
             <div>
-              <p className="text-xs font-medium text-foreground mb-2">Validierung</p>
+              <p className="text-xs font-medium text-foreground mb-2">{t('finanzen.eInvoice.validation')}</p>
               <div
                 className={`rounded-md border p-3 ${
                   status.valid
@@ -314,12 +316,12 @@ export function EInvoiceDetailDialog({
                   {status.valid ? (
                     <>
                       <CheckCircle2 className="h-4 w-4 text-success" />
-                      <span className="text-sm font-medium text-success">Gültig</span>
+                      <span className="text-sm font-medium text-success">{t('finanzen.eInvoice.valid')}</span>
                     </>
                   ) : (
                     <>
                       <AlertTriangle className="h-4 w-4 text-error" />
-                      <span className="text-sm font-medium text-error">Ungültig</span>
+                      <span className="text-sm font-medium text-error">{t('finanzen.eInvoice.invalid')}</span>
                     </>
                   )}
                 </div>
@@ -354,10 +356,10 @@ export function EInvoiceDetailDialog({
             <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground">
               {status.standard === 'zugferd'
-                ? 'ZUGFeRD-Rechnungen enthalten eine maschinenlesbare XML-Datei (factur-x.xml) eingebettet in das PDF. Kompatibel mit Buchhaltungssoftware und DATEV.'
+                ? t('finanzen.eInvoice.zugferdInfo')
                 : status.standard === 'xrechnung'
-                  ? 'XRechnung ist für öffentliche Auftraggeber in Deutschland Pflicht (seit 27.11.2020). Reines XML-Format nach EN 16931.'
-                  : 'Standard-PDF ohne maschinenlesbare Daten. Für automatische Verarbeitung wird ZUGFeRD oder XRechnung empfohlen.'}
+                  ? t('finanzen.eInvoice.xrechnungInfo')
+                  : t('finanzen.eInvoice.noneInfo')}
             </p>
           </div>
 
@@ -365,18 +367,18 @@ export function EInvoiceDetailDialog({
           {status.standard !== 'none' && (
             <div className="flex items-center justify-end gap-2">
               <button
-                onClick={() => toast.success('XML-Datei heruntergeladen')}
+                onClick={() => toast.success(t('finanzen.eInvoice.xmlDownloaded'))}
                 className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
-                XML herunterladen
+                {t('finanzen.eInvoice.downloadXml')}
               </button>
               <button
-                onClick={() => toast.success('Validierung gestartet...')}
+                onClick={() => toast.success(t('finanzen.eInvoice.validationStarted'))}
                 className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <Shield className="h-3.5 w-3.5" />
-                Erneut validieren
+                {t('finanzen.eInvoice.revalidate')}
               </button>
             </div>
           )}

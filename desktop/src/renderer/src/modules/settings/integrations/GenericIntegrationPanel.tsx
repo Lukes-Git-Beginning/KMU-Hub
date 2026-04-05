@@ -5,6 +5,7 @@
  * Groups by section, reads/writes values from Zustand store.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2, RefreshCw, Plug, Unlink, Zap, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import type { IntegrationDefinition, FieldDefinition } from './integration-registry'
@@ -23,6 +24,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 }
 
 export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrationPanelProps) {
+  const { t } = useTranslation()
   const store = useIntegrationStore()
   const status = store.getStatus(definition.id)
   const storedValues = store.getFieldValues(definition.id)

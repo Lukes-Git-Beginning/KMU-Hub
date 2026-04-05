@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
@@ -61,6 +62,7 @@ const REMINDERS = [
 ]
 
 export function CalendarSettingsTab() {
+  const { t } = useTranslation()
   const { calendar, updateCalendar } = useSettingsStore()
 
   const [defaultView, setDefaultView] = useState(calendar.defaultView)

@@ -5,6 +5,7 @@
  * Fullscreen overlay with left sidebar step navigation.
  */
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   X,
   ChevronLeft,
@@ -128,26 +129,26 @@ const INITIAL_FORM: EmployeeFormData = {
 // ---------------------------------------------------------------------------
 
 const STEPS = [
-  { label: 'Account', icon: User, desc: 'Login & Systemrollen' },
-  { label: 'Arbeit', icon: Briefcase, desc: 'Vertrag & Abteilung' },
-  { label: 'Persönlich', icon: Home, desc: 'Adresse & Notfall' },
-  { label: 'Dokumente', icon: FileText, desc: 'Verträge & Unterlagen' },
-  { label: 'Übersicht', icon: CheckCircle, desc: 'Prüfen & Erstellen' },
+  { labelKey: 'team.wizard.stepAccount', icon: User, descKey: 'team.wizard.stepAccountDesc' },
+  { labelKey: 'team.wizard.stepEmployment', icon: Briefcase, descKey: 'team.wizard.stepEmploymentDesc' },
+  { labelKey: 'team.wizard.stepPersonal', icon: Home, descKey: 'team.wizard.stepPersonalDesc' },
+  { labelKey: 'team.wizard.stepDocuments', icon: FileText, descKey: 'team.wizard.stepDocumentsDesc' },
+  { labelKey: 'team.wizard.stepSummary', icon: CheckCircle, descKey: 'team.wizard.stepSummaryDesc' },
 ]
 
 const ROLE_OPTIONS = [
-  { id: 'admin', label: 'Admin', desc: 'Voller Systemzugriff', icon: Shield },
-  { id: 'manager', label: 'Projektleiter', desc: 'Projekte & Team', icon: Briefcase },
-  { id: 'member', label: 'Mitarbeiter', desc: 'Standard-Zugriff', icon: User },
-  { id: 'hr', label: 'HR-Manager', desc: 'Team & HR', icon: UserPlus },
-  { id: 'it_support', label: 'IT-Support', desc: 'Infrastruktur', icon: Building2 },
+  { id: 'admin', labelKey: 'team.wizard.roleAdmin', descKey: 'team.wizard.roleAdminDesc', icon: Shield },
+  { id: 'manager', labelKey: 'team.wizard.roleManager', descKey: 'team.wizard.roleManagerDesc', icon: Briefcase },
+  { id: 'member', labelKey: 'team.wizard.roleMember', descKey: 'team.wizard.roleMemberDesc', icon: User },
+  { id: 'hr', labelKey: 'team.wizard.roleHR', descKey: 'team.wizard.roleHRDesc', icon: UserPlus },
+  { id: 'it_support', labelKey: 'team.wizard.roleIT', descKey: 'team.wizard.roleITDesc', icon: Building2 },
 ]
 
-const CONTRACT_LABELS: Record<string, string> = {
-  full_time: 'Vollzeit',
-  part_time: 'Teilzeit',
-  praktikum: 'Praktikum',
-  freelance: 'Freelance',
+const CONTRACT_LABEL_KEYS: Record<string, string> = {
+  full_time: 'team.contractType.fullTime',
+  part_time: 'team.contractType.partTime',
+  praktikum: 'team.contractType.internship',
+  freelance: 'team.contractType.freelance',
 }
 
 const DOC_CATEGORIES = [
@@ -173,6 +174,7 @@ interface WizardProps {
 }
 
 export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardProps) {
+  const { t } = useTranslation()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<EmployeeFormData>(initialData ?? { ...INITIAL_FORM })
   const createEmployee = useCreateEmployee()
@@ -293,9 +295,9 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
           </div>
           <div>
             <DialogTitle className="text-sm font-semibold text-foreground leading-tight">
-              Neuen Mitarbeiter erstellen
+              {t('team.wizard.title')}
             </DialogTitle>
-            <DialogDescription className="sr-only">Wizard zum Erstellen eines neuen Mitarbeiters</DialogDescription>
+            <DialogDescription className="sr-only">{t('team.wizard.title')}</DialogDescription>
             {(form.firstName || form.lastName) && (
               <p className="text-[11px] text-muted-foreground leading-tight">
                 {form.firstName} {form.lastName}
@@ -310,7 +312,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
             <button
               onClick={handlePopOut}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              title="Als Fenster öffnen"
+              title={t('team.wizard.openAsWindow')}
             >
               <Maximize2 className="h-4 w-4" />
             </button>
@@ -368,14 +370,14 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
                       isActive ? 'text-primary' : isFuture ? 'text-muted-foreground/60' : 'text-foreground'
                     }`}
                   >
-                    {s.label}
+                    {t(s.labelKey)}
                   </p>
                   <p
                     className={`text-[11px] leading-tight mt-0.5 ${
                       isActive ? 'text-primary/70' : 'text-muted-foreground'
                     }`}
                   >
-                    {s.desc}
+                    {t(s.descKey)}
                   </p>
                 </div>
               </button>
@@ -391,7 +393,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
               />
             </div>
             <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-              Schritt {step + 1} von {STEPS.length}
+              {t('team.wizard.stepOf', { current: step + 1, total: STEPS.length })}
             </p>
           </div>
         </div>
@@ -418,7 +420,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
           className="flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
-          Zurück
+          {t('common.back')}
         </button>
 
         {step < 4 ? (
@@ -427,7 +429,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
             disabled={!canAdvance()}
             className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Weiter
+            {t('common.next')}
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         ) : (
@@ -441,7 +443,7 @@ export function CreateEmployeeWizard({ onClose, isWindow, initialData }: WizardP
             ) : (
               <CheckCircle className="h-3.5 w-3.5" />
             )}
-            {createEmployee.isPending ? 'Erstelle...' : 'Mitarbeiter erstellen'}
+            {createEmployee.isPending ? t('team.wizard.creating') : t('team.wizard.createEmployee')}
           </button>
         )}
       </div>
@@ -505,6 +507,7 @@ function FormField({
 // ---------------------------------------------------------------------------
 
 function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateFn }) {
+  const { t } = useTranslation()
   const [showPw, setShowPw] = useState(false)
 
   const toggleRole = (roleId: string) => {
@@ -521,9 +524,9 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
 
   return (
     <div className="space-y-5">
-      <SectionCard title="Kontodaten" icon={Mail}>
+      <SectionCard title={t('team.wizard.accountData')} icon={Mail}>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Vorname" required>
+          <FormField label={t('team.invite.firstName')} required>
             <Input
               autoFocus
               placeholder="Max"
@@ -531,7 +534,7 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
               onChange={(e) => update('firstName', e.target.value)}
             />
           </FormField>
-          <FormField label="Nachname" required>
+          <FormField label={t('team.invite.lastName')} required>
             <Input
               placeholder="Muster"
               value={form.lastName}
@@ -541,7 +544,7 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
         </div>
 
         <div className="grid grid-cols-2 gap-4 mt-4">
-          <FormField label="E-Mail" required>
+          <FormField label={t('team.invite.email')} required>
             <Input
               type="email"
               placeholder="max.muster@firma.de"
@@ -549,7 +552,7 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
               onChange={(e) => update('email', e.target.value)}
             />
           </FormField>
-          <FormField label="Telefon">
+          <FormField label={t('team.invite.phone')}>
             <Input
               placeholder="+49 170 123 4567"
               value={form.phone}
@@ -560,9 +563,9 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
 
         <div className="mt-4">
           <FormField
-            label="Temporaeres Passwort"
+            label={t('team.wizard.temporaryPassword')}
             required
-            hint="Der Mitarbeiter wird aufgefordert, das Passwort beim ersten Login zu ändern."
+            hint={t('team.wizard.passwordHint')}
           >
             <div className="relative">
               <Input
@@ -583,9 +586,9 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
         </div>
       </SectionCard>
 
-      <SectionCard title="Systemrollen" icon={Shield}>
+      <SectionCard title={t('team.wizard.systemRoles')} icon={Shield}>
         <p className="text-xs text-muted-foreground mb-3">
-          Mindestens eine Rolle auswählen. Mehrfachauswahl möglich.
+          {t('team.wizard.rolesHint')}
         </p>
         <div className="grid grid-cols-3 gap-2">
           {ROLE_OPTIONS.map((role) => {
@@ -611,8 +614,8 @@ function AccountStep({ form, update }: { form: EmployeeFormData; update: UpdateF
                   <RIcon className="h-3.5 w-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground leading-tight truncate">{role.label}</p>
-                  <p className="text-[10px] text-muted-foreground leading-tight truncate">{role.desc}</p>
+                  <p className="text-xs font-medium text-foreground leading-tight truncate">{t(role.labelKey)}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight truncate">{t(role.descKey)}</p>
                 </div>
                 {selected && (
                   <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-primary" />
@@ -639,14 +642,15 @@ function EmploymentStep({
   update: UpdateFn
   departments: { id: string; name: string }[]
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-5">
-      <SectionCard title="Arbeitsverhaeltnis" icon={Briefcase}>
+      <SectionCard title={t('team.wizard.employment')} icon={Briefcase}>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Abteilung">
+          <FormField label={t('team.member.department')}>
             <Select value={form.department} onValueChange={(v) => update('department', v)}>
               <SelectTrigger>
-                <SelectValue placeholder="Wählen..." />
+                <SelectValue placeholder={t('team.member.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {departments.map((d) => (
@@ -657,7 +661,7 @@ function EmploymentStep({
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Position">
+          <FormField label={t('team.member.position')}>
             <Input
               placeholder="z.B. Software Engineer"
               value={form.positionTitle}
@@ -667,7 +671,7 @@ function EmploymentStep({
         </div>
 
         <div className="grid grid-cols-2 gap-4 mt-4">
-          <FormField label="Vertragsart">
+          <FormField label={t('team.member.contractType')}>
             <Select
               value={form.contractType}
               onValueChange={(v) => update('contractType', v as ContractType)}
@@ -676,15 +680,15 @@ function EmploymentStep({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(CONTRACT_LABELS).map(([k, v]) => (
+                {Object.entries(CONTRACT_LABEL_KEYS).map(([k, v]) => (
                   <SelectItem key={k} value={k}>
-                    {v}
+                    {t(v)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Pensum (%)">
+          <FormField label={t('team.member.workload')}>
             <Input
               type="number"
               min={10}
@@ -697,9 +701,9 @@ function EmploymentStep({
         </div>
       </SectionCard>
 
-      <SectionCard title="Zeitrahmen" icon={Calendar}>
+      <SectionCard title={t('team.wizard.timeframe')} icon={Calendar}>
         <div className="grid grid-cols-3 gap-4">
-          <FormField label="Arbeitstage / Woche">
+          <FormField label={t('team.wizard.workDaysPerWeek')}>
             <Input
               type="number"
               min={1}
@@ -708,7 +712,7 @@ function EmploymentStep({
               onChange={(e) => update('workDaysPerWeek', Number(e.target.value))}
             />
           </FormField>
-          <FormField label="Jahresurlaub (Tage)">
+          <FormField label={t('team.wizard.annualLeave')}>
             <Input
               type="number"
               min={0}
@@ -717,7 +721,7 @@ function EmploymentStep({
               onChange={(e) => update('annualLeaveDays', Number(e.target.value))}
             />
           </FormField>
-          <FormField label="Startdatum" required>
+          <FormField label={t('team.wizard.startDate')} required>
             <Input
               type="date"
               value={form.startDate}
@@ -727,18 +731,18 @@ function EmploymentStep({
         </div>
       </SectionCard>
 
-      <SectionCard title="Standort & Vorgesetzte/r" icon={MapPin}>
+      <SectionCard title={t('team.wizard.locationAndManager')} icon={MapPin}>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Standort">
+          <FormField label={t('team.member.location')}>
             <Input
               placeholder="z.B. Berlin"
               value={form.location}
               onChange={(e) => update('location', e.target.value)}
             />
           </FormField>
-          <FormField label="Vorgesetzte/r (User-ID)">
+          <FormField label={t('team.member.managerUserId')}>
             <Input
-              placeholder="Optional"
+              placeholder={t('common.optional')}
               value={form.managerUserId}
               onChange={(e) => update('managerUserId', e.target.value)}
             />

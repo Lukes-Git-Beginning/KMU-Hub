@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
@@ -7,6 +8,7 @@ import { formatMinutes, formatHoursDecimal, getWeekDates, dateToStr } from './ti
 import ExportDialog from './ExportDialog'
 
 export default function ReportsView() {
+  const { t } = useTranslation()
   const [showExportDialog, setShowExportDialog] = useState(false)
   const entries = useTimeTrackingStore((s) => s.entries)
   const categories = useTimeTrackingStore((s) => s.categories)
@@ -37,7 +39,7 @@ export default function ReportsView() {
         .reduce((s, e) => s + e.durationMinutes, 0)
       const weekNum = -3 + i
       return {
-        label: weekNum === 0 ? 'Diese Woche' : weekNum === -1 ? 'Letzte Woche' : `KW ${weekNum + getISOWeek()}`,
+        label: weekNum === 0 ? t('profil.zeiterfassung.reports.thisWeek') : weekNum === -1 ? t('profil.zeiterfassung.reports.lastWeek') : `${t('profil.zeiterfassung.reports.calendarWeek')} ${weekNum + getISOWeek()}`,
         minutes: mins,
       }
     })
@@ -60,7 +62,7 @@ export default function ReportsView() {
     <div className="p-6 space-y-6 max-w-3xl mx-auto">
       {/* Hours per Category */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Stunden pro Kategorie</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-4">{t('profil.zeiterfassung.reports.hoursPerCategory')}</h3>
         <div className="space-y-3">
           {categoryStats.map((cat) => {
             const percent = Math.round((cat.minutes / maxCategoryMinutes) * 100)
@@ -90,7 +92,7 @@ export default function ReportsView() {
 
       {/* Weekly Trend */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Wochentrend</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-4">{t('profil.zeiterfassung.reports.weeklyTrend')}</h3>
         <div className="flex items-end gap-4" style={{ height: 120 }}>
           {weeklyTrend.map((week, i) => {
             const barHeight = week.minutes > 0 ? Math.max(8, (week.minutes / maxWeekMinutes) * 100) : 0
@@ -121,25 +123,25 @@ export default function ReportsView() {
         </div>
         <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="h-px w-4 border-t border-dashed border-muted-foreground/40" />
-          Soll: {formatHoursDecimal(weeklyTarget)}h/Woche
+          {t('profil.zeiterfassung.overview.target')}: {formatHoursDecimal(weeklyTarget)}h/{t('profil.zeiterfassung.reports.week')}
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-2">Soll / Ist Vergleich</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-2">{t('profil.zeiterfassung.reports.targetActual')}</h3>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Gearbeitet</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.reports.worked')}</span>
               <span className="font-medium text-foreground">{formatMinutes(totalMinutes)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Soll ({workingDays} Arbeitstage)</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.target')} ({t('profil.zeiterfassung.overview.basedOnDays', { count: workingDays })})</span>
               <span className="font-medium text-foreground">{formatMinutes(totalTarget)}</span>
             </div>
             <div className="border-t border-border pt-2 flex justify-between text-sm">
-              <span className="text-muted-foreground">Differenz</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.reports.difference')}</span>
               <span className={cn(
                 'font-semibold',
                 overtime >= 0 ? 'text-success' : 'text-destructive',
@@ -151,7 +153,7 @@ export default function ReportsView() {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-2">Überstundensaldo</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-2">{t('profil.zeiterfassung.reports.overtimeBalance')}</h3>
           <div className="flex items-end gap-2 mb-2">
             <span className={cn(
               'text-3xl font-bold',
@@ -162,8 +164,8 @@ export default function ReportsView() {
           </div>
           <p className="text-xs text-muted-foreground">
             {overtime >= 0
-              ? 'Du hast mehr gearbeitet als geplant'
-              : 'Du hast weniger gearbeitet als geplant'}
+              ? t('profil.zeiterfassung.reports.workedMore')
+              : t('profil.zeiterfassung.reports.workedLess')}
           </p>
         </div>
       </div>
@@ -177,7 +179,7 @@ export default function ReportsView() {
           onClick={() => setShowExportDialog(true)}
         >
           <Download className="h-4 w-4" />
-          Exportieren
+          {t('profil.zeiterfassung.export.export')}
         </Button>
       </div>
 

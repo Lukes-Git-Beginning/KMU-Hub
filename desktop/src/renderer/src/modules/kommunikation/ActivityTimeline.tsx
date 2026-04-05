@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   Phone,
@@ -38,15 +39,15 @@ const activityColors: Record<string, string> = {
   document: 'text-muted-foreground bg-secondary',
 }
 
-function formatRelative(dateStr: string): string {
+function formatRelative(dateStr: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   try {
     const d = new Date(dateStr)
     const now = new Date()
     const diffH = Math.floor((now.getTime() - d.getTime()) / 3600000)
-    if (diffH < 1) return 'Gerade eben'
-    if (diffH < 24) return `Vor ${diffH}h`
+    if (diffH < 1) return t('kommunikation.time.justNow')
+    if (diffH < 24) return t('kommunikation.time.hoursAgo', { count: diffH })
     const diffD = Math.floor(diffH / 24)
-    if (diffD < 7) return `Vor ${diffD}d`
+    if (diffD < 7) return t('kommunikation.time.daysAgo', { count: diffD })
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
   } catch {
     return dateStr
@@ -57,13 +58,13 @@ function formatRelative(dateStr: string): string {
 // Generate mock activities based on contact name
 // ---------------------------------------------------------------------------
 
-function getMockActivities(contactName: string): Activity[] {
+function getMockActivities(contactName: string, t: (key: string, opts?: Record<string, unknown>) => string): Activity[] {
   return [
-    { id: 'act1', type: 'email', description: `E-Mail an ${contactName} gesendet`, timestamp: '2026-02-20T09:15:00', user: 'Anna Müller' },
-    { id: 'act2', type: 'call', description: `Telefonat mit ${contactName}`, timestamp: '2026-02-19T14:30:00', user: 'Peter Schmidt' },
-    { id: 'act3', type: 'note', description: 'Interne Notiz zum Angebot', timestamp: '2026-02-18T16:00:00', user: 'Anna Müller' },
-    { id: 'act4', type: 'meeting', description: `Online-Meeting mit ${contactName}`, timestamp: '2026-02-15T10:00:00', user: 'Thomas Weber' },
-    { id: 'act5', type: 'document', description: 'Angebot erstellt (PDF)', timestamp: '2026-02-14T11:30:00', user: 'Peter Schmidt' },
+    { id: 'act1', type: 'email', description: t('kommunikation.activity.emailSent', { name: contactName }), timestamp: '2026-02-20T09:15:00', user: 'Anna Müller' },
+    { id: 'act2', type: 'call', description: t('kommunikation.activity.callWith', { name: contactName }), timestamp: '2026-02-19T14:30:00', user: 'Peter Schmidt' },
+    { id: 'act3', type: 'note', description: t('kommunikation.activity.internalNoteOffer'), timestamp: '2026-02-18T16:00:00', user: 'Anna Müller' },
+    { id: 'act4', type: 'meeting', description: t('kommunikation.activity.onlineMeeting', { name: contactName }), timestamp: '2026-02-15T10:00:00', user: 'Thomas Weber' },
+    { id: 'act5', type: 'document', description: t('kommunikation.activity.offerCreated'), timestamp: '2026-02-14T11:30:00', user: 'Peter Schmidt' },
   ]
 }
 
@@ -76,14 +77,15 @@ interface ActivityTimelineProps {
 }
 
 export function ActivityTimeline({ contactName }: ActivityTimelineProps) {
-  const activities = getMockActivities(contactName)
+  const { t } = useTranslation()
+  const activities = getMockActivities(contactName, t)
 
   return (
     <div className="p-3 border-b border-border">
       <div className="flex items-center gap-1.5 mb-2">
         <History className="h-3 w-3 text-muted-foreground" />
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Aktivitaeten
+          {t('kommunikation.context.activities')}
         </h4>
       </div>
       <div className="space-y-2">
@@ -108,7 +110,7 @@ export function ActivityTimeline({ contactName }: ActivityTimelineProps) {
                 <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
                   <span>{act.user}</span>
                   <span>·</span>
-                  <span>{formatRelative(act.timestamp)}</span>
+                  <span>{formatRelative(act.timestamp, t)}</span>
                 </div>
               </div>
             </div>

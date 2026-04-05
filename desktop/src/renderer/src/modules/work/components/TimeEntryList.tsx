@@ -140,7 +140,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0"
-                    title="Bearbeiten"
+                    title={t('common.edit')}
                     onClick={() =>
                       setEditEntry({
                         id: entry.id ?? '',
@@ -156,7 +156,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    title="Löschen"
+                    title={t('common.delete')}
                     onClick={() => {
                       if (entry.id) {
                         deleteEntry.mutate({

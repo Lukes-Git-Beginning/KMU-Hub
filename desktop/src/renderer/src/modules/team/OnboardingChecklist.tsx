@@ -1,5 +1,6 @@
 // TODO: Wire to backend — no onboarding API exists yet. Currently uses mock data.
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2,
   Circle,
@@ -170,6 +171,7 @@ const ACTIVE_ONBOARDINGS: ActiveOnboarding[] = [
 // ============================================================
 
 export function OnboardingChecklist() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<'aktiv' | 'vorlagen'>('aktiv')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['ob-3']))
   const [onboardings, setOnboardings] = useState(ACTIVE_ONBOARDINGS)
@@ -206,19 +208,19 @@ export function OnboardingChecklist() {
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Aktive Onboardings</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.onboarding.activeOnboardings')}</p>
           <p className="text-lg font-semibold text-foreground">{onboardings.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">In Bearbeitung</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.onboarding.inProgress')}</p>
           <p className="text-lg font-semibold text-warning">{inProgress}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Abgeschlossen</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.onboarding.completed')}</p>
           <p className="text-lg font-semibold text-success">{completedAll}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Vorlagen</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.onboarding.templates')}</p>
           <p className="text-lg font-semibold text-foreground">{TEMPLATES.length}</p>
         </div>
       </div>
@@ -226,8 +228,8 @@ export function OnboardingChecklist() {
       {/* Sub-Tabs */}
       <div className="flex items-center gap-4 border-b border-border">
         {[
-          { key: 'aktiv' as const, label: `Aktive Checklisten (${onboardings.length})` },
-          { key: 'vorlagen' as const, label: `Vorlagen (${TEMPLATES.length})` },
+          { key: 'aktiv' as const, label: `${t('team.onboarding.activeChecklists')} (${onboardings.length})` },
+          { key: 'vorlagen' as const, label: `${t('team.onboarding.templates')} (${TEMPLATES.length})` },
         ].map((t) => (
           <button
             key={t.key}
@@ -240,11 +242,11 @@ export function OnboardingChecklist() {
           </button>
         ))}
         <button
-          onClick={() => toast.info('Neues Onboarding starten (Mock)')}
+          onClick={() => toast.info(t('team.onboarding.startMock'))}
           className="ml-auto flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors mb-1"
         >
           <Plus className="h-3.5 w-3.5" />
-          Onboarding starten
+          {t('team.onboarding.startOnboarding')}
         </button>
       </div>
 
@@ -254,9 +256,9 @@ export function OnboardingChecklist() {
           {onboardings.length === 0 ? (
             <EmptyState
               icon={ListChecks}
-              title="Keine aktiven Onboardings"
-              description="Starte ein neues Onboarding für einen Mitarbeiter"
-              action={{ label: 'Onboarding starten', onClick: () => toast.info('Mock') }}
+              title={t('team.onboarding.noActive')}
+              description={t('team.onboarding.noActiveDescription')}
+              action={{ label: t('team.onboarding.startOnboarding'), onClick: () => toast.info('Mock') }}
             />
           ) : (
             onboardings.map((ob) => {
@@ -341,7 +343,7 @@ export function OnboardingChecklist() {
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-foreground">{tpl.name}</h4>
-                    <p className="text-xs text-muted-foreground">{tpl.items.length} Aufgaben</p>
+                    <p className="text-xs text-muted-foreground">{tpl.items.length} {t('team.onboarding.tasks')}</p>
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -352,21 +354,21 @@ export function OnboardingChecklist() {
                     </div>
                   ))}
                   {tpl.items.length > 4 && (
-                    <p className="text-xs text-muted-foreground pl-5">+{tpl.items.length - 4} weitere</p>
+                    <p className="text-xs text-muted-foreground pl-5">+{tpl.items.length - 4} {t('team.onboarding.more')}</p>
                   )}
                 </div>
                 <div className="flex gap-2 mt-3 pt-3 border-t border-border-muted">
                   <button
-                    onClick={() => toast.info(`Vorlage "${tpl.name}" bearbeiten (Mock)`)}
+                    onClick={() => toast.info(`${t('common.edit')}: "${tpl.name}" (Mock)`)}
                     className="flex-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-center"
                   >
-                    Bearbeiten
+                    {t('common.edit')}
                   </button>
                   <button
-                    onClick={() => toast.info(`Onboarding mit "${tpl.name}" starten (Mock)`)}
+                    onClick={() => toast.info(`${t('team.onboarding.use')}: "${tpl.name}" (Mock)`)}
                     className="flex-1 rounded-md bg-primary py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors text-center"
                   >
-                    Verwenden
+                    {t('team.onboarding.use')}
                   </button>
                 </div>
               </div>

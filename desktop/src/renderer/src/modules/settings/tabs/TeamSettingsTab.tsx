@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import { useSettingsStore, type LeaveType } from '@/stores/settings'
 import { useHRSettings, useUpdateHRSettings } from '@/api/hooks/hr-hooks'
 
 export function TeamSettingsTab() {
+  const { t } = useTranslation()
   const { teamAdmin, updateTeamAdmin } = useSettingsStore()
 
   const [departments, setDepartments] = useState(teamAdmin.departments)

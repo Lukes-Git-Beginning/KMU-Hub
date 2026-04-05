@@ -116,7 +116,7 @@ export default function TaskListHeader({
           size="icon"
           className="h-7 w-7"
           onClick={() => onSortDescChange(!sortDesc)}
-          title={sortDesc ? 'Absteigend' : 'Aufsteigend'}
+          title={sortDesc ? t('work.list.descending') : t('work.list.ascending')}
         >
           {sortDesc ? (
             <ChevronDown className="h-3.5 w-3.5" />
@@ -138,7 +138,7 @@ export default function TaskListHeader({
             className="h-7 gap-1 text-xs"
           >
             <Filter className="h-3 w-3" />
-            Filter
+            {t('common.filter')}
             {hasActiveFilters && (
               <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">
                 {[filterPriority, filterStatusId].filter(Boolean).length}
@@ -149,7 +149,7 @@ export default function TaskListHeader({
         <PopoverContent className="w-72 space-y-3" align="start">
           {/* Priority quick filters */}
           <div className="space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Priorität</span>
+            <span className="text-xs font-medium text-muted-foreground">{t('work.tasks.priority')}</span>
             <div className="flex flex-wrap gap-1">
               {PRIORITY_PILLS.map((pill) => (
                 <button
@@ -166,7 +166,7 @@ export default function TaskListHeader({
                     )
                   }
                 >
-                  {pill.label}
+                  {t(pill.labelKey)}
                 </button>
               ))}
             </div>
@@ -174,7 +174,7 @@ export default function TaskListHeader({
 
           {/* Status filter */}
           <div className="space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground">Status</span>
+            <span className="text-xs font-medium text-muted-foreground">{t('common.status')}</span>
             <Select
               value={filterStatusId ?? '__all__'}
               onValueChange={(v) =>
@@ -182,10 +182,10 @@ export default function TaskListHeader({
               }
             >
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Alle Status" />
+                <SelectValue placeholder={t('work.list.allStatuses')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">Alle Status</SelectItem>
+                <SelectItem value="__all__">{t('work.list.allStatuses')}</SelectItem>
                 {statuses.filter((s) => s.id).map((s) => (
                   <SelectItem key={s.id} value={s.id!}>
                     <span className="flex items-center gap-2">
@@ -212,7 +212,7 @@ export default function TaskListHeader({
                 onFilterStatusIdChange(null)
               }}
             >
-              Filter zurücksetzen
+              {t('common.resetFilters')}
             </Button>
           )}
         </PopoverContent>

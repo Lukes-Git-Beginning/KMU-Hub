@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { X, PanelRightClose, Loader2 } from 'lucide-react'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import { useInboxMessage } from '@/api/hooks/useInbox'
@@ -12,6 +13,7 @@ import type { Conversation } from '@/types/communication'
 // ---------------------------------------------------------------------------
 
 export function ContextPanel() {
+  const { t } = useTranslation()
   const selectedId = useKommunikationStore((s) => s.selectedConversationId)
   const detailPaneOpen = useKommunikationStore((s) => s.detailPaneOpen)
   const toggleDetailPane = useKommunikationStore((s) => s.toggleDetailPane)
@@ -28,7 +30,7 @@ export function ContextPanel() {
         <button
           onClick={toggleDetailPane}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          title="Kontext-Panel öffnen"
+          title={t('kommunikation.context.openPanel')}
         >
           <PanelRightClose className="h-4 w-4" />
         </button>
@@ -76,12 +78,12 @@ export function ContextPanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Kontext
+          {t('kommunikation.context.title')}
         </h3>
         <button
           onClick={toggleDetailPane}
           className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          title="Panel schliessen"
+          title={t('kommunikation.context.closePanel')}
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -105,7 +107,7 @@ export function ContextPanel() {
       {/* TODO: InboxMessage has no participants array — thread/participants API needed */}
       <div className="p-3">
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-          Teilnehmer
+          {t('kommunikation.context.participants')}
         </h4>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 text-xs">

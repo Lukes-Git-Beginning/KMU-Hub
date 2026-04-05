@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   MessageCircle,
@@ -51,14 +52,15 @@ interface ChannelSettingsDialogProps {
 }
 
 export function ChannelSettingsDialog({ open, onOpenChange }: ChannelSettingsDialogProps) {
+  const { t } = useTranslation()
   const [channels] = useState(defaultChannels)
 
   const handleConnect = (id: CommunicationChannel) => {
-    toast.success(`${id} Verbindung wird eingerichtet... (Mock)`)
+    toast.success(t('kommunikation.channels.connectingMock', { channel: id }))
   }
 
   const handleSync = (id: CommunicationChannel) => {
-    toast.success(`${id} synchronisiert (Mock)`)
+    toast.success(t('kommunikation.channels.syncedMock', { channel: id }))
   }
 
   const formatLastSync = (dateStr?: string): string => {
@@ -79,9 +81,9 @@ export function ChannelSettingsDialog({ open, onOpenChange }: ChannelSettingsDia
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Kanal-Einstellungen</DialogTitle>
+          <DialogTitle>{t('kommunikation.channels.settingsTitle')}</DialogTitle>
           <DialogDescription>
-            Verbinde und konfiguriere deine Kommunikationskanäle.
+            {t('kommunikation.channels.settingsDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -116,7 +118,7 @@ export function ChannelSettingsDialog({ open, onOpenChange }: ChannelSettingsDia
                       )}
                     </div>
                   ) : (
-                    <span className="text-[11px] text-muted-foreground">Nicht verbunden</span>
+                    <span className="text-[11px] text-muted-foreground">{t('kommunikation.channels.notConnected')}</span>
                   )}
                 </div>
 
@@ -125,7 +127,7 @@ export function ChannelSettingsDialog({ open, onOpenChange }: ChannelSettingsDia
                   <button
                     onClick={() => handleSync(ch.id)}
                     className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                    title="Synchronisieren"
+                    title={t('kommunikation.channels.sync')}
                   >
                     <RefreshCw className="h-4 w-4" />
                   </button>
@@ -134,7 +136,7 @@ export function ChannelSettingsDialog({ open, onOpenChange }: ChannelSettingsDia
                     onClick={() => handleConnect(ch.id)}
                     className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                   >
-                    Verbinden
+                    {t('kommunikation.channels.connect')}
                   </button>
                 )}
               </div>

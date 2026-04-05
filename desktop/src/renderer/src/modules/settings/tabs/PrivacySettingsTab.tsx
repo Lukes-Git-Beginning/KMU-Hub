@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Download, Trash2, ShieldCheck, Cookie, FileDown } from 'lucide-react'
@@ -6,6 +7,7 @@ import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared'
 
 export function PrivacySettingsTab() {
+  const { t } = useTranslation()
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
   const [crashReportsEnabled, setCrashReportsEnabled] = useState(true)
   const [usageDataEnabled, setUsageDataEnabled] = useState(false)

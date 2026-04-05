@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -28,11 +29,11 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-secondary text-muted-foreground',
 }
 
-const statusLabels: Record<string, string> = {
-  pending: 'Ausstehend',
-  approved: 'Genehmigt',
-  rejected: 'Abgelehnt',
-  cancelled: 'Storniert',
+const statusLabelKeys: Record<string, string> = {
+  pending: 'team.requests.statusPending',
+  approved: 'team.requests.statusApproved',
+  rejected: 'team.requests.statusRejected',
+  cancelled: 'team.requests.statusCancelled',
 }
 
 interface HRApprovalDialogProps {
@@ -46,6 +47,7 @@ export function HRApprovalDialog({
   onOpenChange,
   request,
 }: HRApprovalDialogProps) {
+  const { t } = useTranslation()
   const [comment, setComment] = useState('')
 
   const approveMutation = useApproveLeaveRequest()
@@ -96,7 +98,7 @@ export function HRApprovalDialog({
     <Dialog open={open} onOpenChange={(v) => { if (!v) setComment(''); onOpenChange(v) }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Antrag bearbeiten</DialogTitle>
+          <DialogTitle>{t('team.approval.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -113,16 +115,16 @@ export function HRApprovalDialog({
               </div>
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  {request.employeeName ?? 'Unbekannt'}
+                  {request.employeeName ?? t('team.member.unknown')}
                 </p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                     leaveTypeColors[request.leaveType?.key ?? ''] ?? 'bg-secondary text-muted-foreground'
                   }`}>
-                    {request.leaveType?.name ?? 'Abwesenheit'}
+                    {request.leaveType?.name ?? t('team.absence.absence')}
                   </span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[request.status]}`}>
-                    {statusLabels[request.status]}
+                    {t(statusLabelKeys[request.status])}
                   </span>
                 </div>
               </div>
@@ -134,12 +136,12 @@ export function HRApprovalDialog({
                 <span>
                   {new Date(request.startDate).toLocaleDateString('de-DE')}
                   {request.startDate !== request.endDate && ` – ${new Date(request.endDate).toLocaleDateString('de-DE')}`}
-                  {request.isHalfDayStart && ` (${request.halfDayPeriodStart === 'morning' ? 'Vormittag' : 'Nachmittag'})`}
+                  {request.isHalfDayStart && ` (${request.halfDayPeriodStart === 'morning' ? t('team.approval.morning') : t('team.approval.afternoon')})`}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5" />
-                <span>{request.totalDays} {request.totalDays === 1 ? 'Tag' : 'Tage'}</span>
+                <span>{request.totalDays} {request.totalDays === 1 ? t('team.approval.day') : t('team.approval.days')}</span>
               </div>
             </div>
 
@@ -153,10 +155,10 @@ export function HRApprovalDialog({
             <div className="rounded-lg border border-warning bg-warning-light/30 p-3 flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-medium text-warning">Überlappende Abwesenheit</p>
+                <p className="text-xs font-medium text-warning">{t('team.approval.overlappingAbsence')}</p>
                 {overlapping.map((o) => (
                   <p key={o.id} className="text-xs text-muted-foreground mt-0.5">
-                    {o.leaveType?.name ?? 'Abwesenheit'}: {new Date(o.startDate).toLocaleDateString('de-DE')} – {new Date(o.endDate).toLocaleDateString('de-DE')}
+                    {o.leaveType?.name ?? t('team.absence.absence')}: {new Date(o.startDate).toLocaleDateString('de-DE')} – {new Date(o.endDate).toLocaleDateString('de-DE')}
                   </p>
                 ))}
               </div>
@@ -165,9 +167,9 @@ export function HRApprovalDialog({
 
           {/* Comment */}
           <div className="space-y-1.5">
-            <Label>Kommentar (optional)</Label>
+            <Label>{t('team.approval.commentLabel')}</Label>
             <Textarea
-              placeholder="Anmerkung für den Mitarbeiter..."
+              placeholder={t('team.approval.commentPlaceholder')}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}
@@ -177,7 +179,7 @@ export function HRApprovalDialog({
 
         <DialogFooter className="flex gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => { setComment(''); onOpenChange(false) }} className="flex-1" disabled={isPending}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleReject}
@@ -190,7 +192,7 @@ export function HRApprovalDialog({
             ) : (
               <XCircle className="mr-1.5 h-4 w-4" />
             )}
-            Ablehnen
+            {t('team.approval.reject')}
           </Button>
           <Button onClick={handleApprove} className="flex-1 bg-success hover:bg-success/90 text-white" disabled={isPending}>
             {approveMutation.isPending ? (
@@ -198,7 +200,7 @@ export function HRApprovalDialog({
             ) : (
               <CheckCircle2 className="mr-1.5 h-4 w-4" />
             )}
-            Genehmigen
+            {t('team.approval.approve')}
           </Button>
         </DialogFooter>
       </DialogContent>

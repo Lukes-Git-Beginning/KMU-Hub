@@ -1,5 +1,6 @@
 // TODO: Wire to backend — no HR integration API exists yet. Currently uses mock data.
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Link2,
   Link2Off,
@@ -125,11 +126,11 @@ const COUNTRY_DEDUCTIONS: Record<Country, { label: string; currency: string; gro
   },
 }
 
-const statusConfig: Record<ConnectionStatus, { label: string; color: string; bg: string; icon: typeof Check }> = {
-  connected: { label: 'Verbunden', color: 'text-success', bg: 'bg-success-light', icon: Check },
-  disconnected: { label: 'Nicht verbunden', color: 'text-muted-foreground', bg: 'bg-secondary', icon: Link2Off },
-  syncing: { label: 'Synchronisiert...', color: 'text-info', bg: 'bg-info-light', icon: RefreshCw },
-  error: { label: 'Fehler', color: 'text-error', bg: 'bg-error-light', icon: AlertTriangle },
+const statusConfig: Record<ConnectionStatus, { labelKey: string; color: string; bg: string; icon: typeof Check }> = {
+  connected: { labelKey: 'team.integration.statusConnected', color: 'text-success', bg: 'bg-success-light', icon: Check },
+  disconnected: { labelKey: 'team.integration.statusDisconnected', color: 'text-muted-foreground', bg: 'bg-secondary', icon: Link2Off },
+  syncing: { labelKey: 'team.integration.statusSyncing', color: 'text-info', bg: 'bg-info-light', icon: RefreshCw },
+  error: { labelKey: 'common.error', color: 'text-error', bg: 'bg-error-light', icon: AlertTriangle },
 }
 
 const formatCurrency = (amount: number, currency: string) =>
@@ -140,6 +141,7 @@ const formatCurrency = (amount: number, currency: string) =>
 // ============================================================
 
 export function HRIntegrationPanel() {
+  const { t } = useTranslation()
   const [expandedId, setExpandedId] = useState<string | null>('datev-lohn')
   const [previewCountry, setPreviewCountry] = useState<Country>('DE')
   const [syncing, setSyncing] = useState<string | null>(null)
@@ -148,12 +150,12 @@ export function HRIntegrationPanel() {
     setSyncing(id)
     setTimeout(() => {
       setSyncing(null)
-      toast.success('Synchronisation abgeschlossen', { description: `${INTEGRATIONS.find(i => i.id === id)?.name}` })
+      toast.success(t('team.integration.syncComplete'), { description: `${INTEGRATIONS.find(i => i.id === id)?.name}` })
     }, 1500)
   }
 
   const handleConnect = (name: string) => {
-    toast.info(`${name} Verbindung wird hergestellt...`, { description: 'OAuth-Flow wird gestartet (Mock)' })
+    toast.info(t('team.integration.connecting', { name }), { description: t('team.integration.oauthMock') })
   }
 
   const countryData = COUNTRY_DEDUCTIONS[previewCountry]
@@ -164,7 +166,7 @@ export function HRIntegrationPanel() {
     <div className="space-y-6">
       {/* Integration Cards */}
       <div>
-        <h3 className="text-sm font-medium text-foreground mb-3">HR-Integrationen</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('team.integration.title')}</h3>
         <div className="space-y-3">
           {INTEGRATIONS.map((integration) => {
             const status = syncing === integration.id ? statusConfig.syncing : statusConfig[integration.status]
@@ -186,7 +188,7 @@ export function HRIntegrationPanel() {
                       <h4 className="text-sm font-medium text-foreground">{integration.name}</h4>
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${status.bg} ${status.color}`}>
                         <StatusIcon className={`h-3 w-3 ${syncing === integration.id ? 'animate-spin' : ''}`} />
-                        {status.label}
+                        {t(status.labelKey)}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">{integration.description}</p>
@@ -199,7 +201,7 @@ export function HRIntegrationPanel() {
                         className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
                       >
                         <RefreshCw className={`h-3 w-3 ${syncing === integration.id ? 'animate-spin' : ''}`} />
-                        Sync
+                        {t('team.integration.sync')}
                       </button>
                     )}
                     {integration.status === 'disconnected' && (
@@ -208,7 +210,7 @@ export function HRIntegrationPanel() {
                         className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                       >
                         <Link2 className="h-3 w-3" />
-                        Verbinden
+                        {t('team.integration.connect')}
                       </button>
                     )}
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -219,25 +221,25 @@ export function HRIntegrationPanel() {
                   <div className="border-t border-border px-4 py-3 bg-secondary/20">
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <p className="text-[11px] text-muted-foreground">Letzte Synchronisation</p>
+                        <p className="text-[11px] text-muted-foreground">{t('team.integration.lastSync')}</p>
                         <p className="text-sm font-medium text-foreground">
                           {integration.lastSync ? new Date(integration.lastSync).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-muted-foreground">Synchronisierte Datensaetze</p>
+                        <p className="text-[11px] text-muted-foreground">{t('team.integration.syncedRecords')}</p>
                         <p className="text-sm font-medium text-foreground">{integration.syncCount ?? 0}</p>
                       </div>
                       <div>
-                        <p className="text-[11px] text-muted-foreground">Aktionen</p>
+                        <p className="text-[11px] text-muted-foreground">{t('common.actions')}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <button className="text-xs text-primary hover:underline flex items-center gap-1">
                             <Settings className="h-3 w-3" />
-                            Einstellungen
+                            {t('team.integration.settings')}
                           </button>
                           <button className="text-xs text-primary hover:underline flex items-center gap-1">
                             <ExternalLink className="h-3 w-3" />
-                            Dashboard
+                            {t('team.integration.dashboard')}
                           </button>
                         </div>
                       </div>
@@ -248,8 +250,7 @@ export function HRIntegrationPanel() {
                 {isExpanded && integration.status === 'disconnected' && (
                   <div className="border-t border-border px-4 py-3 bg-secondary/20">
                     <p className="text-xs text-muted-foreground">
-                      Verbinden Sie {integration.name}, um Personalstammdaten und Lohndaten automatisch zu synchronisieren.
-                      Nach der Verbindung werden Änderungen in Echtzeit übertragen.
+                      {t('team.integration.connectDescription', { name: integration.name })}
                     </p>
                   </div>
                 )}
@@ -260,10 +261,10 @@ export function HRIntegrationPanel() {
 
         <div className="mt-3 rounded-lg border border-dashed border-border bg-card/50 p-4 text-center">
           <p className="text-sm text-muted-foreground">
-            Weitere HR-Systeme (Lexware, Agenda, BMD, etc.) in Vorbereitung
+            {t('team.integration.moreComingSoon')}
           </p>
           <button className="mt-2 text-xs text-primary hover:underline">
-            Integration anfragen
+            {t('team.integration.requestIntegration')}
           </button>
         </div>
       </div>
@@ -273,7 +274,7 @@ export function HRIntegrationPanel() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
-            Lohn-Vorschau nach Land
+            {t('team.integration.salaryPreview')}
           </h3>
           <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
             {(['DE', 'CH', 'AT'] as Country[]).map((c) => (
@@ -297,7 +298,7 @@ export function HRIntegrationPanel() {
               <span className="text-sm font-medium text-foreground">{countryData.label}</span>
             </div>
             <span className="text-xs text-muted-foreground">
-              Beispiel: {formatCurrency(countryData.grossExample, countryData.currency)} brutto
+              {t('team.integration.example')}: {formatCurrency(countryData.grossExample, countryData.currency)} {t('team.integration.gross')}
             </span>
           </div>
 
@@ -324,15 +325,15 @@ export function HRIntegrationPanel() {
 
           <div className="border-t border-border px-4 py-3 bg-secondary/20">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-muted-foreground">Bruttolohn</span>
+              <span className="text-sm text-muted-foreground">{t('team.integration.grossSalary')}</span>
               <span className="text-sm font-medium text-foreground tabular-nums">{formatCurrency(countryData.grossExample, countryData.currency)}</span>
             </div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-muted-foreground">Abzuege gesamt</span>
+              <span className="text-sm text-muted-foreground">{t('team.integration.totalDeductions')}</span>
               <span className="text-sm font-medium text-error tabular-nums">-{formatCurrency(totalDeductions, countryData.currency)}</span>
             </div>
             <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
-              <span className="text-sm font-semibold text-foreground">Nettolohn (ca.)</span>
+              <span className="text-sm font-semibold text-foreground">{t('team.integration.netSalary')}</span>
               <span className="text-base font-bold text-foreground tabular-nums">{formatCurrency(netSalary, countryData.currency)}</span>
             </div>
           </div>
@@ -340,7 +341,7 @@ export function HRIntegrationPanel() {
 
         <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
           <FileText className="h-3 w-3" />
-          Werte sind Richtwerte. Exakte Berechnung erfolgt über die verbundene Lohnbuchhaltung.
+          {t('team.integration.disclaimer')}
         </p>
       </div>
     </div>

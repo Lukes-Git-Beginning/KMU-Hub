@@ -7,6 +7,7 @@
  * clicks "Konfigurieren" on a connected Lexware integration card.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -50,6 +51,7 @@ export function LexwareSyncDashboard({
   isOpen,
   onClose,
 }: LexwareSyncDashboardProps) {
+  const { t } = useTranslation()
   const { data: connection } = useLexwareConnectionStatus()
   const disconnect = useLexwareDisconnect()
   const { data: syncStatus, refetch: refetchStatus } = useLexwareSyncStatus()

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -48,6 +49,7 @@ const CHANNELS: { key: keyof NotificationPrefs; label: string }[] = [
 const DAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
 
 export function NotificationSettingsTab() {
+  const { t } = useTranslation()
   const { notifications, updateNotification } = useSettingsStore()
 
   // Quiet Hours (from API)

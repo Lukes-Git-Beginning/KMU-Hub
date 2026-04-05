@@ -6,6 +6,7 @@
  * TeamsSetupWizard and SlackSetupWizard.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,6 +44,7 @@ export function ChannelMappingEditor({
   platform,
   onMappingsChange,
 }: ChannelMappingEditorProps) {
+  const { t } = useTranslation()
   const { data: mappings, isLoading } = useChannelMappings(platform)
   const createMapping = useCreateChannelMapping(platform)
   const updateMapping = useUpdateChannelMapping(platform)

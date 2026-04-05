@@ -5,35 +5,36 @@
  * sync interval selection.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Building2, Loader2, Plug, Unlink, RefreshCw, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIntegrationStore } from '@/stores/integrations'
 
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  connected: { label: 'Verbunden', cls: 'bg-success-light text-success' },
-  disconnected: { label: 'Nicht verbunden', cls: 'bg-secondary text-muted-foreground' },
-  syncing: { label: 'Synchronisiert...', cls: 'bg-info-light text-info' },
-  error: { label: 'Fehler', cls: 'bg-error-light text-destructive' },
+const STATUS_BADGE_KEYS: Record<string, { labelKey: string; cls: string }> = {
+  connected: { labelKey: 'settings.integrations.status.connected', cls: 'bg-success-light text-success' },
+  disconnected: { labelKey: 'settings.integrations.status.disconnected', cls: 'bg-secondary text-muted-foreground' },
+  syncing: { labelKey: 'settings.integrations.status.syncing', cls: 'bg-info-light text-info' },
+  error: { labelKey: 'settings.integrations.status.error', cls: 'bg-error-light text-destructive' },
 }
 
 const SYNC_SCOPES = [
-  { id: 'contacts', label: 'Kontakte synchronisieren', helpText: 'Kunden und Lieferanten mit Bexio abgleichen' },
-  { id: 'invoices', label: 'Rechnungen synchronisieren', helpText: 'Ausgangsrechnungen an Bexio übertragen' },
-  { id: 'products', label: 'Produkte synchronisieren', helpText: 'Artikelstamm zwischen Systemen abgleichen' },
-  { id: 'projects', label: 'Projekte synchronisieren', helpText: 'Projektdaten bidirektional synchronisieren' },
+  { id: 'contacts', labelKey: 'settings.integrations.bexio.syncContacts', helpTextKey: 'settings.integrations.bexio.syncContactsHelp' },
+  { id: 'invoices', labelKey: 'settings.integrations.bexio.syncInvoices', helpTextKey: 'settings.integrations.bexio.syncInvoicesHelp' },
+  { id: 'products', labelKey: 'settings.integrations.bexio.syncProducts', helpTextKey: 'settings.integrations.bexio.syncProductsHelp' },
+  { id: 'projects', labelKey: 'settings.integrations.bexio.syncProjects', helpTextKey: 'settings.integrations.bexio.syncProjectsHelp' },
 ]
 
 const CONFLICT_OPTIONS = [
-  { value: 'kmuhub', label: 'Cosmi hat Vorrang' },
-  { value: 'bexio', label: 'Bexio hat Vorrang' },
-  { value: 'manual', label: 'Manuell abgleichen' },
+  { value: 'kmuhub', labelKey: 'settings.integrations.bexio.conflictCosmi' },
+  { value: 'bexio', labelKey: 'settings.integrations.bexio.conflictBexio' },
+  { value: 'manual', labelKey: 'settings.integrations.bexio.conflictManual' },
 ]
 
 const INTERVAL_OPTIONS = [
-  { value: '5', label: 'Alle 5 Minuten' },
-  { value: '15', label: 'Alle 15 Minuten' },
-  { value: '60', label: 'Jede Stunde' },
-  { value: '1440', label: 'Taeglich' },
+  { value: '5', labelKey: 'settings.integrations.interval.5min' },
+  { value: '15', labelKey: 'settings.integrations.interval.15min' },
+  { value: '60', labelKey: 'settings.integrations.interval.hourly' },
+  { value: '1440', labelKey: 'settings.integrations.interval.daily' },
 ]
 
 interface BexioConfigPanelProps {
@@ -41,6 +42,7 @@ interface BexioConfigPanelProps {
 }
 
 export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
+  const { t } = useTranslation()
   const store = useIntegrationStore()
   const status = store.getStatus('bexio')
   const integration = store.integrations['bexio']
@@ -55,7 +57,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
   const [syncInterval, setSyncInterval] = useState((storedValues.syncInterval as string) ?? '15')
   const [testing, setTesting] = useState(false)
 
-  const badge = STATUS_BADGE[status] ?? STATUS_BADGE.disconnected
+  const badgeConfig = STATUS_BADGE_KEYS[status] ?? STATUS_BADGE_KEYS.disconnected
 
   const scopeStates: Record<string, { value: boolean; set: (v: boolean) => void }> = {
     contacts: { value: syncContacts, set: setSyncContacts },
@@ -77,13 +79,13 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
         syncInterval,
       })
       store.connect('bexio')
-      toast.success('Bexio erfolgreich verbunden')
+      toast.success(t('settings.integrations.bexio.connected'))
     }, 1500)
   }
 
   const handleDisconnect = () => {
     store.disconnect('bexio')
-    toast.success('Bexio getrennt')
+    toast.success(t('settings.integrations.bexio.disconnected'))
   }
 
   const handleSave = () => {
@@ -95,19 +97,19 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
       conflictHandling,
       syncInterval,
     })
-    toast.success('Bexio-Einstellungen gespeichert')
+    toast.success(t('settings.integrations.bexio.settingsSaved'))
   }
 
   const handleSync = () => {
     store.triggerSync('bexio')
-    toast.success('Bexio-Synchronisation gestartet')
+    toast.success(t('settings.integrations.bexio.syncStarted'))
   }
 
   const handleTest = () => {
     setTesting(true)
     setTimeout(() => {
       setTesting(false)
-      toast.success('Bexio-Verbindung erfolgreich')
+      toast.success(t('settings.integrations.bexio.connectionSuccess'))
     }, 1000)
   }
 
@@ -119,7 +121,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zurück zu Integrationen
+        {t('settings.integrations.backToIntegrations')}
       </button>
 
       {/* Header */}
@@ -130,25 +132,25 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-foreground">Bexio</h2>
-            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${badge.cls}`}>
-              {badge.label}
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${badgeConfig.cls}`}>
+              {t(badgeConfig.labelKey)}
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Buchhaltungssoftware mit Kontakt-, Rechnungs- und Produkt-Sync
+            {t('settings.integrations.bexio.description')}
           </p>
         </div>
       </div>
 
       {/* OAuth2 Connection */}
       <div className="mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Verbindung</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integrations.connection')}</h3>
         {status === 'connected' ? (
           <div className="rounded-lg border border-success/30 bg-success-light p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-success">
-                  Verbunden mit Bexio
+                  {t('settings.integrations.bexio.connectedWith')}
                 </p>
                 <p className="text-xs text-success/70 mt-0.5">
                   Seit {integration?.connectedAt ? new Date(integration.connectedAt).toLocaleDateString('de-DE') : '—'}
@@ -164,14 +166,14 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
                 className="flex items-center gap-1.5 rounded-lg border border-success/30 px-3 py-1.5 text-sm text-success hover:bg-success-light transition-colors"
               >
                 <Unlink className="h-3.5 w-3.5" />
-                Trennen
+                {t('settings.integrations.disconnect')}
               </button>
             </div>
           </div>
         ) : (
           <div className="rounded-lg border border-border p-4">
             <p className="text-sm text-muted-foreground mb-3">
-              Verbinde dein Bexio-Konto über OAuth2 um Daten automatisch zu synchronisieren.
+              {t('settings.integrations.bexio.oauthPrompt')}
             </p>
             <button
               onClick={handleOAuthConnect}
@@ -183,7 +185,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
               ) : (
                 <Plug className="h-4 w-4" />
               )}
-              {oauthState === 'loading' ? 'Verbinde mit Bexio...' : 'Mit Bexio verbinden'}
+              {oauthState === 'loading' ? t('settings.integrations.bexio.connecting') : t('settings.integrations.bexio.connect')}
             </button>
           </div>
         )}
@@ -191,7 +193,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
 
       {/* Sync Scope */}
       <div className="mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Sync-Bereiche</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integrations.syncScopes')}</h3>
         <div className="space-y-2">
           {SYNC_SCOPES.map((scope) => {
             const state = scopeStates[scope.id]
@@ -201,8 +203,8 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
                 className="flex items-center justify-between rounded-lg border border-border p-3 cursor-pointer hover:bg-secondary/30 transition-colors"
               >
                 <div>
-                  <span className="text-sm font-medium text-foreground">{scope.label}</span>
-                  <p className="text-[11px] text-muted-foreground">{scope.helpText}</p>
+                  <span className="text-sm font-medium text-foreground">{t(scope.labelKey)}</span>
+                  <p className="text-[11px] text-muted-foreground">{t(scope.helpTextKey)}</p>
                 </div>
                 <button
                   onClick={(e) => {
@@ -227,31 +229,31 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
 
       {/* Conflict Handling */}
       <div className="mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Konfliktbehandlung</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integrations.conflictHandling')}</h3>
         <select
           value={conflictHandling}
           onChange={(e) => setConflictHandling(e.target.value)}
           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
         >
           {CONFLICT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
           ))}
         </select>
         <p className="text-[11px] text-muted-foreground mt-1.5">
-          Bestimmt welche Daten bei Konflikten bevorzugt werden
+          {t('settings.integrations.conflictHandlingHelp')}
         </p>
       </div>
 
       {/* Sync Interval */}
       <div className="mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Sync-Intervall</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integrations.syncInterval')}</h3>
         <select
           value={syncInterval}
           onChange={(e) => setSyncInterval(e.target.value)}
           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
         >
           {INTERVAL_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
           ))}
         </select>
       </div>
@@ -265,14 +267,14 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
             className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin' : ''}`} />
-            Sync jetzt ausführen
+            {t('settings.integrations.syncNow')}
           </button>
         )}
         <button
           onClick={handleSave}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
         >
-          Speichern
+          {t('common.save')}
         </button>
         {status === 'connected' && (
           <button
@@ -281,7 +283,7 @@ export function BexioConfigPanel({ onBack }: BexioConfigPanelProps) {
             className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-50 ml-auto"
           >
             {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-            Verbindung testen
+            {t('settings.integrations.testConnection')}
           </button>
         )}
       </div>

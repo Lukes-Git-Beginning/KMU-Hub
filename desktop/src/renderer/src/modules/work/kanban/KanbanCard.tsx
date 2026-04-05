@@ -98,7 +98,7 @@ export default function KanbanCard({
         )}
         <div className="flex items-center gap-1">
           {task.has_blocked_deps && (
-            <Lock className="h-3 w-3 text-warning-foreground" title="Blockiert" />
+            <Lock className="h-3 w-3 text-warning-foreground" title={t('work.tasks.blocked')} />
           )}
           <PriorityBadge
             priority={(task.priority as Priority) ?? 'medium'}

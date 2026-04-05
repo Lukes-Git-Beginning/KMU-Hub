@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MessageSquareText, Loader2 } from 'lucide-react'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import { useInboxMessage, useMarkRead, useReplyToMessage } from '@/api/hooks/useInbox'
@@ -25,6 +26,7 @@ function mapChannelForComposer(ch: InboxChannel): 'email' | 'teams' | 'whatsapp'
 // ---------------------------------------------------------------------------
 
 export function ConversationThread() {
+  const { t } = useTranslation()
   const selectedId = useKommunikationStore((s) => s.selectedConversationId)
 
   const { data: message, isLoading } = useInboxMessage(selectedId ?? '')
@@ -45,10 +47,10 @@ export function ConversationThread() {
         <div className="text-center space-y-2">
           <MessageSquareText className="h-10 w-10 mx-auto text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">
-            Wähle eine Konversation aus
+            {t('kommunikation.thread.selectConversation')}
           </p>
           <p className="text-xs text-muted-foreground/60">
-            j/k zum Navigieren · Escape zum Abwählen
+            {t('kommunikation.thread.keyboardHint')}
           </p>
         </div>
       </div>
@@ -68,7 +70,7 @@ export function ConversationThread() {
   if (!message) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-muted-foreground">Nachricht nicht gefunden</p>
+        <p className="text-sm text-muted-foreground">{t('kommunikation.thread.messageNotFound')}</p>
       </div>
     )
   }

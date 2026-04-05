@@ -260,11 +260,11 @@ export default function HoursToInvoiceDialog({
           <div className="flex items-center justify-between rounded-md bg-secondary/50 px-4 py-3">
             <div className="text-xs text-muted-foreground space-x-2">
               <span>
-                <span className="font-medium text-foreground">{selectedIds.size}</span> Einträge
+                <span className="font-medium text-foreground">{selectedIds.size}</span> {t('work.invoice.entries')}
               </span>
               <span>|</span>
               <span>
-                <span className="font-medium text-foreground">{totalHours.toFixed(1)}h</span> gesamt
+                <span className="font-medium text-foreground">{totalHours.toFixed(1)}h</span> {t('work.invoice.total')}
               </span>
               <span>|</span>
               <span className="font-semibold text-primary">

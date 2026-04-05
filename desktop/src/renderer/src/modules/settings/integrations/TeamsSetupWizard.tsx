@@ -8,6 +8,7 @@
  * 4. Fertig -- Summary and activation toggle
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,6 +56,7 @@ export function TeamsSetupWizard({
   onClose,
   existingConfig,
 }: TeamsSetupWizardProps) {
+  const { t } = useTranslation()
   const [step, setStep] = useState(1)
   const [appId, setAppId] = useState('')
   const [appPassword, setAppPassword] = useState('')

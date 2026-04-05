@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { FileText, Image, File, Reply, Forward, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ConversationMessage } from '@/types/communication'
@@ -54,6 +55,7 @@ interface MessageItemProps {
 }
 
 export function MessageItem({ message: msg, showDate }: MessageItemProps) {
+  const { t } = useTranslation()
   const isOutbound = msg.direction === 'outbound'
   const isInternal = msg.direction === 'internal'
 
@@ -89,26 +91,26 @@ export function MessageItem({ message: msg, showDate }: MessageItemProps) {
           {/* Hover action toolbar */}
           <div className={`absolute -top-3 ${isOutbound ? 'left-0' : 'right-0'} hidden group-hover/msg:flex items-center gap-0.5 rounded-md border border-border bg-card px-1 py-0.5 shadow-sm z-10`}>
             <button
-              onClick={() => toast.info('Antwort wird vorbereitet...')}
+              onClick={() => toast.info(t('kommunikation.message.preparingReply'))}
               className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Antworten"
+              title={t('kommunikation.message.reply')}
             >
               <Reply className="h-3 w-3" />
             </button>
             <button
-              onClick={() => toast.info('Weiterleitung wird vorbereitet...')}
+              onClick={() => toast.info(t('kommunikation.message.preparingForward'))}
               className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Weiterleiten"
+              title={t('kommunikation.message.forward')}
             >
               <Forward className="h-3 w-3" />
             </button>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(msg.content)
-                toast.success('Kopiert')
+                toast.success(t('kommunikation.message.copied'))
               }}
               className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Kopieren"
+              title={t('kommunikation.message.copy')}
             >
               <Copy className="h-3 w-3" />
             </button>
@@ -118,7 +120,7 @@ export function MessageItem({ message: msg, showDate }: MessageItemProps) {
             <span className="text-[11px] font-medium text-foreground">{msg.senderName}</span>
             {isInternal && (
               <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[9px] font-semibold text-warning">
-                Interne Notiz
+                {t('kommunikation.note.internalNote')}
               </span>
             )}
             <span className="text-[10px] text-muted-foreground">{formatTime(msg.timestamp)}</span>

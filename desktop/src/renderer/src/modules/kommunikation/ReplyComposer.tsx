@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Send, Paperclip, ChevronDown } from 'lucide-react'
 import type { CommunicationChannel } from '@/types/communication'
 import { CannedResponsePicker } from './CannedResponsePicker'
@@ -8,12 +9,12 @@ import { InternalNoteComposer } from './InternalNoteComposer'
 // Channel config
 // ---------------------------------------------------------------------------
 
-const channelLabels: Record<CommunicationChannel, string> = {
-  email: 'E-Mail Antwort',
-  teams: 'Teams Nachricht',
-  whatsapp: 'WhatsApp Nachricht',
-  widget: 'Widget Antwort',
-  portal: 'Portal Antwort',
+const channelLabelKeys: Record<CommunicationChannel, string> = {
+  email: 'kommunikation.reply.channelEmail',
+  teams: 'kommunikation.reply.channelTeams',
+  whatsapp: 'kommunikation.reply.channelWhatsapp',
+  widget: 'kommunikation.reply.channelWidget',
+  portal: 'kommunikation.reply.channelPortal',
 }
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,7 @@ export function ReplyComposer({
   onSendReply,
   onSendInternalNote,
 }: ReplyComposerProps) {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
 
   const handleSend = () => {
@@ -58,7 +60,7 @@ export function ReplyComposer({
         {/* Channel indicator */}
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/50">
           <span className="text-[10px] font-medium text-muted-foreground">
-            {channelLabels[channel]}
+            {t(channelLabelKeys[channel])}
           </span>
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </div>
@@ -68,7 +70,7 @@ export function ReplyComposer({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Antwort schreiben... (Ctrl+Enter zum Senden)"
+          placeholder={t('kommunikation.reply.placeholder')}
           rows={3}
           className="w-full bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground resize-none"
         />
@@ -82,7 +84,7 @@ export function ReplyComposer({
             {/* Attachment */}
             <button
               className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              title="Datei anhängen"
+              title={t('kommunikation.reply.attachFile')}
             >
               <Paperclip className="h-4 w-4" />
             </button>
@@ -95,7 +97,7 @@ export function ReplyComposer({
             className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             <Send className="h-3.5 w-3.5" />
-            Senden
+            {t('kommunikation.reply.send')}
           </button>
         </div>
       </div>

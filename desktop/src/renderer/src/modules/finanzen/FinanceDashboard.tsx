@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   TrendingUp,
   TrendingDown,
@@ -21,12 +22,12 @@ const STATUS_COLORS: Record<InvoiceStatus, string> = {
   cancelled: 'bg-muted-foreground',
 }
 
-const STATUS_LABELS: Record<InvoiceStatus, string> = {
-  draft: 'Entwurf',
-  sent: 'Gesendet',
-  paid: 'Bezahlt',
-  overdue: 'Überfällig',
-  cancelled: 'Storniert',
+const STATUS_LABEL_KEYS: Record<InvoiceStatus, string> = {
+  draft: 'finanzen.status.draft',
+  sent: 'finanzen.status.sent',
+  paid: 'finanzen.status.paid',
+  overdue: 'finanzen.status.overdue',
+  cancelled: 'finanzen.status.cancelled',
 }
 
 type DatePreset = 'month' | 'quarter' | 'year' | 'last_year' | 'custom'
@@ -64,6 +65,7 @@ function getPresetRange(preset: DatePreset): { from: string; to: string } {
 }
 
 export function FinanceDashboard() {
+  const { t } = useTranslation()
   const { dateRange, setDateRange } = useFinanceUIStore()
   const [preset, setPreset] = useState<DatePreset>('year')
   const { data: dashboard, isLoading } = useFinanceDashboard(
@@ -81,7 +83,7 @@ export function FinanceDashboard() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-        Lade Dashboard...
+        {t('finanzen.dashboard.loading')}
       </div>
     )
   }
@@ -112,11 +114,11 @@ export function FinanceDashboard() {
         <div className="flex items-center gap-1.5">
           {(
             [
-              { key: 'month', label: 'Dieser Monat' },
-              { key: 'quarter', label: 'Dieses Quartal' },
-              { key: 'year', label: 'Dieses Jahr' },
-              { key: 'last_year', label: 'Letztes Jahr' },
-              { key: 'custom', label: 'Benutzerdefiniert' },
+              { key: 'month', label: t('finanzen.dashboard.thisMonth') },
+              { key: 'quarter', label: t('finanzen.dashboard.thisQuarter') },
+              { key: 'year', label: t('finanzen.dashboard.thisYear') },
+              { key: 'last_year', label: t('finanzen.dashboard.lastYear') },
+              { key: 'custom', label: t('finanzen.dashboard.custom') },
             ] as const
           ).map((p) => (
             <button
@@ -142,7 +144,7 @@ export function FinanceDashboard() {
               }
               className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground"
             />
-            <span className="text-xs text-muted-foreground">bis</span>
+            <span className="text-xs text-muted-foreground">{t('finanzen.export.to').toLowerCase()}</span>
             <input
               type="date"
               value={dateRange.to}
@@ -158,35 +160,35 @@ export function FinanceDashboard() {
       {/* Revenue metric cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label="Gesamt fakturiert"
+          label={t('finanzen.dashboard.totalInvoiced')}
           value={formatEUR(totalInvoiced)}
           icon={TrendingUp}
           color="text-primary"
           bg="bg-primary-light"
         />
         <MetricCard
-          label="Bezahlt"
+          label={t('finanzen.status.paid')}
           value={formatEUR(totalPaid)}
           icon={DollarSign}
           color="text-success"
           bg="bg-success-light"
         />
         <MetricCard
-          label="Ausstehend"
+          label={t('finanzen.dashboard.outstanding')}
           value={formatEUR(totalOutstanding)}
           icon={Clock}
           color="text-warning"
           bg="bg-warning-light"
         />
         <MetricCard
-          label="Überfällig"
+          label={t('finanzen.status.overdue')}
           value={formatEUR(overdueAmount)}
           icon={AlertCircle}
           color="text-error"
           bg="bg-error-light"
           badge={
             pendingDunnings.length > 0
-              ? `${pendingDunnings.length} Mahnung${pendingDunnings.length > 1 ? 'en' : ''}`
+              ? t('finanzen.dashboard.dunningsCount', { count: pendingDunnings.length })
               : undefined
           }
         />
@@ -195,33 +197,33 @@ export function FinanceDashboard() {
       {/* Pipeline metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          label="Offene Angebote"
+          label={t('finanzen.dashboard.openQuotes')}
           value={String(quotesPending)}
           icon={FileText}
           color="text-info"
           bg="bg-info-light"
           badge={
             expiringQuotes.length > 0
-              ? `${expiringQuotes.length} bald ablaufend`
+              ? t('finanzen.dashboard.expiringCount', { count: expiringQuotes.length })
               : undefined
           }
         />
         <MetricCard
-          label="Konversionsrate"
+          label={t('finanzen.dashboard.conversionRate')}
           value={`${conversionRate.toFixed(1)}%`}
           icon={TrendingUp}
           color="text-primary"
           bg="bg-primary-light"
         />
         <MetricCard
-          label="Durchschn. Auftragsgröße"
+          label={t('finanzen.dashboard.avgDealSize')}
           value={formatEUR(avgDealSize)}
           icon={BarChart3}
           color="text-primary"
           bg="bg-primary-light"
         />
         <MetricCard
-          label="Umsatzprognose"
+          label={t('finanzen.dashboard.revenueForecast')}
           value={formatEUR(revenueForecast)}
           icon={TrendingDown}
           color="text-success"
@@ -233,7 +235,7 @@ export function FinanceDashboard() {
       {totalInvoices > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
           <h3 className="text-sm font-medium text-foreground mb-3">
-            Rechnungsstatus
+            {t('finanzen.dashboard.invoiceStatus')}
           </h3>
           <div className="flex h-6 rounded-full overflow-hidden bg-secondary">
             {(
@@ -247,7 +249,7 @@ export function FinanceDashboard() {
                   key={status}
                   className={`${STATUS_COLORS[status]} transition-all`}
                   style={{ width: `${pct}%` }}
-                  title={`${STATUS_LABELS[status]}: ${count}`}
+                  title={`${t(STATUS_LABEL_KEYS[status])}: ${count}`}
                 />
               )
             })}
@@ -266,7 +268,7 @@ export function FinanceDashboard() {
                   <span
                     className={`h-2 w-2 rounded-full ${STATUS_COLORS[status]}`}
                   />
-                  {STATUS_LABELS[status]} ({count})
+                  {t(STATUS_LABEL_KEYS[status])} ({count})
                 </span>
               )
             })}
@@ -280,7 +282,7 @@ export function FinanceDashboard() {
         {recentInvoices.length > 0 && (
           <div className="rounded-lg border border-border bg-card p-4">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Letzte Rechnungen
+              {t('finanzen.dashboard.recentInvoices')}
             </h4>
             <div className="space-y-2">
               {recentInvoices.slice(0, 5).map((inv) => (
@@ -309,7 +311,7 @@ export function FinanceDashboard() {
         {expiringQuotes.length > 0 && (
           <div className="rounded-lg border border-border bg-card p-4">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Ablaufende Angebote
+              {t('finanzen.dashboard.expiringQuotes')}
             </h4>
             <div className="space-y-2">
               {expiringQuotes.slice(0, 5).map((q) => (
@@ -338,7 +340,7 @@ export function FinanceDashboard() {
         {pendingDunnings.length > 0 && (
           <div className="rounded-lg border border-border bg-card p-4">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Offene Mahnungen
+              {t('finanzen.dunning.openDunnings')}
             </h4>
             <div className="space-y-2">
               {pendingDunnings.slice(0, 5).map((d) => (
@@ -356,7 +358,7 @@ export function FinanceDashboard() {
                             : 'text-warning'
                       }`}
                     />
-                    <span className="text-foreground">Stufe {d.level}</span>
+                    <span className="text-foreground">{t('finanzen.dunning.levelLabel', { level: d.level })}</span>
                   </div>
                   <span className="text-foreground font-medium ml-2">
                     {formatEUR(d.fee)}

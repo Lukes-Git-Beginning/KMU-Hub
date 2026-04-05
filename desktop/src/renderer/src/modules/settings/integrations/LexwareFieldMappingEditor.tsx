@@ -7,6 +7,7 @@
  * Handles nested Lexware field paths in dropdown (e.g. person.firstName).
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Loader2, Plus, Trash2, RotateCcw } from 'lucide-react'
 import {
@@ -37,6 +38,7 @@ export function LexwareFieldMappingEditor({
   onSave,
   compact = false,
 }: LexwareFieldMappingEditorProps) {
+  const { t } = useTranslation()
   const { data: serverMappings, isLoading } = useLexwareFieldMappings(entityType)
   const updateMappings = useLexwareUpdateFieldMappings(entityType)
 

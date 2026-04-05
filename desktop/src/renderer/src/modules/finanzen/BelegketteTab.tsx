@@ -6,6 +6,7 @@
  * Mock data for design — backend swap: replace with API hooks.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileText,
   ArrowRight,
@@ -48,20 +49,20 @@ interface DocumentChain {
 // Config
 // ---------------------------------------------------------------------------
 
-const docTypeConfig: Record<DocType, { label: string; icon: typeof FileText; color: string }> = {
-  quote: { label: 'Angebot', icon: FileText, color: 'text-info' },
-  invoice: { label: 'Rechnung', icon: FileText, color: 'text-primary' },
-  payment: { label: 'Zahlung', icon: CreditCard, color: 'text-success' },
-  'credit-note': { label: 'Gutschrift', icon: Receipt, color: 'text-warning' },
-  dunning: { label: 'Mahnung', icon: AlertCircle, color: 'text-error' },
+const docTypeConfig: Record<DocType, { labelKey: string; icon: typeof FileText; color: string }> = {
+  quote: { labelKey: 'finanzen.docChain.docType.quote', icon: FileText, color: 'text-info' },
+  invoice: { labelKey: 'finanzen.docChain.docType.invoice', icon: FileText, color: 'text-primary' },
+  payment: { labelKey: 'finanzen.docChain.docType.payment', icon: CreditCard, color: 'text-success' },
+  'credit-note': { labelKey: 'finanzen.docChain.docType.creditNote', icon: Receipt, color: 'text-warning' },
+  dunning: { labelKey: 'finanzen.docChain.docType.dunning', icon: AlertCircle, color: 'text-error' },
 }
 
-const statusConfig: Record<DocStatus, { label: string; bg: string; text: string }> = {
-  completed: { label: 'Abgeschlossen', bg: 'bg-success-light', text: 'text-success' },
-  active: { label: 'Aktiv', bg: 'bg-info-light', text: 'text-info' },
-  pending: { label: 'Ausstehend', bg: 'bg-secondary', text: 'text-muted-foreground' },
-  cancelled: { label: 'Storniert', bg: 'bg-secondary', text: 'text-muted-foreground' },
-  overdue: { label: 'Überfällig', bg: 'bg-error-light', text: 'text-error' },
+const statusConfig: Record<DocStatus, { labelKey: string; bg: string; text: string }> = {
+  completed: { labelKey: 'finanzen.docChain.status.completed', bg: 'bg-success-light', text: 'text-success' },
+  active: { labelKey: 'finanzen.docChain.status.active', bg: 'bg-info-light', text: 'text-info' },
+  pending: { labelKey: 'finanzen.docChain.status.pending', bg: 'bg-secondary', text: 'text-muted-foreground' },
+  cancelled: { labelKey: 'finanzen.docChain.status.cancelled', bg: 'bg-secondary', text: 'text-muted-foreground' },
+  overdue: { labelKey: 'finanzen.docChain.status.overdue', bg: 'bg-error-light', text: 'text-error' },
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +145,7 @@ const mockChains: DocumentChain[] = [
 type FilterOption = 'all' | 'open' | 'complete' | 'overdue'
 
 export function BelegketteTab() {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<FilterOption>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -176,10 +178,10 @@ export function BelegketteTab() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {([
-          ['total', 'Gesamt', stats.total, 'bg-secondary text-foreground'],
-          ['open', 'Offen', stats.open, 'bg-info-light text-info'],
-          ['complete', 'Abgeschlossen', stats.complete, 'bg-success-light text-success'],
-          ['overdue', 'Überfällig', stats.overdue, 'bg-error-light text-error'],
+          ['total', t('finanzen.docChain.statsTotal'), stats.total, 'bg-secondary text-foreground'],
+          ['open', t('finanzen.docChain.statsOpen'), stats.open, 'bg-info-light text-info'],
+          ['complete', t('finanzen.docChain.statsComplete'), stats.complete, 'bg-success-light text-success'],
+          ['overdue', t('finanzen.docChain.statsOverdue'), stats.overdue, 'bg-error-light text-error'],
         ] as const).map(([key, label, count, _colors]) => (
           <button
             key={key}
@@ -200,7 +202,7 @@ export function BelegketteTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Kunde oder Belegnummer suchen..."
+            placeholder={t('finanzen.docChain.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -217,8 +219,8 @@ export function BelegketteTab() {
         {filtered.length === 0 ? (
           <div className="py-12 text-center">
             <Search className="mx-auto h-10 w-10 text-muted-foreground/30" />
-            <p className="mt-3 text-sm font-medium text-foreground">Keine Belegketten gefunden</p>
-            <p className="mt-1 text-xs text-muted-foreground">Passe deine Suche oder Filter an.</p>
+            <p className="mt-3 text-sm font-medium text-foreground">{t('finanzen.docChain.noResults')}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('finanzen.docChain.adjustFilters')}</p>
           </div>
         ) : (
           filtered.map((chain) => {
@@ -247,17 +249,17 @@ export function BelegketteTab() {
                       {chain.isComplete ? (
                         <span className="flex items-center gap-1 rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">
                           <CheckCircle2 className="h-3 w-3" />
-                          Abgeschlossen
+                          {t('finanzen.docChain.status.completed')}
                         </span>
                       ) : chain.nodes.some((n) => n.status === 'overdue') ? (
                         <span className="flex items-center gap-1 rounded-full bg-error-light px-2 py-0.5 text-[10px] font-medium text-error">
                           <AlertCircle className="h-3 w-3" />
-                          Überfällig
+                          {t('finanzen.docChain.status.overdue')}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
                           <Clock className="h-3 w-3" />
-                          Offen
+                          {t('finanzen.docChain.statsOpen')}
                         </span>
                       )}
                     </div>
@@ -275,7 +277,7 @@ export function BelegketteTab() {
                           {i > 0 && <ArrowRight className="h-3 w-3 text-border" />}
                           <div
                             className={`flex h-7 w-7 items-center justify-center rounded-full ${sCfg.bg}`}
-                            title={`${cfg.label}: ${node.number}`}
+                            title={`${t(cfg.labelKey)}: ${node.number}`}
                           >
                             <Icon className={`h-3.5 w-3.5 ${sCfg.text}`} />
                           </div>
@@ -324,12 +326,12 @@ export function BelegketteTab() {
                               <div className={`flex h-10 w-10 items-center justify-center rounded-full ${sCfg.bg}`}>
                                 <Icon className={`h-5 w-5 ${sCfg.text}`} />
                               </div>
-                              <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
+                              <span className={`text-xs font-medium ${cfg.color}`}>{t(cfg.labelKey)}</span>
                               <span className="text-[11px] font-mono text-foreground">{node.number}</span>
                               <span className="text-[10px] text-muted-foreground">{node.date}</span>
                               <span className="text-[10px] font-medium text-foreground">{node.amount}</span>
                               <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${sCfg.bg} ${sCfg.text}`}>
-                                {sCfg.label}
+                                {t(sCfg.labelKey)}
                               </span>
                             </div>
                           </div>
@@ -341,12 +343,12 @@ export function BelegketteTab() {
                     <div className="flex items-center justify-end gap-2 pt-1">
                       <button className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors">
                         <ExternalLink className="h-3 w-3" />
-                        Zum Kunden
+                        {t('finanzen.docChain.goToCustomer')}
                       </button>
                       {!chain.isComplete && (
                         <button className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
                           <ArrowRight className="h-3 w-3" />
-                          Nächster Schritt
+                          {t('finanzen.docChain.nextStep')}
                         </button>
                       )}
                     </div>

@@ -189,7 +189,7 @@ export default function TaskTimer({ taskId }: TaskTimerProps) {
         <Clock className="h-3 w-3" />
         <span>{t('work.timer.total')}: {formatDuration(totalSeconds)}</span>
         {summary && summary.entry_count > 0 && (
-          <span>({summary.entry_count} Einträge)</span>
+          <span>({t('work.timer.entryCount', { count: summary.entry_count })})</span>
         )}
       </div>
     </div>

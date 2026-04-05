@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
@@ -8,6 +9,7 @@ import {
 } from './time-utils'
 
 export default function MonthView() {
+  const { t } = useTranslation()
   const [monthOffset, setMonthOffset] = useState(0)
   const entries = useTimeTrackingStore((s) => s.entries)
   const categories = useTimeTrackingStore((s) => s.categories)
@@ -57,7 +59,7 @@ export default function MonthView() {
             variant={monthOffset === 0 ? 'default' : 'outline'}
             onClick={() => setMonthOffset(0)}
           >
-            Aktuell
+            {t('profil.zeiterfassung.month.current')}
           </Button>
           <Button size="sm" variant="outline" onClick={() => setMonthOffset((m) => m + 1)}>
             <ChevronRight className="h-4 w-4" />
@@ -127,7 +129,7 @@ export default function MonthView() {
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
                   <div className="bg-popover border border-border text-popover-foreground text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap">
                     <p className="font-medium">{date.getDate()}. {getMonthLabel(monthOffset).split(' ')[0]}</p>
-                    <p>{data.total > 0 ? formatMinutes(data.total) : 'Keine Einträge'}</p>
+                    <p>{data.total > 0 ? formatMinutes(data.total) : t('profil.zeiterfassung.noEntries')}</p>
                   </div>
                 </div>
               </div>
@@ -149,19 +151,19 @@ export default function MonthView() {
       {/* Month Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="text-xs text-muted-foreground">{t('profil.zeiterfassung.total')}</p>
           <p className="text-xl font-bold text-foreground mt-1">{formatMinutes(totalMinutes)}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Durchschnitt/Tag</p>
+          <p className="text-xs text-muted-foreground">{t('profil.zeiterfassung.month.avgPerDay')}</p>
           <p className="text-xl font-bold text-foreground mt-1">{formatMinutes(avgPerDay)}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Soll (Monat)</p>
+          <p className="text-xs text-muted-foreground">{t('profil.zeiterfassung.month.targetMonth')}</p>
           <p className="text-xl font-bold text-foreground mt-1">{formatMinutes(monthTarget)}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Saldo</p>
+          <p className="text-xs text-muted-foreground">{t('profil.zeiterfassung.balance')}</p>
           <p className={cn(
             'text-xl font-bold mt-1',
             totalMinutes >= monthTarget ? 'text-success' : 'text-warning-foreground',

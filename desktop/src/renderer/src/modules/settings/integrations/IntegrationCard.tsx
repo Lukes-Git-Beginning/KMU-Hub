@@ -4,18 +4,19 @@
  * Shows icon, name, description (2-line clamp), connection status badge,
  * and chevron. Clickable to open drill-down panel.
  */
+import { useTranslation } from 'react-i18next'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import type { IntegrationDefinition } from './integration-registry'
 import type { IntegrationConnectionStatus } from '@/stores/integrations'
 
 const STATUS_CONFIG: Record<
   IntegrationConnectionStatus,
-  { label: string; dotClass: string; textClass: string }
+  { labelKey: string; dotClass: string; textClass: string }
 > = {
-  connected: { label: 'Verbunden', dotClass: 'bg-success', textClass: 'text-success' },
-  disconnected: { label: 'Nicht verbunden', dotClass: 'bg-muted-foreground/40', textClass: 'text-muted-foreground' },
-  syncing: { label: 'Synchronisiert...', dotClass: 'bg-info', textClass: 'text-info' },
-  error: { label: 'Fehler', dotClass: 'bg-destructive', textClass: 'text-destructive' },
+  connected: { labelKey: 'settings.integrations.status.connected', dotClass: 'bg-success', textClass: 'text-success' },
+  disconnected: { labelKey: 'settings.integrations.status.disconnected', dotClass: 'bg-muted-foreground/40', textClass: 'text-muted-foreground' },
+  syncing: { labelKey: 'settings.integrations.status.syncing', dotClass: 'bg-info', textClass: 'text-info' },
+  error: { labelKey: 'settings.integrations.status.error', dotClass: 'bg-destructive', textClass: 'text-destructive' },
 }
 
 interface IntegrationCardProps {
@@ -25,6 +26,7 @@ interface IntegrationCardProps {
 }
 
 export function IntegrationCard({ definition, status, onClick }: IntegrationCardProps) {
+  const { t } = useTranslation()
   const Icon = definition.icon
   const cfg = STATUS_CONFIG[status]
 
@@ -41,7 +43,7 @@ export function IntegrationCard({ definition, status, onClick }: IntegrationCard
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground italic">Demnächst verfügbar</span>
+          <span className="text-[10px] text-muted-foreground italic">{t('settings.integrations.comingSoon')}</span>
         </div>
       </div>
     )
@@ -68,7 +70,7 @@ export function IntegrationCard({ definition, status, onClick }: IntegrationCard
           ) : (
             <span className={`h-2 w-2 rounded-full ${cfg.dotClass}`} />
           )}
-          {cfg.label}
+          {t(cfg.labelKey)}
         </span>
         <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>

@@ -1,15 +1,17 @@
+import { useTranslation } from 'react-i18next'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/cn'
 import { useTimeTrackingStore } from '@/stores/timetracking'
 
-const STATUS_MAP = {
-  tracking: { label: 'Aktiv', dotClass: 'bg-success', animate: true },
-  idle: { label: 'Inaktiv', dotClass: 'bg-gray-400', animate: false },
-  absent: { label: 'Abwesend', dotClass: 'bg-warning', animate: false },
-}
-
 export default function TeamView() {
+  const { t } = useTranslation()
   const teamActivity = useTimeTrackingStore((s) => s.teamActivity)
+
+  const STATUS_MAP = {
+    tracking: { label: t('profil.zeiterfassung.team.active'), dotClass: 'bg-success', animate: true },
+    idle: { label: t('profil.zeiterfassung.team.idle'), dotClass: 'bg-gray-400', animate: false },
+    absent: { label: t('profil.zeiterfassung.team.absent'), dotClass: 'bg-warning', animate: false },
+  }
 
   const sorted = [...teamActivity].sort((a, b) => {
     const order = { tracking: 0, idle: 1, absent: 2 }
@@ -20,20 +22,20 @@ export default function TeamView() {
     <div className="p-6 max-w-3xl mx-auto space-y-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-foreground">
-          Team-Aktivität ({teamActivity.length} Mitglieder)
+          {t('profil.zeiterfassung.team.title', { count: teamActivity.length })}
         </h3>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-success" />
-            Aktiv ({teamActivity.filter((t) => t.status === 'tracking').length})
+            {t('profil.zeiterfassung.team.active')} ({teamActivity.filter((m) => m.status === 'tracking').length})
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-gray-400" />
-            Inaktiv ({teamActivity.filter((t) => t.status === 'idle').length})
+            {t('profil.zeiterfassung.team.idle')} ({teamActivity.filter((m) => m.status === 'idle').length})
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-warning" />
-            Abwesend ({teamActivity.filter((t) => t.status === 'absent').length})
+            {t('profil.zeiterfassung.team.absent')} ({teamActivity.filter((m) => m.status === 'absent').length})
           </span>
         </div>
       </div>
@@ -95,7 +97,7 @@ export default function TeamView() {
               )}
               {member.startedAt && (
                 <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                  seit {member.startedAt}
+                  {t('profil.zeiterfassung.team.since', { time: member.startedAt })}
                 </span>
               )}
             </div>

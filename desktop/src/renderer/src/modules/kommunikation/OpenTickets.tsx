@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Headphones, ArrowRight } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,7 @@ interface OpenTicketsProps {
 }
 
 export function OpenTickets({ ticketIds }: OpenTicketsProps) {
+  const { t } = useTranslation()
   if (ticketIds.length === 0) return null
 
   const tickets = ticketIds
@@ -46,7 +48,7 @@ export function OpenTickets({ ticketIds }: OpenTicketsProps) {
       <div className="flex items-center gap-1.5 mb-2">
         <Headphones className="h-3 w-3 text-muted-foreground" />
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Helpdesk-Tickets
+          {t('kommunikation.context.helpdeskTickets')}
         </h4>
         <span className="ml-auto text-[10px] text-muted-foreground">{tickets.length}</span>
       </div>

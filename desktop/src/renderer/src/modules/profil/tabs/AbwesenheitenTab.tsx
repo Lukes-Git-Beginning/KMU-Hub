@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Palmtree, Thermometer, Home, GraduationCap, HelpCircle,
   X, Calendar, Loader2, AlertTriangle, Upload,
@@ -28,13 +29,6 @@ import type { LeaveRequestStatus } from '@/api/hr-types'
 
 type FilterKey = 'all' | LeaveRequestStatus
 
-const STATUS_BADGES: Record<string, { label: string; className: string }> = {
-  pending: { label: 'Ausstehend', className: 'bg-warning-light text-warning-foreground' },
-  approved: { label: 'Genehmigt', className: 'bg-success-light text-success' },
-  rejected: { label: 'Abgelehnt', className: 'bg-error-light text-destructive' },
-  cancelled: { label: 'Storniert', className: 'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400' },
-}
-
 const LEAVE_TYPE_ICONS: Record<string, typeof Palmtree> = {
   urlaub: Palmtree,
   krankheit: Thermometer,
@@ -44,6 +38,14 @@ const LEAVE_TYPE_ICONS: Record<string, typeof Palmtree> = {
 }
 
 export default function AbwesenheitenTab() {
+  const { t } = useTranslation()
+
+  const STATUS_BADGES: Record<string, { label: string; className: string }> = {
+    pending: { label: t('profil.absence.statusPending'), className: 'bg-warning-light text-warning-foreground' },
+    approved: { label: t('profil.absence.statusApproved'), className: 'bg-success-light text-success' },
+    rejected: { label: t('profil.absence.statusRejected'), className: 'bg-error-light text-destructive' },
+    cancelled: { label: t('profil.absence.statusCancelled'), className: 'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400' },
+  }
   const [filter, setFilter] = useState<FilterKey>('all')
   const [showDialog, setShowDialog] = useState(false)
   const [showSickDialog, setShowSickDialog] = useState(false)
@@ -91,11 +93,11 @@ export default function AbwesenheitenTab() {
 
   const handleSubmit = () => {
     if (!formStart || !formEnd || !formLeaveTypeId) {
-      toast.error('Bitte alle Pflichtfelder ausfüllen')
+      toast.error(t('profil.absence.errorRequiredFields'))
       return
     }
     if (formEnd < formStart) {
-      toast.error('Enddatum muss nach Startdatum liegen')
+      toast.error(t('profil.absence.errorEndAfterStart'))
       return
     }
     createMutation.mutate(
@@ -120,7 +122,7 @@ export default function AbwesenheitenTab() {
 
   const handleSickSubmit = () => {
     if (!sickStart || !sickEnd) {
-      toast.error('Bitte Start- und Enddatum angeben')
+      toast.error(t('profil.absence.errorStartEndRequired'))
       return
     }
     sickMutation.mutate(
@@ -137,7 +139,7 @@ export default function AbwesenheitenTab() {
           setSickReason('')
           // Prompt AU document upload if required
           if (data.request.auDocumentRequired) {
-            toast.warning('AU-Bescheinigung erforderlich. Bitte laden Sie das Dokument hoch.', {
+            toast.warning(t('profil.absence.auDocumentRequired'), {
               duration: 8000,
             })
           }
@@ -164,15 +166,15 @@ export default function AbwesenheitenTab() {
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground">Abwesenheiten</h2>
+        <h2 className="text-lg font-bold text-foreground">{t('profil.absence.title')}</h2>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setShowSickDialog(true)} className="gap-2">
             <Thermometer className="h-4 w-4" />
-            Krankmeldung
+            {t('profil.absence.sickReport')}
           </Button>
           <Button size="sm" onClick={() => setShowDialog(true)} className="gap-2">
             <Plus className="h-4 w-4" />
-            Neue Anfrage
+            {t('profil.absence.newRequest')}
           </Button>
         </div>
       </div>
@@ -182,9 +184,9 @@ export default function AbwesenheitenTab() {
         <div className="rounded-lg border border-warning bg-warning-light/30 p-3 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-medium text-warning">Resturlaub-Übertrag</p>
+            <p className="text-xs font-medium text-warning">{t('profil.absence.carryoverTitle')}</p>
             <p className="text-xs text-muted-foreground">
-              {carriedOver} Urlaubstage aus dem Vorjahr müssen bis 31. März genommen werden.
+              {t('profil.absence.carryoverWarning', { days: carriedOver })}
             </p>
           </div>
         </div>
@@ -193,9 +195,9 @@ export default function AbwesenheitenTab() {
         <div className="rounded-lg border border-error bg-error-light/30 p-3 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-error shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-medium text-error">Resturlaub verfallen</p>
+            <p className="text-xs font-medium text-error">{t('profil.absence.carryoverExpiredTitle')}</p>
             <p className="text-xs text-muted-foreground">
-              {carriedOver} Urlaubstage aus dem Vorjahr sind am 31. März verfallen.
+              {t('profil.absence.carryoverExpired', { days: carriedOver })}
             </p>
           </div>
         </div>
@@ -212,7 +214,7 @@ export default function AbwesenheitenTab() {
               : 'bg-card text-muted-foreground border-border hover:border-primary/50',
           )}
         >
-          Alle ({requests.length})
+          {t('profil.absence.filterAll')} ({requests.length})
         </button>
         {(['pending', 'approved', 'rejected', 'cancelled'] as const).map((status) => {
           const count = requests.filter((r) => r.status === status).length
@@ -243,8 +245,8 @@ export default function AbwesenheitenTab() {
         {!requestsLoading && sorted.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <Calendar className="h-10 w-10 mx-auto mb-3 opacity-50" />
-            <p className="font-medium">Keine Abwesenheiten</p>
-            <p className="text-sm">Erstelle eine neue Anfrage</p>
+            <p className="font-medium">{t('profil.absence.noAbsences')}</p>
+            <p className="text-sm">{t('profil.absence.createNewRequest')}</p>
           </div>
         )}
         {sorted.map((request) => {
@@ -261,24 +263,24 @@ export default function AbwesenheitenTab() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium text-sm text-foreground">{request.leaveType?.name ?? 'Abwesenheit'}</span>
+                  <span className="font-medium text-sm text-foreground">{request.leaveType?.name ?? t('profil.absence.title')}</span>
                   <span className="text-sm text-muted-foreground">
                     {formatDate(request.startDate)} - {formatDate(request.endDate)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    ({request.totalDays} {request.totalDays === 1 ? 'Tag' : 'Tage'})
-                    {request.isHalfDayStart && ' halber Tag Start'}
-                    {request.isHalfDayEnd && ' halber Tag Ende'}
+                    ({request.totalDays} {request.totalDays === 1 ? t('profil.absence.day') : t('profil.absence.days')})
+                    {request.isHalfDayStart && ` ${t('profil.absence.halfDayStart')}`}
+                    {request.isHalfDayEnd && ` ${t('profil.absence.halfDayEnd')}`}
                   </span>
                 </div>
                 {request.reason && <p className="text-sm text-muted-foreground">{request.reason}</p>}
                 {request.approvalComment && (
-                  <p className="text-xs text-muted-foreground mt-1 italic">Kommentar: {request.approvalComment}</p>
+                  <p className="text-xs text-muted-foreground mt-1 italic">{t('profil.absence.comment')}: {request.approvalComment}</p>
                 )}
                 {request.auDocumentRequired && !request.auDocumentFileId && (
                   <div className="flex items-center gap-1.5 mt-1 text-xs text-warning">
                     <Upload className="h-3 w-3" />
-                    <span>AU-Bescheinigung ausstehend</span>
+                    <span>{t('profil.absence.auPending')}</span>
                   </div>
                 )}
               </div>
@@ -305,10 +307,10 @@ export default function AbwesenheitenTab() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Vacation Balance */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Resturlaub</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{t('profil.absence.remainingVacation')}</h3>
           <div className="flex items-end gap-2 mb-3">
             <span className="text-3xl font-bold text-primary">{vacationRemaining}</span>
-            <span className="text-sm text-muted-foreground mb-1">/ {vacationTotal} Tage</span>
+            <span className="text-sm text-muted-foreground mb-1">/ {vacationTotal} {t('profil.absence.days')}</span>
           </div>
           <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
             <div
@@ -317,10 +319,10 @@ export default function AbwesenheitenTab() {
             />
           </div>
           <div className="flex justify-between mt-2">
-            <p className="text-xs text-muted-foreground">{vacationUsed} Tage genommen</p>
+            <p className="text-xs text-muted-foreground">{t('profil.absence.daysTaken', { count: vacationUsed })}</p>
             {carriedOver > 0 && (
               <p className={cn('text-xs', carryoverExpired ? 'text-error' : 'text-muted-foreground')}>
-                {carriedOver} Übertrag{carryoverExpired ? ' (verfallen)' : ''}
+                {carriedOver} {t('profil.absence.carryover')}{carryoverExpired ? ` (${t('profil.absence.expired')})` : ''}
               </p>
             )}
           </div>
@@ -329,26 +331,26 @@ export default function AbwesenheitenTab() {
         {/* Yearly Overview */}
         <div className="rounded-xl border border-border bg-card p-5">
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            Jahresübersicht {balance?.year ?? new Date().getFullYear()}
+            {t('profil.absence.yearlyOverview')} {balance?.year ?? new Date().getFullYear()}
           </h3>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Anspruch</span>
-              <span className="font-medium text-foreground">{vacationTotal} Tage</span>
+              <span className="text-muted-foreground">{t('profil.absence.entitlement')}</span>
+              <span className="font-medium text-foreground">{vacationTotal} {t('profil.absence.days')}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Genommen</span>
-              <span className="font-medium text-foreground">{vacationUsed} Tage</span>
+              <span className="text-muted-foreground">{t('profil.absence.taken')}</span>
+              <span className="font-medium text-foreground">{vacationUsed} {t('profil.absence.days')}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Verbleibend</span>
-              <span className="font-medium text-primary">{vacationRemaining} Tage</span>
+              <span className="text-muted-foreground">{t('profil.absence.remaining')}</span>
+              <span className="font-medium text-primary">{vacationRemaining} {t('profil.absence.days')}</span>
             </div>
             {carriedOver > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Übertrag</span>
+                <span className="text-muted-foreground">{t('profil.absence.carryover')}</span>
                 <span className={cn('font-medium', carryoverExpired ? 'text-error line-through' : 'text-foreground')}>
-                  {carriedOver} Tage
+                  {carriedOver} {t('profil.absence.days')}
                 </span>
               </div>
             )}
@@ -360,14 +362,14 @@ export default function AbwesenheitenTab() {
       <Dialog open={showDialog} onOpenChange={(v) => { if (!v) resetForm(); setShowDialog(v) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neue Abwesenheit beantragen</DialogTitle>
+            <DialogTitle>{t('profil.absence.requestNewTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Art der Abwesenheit *</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.absence.leaveType')} *</label>
               <Select value={formLeaveTypeId} onValueChange={setFormLeaveTypeId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Typ wählen..." />
+                  <SelectValue placeholder={t('profil.absence.selectType')} />
                 </SelectTrigger>
                 <SelectContent>
                   {(leaveTypes ?? []).map((t) => (
@@ -383,7 +385,7 @@ export default function AbwesenheitenTab() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Von *</label>
+                <label className="text-sm font-medium text-foreground">{t('profil.absence.from')} *</label>
                 <Input type="date" value={formStart} onChange={(e) => setFormStart(e.target.value)} />
                 <div className="flex items-center gap-2 mt-1">
                   <Checkbox
@@ -391,22 +393,22 @@ export default function AbwesenheitenTab() {
                     checked={formHalfDayStart}
                     onCheckedChange={(v) => setFormHalfDayStart(v === true)}
                   />
-                  <Label htmlFor="halfDayStart" className="text-xs font-normal cursor-pointer">Halber Tag</Label>
+                  <Label htmlFor="halfDayStart" className="text-xs font-normal cursor-pointer">{t('profil.absence.halfDay')}</Label>
                   {formHalfDayStart && (
                     <Select value={formHalfDayPeriodStart} onValueChange={(v) => setFormHalfDayPeriodStart(v as 'morning' | 'afternoon')}>
                       <SelectTrigger className="h-7 w-32 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="morning">Vormittag</SelectItem>
-                        <SelectItem value="afternoon">Nachmittag</SelectItem>
+                        <SelectItem value="morning">{t('profil.absence.morning')}</SelectItem>
+                        <SelectItem value="afternoon">{t('profil.absence.afternoon')}</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Bis *</label>
+                <label className="text-sm font-medium text-foreground">{t('profil.absence.to')} *</label>
                 <Input type="date" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} />
                 <div className="flex items-center gap-2 mt-1">
                   <Checkbox
@@ -414,15 +416,15 @@ export default function AbwesenheitenTab() {
                     checked={formHalfDayEnd}
                     onCheckedChange={(v) => setFormHalfDayEnd(v === true)}
                   />
-                  <Label htmlFor="halfDayEnd" className="text-xs font-normal cursor-pointer">Halber Tag</Label>
+                  <Label htmlFor="halfDayEnd" className="text-xs font-normal cursor-pointer">{t('profil.absence.halfDay')}</Label>
                   {formHalfDayEnd && (
                     <Select value={formHalfDayPeriodEnd} onValueChange={(v) => setFormHalfDayPeriodEnd(v as 'morning' | 'afternoon')}>
                       <SelectTrigger className="h-7 w-32 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="morning">Vormittag</SelectItem>
-                        <SelectItem value="afternoon">Nachmittag</SelectItem>
+                        <SelectItem value="morning">{t('profil.absence.morning')}</SelectItem>
+                        <SelectItem value="afternoon">{t('profil.absence.afternoon')}</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
@@ -430,21 +432,21 @@ export default function AbwesenheitenTab() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Grund (optional)</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.absence.reason')} ({t('common.optional')})</label>
               <textarea
                 value={formReason}
                 onChange={(e) => setFormReason(e.target.value)}
                 rows={3}
-                placeholder="Beschreibe den Grund für deine Abwesenheit..."
+                placeholder={t('profil.absence.reasonPlaceholder')}
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { resetForm(); setShowDialog(false) }}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => { resetForm(); setShowDialog(false) }}>{t('common.cancel')}</Button>
             <Button onClick={handleSubmit} disabled={createMutation.isPending}>
               {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Antrag einreichen
+              {t('profil.absence.submitRequest')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -454,38 +456,38 @@ export default function AbwesenheitenTab() {
       <Dialog open={showSickDialog} onOpenChange={setShowSickDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Krankmeldung erfassen</DialogTitle>
+            <DialogTitle>{t('profil.absence.sickReportTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Von *</label>
+                <label className="text-sm font-medium text-foreground">{t('profil.absence.from')} *</label>
                 <Input type="date" value={sickStart} onChange={(e) => setSickStart(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Bis *</label>
+                <label className="text-sm font-medium text-foreground">{t('profil.absence.to')} *</label>
                 <Input type="date" value={sickEnd} onChange={(e) => setSickEnd(e.target.value)} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Anmerkung (optional)</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.absence.note')} ({t('common.optional')})</label>
               <textarea
                 value={sickReason}
                 onChange={(e) => setSickReason(e.target.value)}
                 rows={2}
-                placeholder="Optionale Anmerkung..."
+                placeholder={t('profil.absence.optionalNote')}
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Bei Krankheit über dem Schwellenwert wird automatisch eine AU-Bescheinigung angefordert.
+              {t('profil.absence.sickThresholdNote')}
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSickDialog(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setShowSickDialog(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSickSubmit} disabled={sickMutation.isPending}>
               {sickMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Krankmeldung einreichen
+              {t('profil.absence.submitSickReport')}
             </Button>
           </DialogFooter>
         </DialogContent>

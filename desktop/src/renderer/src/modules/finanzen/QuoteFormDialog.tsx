@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,7 @@ export function QuoteFormDialog({
   editQuote,
   dealId,
 }: QuoteFormDialogProps) {
+  const { t } = useTranslation()
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
   const { data: settings } = useCompanySettings()
@@ -163,7 +165,7 @@ export function QuoteFormDialog({
         },
         {
           onSuccess: () => {
-            toast.success('Angebot aktualisiert')
+            toast.success(t('finanzen.quoteForm.updated'))
             onOpenChange(false)
           },
           onError: (err) => toast.error(err.message),
@@ -181,7 +183,7 @@ export function QuoteFormDialog({
         },
         {
           onSuccess: () => {
-            toast.success('Angebot erstellt')
+            toast.success(t('finanzen.quoteForm.created'))
             onOpenChange(false)
           },
           onError: (err) => toast.error(err.message),
@@ -206,7 +208,7 @@ export function QuoteFormDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {editQuote ? 'Angebot bearbeiten' : 'Neues Angebot'}
+            {editQuote ? t('finanzen.quoteForm.editTitle') : t('finanzen.quotes.create')}
           </DialogTitle>
         </DialogHeader>
 
@@ -214,15 +216,15 @@ export function QuoteFormDialog({
           {/* Customer */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Kunde *</Label>
+              <Label>{t('finanzen.customer')} *</Label>
               <Input
-                placeholder="Firma / Person"
+                placeholder={t('finanzen.invoiceForm.companyPerson')}
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>E-Mail</Label>
+              <Label>{t('finanzen.invoiceForm.email')}</Label>
               <Input
                 type="email"
                 placeholder="email@firma.de"
@@ -233,16 +235,16 @@ export function QuoteFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Adresse</Label>
+              <Label>{t('finanzen.invoiceForm.address')}</Label>
               <Textarea
-                placeholder="Strasse, PLZ Ort"
+                placeholder={t('finanzen.invoiceForm.addressPlaceholder')}
                 value={customerAddress}
                 onChange={(e) => setCustomerAddress(e.target.value)}
                 rows={2}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>USt-IdNr. (optional)</Label>
+              <Label>{t('finanzen.invoiceForm.vatId')}</Label>
               <Input
                 placeholder="DE123456789"
                 value={customerUstIdNr}
@@ -254,7 +256,7 @@ export function QuoteFormDialog({
           {/* Tax mode & validity */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Steuerbehandlung</Label>
+              <Label>{t('finanzen.invoiceForm.taxTreatment')}</Label>
               <Select value={taxMode} onValueChange={(v) => setTaxMode(v as TaxMode)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -265,7 +267,7 @@ export function QuoteFormDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Gültig bis</Label>
+              <Label>{t('finanzen.quoteForm.validUntil')}</Label>
               <Input
                 type="date"
                 value={validUntil}
@@ -278,27 +280,27 @@ export function QuoteFormDialog({
           {taxMode === 'reverse_charge' && (
             <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info">
               <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>Reverse Charge -- Steuerschuldnerschaft des Leistungsempfaengers</span>
+              <span>{t('finanzen.invoiceForm.reverseChargeInfo')}</span>
             </div>
           )}
           {taxMode === 'kleinunternehmer' && (
             <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
               <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>Kein Ausweis von Umsatzsteuer gemaess Paragraph 19 UStG</span>
+              <span>{t('finanzen.invoiceForm.kleinunternehmerInfo')}</span>
             </div>
           )}
 
           {/* Line Items */}
           <div className="space-y-2">
-            <Label>Positionen</Label>
+            <Label>{t('finanzen.lineItems.positions')}</Label>
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="grid grid-cols-[2rem_1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
-                <span>Nr.</span>
-                <span>Bezeichnung</span>
-                <span>Menge</span>
-                <span>Einzelpreis</span>
-                <span>MwSt</span>
-                <span className="text-right">Gesamt</span>
+                <span>{t('finanzen.lineItems.nr')}</span>
+                <span>{t('finanzen.lineItems.description')}</span>
+                <span>{t('finanzen.lineItems.quantity')}</span>
+                <span>{t('finanzen.lineItems.unitPrice')}</span>
+                <span>{t('finanzen.lineItems.vat')}</span>
+                <span className="text-right">{t('finanzen.lineItems.total')}</span>
                 <span />
               </div>
               {items.map((item, idx) => (
@@ -308,7 +310,7 @@ export function QuoteFormDialog({
                 >
                   <span className="text-xs text-muted-foreground">{idx + 1}</span>
                   <Input
-                    placeholder="Beschreibung..."
+                    placeholder={t('finanzen.lineItems.descriptionPlaceholder')}
                     value={item.description}
                     onChange={(e) => updateItem(idx, { description: e.target.value })}
                     className="h-7 text-xs"
@@ -359,7 +361,7 @@ export function QuoteFormDialog({
                 className="flex items-center gap-1.5 w-full px-3 py-2 text-xs text-primary hover:bg-primary/5 transition-colors border-t border-border-muted"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Position hinzufügen
+                {t('finanzen.lineItems.addPosition')}
               </button>
             </div>
           </div>
@@ -368,17 +370,17 @@ export function QuoteFormDialog({
           <div className="flex justify-end">
             <div className="w-64 space-y-1.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
-                <span>Zwischensumme (netto)</span>
+                <span>{t('finanzen.totals.subtotalNet')}</span>
                 <span>{formatEUR(subtotal)}</span>
               </div>
               {taxMode !== 'kleinunternehmer' && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>MwSt</span>
+                  <span>{t('finanzen.lineItems.vat')}</span>
                   <span>{formatEUR(tax)}</span>
                 </div>
               )}
               <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
-                <span>Gesamtbetrag</span>
+                <span>{t('finanzen.totals.totalAmount')}</span>
                 <span>{formatEUR(total)}</span>
               </div>
             </div>
@@ -386,9 +388,9 @@ export function QuoteFormDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label>Notizen</Label>
+            <Label>{t('finanzen.notes')}</Label>
             <Textarea
-              placeholder="Zusätzliche Informationen..."
+              placeholder={t('finanzen.invoiceForm.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
@@ -399,13 +401,13 @@ export function QuoteFormDialog({
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleSave}
             disabled={!customerName.trim() || isPending}
           >
-            {isPending ? 'Speichert...' : editQuote ? 'Speichern' : 'Erstellen'}
+            {isPending ? t('finanzen.saving') : editQuote ? t('common.save') : t('common.create')}
           </Button>
         </div>
       </DialogContent>

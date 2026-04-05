@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   Phone,
@@ -27,11 +28,11 @@ import {
   useUploadEmployeeDocument,
 } from '@/api/hooks/hr-hooks'
 
-const contractTypeLabels: Record<string, string> = {
-  full_time: 'Vollzeit',
-  part_time: 'Teilzeit',
-  praktikum: 'Praktikum',
-  freelance: 'Freelancer',
+const contractTypeKeys: Record<string, string> = {
+  full_time: 'team.contractType.fullTime',
+  part_time: 'team.contractType.partTime',
+  praktikum: 'team.contractType.internship',
+  freelance: 'team.contractType.freelance',
 }
 
 interface MemberDetailPanelProps {
@@ -55,13 +56,14 @@ export function MemberDetailPanel({
   onMessage,
   onEdit,
 }: MemberDetailPanelProps) {
+  const { t } = useTranslation()
   const { data: employee, isLoading } = useEmployee(memberId)
   const { data: balance } = useEmployeeLeaveBalance(employee?.userId ?? '')
   const { data: documents } = useEmployeeDocuments(memberId)
 
   const fullName = employee
-    ? (employee.userName ?? `${employee.department ?? 'Mitarbeiter'}`)
-    : (memberName ?? 'Laden...')
+    ? (employee.userName ?? `${employee.department ?? t('team.member.employee')}`)
+    : (memberName ?? t('common.loading'))
 
   const initials = memberInitials ?? fullName
     .split(' ')
@@ -73,7 +75,7 @@ export function MemberDetailPanel({
   const tenure = employee ? getTenure(employee.startDate) : ''
 
   return (
-    <DetailPanel open title="Mitglied-Details" onClose={onClose}>
+    <DetailPanel open title={t('team.detail.title')} onClose={onClose}>
       {/* Header with gradient */}
       <div className="relative -mx-5 -mt-1 mb-4">
         <div
@@ -103,8 +105,8 @@ export function MemberDetailPanel({
             <p className="text-xs text-muted-foreground">{employee?.positionTitle ?? ''}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] text-muted-foreground">
-                {contractTypeLabels[employee?.contractType ?? ''] ?? employee?.contractType}
-                {employee?.workDaysPerWeek ? ` · ${employee.workDaysPerWeek} Tage/Woche` : ''}
+                {t(contractTypeKeys[employee?.contractType ?? ''] ?? employee?.contractType ?? '')}
+                {employee?.workDaysPerWeek ? ` · ${employee.workDaysPerWeek} ${t('team.detail.daysPerWeek')}` : ''}
               </span>
             </div>
           </div>
@@ -123,7 +125,7 @@ export function MemberDetailPanel({
               className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
             >
               <PhoneCall className="h-3.5 w-3.5" />
-              Anrufen
+              {t('team.detail.call')}
             </button>
             <button
               onClick={onMessage}
@@ -137,7 +139,7 @@ export function MemberDetailPanel({
           {/* Contact Info */}
           {employee?.userEmail && (
             <section className="space-y-2">
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Kontakt</h4>
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('team.detail.contact')}</h4>
               <div className="space-y-1.5 text-xs">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Mail className="h-3.5 w-3.5 shrink-0" />
@@ -146,7 +148,7 @@ export function MemberDetailPanel({
                 {employee.emergencyContactPhone && (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Phone className="h-3.5 w-3.5 shrink-0" />
-                    <span>{employee.emergencyContactPhone} (Notfallkontakt: {employee.emergencyContactName})</span>
+                    <span>{employee.emergencyContactPhone} ({t('team.detail.emergencyContact')}: {employee.emergencyContactName})</span>
                   </div>
                 )}
                 {employee.addressCity && (
@@ -163,7 +165,7 @@ export function MemberDetailPanel({
 
           {/* Employment */}
           <section className="space-y-2">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Anstellung</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('team.detail.employment')}</h4>
             <div className="space-y-1.5 text-xs">
               {employee?.department && (
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -173,18 +175,18 @@ export function MemberDetailPanel({
               )}
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Shield className="h-3.5 w-3.5 shrink-0" />
-                <span>{contractTypeLabels[employee?.contractType ?? ''] ?? employee?.contractType}</span>
+                <span>{t(contractTypeKeys[employee?.contractType ?? ''] ?? employee?.contractType ?? '')}</span>
               </div>
               {employee?.startDate && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-3.5 w-3.5 shrink-0" />
-                  <span>Seit {new Date(employee.startDate).toLocaleDateString('de-DE')} ({tenure})</span>
+                  <span>{t('team.detail.since')} {new Date(employee.startDate).toLocaleDateString('de-DE')} ({tenure})</span>
                 </div>
               )}
               {employee?.managerName && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Briefcase className="h-3.5 w-3.5 shrink-0" />
-                  <span>Vorgesetzt: {employee.managerName}</span>
+                  <span>{t('team.detail.reportsTo')}: {employee.managerName}</span>
                 </div>
               )}
             </div>
@@ -193,11 +195,11 @@ export function MemberDetailPanel({
           {/* Leave Balance */}
           {balance && (
             <section className="space-y-2">
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Urlaubsanspruch</h4>
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('team.detail.leaveEntitlement')}</h4>
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-end gap-2 mb-2">
                   <span className="text-2xl font-bold text-primary">{balance.remaining}</span>
-                  <span className="text-sm text-muted-foreground mb-0.5">/ {balance.totalEntitlement} Tage</span>
+                  <span className="text-sm text-muted-foreground mb-0.5">/ {balance.totalEntitlement} {t('team.detail.days')}</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-secondary overflow-hidden mb-2">
                   <div
@@ -206,10 +208,10 @@ export function MemberDetailPanel({
                   />
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>{balance.used} genommen</span>
+                  <span>{balance.used} {t('team.detail.taken')}</span>
                   {balance.carriedOver > 0 && (
                     <span className={balance.carryoverExpired ? 'text-error' : ''}>
-                      {balance.carriedOver} Übertrag{balance.carryoverExpired ? ' (abgelaufen)' : ''}
+                      {balance.carriedOver} {t('team.detail.carryover')}{balance.carryoverExpired ? ` (${t('team.detail.expired')})` : ''}
                     </span>
                   )}
                 </div>
@@ -225,7 +227,7 @@ export function MemberDetailPanel({
             onClick={onEdit}
             className="w-full rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
           >
-            Profil bearbeiten
+            {t('team.detail.editProfile')}
           </button>
         </div>
       )}
@@ -243,6 +245,7 @@ function DocumentsSection({
   memberId: string
   documents: { id: string; fileName?: string; categoryName?: string; createdAt: string }[]
 }) {
+  const { t } = useTranslation()
   const { data: categories } = useDocumentCategories(memberId)
   const uploadMutation = useUploadEmployeeDocument()
 
@@ -254,7 +257,7 @@ function DocumentsSection({
 
   const handleUpload = () => {
     if (!categoryId) {
-      toast.error('Bitte Kategorie wählen')
+      toast.error(t('team.documents.selectCategory'))
       return
     }
     // In real app, fileId comes from a file upload service. Here we simulate.
@@ -288,7 +291,7 @@ function DocumentsSection({
         className="flex items-center gap-1 w-full text-left"
       >
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Dokumente ({documents.length})
+          {t('team.documents.title')} ({documents.length})
         </h4>
         <Chevron className="h-3 w-3 text-muted-foreground ml-auto" />
       </button>
@@ -301,7 +304,7 @@ function DocumentsSection({
               {documents.map((doc) => (
                 <div key={doc.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                   <FileText className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{doc.fileName ?? doc.categoryName ?? 'Dokument'}</span>
+                  <span className="truncate">{doc.fileName ?? doc.categoryName ?? t('team.documents.document')}</span>
                   <span className="text-[10px] ml-auto shrink-0">
                     {new Date(doc.createdAt).toLocaleDateString('de-DE')}
                   </span>
@@ -309,7 +312,7 @@ function DocumentsSection({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground italic">Keine Dokumente vorhanden</p>
+            <p className="text-xs text-muted-foreground italic">{t('team.documents.noDocuments')}</p>
           )}
 
           {/* Upload area */}
@@ -321,18 +324,18 @@ function DocumentsSection({
               onClick={() => setShowUpload(true)}
             >
               <Upload className="mr-1.5 h-3.5 w-3.5" />
-              Dokument hochladen
+              {t('team.documents.uploadDocument')}
             </Button>
           ) : (
             <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
               <div className="space-y-1">
-                <Label className="text-xs">Kategorie</Label>
+                <Label className="text-xs">{t('team.documents.category')}</Label>
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
                   className="w-full rounded border border-border bg-input-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 >
-                  <option value="">Wählen...</option>
+                  <option value="">{t('team.member.selectPlaceholder')}</option>
                   {(categories ?? []).map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
@@ -349,7 +352,7 @@ function DocumentsSection({
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Datei</Label>
+                <Label className="text-xs">{t('team.documents.file')}</Label>
                 <Input
                   type="file"
                   onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
@@ -357,11 +360,11 @@ function DocumentsSection({
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Notizen (optional)</Label>
+                <Label className="text-xs">{t('team.documents.notesOptional')}</Label>
                 <Input
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="z.B. Gültigkeit, Bemerkungen"
+                  placeholder={t('team.documents.notesPlaceholder')}
                   className="text-xs h-8"
                 />
               </div>
@@ -377,7 +380,7 @@ function DocumentsSection({
                   ) : (
                     <Upload className="mr-1 h-3 w-3" />
                   )}
-                  Hochladen
+                  {t('common.upload')}
                 </Button>
                 <Button
                   variant="outline"
@@ -385,7 +388,7 @@ function DocumentsSection({
                   className="text-xs h-7"
                   onClick={() => { setShowUpload(false); setCategoryId(''); setNotes(''); setFileName('') }}
                 >
-                  Abbrechen
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -401,8 +404,8 @@ function getTenure(joinDate: string): string {
   const now = new Date()
   const months = (now.getFullYear() - join.getFullYear()) * 12 + (now.getMonth() - join.getMonth())
   if (months < 1) return 'Neu'
-  if (months < 12) return `${months} Monat${months > 1 ? 'e' : ''}`
+  if (months < 12) return `${months}M`
   const years = Math.floor(months / 12)
   const rem = months % 12
-  return rem > 0 ? `${years}J ${rem}M` : `${years} Jahr${years > 1 ? 'e' : ''}`
+  return rem > 0 ? `${years}J ${rem}M` : `${years}J`
 }

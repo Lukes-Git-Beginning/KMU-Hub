@@ -5,6 +5,7 @@
  * Custom: Date + Time inputs with confirm button.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Clock } from 'lucide-react'
 import {
   Popover,
@@ -58,6 +59,7 @@ function formatSnoozeDisplay(date: Date): string {
 }
 
 export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [customDate, setCustomDate] = useState(
     formatDateForInput(nextDayAt9()),
@@ -83,7 +85,7 @@ export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
       <PopoverContent className="w-64 p-3" align="start">
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground mb-2">
-            Später erinnern
+            {t('kommunikation.snooze.remindLater')}
           </p>
 
           {/* Presets */}
@@ -92,14 +94,14 @@ export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            1 Stunde
+            {t('kommunikation.snooze.oneHour')}
           </button>
           <button
             onClick={() => handlePreset(nextDayAt9())}
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            Morgen frueh
+            {t('kommunikation.snooze.tomorrowMorning')}
             <span className="ml-auto text-xs text-muted-foreground">
               {formatSnoozeDisplay(nextDayAt9())}
             </span>
@@ -109,7 +111,7 @@ export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            Nächste Woche
+            {t('kommunikation.snooze.nextWeek')}
             <span className="ml-auto text-xs text-muted-foreground">
               {formatSnoozeDisplay(nextMondayAt9())}
             </span>
@@ -120,7 +122,7 @@ export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
 
           {/* Custom */}
           <p className="text-xs font-medium text-muted-foreground mb-1">
-            Benutzerdefiniert
+            {t('kommunikation.snooze.custom')}
           </p>
           <div className="flex gap-2">
             <input
@@ -140,7 +142,7 @@ export function SnoozePopover({ onSnooze, children }: SnoozePopoverProps) {
             onClick={handleCustom}
             className="mt-1 w-full rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Später erinnern
+            {t('kommunikation.snooze.remindLater')}
           </button>
         </div>
       </PopoverContent>

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import {
   Select,
@@ -33,6 +34,7 @@ function isInRange(date: string, start: string, end: string): boolean {
 }
 
 export function AbsenceCalendar() {
+  const { t } = useTranslation()
   const [currentDate, setCurrentDate] = useState(() => new Date())
   const [weeksToShow, setWeeksToShow] = useState(2)
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
@@ -115,10 +117,10 @@ export function AbsenceCalendar() {
           {/* Department filter */}
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
             <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="Abteilung..." />
+              <SelectValue placeholder={t('team.absence.departmentPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Alle Abteilungen</SelectItem>
+              <SelectItem value="all">{t('team.absence.allDepartments')}</SelectItem>
               {departments.map((dept) => (
                 <SelectItem key={dept} value={dept}>{dept}</SelectItem>
               ))}
@@ -133,7 +135,7 @@ export function AbsenceCalendar() {
                 weeksToShow === w ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'
               }`}
             >
-              {w} Wochen
+              {t('team.absence.weeks', { count: w })}
             </button>
           ))}
         </div>
@@ -153,7 +155,7 @@ export function AbsenceCalendar() {
             <thead>
               <tr className="bg-secondary/50">
                 <th className="w-40 border-r border-border px-3 py-2 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Mitarbeiter
+                  {t('team.absence.employee')}
                 </th>
                 {allDays.map((d, i) => {
                   const today = formatDateKey(d) === formatDateKey(new Date())
@@ -178,7 +180,7 @@ export function AbsenceCalendar() {
               {employeeAbsences.length === 0 && (
                 <tr>
                   <td colSpan={allDays.length + 1} className="py-8 text-center text-sm text-muted-foreground">
-                    Keine Abwesenheiten im gewaehlten Zeitraum
+                    {t('team.absence.noAbsences')}
                   </td>
                 </tr>
               )}
@@ -214,7 +216,7 @@ export function AbsenceCalendar() {
                     const barLabel = matchingEntry
                       ? showReasons
                         ? matchingEntry.leaveTypeName
-                        : 'Abwesend'
+                        : t('team.absence.absent')
                       : null
 
                     return (
@@ -226,7 +228,7 @@ export function AbsenceCalendar() {
                           <div
                             className="mx-auto rounded px-1 py-0.5 text-[8px] font-medium"
                             style={{ backgroundColor: `${barColor}25`, color: barColor }}
-                            title={showReasons ? matchingEntry.leaveTypeName : 'Abwesend'}
+                            title={showReasons ? matchingEntry.leaveTypeName : t('team.absence.absent')}
                           >
                             {barLabel}
                           </div>

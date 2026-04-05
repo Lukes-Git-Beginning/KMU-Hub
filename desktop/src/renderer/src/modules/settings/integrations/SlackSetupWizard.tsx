@@ -8,6 +8,7 @@
  * 4. Fertig -- Summary and activation toggle
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -58,6 +59,7 @@ export function SlackSetupWizard({
   onClose,
   existingConfig,
 }: SlackSetupWizardProps) {
+  const { t } = useTranslation()
   const [step, setStep] = useState(1)
   const [credMode, setCredMode] = useState<CredentialMode>('manual')
   const [botToken, setBotToken] = useState('')

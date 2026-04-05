@@ -6,6 +6,7 @@
  * Mock data for design — backend generates actual QR codes via API.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   QrCode,
   Copy,
@@ -199,17 +200,18 @@ export function QRRechnungPreview({
   onOpenChange,
   invoiceNumber,
 }: QRRechnungPreviewProps) {
+  const { t } = useTranslation()
   const [showDetails, setShowDetails] = useState(true)
   const data = { ...mockBillData, invoiceNumber: invoiceNumber ?? mockBillData.invoiceNumber }
 
   const handleCopyIBAN = () => {
     navigator.clipboard?.writeText(data.creditorIBAN.replace(/\s/g, ''))
-    toast.success('IBAN kopiert')
+    toast.success(t('finanzen.qrBill.ibanCopied'))
   }
 
   const handleCopyReference = () => {
     navigator.clipboard?.writeText(data.reference.replace(/\s/g, ''))
-    toast.success('Referenz kopiert')
+    toast.success(t('finanzen.qrBill.referenceCopied'))
   }
 
   return (
@@ -244,7 +246,7 @@ export function QRRechnungPreview({
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {showDetails ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-              {showDetails ? 'Details ausblenden' : 'Details anzeigen'}
+              {showDetails ? t('finanzen.qrBill.hideDetails') : t('finanzen.qrBill.showDetails')}
             </button>
           </div>
 
@@ -265,21 +267,21 @@ export function QRRechnungPreview({
                 </button>
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-2 items-center">
-                <span className="text-[11px] text-muted-foreground">Referenztyp</span>
+                <span className="text-[11px] text-muted-foreground">{t('finanzen.qrBill.referenceType')}</span>
                 <span className="text-sm text-foreground">
-                  {data.referenceType === 'QRR' ? 'QR-Referenz' : data.referenceType === 'SCOR' ? 'Creditor Reference' : 'Ohne Referenz'}
+                  {data.referenceType === 'QRR' ? t('finanzen.qrBill.qrReference') : data.referenceType === 'SCOR' ? 'Creditor Reference' : t('finanzen.qrBill.noReference')}
                 </span>
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-2 items-center">
-                <span className="text-[11px] text-muted-foreground">Betrag</span>
+                <span className="text-[11px] text-muted-foreground">{t('finanzen.banking.amount')}</span>
                 <span className="text-sm font-medium text-foreground">{data.currency} {data.amount}</span>
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-2 items-center">
-                <span className="text-[11px] text-muted-foreground">Empfänger</span>
+                <span className="text-[11px] text-muted-foreground">{t('finanzen.qrBill.recipient')}</span>
                 <span className="text-sm text-foreground">{data.creditorName}, {data.creditorZipCity}</span>
               </div>
               <div className="grid grid-cols-[110px_1fr] gap-2 items-center">
-                <span className="text-[11px] text-muted-foreground">Zahler</span>
+                <span className="text-[11px] text-muted-foreground">{t('finanzen.qrBill.payer')}</span>
                 <span className="text-sm text-foreground">{data.debtorName}, {data.debtorZipCity}</span>
               </div>
             </div>
@@ -288,28 +290,28 @@ export function QRRechnungPreview({
           {/* Actions */}
           <div className="flex items-center justify-end gap-2">
             <button
-              onClick={() => toast.success('QR-Rechnung als PDF heruntergeladen')}
+              onClick={() => toast.success(t('finanzen.qrBill.pdfDownloaded'))}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors"
             >
               <Download className="h-3.5 w-3.5" />
-              PDF herunterladen
+              {t('finanzen.pdf.downloadPdf')}
             </button>
             <button
-              onClick={() => toast.success('QR-Rechnung wird gedruckt...')}
+              onClick={() => toast.success(t('finanzen.pdf.printing'))}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors"
             >
               <Printer className="h-3.5 w-3.5" />
-              Drucken
+              {t('finanzen.pdf.print')}
             </button>
             <button
               onClick={() => {
                 onOpenChange(false)
-                toast.success('QR-Rechnung an Rechnung angehaengt')
+                toast.success(t('finanzen.qrBill.attachedToInvoice'))
               }}
               className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <Check className="h-3.5 w-3.5" />
-              An Rechnung anfügen
+              {t('finanzen.qrBill.attachToInvoice')}
             </button>
           </div>
         </div>
@@ -334,7 +336,7 @@ export function QRBillIndicator({ hasQRBill, invoiceNumber: _invoiceNumber, onPr
     <button
       onClick={onPreview}
       className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20 transition-colors"
-      title="QR-Rechnung anzeigen"
+      title={t('finanzen.qrBill.showQrBill')}
     >
       <QrCode className="h-3 w-3" />
       QR-Bill

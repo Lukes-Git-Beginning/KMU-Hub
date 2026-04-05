@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ interface InviteMemberDialogProps {
 }
 
 export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogProps) {
+  const { t } = useTranslation()
   const createEmployee = useCreateEmployee()
   const { data: employeesData } = useEmployees()
 
@@ -90,7 +92,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
       },
       {
         onSuccess: () => {
-          toast.success(`Einladung an ${firstName} ${lastName} gesendet`)
+          toast.success(t('team.invite.sent', { name: `${firstName} ${lastName}` }))
           reset()
           onOpenChange(false)
         },
@@ -102,25 +104,25 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v) }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Mitglied einladen</DialogTitle>
+          <DialogTitle>{t('team.invite.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Name */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Vorname *</Label>
+              <Label>{t('team.invite.firstName')} *</Label>
               <Input
                 autoFocus
-                placeholder="Vorname"
+                placeholder={t('team.invite.firstName')}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Nachname *</Label>
+              <Label>{t('team.invite.lastName')} *</Label>
               <Input
-                placeholder="Nachname"
+                placeholder={t('team.invite.lastName')}
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
               />
@@ -129,10 +131,10 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
 
           {/* Email */}
           <div className="space-y-1.5">
-            <Label>E-Mail *</Label>
+            <Label>{t('team.invite.email')} *</Label>
             <Input
               type="email"
-              placeholder="email@firma.de"
+              placeholder={t('team.invite.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -140,9 +142,9 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
 
           {/* Phone */}
           <div className="space-y-1.5">
-            <Label>Telefon</Label>
+            <Label>{t('team.invite.phone')}</Label>
             <Input
-              placeholder="+49 170 ..."
+              placeholder={t('team.member.phonePlaceholder')}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
@@ -151,18 +153,18 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           {/* Role & Department */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Rolle</Label>
+              <Label>{t('team.invite.role')}</Label>
               <Input
-                placeholder="z.B. Developer"
+                placeholder={t('team.invite.rolePlaceholder')}
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Abteilung</Label>
+              <Label>{t('team.member.department')}</Label>
               <Select value={department} onValueChange={setDepartment}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Wählen..." />
+                  <SelectValue placeholder={t('team.member.selectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {departments.map((d) => (
@@ -176,21 +178,21 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
           {/* Contract & Workload */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Vertragsart</Label>
+              <Label>{t('team.member.contractType')}</Label>
               <Select value={contractType} onValueChange={(v) => setContractType(v as typeof contractType)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Vollzeit">Vollzeit</SelectItem>
-                  <SelectItem value="Teilzeit">Teilzeit</SelectItem>
-                  <SelectItem value="Praktikum">Praktikum</SelectItem>
-                  <SelectItem value="Freelance">Freelance</SelectItem>
+                  <SelectItem value="Vollzeit">{t('team.contractType.fullTime')}</SelectItem>
+                  <SelectItem value="Teilzeit">{t('team.contractType.partTime')}</SelectItem>
+                  <SelectItem value="Praktikum">{t('team.contractType.internship')}</SelectItem>
+                  <SelectItem value="Freelance">{t('team.contractType.freelance')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Pensum (%)</Label>
+              <Label>{t('team.member.workload')}</Label>
               <Input
                 type="number"
                 min={10}
@@ -204,7 +206,7 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
 
           {/* Location */}
           <div className="space-y-1.5">
-            <Label>Standort</Label>
+            <Label>{t('team.member.location')}</Label>
             <Input
               placeholder="Berlin"
               value={location}
@@ -214,9 +216,9 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
 
           {/* Welcome message */}
           <div className="space-y-1.5">
-            <Label>Willkommensnachricht (optional)</Label>
+            <Label>{t('team.invite.welcomeMessage')}</Label>
             <Textarea
-              placeholder="Schreibe eine persönliche Nachricht..."
+              placeholder={t('team.invite.welcomeMessagePlaceholder')}
               value={welcomeMessage}
               onChange={(e) => setWelcomeMessage(e.target.value)}
               rows={3}
@@ -226,10 +228,10 @@ export function InviteMemberDialog({ open, onOpenChange }: InviteMemberDialogPro
 
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onOpenChange(false) }}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleInvite} disabled={!firstName.trim() || !lastName.trim() || !email.trim() || createEmployee.isPending}>
-            {createEmployee.isPending ? 'Sendet...' : 'Einladung senden'}
+            {createEmployee.isPending ? t('team.invite.sending') : t('team.invite.sendInvitation')}
           </Button>
         </DialogFooter>
       </DialogContent>

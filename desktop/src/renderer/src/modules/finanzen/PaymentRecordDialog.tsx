@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -22,11 +23,11 @@ import { useRecordPayment, useInvoice, usePayments } from '@/api/hooks/useFinanc
 import { formatEUR } from '@/stores/finance'
 import type { PaymentMethod } from '@/types/finance-types'
 
-const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: 'bank_transfer', label: 'Überweisung' },
-  { value: 'cash', label: 'Barzahlung' },
-  { value: 'credit_card', label: 'Kreditkarte' },
-  { value: 'other', label: 'Sonstige' },
+const PAYMENT_METHODS: { value: PaymentMethod; labelKey: string }[] = [
+  { value: 'bank_transfer', labelKey: 'finanzen.paymentMethod.bankTransfer' },
+  { value: 'cash', labelKey: 'finanzen.paymentMethod.cash' },
+  { value: 'credit_card', labelKey: 'finanzen.paymentMethod.creditCard' },
+  { value: 'other', labelKey: 'finanzen.paymentMethod.other' },
 ]
 
 interface PaymentRecordDialogProps {
@@ -40,6 +41,7 @@ export function PaymentRecordDialog({
   onOpenChange,
   invoiceId,
 }: PaymentRecordDialogProps) {
+  const { t } = useTranslation()
   const recordPayment = useRecordPayment()
   const { data: invoice } = useInvoice(invoiceId ?? '')
   const { data: paymentsData } = usePayments(invoiceId ?? '')
@@ -85,7 +87,7 @@ export function PaymentRecordDialog({
       },
       {
         onSuccess: () => {
-          toast.success(`Zahlung von ${formatEUR(amountNum)} erfasst`)
+          toast.success(t('finanzen.payment.recorded', { amount: formatEUR(amountNum) }))
           onOpenChange(false)
         },
         onError: (err) => toast.error(err.message),
@@ -97,26 +99,26 @@ export function PaymentRecordDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Zahlung erfassen</DialogTitle>
+          <DialogTitle>{t('finanzen.payment.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Invoice summary */}
           <div className="rounded-md bg-secondary/50 p-3 text-xs space-y-1">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Rechnung</span>
+              <span className="text-muted-foreground">{t('finanzen.invoice')}</span>
               <span className="font-medium text-foreground font-mono">
                 {invoice?.invoice_number ?? '--'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Kunde</span>
+              <span className="text-muted-foreground">{t('finanzen.customer')}</span>
               <span className="text-foreground">
                 {invoice?.customer.name ?? '--'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Offener Betrag</span>
+              <span className="text-muted-foreground">{t('finanzen.payment.openAmount')}</span>
               <span className="font-medium text-primary">
                 {formatEUR(remaining)}
               </span>
@@ -124,7 +126,7 @@ export function PaymentRecordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Betrag (EUR)</Label>
+            <Label>{t('finanzen.payment.amountEUR')}</Label>
             <Input
               autoFocus
               type="number"
@@ -136,7 +138,7 @@ export function PaymentRecordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Datum</Label>
+            <Label>{t('finanzen.banking.date')}</Label>
             <Input
               type="date"
               value={date}
@@ -145,7 +147,7 @@ export function PaymentRecordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Zahlungsart</Label>
+            <Label>{t('finanzen.payment.paymentMethod')}</Label>
             <Select
               value={method}
               onValueChange={(v) => setMethod(v as PaymentMethod)}
@@ -156,7 +158,7 @@ export function PaymentRecordDialog({
               <SelectContent>
                 {PAYMENT_METHODS.map((m) => (
                   <SelectItem key={m.value} value={m.value}>
-                    {m.label}
+                    {t(m.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -164,7 +166,7 @@ export function PaymentRecordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Referenz / Beleg-Nr. (optional)</Label>
+            <Label>{t('finanzen.payment.reference')}</Label>
             <Input
               placeholder="z.B. BELEG-043"
               value={reference}
@@ -173,9 +175,9 @@ export function PaymentRecordDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Notizen (optional)</Label>
+            <Label>{t('finanzen.payment.notesOptional')}</Label>
             <Textarea
-              placeholder="Zusätzliche Informationen..."
+              placeholder={t('finanzen.invoiceForm.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
@@ -185,13 +187,13 @@ export function PaymentRecordDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleRecord}
             disabled={Number(amount) <= 0 || recordPayment.isPending}
           >
-            {recordPayment.isPending ? 'Speichert...' : 'Zahlung erfassen'}
+            {recordPayment.isPending ? t('finanzen.saving') : t('finanzen.payment.title')}
           </Button>
         </DialogFooter>
       </DialogContent>

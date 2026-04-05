@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Download, FileSpreadsheet, FileText, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +43,7 @@ const FORMAT_OPTIONS: { key: ExportFormat; label: string; description: string; i
 ]
 
 export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
+  const { t } = useTranslation()
   const entries = useTimeTrackingStore((s) => s.entries)
   const categories = useTimeTrackingStore((s) => s.categories)
 
@@ -69,11 +71,11 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
 
   const handleExport = () => {
     if (filteredEntries.length === 0) {
-      toast.error('Keine Einträge im gewaehlten Zeitraum')
+      toast.error(t('profil.zeiterfassung.export.noEntries'))
       return
     }
     const formatLabel = FORMAT_OPTIONS.find((f) => f.key === format)?.label ?? format
-    toast.success(`${formatLabel}-Export gestartet — ${filteredEntries.length} Einträge`)
+    toast.success(t('profil.zeiterfassung.export.started', { format: formatLabel, count: filteredEntries.length }))
     onOpenChange(false)
   }
 
@@ -83,14 +85,14 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="h-5 w-5 text-primary" />
-            Zeitdaten exportieren
+            {t('profil.zeiterfassung.export.title')}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
           {/* Format Selection */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Format</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.export.format')}</label>
             <div className="grid grid-cols-3 gap-2">
               {FORMAT_OPTIONS.map((opt) => {
                 const Icon = opt.icon
@@ -127,7 +129,7 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
           {/* Date Range */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Von</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.export.from')}</label>
               <Input
                 type="date"
                 value={dateFrom}
@@ -135,7 +137,7 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Bis</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.export.to')}</label>
               <Input
                 type="date"
                 value={dateTo}
@@ -147,13 +149,13 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
 
           {/* Category Filter */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Kategorie (optional)</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.export.category')} ({t('common.optional')})</label>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Alle Kategorien" />
+                <SelectValue placeholder={t('profil.zeiterfassung.export.allCategories')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Alle Kategorien</SelectItem>
+                <SelectItem value="all">{t('profil.zeiterfassung.export.allCategories')}</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     <span className="flex items-center gap-2">
@@ -172,14 +174,14 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
           {/* Preview */}
           <div className="rounded-lg border border-border bg-secondary/30 p-4">
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-              Vorschau
+              {t('profil.zeiterfassung.export.preview')}
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-2xl font-bold text-foreground tabular-nums">
                   {filteredEntries.length}
                 </p>
-                <p className="text-xs text-muted-foreground">Einträge</p>
+                <p className="text-xs text-muted-foreground">{t('profil.zeiterfassung.entries')}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground tabular-nums">
@@ -195,11 +197,11 @@ export default function ExportDialog({ open, onOpenChange }: ExportDialogProps) 
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleExport} disabled={filteredEntries.length === 0} className="gap-2">
             <Download className="h-4 w-4" />
-            Exportieren
+            {t('profil.zeiterfassung.export.export')}
           </Button>
         </DialogFooter>
       </DialogContent>

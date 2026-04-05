@@ -1,5 +1,6 @@
 // TODO: Wire to backend — no canned response API exists yet. Currently uses mock store data.
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Zap, Search, Hash } from 'lucide-react'
 import { useKommunikationStore } from '@/stores/kommunikation'
 import {
@@ -17,6 +18,7 @@ interface CannedResponsePickerProps {
 }
 
 export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
+  const { t } = useTranslation()
   const cannedResponses = useKommunikationStore((s) => s.cannedResponses)
   const incrementUsage = useKommunikationStore((s) => s.incrementCannedResponseUsage)
   const [open, setOpen] = useState(false)
@@ -57,7 +59,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
       <PopoverTrigger asChild>
         <button
           className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-          title="Schnellantwort einfügen"
+          title={t('kommunikation.cannedResponse.insertTitle')}
         >
           <Zap className="h-4 w-4" />
         </button>
@@ -76,7 +78,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Suchen oder /kürzel..."
+              placeholder={t('kommunikation.cannedResponse.searchPlaceholder')}
               className="h-7 w-full rounded border border-border bg-transparent pl-7 pr-2 text-xs outline-none placeholder:text-muted-foreground focus:border-primary"
               autoFocus
             />
@@ -87,7 +89,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
         <div className="max-h-64 overflow-y-auto">
           {Object.keys(grouped).length === 0 ? (
             <div className="p-3 text-center text-xs text-muted-foreground">
-              Keine Schnellantworten gefunden
+              {t('kommunikation.cannedResponse.noResults')}
             </div>
           ) : (
             Object.entries(grouped).map(([category, responses]) => (

@@ -11,6 +11,7 @@
  * - Fallback: when not connected, shows "Manueller CSV-Export verfügbar"
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -56,6 +57,7 @@ interface DatevSettingsPanelProps {
 }
 
 export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps) {
+  const { t } = useTranslation()
   const { data: connection } = useDatevConnectionStatus()
   const disconnect = useDatevDisconnect()
   const getAuthURL = useDatevGetAuthURL()

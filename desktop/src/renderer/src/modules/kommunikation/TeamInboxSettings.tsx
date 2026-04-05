@@ -5,6 +5,7 @@
  * (manual/round-robin), visibility (open/private), and member management.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, UserPlus, Trash2 } from 'lucide-react'
 import {
   Dialog,
@@ -39,6 +40,7 @@ export function TeamInboxSettings({
   open,
   onOpenChange,
 }: TeamInboxSettingsProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [assignmentMode, setAssignmentMode] =
@@ -113,9 +115,9 @@ export function TeamInboxSettings({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Team-Postfach: {team.name}</DialogTitle>
+            <DialogTitle>{t('kommunikation.teamInbox.settingsTitle', { name: team.name })}</DialogTitle>
             <DialogDescription>
-              Einstellungen für das Team-Postfach bearbeiten.
+              {t('kommunikation.teamInbox.settingsDescription')}
             </DialogDescription>
           </DialogHeader>
 
@@ -123,7 +125,7 @@ export function TeamInboxSettings({
             {/* Name */}
             <div>
               <label className="text-xs font-medium text-foreground">
-                Name
+                {t('kommunikation.teamInbox.name')}
               </label>
               <input
                 type="text"
@@ -136,7 +138,7 @@ export function TeamInboxSettings({
             {/* Description */}
             <div>
               <label className="text-xs font-medium text-foreground">
-                Beschreibung
+                {t('kommunikation.teamInbox.description')}
               </label>
               <textarea
                 value={description}
@@ -149,7 +151,7 @@ export function TeamInboxSettings({
             {/* Assignment mode */}
             <div>
               <label className="text-xs font-medium text-foreground">
-                Zuweisungsmodus
+                {t('kommunikation.teamInbox.assignmentMode')}
               </label>
               <div className="mt-1 flex gap-4">
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -161,7 +163,7 @@ export function TeamInboxSettings({
                     onChange={() => setAssignmentMode('manual')}
                     className="accent-primary"
                   />
-                  Manuell
+                  {t('kommunikation.teamInbox.manual')}
                 </label>
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                   <input
@@ -180,7 +182,7 @@ export function TeamInboxSettings({
             {/* Visibility */}
             <div>
               <label className="text-xs font-medium text-foreground">
-                Sichtbarkeit
+                {t('kommunikation.teamInbox.visibility')}
               </label>
               <div className="mt-1 flex gap-4">
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">

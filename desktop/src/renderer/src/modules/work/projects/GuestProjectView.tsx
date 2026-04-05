@@ -7,6 +7,7 @@
  * Mock data for design — backend swap: real project data from guest API.
  */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2,
   Circle,
@@ -107,6 +108,7 @@ interface GuestProjectViewProps {
 // ---------------------------------------------------------------------------
 
 export default function GuestProjectView({ projectId: _projectId }: GuestProjectViewProps) {
+  const { t } = useTranslation()
   const project = MOCK_PROJECT
   const progressPercent = useMemo(
     () =>
@@ -130,13 +132,13 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
                 {project.name}
               </h1>
               <p className="text-xs text-muted-foreground">
-                Projektübersicht (Gastzugang)
+                {t('work.guest.subtitle')}
               </p>
             </div>
           </div>
           <Badge variant="outline" className="text-xs">
             <ExternalLink className="h-3 w-3 mr-1" />
-            Lesezugriff
+            {t('work.guest.readOnly')}
           </Badge>
         </div>
       </header>
@@ -154,25 +156,25 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
         <section className="grid grid-cols-4 gap-4">
           <MetricCard
             icon={TrendingUp}
-            label="Fortschritt"
+            label={t('work.guest.progress')}
             value={`${progressPercent}%`}
-            sublabel={`${project.completedTasks} / ${project.totalTasks} Aufgaben`}
+            sublabel={t('work.guest.taskCount', { completed: project.completedTasks, total: project.totalTasks })}
           />
           <MetricCard
             icon={Users}
-            label="Team"
+            label={t('work.guest.team')}
             value={`${project.teamSize}`}
-            sublabel="Mitarbeiter"
+            sublabel={t('work.guest.employees')}
           />
           <MetricCard
             icon={CalendarDays}
-            label="Startdatum"
+            label={t('work.guest.startDate')}
             value={formatDate(project.startDate)}
             sublabel=""
           />
           <MetricCard
             icon={CalendarDays}
-            label="Zieldatum"
+            label={t('work.guest.targetDate')}
             value={formatDate(project.targetDate)}
             sublabel=""
           />
@@ -181,7 +183,7 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
         {/* Overall progress bar */}
         <section>
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="font-medium text-foreground">Gesamtfortschritt</span>
+            <span className="font-medium text-foreground">{t('work.guest.overallProgress')}</span>
             <span className="font-mono text-muted-foreground">{progressPercent}%</span>
           </div>
           <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
@@ -196,7 +198,7 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
         <section>
           <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
             <Milestone className="h-4 w-4 text-muted-foreground" />
-            Meilensteine
+            {t('work.guest.milestones')}
           </h2>
           <div className="space-y-3">
             {MOCK_MILESTONES.map((ms) => (
@@ -209,7 +211,7 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
         <section>
           <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
-            Aktuelle Status-Updates
+            {t('work.guest.statusUpdates')}
           </h2>
           <div className="space-y-4">
             {MOCK_STATUS_UPDATES.map((update) => (
@@ -225,7 +227,7 @@ export default function GuestProjectView({ projectId: _projectId }: GuestProject
           <p className="text-xs text-muted-foreground">
             Powered by{' '}
             <span className="font-semibold text-foreground">Cosmi</span>
-            {' '}&mdash; All-in-One CRM für DACH-KMUs
+            {' '}&mdash; {t('work.guest.tagline')}
           </p>
         </div>
       </footer>
@@ -272,12 +274,13 @@ function MilestoneRow({ milestone }: { milestone: MockMilestone }) {
       <Circle className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
     )
 
+  const { t } = useTranslation()
   const statusBadge =
     milestone.status === 'completed'
-      ? 'Abgeschlossen'
+      ? t('work.guest.statusCompleted')
       : milestone.status === 'in-progress'
-        ? 'In Bearbeitung'
-        : 'Geplant'
+        ? t('work.guest.statusInProgress')
+        : t('work.guest.statusPlanned')
 
   const badgeVariant: 'default' | 'secondary' | 'outline' =
     milestone.status === 'completed'
@@ -301,7 +304,7 @@ function MilestoneRow({ milestone }: { milestone: MockMilestone }) {
           {milestone.title}
         </p>
         <p className="text-[10px] text-muted-foreground">
-          Fällig: {formatDate(milestone.dueDate)}
+          {t('work.guest.dueDate')}: {formatDate(milestone.dueDate)}
         </p>
       </div>
 

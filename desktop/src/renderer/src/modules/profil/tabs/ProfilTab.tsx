@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Camera, Save, X, Mail } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { LazyRichTextEditor as RichTextEditor } from '@/components/shared/RichTe
 import { toast } from 'sonner'
 
 export default function ProfilTab() {
+  const { t } = useTranslation()
   const profile = useSettingsStore((s) => s.profile)
   const updateProfile = useSettingsStore((s) => s.updateProfile)
   const mailSignature = useSettingsStore((s) => s.mail.signature)
@@ -23,10 +25,10 @@ export default function ProfilTab() {
 
   const initials = `${form.firstName.charAt(0)}${form.lastName.charAt(0)}`.toUpperCase()
   const role = user?.roles?.includes('admin')
-    ? 'Administrator'
+    ? t('profil.role.admin')
     : user?.roles?.includes('manager')
-      ? 'Projektleiter'
-      : 'Mitarbeiter'
+      ? t('profil.role.manager')
+      : t('profil.role.employee')
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -36,7 +38,7 @@ export default function ProfilTab() {
   const handleSave = () => {
     updateProfile(form)
     setHasChanges(false)
-    toast.success('Profil gespeichert')
+    toast.success(t('profil.info.profileSaved'))
   }
 
   const handleCancel = () => {
@@ -69,7 +71,7 @@ export default function ProfilTab() {
                 {role}
               </Badge>
               <Badge variant="outline" className="border-success/30 text-success">
-                Online
+                {t('profil.status.online')}
               </Badge>
             </div>
           </div>
@@ -78,18 +80,18 @@ export default function ProfilTab() {
 
       {/* Form */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-        <h3 className="font-semibold text-foreground">Persönliche Informationen</h3>
+        <h3 className="font-semibold text-foreground">{t('profil.info.personalInfo')}</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Vorname</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.field.firstName')}</label>
             <Input
               value={form.firstName}
               onChange={(e) => handleChange('firstName', e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Nachname</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.field.lastName')}</label>
             <Input
               value={form.lastName}
               onChange={(e) => handleChange('lastName', e.target.value)}
@@ -98,7 +100,7 @@ export default function ProfilTab() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">E-Mail</label>
+          <label className="text-sm font-medium text-foreground">{t('profil.field.email')}</label>
           <Input
             type="email"
             value={form.email}
@@ -108,14 +110,14 @@ export default function ProfilTab() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Telefon</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.field.phone')}</label>
             <Input
               value={form.phone}
               onChange={(e) => handleChange('phone', e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Position</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.field.position')}</label>
             <Input
               value={form.position}
               onChange={(e) => handleChange('position', e.target.value)}
@@ -124,7 +126,7 @@ export default function ProfilTab() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">Bio</label>
+          <label className="text-sm font-medium text-foreground">{t('profil.field.bio')}</label>
           <textarea
             value={form.bio}
             onChange={(e) => handleChange('bio', e.target.value)}
@@ -136,18 +138,18 @@ export default function ProfilTab() {
 
       {/* Read-Only Info */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-        <h3 className="font-semibold text-foreground">Kontoinformationen</h3>
+        <h3 className="font-semibold text-foreground">{t('profil.info.accountInfo')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <p className="text-xs text-muted-foreground">Rolle</p>
+            <p className="text-xs text-muted-foreground">{t('profil.info.role')}</p>
             <p className="text-sm font-medium text-foreground">{role}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Abteilung</p>
+            <p className="text-xs text-muted-foreground">{t('profil.info.department')}</p>
             <p className="text-sm font-medium text-foreground">Management</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Mitglied seit</p>
+            <p className="text-xs text-muted-foreground">{t('profil.info.memberSince')}</p>
             <p className="text-sm font-medium text-foreground">Januar 2024</p>
           </div>
         </div>
@@ -157,10 +159,10 @@ export default function ProfilTab() {
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Mail className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-foreground">E-Mail-Signatur</h3>
+          <h3 className="font-semibold text-foreground">{t('profil.signature.title')}</h3>
         </div>
         <p className="text-sm text-muted-foreground">
-          Ihre Signatur wird automatisch an ausgehende E-Mails angehaengt.
+          {t('profil.signature.description')}
         </p>
         <RichTextEditor
           content={signatureDraft}
@@ -168,7 +170,7 @@ export default function ProfilTab() {
             setSignatureDraft(html)
             setSignatureChanged(html !== mailSignature)
           }}
-          placeholder="Signatur eingeben..."
+          placeholder={t('profil.signature.placeholder')}
           compact
           showFooter={false}
           minHeight="80px"
@@ -184,18 +186,18 @@ export default function ProfilTab() {
                 setSignatureChanged(false)
               }}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button
               size="sm"
               onClick={() => {
                 updateMail({ signature: signatureDraft })
                 setSignatureChanged(false)
-                toast.success('Signatur gespeichert')
+                toast.success(t('profil.signature.saved'))
               }}
             >
               <Save className="h-3.5 w-3.5 mr-1.5" />
-              Signatur speichern
+              {t('profil.signature.save')}
             </Button>
           </div>
         )}
@@ -206,11 +208,11 @@ export default function ProfilTab() {
         <div className="flex justify-end gap-3 sticky bottom-0 bg-background/80 backdrop-blur-sm py-4 border-t border-border -mx-6 px-6">
           <Button variant="outline" onClick={handleCancel}>
             <X className="h-4 w-4 mr-2" />
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSave}>
             <Save className="h-4 w-4 mr-2" />
-            Speichern
+            {t('common.save')}
           </Button>
         </div>
       )}

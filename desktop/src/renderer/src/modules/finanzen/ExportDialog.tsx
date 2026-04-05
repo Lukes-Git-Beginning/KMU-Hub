@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
+  const { t } = useTranslation()
   const [startDate, setStartDate] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
@@ -37,7 +39,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
       {
         onSuccess: () => {
           toast.success(
-            `DATEV Export heruntergeladen: EXTF_Buchungsstapel_${startDate}_${endDate}.csv`,
+            t('finanzen.export.downloaded', { filename: `EXTF_Buchungsstapel_${startDate}_${endDate}.csv` }),
           )
           onOpenChange(false)
         },
@@ -64,10 +66,10 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">
-                DATEV Buchungsstapel
+                {t('finanzen.export.datevBatch')}
               </p>
               <p className="text-xs text-muted-foreground">
-                EXTF-Format (CSV) für den Import in DATEV oder Steuerberater-Software
+                {t('finanzen.export.datevDescription')}
               </p>
             </div>
           </div>
@@ -75,7 +77,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
           {/* Date range */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Von</Label>
+              <Label>{t('finanzen.export.from')}</Label>
               <Input
                 type="date"
                 value={startDate}
@@ -83,7 +85,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Bis</Label>
+              <Label>{t('finanzen.export.to')}</Label>
               <Input
                 type="date"
                 value={endDate}
@@ -96,8 +98,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
           <div className="flex items-start gap-2 rounded-lg border border-info/30 bg-info/5 p-3 text-xs text-info">
             <Info className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
-              Der Export umfasst alle Rechnungen und Gutschriften im
-              gewaehlten Zeitraum. Dateiname:{' '}
+              {t('finanzen.export.infoText')}{' '}
               <span className="font-mono">
                 EXTF_Buchungsstapel_{startDate}_{endDate}.csv
               </span>
@@ -107,14 +108,14 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleExport}
             disabled={!startDate || !endDate || exportDATEV.isPending}
           >
             <Download className="mr-1.5 h-4 w-4" />
-            {exportDATEV.isPending ? 'Exportiert...' : 'Exportieren'}
+            {exportDATEV.isPending ? t('finanzen.export.exporting') : t('finanzen.export.exportBtn')}
           </Button>
         </DialogFooter>
       </DialogContent>

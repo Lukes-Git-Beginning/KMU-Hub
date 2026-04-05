@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Play, Square, Clock, Calendar,
   Coffee, AlertTriangle, Loader2, Edit3,
@@ -31,12 +32,6 @@ import type { WorkTimeEntry, DailySummary as DailySummaryType } from '@/api/hr-t
 
 type ViewKey = 'today' | 'week' | 'corrections'
 
-const VIEWS: { key: ViewKey; label: string; icon: typeof Clock }[] = [
-  { key: 'today', label: 'Heute', icon: Clock },
-  { key: 'week', label: 'Woche', icon: Calendar },
-  { key: 'corrections', label: 'Korrekturen', icon: Edit3 },
-]
-
 function formatMinutesDisplay(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
@@ -57,16 +52,23 @@ function getArbZGColor(severity: string): string {
   }
 }
 
-function getArbZGLabel(severity: string): string {
-  switch (severity) {
-    case 'info': return '8h erreicht'
-    case 'warning': return '9h überschritten'
-    case 'error': return '10h Grenze!'
-    default: return ''
-  }
-}
-
 export default function ZeiterfassungTab() {
+  const { t } = useTranslation()
+
+  const VIEWS: { key: ViewKey; label: string; icon: typeof Clock }[] = [
+    { key: 'today', label: t('profil.zeiterfassung.viewToday'), icon: Clock },
+    { key: 'week', label: t('profil.zeiterfassung.viewWeek'), icon: Calendar },
+    { key: 'corrections', label: t('profil.zeiterfassung.viewCorrections'), icon: Edit3 },
+  ]
+
+  function getArbZGLabel(severity: string): string {
+    switch (severity) {
+      case 'info': return t('profil.zeiterfassung.arbzg8h')
+      case 'warning': return t('profil.zeiterfassung.arbzg9h')
+      case 'error': return t('profil.zeiterfassung.arbzg10h')
+      default: return ''
+    }
+  }
   const [activeView, setActiveView] = useState<ViewKey>('today')
   const [showCorrectionDialog, setShowCorrectionDialog] = useState(false)
   const [correctionEntryId, setCorrectionEntryId] = useState('')
@@ -154,7 +156,7 @@ export default function ZeiterfassungTab() {
 
   const handleSubmitCorrection = () => {
     if (!correctionEntryId || !correctionClockIn || !correctionClockOut || !correctionReason.trim()) {
-      toast.error('Bitte alle Felder ausfüllen')
+      toast.error(t('profil.zeiterfassung.errorFillAllFields'))
       return
     }
     correctionMutation.mutate(
@@ -190,29 +192,29 @@ export default function ZeiterfassungTab() {
             {!status?.isClockedIn ? (
               <Button size="sm" onClick={handleClockIn} disabled={isMutating} className="gap-2">
                 <Play className="h-4 w-4" />
-                Einstempeln
+                {t('profil.zeiterfassung.clockIn')}
               </Button>
             ) : status.isOnBreak ? (
               <Button size="sm" onClick={handleEndBreak} disabled={isMutating} className="gap-2">
                 <Coffee className="h-4 w-4" />
-                Pause beenden
+                {t('profil.zeiterfassung.endBreak')}
               </Button>
             ) : (
               <>
                 <Button size="sm" variant="outline" onClick={handleStartBreak} disabled={isMutating} className="gap-2">
                   <Coffee className="h-4 w-4" />
-                  Pause
+                  {t('profil.zeiterfassung.break')}
                 </Button>
                 <Button size="sm" variant="destructive" onClick={handleClockOut} disabled={isMutating} className="gap-2">
                   <Square className="h-4 w-4" />
-                  Ausstempeln
+                  {t('profil.zeiterfassung.clockOut')}
                 </Button>
               </>
             )}
 
             {status?.isClockedIn && (
               <span className="text-lg font-mono font-bold text-primary tabular-nums">
-                {status.isOnBreak ? 'Pause' : elapsedDisplay}
+                {status.isOnBreak ? t('profil.zeiterfassung.break') : elapsedDisplay}
               </span>
             )}
           </div>
@@ -227,13 +229,13 @@ export default function ZeiterfassungTab() {
 
           {/* Daily Summary */}
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Heute:</span>
+            <span className="text-muted-foreground">{t('profil.zeiterfassung.viewToday')}:</span>
             <span className="font-semibold text-foreground">
               {formatMinutesDisplay(todayMinutes)}
             </span>
             {overtimeMinutes > 0 && (
               <span className="text-xs text-warning font-medium">
-                (+{formatMinutesDisplay(overtimeMinutes)} Überstunden)
+                (+{formatMinutesDisplay(overtimeMinutes)} {t('profil.zeiterfassung.overtime')})
               </span>
             )}
             <div className="w-24 h-2 rounded-full bg-secondary overflow-hidden">
@@ -310,39 +312,39 @@ export default function ZeiterfassungTab() {
       <Dialog open={showCorrectionDialog} onOpenChange={setShowCorrectionDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Zeitkorrektur beantragen</DialogTitle>
+            <DialogTitle>{t('profil.zeiterfassung.correctionTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Korrigierte Startzeit *</Label>
+                <Label>{t('profil.zeiterfassung.correctedStart')} *</Label>
                 <Input type="datetime-local" value={correctionClockIn} onChange={(e) => setCorrectionClockIn(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>Korrigierte Endzeit *</Label>
+                <Label>{t('profil.zeiterfassung.correctedEnd')} *</Label>
                 <Input type="datetime-local" value={correctionClockOut} onChange={(e) => setCorrectionClockOut(e.target.value)} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Pause (Minuten)</Label>
+              <Label>{t('profil.zeiterfassung.breakMinutes')}</Label>
               <Input type="number" min={0} value={correctionBreak} onChange={(e) => setCorrectionBreak(Number(e.target.value))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Grund *</Label>
+              <Label>{t('profil.zeiterfassung.reason')} *</Label>
               <textarea
                 value={correctionReason}
                 onChange={(e) => setCorrectionReason(e.target.value)}
                 rows={2}
-                placeholder="Grund für die Korrektur..."
+                placeholder={t('profil.zeiterfassung.correctionReasonPlaceholder')}
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCorrectionDialog(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setShowCorrectionDialog(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSubmitCorrection} disabled={correctionMutation.isPending}>
               {correctionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Korrektur einreichen
+              {t('profil.zeiterfassung.submitCorrection')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -356,25 +358,26 @@ export default function ZeiterfassungTab() {
 // ============================================================
 
 function TodayView({ summary, entries }: { summary?: DailySummaryType; entries: WorkTimeEntry[] }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Summary cards */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground mb-1">Arbeitszeit</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('profil.zeiterfassung.workTime')}</p>
             <p className="text-lg font-semibold text-foreground">{formatMinutesDisplay(summary.totalWorkedMinutes)}</p>
           </div>
           <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground mb-1">Pause</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('profil.zeiterfassung.break')}</p>
             <p className="text-lg font-semibold text-foreground">{formatMinutesDisplay(summary.totalBreakMinutes)}</p>
           </div>
           <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground mb-1">Netto</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('profil.zeiterfassung.net')}</p>
             <p className="text-lg font-semibold text-foreground">{formatMinutesDisplay(summary.netWorkMinutes)}</p>
           </div>
           <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground mb-1">Überstunden</p>
+            <p className="text-xs text-muted-foreground mb-1">{t('profil.zeiterfassung.overtime')}</p>
             <p className={cn('text-lg font-semibold', summary.overtimeMinutes > 0 ? 'text-warning' : 'text-foreground')}>
               {summary.overtimeMinutes > 0 ? '+' : ''}{formatMinutesDisplay(summary.overtimeMinutes)}
             </p>
@@ -384,12 +387,12 @@ function TodayView({ summary, entries }: { summary?: DailySummaryType; entries: 
 
       {/* Entries */}
       <div>
-        <h3 className="text-sm font-medium text-foreground mb-3">Einträge</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('profil.zeiterfassung.entries')}</h3>
         {entries.length === 0 ? (
           <EmptyState
             illustration={<EmptyCalendar />}
-            title="Noch keine Einträge heute"
-            description="Stempel dich ein, um deine Arbeitszeit zu erfassen."
+            title={t('profil.zeiterfassung.noEntriesToday')}
+            description={t('profil.zeiterfassung.clockInToTrack')}
           />
         ) : (
           <div className="space-y-2">
@@ -403,15 +406,15 @@ function TodayView({ summary, entries }: { summary?: DailySummaryType; entries: 
                       {entry.clockOut ? ` – ${formatTimeFromISO(entry.clockOut)}` : ' – ...'}
                     </span>
                     {entry.status === 'active' && (
-                      <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">Aktiv</span>
+                      <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">{t('profil.zeiterfassung.active')}</span>
                     )}
                     {entry.isCorrection && (
-                      <span className="rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning">Korrektur</span>
+                      <span className="rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning">{t('profil.zeiterfassung.correction')}</span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Pause: {entry.breakMinutes}min
-                    {entry.netWorkMinutes != null && ` · Netto: ${formatMinutesDisplay(entry.netWorkMinutes)}`}
+                    {t('profil.zeiterfassung.break')}: {entry.breakMinutes}min
+                    {entry.netWorkMinutes != null && ` · ${t('profil.zeiterfassung.net')}: ${formatMinutesDisplay(entry.netWorkMinutes)}`}
                   </p>
                 </div>
               </div>
@@ -424,6 +427,7 @@ function TodayView({ summary, entries }: { summary?: DailySummaryType; entries: 
 }
 
 function WeeklyView({ summary }: { summary?: { weekStart: string; days: DailySummaryType[]; totalWorkedMinutes: number; totalBreakMinutes: number; netWorkMinutes: number; totalOvertimeMinutes: number } }) {
+  const { t } = useTranslation()
   if (!summary) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -432,26 +436,34 @@ function WeeklyView({ summary }: { summary?: { weekStart: string; days: DailySum
     )
   }
 
-  const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+  const dayNames = [
+    t('profil.zeiterfassung.dayShort.mon'),
+    t('profil.zeiterfassung.dayShort.tue'),
+    t('profil.zeiterfassung.dayShort.wed'),
+    t('profil.zeiterfassung.dayShort.thu'),
+    t('profil.zeiterfassung.dayShort.fri'),
+    t('profil.zeiterfassung.dayShort.sat'),
+    t('profil.zeiterfassung.dayShort.sun'),
+  ]
 
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Week totals */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Woche gesamt</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('profil.zeiterfassung.weekTotal')}</p>
           <p className="text-lg font-semibold text-foreground">{formatMinutesDisplay(summary.totalWorkedMinutes)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Pausen</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('profil.zeiterfassung.breaks')}</p>
           <p className="text-lg font-semibold text-foreground">{formatMinutesDisplay(summary.totalBreakMinutes)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Netto</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('profil.zeiterfassung.net')}</p>
           <p className="text-lg font-semibold text-foreground">{formatMinutesDisplay(summary.netWorkMinutes)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Überstunden</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('profil.zeiterfassung.overtime')}</p>
           <p className={cn('text-lg font-semibold', summary.totalOvertimeMinutes > 0 ? 'text-warning' : 'text-foreground')}>
             {summary.totalOvertimeMinutes > 0 ? '+' : ''}{formatMinutesDisplay(summary.totalOvertimeMinutes)}
           </p>
@@ -463,11 +475,11 @@ function WeeklyView({ summary }: { summary?: { weekStart: string; days: DailySum
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-secondary/50">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tag</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Arbeitszeit</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Pause</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Netto</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Überstunden</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('profil.zeiterfassung.day')}</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('profil.zeiterfassung.workTime')}</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('profil.zeiterfassung.break')}</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('profil.zeiterfassung.net')}</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('profil.zeiterfassung.overtime')}</th>
             </tr>
           </thead>
           <tbody>
@@ -513,6 +525,7 @@ function CorrectionsView({
   onApproveCorrection: (id: string) => void
   isApproving: boolean
 }) {
+  const { t } = useTranslation()
   // Recent completed entries that can be corrected
   const correctableEntries = entries
     .filter((e) => e.status === 'completed')
@@ -525,7 +538,7 @@ function CorrectionsView({
         <div>
           <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
-            Ausstehende Korrekturen ({pendingEntries.length})
+            {t('profil.zeiterfassung.pendingCorrections', { count: pendingEntries.length })}
           </h3>
           <div className="space-y-2">
             {pendingEntries.map((entry) => (
@@ -535,7 +548,7 @@ function CorrectionsView({
                     {formatTimeFromISO(entry.clockIn)} – {entry.clockOut ? formatTimeFromISO(entry.clockOut) : '...'}
                   </div>
                   {entry.correctionReason && (
-                    <p className="text-xs text-muted-foreground mt-0.5">Grund: {entry.correctionReason}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t('profil.zeiterfassung.reason')}: {entry.correctionReason}</p>
                   )}
                 </div>
                 <Button
@@ -543,7 +556,7 @@ function CorrectionsView({
                   onClick={() => onApproveCorrection(entry.id)}
                   disabled={isApproving}
                 >
-                  Genehmigen
+                  {t('profil.zeiterfassung.approve')}
                 </Button>
               </div>
             ))}
@@ -553,12 +566,12 @@ function CorrectionsView({
 
       {/* Request correction */}
       <div>
-        <h3 className="text-sm font-medium text-foreground mb-3">Korrektur beantragen</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('profil.zeiterfassung.requestCorrection')}</h3>
         {correctableEntries.length === 0 ? (
           <EmptyState
             icon={Edit3}
-            title="Keine Einträge zum Korrigieren"
-            description="Abgeschlossene Einträge können hier korrigiert werden."
+            title={t('profil.zeiterfassung.noCorrectableEntries')}
+            description={t('profil.zeiterfassung.correctableDescription')}
           />
         ) : (
           <div className="space-y-2">
@@ -570,13 +583,13 @@ function CorrectionsView({
                     {formatTimeFromISO(entry.clockIn)} – {entry.clockOut ? formatTimeFromISO(entry.clockOut) : '...'}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Pause: {entry.breakMinutes}min
-                    {entry.netWorkMinutes != null && ` · Netto: ${formatMinutesDisplay(entry.netWorkMinutes)}`}
+                    {t('profil.zeiterfassung.break')}: {entry.breakMinutes}min
+                    {entry.netWorkMinutes != null && ` · ${t('profil.zeiterfassung.net')}: ${formatMinutesDisplay(entry.netWorkMinutes)}`}
                   </p>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => onRequestCorrection(entry.id)}>
                   <Edit3 className="h-3.5 w-3.5 mr-1.5" />
-                  Korrigieren
+                  {t('profil.zeiterfassung.correct')}
                 </Button>
               </div>
             ))}

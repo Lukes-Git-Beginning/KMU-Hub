@@ -7,6 +7,7 @@
  * 3. Erster Sync -- Trigger initial sync and show progress
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,6 +33,7 @@ interface LexwareSetupWizardProps {
 }
 
 export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps) {
+  const { t } = useTranslation()
   const [step, setStep] = useState(1)
   const [apiKey, setApiKey] = useState('')
   const [testResult, setTestResult] = useState<'idle' | 'success' | 'error'>('idle')

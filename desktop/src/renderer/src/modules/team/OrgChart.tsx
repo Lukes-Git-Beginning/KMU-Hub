@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
   ChevronRight,
@@ -41,7 +42,7 @@ function buildOrgTree(employees: EmployeeProfile[]): OrgNode[] {
   // Build a map of userId -> OrgNode
   const nodeMap = new Map<string, OrgNode>()
   for (const emp of employees) {
-    const name = emp.userName ?? 'Unbekannt'
+    const name = emp.userName ?? 'N/A'
     const parts = name.split(' ')
     const initials = parts.map((p) => p[0]).join('').slice(0, 2).toUpperCase()
     nodeMap.set(emp.userId, {
@@ -197,6 +198,7 @@ function OrgNodeCard({
 // ============================================================
 
 export function OrgChart() {
+  const { t } = useTranslation()
   const { data: employeesData, isLoading } = useEmployees()
   const employees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
 
@@ -239,8 +241,8 @@ export function OrgChart() {
     return (
       <EmptyState
         icon={Users}
-        title="Keine Mitarbeiter"
-        description="Erstelle Mitarbeiter, um das Organigramm zu sehen"
+        title={t('team.orgChart.noEmployees')}
+        description={t('team.orgChart.noEmployeesDescription')}
       />
     )
   }
@@ -250,19 +252,19 @@ export function OrgChart() {
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Mitarbeiter gesamt</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.orgChart.totalEmployees')}</p>
           <p className="text-lg font-semibold text-foreground">{totalEmployees}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Abteilungen</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.orgChart.departments')}</p>
           <p className="text-lg font-semibold text-foreground">{departments.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Führungskraefte</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.orgChart.managers')}</p>
           <p className="text-lg font-semibold text-foreground">{managers.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Hierarchieebenen</p>
+          <p className="text-xs text-muted-foreground mb-1">{t('team.orgChart.hierarchyLevels')}</p>
           <p className="text-lg font-semibold text-foreground">{hierarchyLevels}</p>
         </div>
       </div>
@@ -273,7 +275,7 @@ export function OrgChart() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Mitarbeiter suchen..."
+            placeholder={t('team.orgChart.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -283,7 +285,7 @@ export function OrgChart() {
           <button
             onClick={() => setZoom((z) => Math.max(60, z - 10))}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-            title="Verkleinern"
+            title={t('team.orgChart.zoomOut')}
           >
             <ZoomOut className="h-4 w-4" />
           </button>
@@ -291,14 +293,14 @@ export function OrgChart() {
           <button
             onClick={() => setZoom((z) => Math.min(150, z + 10))}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-            title="Vergrößern"
+            title={t('team.orgChart.zoomIn')}
           >
             <ZoomIn className="h-4 w-4" />
           </button>
           <button
             onClick={() => setZoom(100)}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-            title="Zurücksetzen"
+            title={t('team.orgChart.resetZoom')}
           >
             <Maximize2 className="h-4 w-4" />
           </button>
@@ -307,13 +309,13 @@ export function OrgChart() {
           onClick={expandAll}
           className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
         >
-          Alle aufklappen
+          {t('team.orgChart.expandAll')}
         </button>
         <button
           onClick={collapseAll}
           className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
         >
-          Alle zuklappen
+          {t('team.orgChart.collapseAll')}
         </button>
       </div>
 
@@ -364,14 +366,14 @@ export function OrgChart() {
               {selectedNode.isManager && selectedNode.children.length > 0 && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
-                  <span>{selectedNode.children.length} direkte Mitarbeiter</span>
+                  <span>{selectedNode.children.length} {t('team.orgChart.directReports')}</span>
                 </div>
               )}
             </div>
 
             {selectedNode.children.length > 0 && (
               <div className="mt-4 pt-3 border-t border-border">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Direkte Berichte:</p>
+                <p className="text-xs font-medium text-muted-foreground mb-2">{t('team.orgChart.directReportsLabel')}:</p>
                 <div className="space-y-1.5">
                   {selectedNode.children.map((child) => (
                     <button
@@ -394,18 +396,18 @@ export function OrgChart() {
 
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => toast.info(`E-Mail an ${selectedNode.name}`)}
+                onClick={() => toast.info(`E-Mail: ${selectedNode.name}`)}
                 className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
               >
                 <Mail className="h-3 w-3" />
                 E-Mail
               </button>
               <button
-                onClick={() => toast.info(`Anruf an ${selectedNode.name}`)}
+                onClick={() => toast.info(`${t('team.detail.call')}: ${selectedNode.name}`)}
                 className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
               >
                 <Phone className="h-3 w-3" />
-                Anrufen
+                {t('team.detail.call')}
               </button>
             </div>
           </div>
@@ -414,7 +416,7 @@ export function OrgChart() {
 
       {/* Department Legend */}
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-xs font-medium text-muted-foreground">Abteilungen:</span>
+        <span className="text-xs font-medium text-muted-foreground">{t('team.orgChart.departments')}:</span>
         {departments.map((dept) => {
           const colors = DEPT_COLORS[dept] ?? DEFAULT_DEPT_COLOR
           return (

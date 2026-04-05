@@ -8,6 +8,7 @@
  * 4. Erster Sync -- Trigger initial sync and show results
  */
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -63,6 +64,7 @@ const POLL_INTERVAL_OPTIONS = [
 ]
 
 export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
+  const { t } = useTranslation()
   const [step, setStep] = useState(1)
   const [syncConfig, setSyncConfig] = useState<BexioSyncConfig>({
     contact_sync_enabled: true,

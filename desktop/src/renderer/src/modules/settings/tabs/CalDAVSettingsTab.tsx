@@ -5,6 +5,7 @@
  * All labels in German (Deutschland-First).
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,6 +41,7 @@ import {
 import { API_BASE_URL } from '@/lib/constants'
 
 export function CalDAVSettingsTab() {
+  const { t } = useTranslation()
   const { data: status, isLoading: statusLoading } = useCalDAVStatus()
   const { data: passwords, isLoading: passwordsLoading } = useAppPasswords()
   const createPassword = useCreateAppPassword()

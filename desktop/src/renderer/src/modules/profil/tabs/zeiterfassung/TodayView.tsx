@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Clock, MapPin, FolderKanban, Palmtree, ThermometerSun, Home, BookOpen, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
@@ -8,13 +9,7 @@ import { useTimerTick, formatElapsed } from '@/hooks/useTimerTick'
 import { formatMinutes, isToday, todayStr } from './time-utils'
 import ManualEntryForm from './ManualEntryForm'
 
-const ABSENCE_LABELS: Record<string, string> = {
-  vacation: 'Urlaub',
-  sick: 'Krank',
-  homeoffice: 'Homeoffice',
-  education: 'Weiterbildung',
-  other: 'Sonstiges',
-}
+// ABSENCE_LABELS moved inside component for i18n
 
 const ABSENCE_ICONS: Record<string, typeof Palmtree> = {
   vacation: Palmtree,
@@ -25,7 +20,16 @@ const ABSENCE_ICONS: Record<string, typeof Palmtree> = {
 }
 
 export default function TodayView() {
+  const { t } = useTranslation()
   const [showManualForm, setShowManualForm] = useState(false)
+
+  const ABSENCE_LABELS: Record<string, string> = {
+    vacation: t('profil.zeiterfassung.absenceType.vacation'),
+    sick: t('profil.zeiterfassung.absenceType.sick'),
+    homeoffice: t('profil.zeiterfassung.absenceType.homeoffice'),
+    education: t('profil.zeiterfassung.absenceType.education'),
+    other: t('profil.zeiterfassung.absenceType.other'),
+  }
   const [_editingId, _setEditingId] = useState<string | null>(null)
 
   const entries = useTimeTrackingStore((s) => s.entries)
@@ -95,7 +99,7 @@ export default function TodayView() {
             </span>
             {(todayAbsence.type === 'vacation' || todayAbsence.type === 'sick') && (
               <span className="text-xs text-muted-foreground ml-auto">
-                Timer gesperrt
+                {t('profil.zeiterfassung.today.timerLocked')}
               </span>
             )}
           </div>
@@ -134,7 +138,7 @@ export default function TodayView() {
                 ? 'bg-success-light text-success'
                 : 'bg-warning-light text-warning-foreground',
             )}>
-              {activeTimer.status === 'running' ? 'Läuft' : 'Pausiert'}
+              {activeTimer.status === 'running' ? t('profil.zeiterfassung.today.running') : t('profil.zeiterfassung.today.paused')}
             </span>
           </div>
         </div>
@@ -144,19 +148,19 @@ export default function TodayView() {
       <div className="space-y-2">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground">
-            Einträge heute ({todayEntries.length})
+            {t('profil.zeiterfassung.today.entriesToday', { count: todayEntries.length })}
           </h3>
           <Button size="sm" variant="outline" onClick={() => setShowManualForm(true)} className="gap-2">
             <Plus className="h-3.5 w-3.5" />
-            Manuell eintragen
+            {t('profil.zeiterfassung.today.manualEntry')}
           </Button>
         </div>
 
         {todayEntries.length === 0 && activeTimer.status === 'idle' && (
           <div className="text-center py-12 text-muted-foreground">
             <Clock className="h-10 w-10 mx-auto mb-3 opacity-50" />
-            <p className="font-medium">Noch keine Einträge heute</p>
-            <p className="text-sm">Starte den Timer oder erstelle einen manuellen Eintrag</p>
+            <p className="font-medium">{t('profil.zeiterfassung.noEntriesToday')}</p>
+            <p className="text-sm">{t('profil.zeiterfassung.today.startTimerOrManual')}</p>
           </div>
         )}
 
@@ -180,7 +184,7 @@ export default function TodayView() {
                 style={{ backgroundColor: cat?.color || '#6b7280' }}
               />
               <span className="text-sm font-medium text-foreground w-32 truncate shrink-0">
-                {cat?.name || 'Unbekannt'}
+                {cat?.name || t('profil.zeiterfassung.unknown')}
               </span>
 
               {/* Description + Project/Task (6.6) */}
@@ -240,7 +244,7 @@ export default function TodayView() {
       {/* Soll/Ist Footer with Overtime (6.8) */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-muted-foreground">Soll / Ist</span>
+          <span className="text-sm text-muted-foreground">{t('profil.zeiterfassung.overview.target')} / {t('profil.zeiterfassung.overview.actual')}</span>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-foreground">
               {formatMinutes(totalMinutes)} / {formatMinutes(targetMinutes)}
@@ -266,12 +270,12 @@ export default function TodayView() {
         </div>
         {totalMinutes > targetMinutes && (
           <p className="text-xs text-success mt-1">
-            +{formatMinutes(totalMinutes - targetMinutes)} Überstunden
+            +{formatMinutes(totalMinutes - targetMinutes)} {t('profil.zeiterfassung.overtime')}
           </p>
         )}
         {totalMinutes < targetMinutes && totalMinutes > 0 && (
           <p className="text-xs text-muted-foreground mt-1">
-            Noch {formatMinutes(targetMinutes - totalMinutes)} bis zum Soll
+            {t('profil.zeiterfassung.overview.remaining')} {formatMinutes(targetMinutes - totalMinutes)} {t('profil.zeiterfassung.today.untilTarget')}
           </p>
         )}
       </div>

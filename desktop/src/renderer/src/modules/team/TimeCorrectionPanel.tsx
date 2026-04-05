@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Clock,
   Check,
@@ -27,6 +28,7 @@ import {
 import type { WorkTimeEntry } from '@/api/hr-types'
 
 export function TimeCorrectionPanel() {
+  const { t } = useTranslation()
   const { data: entriesData, isLoading } = useWorkTimeEntries({ status: 'correction_pending' })
   const approveMutation = useApproveCorrection()
   const submitMutation = useSubmitCorrection()
@@ -42,7 +44,7 @@ export function TimeCorrectionPanel() {
 
   const handleSubmit = () => {
     if (!originalEntryId || !correctedClockIn || !correctedClockOut || !reason.trim()) {
-      toast.error('Bitte alle Felder ausfüllen')
+      toast.error(t('team.timeCorrection.fillAllFields'))
       return
     }
     submitMutation.mutate(
@@ -94,19 +96,19 @@ export function TimeCorrectionPanel() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
-          {corrections.length} offene Korrekturantraege
+          {t('team.timeCorrection.openCorrections', { count: corrections.length })}
         </p>
         <Button size="sm" onClick={() => setShowSubmitDialog(true)}>
           <Send className="mr-1.5 h-4 w-4" />
-          Korrektur einreichen
+          {t('team.timeCorrection.submitCorrection')}
         </Button>
       </div>
 
       {corrections.length === 0 ? (
         <EmptyState
           icon={Clock}
-          title="Keine offenen Korrekturen"
-          description="Alle Zeitkorrekturen wurden bearbeitet"
+          title={t('team.timeCorrection.noCorrections')}
+          description={t('team.timeCorrection.allProcessed')}
         />
       ) : (
         <div className="space-y-2">
@@ -148,7 +150,7 @@ export function TimeCorrectionPanel() {
                   size="sm"
                   variant="outline"
                   className="h-8 w-8 p-0 text-error hover:bg-error/10"
-                  onClick={() => toast.info('Ablehnung wird noch nicht unterstuetzt')}
+                  onClick={() => toast.info(t('team.timeCorrection.rejectionNotSupported'))}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -162,23 +164,23 @@ export function TimeCorrectionPanel() {
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Zeitkorrektur einreichen</DialogTitle>
+            <DialogTitle>{t('team.timeCorrection.submitTitle')}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Original-Eintrag ID</Label>
+              <Label>{t('team.timeCorrection.originalEntryId')}</Label>
               <Input
                 value={originalEntryId}
                 onChange={(e) => setOriginalEntryId(e.target.value)}
-                placeholder="ID des zu korrigierenden Eintrags"
+                placeholder={t('team.timeCorrection.entryIdPlaceholder')}
                 className="font-mono text-xs"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Korrigierte Einstempelzeit</Label>
+                <Label>{t('team.timeCorrection.correctedClockIn')}</Label>
                 <Input
                   type="datetime-local"
                   value={correctedClockIn}
@@ -186,7 +188,7 @@ export function TimeCorrectionPanel() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Korrigierte Ausstempelzeit</Label>
+                <Label>{t('team.timeCorrection.correctedClockOut')}</Label>
                 <Input
                   type="datetime-local"
                   value={correctedClockOut}
@@ -196,7 +198,7 @@ export function TimeCorrectionPanel() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Pausenminuten</Label>
+              <Label>{t('team.timeCorrection.breakMinutes')}</Label>
               <Input
                 type="number"
                 min={0}
@@ -207,12 +209,12 @@ export function TimeCorrectionPanel() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Begruendung</Label>
+              <Label>{t('team.timeCorrection.reason')}</Label>
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
-                placeholder="Warum muss der Eintrag korrigiert werden?"
+                placeholder={t('team.timeCorrection.reasonPlaceholder')}
                 className="w-full rounded-lg border border-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
               />
             </div>
@@ -220,11 +222,11 @@ export function TimeCorrectionPanel() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowSubmitDialog(false); resetForm() }}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
               {submitMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              Einreichen
+              {t('team.timeCorrection.submit')}
             </Button>
           </DialogFooter>
         </DialogContent>

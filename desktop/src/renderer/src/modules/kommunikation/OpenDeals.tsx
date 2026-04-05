@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { TrendingUp, ArrowRight } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 
@@ -36,6 +37,7 @@ interface OpenDealsProps {
 }
 
 export function OpenDeals({ dealIds }: OpenDealsProps) {
+  const { t } = useTranslation()
   if (dealIds.length === 0) return null
 
   const deals = dealIds
@@ -49,7 +51,7 @@ export function OpenDeals({ dealIds }: OpenDealsProps) {
       <div className="flex items-center gap-1.5 mb-2">
         <TrendingUp className="h-3 w-3 text-muted-foreground" />
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Offene Deals
+          {t('kommunikation.context.openDeals')}
         </h4>
         <span className="ml-auto text-[10px] text-muted-foreground">{deals.length}</span>
       </div>

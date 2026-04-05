@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { SlidersHorizontal } from 'lucide-react'
 import type { ConversationStatus } from '@/types/communication'
 
@@ -7,16 +8,16 @@ import type { ConversationStatus } from '@/types/communication'
 
 interface StatusOption {
   id: ConversationStatus | 'all'
-  label: string
+  labelKey: string
   color: string
 }
 
 const statusOptions: StatusOption[] = [
-  { id: 'all', label: 'Alle', color: '' },
-  { id: 'open', label: 'Offen', color: 'bg-success' },
-  { id: 'pending', label: 'Wartend', color: 'bg-warning' },
-  { id: 'resolved', label: 'Geloest', color: 'bg-blue-500' },
-  { id: 'closed', label: 'Geschlossen', color: 'bg-muted-foreground' },
+  { id: 'all', labelKey: 'kommunikation.filter.all', color: '' },
+  { id: 'open', labelKey: 'kommunikation.filter.open', color: 'bg-success' },
+  { id: 'pending', labelKey: 'kommunikation.filter.pending', color: 'bg-warning' },
+  { id: 'resolved', labelKey: 'kommunikation.filter.resolved', color: 'bg-blue-500' },
+  { id: 'closed', labelKey: 'kommunikation.filter.closed', color: 'bg-muted-foreground' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -27,14 +28,14 @@ export type ConversationSort = 'newest' | 'oldest' | 'priority' | 'unread'
 
 interface SortOption {
   id: ConversationSort
-  label: string
+  labelKey: string
 }
 
 const sortOptions: SortOption[] = [
-  { id: 'newest', label: 'Neueste' },
-  { id: 'oldest', label: 'Aelteste' },
-  { id: 'priority', label: 'Prioritaet' },
-  { id: 'unread', label: 'Ungelesen' },
+  { id: 'newest', labelKey: 'kommunikation.sort.newest' },
+  { id: 'oldest', labelKey: 'kommunikation.sort.oldest' },
+  { id: 'priority', labelKey: 'kommunikation.sort.priority' },
+  { id: 'unread', labelKey: 'kommunikation.sort.unread' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -56,6 +57,7 @@ export function ConversationListFilters({
   onSortChange,
   totalCount,
 }: ConversationListFiltersProps) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
       {/* Status chips */}
@@ -75,7 +77,7 @@ export function ConversationListFilters({
               {opt.color && (
                 <span className={`h-1.5 w-1.5 rounded-full ${opt.color}`} />
               )}
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           )
         })}
@@ -94,7 +96,7 @@ export function ConversationListFilters({
           className="appearance-none rounded-md border border-border bg-transparent pl-6 pr-2 py-1 text-[11px] text-muted-foreground outline-none cursor-pointer hover:bg-accent transition-colors"
         >
           {sortOptions.map((opt) => (
-            <option key={opt.id} value={opt.id}>{opt.label}</option>
+            <option key={opt.id} value={opt.id}>{t(opt.labelKey)}</option>
           ))}
         </select>
         <SlidersHorizontal className="absolute left-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />

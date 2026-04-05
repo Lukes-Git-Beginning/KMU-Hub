@@ -5,6 +5,7 @@
  * permission management, and email signature editor.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Server,
   Shield,
@@ -47,6 +48,7 @@ const DEFAULT_SIGNATURE_TEMPLATE = `<div style="font-family: Arial, sans-serif; 
 type SubTab = 'email' | 'security' | 'permissions' | 'signature'
 
 export function ITAdminTab() {
+  const { t } = useTranslation()
   const [subTab, setSubTab] = useState<SubTab>('email')
 
   const subTabs: { key: SubTab; label: string; icon: typeof Server }[] = [

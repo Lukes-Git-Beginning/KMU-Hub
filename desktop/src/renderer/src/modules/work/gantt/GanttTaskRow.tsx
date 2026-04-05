@@ -228,10 +228,10 @@ export default function GanttTaskRow({
   // -----------------------------------------------------------------------
   const tooltipText = [
     task.title,
-    task.start ? `Start: ${format(task.start, 'dd.MM.yyyy', { locale: de })}` : null,
-    task.end ? `Fällig: ${format(task.end, 'dd.MM.yyyy', { locale: de })}` : null,
-    task.assignee_name ? `Zugewiesen: ${task.assignee_name}` : null,
-    task.status_name ? `Status: ${task.status_name}` : null,
+    task.start ? `${t('work.gantt.tooltipStart')}: ${format(task.start, 'dd.MM.yyyy', { locale: de })}` : null,
+    task.end ? `${t('work.gantt.tooltipDue')}: ${format(task.end, 'dd.MM.yyyy', { locale: de })}` : null,
+    task.assignee_name ? `${t('work.gantt.tooltipAssignee')}: ${task.assignee_name}` : null,
+    task.status_name ? `${t('common.status')}: ${task.status_name}` : null,
   ]
     .filter(Boolean)
     .join('\n')

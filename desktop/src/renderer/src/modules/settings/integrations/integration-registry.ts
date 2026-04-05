@@ -74,12 +74,12 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
   'marketing',
 ]
 
-export const CATEGORY_LABELS: Record<IntegrationCategory, string> = {
-  buchhaltung: 'Buchhaltung & Finanzen',
-  kommunikation: 'Kommunikation',
-  dokumente: 'Dokumente & Signatur',
-  video: 'Video & Meetings',
-  marketing: 'Marketing',
+export const CATEGORY_LABEL_KEYS: Record<IntegrationCategory, string> = {
+  buchhaltung: 'settings.integrations.category.accounting',
+  kommunikation: 'settings.integrations.category.communication',
+  dokumente: 'settings.integrations.category.documents',
+  video: 'settings.integrations.category.video',
+  marketing: 'settings.integrations.category.marketing',
 }
 
 // ---------------------------------------------------------------------------

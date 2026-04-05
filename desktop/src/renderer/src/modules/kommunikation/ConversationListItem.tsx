@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   MessageCircle,
@@ -20,7 +21,7 @@ const channelIcon: Record<InboxChannel, { icon: typeof Mail; color: string }> = 
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatRelativeTime(dateStr: string): string {
+function formatRelativeTime(dateStr: string, t: (key: string) => string): string {
   try {
     const date = new Date(dateStr)
     const now = new Date()
@@ -29,7 +30,7 @@ function formatRelativeTime(dateStr: string): string {
     const diffH = Math.floor(diffMin / 60)
     const diffD = Math.floor(diffH / 24)
 
-    if (diffMin < 1) return 'Jetzt'
+    if (diffMin < 1) return t('kommunikation.time.now')
     if (diffMin < 60) return `${diffMin}m`
     if (diffH < 24) return `${diffH}h`
     if (diffD < 7) return `${diffD}d`
@@ -63,6 +64,7 @@ export function ConversationListItem({
   isSelected,
   onSelect,
 }: ConversationListItemProps) {
+  const { t } = useTranslation()
   const ch = channelIcon[msg.channel]
   const ChannelIcon = ch.icon
   const isUnread = !msg.is_read
@@ -97,7 +99,7 @@ export function ConversationListItem({
             {msg.sender_name}
           </span>
           <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
-            {formatRelativeTime(msg.received_at)}
+            {formatRelativeTime(msg.received_at, t)}
           </span>
         </div>
 

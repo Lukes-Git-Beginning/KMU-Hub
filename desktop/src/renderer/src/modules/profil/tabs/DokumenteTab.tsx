@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileText, Upload, Download, Eye, FolderOpen, Search, Loader2,
 } from 'lucide-react'
@@ -14,6 +15,7 @@ import {
 } from '@/api/hooks/hr-hooks'
 
 export default function DokumenteTab() {
+  const { t } = useTranslation()
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -76,7 +78,7 @@ export default function DokumenteTab() {
 
   const handleUpload = () => {
     // Placeholder -- integrate with document service upload flow
-    toast.info('Upload-Funktion wird mit dem Dokumenten-Service verbunden')
+    toast.info(t('profil.documents.uploadConnecting'))
   }
 
   return (
@@ -93,12 +95,12 @@ export default function DokumenteTab() {
           )}
         >
           <FolderOpen className="h-4 w-4 shrink-0" />
-          <span className="flex-1 text-left">Alle Dokumente</span>
+          <span className="flex-1 text-left">{t('profil.documents.allDocuments')}</span>
           <span className="text-xs">{allDocuments.length}</span>
         </button>
 
         <div className="pt-2 pb-1 px-3">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Kategorien</span>
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{t('profil.documents.categories')}</span>
         </div>
 
         {allCategories.map((cat) => (
@@ -121,7 +123,7 @@ export default function DokumenteTab() {
         {/* Visibility legend */}
         <div className="pt-4 mt-4 border-t border-border px-3">
           <p className="text-[10px] text-muted-foreground">
-            Sichtbarkeit wird serverseitig gesteuert. Nur freigegebene Dokumente werden angezeigt.
+            {t('profil.documents.visibilityNote')}
           </p>
         </div>
       </div>
@@ -133,7 +135,7 @@ export default function DokumenteTab() {
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Dokument suchen..."
+              placeholder={t('profil.documents.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -147,7 +149,7 @@ export default function DokumenteTab() {
               onClick={handleUpload}
             >
               <Upload className="h-4 w-4" />
-              Hochladen
+              {t('common.upload')}
             </Button>
           </div>
         </div>
@@ -163,7 +165,7 @@ export default function DokumenteTab() {
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">{cat.name}</h3>
                   <p className="text-xs text-muted-foreground">
-                    Sichtbarkeit: {cat.visibility === 'hr_only' ? 'Nur HR' : cat.visibility === 'manager' ? 'Manager' : 'Mitarbeiter'}
+                    {t('profil.documents.visibility')}: {cat.visibility === 'hr_only' ? t('profil.documents.visibilityHrOnly') : cat.visibility === 'manager' ? t('profil.documents.visibilityManager') : t('profil.documents.visibilityEmployee')}
                   </p>
                 </div>
               </div>
@@ -180,9 +182,9 @@ export default function DokumenteTab() {
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="font-medium">Keine Dokumente gefunden</p>
+              <p className="font-medium">{t('profil.documents.noDocuments')}</p>
               <p className="text-sm mt-1">
-                {searchQuery ? 'Versuche einen anderen Suchbegriff' : 'In dieser Kategorie sind noch keine Dokumente'}
+                {searchQuery ? t('profil.documents.tryDifferentSearch') : t('profil.documents.noCategoryDocuments')}
               </p>
             </div>
           ) : (
@@ -204,7 +206,7 @@ export default function DokumenteTab() {
 
                     {/* File info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{doc.fileName ?? 'Unbenannt'}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{doc.fileName ?? t('profil.documents.unnamed')}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                         <span>{formatDate(doc.createdAt)}</span>
                         {doc.categoryName && (
@@ -216,7 +218,7 @@ export default function DokumenteTab() {
                         {doc.uploaderName && (
                           <>
                             <span className="text-border">|</span>
-                            <span className="text-primary">Von {doc.uploaderName}</span>
+                            <span className="text-primary">{t('profil.documents.uploadedBy', { name: doc.uploaderName })}</span>
                           </>
                         )}
                       </div>
@@ -228,16 +230,16 @@ export default function DokumenteTab() {
                     {/* Actions */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={() => toast.info('Vorschau wird geöffnet...')}
+                        onClick={() => toast.info(t('profil.documents.previewOpening'))}
                         className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                        title="Vorschau"
+                        title={t('profil.documents.preview')}
                       >
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => toast.success(`${doc.fileName} wird heruntergeladen...`)}
+                        onClick={() => toast.success(t('profil.documents.downloading', { name: doc.fileName }))}
                         className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                        title="Herunterladen"
+                        title={t('common.download')}
                       >
                         <Download className="h-4 w-4" />
                       </button>

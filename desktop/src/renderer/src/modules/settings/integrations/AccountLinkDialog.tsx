@@ -6,6 +6,7 @@
  * links the account.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -35,6 +36,7 @@ export function AccountLinkDialog({
   isOpen,
   onClose,
 }: AccountLinkDialogProps) {
+  const { t } = useTranslation()
   const [token, setToken] = useState('')
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const linkAccount = useLinkAccount()
@@ -72,9 +74,9 @@ export function AccountLinkDialog({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Konto verknüpfen</DialogTitle>
+          <DialogTitle>{t('settings.integrations.accountLink.title')}</DialogTitle>
           <DialogDescription>
-            Verknüpfen Sie Ihr {platformLabel}-Konto mit Cosmi
+            {t('settings.integrations.accountLink.description', { platform: platformLabel })}
           </DialogDescription>
         </DialogHeader>
 
@@ -83,10 +85,10 @@ export function AccountLinkDialog({
             <div className="flex flex-col items-center gap-3 py-4">
               <CheckCircle className="h-12 w-12 text-success" />
               <p className="text-sm font-medium text-success">
-                Konto verknüpft!
+                {t('settings.integrations.accountLink.linked')}
               </p>
               <p className="text-xs text-muted-foreground">
-                Dieses Fenster schliesst sich automatisch...
+                {t('settings.integrations.accountLink.autoClose')}
               </p>
             </div>
           ) : (
@@ -94,13 +96,13 @@ export function AccountLinkDialog({
               {/* Instructions */}
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  1. Geben Sie den folgenden Befehl in {platformLabel} ein:
+                  {t('settings.integrations.accountLink.step1', { platform: platformLabel })}
                 </p>
                 <code className="block rounded-md bg-muted px-3 py-2 text-sm font-mono">
                   /cosmi link
                 </code>
                 <p className="text-sm text-muted-foreground">
-                  2. Sie erhalten einen Token. Geben Sie ihn hier ein:
+                  {t('settings.integrations.accountLink.step2')}
                 </p>
               </div>
 
@@ -111,7 +113,7 @@ export function AccountLinkDialog({
                   setToken(e.target.value)
                   if (status === 'error') setStatus('idle')
                 }}
-                placeholder="Token eingeben"
+                placeholder={t('settings.integrations.accountLink.tokenPlaceholder')}
                 className="font-mono text-lg text-center tracking-wider"
                 onKeyDown={(e) => e.key === 'Enter' && handleLink()}
               />
@@ -121,8 +123,7 @@ export function AccountLinkDialog({
                 <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-error-light p-2.5">
                   <XCircle className="h-4 w-4 text-destructive shrink-0" />
                   <p className="text-sm text-destructive">
-                    Token ungültig oder abgelaufen. Bitte versuchen Sie es
-                    erneut.
+                    {t('settings.integrations.accountLink.tokenInvalid')}
                   </p>
                 </div>
               )}
@@ -130,7 +131,7 @@ export function AccountLinkDialog({
               {/* Actions */}
               <div className="flex items-center justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={handleClose}>
-                  Abbrechen
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   size="sm"
@@ -140,7 +141,7 @@ export function AccountLinkDialog({
                   {linkAccount.isPending && (
                     <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
                   )}
-                  Verknüpfen
+                  {t('settings.integrations.accountLink.link')}
                 </Button>
               </div>
             </>

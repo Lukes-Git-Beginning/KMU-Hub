@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export function CreditNoteDialog({
   onOpenChange,
   preselectedInvoice,
 }: CreditNoteDialogProps) {
+  const { t } = useTranslation()
   const createCreditNote = useCreateCreditNote()
   const { data: invoicesData } = useInvoices()
 
@@ -108,7 +110,7 @@ export function CreditNoteDialog({
   const handleSave = () => {
     if (!selectedInvoice) return
     if (!reason.trim()) {
-      toast.error('Bitte einen Grund angeben')
+      toast.error(t('finanzen.creditNote.reasonRequired'))
       return
     }
     const validItems = items.filter(
@@ -131,7 +133,7 @@ export function CreditNoteDialog({
       },
       {
         onSuccess: () => {
-          toast.success('Gutschrift erstellt')
+          toast.success(t('finanzen.creditNote.created'))
           onOpenChange(false)
         },
         onError: (err) => toast.error(err.message),
@@ -152,17 +154,17 @@ export function CreditNoteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Gutschrift erstellen</DialogTitle>
+          <DialogTitle>{t('finanzen.creditNote.createTitle')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
           {/* Invoice selection */}
           {!preselectedInvoice && (
             <div className="space-y-1.5">
-              <Label>Originalrechnung *</Label>
+              <Label>{t('finanzen.creditNote.originalInvoice')} *</Label>
               <Select value={selectedInvoiceId} onValueChange={handleInvoiceSelect}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Rechnung auswählen..." />
+                  <SelectValue placeholder={t('finanzen.creditNote.selectInvoice')} />
                 </SelectTrigger>
                 <SelectContent>
                   {eligibleInvoices.map((inv) => (
@@ -180,17 +182,17 @@ export function CreditNoteDialog({
               {/* Customer info (read-only) */}
               <div className="rounded-md bg-secondary/50 p-3 text-xs space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Rechnung</span>
+                  <span className="text-muted-foreground">{t('finanzen.invoice')}</span>
                   <span className="font-medium text-foreground font-mono">
                     {selectedInvoice.invoice_number}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Kunde</span>
+                  <span className="text-muted-foreground">{t('finanzen.customer')}</span>
                   <span className="text-foreground">{selectedInvoice.customer?.name ?? ''}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Rechnungsbetrag</span>
+                  <span className="text-muted-foreground">{t('finanzen.invoiceAmount')}</span>
                   <span className="font-medium text-foreground">
                     {formatEUR(selectedInvoice.tax_breakdown?.gross_total ?? selectedInvoice.total_gross ?? 0)}
                   </span>
@@ -199,9 +201,9 @@ export function CreditNoteDialog({
 
               {/* Reason */}
               <div className="space-y-1.5">
-                <Label>Grund *</Label>
+                <Label>{t('finanzen.creditNote.reason')} *</Label>
                 <Textarea
-                  placeholder="z.B. Teilgutschrift für nicht erbrachte Leistung"
+                  placeholder={t('finanzen.creditNote.reasonPlaceholder')}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={2}
@@ -210,14 +212,14 @@ export function CreditNoteDialog({
 
               {/* Line items (adjustable) */}
               <div className="space-y-2">
-                <Label>Positionen (anpassbar für Teilgutschrift)</Label>
+                <Label>{t('finanzen.creditNote.lineItemsLabel')}</Label>
                 <div className="rounded-lg border border-border overflow-hidden">
                   <div className="grid grid-cols-[1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
-                    <span>Bezeichnung</span>
-                    <span>Menge</span>
-                    <span>Einzelpreis</span>
-                    <span>MwSt</span>
-                    <span className="text-right">Gesamt</span>
+                    <span>{t('finanzen.lineItems.description')}</span>
+                    <span>{t('finanzen.lineItems.quantity')}</span>
+                    <span>{t('finanzen.lineItems.unitPrice')}</span>
+                    <span>{t('finanzen.lineItems.vat')}</span>
+                    <span className="text-right">{t('finanzen.lineItems.total')}</span>
                     <span />
                   </div>
                   {items.map((item, idx) => (
@@ -267,17 +269,17 @@ export function CreditNoteDialog({
               <div className="flex justify-end">
                 <div className="w-64 space-y-1.5 text-xs">
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Zwischensumme (netto)</span>
+                    <span>{t('finanzen.totals.subtotalNet')}</span>
                     <span>{formatEUR(subtotal)}</span>
                   </div>
                   {taxMode !== 'kleinunternehmer' && (
                     <div className="flex justify-between text-muted-foreground">
-                      <span>MwSt</span>
+                      <span>{t('finanzen.lineItems.vat')}</span>
                       <span>{formatEUR(tax)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
-                    <span>Gutschriftbetrag</span>
+                    <span>{t('finanzen.creditNote.creditAmount')}</span>
                     <span>{formatEUR(total)}</span>
                   </div>
                 </div>
@@ -289,7 +291,7 @@ export function CreditNoteDialog({
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleSave}
@@ -297,7 +299,7 @@ export function CreditNoteDialog({
               !selectedInvoice || !reason.trim() || items.length === 0 || createCreditNote.isPending
             }
           >
-            {createCreditNote.isPending ? 'Erstellt...' : 'Gutschrift erstellen'}
+            {createCreditNote.isPending ? t('finanzen.creditNote.creating') : t('finanzen.creditNote.createTitle')}
           </Button>
         </div>
       </DialogContent>

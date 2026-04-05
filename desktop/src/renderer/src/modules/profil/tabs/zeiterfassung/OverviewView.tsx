@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18next from 'i18next'
 import {
   Clock, TrendingUp, TrendingDown, Palmtree, Calendar,
   ArrowRight, Timer,
@@ -19,6 +21,7 @@ interface OverviewViewProps {
 }
 
 export default function OverviewView({ onNavigate }: OverviewViewProps) {
+  const { t } = useTranslation()
   const entries = useTimeTrackingStore((s) => s.entries)
   const categories = useTimeTrackingStore((s) => s.categories)
   const targets = useTimeTrackingStore((s) => s.targets)
@@ -86,7 +89,15 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
 
   // ── Daily breakdown this week ───────────────────────
   const weekDayData = useMemo(() => {
-    const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+    const dayNames = [
+      t('profil.zeiterfassung.dayShort.mon'),
+      t('profil.zeiterfassung.dayShort.tue'),
+      t('profil.zeiterfassung.dayShort.wed'),
+      t('profil.zeiterfassung.dayShort.thu'),
+      t('profil.zeiterfassung.dayShort.fri'),
+      t('profil.zeiterfassung.dayShort.sat'),
+      t('profil.zeiterfassung.dayShort.sun'),
+    ]
     return getWeekDates(0).map((date, i) => {
       const ds = dateToStr(date)
       const mins = entries
@@ -141,7 +152,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors group"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Heute</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('profil.zeiterfassung.viewToday')}</span>
             <Clock className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
           <div className="flex items-end gap-1.5 mb-2">
@@ -161,8 +172,8 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
             {todayMinutes >= dailyTarget
-              ? `+${formatMinutes(todayMinutes - dailyTarget)} über Soll`
-              : `Noch ${formatMinutes(dailyTarget - todayMinutes)}`}
+              ? `+${formatMinutes(todayMinutes - dailyTarget)} ${t('profil.zeiterfassung.overview.aboveTarget')}`
+              : `${t('profil.zeiterfassung.overview.remaining')} ${formatMinutes(dailyTarget - todayMinutes)}`}
           </p>
         </button>
 
@@ -172,7 +183,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors group"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Diese Woche</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('profil.zeiterfassung.overview.thisWeek')}</span>
             <Calendar className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
           <div className="flex items-end gap-1.5 mb-2">
@@ -190,7 +201,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
               style={{ width: `${weekPercent}%` }}
             />
           </div>
-          <p className="text-xs text-muted-foreground mt-1.5">{weekPercent}% erledigt</p>
+          <p className="text-xs text-muted-foreground mt-1.5">{weekPercent}% {t('profil.zeiterfassung.overview.done')}</p>
         </button>
 
         {/* Overtime */}
@@ -199,7 +210,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
           className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary/40 transition-colors group"
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Überstunden</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('profil.zeiterfassung.overtime')}</span>
             {overtime >= 0 ? (
               <TrendingUp className="h-4 w-4 text-success" />
             ) : (
@@ -215,22 +226,22 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1.5">
-            Soll: {formatMinutes(totalTarget)} | Ist: {formatMinutes(totalMinutesAllTime)}
+            {t('profil.zeiterfassung.overview.target')}: {formatMinutes(totalTarget)} | {t('profil.zeiterfassung.overview.actual')}: {formatMinutes(totalMinutesAllTime)}
           </p>
           <p className="text-xs text-muted-foreground">
-            Basierend auf {workingDays} Arbeitstagen
+            {t('profil.zeiterfassung.overview.basedOnDays', { count: workingDays })}
           </p>
         </button>
 
         {/* Vacation */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Resturlaub</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('profil.zeiterfassung.overview.remainingVacation')}</span>
             <Palmtree className="h-4 w-4 text-success" />
           </div>
           <div className="flex items-end gap-1.5 mb-2">
             <span className="text-2xl font-bold text-foreground tabular-nums">{vacationRemaining}</span>
-            <span className="text-sm text-muted-foreground mb-0.5">/ {VACATION_TOTAL} Tage</span>
+            <span className="text-sm text-muted-foreground mb-0.5">/ {VACATION_TOTAL} {t('profil.zeiterfassung.overview.days')}</span>
           </div>
           <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
             <div
@@ -239,9 +250,9 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             />
           </div>
           <div className="flex items-center gap-3 mt-1.5">
-            <span className="text-xs text-muted-foreground">{VACATION_USED} genommen</span>
+            <span className="text-xs text-muted-foreground">{VACATION_USED} {t('profil.zeiterfassung.overview.taken')}</span>
             {pendingVacation > 0 && (
-              <span className="text-xs text-warning-foreground">{pendingVacation} beantragt</span>
+              <span className="text-xs text-warning-foreground">{pendingVacation} {t('profil.zeiterfassung.overview.requested')}</span>
             )}
           </div>
         </div>
@@ -252,12 +263,12 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
         {/* Daily Bar Chart */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground">Woche im Überblick</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('profil.zeiterfassung.overview.weekAtGlance')}</h3>
             <button
               onClick={() => onNavigate('week')}
               className="text-xs text-primary hover:underline flex items-center gap-1"
             >
-              Details <ArrowRight className="h-3 w-3" />
+              {t('common.details')} <ArrowRight className="h-3 w-3" />
             </button>
           </div>
           <div className="flex items-end gap-2" style={{ height: 120 }}>
@@ -297,13 +308,13 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
             })}
           </div>
           <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-            <span>Soll: {targets.weeklyHours}h</span>
+            <span>{t('profil.zeiterfassung.overview.target')}: {targets.weeklyHours}h</span>
             <span>|</span>
             <span className={cn(
               'font-medium',
               weekMinutes >= weekTarget ? 'text-success' : 'text-foreground',
             )}>
-              Ist: {formatHoursDecimal(weekMinutes)}h
+              {t('profil.zeiterfassung.overview.actual')}: {formatHoursDecimal(weekMinutes)}h
             </span>
             <span>|</span>
             <span className={cn(
@@ -318,16 +329,16 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
         {/* Category Breakdown */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground">Kategorien (diese Woche)</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('profil.zeiterfassung.overview.categoriesThisWeek')}</h3>
             <button
               onClick={() => onNavigate('categories')}
               className="text-xs text-primary hover:underline flex items-center gap-1"
             >
-              Verwalten <ArrowRight className="h-3 w-3" />
+              {t('profil.zeiterfassung.overview.manage')} <ArrowRight className="h-3 w-3" />
             </button>
           </div>
           {weekCategoryStats.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Keine Einträge diese Woche</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">{t('profil.zeiterfassung.overview.noEntriesThisWeek')}</p>
           ) : (
             <div className="space-y-3">
               {weekCategoryStats.map((cat) => {
@@ -361,31 +372,31 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Key Metrics */}
         <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Arbeitsvertrag</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-4">{t('profil.zeiterfassung.overview.contract')}</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Wochenstunden (Soll)</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.weeklyTarget')}</span>
               <span className="font-medium text-foreground">{targets.weeklyHours}h</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Tagesstunden (Soll)</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.dailyTarget')}</span>
               <span className="font-medium text-foreground">{targets.dailyHours}h</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Monatsstunden (Soll)</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.monthlyTarget')}</span>
               <span className="font-medium text-foreground">{targets.monthlyHours}h</span>
             </div>
             <div className="border-t border-border pt-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Dieser Monat (Ist)</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.thisMonthActual')}</span>
               <span className="font-semibold text-foreground">{formatHoursDecimal(monthMinutes)}h</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Krankheitstage (Jahr)</span>
-              <span className="font-medium text-foreground">{sickDays} Tage</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.sickDays')}</span>
+              <span className="font-medium text-foreground">{sickDays} {t('profil.zeiterfassung.overview.days')}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Urlaubsanspruch</span>
-              <span className="font-medium text-foreground">{VACATION_TOTAL} Tage/Jahr</span>
+              <span className="text-muted-foreground">{t('profil.zeiterfassung.overview.vacationEntitlement')}</span>
+              <span className="font-medium text-foreground">{VACATION_TOTAL} {t('profil.zeiterfassung.overview.daysPerYear')}</span>
             </div>
           </div>
         </div>
@@ -393,16 +404,16 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
         {/* Recent Activity */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground">Letzte Einträge</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('profil.zeiterfassung.overview.recentEntries')}</h3>
             <button
               onClick={() => onNavigate('today')}
               className="text-xs text-primary hover:underline flex items-center gap-1"
             >
-              Alle <ArrowRight className="h-3 w-3" />
+              {t('profil.zeiterfassung.overview.all')} <ArrowRight className="h-3 w-3" />
             </button>
           </div>
           {recentEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Noch keine Einträge</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">{t('profil.zeiterfassung.noEntries')}</p>
           ) : (
             <div className="space-y-2">
               {recentEntries.map((entry) => {
@@ -418,7 +429,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
                       style={{ backgroundColor: cat?.color || '#6b7280' }}
                     />
                     <span className="text-xs text-muted-foreground w-16 shrink-0 tabular-nums">
-                      {entryIsToday ? 'Heute' : formatDateLabel(entry.date)}
+                      {entryIsToday ? t('profil.zeiterfassung.viewToday') : formatDateLabel(entry.date)}
                     </span>
                     <span className="text-sm text-foreground truncate flex-1">
                       {entry.description}
@@ -443,7 +454,7 @@ function formatDateLabel(dateStr: string): string {
   const yesterday = new Date()
   yesterday.setDate(today.getDate() - 1)
 
-  if (dateStr === yesterday.toISOString().split('T')[0]) return 'Gestern'
+  if (dateStr === yesterday.toISOString().split('T')[0]) return i18next.t('profil.zeiterfassung.overview.yesterday')
 
   return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.`
 }

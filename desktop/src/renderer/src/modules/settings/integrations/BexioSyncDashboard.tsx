@@ -7,6 +7,7 @@
  * connected Bexio integration card.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -50,6 +51,7 @@ export function BexioSyncDashboard({
   isOpen,
   onClose,
 }: BexioSyncDashboardProps) {
+  const { t } = useTranslation()
   const { data: connection } = useBexioConnectionStatus()
   const disconnect = useBexioDisconnect()
   const { data: syncStatus, refetch: refetchStatus } = useBexioSyncStatus()

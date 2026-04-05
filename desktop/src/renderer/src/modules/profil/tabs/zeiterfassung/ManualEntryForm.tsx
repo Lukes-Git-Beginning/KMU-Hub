@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -17,6 +18,7 @@ interface ManualEntryFormProps {
 }
 
 export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormProps) {
+  const { t } = useTranslation()
   const categories = useTimeTrackingStore((s) => s.categories)
   const addManualEntry = useTimeTrackingStore((s) => s.addManualEntry)
 
@@ -31,11 +33,11 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
 
   const handleSubmit = () => {
     if (!isValid) {
-      toast.error('Bitte alle Felder korrekt ausfüllen')
+      toast.error(t('profil.zeiterfassung.errorFillAllFields'))
       return
     }
     if (date > todayStr()) {
-      toast.error('Datum darf nicht in der Zukunft liegen')
+      toast.error(t('profil.zeiterfassung.manual.noFutureDate'))
       return
     }
 
@@ -51,7 +53,7 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
       location: null,
     })
 
-    toast.success('Eintrag hinzugefügt')
+    toast.success(t('profil.zeiterfassung.manual.entryAdded'))
     onOpenChange(false)
     setDescription('')
     setStartTime('09:00')
@@ -63,11 +65,11 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Manuelle Zeiterfassung</DialogTitle>
+          <DialogTitle>{t('profil.zeiterfassung.manual.title')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Datum</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.manual.date')}</label>
             <Input
               type="date"
               value={date}
@@ -78,7 +80,7 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Start</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.manual.start')}</label>
               <Input
                 type="time"
                 value={startTime}
@@ -86,7 +88,7 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Ende</label>
+              <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.manual.end')}</label>
               <Input
                 type="time"
                 value={endTime}
@@ -97,20 +99,20 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
 
           {duration > 0 && (
             <p className="text-sm text-muted-foreground">
-              Dauer: <span className="font-medium text-foreground">{Math.floor(duration / 60)}h {duration % 60}m</span>
+              {t('profil.zeiterfassung.manual.duration')}: <span className="font-medium text-foreground">{Math.floor(duration / 60)}h {duration % 60}m</span>
             </p>
           )}
           {duration <= 0 && startTime && endTime && (
             <p className="text-sm text-destructive">
-              Endzeit muss nach der Startzeit liegen
+              {t('profil.zeiterfassung.manual.endAfterStart')}
             </p>
           )}
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Kategorie</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.manual.category')}</label>
             <Select value={categoryId} onValueChange={setCategoryId}>
               <SelectTrigger>
-                <SelectValue placeholder="Kategorie wählen..." />
+                <SelectValue placeholder={t('profil.zeiterfassung.manual.selectCategory')} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat) => (
@@ -129,18 +131,18 @@ export default function ManualEntryForm({ open, onOpenChange }: ManualEntryFormP
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Beschreibung</label>
+            <label className="text-sm font-medium text-foreground">{t('profil.zeiterfassung.manual.description')}</label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Was hast du gemacht?"
+              placeholder={t('profil.zeiterfassung.manual.descriptionPlaceholder')}
               onKeyDown={(e) => e.key === 'Enter' && isValid && handleSubmit()}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleSubmit} disabled={!isValid}>Eintrag erstellen</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleSubmit} disabled={!isValid}>{t('profil.zeiterfassung.manual.createEntry')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import { toast } from 'sonner'
 import { useSettingsStore } from '@/stores/settings'
 
 export function MailSettingsTab() {
+  const { t } = useTranslation()
   const { mail, updateMail } = useSettingsStore()
 
   const [imapHost, setImapHost] = useState(mail.imapHost)

@@ -5,6 +5,7 @@
  * Mock data for design — backend swap: real time entries from Zeiterfassung API.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Clock,
   FileText,
@@ -68,6 +69,7 @@ export function HoursToInvoiceDialog({
   open,
   onOpenChange,
 }: HoursToInvoiceDialogProps) {
+  const { t } = useTranslation()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [hourlyRate, setHourlyRate] = useState('150')
   const [groupBy, setGroupBy] = useState<'project' | 'task' | 'date'>('project')
@@ -129,7 +131,7 @@ export function HoursToInvoiceDialog({
     new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'CHF' }).format(v)
 
   const handleCreateInvoice = () => {
-    toast.success(`Rechnung mit ${lineItems.length} Positionen erstellt (${formatCHF(totalAmount)})`)
+    toast.success(t('finanzen.hours.invoiceCreated', { count: lineItems.length, amount: formatCHF(totalAmount) }))
     onOpenChange(false)
     setStep('select')
     setSelectedIds(new Set())
@@ -148,7 +150,7 @@ export function HoursToInvoiceDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
-            Stunden zu Rechnung
+            {t('finanzen.hours.title')}
           </DialogTitle>
         </DialogHeader>
 
@@ -158,7 +160,7 @@ export function HoursToInvoiceDialog({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Calculator className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Stundensatz:</span>
+                <span className="text-xs text-muted-foreground">{t('finanzen.hours.hourlyRate')}:</span>
                 <div className="relative">
                   <input
                     type="number"
@@ -178,7 +180,7 @@ export function HoursToInvoiceDialog({
                 onClick={toggleAll}
                 className="text-xs text-primary hover:underline"
               >
-                {selectedIds.size === unbilledEntries.length ? 'Alle abwählen' : 'Alle wählen'}
+                {selectedIds.size === unbilledEntries.length ? t('finanzen.hours.deselectAll') : t('finanzen.hours.selectAll')}
               </button>
             </div>
 
@@ -186,11 +188,11 @@ export function HoursToInvoiceDialog({
             <div className="rounded-md border border-border overflow-hidden">
               <div className="grid grid-cols-[24px_80px_1fr_120px_60px_60px] gap-2 items-center bg-secondary/50 px-3 py-2 text-[10px] font-medium text-muted-foreground">
                 <span />
-                <span>Datum</span>
-                <span>Projekt / Aufgabe</span>
-                <span>Mitarbeiter</span>
-                <span className="text-right">Stunden</span>
-                <span className="text-right">Betrag</span>
+                <span>{t('finanzen.banking.date')}</span>
+                <span>{t('finanzen.hours.projectTask')}</span>
+                <span>{t('finanzen.hours.employee')}</span>
+                <span className="text-right">{t('finanzen.hours.hours')}</span>
+                <span className="text-right">{t('finanzen.banking.amount')}</span>
               </div>
               {unbilledEntries.map((entry) => {
                 const isSelected = selectedIds.has(entry.id)
@@ -233,7 +235,7 @@ export function HoursToInvoiceDialog({
             {/* Summary + actions */}
             <div className="flex items-center justify-between rounded-md bg-secondary/50 px-4 py-3">
               <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{selectedIds.size}</span> Einträge |{' '}
+                <span className="font-medium text-foreground">{selectedIds.size}</span> {t('finanzen.hours.entries')} |{' '}
                 <span className="font-medium text-foreground">{totalHours.toFixed(1)}h</span> |{' '}
                 <span className="font-medium text-primary">{formatCHF(totalAmount)}</span>
               </div>
@@ -242,7 +244,7 @@ export function HoursToInvoiceDialog({
                 disabled={selectedIds.size === 0}
                 className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                Vorschau
+                {t('finanzen.hours.preview')}
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -253,11 +255,11 @@ export function HoursToInvoiceDialog({
           <div className="space-y-4">
             {/* Group by selector */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Gruppierung:</span>
+              <span className="text-xs text-muted-foreground">{t('finanzen.hours.groupBy')}:</span>
               {([
-                ['project', 'Projekt', FolderKanban],
-                ['task', 'Aufgabe', FileText],
-                ['date', 'Datum', Calendar],
+                ['project', t('finanzen.hours.project'), FolderKanban],
+                ['task', t('finanzen.hours.task'), FileText],
+                ['date', t('finanzen.banking.date'), Calendar],
               ] as const).map(([key, label, Icon]) => (
                 <button
                   key={key}
@@ -277,11 +279,11 @@ export function HoursToInvoiceDialog({
             {/* Line items preview */}
             <div className="rounded-md border border-border overflow-hidden">
               <div className="grid grid-cols-[2rem_1fr_60px_80px_80px] gap-2 items-center bg-secondary/50 px-3 py-2 text-[10px] font-medium text-muted-foreground">
-                <span>Pos.</span>
-                <span>Beschreibung</span>
-                <span className="text-right">Stunden</span>
-                <span className="text-right">Einzelpreis</span>
-                <span className="text-right">Gesamt</span>
+                <span>{t('finanzen.lineItems.pos')}</span>
+                <span>{t('finanzen.lineItems.description')}</span>
+                <span className="text-right">{t('finanzen.hours.hours')}</span>
+                <span className="text-right">{t('finanzen.lineItems.unitPrice')}</span>
+                <span className="text-right">{t('finanzen.lineItems.total')}</span>
               </div>
               {lineItems.map((item, i) => (
                 <div
@@ -292,7 +294,7 @@ export function HoursToInvoiceDialog({
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-foreground truncate">{item.label}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {item.entries.length} Eintrag{item.entries.length > 1 ? 'e' : ''}
+                      {t('finanzen.hours.entriesCount', { count: item.entries.length })}
                     </p>
                   </div>
                   <span className="text-xs text-foreground text-right font-mono">
@@ -312,15 +314,15 @@ export function HoursToInvoiceDialog({
             <div className="flex justify-end">
               <div className="w-56 space-y-1.5 text-xs">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Stunden gesamt</span>
+                  <span>{t('finanzen.hours.totalHours')}</span>
                   <span className="font-mono">{totalHours.toFixed(1)}h</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Stundensatz</span>
+                  <span>{t('finanzen.hours.hourlyRate')}</span>
                   <span>{formatCHF(rate)}</span>
                 </div>
                 <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
-                  <span>Netto-Betrag</span>
+                  <span>{t('finanzen.totals.netAmount')}</span>
                   <span>{formatCHF(totalAmount)}</span>
                 </div>
               </div>
@@ -332,14 +334,14 @@ export function HoursToInvoiceDialog({
                 onClick={() => setStep('select')}
                 className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
               >
-                Zurück
+                {t('common.back')}
               </button>
               <button
                 onClick={handleCreateInvoice}
                 className="flex items-center gap-1.5 h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <FileText className="h-3.5 w-3.5" />
-                Rechnung erstellen
+                {t('finanzen.invoices.create')}
               </button>
             </div>
           </div>

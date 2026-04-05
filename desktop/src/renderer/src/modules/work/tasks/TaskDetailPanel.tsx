@@ -6,6 +6,7 @@
  * comment input. Has an "Erweitern" button to navigate to full detail page.
  */
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   X,
@@ -34,6 +35,7 @@ import PriorityBadge from '../components/PriorityBadge'
 import type { Priority } from '../components/PriorityBadge'
 
 export default function TaskDetailPanel() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const {
     activeTaskId,
@@ -200,7 +202,7 @@ export default function TaskDetailPanel() {
               variant="ghost"
               size="sm"
               onClick={handleExpand}
-              title="Erweitern"
+              title={t('work.panel.expand')}
             >
               <Maximize2 className="h-4 w-4" />
             </Button>
@@ -208,7 +210,7 @@ export default function TaskDetailPanel() {
               variant="ghost"
               size="sm"
               onClick={closeTaskPanel}
-              title="Schließen"
+              title={t('common.close')}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -219,11 +221,11 @@ export default function TaskDetailPanel() {
         <div className="flex flex-col h-[calc(100%-57px)] overflow-y-auto">
           {isLoading ? (
             <div className="p-4 text-sm text-muted-foreground">
-              Aufgabe wird geladen...
+              {t('work.panel.loading')}
             </div>
           ) : !task ? (
             <div className="p-4 text-sm text-muted-foreground">
-              Aufgabe nicht gefunden
+              {t('work.panel.notFound')}
             </div>
           ) : (
             <>
@@ -248,7 +250,7 @@ export default function TaskDetailPanel() {
                   <h2
                     className="text-lg font-semibold cursor-pointer hover:bg-accent/30 rounded px-1 -mx-1 py-0.5 transition-colors"
                     onClick={() => setEditingTitle(true)}
-                    title="Klicken zum Bearbeiten"
+                    title={t('work.panel.clickToEdit')}
                   >
                     {task.title}
                   </h2>
@@ -259,7 +261,7 @@ export default function TaskDetailPanel() {
                   {/* Status */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Status
+                      {t('common.status')}
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -300,7 +302,7 @@ export default function TaskDetailPanel() {
                   {/* Priority */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Priorität
+                      {t('work.tasks.priority')}
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -329,12 +331,12 @@ export default function TaskDetailPanel() {
                               <PriorityBadge priority={p} compact />
                               <span>
                                 {p === 'urgent'
-                                  ? 'Dringend'
+                                  ? t('work.priority.urgent')
                                   : p === 'high'
-                                    ? 'Hoch'
+                                    ? t('work.priority.high')
                                     : p === 'medium'
-                                      ? 'Normal'
-                                      : 'Niedrig'}
+                                      ? t('work.priority.normal')
+                                      : t('work.priority.low')}
                               </span>
                             </button>
                           ))}
@@ -346,7 +348,7 @@ export default function TaskDetailPanel() {
                   {/* Assignee */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Zuständig
+                      {t('work.tasks.assignee')}
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -356,7 +358,7 @@ export default function TaskDetailPanel() {
                         >
                           <User className="h-3.5 w-3.5 text-muted-foreground" />
                           <span>
-                            {task.assignee_name || 'Nicht zugewiesen'}
+                            {task.assignee_name || t('work.tasks.unassigned')}
                           </span>
                         </button>
                       </PopoverTrigger>
@@ -370,7 +372,7 @@ export default function TaskDetailPanel() {
                             )}
                             onClick={() => handleAssigneeChange('__none__')}
                           >
-                            Nicht zugewiesen
+                            {t('work.tasks.unassigned')}
                           </button>
                           {members.map((m) => (
                             <button
@@ -384,7 +386,7 @@ export default function TaskDetailPanel() {
                                 m.user_id && handleAssigneeChange(m.user_id)
                               }
                             >
-                              {m.display_name || m.email || 'Benutzer'}
+                              {m.display_name || m.email || t('work.tasks.user')}
                             </button>
                           ))}
                         </div>
@@ -395,7 +397,7 @@ export default function TaskDetailPanel() {
                   {/* Due date */}
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
-                      Fällig am
+                      {t('work.tasks.dueAt')}
                     </label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -409,7 +411,7 @@ export default function TaskDetailPanel() {
                               ? new Date(task.due_date).toLocaleDateString(
                                   'de-DE'
                                 )
-                              : 'Kein Datum'}
+                              : t('work.tasks.noDate')}
                           </span>
                         </button>
                       </PopoverTrigger>
@@ -430,7 +432,7 @@ export default function TaskDetailPanel() {
                               className="h-7 w-full text-xs"
                               onClick={() => handleDueDateChange('')}
                             >
-                              Datum entfernen
+                              {t('work.tasks.removeDate')}
                             </Button>
                           )}
                         </div>
@@ -442,7 +444,7 @@ export default function TaskDetailPanel() {
                 {/* Description */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Beschreibung
+                    {t('work.tasks.description')}
                   </label>
                   {editingDesc ? (
                     <div className="space-y-2">
@@ -462,10 +464,10 @@ export default function TaskDetailPanel() {
                             setEditingDesc(false)
                           }}
                         >
-                          Abbrechen
+                          {t('common.cancel')}
                         </Button>
                         <Button size="sm" onClick={handleDescSave}>
-                          Speichern
+                          {t('common.save')}
                         </Button>
                       </div>
                     </div>
@@ -476,9 +478,9 @@ export default function TaskDetailPanel() {
                         !task.description && 'text-muted-foreground italic'
                       )}
                       onClick={() => setEditingDesc(true)}
-                      title="Klicken zum Bearbeiten"
+                      title={t('work.panel.clickToEdit')}
                     >
-                      {task.description || 'Beschreibung hinzufügen...'}
+                      {task.description || t('work.panel.addDescription')}
                     </div>
                   )}
                 </div>
@@ -488,7 +490,7 @@ export default function TaskDetailPanel() {
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                       <ListTree className="h-3.5 w-3.5" />
-                      Unteraufgaben
+                      {t('work.panel.subtasks')}
                       {subtasks.length > 0 && (
                         <span className="text-muted-foreground/70">
                           ({subtasks.length})
@@ -529,7 +531,7 @@ export default function TaskDetailPanel() {
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground py-1">
-                      Keine Unteraufgaben
+                      {t('work.panel.noSubtasks')}
                     </p>
                   )}
                 </div>
@@ -540,7 +542,7 @@ export default function TaskDetailPanel() {
                 <div className="relative">
                   <Input
                     className="pr-10 text-sm"
-                    placeholder="Kommentar schreiben..."
+                    placeholder={t('work.panel.commentPlaceholder')}
                     value={commentValue}
                     onChange={(e) => setCommentValue(e.target.value)}
                     onKeyDown={(e) => {

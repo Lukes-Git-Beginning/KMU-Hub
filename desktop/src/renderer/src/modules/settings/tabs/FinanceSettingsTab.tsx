@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useDunningConfig, useUpdateDunningConfig } from '@/api/hooks/useFinance'
 
 export function FinanceSettingsTab() {
+  const { t } = useTranslation()
   const { finance, updateFinance } = useSettingsStore()
 
   const [defaultVatRate, setDefaultVatRate] = useState(finance.defaultVatRate)

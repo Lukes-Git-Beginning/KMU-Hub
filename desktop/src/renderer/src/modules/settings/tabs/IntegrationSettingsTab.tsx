@@ -7,6 +7,7 @@
  * (Slack, Teams webhook, Custom Webhook) use ExistingIntegrationWrapper.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Plus, Send, Trash2, Hash, Loader2, Link, Unlink, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -36,7 +37,7 @@ import type { IntegrationConfig, IntegrationPlatform } from '@/api/integration-t
 import {
   INTEGRATION_REGISTRY,
   CATEGORY_ORDER,
-  CATEGORY_LABELS,
+  CATEGORY_LABEL_KEYS,
   PLATFORM_MAP,
   type IntegrationDefinition,
 } from '../integrations/integration-registry'
@@ -65,6 +66,7 @@ const MODULE_OPTIONS = [
 // ---------------------------------------------------------------------------
 
 export function IntegrationSettingsTab() {
+  const { t } = useTranslation()
   const [activeIntegrationId, setActiveIntegrationId] = useState<string | null>(null)
 
   // Existing API hooks
@@ -118,9 +120,9 @@ export function IntegrationSettingsTab() {
   // Grid view
   return (
     <div className="max-w-4xl">
-      <h2 className="text-foreground mb-1">Integrationen</h2>
+      <h2 className="text-foreground mb-1">{t('settings.integrations.title')}</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Alle verfügbaren Integrationen verbinden und konfigurieren
+        {t('settings.integrations.subtitle')}
       </p>
 
       {CATEGORY_ORDER.map((cat) => {
@@ -130,7 +132,7 @@ export function IntegrationSettingsTab() {
         return (
           <section key={cat} className="mb-8">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              {CATEGORY_LABELS[cat]}
+              {t(CATEGORY_LABEL_KEYS[cat])}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {integrations.map((def) => (
@@ -160,6 +162,7 @@ function ExistingIntegrationWrapper({
   definition: IntegrationDefinition
   onBack: () => void
 }) {
+  const { t } = useTranslation()
   const platformKey = PLATFORM_MAP[definition.id] as IntegrationPlatform | undefined
   const { data: configs } = useIntegrationConfigs()
   const testMutation = useTestIntegration()
