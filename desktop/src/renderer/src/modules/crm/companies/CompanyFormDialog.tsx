@@ -5,6 +5,7 @@
  * Mock-first: works with local state, ready for API swap.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Building2,
   Globe,
@@ -29,30 +30,30 @@ import {
 // ---------------------------------------------------------------------------
 
 const industries = [
-  'IT & Software',
-  'Beratung',
-  'Handel',
-  'Produktion',
-  'Bau & Immobilien',
-  'Gesundheitswesen',
-  'Bildung',
-  'Gastronomie & Hotellerie',
-  'Handwerk',
-  'Logistik & Transport',
-  'Finanzen & Versicherung',
-  'Marketing & Medien',
-  'Recht',
-  'Landwirtschaft',
-  'Energie',
-  'Sonstige',
+  { value: 'it_software', labelKey: 'crm.industry.itSoftware' },
+  { value: 'consulting', labelKey: 'crm.industry.consulting' },
+  { value: 'trade', labelKey: 'crm.industry.trade' },
+  { value: 'manufacturing', labelKey: 'crm.industry.manufacturing' },
+  { value: 'construction', labelKey: 'crm.industry.construction' },
+  { value: 'healthcare', labelKey: 'crm.industry.healthcare' },
+  { value: 'education', labelKey: 'crm.industry.education' },
+  { value: 'hospitality', labelKey: 'crm.industry.hospitality' },
+  { value: 'crafts', labelKey: 'crm.industry.crafts' },
+  { value: 'logistics', labelKey: 'crm.industry.logistics' },
+  { value: 'finance', labelKey: 'crm.industry.finance' },
+  { value: 'marketing', labelKey: 'crm.industry.marketing' },
+  { value: 'legal', labelKey: 'crm.industry.legal' },
+  { value: 'agriculture', labelKey: 'crm.industry.agriculture' },
+  { value: 'energy', labelKey: 'crm.industry.energy' },
+  { value: 'other', labelKey: 'crm.industry.other' },
 ]
 
 const companySizes = [
-  { value: '1-10', label: '1-10 Mitarbeiter' },
-  { value: '11-50', label: '11-50 Mitarbeiter' },
-  { value: '51-200', label: '51-200 Mitarbeiter' },
-  { value: '201-500', label: '201-500 Mitarbeiter' },
-  { value: '500+', label: '500+ Mitarbeiter' },
+  { value: '1-10', labelKey: 'crm.companies.size.1_10' },
+  { value: '11-50', labelKey: 'crm.companies.size.11_50' },
+  { value: '51-200', labelKey: 'crm.companies.size.51_200' },
+  { value: '201-500', labelKey: 'crm.companies.size.201_500' },
+  { value: '500+', labelKey: 'crm.companies.size.500plus' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -93,6 +94,7 @@ export function CompanyFormDialog({
   onSubmit,
   isEdit = false,
 }: CompanyFormDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [industry, setIndustry] = useState('')
   const [website, setWebsite] = useState('')
@@ -169,9 +171,9 @@ export function CompanyFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Unternehmen bearbeiten' : 'Neues Unternehmen'}</DialogTitle>
+          <DialogTitle>{isEdit ? t('crm.companies.editTitle') : t('crm.companies.newTitle')}</DialogTitle>
           <DialogDescription>
-            {isEdit ? 'Unternehmensdaten aktualisieren.' : 'Erstelle einen neuen Firmeneintrag.'}
+            {isEdit ? t('crm.companies.editDescription') : t('crm.companies.newDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -180,7 +182,7 @@ export function CompanyFormDialog({
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
               <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-              Firmenname *
+              {t('crm.companies.companyName')} *
             </label>
             <input
               type="text"
@@ -197,32 +199,32 @@ export function CompanyFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Factory className="h-3.5 w-3.5 text-muted-foreground" />
-                Branche
+                {t('crm.field.industry')}
               </label>
               <select
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
                 className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:border-primary"
               >
-                <option value="">Auswählen...</option>
+                <option value="">{t('crm.selectPlaceholder')}</option>
                 {industries.map((i) => (
-                  <option key={i} value={i}>{i}</option>
+                  <option key={i.value} value={i.value}>{t(i.labelKey)}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                Größe
+                {t('crm.field.size')}
               </label>
               <select
                 value={size}
                 onChange={(e) => setSize(e.target.value)}
                 className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:border-primary"
               >
-                <option value="">Auswählen...</option>
+                <option value="">{t('crm.selectPlaceholder')}</option>
                 {companySizes.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
+                  <option key={s.value} value={s.value}>{t(s.labelKey)}</option>
                 ))}
               </select>
             </div>
@@ -233,7 +235,7 @@ export function CompanyFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                Telefon
+                {t('crm.field.phone')}
               </label>
               <input
                 type="text"
@@ -246,7 +248,7 @@ export function CompanyFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                E-Mail
+                {t('crm.field.email')}
               </label>
               <input
                 type="email"
@@ -262,7 +264,7 @@ export function CompanyFormDialog({
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
               <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-              Website
+              {t('crm.field.website')}
             </label>
             <input
               type="text"
@@ -277,7 +279,7 @@ export function CompanyFormDialog({
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
               <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-              Adresse
+              {t('crm.field.address')}
             </label>
             <input
               type="text"
@@ -313,7 +315,7 @@ export function CompanyFormDialog({
 
           {/* Tags */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tags</label>
+            <label className="text-sm font-medium text-foreground">{t('crm.field.tags')}</label>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-1">
                 {tags.map((tag) => (
@@ -332,7 +334,7 @@ export function CompanyFormDialog({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
-                placeholder="Tag hinzufügen..."
+                placeholder={t('crm.tags.addPlaceholder')}
                 className="h-9 flex-1 rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
               <button
@@ -347,11 +349,11 @@ export function CompanyFormDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Notizen</label>
+            <label className="text-sm font-medium text-foreground">{t('crm.field.notes')}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Interne Notizen..."
+              placeholder={t('crm.field.notesPlaceholder')}
               rows={3}
               className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary resize-none"
             />
@@ -363,14 +365,14 @@ export function CompanyFormDialog({
               onClick={() => onOpenChange(false)}
               className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={!name.trim()}
               className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {isEdit ? 'Speichern' : 'Erstellen'}
+              {isEdit ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>

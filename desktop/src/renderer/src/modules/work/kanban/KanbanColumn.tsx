@@ -5,6 +5,7 @@
  * Groups tasks by parent hierarchy: top-level tasks render as KanbanCard,
  * subtasks whose parent is in the same column render in KanbanSubtaskGroup.
  */
+import { useTranslation } from 'react-i18next'
 import { useDroppable } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -44,6 +45,7 @@ export default function KanbanColumn({
   onTaskClick,
   onAddTask,
 }: KanbanColumnProps) {
+  const { t } = useTranslation()
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${status.id}`,
     data: { statusId: status.id },
@@ -82,7 +84,7 @@ export default function KanbanColumn({
             type="button"
             className="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             onClick={onAddTask}
-            title="Neue Aufgabe"
+            title={t('work.tasks.newTask')}
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -100,7 +102,7 @@ export default function KanbanColumn({
               {displayTasks.length === 0 ? (
                 <div className="rounded-lg border-2 border-dashed border-border/60 p-4 text-center">
                   <p className="text-xs text-muted-foreground">
-                    Aufgabe hierher ziehen oder neue erstellen
+                    {t('work.kanban.emptyColumn')}
                   </p>
                 </div>
               ) : (

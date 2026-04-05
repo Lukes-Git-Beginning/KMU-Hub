@@ -6,6 +6,7 @@
  * Right column: status, priority, assignee, due date, dependencies, files, metadata.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -52,6 +53,7 @@ import TimeEntryList from '../components/TimeEntryList'
 import ManualTimeEntryDialog from '../components/ManualTimeEntryDialog'
 
 export default function TaskDetailPage() {
+  const { t } = useTranslation()
   const { id: projectId, taskId } = useParams<{
     id: string
     taskId: string
@@ -147,13 +149,13 @@ export default function TaskDetailPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Aufgabe
+            {t('work.taskDetail.loadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('work.common.unexpectedError')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -175,14 +177,14 @@ export default function TaskDetailPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Aufgabe nicht gefunden
+            {t('work.taskDetail.notFound')}
           </p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => navigate(`/work/projects/${effectiveProjectId}`)}
           >
-            Zurück zum Projekt
+            {t('work.taskDetail.backToProject')}
           </Button>
         </div>
       </div>
@@ -235,7 +237,7 @@ export default function TaskDetailPage() {
             <h1
               className="text-2xl font-bold cursor-pointer hover:bg-accent/30 rounded px-2 -mx-2 py-1 transition-colors"
               onClick={() => setEditingTitle(true)}
-              title="Klicken zum Bearbeiten"
+              title={t('work.taskDetail.clickToEdit')}
             >
               {task.title}
             </h1>
@@ -244,7 +246,7 @@ export default function TaskDetailPage() {
           {/* Description (editable) */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Beschreibung
+              {t('work.tasks.description')}
             </label>
             {editingDesc ? (
               <div className="space-y-2">
@@ -264,10 +266,10 @@ export default function TaskDetailPage() {
                       setEditingDesc(false)
                     }}
                   >
-                    Abbrechen
+                    {t('common.cancel')}
                   </Button>
                   <Button size="sm" onClick={handleDescSave}>
-                    Speichern
+                    {t('common.save')}
                   </Button>
                 </div>
               </div>

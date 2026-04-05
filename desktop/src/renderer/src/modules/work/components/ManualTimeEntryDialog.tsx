@@ -4,6 +4,7 @@
  * Supports date, start time, duration (hours + minutes), and optional description.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export default function ManualTimeEntryDialog({
   initialDurationSeconds,
   initialDescription,
 }: ManualTimeEntryDialogProps) {
+  const { t } = useTranslation()
   const addEntry = useAddManualTimeEntry()
   const updateEntry = useUpdateTimeEntry()
 
@@ -129,7 +131,7 @@ export default function ManualTimeEntryDialog({
       <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle>
-            {editMode ? 'Zeiteintrag bearbeiten' : 'Zeiteintrag hinzufügen'}
+            {editMode ? t('work.timeEntry.editTitle') : t('work.timeEntry.addTitle')}
           </DialogTitle>
         </DialogHeader>
 
@@ -137,7 +139,7 @@ export default function ManualTimeEntryDialog({
           {/* Date */}
           <div className="space-y-1.5">
             <Label htmlFor="te-date" className="text-xs">
-              Datum
+              {t('work.invoice.date')}
             </Label>
             <Input
               id="te-date"
@@ -151,7 +153,7 @@ export default function ManualTimeEntryDialog({
           {/* Start time */}
           <div className="space-y-1.5">
             <Label htmlFor="te-time" className="text-xs">
-              Startzeit
+              {t('work.timeEntry.startTime')}
             </Label>
             <Input
               id="te-time"
@@ -164,7 +166,7 @@ export default function ManualTimeEntryDialog({
 
           {/* Duration */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Dauer</Label>
+            <Label className="text-xs">{t('work.timeEntry.duration')}</Label>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
                 <Input
@@ -194,13 +196,13 @@ export default function ManualTimeEntryDialog({
           {/* Description */}
           <div className="space-y-1.5">
             <Label htmlFor="te-desc" className="text-xs">
-              Beschreibung (optional)
+              {t('work.timeEntry.descriptionOptional')}
             </Label>
             <Textarea
               id="te-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Was wurde gemacht..."
+              placeholder={t('work.timeEntry.descriptionPlaceholder')}
               rows={3}
               className="text-sm resize-none"
               maxLength={2000}
@@ -214,7 +216,7 @@ export default function ManualTimeEntryDialog({
             size="sm"
             onClick={() => onOpenChange(false)}
           >
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             size="sm"
@@ -225,7 +227,7 @@ export default function ManualTimeEntryDialog({
                 0
             }
           >
-            {editMode ? 'Speichern' : 'Hinzufügen'}
+            {editMode ? t('common.save') : t('work.timeEntry.add')}
           </Button>
         </DialogFooter>
       </DialogContent>

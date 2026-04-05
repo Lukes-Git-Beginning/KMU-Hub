@@ -6,6 +6,7 @@
  * project members and quote-reply with preview.
  */
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MessageSquare, Reply, Pencil, Trash2, X, Send } from 'lucide-react'
 import { cn } from '@/lib'
 import { Button } from '@/components/ui/button'
@@ -35,7 +36,8 @@ function getInitials(name?: string): string {
     .slice(0, 2)
 }
 
-function formatRelativeTime(dateStr?: string): string {
+// Note: formatRelativeTime uses t() from the component scope — see render
+function formatRelativeTime(dateStr: string | undefined, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!dateStr) return ''
   const date = new Date(dateStr)
   const now = new Date()
@@ -44,10 +46,10 @@ function formatRelativeTime(dateStr?: string): string {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMin < 1) return 'gerade eben'
-  if (diffMin < 60) return `vor ${diffMin} Min.`
-  if (diffHours < 24) return `vor ${diffHours} Std.`
-  if (diffDays < 7) return `vor ${diffDays} Tag${diffDays === 1 ? '' : 'en'}`
+  if (diffMin < 1) return t('work.time.justNow')
+  if (diffMin < 60) return t('work.time.minutesAgo', { count: diffMin })
+  if (diffHours < 24) return t('work.time.hoursAgo', { count: diffHours })
+  if (diffDays < 7) return t('work.time.daysAgo', { count: diffDays })
   return date.toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
@@ -59,6 +61,7 @@ export default function CommentThread({
   taskId,
   projectId,
 }: CommentThreadProps) {
+  const { t } = useTranslation()
   const currentUserId = useAuthStore((s) => s.user?.id)
   const { data: commentsData, isLoading } = useTaskComments(taskId)
   const { data: membersData } = useProjectMembers(projectId)
@@ -233,7 +236,7 @@ export default function CommentThread({
   if (isLoading) {
     return (
       <div className="py-4 text-center text-sm text-muted-foreground">
-        Kommentare werden geladen...
+        {t('work.comments.loading')}
       </div>
     )
   }
@@ -245,7 +248,7 @@ export default function CommentThread({
         <div className="flex flex-col items-center py-6 text-center">
           <MessageSquare className="h-8 w-8 text-muted-foreground/30" />
           <p className="mt-2 text-sm text-muted-foreground">
-            Noch keine Kommentare
+            {t('work.comments.empty')}
           </p>
         </div>
       ) : (
@@ -270,12 +273,12 @@ export default function CommentThread({
                     {comment.author_name}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatRelativeTime(comment.created_at)}
+                    {formatRelativeTime(comment.created_at, t)}
                   </span>
                   {comment.updated_at &&
                     comment.updated_at !== comment.created_at && (
                       <span className="text-xs text-muted-foreground italic">
-                        (bearbeitet)
+                        ({t('work.comments.edited')})
                       </span>
                     )}
 
@@ -285,7 +288,7 @@ export default function CommentThread({
                       type="button"
                       className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                       onClick={() => startQuote(comment)}
-                      title="Antworten"
+                      title={t('work.comments.reply')}
                     >
                       <Reply className="h-3.5 w-3.5" />
                     </button>
@@ -295,7 +298,7 @@ export default function CommentThread({
                           type="button"
                           className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                           onClick={() => startEdit(comment)}
-                          title="Bearbeiten"
+                          title={t('common.edit')}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -303,7 +306,7 @@ export default function CommentThread({
                           type="button"
                           className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                           onClick={() => comment.id && handleDelete(comment.id)}
-                          title="Löschen"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -348,7 +351,7 @@ export default function CommentThread({
                           setEditValue('')
                         }}
                       >
-                        Abbrechen
+                        {t('common.cancel')}
                       </Button>
                       <Button
                         size="sm"
@@ -357,7 +360,7 @@ export default function CommentThread({
                         }}
                         disabled={updateComment.isPending}
                       >
-                        Speichern
+                        {t('common.save')}
                       </Button>
                     </div>
                   </div>
@@ -412,7 +415,7 @@ export default function CommentThread({
                 : 'rounded-md'
             )}
             rows={2}
-            placeholder="Kommentar schreiben... (@erwähnen, Shift+Enter für neue Zeile)"
+            placeholder={t('work.comments.placeholder')}
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}

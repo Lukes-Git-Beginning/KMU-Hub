@@ -6,6 +6,7 @@
  * Uses React Router's Routes/Route for nested module routing.
  */
 import { NavLink, Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Users, Building2, TrendingUp, Activity, Search } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
@@ -19,14 +20,15 @@ import ActivitiesListPage from './activities/ActivitiesListPage'
 import CRMSearchPage from './search/CRMSearchPage'
 
 const crmNavItems = [
-  { to: '/crm/contacts', icon: Users, label: 'Kontakte' },
-  { to: '/crm/companies', icon: Building2, label: 'Unternehmen' },
-  { to: '/crm/deals', icon: TrendingUp, label: 'Deals' },
-  { to: '/crm/activities', icon: Activity, label: 'Aktivitäten' },
-  { to: '/crm/search', icon: Search, label: 'Suche' },
+  { to: '/crm/contacts', icon: Users, labelKey: 'crm.nav.contacts' },
+  { to: '/crm/companies', icon: Building2, labelKey: 'crm.nav.companies' },
+  { to: '/crm/deals', icon: TrendingUp, labelKey: 'crm.nav.deals' },
+  { to: '/crm/activities', icon: Activity, labelKey: 'crm.nav.activities' },
+  { to: '/crm/search', icon: Search, labelKey: 'crm.nav.search' },
 ] as const
 
 export default function CRMLayout() {
+  const { t } = useTranslation()
   return (
     <div className="flex h-full flex-col animate-fade-in">
       {/* Sub-navigation bar */}
@@ -45,7 +47,7 @@ export default function CRMLayout() {
             }
           >
             <item.icon className="h-4 w-4" />
-            <span>{item.label}</span>
+            <span>{t(item.labelKey)}</span>
           </NavLink>
         ))}
       </nav>

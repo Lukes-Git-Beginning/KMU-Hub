@@ -5,6 +5,7 @@
  * and project archival/template creation.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Trash2, Save, Archive, Copy } from 'lucide-react'
 import {
   Dialog,
@@ -43,6 +44,7 @@ export default function ProjectSettingsDialog({
   onOpenChange,
   projectId,
 }: ProjectSettingsDialogProps) {
+  const { t } = useTranslation()
   const { data: projectData } = useProject(projectId)
   const { data: statusesData } = useProjectStatuses(projectId)
   const { data: membersData } = useProjectMembers(projectId)
@@ -95,7 +97,7 @@ export default function ProjectSettingsDialog({
   }
 
   async function handleArchive() {
-    if (!confirm('Projekt wirklich archivieren? Es kann nicht mehr bearbeitet werden.')) return
+    if (!confirm(t('work.settings.archiveConfirm'))) return
     await archiveProject.mutateAsync(projectId)
     onOpenChange(false)
   }
@@ -110,34 +112,34 @@ export default function ProjectSettingsDialog({
   }
 
   const tabs = [
-    { key: 'info' as const, label: 'Allgemein' },
-    { key: 'statuses' as const, label: 'Status' },
-    { key: 'members' as const, label: 'Mitglieder' },
+    { key: 'info' as const, labelKey: 'work.settings.general' },
+    { key: 'statuses' as const, labelKey: 'common.status' },
+    { key: 'members' as const, labelKey: 'work.settings.members' },
   ]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Projekteinstellungen</DialogTitle>
+          <DialogTitle>{t('work.settings.title')}</DialogTitle>
           <DialogDescription>
-            {project?.name ?? 'Projekt'} bearbeiten und verwalten.
+            {t('work.settings.description', { name: project?.name ?? t('work.settings.project') })}
           </DialogDescription>
         </DialogHeader>
 
         {/* Tab navigation */}
         <div className="flex gap-1 border-b border-border">
-          {tabs.map((t) => (
+          {tabs.map((tb) => (
             <button
-              key={t.key}
+              key={tb.key}
               className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === t.key
+                tab === tb.key
                   ? 'border-primary text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
-              onClick={() => setTab(t.key)}
+              onClick={() => setTab(tb.key)}
             >
-              {t.label}
+              {t(tb.labelKey)}
             </button>
           ))}
         </div>
@@ -146,7 +148,7 @@ export default function ProjectSettingsDialog({
         {tab === 'info' && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="settings-name">Projektname</Label>
+              <Label htmlFor="settings-name">{t('work.projects.projectName')}</Label>
               <Input
                 id="settings-name"
                 value={name}
@@ -154,7 +156,7 @@ export default function ProjectSettingsDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="settings-description">Beschreibung</Label>
+              <Label htmlFor="settings-description">{t('work.projects.description')}</Label>
               <Textarea
                 id="settings-description"
                 value={description}
@@ -168,17 +170,17 @@ export default function ProjectSettingsDialog({
               className="gap-1"
             >
               <Save className="h-4 w-4" />
-              {updateProject.isPending ? 'Speichere...' : 'Speichern'}
+              {updateProject.isPending ? t('work.settings.saving') : t('common.save')}
             </Button>
 
             <Separator />
 
             {/* Template */}
             <div className="space-y-2">
-              <Label>Als Vorlage speichern</Label>
+              <Label>{t('work.settings.saveAsTemplate')}</Label>
               <div className="flex gap-2">
                 <Input
-                  placeholder="Vorlagename"
+                  placeholder={t('work.settings.templateNamePlaceholder')}
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
                 />
@@ -189,7 +191,7 @@ export default function ProjectSettingsDialog({
                   className="gap-1 shrink-0"
                 >
                   <Copy className="h-4 w-4" />
-                  Speichern
+                  {t('common.save')}
                 </Button>
               </div>
             </div>
@@ -204,7 +206,7 @@ export default function ProjectSettingsDialog({
               disabled={archiveProject.isPending}
             >
               <Archive className="h-4 w-4" />
-              Projekt archivieren
+              {t('work.settings.archiveProject')}
             </Button>
           </div>
         )}
@@ -221,17 +223,17 @@ export default function ProjectSettingsDialog({
                   />
                   <span className="flex-1 text-sm">{status.name}</span>
                   {status.is_default && (
-                    <Badge variant="secondary" className="text-xs">Standard</Badge>
+                    <Badge variant="secondary" className="text-xs">{t('work.projects.default')}</Badge>
                   )}
                   {status.is_closed && (
-                    <Badge variant="outline" className="text-xs">Fertig</Badge>
+                    <Badge variant="outline" className="text-xs">{t('work.projects.done')}</Badge>
                   )}
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-destructive"
                     onClick={() => {
-                      if (confirm(`Status "${status.name}" löschen?`)) {
+                      if (confirm(t('work.settings.deleteStatusConfirm', { name: status.name }))) {
                         deleteStatus.mutate(status.id ?? '')
                       }
                     }}
@@ -253,7 +255,7 @@ export default function ProjectSettingsDialog({
                 className="h-8 w-8 cursor-pointer rounded border border-border"
               />
               <Input
-                placeholder="Neuer Status..."
+                placeholder={t('work.settings.newStatusPlaceholder')}
                 value={newStatusName}
                 onChange={(e) => setNewStatusName(e.target.value)}
                 className="flex-1"
@@ -272,7 +274,7 @@ export default function ProjectSettingsDialog({
                 className="gap-1"
               >
                 <Plus className="h-3 w-3" />
-                Hinzufügen
+                {t('work.settings.add')}
               </Button>
             </div>
           </div>
@@ -283,7 +285,7 @@ export default function ProjectSettingsDialog({
           <div className="space-y-4">
             {members.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Keine Mitglieder in diesem Projekt.
+                {t('work.settings.noMembers')}
               </p>
             ) : (
               <div className="space-y-2">
@@ -296,10 +298,10 @@ export default function ProjectSettingsDialog({
                     </div>
                     <Badge variant="outline" className="text-xs shrink-0">
                       {member.role === 'owner'
-                        ? 'Inhaber'
+                        ? t('work.settings.roleOwner')
                         : member.role === 'member'
-                        ? 'Mitglied'
-                        : 'Betrachter'}
+                        ? t('work.settings.roleMember')
+                        : t('work.settings.roleViewer')}
                     </Badge>
                     {member.role !== 'owner' && (
                       <Button
@@ -307,7 +309,7 @@ export default function ProjectSettingsDialog({
                         size="icon"
                         className="h-7 w-7 text-destructive"
                         onClick={() => {
-                          if (confirm(`${member.first_name} ${member.last_name} entfernen?`)) {
+                          if (confirm(t('work.settings.removeMemberConfirm', { name: `${member.first_name} ${member.last_name}` }))) {
                             removeMember.mutate({
                               projectId,
                               userId: member.user_id ?? '',

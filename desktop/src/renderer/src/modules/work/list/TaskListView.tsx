@@ -6,6 +6,7 @@
  * indentation and collapse/expand toggles at each level.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTasks } from '@/api/hooks/useTasks'
@@ -57,7 +58,7 @@ function groupTasks(
   statuses: StatusOption[]
 ): TaskGroup[] {
   if (groupBy === 'none') {
-    return [{ key: '__all__', label: 'Alle Aufgaben', tasks: rootTasks }]
+    return [{ key: '__all__', label: '__allTasks__', tasks: rootTasks }]
   }
 
   const map = new Map<string, TaskGroup>()
@@ -68,7 +69,7 @@ function groupTasks(
       if (s.id) {
         map.set(s.id, {
           key: s.id,
-          label: s.name ?? 'Ohne Status',
+          label: s.name ?? '__noStatus__',
           color: s.color,
           isClosed: s.is_closed,
           tasks: [],
@@ -87,30 +88,30 @@ function groupTasks(
     switch (groupBy) {
       case 'status':
         key = task.status_id ?? '__none__'
-        label = task.status_name ?? 'Ohne Status'
+        label = task.status_name ?? '__noStatus__'
         color = task.status_color
         isClosed = task.is_closed
         break
       case 'assignee':
         key = task.assignee_id ?? '__none__'
-        label = task.assignee_name ?? 'Nicht zugewiesen'
+        label = task.assignee_name ?? '__unassigned__'
         break
       case 'priority':
         key = task.priority ?? 'medium'
         label =
           task.priority === 'urgent'
-            ? 'Dringend'
+            ? '__priorityUrgent__'
             : task.priority === 'high'
-              ? 'Hoch'
+              ? '__priorityHigh__'
               : task.priority === 'low'
-                ? 'Niedrig'
-                : 'Normal'
+                ? '__priorityLow__'
+                : '__priorityNormal__'
         priority = (task.priority as Priority) ?? 'medium'
         break
       case 'due_date': {
         if (!task.due_date) {
           key = '__no_date__'
-          label = 'Kein Datum'
+          label = '__noDate__'
         } else {
           const d = new Date(task.due_date)
           const now = new Date()
@@ -122,19 +123,19 @@ function groupTasks(
 
           if (diffDays < 0) {
             key = '__overdue__'
-            label = 'Überfällig'
+            label = '__overdue__'
             color = '#ef4444'
           } else if (diffDays === 0) {
             key = '__today__'
-            label = 'Heute'
+            label = '__today__'
             color = '#f59e0b'
           } else if (diffDays <= 7) {
             key = '__this_week__'
-            label = 'Diese Woche'
+            label = '__thisWeek__'
             color = '#3b82f6'
           } else {
             key = '__later__'
-            label = 'Später'
+            label = '__later__'
             color = '#6b7280'
           }
         }
@@ -142,7 +143,7 @@ function groupTasks(
       }
       default:
         key = '__all__'
-        label = 'Alle'
+        label = '__all__'
     }
 
     const existing = map.get(key)
@@ -210,10 +211,29 @@ function sortTasks(tasks: TaskData[], sortBy: SortBy, sortDesc: boolean): TaskDa
   return sorted
 }
 
+/** Resolve group label placeholders to translated strings. */
+const GROUP_LABEL_MAP: Record<string, string> = {
+  '__allTasks__': 'work.list.allTasks',
+  '__noStatus__': 'work.list.noStatus',
+  '__unassigned__': 'work.tasks.unassigned',
+  '__priorityUrgent__': 'work.priority.urgent',
+  '__priorityHigh__': 'work.priority.high',
+  '__priorityNormal__': 'work.priority.normal',
+  '__priorityLow__': 'work.priority.low',
+  '__noDate__': 'work.list.noDate',
+  '__overdue__': 'work.list.overdue',
+  '__today__': 'work.time.today',
+  '__thisWeek__': 'work.list.thisWeek',
+  '__later__': 'work.list.later',
+  '__all__': 'work.list.all',
+}
+
 export default function TaskListView({
   projectId,
   statuses,
 }: TaskListViewProps) {
+  const { t } = useTranslation()
+
   // Preferences
   const { data: prefData } = useProjectPreference(projectId)
   const setPreference = useSetPreference()
@@ -362,7 +382,7 @@ export default function TaskListView({
         {groups.length === 0 || rootTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-sm text-muted-foreground">
-              Keine Aufgaben gefunden.
+              {t('work.tasks.noTasksFound')}
             </p>
           </div>
         ) : (
@@ -404,7 +424,7 @@ export default function TaskListView({
                               style={{ backgroundColor: group.color }}
                             />
                           )}
-                          <span>{group.label}</span>
+                          <span>{GROUP_LABEL_MAP[group.label] ? t(GROUP_LABEL_MAP[group.label]) : group.label}</span>
                         </>
                       )}
 

@@ -3,6 +3,7 @@
  *
  * Renders with connecting line, type-colored icon, and content.
  */
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   Phone,
@@ -30,16 +31,16 @@ export type TimelineActivityType =
 
 const typeConfig: Record<
   TimelineActivityType,
-  { icon: typeof Mail; bg: string; color: string; label: string }
+  { icon: typeof Mail; bg: string; color: string; labelKey: string }
 > = {
-  email: { icon: Mail, bg: 'bg-blue-100 dark:bg-blue-900/30', color: 'text-blue-600 dark:text-blue-400', label: 'E-Mail' },
-  call: { icon: Phone, bg: 'bg-green-100 dark:bg-green-900/30', color: 'text-green-600 dark:text-green-400', label: 'Anruf' },
-  meeting: { icon: Calendar, bg: 'bg-purple-100 dark:bg-purple-900/30', color: 'text-purple-600 dark:text-purple-400', label: 'Meeting' },
-  note: { icon: FileText, bg: 'bg-amber-100 dark:bg-amber-900/30', color: 'text-amber-600 dark:text-amber-400', label: 'Notiz' },
-  message: { icon: MessageSquare, bg: 'bg-cyan-100 dark:bg-cyan-900/30', color: 'text-cyan-600 dark:text-cyan-400', label: 'Nachricht' },
-  deal: { icon: TrendingUp, bg: 'bg-emerald-100 dark:bg-emerald-900/30', color: 'text-emerald-600 dark:text-emerald-400', label: 'Deal' },
-  ticket: { icon: Ticket, bg: 'bg-rose-100 dark:bg-rose-900/30', color: 'text-rose-600 dark:text-rose-400', label: 'Ticket' },
-  document: { icon: Handshake, bg: 'bg-slate-100 dark:bg-slate-800/50', color: 'text-slate-600 dark:text-slate-400', label: 'Dokument' },
+  email: { icon: Mail, bg: 'bg-blue-100 dark:bg-blue-900/30', color: 'text-blue-600 dark:text-blue-400', labelKey: 'crm.timeline.type.email' },
+  call: { icon: Phone, bg: 'bg-green-100 dark:bg-green-900/30', color: 'text-green-600 dark:text-green-400', labelKey: 'crm.timeline.type.call' },
+  meeting: { icon: Calendar, bg: 'bg-purple-100 dark:bg-purple-900/30', color: 'text-purple-600 dark:text-purple-400', labelKey: 'crm.timeline.type.meeting' },
+  note: { icon: FileText, bg: 'bg-amber-100 dark:bg-amber-900/30', color: 'text-amber-600 dark:text-amber-400', labelKey: 'crm.timeline.type.note' },
+  message: { icon: MessageSquare, bg: 'bg-cyan-100 dark:bg-cyan-900/30', color: 'text-cyan-600 dark:text-cyan-400', labelKey: 'crm.timeline.type.message' },
+  deal: { icon: TrendingUp, bg: 'bg-emerald-100 dark:bg-emerald-900/30', color: 'text-emerald-600 dark:text-emerald-400', labelKey: 'crm.timeline.type.deal' },
+  ticket: { icon: Ticket, bg: 'bg-rose-100 dark:bg-rose-900/30', color: 'text-rose-600 dark:text-rose-400', labelKey: 'crm.timeline.type.ticket' },
+  document: { icon: Handshake, bg: 'bg-slate-100 dark:bg-slate-800/50', color: 'text-slate-600 dark:text-slate-400', labelKey: 'crm.timeline.type.document' },
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,7 @@ interface TimelineItemProps {
 }
 
 export function TimelineItem({ entry, isLast }: TimelineItemProps) {
+  const { t } = useTranslation()
   const tc = typeConfig[entry.type]
   const Icon = tc.icon
 
@@ -76,9 +78,9 @@ export function TimelineItem({ entry, isLast }: TimelineItemProps) {
       const diff = now.getTime() - d.getTime()
       const days = Math.floor(diff / 86400000)
 
-      if (days === 0) return 'Heute'
-      if (days === 1) return 'Gestern'
-      if (days < 7) return `Vor ${days} Tagen`
+      if (days === 0) return t('crm.timeline.today')
+      if (days === 1) return t('crm.timeline.yesterday')
+      if (days < 7) return t('crm.timeline.daysAgo', { days })
       return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
     } catch {
       return entry.date
@@ -100,7 +102,7 @@ export function TimelineItem({ entry, isLast }: TimelineItemProps) {
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">{entry.title}</span>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${tc.bg} ${tc.color}`}>
-            {tc.label}
+            {t(tc.labelKey)}
           </span>
         </div>
         {entry.description && (

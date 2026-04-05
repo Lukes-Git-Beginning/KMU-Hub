@@ -8,6 +8,7 @@
  *   3. Replace getUpcomingBirthdays() with useEmployees() + birthday filtering
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Cake, Gift, PartyPopper } from 'lucide-react'
 import { getUpcomingBirthdays } from '@/mocks/mock-db'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
@@ -15,12 +16,13 @@ import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 const birthdays = getUpcomingBirthdays()
 
 function Birthdays(_props: WidgetProps) {
+  const { t } = useTranslation()
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-2">
         <Cake className="h-4 w-4 text-pink-500" />
-        <span className="text-xs font-medium text-muted-foreground">Nächste Geburtstage</span>
+        <span className="text-xs font-medium text-muted-foreground">{t('dashboard.birthdays.upcoming')}</span>
       </div>
 
       {/* List */}
@@ -55,10 +57,10 @@ function Birthdays(_props: WidgetProps) {
                 <p className="text-[10px] text-muted-foreground">
                   {isToday ? (
                     <span className="flex items-center gap-0.5 text-pink-500 font-medium">
-                      <Gift className="h-2.5 w-2.5" /> Heute!
+                      <Gift className="h-2.5 w-2.5" /> {t('dashboard.birthdays.today')}
                     </span>
                   ) : (
-                    `in ${bday.daysUntil} Tagen`
+                    t('dashboard.birthdays.inDays', { count: bday.daysUntil })
                   )}
                 </p>
               </div>

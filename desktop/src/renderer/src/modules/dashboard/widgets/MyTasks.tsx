@@ -3,6 +3,7 @@
  * Uses real API hook to fetch tasks assigned to the current user.
  */
 import { memo, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle, AlertTriangle, Clock } from 'lucide-react'
 import { useMyTasks } from '@/api/hooks/useTasks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
@@ -14,23 +15,24 @@ const PRIORITY_STYLE: Record<string, string> = {
   low: 'text-muted-foreground',
 }
 
-function formatDueDate(dateStr: string | undefined): string {
-  if (!dateStr) return ''
+/** Returns { key, raw } where key is a translation key for today/tomorrow, or raw is a formatted date string. */
+function formatDueDate(dateStr: string | undefined): { key?: string; raw?: string } {
+  if (!dateStr) return {}
   const today = new Date()
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
   const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
 
-  if (dateStr === todayStr) return 'Heute'
-  if (dateStr === tomorrowStr) return 'Morgen'
+  if (dateStr === todayStr) return { key: 'dashboard.myTasks.today' }
+  if (dateStr === tomorrowStr) return { key: 'dashboard.myTasks.tomorrow' }
 
   // Format as dd.MM.
   const parts = dateStr.split('-')
   if (parts.length === 3) {
-    return `${parseInt(parts[2], 10)}.${parseInt(parts[1], 10)}.`
+    return { raw: `${parseInt(parts[2], 10)}.${parseInt(parts[1], 10)}.` }
   }
-  return dateStr
+  return { raw: dateStr }
 }
 
 interface WidgetTask {
@@ -38,27 +40,31 @@ interface WidgetTask {
   title: string
   project: string
   priority: string
-  due: string
+  dueKey?: string
+  dueRaw?: string
   done: boolean
 }
 
 function MyTasks(_props: WidgetProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useMyTasks({ page_size: 8, include_completed: true })
 
   const widgetTasks = useMemo<WidgetTask[]>(() => {
     const tasks = (data as { tasks?: Array<Record<string, unknown>> })?.tasks ?? []
-    return tasks.map((t) => {
-      const status = (t.status as string) ?? ''
-      const statusId = (t.status_id as string) ?? ''
+    return tasks.map((task) => {
+      const status = (task.status as string) ?? ''
+      const statusId = (task.status_id as string) ?? ''
       const isDone = status === 'done' || status === 'completed' || statusId === 'done'
-      const priority = (t.priority as string) ?? 'medium'
+      const priority = (task.priority as string) ?? 'medium'
+      const dueResult = formatDueDate(task.due_date as string | undefined)
 
       return {
-        id: (t.id as string) ?? '',
-        title: (t.title as string) ?? '',
-        project: ((t as Record<string, unknown>).project as { name?: string })?.name ?? '',
+        id: (task.id as string) ?? '',
+        title: (task.title as string) ?? '',
+        project: ((task as Record<string, unknown>).project as { name?: string })?.name ?? '',
         priority: priority === 'urgent' ? 'high' : priority,
-        due: formatDueDate(t.due_date as string | undefined),
+        dueKey: dueResult.key,
+        dueRaw: dueResult.raw,
         done: isDone,
       }
     })
@@ -67,7 +73,7 @@ function MyTasks(_props: WidgetProps) {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label={t('common.loading')} className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -75,7 +81,7 @@ function MyTasks(_props: WidgetProps) {
   if (!widgetTasks.length) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <p className="text-sm text-muted-foreground">Keine Aufgaben</p>
+        <p className="text-sm text-muted-foreground">{t('dashboard.myTasks.noTasks')}</p>
       </div>
     )
   }
@@ -87,10 +93,10 @@ function MyTasks(_props: WidgetProps) {
     <div className="flex h-full flex-col">
       {/* Summary */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <span className="text-xs text-muted-foreground">{open.length} offen · {done.length} erledigt</span>
+        <span className="text-xs text-muted-foreground">{t('dashboard.myTasks.openCount', { count: open.length })} · {t('dashboard.myTasks.doneCount', { count: done.length })}</span>
         <span className="flex items-center gap-1 text-xs text-destructive">
           <AlertTriangle className="h-3 w-3" />
-          {open.filter((t) => t.due === 'Heute').length} heute fällig
+          {t('dashboard.myTasks.dueToday', { count: open.filter((task) => task.dueKey === 'dashboard.myTasks.today').length })}
         </span>
       </div>
 
@@ -118,10 +124,10 @@ function MyTasks(_props: WidgetProps) {
                     {task.project}
                   </span>
                 )}
-                {task.due && (
+                {(task.dueKey || task.dueRaw) && (
                   <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                     <Clock className="h-2.5 w-2.5" />
-                    {task.due}
+                    {task.dueKey ? t(task.dueKey) : task.dueRaw}
                   </span>
                 )}
               </div>

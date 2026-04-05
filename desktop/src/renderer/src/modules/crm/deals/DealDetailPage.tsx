@@ -8,6 +8,7 @@
  */
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   Pencil,
@@ -46,11 +47,11 @@ function formatCurrency(value?: number, currency?: string): string {
   }).format(value)
 }
 
-const PRIORITY_LABELS: Record<string, string> = {
-  urgent: 'Dringend',
-  high: 'Hoch',
-  normal: 'Normal',
-  low: 'Niedrig',
+const PRIORITY_LABEL_KEYS: Record<string, string> = {
+  urgent: 'crm.priority.urgent',
+  high: 'crm.priority.high',
+  normal: 'crm.priority.normal',
+  low: 'crm.priority.low',
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -61,6 +62,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 export default function DealDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState<'activities' | 'tasks'>('activities')
@@ -119,9 +121,9 @@ export default function DealDetailPage() {
           ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
         },
       })
-      toast.success('Deal aktualisiert')
+      toast.success(t('crm.deals.updated'))
     } catch {
-      toast.error('Fehler beim Aktualisieren des Deals')
+      toast.error(t('crm.deals.updateError'))
     }
   }
 
@@ -129,10 +131,10 @@ export default function DealDetailPage() {
     if (!id) return
     try {
       await deleteDeal.mutateAsync(id)
-      toast.success('Deal gelöscht')
+      toast.success(t('crm.deals.deleted'))
       navigate('/crm/deals')
     } catch {
-      toast.error('Fehler beim Löschen des Deals')
+      toast.error(t('crm.deals.deleteError'))
     }
   }
 
@@ -150,7 +152,7 @@ export default function DealDetailPage() {
         navigate('/finanzen')
       },
       onError: () => {
-        alert('Fehler beim Erstellen des Angebots')
+        alert(t('crm.deals.quoteError'))
       },
     })
   }
@@ -160,13 +162,13 @@ export default function DealDetailPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden des Deals
+            {t('crm.deals.loadErrorSingle')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('crm.error.unexpected')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -188,14 +190,14 @@ export default function DealDetailPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Deal nicht gefunden
+            {t('crm.deals.notFound')}
           </p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => navigate('/crm/deals')}
           >
-            Zurück zur Liste
+            {t('crm.backToList')}
           </Button>
         </div>
       </div>
@@ -213,7 +215,7 @@ export default function DealDetailPage() {
             onClick={() => navigate('/crm/deals')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Zurück
+            {t('common.back')}
           </Button>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
@@ -232,11 +234,11 @@ export default function DealDetailPage() {
             disabled={createQuoteFromDeal.isPending}
           >
             <FileText className="h-4 w-4 mr-1" />
-            {createQuoteFromDeal.isPending ? 'Erstelle...' : 'Angebot erstellen'}
+            {createQuoteFromDeal.isPending ? t('crm.deals.creatingQuote') : t('crm.deals.createQuote')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-1" />
-            Bearbeiten
+            {t('common.edit')}
           </Button>
           <Button
             variant="outline"
@@ -245,7 +247,7 @@ export default function DealDetailPage() {
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Löschen
+            {t('common.delete')}
           </Button>
         </div>
       </div>
@@ -254,13 +256,13 @@ export default function DealDetailPage() {
         {/* Deal Info Card */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Deal-Informationen</CardTitle>
+            <CardTitle>{t('crm.deals.info')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-xs text-muted-foreground">Phase</p>
+                <p className="text-xs text-muted-foreground">{t('crm.deals.stage')}</p>
                 <Badge variant="outline">{deal.stageName || '-'}</Badge>
               </div>
             </div>
@@ -270,7 +272,7 @@ export default function DealDetailPage() {
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-xs text-muted-foreground">
-                    Erwarteter Abschluss
+                    {t('crm.deals.expectedClose')}
                   </p>
                   <p className="text-sm">
                     {new Date(deal.expectedCloseDate).toLocaleDateString(
@@ -285,12 +287,12 @@ export default function DealDetailPage() {
               <div className="flex items-center gap-3">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Kontakt</p>
+                  <p className="text-xs text-muted-foreground">{t('crm.field.contact')}</p>
                   <Link
                     to={`/crm/contacts/${deal.contactId}`}
                     className="text-sm text-primary hover:underline"
                   >
-                    {deal.contactName || 'Kontakt'}
+                    {deal.contactName || t('crm.field.contact')}
                   </Link>
                 </div>
               </div>
@@ -300,12 +302,12 @@ export default function DealDetailPage() {
               <div className="flex items-center gap-3">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Unternehmen</p>
+                  <p className="text-xs text-muted-foreground">{t('crm.field.company')}</p>
                   <Link
                     to={`/crm/companies/${deal.companyId}`}
                     className="text-sm text-primary hover:underline"
                   >
-                    {deal.companyName || 'Unternehmen'}
+                    {deal.companyName || t('crm.field.company')}
                   </Link>
                 </div>
               </div>
@@ -316,7 +318,7 @@ export default function DealDetailPage() {
                 <Separator />
                 <div>
                   <p className="text-xs text-muted-foreground">
-                    Abgeschlossen am
+                    {t('crm.deals.closedAt')}
                   </p>
                   <p className="text-sm">
                     {new Date(deal.closedAt).toLocaleDateString('de-DE', {
@@ -336,7 +338,7 @@ export default function DealDetailPage() {
                 <Separator />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Notizen
+                    {t('crm.field.notes')}
                   </p>
                   <p className="text-sm whitespace-pre-wrap">{deal.notes}</p>
                 </div>
@@ -349,7 +351,7 @@ export default function DealDetailPage() {
                   <Separator />
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-2">
-                      Benutzerdefinierte Felder
+                      {t('crm.field.customFields')}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(deal.customFields).map(([key, value]) => (
@@ -368,7 +370,7 @@ export default function DealDetailPage() {
         {/* Tags Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Tags</CardTitle>
+            <CardTitle>{t('crm.field.tags')}</CardTitle>
           </CardHeader>
           <CardContent>
             {deal.tags && deal.tags.length > 0 ? (
@@ -393,7 +395,7 @@ export default function DealDetailPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Keine Tags zugewiesen.
+                {t('crm.tags.none')}
               </p>
             )}
           </CardContent>
@@ -414,7 +416,7 @@ export default function DealDetailPage() {
               )}
               onClick={() => setActiveSection('activities')}
             >
-              Aktivitäten
+              {t('crm.activities.title')}
               {activities.length > 0 && (
                 <span className="ml-1.5 text-xs text-muted-foreground">
                   ({activities.length})
@@ -431,7 +433,7 @@ export default function DealDetailPage() {
               )}
               onClick={() => setActiveSection('tasks')}
             >
-              Aufgaben
+              {t('crm.tasks.title')}
               {linkedTasks.length > 0 && (
                 <span className="ml-1.5 text-xs text-muted-foreground">
                   ({linkedTasks.length})
@@ -445,7 +447,7 @@ export default function DealDetailPage() {
             <>
               {activities.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Keine Aktivitäten für diesen Deal.
+                  {t('crm.deals.noActivities')}
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -463,14 +465,14 @@ export default function DealDetailPage() {
                               {activity.subject}
                             </p>
                             <Badge variant="outline" className="text-xs shrink-0">
-                              {activityTypeLabel(activity.activity_type)}
+                              {t(activityTypeLabel(activity.activity_type))}
                             </Badge>
                             {activity.is_completed && (
                               <Badge
                                 variant="secondary"
                                 className="text-xs shrink-0"
                               >
-                                Erledigt
+                                {t('crm.activities.completed')}
                               </Badge>
                             )}
                           </div>
@@ -499,7 +501,7 @@ export default function DealDetailPage() {
             <>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-muted-foreground">
-                  {linkedTasks.length} verknüpfte Aufgabe{linkedTasks.length !== 1 ? 'n' : ''}
+                  {t('crm.tasks.linkedCount', { count: linkedTasks.length })}
                 </p>
                 <Button
                   variant="outline"
@@ -508,13 +510,13 @@ export default function DealDetailPage() {
                   onClick={handleCreateTaskFromDeal}
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Aufgabe erstellen
+                  {t('crm.tasks.create')}
                 </Button>
               </div>
 
               {linkedTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">
-                  Keine Aufgaben mit diesem Deal verknüpft.
+                  {t('crm.deals.noTasks')}
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -523,7 +525,7 @@ export default function DealDetailPage() {
                       task.project_key && task.task_number
                         ? `${task.project_key}-${task.task_number}`
                         : ''
-                    const priorityLabel = PRIORITY_LABELS[task.priority ?? 'normal']
+                    const priorityLabel = t(PRIORITY_LABEL_KEYS[task.priority ?? 'normal'])
                     const priorityColor = PRIORITY_COLORS[task.priority ?? 'normal']
 
                     return (
@@ -606,9 +608,9 @@ export default function DealDetailPage() {
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Deal löschen"
-        description={`Moechtest du "${deal.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
-        confirmLabel="Löschen"
+        title={t('crm.deals.deleteTitle')}
+        description={t('crm.deals.deleteConfirm', { name: deal.name })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />

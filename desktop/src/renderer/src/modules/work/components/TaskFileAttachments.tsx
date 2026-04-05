@@ -6,6 +6,7 @@
  * Downloads via presigned MinIO URLs.
  */
 import { useState, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Paperclip,
   FileText,
@@ -42,16 +43,16 @@ function getFileIcon(mimeType?: string) {
   return File
 }
 
-function formatRelativeTime(dateStr?: string): string {
+function formatRelativeTime(dateStr: string | undefined, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!dateStr) return ''
   const date = new Date(dateStr)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffDays === 0) return 'heute'
-  if (diffDays === 1) return 'gestern'
-  if (diffDays < 7) return `vor ${diffDays} Tagen`
+  if (diffDays === 0) return t('work.time.today')
+  if (diffDays === 1) return t('work.time.yesterday')
+  if (diffDays < 7) return t('work.time.daysAgo', { count: diffDays })
   return date.toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
@@ -62,6 +63,7 @@ function formatRelativeTime(dateStr?: string): string {
 export default function TaskFileAttachments({
   taskId,
 }: TaskFileAttachmentsProps) {
+  const { t } = useTranslation()
   const currentUserId = useAuthStore((s) => s.user?.id)
   const { data, isLoading } = useTaskFiles(taskId)
   const attachFile = useAttachFile()
@@ -133,12 +135,12 @@ export default function TaskFileAttachments({
           {attachFile.isPending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Wird hochgeladen...
+              {t('work.files.uploading')}
             </>
           ) : (
             <>
               <Upload className="h-4 w-4" />
-              Datei anhängen
+              {t('work.files.attach')}
             </>
           )}
         </Button>
@@ -147,13 +149,13 @@ export default function TaskFileAttachments({
       {/* File list */}
       {isLoading ? (
         <div className="py-4 text-center text-sm text-muted-foreground">
-          Dateien werden geladen...
+          {t('work.files.loading')}
         </div>
       ) : files.length === 0 ? (
         <div className="flex flex-col items-center py-4 text-center">
           <Paperclip className="h-6 w-6 text-muted-foreground/30" />
           <p className="mt-1 text-xs text-muted-foreground">
-            Keine Dateien angehängt
+            {t('work.files.empty')}
           </p>
         </div>
       ) : (
@@ -184,7 +186,7 @@ export default function TaskFileAttachments({
                       <> &middot; {file.uploaded_by_name}</>
                     )}
                     {file.created_at && (
-                      <> &middot; {formatRelativeTime(file.created_at)}</>
+                      <> &middot; {formatRelativeTime(file.created_at, t)}</>
                     )}
                   </p>
                 </div>
@@ -195,7 +197,7 @@ export default function TaskFileAttachments({
                     type="button"
                     className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                     onClick={() => handleDownload(file)}
-                    title="Herunterladen"
+                    title={t('common.download')}
                     disabled={isDownloading}
                   >
                     {isDownloading ? (
@@ -209,7 +211,7 @@ export default function TaskFileAttachments({
                       type="button"
                       className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                       onClick={() => file.id && handleRemove(file.id)}
-                      title="Entfernen"
+                      title={t('work.dependencies.remove')}
                       disabled={removeFile.isPending}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

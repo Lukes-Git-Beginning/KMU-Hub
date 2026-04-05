@@ -5,6 +5,7 @@
  * Shows task key, title, priority, assignee, due date, blocked indicator,
  * and subtask progress. Supports an overlay variant for the DragOverlay.
  */
+import { useTranslation } from 'react-i18next'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Lock, User, Calendar } from 'lucide-react'
@@ -19,15 +20,15 @@ interface KanbanCardProps {
   onClick?: () => void
 }
 
-function formatDueDate(date?: string): string | null {
+function formatDueDate(date: string | undefined, t: (key: string, opts?: Record<string, unknown>) => string): string | null {
   if (!date) return null
   const d = new Date(date)
   const now = new Date()
   const diffMs = d.getTime() - now.getTime()
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
   if (diffDays < 0) return `${Math.abs(diffDays)}d`
-  if (diffDays === 0) return 'Heute'
-  if (diffDays === 1) return 'Morgen'
+  if (diffDays === 0) return t('work.time.today')
+  if (diffDays === 1) return t('work.time.tomorrow')
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
 }
 
@@ -58,7 +59,8 @@ export default function KanbanCard({
     transition,
   }
 
-  const dueLabel = formatDueDate(task.due_date)
+  const { t } = useTranslation()
+  const dueLabel = formatDueDate(task.due_date, t)
   const overdue = isDueOverdue(task.due_date)
   const subtaskCount = task.subtask_count ?? 0
   const completedSubtasks = task.completed_subtask_count ?? 0

@@ -2,22 +2,23 @@
  * My Calendar widget — personal schedule for today.
  */
 import { memo, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Video, MapPin, Users } from 'lucide-react'
 import { useCalendars } from '@/api/hooks/useCalendars'
 import { useEventsInRange } from '@/api/hooks/useEvents'
 import { expandedEventToUI } from '@/modules/kalender/adapters'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
-const TYPE_STYLE: Record<string, { color: string; label: string }> = {
-  meeting: { color: 'bg-blue-500', label: 'Meeting' },
-  focus: { color: 'bg-success', label: 'Fokus' },
-  call: { color: 'bg-violet-500', label: 'Anruf' },
-  break: { color: 'bg-warning', label: 'Pause' },
-  workshop: { color: 'bg-teal-500', label: 'Workshop' },
+const TYPE_STYLE: Record<string, { color: string; labelKey: string }> = {
+  meeting: { color: 'bg-blue-500', labelKey: 'dashboard.myCalendar.meeting' },
+  focus: { color: 'bg-success', labelKey: 'dashboard.myCalendar.focus' },
+  call: { color: 'bg-violet-500', labelKey: 'dashboard.myCalendar.call' },
+  break: { color: 'bg-warning', labelKey: 'dashboard.myCalendar.break' },
+  workshop: { color: 'bg-teal-500', labelKey: 'dashboard.myCalendar.workshop' },
 }
 
 function MyCalendar(_props: WidgetProps) {
-   
+  const { t } = useTranslation()
   const { todayStart, todayEnd, now } = useMemo(() => {
     const now = new Date()
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -58,7 +59,7 @@ function MyCalendar(_props: WidgetProps) {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label={t('common.loading')} className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -73,7 +74,7 @@ function MyCalendar(_props: WidgetProps) {
           <span className="text-xs font-mono text-primary font-semibold">{currentTimeStr}</span>
         </div>
         <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-sm text-muted-foreground">Keine Termine heute</p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.calendar.noEventsToday')}</p>
         </div>
       </div>
     )

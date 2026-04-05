@@ -5,6 +5,7 @@
  * Allows configuring initial status columns with color pickers before creation.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X } from 'lucide-react'
 import {
   Dialog,
@@ -63,6 +64,7 @@ export default function ProjectCreateDialog({
   onSubmit,
   isSubmitting,
 }: ProjectCreateDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
   const [keyManual, setKeyManual] = useState(false)
@@ -121,19 +123,19 @@ export default function ProjectCreateDialog({
     setError(null)
 
     if (!name.trim()) {
-      setError('Projektname ist erforderlich.')
+      setError(t('work.projects.nameRequired'))
       return
     }
     if (!key.trim() || key.length < 2) {
-      setError('Projektkürzel muss mindestens 2 Zeichen lang sein.')
+      setError(t('work.projects.keyMinLength'))
       return
     }
     if (!/^[A-Z0-9]+$/.test(key)) {
-      setError('Projektkürzel darf nur Grossbuchstaben und Zahlen enthalten.')
+      setError(t('work.projects.keyFormat'))
       return
     }
     if (statuses.some((s) => !s.name.trim())) {
-      setError('Alle Status müssen einen Namen haben.')
+      setError(t('work.projects.statusNameRequired'))
       return
     }
 
@@ -147,7 +149,7 @@ export default function ProjectCreateDialog({
       resetForm()
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Projekt konnte nicht erstellt werden.'
+        err instanceof Error ? err.message : t('work.projects.createError')
       )
     }
   }
@@ -156,19 +158,19 @@ export default function ProjectCreateDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Neues Projekt</DialogTitle>
+          <DialogTitle>{t('work.projects.newProject')}</DialogTitle>
           <DialogDescription>
-            Erstelle ein neues Projekt mit Statusen und Mitgliedern.
+            {t('work.projects.newProjectDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="project-name">Projektname *</Label>
+            <Label htmlFor="project-name">{t('work.projects.projectName')} *</Label>
             <Input
               id="project-name"
-              placeholder="z.B. Website Relaunch"
+              placeholder={t('work.projects.namePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
@@ -177,10 +179,10 @@ export default function ProjectCreateDialog({
 
           {/* Key */}
           <div className="space-y-2">
-            <Label htmlFor="project-key">Projektkürzel *</Label>
+            <Label htmlFor="project-key">{t('work.projects.projectKey')} *</Label>
             <Input
               id="project-key"
-              placeholder="z.B. WEB"
+              placeholder={t('work.projects.keyPlaceholder')}
               value={key}
               onChange={(e) => {
                 setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))
@@ -190,16 +192,16 @@ export default function ProjectCreateDialog({
               className="font-mono uppercase"
             />
             <p className="text-xs text-muted-foreground">
-              Wird als Prefix für Aufgabennummern verwendet (z.B. {key || 'KEY'}-1)
+              {t('work.projects.keyHint', { key: key || 'KEY' })}
             </p>
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="project-description">Beschreibung</Label>
+            <Label htmlFor="project-description">{t('work.projects.description')}</Label>
             <Textarea
               id="project-description"
-              placeholder="Optionale Projektbeschreibung..."
+              placeholder={t('work.projects.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -209,10 +211,10 @@ export default function ProjectCreateDialog({
           {/* Status configuration */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Status</Label>
+              <Label>{t('common.status')}</Label>
               <Button type="button" variant="ghost" size="sm" onClick={addStatus}>
                 <Plus className="h-3 w-3 mr-1" />
-                Status hinzufügen
+                {t('work.projects.addStatus')}
               </Button>
             </div>
             <div className="space-y-2">
@@ -225,12 +227,12 @@ export default function ProjectCreateDialog({
                       value={status.color}
                       onChange={(e) => updateStatus(index, { color: e.target.value })}
                       className="h-8 w-8 cursor-pointer rounded border border-border"
-                      title="Farbe wählen"
+                      title={t('work.projects.chooseColor')}
                     />
                   </div>
                   {/* Name */}
                   <Input
-                    placeholder="Status Name"
+                    placeholder={t('work.projects.statusNamePlaceholder')}
                     value={status.name}
                     onChange={(e) => updateStatus(index, { name: e.target.value })}
                     className="flex-1"
@@ -244,9 +246,9 @@ export default function ProjectCreateDialog({
                         : 'bg-background text-muted-foreground border-border hover:border-primary'
                     }`}
                     onClick={() => updateStatus(index, { is_default: true })}
-                    title="Als Standard setzen"
+                    title={t('work.projects.setAsDefault')}
                   >
-                    Standard
+                    {t('work.projects.default')}
                   </button>
                   <button
                     type="button"
@@ -256,9 +258,9 @@ export default function ProjectCreateDialog({
                         : 'bg-background text-muted-foreground border-border hover:border-green-300'
                     }`}
                     onClick={() => updateStatus(index, { is_closed: !status.is_closed })}
-                    title="Abgeschlossen-Status"
+                    title={t('work.projects.closedStatus')}
                   >
-                    Fertig
+                    {t('work.projects.done')}
                   </button>
                   {/* Remove */}
                   {statuses.length > 1 && (
@@ -306,10 +308,10 @@ export default function ProjectCreateDialog({
               variant="outline"
               onClick={() => handleOpenChange(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Erstelle...' : 'Projekt erstellen'}
+              {isSubmitting ? t('work.projects.creating') : t('work.projects.createProject')}
             </Button>
           </DialogFooter>
         </form>

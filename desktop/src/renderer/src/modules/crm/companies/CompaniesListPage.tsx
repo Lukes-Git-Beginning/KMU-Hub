@@ -6,6 +6,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Plus, Search, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared'
@@ -27,6 +28,7 @@ import { CompanyFormDialog, type CompanyFormData } from './CompanyFormDialog'
 const PAGE_SIZE = 20
 
 export default function CompaniesListPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -68,9 +70,9 @@ export default function CompaniesListPage() {
           ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
         },
       })
-      toast.success('Unternehmen erstellt')
+      toast.success(t('crm.companies.created'))
     } catch {
-      toast.error('Fehler beim Erstellen des Unternehmens')
+      toast.error(t('crm.companies.createError'))
     }
   }
 
@@ -79,13 +81,13 @@ export default function CompaniesListPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Unternehmen
+            {t('crm.companies.loadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('crm.error.unexpected')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -95,14 +97,14 @@ export default function CompaniesListPage() {
   return (
     <div className="p-6 space-y-4">
       <PageHeader
-        title="Unternehmen"
-        description={`${data?.total ?? 0} Unternehmen`}
+        title={t('crm.companies.title')}
+        description={t('crm.companies.count', { count: data?.total ?? 0 })}
         icon={Building2}
         moduleId="contacts"
         actions={
           <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
             <Plus className="h-4 w-4" />
-            Neues Unternehmen
+            {t('crm.companies.new')}
           </Button>
         }
       />
@@ -110,7 +112,7 @@ export default function CompaniesListPage() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Unternehmen suchen..."
+          placeholder={t('crm.companies.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -127,17 +129,17 @@ export default function CompaniesListPage() {
         <div className="flex flex-col items-center justify-center py-16">
           <Building2 className="h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-lg font-medium text-foreground">
-            Keine Unternehmen gefunden
+            {t('crm.companies.noResults')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {debouncedSearch
-              ? 'Versuche einen anderen Suchbegriff.'
-              : 'Erstelle dein erstes Unternehmen, um loszulegen.'}
+              ? t('crm.tryDifferentSearch')
+              : t('crm.companies.emptyHint')}
           </p>
           {!debouncedSearch && (
             <Button className="mt-4 gap-2" onClick={() => setShowCreateDialog(true)}>
               <Plus className="h-4 w-4" />
-              Erstes Unternehmen erstellen
+              {t('crm.companies.createFirst')}
             </Button>
           )}
         </div>
@@ -146,12 +148,12 @@ export default function CompaniesListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Website</TableHead>
-                <TableHead>Branche</TableHead>
-                <TableHead>Kontakte</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Erstellt</TableHead>
+                <TableHead>{t('crm.field.name')}</TableHead>
+                <TableHead>{t('crm.field.website')}</TableHead>
+                <TableHead>{t('crm.field.industry')}</TableHead>
+                <TableHead>{t('crm.contacts.title')}</TableHead>
+                <TableHead>{t('crm.field.tags')}</TableHead>
+                <TableHead>{t('crm.field.created')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -210,7 +212,7 @@ export default function CompaniesListPage() {
 
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {total} Unternehmen gesamt
+              {t('crm.companies.totalCount', { count: total })}
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -222,7 +224,7 @@ export default function CompaniesListPage() {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm text-muted-foreground">
-                Seite {page} von {totalPages}
+                {t('crm.pagination', { page, totalPages })}
               </span>
               <Button
                 variant="outline"

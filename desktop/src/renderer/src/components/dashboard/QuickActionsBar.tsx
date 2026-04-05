@@ -3,6 +3,7 @@
  *
  * Module-aware: filters actions based on active business profile.
  */
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   UserPlus,
@@ -19,24 +20,25 @@ import { getProfileById } from '../../config/business-profiles'
 
 interface QuickAction {
   id: string
-  label: string
+  labelKey: string
   icon: React.ElementType
   route: string
   moduleId?: string
 }
 
 const allActions: QuickAction[] = [
-  { id: 'contact', label: 'Neuer Kontakt', icon: UserPlus, route: '/kontakte' },
-  { id: 'invoice', label: 'Neue Rechnung', icon: Receipt, route: '/finanzen', moduleId: 'finanzen' },
-  { id: 'timer', label: 'Timer starten', icon: Timer, route: '/zeiterfassung', moduleId: 'zeiterfassung' },
-  { id: 'project', label: 'Neues Projekt', icon: FolderPlus, route: '/work' },
-  { id: 'meeting', label: 'Neues Meeting', icon: Video, route: '/meetings' },
-  { id: 'message', label: 'Neue Nachricht', icon: MessageSquare, route: '/chat' },
-  { id: 'event', label: 'Neuer Termin', icon: CalendarPlus, route: '/calendar' },
-  { id: 'document', label: 'Neues Dokument', icon: FileText, route: '/dokumente' },
+  { id: 'contact', labelKey: 'dashboard.quickActions.newContact', icon: UserPlus, route: '/kontakte' },
+  { id: 'invoice', labelKey: 'dashboard.quickActions.newInvoice', icon: Receipt, route: '/finanzen', moduleId: 'finanzen' },
+  { id: 'timer', labelKey: 'dashboard.quickActions.startTimer', icon: Timer, route: '/zeiterfassung', moduleId: 'zeiterfassung' },
+  { id: 'project', labelKey: 'dashboard.quickActions.newProject', icon: FolderPlus, route: '/work' },
+  { id: 'meeting', labelKey: 'dashboard.quickActions.newMeeting', icon: Video, route: '/meetings' },
+  { id: 'message', labelKey: 'dashboard.quickActions.newMessage', icon: MessageSquare, route: '/chat' },
+  { id: 'event', labelKey: 'dashboard.quickActions.newEvent', icon: CalendarPlus, route: '/calendar' },
+  { id: 'document', labelKey: 'dashboard.quickActions.newDocument', icon: FileText, route: '/dokumente' },
 ]
 
 export function QuickActionsBar() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { businessProfileId, devShowAllModules, enabledOptionalModules } = useProfileStore()
 
@@ -61,7 +63,7 @@ export function QuickActionsBar() {
           className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted hover:border-border hover:shadow-sm transition-all"
         >
           <action.icon className={`h-4 w-4 ${i % 2 === 0 ? 'icon-accent' : 'icon-accent-2'} text-muted-foreground`} />
-          {action.label}
+          {t(action.labelKey)}
         </button>
       ))}
     </div>

@@ -6,6 +6,7 @@
  * Subscribes to real-time updates via the notification WebSocket hook.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, Link } from 'react-router-dom'
 import { Bell, BellOff, MessageSquare, TrendingUp, Users, Megaphone, ArrowRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -35,6 +36,7 @@ function getIcon(moduleId: string | undefined) {
 }
 
 function NotificationSummary(_props: WidgetProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: unreadCount = 0 } = useUnreadNotificationCount()
   const { data: notificationsData, isLoading, error, refetch } = useNotifications({
@@ -57,9 +59,9 @@ function NotificationSummary(_props: WidgetProps) {
     return (
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-sm text-muted-foreground">Fehler beim Laden</p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.error.loading')}</p>
           <Button variant="ghost" size="sm" className="mt-2" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -88,7 +90,7 @@ function NotificationSummary(_props: WidgetProps) {
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
           <BellOff className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">Keine Benachrichtigungen</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('dashboard.notifications.none')}</p>
         </div>
       </div>
     )
@@ -101,7 +103,7 @@ function NotificationSummary(_props: WidgetProps) {
         <div className="flex items-center gap-2 border-b px-4 py-2">
           <Bell className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs font-medium text-primary">
-            {unreadCount} ungelesen
+            {t('dashboard.notifications.unread', { count: unreadCount })}
           </span>
         </div>
       )}
@@ -154,7 +156,7 @@ function NotificationSummary(_props: WidgetProps) {
           to="/notifications"
           className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
         >
-          Alle anzeigen
+          {t('dashboard.notifications.showAll')}
           <ArrowRight className="h-3 w-3" />
         </Link>
       </div>

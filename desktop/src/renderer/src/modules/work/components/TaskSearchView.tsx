@@ -10,6 +10,7 @@
  * - Pagination at bottom
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   Search,
@@ -48,6 +49,7 @@ function highlightText(text: string, query: string): React.ReactNode {
 }
 
 export default function TaskSearchView() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchInput, setSearchInput] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -84,7 +86,7 @@ export default function TaskSearchView() {
       <div className="relative max-w-lg">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Suche nach Aufgaben, Projekten und mehr..."
+          placeholder={t('work.search.placeholder')}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="pl-9 text-base h-10"
@@ -100,10 +102,10 @@ export default function TaskSearchView() {
         <div className="flex flex-col items-center justify-center py-16">
           <Search className="h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-lg font-medium text-foreground">
-            Suche nach Aufgaben, Projekten und mehr
+            {t('work.search.title')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Mindestens 2 Zeichen eingeben, um die Suche zu starten.
+            {t('work.search.minChars')}
           </p>
         </div>
       ) : isLoading ? (
@@ -116,16 +118,16 @@ export default function TaskSearchView() {
         <div className="flex flex-col items-center justify-center py-16">
           <Search className="h-10 w-10 text-muted-foreground" />
           <p className="mt-4 text-base font-medium text-foreground">
-            Keine Ergebnisse für &apos;{debouncedQuery}&apos;
+            {t('work.search.noResults', { query: debouncedQuery })}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Versuche andere Suchbegriffe oder weniger Filter.
+            {t('work.search.tryOther')}
           </p>
         </div>
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            {total} Ergebnis{total !== 1 ? 'se' : ''} für &quot;{debouncedQuery}&quot;
+            {t('work.search.resultsCount', { count: total, query: debouncedQuery })}
           </p>
 
           <div className="space-y-1">
@@ -201,7 +203,7 @@ export default function TaskSearchView() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-2">
               <p className="text-sm text-muted-foreground">
-                Seite {page} von {totalPages}
+                {t('work.pagination.page', { page, totalPages })}
               </p>
               <div className="flex items-center gap-2">
                 <Button

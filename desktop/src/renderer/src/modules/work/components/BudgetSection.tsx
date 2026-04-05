@@ -7,6 +7,7 @@
  * Mock data for design — backend swap: real budget + time data from API.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
   ChevronUp,
@@ -56,6 +57,7 @@ export default function BudgetSection({
   budget = 50000,
   projectName: _projectName,
 }: BudgetSectionProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(true)
 
   // Calculate actual costs from mock time entries
@@ -82,10 +84,10 @@ export default function BudgetSection({
       : 'bg-success'
 
   const statusLabel = isOverBudget
-    ? 'Über Budget'
+    ? t('work.budget.overBudget')
     : isWarning
-      ? 'Warnung'
-      : 'Im Rahmen'
+      ? t('work.budget.warning')
+      : t('work.budget.onTrack')
 
   const statusColorClass = isOverBudget
     ? 'text-destructive'
@@ -103,7 +105,7 @@ export default function BudgetSection({
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">
-            Projektbudget
+            {t('work.budget.title')}
           </span>
           {/* Compact status when collapsed */}
           {!expanded && (
@@ -136,7 +138,7 @@ export default function BudgetSection({
             <div className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
                 <Wallet className="h-3.5 w-3.5" />
-                Geplantes Budget
+                {t('work.budget.planned')}
               </div>
               <p className="text-lg font-semibold text-foreground">
                 {formatCurrency(budget)}
@@ -147,13 +149,13 @@ export default function BudgetSection({
             <div className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
                 <TrendingUp className="h-3.5 w-3.5" />
-                Tatsaechliche Kosten
+                {t('work.budget.actualCosts')}
               </div>
               <p className="text-lg font-semibold text-foreground">
                 {formatCurrency(totalCosts)}
               </p>
               <p className="text-[10px] text-muted-foreground mt-0.5">
-                {totalHours.toFixed(0)}h erfasst
+                {t('work.budget.hoursRecorded', { hours: totalHours.toFixed(0) })}
               </p>
             </div>
 
@@ -165,7 +167,7 @@ export default function BudgetSection({
                 ) : (
                   <Clock className="h-3.5 w-3.5" />
                 )}
-                Verbleibend
+                {t('work.budget.remaining')}
               </div>
               <p
                 className={cn(
@@ -175,7 +177,7 @@ export default function BudgetSection({
               >
                 {formatCurrency(Math.abs(remaining))}
                 {isOverBudget && (
-                  <span className="text-xs font-normal ml-1">über Budget</span>
+                  <span className="text-xs font-normal ml-1">{t('work.budget.overBudget')}</span>
                 )}
               </p>
             </div>
@@ -185,7 +187,7 @@ export default function BudgetSection({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">
-                Budgetauslastung
+                {t('work.budget.utilization')}
               </span>
               <span className={cn('font-medium', statusColorClass)}>
                 {statusLabel} — {Math.round(percentage)}%
@@ -200,8 +202,7 @@ export default function BudgetSection({
             {isOverBudget && (
               <div className="flex items-center gap-1.5 text-xs text-destructive mt-1">
                 <AlertTriangle className="h-3 w-3" />
-                Budget um {formatCurrency(Math.abs(remaining))} überschritten (
-                {Math.round(percentage - 100)}% über Plan)
+                {t('work.budget.exceededBy', { amount: formatCurrency(Math.abs(remaining)), percent: Math.round(percentage - 100) })}
               </div>
             )}
           </div>
@@ -209,10 +210,10 @@ export default function BudgetSection({
           {/* Cost breakdown by person */}
           <div className="rounded-md border border-border overflow-hidden">
             <div className="grid grid-cols-[1fr_70px_80px_90px] gap-2 items-center bg-secondary/50 px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-              <span>Mitarbeiter</span>
-              <span className="text-right">Stunden</span>
-              <span className="text-right">Stundensatz</span>
-              <span className="text-right">Kosten</span>
+              <span>{t('work.utilization.employee')}</span>
+              <span className="text-right">{t('work.budget.hours')}</span>
+              <span className="text-right">{t('work.budget.hourlyRate')}</span>
+              <span className="text-right">{t('work.budget.costs')}</span>
             </div>
             {breakdownRows.map((row) => (
               <div
@@ -233,7 +234,7 @@ export default function BudgetSection({
             ))}
             {/* Total row */}
             <div className="grid grid-cols-[1fr_70px_80px_90px] gap-2 items-center px-3 py-2 border-t-2 border-border bg-secondary/30">
-              <span className="text-xs font-semibold text-foreground">Gesamt</span>
+              <span className="text-xs font-semibold text-foreground">{t('work.budget.total')}</span>
               <span className="text-xs font-semibold text-foreground text-right font-mono">
                 {totalHours.toFixed(0)}h
               </span>

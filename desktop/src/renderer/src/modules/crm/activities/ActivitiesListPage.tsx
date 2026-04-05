@@ -5,6 +5,7 @@
  * activity type (call, meeting, note, email, task) and toggling completion.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, ChevronLeft, ChevronRight, Activity, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/shared'
@@ -27,6 +28,7 @@ const PAGE_SIZE = 20
 type ActivityTypeFilter = 'all' | 'call' | 'meeting' | 'note' | 'email' | 'task'
 
 export default function ActivitiesListPage() {
+  const { t } = useTranslation()
   const [typeFilter, setTypeFilter] = useState<ActivityTypeFilter>('all')
   const [page, setPage] = useState(1)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -69,9 +71,9 @@ export default function ActivitiesListPage() {
         description: form.description || undefined,
         due_date: form.due_date || undefined,
       })
-      toast.success('Aktivitaet erstellt')
+      toast.success(t('crm.activities.created'))
     } catch {
-      toast.error('Fehler beim Erstellen')
+      toast.error(t('crm.activities.createError'))
     }
   }
 
@@ -84,18 +86,18 @@ export default function ActivitiesListPage() {
         description: form.description || undefined,
         due_date: form.due_date || undefined,
       })
-      toast.success('Aktivitaet aktualisiert')
+      toast.success(t('crm.activities.updated'))
     } catch {
-      toast.error('Fehler beim Aktualisieren')
+      toast.error(t('crm.activities.updateError'))
     }
   }
 
   async function handleDelete(id: string) {
     try {
       await deleteActivity.mutateAsync(id)
-      toast.success('Aktivitaet gelöscht')
+      toast.success(t('crm.activities.deleted'))
     } catch {
-      toast.error('Fehler beim Löschen')
+      toast.error(t('crm.activities.deleteError'))
     }
   }
 
@@ -104,13 +106,13 @@ export default function ActivitiesListPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Aktivitaeten
+            {t('crm.activities.loadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('crm.error.unexpected')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -120,13 +122,13 @@ export default function ActivitiesListPage() {
   return (
     <div className="p-6 space-y-4">
       <PageHeader
-        title="Aktivitaeten"
+        title={t('crm.activities.title')}
         icon={Activity}
         moduleId="contacts"
         actions={
           <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
             <Plus className="h-4 w-4" />
-            Neue Aktivitaet
+            {t('crm.activities.new')}
           </Button>
         }
       />
@@ -137,10 +139,10 @@ export default function ActivitiesListPage() {
         onValueChange={(v) => setTypeFilter(v as ActivityTypeFilter)}
       >
         <TabsList>
-          <TabsTrigger value="all">Alle</TabsTrigger>
-          {ACTIVITY_TYPES.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
-              {t.label}
+          <TabsTrigger value="all">{t('crm.activities.filterAll')}</TabsTrigger>
+          {ACTIVITY_TYPES.map((at) => (
+            <TabsTrigger key={at.value} value={at.value}>
+              {t(at.labelKey)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -156,12 +158,12 @@ export default function ActivitiesListPage() {
         <div className="flex flex-col items-center justify-center py-16">
           <Activity className="h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-lg font-medium text-foreground">
-            Keine Aktivitaeten gefunden
+            {t('crm.activities.noResults')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {typeFilter !== 'all'
-              ? `Keine ${activityTypeLabel(typeFilter)}-Aktivitaeten vorhanden.`
-              : 'Erstelle deine erste Aktivitaet, um loszulegen.'}
+              ? t('crm.activities.noResultsFiltered', { type: t(activityTypeLabel(typeFilter)) })
+              : t('crm.activities.emptyHint')}
           </p>
         </div>
       ) : (
@@ -201,14 +203,14 @@ export default function ActivitiesListPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium">{activity.subject}</p>
                       <Badge variant="outline" className="text-xs">
-                        {activityTypeLabel(activity.activity_type)}
+                        {t(activityTypeLabel(activity.activity_type))}
                       </Badge>
                       {activity.is_completed && (
                         <Badge
                           variant="secondary"
                           className="text-xs bg-green-100 text-green-700"
                         >
-                          Erledigt
+                          {t('crm.activities.completed')}
                         </Badge>
                       )}
                     </div>
@@ -219,17 +221,17 @@ export default function ActivitiesListPage() {
                     )}
                     <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                       {activity.contact_name && (
-                        <span>Kontakt: {activity.contact_name}</span>
+                        <span>{t('crm.field.contact')}: {activity.contact_name}</span>
                       )}
                       {activity.company_name && (
-                        <span>Unternehmen: {activity.company_name}</span>
+                        <span>{t('crm.field.company')}: {activity.company_name}</span>
                       )}
                       {activity.deal_name && (
                         <span>Deal: {activity.deal_name}</span>
                       )}
                       {activity.due_date && (
                         <span>
-                          Fällig:{' '}
+                          {t('crm.activities.due')}:{' '}
                           {new Date(activity.due_date).toLocaleDateString(
                             'de-DE'
                           )}
@@ -237,7 +239,7 @@ export default function ActivitiesListPage() {
                       )}
                       {activity.created_at && (
                         <span>
-                          Erstellt:{' '}
+                          {t('crm.field.created')}:{' '}
                           {new Date(activity.created_at).toLocaleDateString(
                             'de-DE'
                           )}
@@ -258,7 +260,7 @@ export default function ActivitiesListPage() {
                           }
                         }}
                       >
-                        Erledigen
+                        {t('crm.activities.markComplete')}
                       </Button>
                     )}
                     <Button
@@ -280,7 +282,7 @@ export default function ActivitiesListPage() {
 
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {total} Aktivitaet{total !== 1 ? 'en' : ''} gesamt
+              {t('crm.activities.totalCount', { count: total })}
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -292,7 +294,7 @@ export default function ActivitiesListPage() {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm text-muted-foreground">
-                Seite {page} von {totalPages}
+                {t('crm.pagination', { page, totalPages })}
               </span>
               <Button
                 variant="outline"

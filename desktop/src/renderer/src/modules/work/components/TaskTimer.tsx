@@ -9,6 +9,7 @@
  * - Timer state persists in Zustand store across page navigation
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Play, Square, Clock, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,6 +43,7 @@ function formatDuration(totalSeconds: number): string {
 }
 
 export default function TaskTimer({ taskId }: TaskTimerProps) {
+  const { t } = useTranslation()
   const { data: activeTimerData } = useActiveTimer()
   const { data: summaryData } = useTaskTimeSummary(taskId)
   const startTimer = useStartTimer()
@@ -154,12 +156,12 @@ export default function TaskTimer({ taskId }: TaskTimerProps) {
           {isTimerRunningOnThisTask ? (
             <>
               <Square className="h-3.5 w-3.5" />
-              Stoppen
+              {t('work.timer.stop')}
             </>
           ) : (
             <>
               <Play className="h-3.5 w-3.5" />
-              Starten
+              {t('work.timer.start')}
             </>
           )}
         </Button>
@@ -176,8 +178,8 @@ export default function TaskTimer({ taskId }: TaskTimerProps) {
         <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning-light px-3 py-2 text-xs text-warning-foreground">
           <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <div>
-            <span className="font-medium">Timer läuft auf anderer Aufgabe.</span>{' '}
-            Starten wechselt den Timer hierher.
+            <span className="font-medium">{t('work.timer.runningElsewhere')}</span>{' '}
+            {t('work.timer.switchHint')}
           </div>
         </div>
       )}
@@ -185,7 +187,7 @@ export default function TaskTimer({ taskId }: TaskTimerProps) {
       {/* Total time summary */}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
-        <span>Gesamt: {formatDuration(totalSeconds)}</span>
+        <span>{t('work.timer.total')}: {formatDuration(totalSeconds)}</span>
         {summary && summary.entry_count > 0 && (
           <span>({summary.entry_count} Einträge)</span>
         )}

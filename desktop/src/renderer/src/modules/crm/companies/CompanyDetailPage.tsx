@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   Pencil,
@@ -27,6 +28,7 @@ import { activityTypeLabel, activityTypeIcon } from '../activities/activityUtils
 import { CompanyFormDialog, type CompanyFormData } from './CompanyFormDialog'
 
 export default function CompanyDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data, isLoading, error, refetch } = useCompany(id ?? '')
@@ -83,9 +85,9 @@ export default function CompanyDetailPage() {
           ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
         },
       })
-      toast.success('Unternehmen aktualisiert')
+      toast.success(t('crm.companies.updated'))
     } catch {
-      toast.error('Fehler beim Aktualisieren des Unternehmens')
+      toast.error(t('crm.companies.updateError'))
     }
   }
 
@@ -93,10 +95,10 @@ export default function CompanyDetailPage() {
     if (!id) return
     try {
       await deleteCompany.mutateAsync(id)
-      toast.success('Unternehmen gelöscht')
+      toast.success(t('crm.companies.deleted'))
       navigate('/crm/companies')
     } catch {
-      toast.error('Fehler beim Löschen des Unternehmens')
+      toast.error(t('crm.companies.deleteError'))
     }
   }
 
@@ -105,13 +107,13 @@ export default function CompanyDetailPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden des Unternehmens
+            {t('crm.companies.loadErrorSingle')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('crm.error.unexpected')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -133,14 +135,14 @@ export default function CompanyDetailPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Unternehmen nicht gefunden
+            {t('crm.companies.notFound')}
           </p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => navigate('/crm/companies')}
           >
-            Zurück zur Liste
+            {t('crm.backToList')}
           </Button>
         </div>
       </div>
@@ -158,7 +160,7 @@ export default function CompanyDetailPage() {
             onClick={() => navigate('/crm/companies')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Zurück
+            {t('common.back')}
           </Button>
           <h1 className="text-2xl font-semibold text-foreground">
             {company.name}
@@ -167,7 +169,7 @@ export default function CompanyDetailPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-1" />
-            Bearbeiten
+            {t('common.edit')}
           </Button>
           <Button
             variant="outline"
@@ -176,7 +178,7 @@ export default function CompanyDetailPage() {
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Löschen
+            {t('common.delete')}
           </Button>
         </div>
       </div>
@@ -185,7 +187,7 @@ export default function CompanyDetailPage() {
         {/* Company Info */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Unternehmensinformationen</CardTitle>
+            <CardTitle>{t('crm.companies.info')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {company.website && (
@@ -223,7 +225,7 @@ export default function CompanyDetailPage() {
                 <Separator />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Notizen
+                    {t('crm.field.notes')}
                   </p>
                   <p className="text-sm whitespace-pre-wrap">{company.notes}</p>
                 </div>
@@ -236,7 +238,7 @@ export default function CompanyDetailPage() {
                   <Separator />
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-2">
-                      Benutzerdefinierte Felder
+                      {t('crm.field.customFields')}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(company.customFields).map(
@@ -260,7 +262,7 @@ export default function CompanyDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Tags</CardTitle>
+              <CardTitle>{t('crm.field.tags')}</CardTitle>
             </CardHeader>
             <CardContent>
               {company.tags && company.tags.length > 0 ? (
@@ -285,7 +287,7 @@ export default function CompanyDetailPage() {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Keine Tags zugewiesen.
+                  {t('crm.tags.none')}
                 </p>
               )}
             </CardContent>
@@ -293,12 +295,12 @@ export default function CompanyDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Kontakte ({contacts.length})</CardTitle>
+              <CardTitle>{t('crm.contacts.title')} ({contacts.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {contacts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Keine verknüpften Kontakte.
+                  {t('crm.companies.noContacts')}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -334,12 +336,12 @@ export default function CompanyDetailPage() {
       {/* Activities section */}
       <Card>
         <CardHeader>
-          <CardTitle>Aktivitäten</CardTitle>
+          <CardTitle>{t('crm.activities.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           {activities.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Keine Aktivitäten für dieses Unternehmen.
+              {t('crm.companies.noActivities')}
             </p>
           ) : (
             <div className="space-y-3">
@@ -357,7 +359,7 @@ export default function CompanyDetailPage() {
                           {activity.subject}
                         </p>
                         <Badge variant="outline" className="text-xs shrink-0">
-                          {activityTypeLabel(activity.activity_type)}
+                          {t(activityTypeLabel(activity.activity_type))}
                         </Badge>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -392,9 +394,9 @@ export default function CompanyDetailPage() {
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Unternehmen löschen"
-        description={`Moechtest du "${company.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
-        confirmLabel="Löschen"
+        title={t('crm.companies.deleteTitle')}
+        description={t('crm.companies.deleteConfirm', { name: company.name })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />

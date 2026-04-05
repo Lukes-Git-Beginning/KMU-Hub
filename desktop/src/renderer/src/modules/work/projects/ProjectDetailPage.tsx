@@ -9,6 +9,7 @@
  * Includes TaskDetailPanel slide-over for quick task viewing.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate, Routes, Route } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -57,6 +58,7 @@ export default function ProjectDetailPage() {
  * Project board view with task list/Kanban and slide-over task panel.
  */
 function ProjectBoardView() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -98,13 +100,13 @@ function ProjectBoardView() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden des Projekts
+            {t('work.projects.loadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('work.common.unexpectedError')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -125,14 +127,14 @@ function ProjectBoardView() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Projekt nicht gefunden
+            {t('work.projects.notFound')}
           </p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => navigate('/work/projects')}
           >
-            Zurück zur Liste
+            {t('work.projects.backToList')}
           </Button>
         </div>
       </div>
@@ -144,7 +146,7 @@ function ProjectBoardView() {
     .filter((s) => s.id)
     .map((s) => ({
       id: s.id!,
-      name: s.name ?? 'Ohne Name',
+      name: s.name ?? t('work.list.noStatus'),
       color: s.color,
       is_closed: s.is_closed,
     }))
@@ -160,7 +162,7 @@ function ProjectBoardView() {
             onClick={() => navigate('/work/projects')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Zurück
+            {t('common.back')}
           </Button>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold text-foreground">
@@ -180,7 +182,7 @@ function ProjectBoardView() {
               size="sm"
               className="rounded-r-none"
               onClick={() => handleViewChange('list')}
-              title="Listenansicht"
+              title={t('work.views.list')}
             >
               <LayoutList className="h-4 w-4" />
             </Button>
@@ -189,7 +191,7 @@ function ProjectBoardView() {
               size="sm"
               className="rounded-none border-x border-border"
               onClick={() => handleViewChange('kanban')}
-              title="Kanban-Ansicht"
+              title={t('work.views.kanban')}
             >
               <Columns3 className="h-4 w-4" />
             </Button>
@@ -198,7 +200,7 @@ function ProjectBoardView() {
               size="sm"
               className="rounded-none border-r border-border"
               onClick={() => handleViewChange('gantt')}
-              title="Gantt-Ansicht"
+              title={t('work.views.gantt')}
             >
               <GanttChartSquare className="h-4 w-4" />
             </Button>
@@ -207,7 +209,7 @@ function ProjectBoardView() {
               size="sm"
               className="rounded-l-none"
               onClick={() => handleViewChange('auslastung')}
-              title="Auslastung"
+              title={t('work.views.utilization')}
             >
               <BarChart3 className="h-4 w-4" />
             </Button>
@@ -218,7 +220,7 @@ function ProjectBoardView() {
             variant="outline"
             size="sm"
             onClick={() => setInvoiceOpen(true)}
-            title="Stunden zu Rechnung"
+            title={t('work.invoice.title')}
           >
             <Receipt className="h-4 w-4" />
           </Button>
@@ -233,7 +235,7 @@ function ProjectBoardView() {
 
           <Button size="sm" className="gap-1" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
-            Neue Aufgabe
+            {t('work.tasks.newTask')}
           </Button>
         </div>
       </div>

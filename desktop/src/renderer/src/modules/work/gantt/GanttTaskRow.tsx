@@ -7,6 +7,7 @@
  * drag-to-move / drag-to-resize functionality.
  */
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib'
 import {
   Tooltip,
@@ -69,6 +70,7 @@ export default function GanttTaskRow({
   onTaskDateChange,
   timelineWidth,
 }: GanttTaskRowProps) {
+  const { t } = useTranslation()
   const bar = useMemo(() => taskToBar(task, config), [task, config])
   const barColor = useMemo(() => getBarColor(task), [task])
   const isCompleted = !!task.completed_at
@@ -385,7 +387,7 @@ export default function GanttTaskRow({
             className="absolute flex items-center text-xs text-muted-foreground italic px-2"
             style={{ top: (ROW_HEIGHT - BAR_HEIGHT) / 2, height: BAR_HEIGHT }}
           >
-            Kein Fälligkeitsdatum
+            {t('work.gantt.noDueDate')}
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@
  * Entity linking (contact/company/deal) is handled from entity detail pages.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ export function ActivityFormDialog({
   onSubmit,
   isEdit = false,
 }: ActivityFormDialogProps) {
+  const { t } = useTranslation()
   const [activityType, setActivityType] = useState<ActivityFormData['activity_type']>('call')
   const [subject, setSubject] = useState('')
   const [description, setDescription] = useState('')
@@ -72,19 +74,19 @@ export function ActivityFormDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? 'Aktivitaet bearbeiten' : 'Neue Aktivitaet'}
+            {isEdit ? t('crm.activities.editTitle') : t('crm.activities.newTitle')}
           </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? 'Aktivitaet aktualisieren.'
-              : 'Erstelle eine neue Aktivitaet.'}
+              ? t('crm.activities.editDescription')
+              : t('crm.activities.newDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
           {/* Activity Type */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Typ *</label>
+            <label className="text-sm font-medium text-foreground">{t('crm.activities.type')} *</label>
             <select
               value={activityType}
               onChange={(e) =>
@@ -93,9 +95,9 @@ export function ActivityFormDialog({
               disabled={isEdit}
               className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:border-primary disabled:opacity-50"
             >
-              {ACTIVITY_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {ACTIVITY_TYPES.map((at) => (
+                <option key={at.value} value={at.value}>
+                  {t(at.labelKey)}
                 </option>
               ))}
             </select>
@@ -104,13 +106,13 @@ export function ActivityFormDialog({
           {/* Subject */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Betreff *
+              {t('crm.activities.subject')} *
             </label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="z.B. Rückruf vereinbaren"
+              placeholder={t('crm.activities.subjectPlaceholder')}
               className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               autoFocus
             />
@@ -119,12 +121,12 @@ export function ActivityFormDialog({
           {/* Description */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Beschreibung
+              {t('crm.field.description')}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optionale Details..."
+              placeholder={t('crm.activities.descriptionPlaceholder')}
               rows={3}
               className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary resize-none"
             />
@@ -133,7 +135,7 @@ export function ActivityFormDialog({
           {/* Due Date */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Fällig am
+              {t('crm.activities.dueDate')}
             </label>
             <input
               type="date"
@@ -149,14 +151,14 @@ export function ActivityFormDialog({
               onClick={() => onOpenChange(false)}
               className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={!subject.trim()}
               className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {isEdit ? 'Speichern' : 'Erstellen'}
+              {isEdit ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>

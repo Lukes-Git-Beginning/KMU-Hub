@@ -8,6 +8,7 @@
  * - Move standalone tasks to a project
  */
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   Search,
@@ -44,18 +45,18 @@ import type { Priority } from '../components/PriorityBadge'
 
 const PAGE_SIZE = 50
 
-const PRIORITY_CONFIG: Record<string, { label: string; className: string }> = {
-  urgent: { label: 'Dringend', className: 'bg-error-light text-destructive border-destructive/30' },
-  high: { label: 'Hoch', className: 'bg-orange-100 text-orange-700 border-orange-300' },
-  normal: { label: 'Normal', className: 'bg-blue-100 text-blue-700 border-blue-300' },
-  low: { label: 'Niedrig', className: 'bg-gray-100 text-gray-500 border-gray-300' },
+const PRIORITY_CONFIG: Record<string, { labelKey: string; className: string }> = {
+  urgent: { labelKey: 'work.priority.urgent', className: 'bg-error-light text-destructive border-destructive/30' },
+  high: { labelKey: 'work.priority.high', className: 'bg-orange-100 text-orange-700 border-orange-300' },
+  normal: { labelKey: 'work.priority.normal', className: 'bg-blue-100 text-blue-700 border-blue-300' },
+  low: { labelKey: 'work.priority.low', className: 'bg-gray-100 text-gray-500 border-gray-300' },
 }
 
-const PRIORITY_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'urgent', label: 'Dringend' },
-  { value: 'high', label: 'Hoch' },
-  { value: 'medium', label: 'Normal' },
-  { value: 'low', label: 'Niedrig' },
+const PRIORITY_OPTIONS: Array<{ value: string; labelKey: string }> = [
+  { value: 'urgent', labelKey: 'work.priority.urgent' },
+  { value: 'high', labelKey: 'work.priority.high' },
+  { value: 'medium', labelKey: 'work.priority.normal' },
+  { value: 'low', labelKey: 'work.priority.low' },
 ]
 
 interface TaskItem {
@@ -82,6 +83,7 @@ interface ProjectGroup {
 }
 
 export default function MyTasksPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -138,7 +140,7 @@ export default function MyTasksPage() {
     const standaloneKey = '__standalone__'
     map.set(standaloneKey, {
       projectId: null,
-      projectName: 'Persönlich',
+      projectName: t('work.myTasks.personal'),
       projectKey: '',
       tasks: [],
     })
@@ -148,7 +150,7 @@ export default function MyTasksPage() {
       if (!map.has(key)) {
         map.set(key, {
           projectId: task.project_id ?? null,
-          projectName: task.project_name || (task.project_key ? `Projekt ${task.project_key}` : 'Unbekannt'),
+          projectName: task.project_name || (task.project_key ? `${t('work.settings.project')} ${task.project_key}` : t('work.myTasks.unknown')),
           projectKey: task.project_key ?? '',
           tasks: [],
         })
@@ -177,9 +179,9 @@ export default function MyTasksPage() {
     const diffMs = date.getTime() - now.getTime()
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
 
-    if (diffDays < 0) return `${Math.abs(diffDays)} Tage überfällig`
-    if (diffDays === 0) return 'Heute'
-    if (diffDays === 1) return 'Morgen'
+    if (diffDays < 0) return t('work.list.daysOverdue', { count: Math.abs(diffDays) })
+    if (diffDays === 0) return t('work.time.today')
+    if (diffDays === 1) return t('work.time.tomorrow')
     return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
   }
 
@@ -220,13 +222,13 @@ export default function MyTasksPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Aufgaben
+            {t('work.myTasks.loadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('work.common.unexpectedError')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -236,13 +238,13 @@ export default function MyTasksPage() {
   return (
     <div className="p-6 space-y-4">
       <PageHeader
-        title="Meine Aufgaben"
+        title={t('work.myTasks.title')}
         icon={ListChecks}
         moduleId="tasks"
         actions={
           <Button className="gap-2" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="h-4 w-4" />
-            Neue Aufgabe
+            {t('work.tasks.newTask')}
           </Button>
         }
       />
@@ -252,7 +254,7 @@ export default function MyTasksPage() {
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Aufgaben suchen..."
+            placeholder={t('work.myTasks.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -270,7 +272,7 @@ export default function MyTasksPage() {
                 priorityFilter.length > 0 && 'border-primary text-primary'
               )}
             >
-              Priorität
+              {t('work.tasks.priority')}
               {priorityFilter.length > 0 && (
                 <Badge
                   variant="secondary"
@@ -301,7 +303,7 @@ export default function MyTasksPage() {
                         : 'border-border'
                     )}
                   />
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               ))}
             </div>
@@ -318,7 +320,7 @@ export default function MyTasksPage() {
           )}
           onClick={() => setIncludeCompleted(!includeCompleted)}
         >
-          Erledigte anzeigen
+          {t('work.myTasks.showCompleted')}
         </Button>
       </div>
 
@@ -332,13 +334,13 @@ export default function MyTasksPage() {
       ) : filteredTasks.length === 0 ? (
         <EmptyState
           illustration={<EmptyTasks />}
-          title="Keine Aufgaben zugewiesen"
+          title={t('work.myTasks.noTasksAssigned')}
           description={
             debouncedSearch
-              ? 'Versuche einen anderen Suchbegriff.'
-              : 'Dir sind aktuell keine Aufgaben zugewiesen.'
+              ? t('work.projects.tryOtherSearch')
+              : t('work.myTasks.noTasksHint')
           }
-          action={{ label: 'Erste Aufgabe erstellen', onClick: () => setCreateDialogOpen(true) }}
+          action={{ label: t('work.myTasks.createFirst'), onClick: () => setCreateDialogOpen(true) }}
         />
       ) : (
         <>
@@ -397,7 +399,7 @@ export default function MyTasksPage() {
                             variant="outline"
                             className={`text-xs shrink-0 ${priorityConfig.className}`}
                           >
-                            {priorityConfig.label}
+                            {t(priorityConfig.labelKey)}
                           </Badge>
                         )}
 
@@ -420,7 +422,7 @@ export default function MyTasksPage() {
                                 type="button"
                                 className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                                 onClick={(e) => e.stopPropagation()}
-                                title="In Projekt verschieben"
+                                title={t('work.myTasks.moveToProject')}
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
@@ -431,11 +433,11 @@ export default function MyTasksPage() {
                               onClick={(e) => e.stopPropagation()}
                             >
                               <p className="px-2 py-1 text-xs font-medium text-muted-foreground">
-                                In Projekt verschieben
+                                {t('work.myTasks.moveToProject')}
                               </p>
                               {projects.length === 0 ? (
                                 <p className="px-2 py-1 text-xs text-muted-foreground">
-                                  Keine Projekte vorhanden
+                                  {t('work.projects.noProjects')}
                                 </p>
                               ) : (
                                 <div className="max-h-40 overflow-y-auto space-y-0.5">
@@ -476,7 +478,7 @@ export default function MyTasksPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {total} Aufgabe{total !== 1 ? 'n' : ''} gesamt
+                {t('work.myTasks.totalTasks', { count: total })}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -488,7 +490,7 @@ export default function MyTasksPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  Seite {page} von {totalPages}
+                  {t('work.pagination.page', { page, totalPages })}
                 </span>
                 <Button
                   variant="outline"
@@ -508,13 +510,13 @@ export default function MyTasksPage() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Neue Aufgabe</DialogTitle>
+            <DialogTitle>{t('work.tasks.newTask')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Titel</label>
+              <label className="text-sm font-medium">{t('work.list.title')}</label>
               <Input
-                placeholder="Aufgabentitel..."
+                placeholder={t('work.tasks.titlePlaceholder')}
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 autoFocus
@@ -527,7 +529,7 @@ export default function MyTasksPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Priorität</label>
+              <label className="text-sm font-medium">{t('work.tasks.priority')}</label>
               <div className="flex gap-2">
                 {PRIORITY_OPTIONS.map((opt) => (
                   <button
@@ -541,14 +543,14 @@ export default function MyTasksPage() {
                     )}
                     onClick={() => setNewTaskPriority(opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Diese Aufgabe wird ohne Projekt erstellt. Du kannst sie später in ein Projekt verschieben.
+              {t('work.myTasks.standaloneHint')}
             </p>
 
             <div className="flex justify-end gap-2">
@@ -556,13 +558,13 @@ export default function MyTasksPage() {
                 variant="outline"
                 onClick={() => setCreateDialogOpen(false)}
               >
-                Abbrechen
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleCreateStandaloneTask}
                 disabled={!newTaskTitle.trim() || createTask.isPending}
               >
-                {createTask.isPending ? 'Erstelle...' : 'Erstellen'}
+                {createTask.isPending ? t('work.tasks.creating') : t('common.create')}
               </Button>
             </div>
           </div>

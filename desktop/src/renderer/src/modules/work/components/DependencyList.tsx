@@ -6,6 +6,7 @@
  * Add dependency via popover with type selector and task search.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   Lock,
@@ -50,28 +51,28 @@ type DependencyType = 'blocks' | 'blocked_by' | 'relates_to' | 'duplicates'
 const depTypeConfig: Record<
   DependencyType,
   {
-    label: string
+    labelKey: string
     icon: React.ComponentType<{ className?: string }>
     color: string
   }
 > = {
   blocks: {
-    label: 'Blockiert',
+    labelKey: 'work.dependencies.blocks',
     icon: ArrowRight,
     color: 'text-destructive',
   },
   blocked_by: {
-    label: 'Blockiert durch',
+    labelKey: 'work.dependencies.blockedBy',
     icon: Lock,
     color: 'text-warning-foreground',
   },
   relates_to: {
-    label: 'Verwandt',
+    labelKey: 'work.dependencies.relatesTo',
     icon: Link2,
     color: 'text-blue-500',
   },
   duplicates: {
-    label: 'Duplikat von',
+    labelKey: 'work.dependencies.duplicateOf',
     icon: Copy,
     color: 'text-gray-500',
   },
@@ -81,6 +82,7 @@ export default function DependencyList({
   taskId,
   projectId,
 }: DependencyListProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data, isLoading } = useTaskDependencies(taskId)
   const createDep = useCreateDependency()
@@ -164,7 +166,7 @@ export default function DependencyList({
   if (isLoading) {
     return (
       <div className="py-2 text-center text-xs text-muted-foreground">
-        Abhängigkeiten laden...
+        {t('work.dependencies.loading')}
       </div>
     )
   }
@@ -187,7 +189,7 @@ export default function DependencyList({
                 <div className="flex items-center gap-1.5 mb-1">
                   <Icon className={cn('h-3.5 w-3.5', config.color)} />
                   <span className="text-xs font-medium text-muted-foreground">
-                    {config.label} ({deps.length})
+                    {t(config.labelKey)} ({deps.length})
                   </span>
                 </div>
                 <div className="space-y-0.5 pl-5">
@@ -215,7 +217,7 @@ export default function DependencyList({
                           type="button"
                           className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
                           onClick={() => dep.id && handleRemoveDependency(dep.id)}
-                          title="Entfernen"
+                          title={t('work.dependencies.remove')}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -229,7 +231,7 @@ export default function DependencyList({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground text-center py-2">
-          Keine Abhängigkeiten
+          {t('work.dependencies.empty')}
         </p>
       )}
 
@@ -242,14 +244,14 @@ export default function DependencyList({
             className="mt-2 w-full gap-1 text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
-            Abhängigkeit hinzufügen
+            {t('work.dependencies.add')}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-3" align="start">
           <div className="space-y-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Typ
+                {t('work.dependencies.type')}
               </label>
               <Select
                 value={addType}
@@ -259,23 +261,23 @@ export default function DependencyList({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="blocks">Blockiert</SelectItem>
-                  <SelectItem value="blocked_by">Blockiert durch</SelectItem>
-                  <SelectItem value="relates_to">Verwandt</SelectItem>
-                  <SelectItem value="duplicates">Duplikat von</SelectItem>
+                  <SelectItem value="blocks">{t('work.dependencies.blocks')}</SelectItem>
+                  <SelectItem value="blocked_by">{t('work.dependencies.blockedBy')}</SelectItem>
+                  <SelectItem value="relates_to">{t('work.dependencies.relatesTo')}</SelectItem>
+                  <SelectItem value="duplicates">{t('work.dependencies.duplicateOf')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Aufgabe suchen
+                {t('work.dependencies.searchTask')}
               </label>
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="h-8 pl-7 text-xs"
-                  placeholder="Aufgabe suchen..."
+                  placeholder={t('work.dependencies.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
@@ -288,8 +290,8 @@ export default function DependencyList({
               {filteredSearchResults.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
                   {searchQuery
-                    ? 'Keine Aufgaben gefunden'
-                    : 'Suchbegriff eingeben...'}
+                    ? t('work.tasks.noTasksFound')
+                    : t('work.search.enterQuery')}
                 </p>
               ) : (
                 filteredSearchResults.map((task) => (

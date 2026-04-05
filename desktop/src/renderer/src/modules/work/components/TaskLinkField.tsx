@@ -9,6 +9,7 @@
  * - Existing links displayed as clickable chips with remove button
  */
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus,
@@ -40,33 +41,33 @@ type TaskEntityLink = components['schemas']['TaskEntityLinkResponse']
 const ENTITY_TYPE_CONFIG: Record<
   string,
   {
-    label: string
+    labelKey: string
     icon: React.ComponentType<{ className?: string }>
     route: (id: string) => string
   }
 > = {
   contact: {
-    label: 'Kontakt',
+    labelKey: 'work.links.contact',
     icon: User,
     route: (id) => `/crm/contacts/${id}`,
   },
   company: {
-    label: 'Unternehmen',
+    labelKey: 'work.links.company',
     icon: Building2,
     route: (id) => `/crm/companies/${id}`,
   },
   deal: {
-    label: 'Deal',
+    labelKey: 'work.links.deal',
     icon: TrendingUp,
     route: (id) => `/crm/deals/${id}`,
   },
 }
 
 const ENTITY_TABS = [
-  { key: '', label: 'Alle' },
-  { key: 'contact', label: 'Kontakte' },
-  { key: 'company', label: 'Unternehmen' },
-  { key: 'deal', label: 'Deals' },
+  { key: '', labelKey: 'work.links.all' },
+  { key: 'contact', labelKey: 'work.links.contacts' },
+  { key: 'company', labelKey: 'work.links.companies' },
+  { key: 'deal', labelKey: 'work.links.deals' },
 ] as const
 
 interface TaskLinkFieldProps {
@@ -80,6 +81,7 @@ export default function TaskLinkField({
   taskTitle,
   taskDescription,
 }: TaskLinkFieldProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -171,7 +173,7 @@ export default function TaskLinkField({
       {suggestions.length > 0 && (
         <div className="rounded-md border border-blue-200 bg-blue-50/50 px-3 py-2 space-y-1.5">
           <p className="text-xs text-blue-700 font-medium">
-            Meinten Sie:
+            {t('work.links.didYouMean')}
           </p>
           {suggestions.slice(0, 3).map((suggestion) => {
             const config =
@@ -197,7 +199,7 @@ export default function TaskLinkField({
                     {suggestion.title}
                   </span>
                   <span className="text-blue-500">
-                    ({config?.label ?? suggestion.entity_type})
+                    ({config ? t(config.labelKey) : suggestion.entity_type})
                   </span>
                 </button>
                 <button
@@ -206,7 +208,7 @@ export default function TaskLinkField({
                   onClick={() =>
                     handleDismissSuggestion(suggestion.id ?? '')
                   }
-                  title="Vorschlag ausblenden"
+                  title={t('work.links.dismissSuggestion')}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -237,18 +239,18 @@ export default function TaskLinkField({
                       link.entity_id ?? ''
                     )
                   }
-                  title={`${config?.label ?? link.entity_type} öffnen`}
+                  title={t('work.links.openEntity', { type: config ? t(config.labelKey) : link.entity_type })}
                 >
                   <Icon className="h-3 w-3 text-muted-foreground" />
                   <span className="truncate max-w-[120px]">
-                    {link.entity_display_name ?? 'Verknüpfung'}
+                    {link.entity_display_name ?? t('work.links.link')}
                   </span>
                 </button>
                 <button
                   type="button"
                   className="ml-0.5 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
                   onClick={() => link.id && handleUnlink(link.id)}
-                  title="Verknüpfung entfernen"
+                  title={t('work.links.removeLink')}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -267,7 +269,7 @@ export default function TaskLinkField({
             className="h-7 gap-1 text-xs text-muted-foreground"
           >
             <Plus className="h-3.5 w-3.5" />
-            Verknüpfung hinzufügen
+            {t('work.links.addLink')}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="start">
@@ -276,7 +278,7 @@ export default function TaskLinkField({
             <div className="relative">
               <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Kontakt, Unternehmen oder Deal suchen..."
+                placeholder={t('work.links.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-7 h-8 text-xs"
@@ -299,7 +301,7 @@ export default function TaskLinkField({
                 )}
                 onClick={() => setActiveTab(tab.key)}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             ))}
           </div>
@@ -308,15 +310,15 @@ export default function TaskLinkField({
           <div className="max-h-48 overflow-y-auto py-1">
             {searchLoading && debouncedQuery.length >= 2 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">
-                Suche...
+                {t('common.loading')}
               </p>
             ) : debouncedQuery.length < 2 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">
-                Mindestens 2 Zeichen eingeben...
+                {t('work.search.minChars')}
               </p>
             ) : filteredResults.length === 0 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">
-                Keine Ergebnisse
+                {t('common.noResults')}
               </p>
             ) : (
               filteredResults.map((result) => {
@@ -347,7 +349,7 @@ export default function TaskLinkField({
                       )}
                     </div>
                     <span className="shrink-0 text-muted-foreground">
-                      {config?.label ?? result.entity_type}
+                      {config ? t(config.labelKey) : result.entity_type}
                     </span>
                   </button>
                 )

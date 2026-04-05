@@ -5,6 +5,7 @@
  * with the project_id. Supports optional parent task for subtask creation.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
 import {
   Dialog,
@@ -54,6 +55,7 @@ export default function TaskCreateDialog({
   parentTaskId,
   onCreated,
 }: TaskCreateDialogProps) {
+  const { t } = useTranslation()
   const [title, setTitle] = useState('')
   const [statusId, setStatusId] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
@@ -102,7 +104,7 @@ export default function TaskCreateDialog({
     setError(null)
 
     if (!title.trim()) {
-      setError('Titel ist erforderlich.')
+      setError(t('work.tasks.titleRequired'))
       return
     }
 
@@ -124,7 +126,7 @@ export default function TaskCreateDialog({
       setError(
         err instanceof Error
           ? err.message
-          : 'Aufgabe konnte nicht erstellt werden.'
+          : t('work.tasks.createError')
       )
     }
   }
@@ -134,22 +136,22 @@ export default function TaskCreateDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {parentTaskId ? 'Neue Unteraufgabe' : 'Neue Aufgabe'}
+            {parentTaskId ? t('work.tasks.newSubtask') : t('work.tasks.newTask')}
           </DialogTitle>
           <DialogDescription>
             {parentTaskId
-              ? 'Erstelle eine Unteraufgabe für die ausgewählte Aufgabe.'
-              : 'Erstelle eine neue Aufgabe in diesem Projekt.'}
+              ? t('work.tasks.newSubtaskDescription')
+              : t('work.tasks.newTaskDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="task-title">Titel *</Label>
+            <Label htmlFor="task-title">{t('work.tasks.titleLabel')} *</Label>
             <Input
               id="task-title"
-              placeholder="Was muss erledigt werden?"
+              placeholder={t('work.tasks.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
@@ -159,10 +161,10 @@ export default function TaskCreateDialog({
           {/* Status + Priority row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label>{t('common.status')}</Label>
               <Select value={statusId} onValueChange={setStatusId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Status wählen" />
+                  <SelectValue placeholder={t('work.tasks.selectStatus')} />
                 </SelectTrigger>
                 <SelectContent>
                   {statuses
@@ -183,7 +185,7 @@ export default function TaskCreateDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Priorität</Label>
+              <Label>{t('work.tasks.priority')}</Label>
               <Select
                 value={priority}
                 onValueChange={(v) => setPriority(v as Priority)}
@@ -192,10 +194,10 @@ export default function TaskCreateDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="urgent">Dringend</SelectItem>
-                  <SelectItem value="high">Hoch</SelectItem>
-                  <SelectItem value="medium">Normal</SelectItem>
-                  <SelectItem value="low">Niedrig</SelectItem>
+                  <SelectItem value="urgent">{t('work.priority.urgent')}</SelectItem>
+                  <SelectItem value="high">{t('work.priority.high')}</SelectItem>
+                  <SelectItem value="medium">{t('work.priority.normal')}</SelectItem>
+                  <SelectItem value="low">{t('work.priority.low')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -204,21 +206,21 @@ export default function TaskCreateDialog({
           {/* Assignee + Due date row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Zuständig</Label>
+              <Label>{t('work.tasks.assignee')}</Label>
               <Select
                 value={assigneeId || '__none__'}
                 onValueChange={(v) => setAssigneeId(v === '__none__' ? '' : v)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Nicht zugewiesen" />
+                  <SelectValue placeholder={t('work.tasks.unassigned')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">Nicht zugewiesen</SelectItem>
+                  <SelectItem value="__none__">{t('work.tasks.unassigned')}</SelectItem>
                   {members
                     .filter((m) => m.user_id)
                     .map((m) => (
                       <SelectItem key={m.user_id} value={m.user_id!}>
-                        {m.display_name || m.email || 'Benutzer'}
+                        {m.display_name || m.email || t('work.tasks.user')}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -226,7 +228,7 @@ export default function TaskCreateDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="task-due-date">Fällig am</Label>
+              <Label htmlFor="task-due-date">{t('work.tasks.dueDate')}</Label>
               <Input
                 id="task-due-date"
                 type="date"
@@ -239,10 +241,10 @@ export default function TaskCreateDialog({
           {/* Description (collapsible) */}
           {showDescription ? (
             <div className="space-y-2">
-              <Label htmlFor="task-description">Beschreibung</Label>
+              <Label htmlFor="task-description">{t('work.tasks.description')}</Label>
               <Textarea
                 id="task-description"
-                placeholder="Optionale Beschreibung..."
+                placeholder={t('work.tasks.descriptionPlaceholder')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
@@ -255,7 +257,7 @@ export default function TaskCreateDialog({
               onClick={() => setShowDescription(true)}
             >
               <ChevronDown className="h-3 w-3" />
-              Beschreibung hinzufügen
+              {t('work.tasks.addDescription')}
             </button>
           )}
 
@@ -268,10 +270,10 @@ export default function TaskCreateDialog({
               variant="outline"
               onClick={() => handleOpenChange(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={createTask.isPending}>
-              {createTask.isPending ? 'Erstelle...' : 'Aufgabe erstellen'}
+              {createTask.isPending ? t('work.tasks.creating') : t('work.tasks.createTask')}
             </Button>
           </DialogFooter>
         </form>

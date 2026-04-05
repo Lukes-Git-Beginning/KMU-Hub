@@ -6,6 +6,7 @@
  * debounced PUT calls. Reuses the CRM custom fields engine pattern.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import {
@@ -25,6 +26,7 @@ interface CustomFieldsSectionProps {
 export default function CustomFieldsSection({
   taskId,
 }: CustomFieldsSectionProps) {
+  const { t } = useTranslation()
   // Fetch custom field definitions for 'task' entity type
   // Note: The CRM custom field API currently only supports contact/company/deal/activity.
   // For now, we query with no entity_type filter and show all, matching the CRM pattern.
@@ -83,7 +85,7 @@ export default function CustomFieldsSection({
   if (definitions.length === 0) {
     return (
       <p className="text-xs text-muted-foreground italic py-1">
-        Keine benutzerdefinierten Felder konfiguriert.
+        {t('work.customFields.empty')}
       </p>
     )
   }
@@ -141,7 +143,7 @@ export default function CustomFieldsSection({
                     handleChange(fieldId, String(e.target.checked))
                   }
                 />
-                <span className="text-xs">{value === 'true' ? 'Ja' : 'Nein'}</span>
+                <span className="text-xs">{value === 'true' ? t('common.yes') : t('common.no')}</span>
               </div>
             )}
 
@@ -151,7 +153,7 @@ export default function CustomFieldsSection({
                 value={value}
                 onChange={(e) => handleChange(fieldId, e.target.value)}
               >
-                <option value="">-- Auswahl --</option>
+                <option value="">{t('work.customFields.selectOption')}</option>
                 {(field.options ?? []).map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}

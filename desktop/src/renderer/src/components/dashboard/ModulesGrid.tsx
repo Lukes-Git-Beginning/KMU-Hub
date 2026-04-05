@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowRight,
   ChevronDown,
@@ -16,37 +17,38 @@ type ViewState = 'minimized' | 'half' | 'full'
 
 interface ModuleConfig {
   id: string
-  name: string
-  description: string
+  nameKey: string
+  descriptionKey: string
   path: string
-  stats: { label: string; value: number }
+  stats: { labelKey: string; value: number }
   isActive: boolean
-  badge?: string
+  badgeKey?: string
 }
 
 /**
  * Module definitions — colors + icons come from nav-items.ts.
  * Only module-specific metadata (description, stats, badge) is here.
+ * Labels use i18n keys resolved at render time.
  */
 const ALL_MODULES: ModuleConfig[] = [
-  { id: 'projects', name: 'Projektverwaltung', description: 'Kanban-Boards, Zeiterfassung & Gantt-Charts', path: '/work/projects', stats: { label: 'Aktive Projekte', value: 24 }, isActive: true },
-  { id: 'tasks', name: 'Aufgabenverwaltung', description: 'To-Dos, Deadlines & Team-Zuweisungen', path: '/work/my-tasks', stats: { label: 'Offene Aufgaben', value: 142 }, isActive: true },
-  { id: 'documents', name: 'Dokumentenmanagement', description: 'Zentrale Ablage mit Versionierung', path: '/dokumente', stats: { label: 'Dokumente', value: 89 }, isActive: true },
-  { id: 'finance', name: 'Finanzen', description: 'Rechnungen, Angebote & DATEV-Export', path: '/finanzen', stats: { label: 'Rechnungen', value: 18 }, isActive: true, badge: 'Neu' },
-  { id: 'chat', name: 'Team Chat', description: 'Team-Chat & Channels', path: '/chat', stats: { label: 'Neue Nachrichten', value: 37 }, isActive: true },
-  { id: 'crm', name: 'Team & CRM', description: 'Mitarbeiterverwaltung & Kontakte', path: '/crm', stats: { label: 'Team-Mitglieder', value: 12 }, isActive: true },
-  { id: 'inventar', name: 'Inventar', description: 'Lagerverwaltung mit Barcode-Scanning', path: '/inventar', stats: { label: 'Artikel', value: 245 }, isActive: true },
-  { id: 'schichten', name: 'Schichtplanung', description: 'Wochenpläne, Vorlagen & Tausch-Anfragen', path: '/schichten', stats: { label: 'Diese Woche', value: 32 }, isActive: true },
-  { id: 'einkauf', name: 'Einkauf', description: 'Lieferanten, Bestellungen & Liefertracking', path: '/einkauf', stats: { label: 'Offene Bestellungen', value: 7 }, isActive: true },
-  { id: 'helpdesk', name: 'Helpdesk', description: 'Tickets, SLA-Tracking & Wissensdatenbank', path: '/helpdesk', stats: { label: 'Offene Tickets', value: 15 }, isActive: true },
-  { id: 'fuhrpark', name: 'Fuhrpark', description: 'Fahrzeuge, Wartung & Tankprotokoll', path: '/fuhrpark', stats: { label: 'Fahrzeuge', value: 6 }, isActive: true },
-  { id: 'produktion', name: 'Produktion', description: 'Stücklisten, Aufträge & Qualitätskontrolle', path: '/produktion', stats: { label: 'Aufträge', value: 8 }, isActive: true },
-  { id: 'berichte', name: 'Berichte', description: 'KPI-Dashboard, Diagramme & Exporte', path: '/berichte', stats: { label: 'Berichte', value: 3 }, isActive: true },
-  { id: 'zeiterfassung', name: 'Zeiterfassung', description: 'Stunden erfassen, Projekte zuordnen & Auswertungen', path: '/zeiterfassung', stats: { label: 'Heute erfasst', value: 6 }, isActive: true },
-  { id: 'vertraege', name: 'Verträge', description: 'Vertragsverwaltung & Fristen-Tracking', path: '/vertraege', stats: { label: 'Aktive Verträge', value: 9 }, isActive: true },
-  { id: 'formulare', name: 'Formulare', description: 'Eigene Formulare erstellen & Eingänge verwalten', path: '/formulare', stats: { label: 'Aktive Formulare', value: 4 }, isActive: true },
-  { id: 'vermietung', name: 'Vermietung', description: 'Objekte, Reservierungen & Verfügbarkeit', path: '/vermietung', stats: { label: 'Verfügbare Objekte', value: 5 }, isActive: true },
-  { id: 'rapporte', name: 'Rapporte', description: 'Tagesberichte, Aufmass & Feldberichte', path: '/rapporte', stats: { label: 'Berichte diese Woche', value: 8 }, isActive: true },
+  { id: 'projects', nameKey: 'dashboard.modules.projects.name', descriptionKey: 'dashboard.modules.projects.description', path: '/work/projects', stats: { labelKey: 'dashboard.modules.projects.stat', value: 24 }, isActive: true },
+  { id: 'tasks', nameKey: 'dashboard.modules.tasks.name', descriptionKey: 'dashboard.modules.tasks.description', path: '/work/my-tasks', stats: { labelKey: 'dashboard.modules.tasks.stat', value: 142 }, isActive: true },
+  { id: 'documents', nameKey: 'dashboard.modules.documents.name', descriptionKey: 'dashboard.modules.documents.description', path: '/dokumente', stats: { labelKey: 'dashboard.modules.documents.stat', value: 89 }, isActive: true },
+  { id: 'finance', nameKey: 'dashboard.modules.finance.name', descriptionKey: 'dashboard.modules.finance.description', path: '/finanzen', stats: { labelKey: 'dashboard.modules.finance.stat', value: 18 }, isActive: true, badgeKey: 'dashboard.modules.badgeNew' },
+  { id: 'chat', nameKey: 'dashboard.modules.chat.name', descriptionKey: 'dashboard.modules.chat.description', path: '/chat', stats: { labelKey: 'dashboard.modules.chat.stat', value: 37 }, isActive: true },
+  { id: 'crm', nameKey: 'dashboard.modules.crm.name', descriptionKey: 'dashboard.modules.crm.description', path: '/crm', stats: { labelKey: 'dashboard.modules.crm.stat', value: 12 }, isActive: true },
+  { id: 'inventar', nameKey: 'dashboard.modules.inventar.name', descriptionKey: 'dashboard.modules.inventar.description', path: '/inventar', stats: { labelKey: 'dashboard.modules.inventar.stat', value: 245 }, isActive: true },
+  { id: 'schichten', nameKey: 'dashboard.modules.schichten.name', descriptionKey: 'dashboard.modules.schichten.description', path: '/schichten', stats: { labelKey: 'dashboard.modules.schichten.stat', value: 32 }, isActive: true },
+  { id: 'einkauf', nameKey: 'dashboard.modules.einkauf.name', descriptionKey: 'dashboard.modules.einkauf.description', path: '/einkauf', stats: { labelKey: 'dashboard.modules.einkauf.stat', value: 7 }, isActive: true },
+  { id: 'helpdesk', nameKey: 'dashboard.modules.helpdesk.name', descriptionKey: 'dashboard.modules.helpdesk.description', path: '/helpdesk', stats: { labelKey: 'dashboard.modules.helpdesk.stat', value: 15 }, isActive: true },
+  { id: 'fuhrpark', nameKey: 'dashboard.modules.fuhrpark.name', descriptionKey: 'dashboard.modules.fuhrpark.description', path: '/fuhrpark', stats: { labelKey: 'dashboard.modules.fuhrpark.stat', value: 6 }, isActive: true },
+  { id: 'produktion', nameKey: 'dashboard.modules.produktion.name', descriptionKey: 'dashboard.modules.produktion.description', path: '/produktion', stats: { labelKey: 'dashboard.modules.produktion.stat', value: 8 }, isActive: true },
+  { id: 'berichte', nameKey: 'dashboard.modules.berichte.name', descriptionKey: 'dashboard.modules.berichte.description', path: '/berichte', stats: { labelKey: 'dashboard.modules.berichte.stat', value: 3 }, isActive: true },
+  { id: 'zeiterfassung', nameKey: 'dashboard.modules.zeiterfassung.name', descriptionKey: 'dashboard.modules.zeiterfassung.description', path: '/zeiterfassung', stats: { labelKey: 'dashboard.modules.zeiterfassung.stat', value: 6 }, isActive: true },
+  { id: 'vertraege', nameKey: 'dashboard.modules.vertraege.name', descriptionKey: 'dashboard.modules.vertraege.description', path: '/vertraege', stats: { labelKey: 'dashboard.modules.vertraege.stat', value: 9 }, isActive: true },
+  { id: 'formulare', nameKey: 'dashboard.modules.formulare.name', descriptionKey: 'dashboard.modules.formulare.description', path: '/formulare', stats: { labelKey: 'dashboard.modules.formulare.stat', value: 4 }, isActive: true },
+  { id: 'vermietung', nameKey: 'dashboard.modules.vermietung.name', descriptionKey: 'dashboard.modules.vermietung.description', path: '/vermietung', stats: { labelKey: 'dashboard.modules.vermietung.stat', value: 5 }, isActive: true },
+  { id: 'rapporte', nameKey: 'dashboard.modules.rapporte.name', descriptionKey: 'dashboard.modules.rapporte.description', path: '/rapporte', stats: { labelKey: 'dashboard.modules.rapporte.stat', value: 8 }, isActive: true },
 ]
 
 /** Look up the icon from nav-items by module ID */
@@ -55,6 +57,7 @@ function getModuleIcon(id: string) {
 }
 
 export function ModulesGrid() {
+  const { t } = useTranslation()
   const [viewState, setViewState] = useState<ViewState>('full')
   const businessProfileId = useProfileStore((s) => s.businessProfileId)
   const devShowAll = useProfileStore((s) => s.devShowAllModules)
@@ -75,14 +78,14 @@ export function ModulesGrid() {
   return (
     <div className="mb-8">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Ihre Module</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t('dashboard.modules.title')}</h2>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
             {(
               [
-                { value: 'minimized', icon: Minimize2, title: 'Minimiert' },
-                { value: 'half', icon: ChevronDown, title: 'Halb' },
-                { value: 'full', icon: Maximize2, title: 'Voll' },
+                { value: 'minimized', icon: Minimize2, titleKey: 'dashboard.view.minimized' },
+                { value: 'half', icon: ChevronDown, titleKey: 'dashboard.view.half' },
+                { value: 'full', icon: Maximize2, titleKey: 'dashboard.view.full' },
               ] as const
             ).map((item) => {
               const Icon = item.icon
@@ -90,8 +93,8 @@ export function ModulesGrid() {
                 <button
                   key={item.value}
                   onClick={() => setViewState(item.value)}
-                  title={item.title}
-                  aria-label={item.title}
+                  title={t(item.titleKey)}
+                  aria-label={t(item.titleKey)}
                   className={cn(
                     'rounded p-1.5 transition-colors',
                     viewState === item.value
@@ -106,7 +109,7 @@ export function ModulesGrid() {
           </div>
 
           {viewState !== 'minimized' && (
-            <span className="text-sm text-primary">Module verwalten</span>
+            <span className="text-sm text-primary">{t('dashboard.modules.manage')}</span>
           )}
         </div>
       </div>
@@ -130,9 +133,9 @@ export function ModulesGrid() {
                   `animate-scale-in stagger-${Math.min(i + 1, 8)}`,
                 )}
               >
-                {mod.badge && (
+                {mod.badgeKey && (
                   <Badge className="absolute right-4 top-4 badge-accent bg-primary/10 text-primary">
-                    {mod.badge}
+                    {t(mod.badgeKey)}
                   </Badge>
                 )}
 
@@ -144,16 +147,16 @@ export function ModulesGrid() {
                 </div>
 
                 <h3 className="mb-2 font-medium text-foreground transition-colors group-hover:text-primary">
-                  {mod.name}
+                  {t(mod.nameKey)}
                 </h3>
                 <p className="mb-4 text-sm text-muted-foreground">
-                  {mod.description}
+                  {t(mod.descriptionKey)}
                 </p>
 
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-muted-foreground">
-                      {mod.stats.label}
+                      {t(mod.stats.labelKey)}
                     </p>
                     <p className="text-2xl text-foreground stat-accent">{mod.stats.value}</p>
                   </div>
@@ -163,7 +166,7 @@ export function ModulesGrid() {
                 {!mod.isActive && (
                   <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-card/50">
                     <span className="rounded-full bg-foreground px-3 py-1 text-xs text-background">
-                      Nicht aktiviert
+                      {t('dashboard.modules.notActivated')}
                     </span>
                   </div>
                 )}

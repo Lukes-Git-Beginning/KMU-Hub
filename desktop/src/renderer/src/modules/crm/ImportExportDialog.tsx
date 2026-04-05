@@ -6,6 +6,7 @@
  * Mock data for design — backend swap: replace with API hooks.
  */
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Upload,
   Download,
@@ -57,71 +58,71 @@ interface ImportPreviewRow {
 // ---------------------------------------------------------------------------
 
 const entityConfig: Record<EntityType, {
-  label: string
-  labelPlural: string
+  labelKey: string
+  labelPluralKey: string
   icon: typeof Users
-  fields: { key: string; label: string }[]
+  fields: { key: string; labelKey: string }[]
   exportFormats: ExportFormat[]
 }> = {
   contacts: {
-    label: 'Kontakt',
-    labelPlural: 'Kontakte',
+    labelKey: 'crm.importExport.entity.contact',
+    labelPluralKey: 'crm.importExport.entity.contacts',
     icon: Users,
     fields: [
-      { key: 'salutation', label: 'Anrede' },
-      { key: 'title', label: 'Titel' },
-      { key: 'firstName', label: 'Vorname' },
-      { key: 'lastName', label: 'Nachname' },
-      { key: 'email', label: 'E-Mail' },
-      { key: 'phone', label: 'Telefon' },
-      { key: 'mobile', label: 'Mobil' },
-      { key: 'company', label: 'Firma' },
-      { key: 'jobTitle', label: 'Position' },
-      { key: 'department', label: 'Abteilung' },
-      { key: 'street', label: 'Strasse' },
-      { key: 'zip', label: 'PLZ' },
-      { key: 'city', label: 'Ort' },
-      { key: 'country', label: 'Land' },
-      { key: 'website', label: 'Website' },
-      { key: 'notes', label: 'Notizen' },
-      { key: 'tags', label: 'Tags' },
+      { key: 'salutation', labelKey: 'crm.importExport.field.salutation' },
+      { key: 'title', labelKey: 'crm.importExport.field.title' },
+      { key: 'firstName', labelKey: 'crm.field.firstName' },
+      { key: 'lastName', labelKey: 'crm.field.lastName' },
+      { key: 'email', labelKey: 'crm.field.email' },
+      { key: 'phone', labelKey: 'crm.field.phone' },
+      { key: 'mobile', labelKey: 'crm.field.mobile' },
+      { key: 'company', labelKey: 'crm.field.company' },
+      { key: 'jobTitle', labelKey: 'crm.field.jobTitle' },
+      { key: 'department', labelKey: 'crm.field.department' },
+      { key: 'street', labelKey: 'crm.importExport.field.street' },
+      { key: 'zip', labelKey: 'crm.importExport.field.zip' },
+      { key: 'city', labelKey: 'crm.importExport.field.city' },
+      { key: 'country', labelKey: 'crm.importExport.field.country' },
+      { key: 'website', labelKey: 'crm.field.website' },
+      { key: 'notes', labelKey: 'crm.field.notes' },
+      { key: 'tags', labelKey: 'crm.field.tags' },
     ],
     exportFormats: ['csv', 'vcard', 'xlsx'],
   },
   companies: {
-    label: 'Firma',
-    labelPlural: 'Firmen',
+    labelKey: 'crm.importExport.entity.company',
+    labelPluralKey: 'crm.importExport.entity.companies',
     icon: Building2,
     fields: [
-      { key: 'name', label: 'Firmenname' },
-      { key: 'industry', label: 'Branche' },
-      { key: 'size', label: 'Größe' },
-      { key: 'phone', label: 'Telefon' },
-      { key: 'email', label: 'E-Mail' },
-      { key: 'website', label: 'Website' },
-      { key: 'street', label: 'Strasse' },
-      { key: 'zip', label: 'PLZ' },
-      { key: 'city', label: 'Ort' },
-      { key: 'country', label: 'Land' },
-      { key: 'notes', label: 'Notizen' },
+      { key: 'name', labelKey: 'crm.companies.companyName' },
+      { key: 'industry', labelKey: 'crm.field.industry' },
+      { key: 'size', labelKey: 'crm.field.size' },
+      { key: 'phone', labelKey: 'crm.field.phone' },
+      { key: 'email', labelKey: 'crm.field.email' },
+      { key: 'website', labelKey: 'crm.field.website' },
+      { key: 'street', labelKey: 'crm.importExport.field.street' },
+      { key: 'zip', labelKey: 'crm.importExport.field.zip' },
+      { key: 'city', labelKey: 'crm.importExport.field.city' },
+      { key: 'country', labelKey: 'crm.importExport.field.country' },
+      { key: 'notes', labelKey: 'crm.field.notes' },
     ],
     exportFormats: ['csv', 'xlsx'],
   },
   deals: {
-    label: 'Deal',
-    labelPlural: 'Deals',
+    labelKey: 'crm.importExport.entity.deal',
+    labelPluralKey: 'crm.importExport.entity.deals',
     icon: Briefcase,
     fields: [
-      { key: 'name', label: 'Deal-Name' },
-      { key: 'value', label: 'Wert' },
-      { key: 'currency', label: 'Waehrung' },
-      { key: 'stage', label: 'Phase' },
-      { key: 'probability', label: 'Wahrscheinlichkeit' },
-      { key: 'contact', label: 'Kontakt' },
-      { key: 'company', label: 'Firma' },
-      { key: 'expectedClose', label: 'Abschlussdatum' },
-      { key: 'notes', label: 'Notizen' },
-      { key: 'tags', label: 'Tags' },
+      { key: 'name', labelKey: 'crm.deals.dealName' },
+      { key: 'value', labelKey: 'crm.deals.value' },
+      { key: 'currency', labelKey: 'crm.deals.currency' },
+      { key: 'stage', labelKey: 'crm.deals.stage' },
+      { key: 'probability', labelKey: 'crm.deals.probability' },
+      { key: 'contact', labelKey: 'crm.field.contact' },
+      { key: 'company', labelKey: 'crm.field.company' },
+      { key: 'expectedClose', labelKey: 'crm.deals.expectedClose' },
+      { key: 'notes', labelKey: 'crm.field.notes' },
+      { key: 'tags', labelKey: 'crm.field.tags' },
     ],
     exportFormats: ['csv', 'xlsx'],
   },
@@ -204,6 +205,7 @@ export function ImportExportDialog({
   defaultTab = 'import',
   defaultEntity = 'contacts',
 }: ImportExportDialogProps) {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<'import' | 'export'>(defaultTab)
   const [entity, setEntity] = useState<EntityType>(defaultEntity)
   const [importStep, setImportStep] = useState<ImportStep>('upload')
@@ -258,12 +260,12 @@ export function ImportExportDialog({
       const isVCard = f.name.endsWith('.vcf') || f.name.endsWith('.vcard')
 
       if (!isCSV && !isVCard) {
-        setError('Nur CSV- und vCard-Dateien werden unterstuetzt.')
+        setError(t('crm.importExport.errorFileType'))
         return
       }
 
       if (isVCard && entity !== 'contacts') {
-        setError('vCard-Import ist nur für Kontakte verfügbar.')
+        setError(t('crm.importExport.errorVcardContacts'))
         return
       }
 
@@ -340,7 +342,7 @@ export function ImportExportDialog({
       setImported(true)
       const count = Math.floor(Math.random() * 30) + 40
       setImportCount(count)
-      toast.success(`${count} ${config.labelPlural} importiert`)
+      toast.success(t('crm.importExport.importSuccess', { count, entity: t(config.labelPluralKey) }))
     }, 2000)
   }
 
@@ -351,7 +353,7 @@ export function ImportExportDialog({
     setTimeout(() => {
       setExporting(false)
       toast.success(
-        `${mockExportCounts[entity]} ${config.labelPlural} als ${formatLabels[exportFormat]} exportiert`,
+        t('crm.importExport.exportSuccess', { count: mockExportCounts[entity], entity: t(config.labelPluralKey), format: formatLabels[exportFormat] }),
       )
     }, 1500)
   }
@@ -392,7 +394,7 @@ export function ImportExportDialog({
 
         {/* Tab switcher */}
         <div className="flex items-center gap-1 border-b border-border">
-          {([['import', 'Import'], ['export', 'Export']] as const).map(([key, label]) => (
+          {([['import', t('crm.importExport.import')], ['export', t('crm.importExport.export')]] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => {
@@ -412,7 +414,7 @@ export function ImportExportDialog({
 
         {/* Entity selector */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Typ:</span>
+          <span className="text-xs text-muted-foreground">{t('crm.importExport.entityType')}:</span>
           {(Object.entries(entityConfig) as [EntityType, typeof entityConfig.contacts][]).map(
             ([key, cfg]) => {
               const Icon = cfg.icon
@@ -430,7 +432,7 @@ export function ImportExportDialog({
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
-                  {cfg.labelPlural}
+                  {t(cfg.labelPluralKey)}
                 </button>
               )
             },
@@ -444,16 +446,16 @@ export function ImportExportDialog({
               <div className="py-8 text-center">
                 <CheckCircle2 className="mx-auto h-12 w-12 text-success mb-3" />
                 <p className="text-base font-medium text-foreground">
-                  {importCount} {config.labelPlural} importiert
+                  {t('crm.importExport.importedCount', { count: importCount, entity: t(config.labelPluralKey) })}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Die Daten wurden erfolgreich hinzugefügt.
+                  {t('crm.importExport.importedSuccess')}
                 </p>
                 <button
                   onClick={handleClose}
                   className="mt-4 h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
                 >
-                  Schliessen
+                  {t('common.close')}
                 </button>
               </div>
             ) : (
@@ -478,10 +480,10 @@ export function ImportExportDialog({
                           {i + 1}
                         </span>
                         {step === 'upload'
-                          ? 'Datei'
+                          ? t('crm.importExport.stepFile')
                           : step === 'mapping'
-                            ? 'Zuordnung'
-                            : 'Vorschau'}
+                            ? t('crm.importExport.stepMapping')
+                            : t('crm.importExport.stepPreview')}
                       </span>
                     </div>
                   ))}
@@ -498,10 +500,10 @@ export function ImportExportDialog({
                     >
                       <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                       <p className="text-sm font-medium text-foreground">
-                        Datei hierher ziehen
+                        {t('crm.importExport.dropFile')}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        CSV{entity === 'contacts' ? ' oder vCard (.vcf)' : ''} — oder klicken zum Auswählen
+                        {entity === 'contacts' ? t('crm.importExport.dropHintContacts') : t('crm.importExport.dropHintOther')}
                       </p>
                       <input
                         id="crm-import-upload"
@@ -524,8 +526,8 @@ export function ImportExportDialog({
 
                     <div className="rounded-md bg-secondary/50 px-3 py-2">
                       <p className="text-xs text-muted-foreground">
-                        <strong>Unterstuetzte Felder ({config.labelPlural}):</strong>{' '}
-                        {config.fields.map((f) => f.label).join(', ')}
+                        <strong>{t('crm.importExport.supportedFields', { entity: t(config.labelPluralKey) })}:</strong>{' '}
+                        {config.fields.map((f) => t(f.labelKey)).join(', ')}
                       </p>
                     </div>
                   </div>
@@ -551,16 +553,16 @@ export function ImportExportDialog({
                     )}
 
                     <p className="text-xs text-muted-foreground">
-                      Ordne die Spalten deiner Datei den {config.label}-Feldern zu.
+                      {t('crm.importExport.mappingHint', { entity: t(config.labelKey) })}
                     </p>
 
                     {/* Mapping table */}
                     <div className="rounded-md border border-border overflow-hidden">
                       <div className="grid grid-cols-[1fr_24px_1fr_120px] gap-2 items-center bg-secondary/50 px-3 py-2 text-[11px] font-medium text-muted-foreground">
-                        <span>Dateispalte</span>
+                        <span>{t('crm.importExport.sourceColumn')}</span>
                         <span />
-                        <span>Zielfeld</span>
-                        <span>Vorschau</span>
+                        <span>{t('crm.importExport.targetField')}</span>
+                        <span>{t('crm.importExport.preview')}</span>
                       </div>
                       {mappings.map((m, i) => (
                         <div
@@ -581,10 +583,10 @@ export function ImportExportDialog({
                               }}
                               className="h-8 w-full rounded-md border border-border bg-transparent px-2 pr-7 text-xs outline-none focus:border-primary appearance-none"
                             >
-                              <option value="—">— Ignorieren —</option>
+                              <option value="—">— {t('crm.importExport.ignore')} —</option>
                               {config.fields.map((f) => (
                                 <option key={f.key} value={f.key}>
-                                  {f.label}
+                                  {t(f.labelKey)}
                                 </option>
                               ))}
                             </select>
@@ -597,12 +599,12 @@ export function ImportExportDialog({
 
                     {/* Duplicate handling */}
                     <div className="rounded-md border border-border p-3 space-y-2">
-                      <p className="text-xs font-medium text-foreground">Duplikate behandeln</p>
+                      <p className="text-xs font-medium text-foreground">{t('crm.importExport.duplicateHandling')}</p>
                       <div className="flex items-center gap-2">
                         {([
-                          ['skip', 'Überspringen'],
-                          ['update', 'Aktualisieren'],
-                          ['create', 'Neu anlegen'],
+                          ['skip', t('crm.importExport.duplicateSkip')],
+                          ['update', t('crm.importExport.duplicateUpdate')],
+                          ['create', t('crm.importExport.duplicateCreate')],
                         ] as const).map(([key, label]) => (
                           <button
                             key={key}
@@ -619,10 +621,10 @@ export function ImportExportDialog({
                       </div>
                       <p className="text-[10px] text-muted-foreground">
                         {duplicateAction === 'skip'
-                          ? 'Bestehende Einträge werden nicht veraendert.'
+                          ? t('crm.importExport.duplicateSkipDesc')
                           : duplicateAction === 'update'
-                            ? 'Bestehende Einträge werden mit neuen Daten aktualisiert.'
-                            : 'Duplikate werden als neue Einträge angelegt.'}
+                            ? t('crm.importExport.duplicateUpdateDesc')
+                            : t('crm.importExport.duplicateCreateDesc')}
                       </p>
                     </div>
 
@@ -633,13 +635,13 @@ export function ImportExportDialog({
                         className="flex items-center gap-1.5 h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
                       >
                         <ArrowLeft className="h-3.5 w-3.5" />
-                        Zurück
+                        {t('common.back')}
                       </button>
                       <button
                         onClick={() => setImportStep('preview')}
                         className="flex items-center gap-1.5 h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                       >
-                        Vorschau
+                        {t('crm.importExport.stepPreview')}
                         <ArrowRight className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -654,14 +656,14 @@ export function ImportExportDialog({
                       <div className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs">
                         <Check className="h-3.5 w-3.5 text-success" />
                         <span className="text-foreground font-medium">{previewRows.length}</span>
-                        <span className="text-muted-foreground">{config.labelPlural}</span>
+                        <span className="text-muted-foreground">{t(config.labelPluralKey)}</span>
                       </div>
                       {duplicateCount > 0 && (
                         <div className="flex items-center gap-1.5 rounded-md bg-warning-light/30 px-3 py-1.5 text-xs">
                           <AlertTriangle className="h-3.5 w-3.5 text-warning" />
                           <span className="text-warning font-medium">{duplicateCount}</span>
                           <span className="text-muted-foreground">
-                            mögliche Duplikate ({duplicateAction === 'skip' ? 'werden übersprungen' : duplicateAction === 'update' ? 'werden aktualisiert' : 'werden neu angelegt'})
+                            {t('crm.importExport.possibleDuplicates')} ({duplicateAction === 'skip' ? t('crm.importExport.willSkip') : duplicateAction === 'update' ? t('crm.importExport.willUpdate') : t('crm.importExport.willCreate')})
                           </span>
                         </div>
                       )}
@@ -681,8 +683,9 @@ export function ImportExportDialog({
                                   key={m.sourceColumn}
                                   className="text-left px-2 py-1.5 font-medium text-muted-foreground"
                                 >
-                                  {config.fields.find((f) => f.key === m.targetField)?.label ??
-                                    m.targetField}
+                                  {config.fields.find((f) => f.key === m.targetField)
+                                    ? t(config.fields.find((f) => f.key === m.targetField)!.labelKey)
+                                    : m.targetField}
                                 </th>
                               ))}
                           </tr>
@@ -723,10 +726,10 @@ export function ImportExportDialog({
                         <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                         <div>
                           <p className="text-xs font-medium text-foreground">
-                            {duplicateCount} mögliche Duplikate erkannt
+                            {t('crm.importExport.duplicatesDetected', { count: duplicateCount })}
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Basierend auf E-Mail-Adresse und Name. Aktion: {duplicateAction === 'skip' ? 'Überspringen' : duplicateAction === 'update' ? 'Aktualisieren' : 'Neu anlegen'}.
+                            {t('crm.importExport.duplicatesBasis')} {t('crm.importExport.duplicateAction')}: {duplicateAction === 'skip' ? t('crm.importExport.duplicateSkip') : duplicateAction === 'update' ? t('crm.importExport.duplicateUpdate') : t('crm.importExport.duplicateCreate')}.
                           </p>
                         </div>
                       </div>
@@ -739,7 +742,7 @@ export function ImportExportDialog({
                         className="flex items-center gap-1.5 h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
                       >
                         <ArrowLeft className="h-3.5 w-3.5" />
-                        Zuordnung
+                        {t('crm.importExport.stepMapping')}
                       </button>
                       <button
                         onClick={handleImport}
@@ -749,13 +752,12 @@ export function ImportExportDialog({
                         {importing ? (
                           <>
                             <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            Importiere...
+                            {t('crm.importExport.importing')}
                           </>
                         ) : (
                           <>
                             <Upload className="h-3.5 w-3.5" />
-                            {previewRows.length - (duplicateAction === 'skip' ? duplicateCount : 0)}{' '}
-                            {config.labelPlural} importieren
+                            {t('crm.importExport.importCount', { count: previewRows.length - (duplicateAction === 'skip' ? duplicateCount : 0), entity: t(config.labelPluralKey) })}
                           </>
                         )}
                       </button>
@@ -772,7 +774,7 @@ export function ImportExportDialog({
           <div className="space-y-4">
             {/* Format selector */}
             <div>
-              <p className="text-xs font-medium text-foreground mb-2">Format</p>
+              <p className="text-xs font-medium text-foreground mb-2">{t('crm.importExport.format')}</p>
               <div className="flex items-center gap-2">
                 {config.exportFormats.map((fmt) => {
                   const FmtIcon = formatIcons[fmt]
@@ -798,20 +800,20 @@ export function ImportExportDialog({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-foreground">
-                  Felder ({exportFields.size} / {config.fields.length})
+                  {t('crm.importExport.fields')} ({exportFields.size} / {config.fields.length})
                 </p>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setExportFields(new Set(config.fields.map((f) => f.key)))}
                     className="text-[10px] text-primary hover:underline"
                   >
-                    Alle
+                    {t('crm.importExport.selectAll')}
                   </button>
                   <button
                     onClick={() => setExportFields(new Set())}
                     className="text-[10px] text-muted-foreground hover:underline"
                   >
-                    Keine
+                    {t('crm.importExport.selectNone')}
                   </button>
                 </div>
               </div>
@@ -835,7 +837,7 @@ export function ImportExportDialog({
                     >
                       {exportFields.has(field.key) && <Check className="h-2.5 w-2.5 text-white" />}
                     </div>
-                    {field.label}
+                    {t(field.labelKey)}
                   </button>
                 ))}
               </div>
@@ -845,10 +847,10 @@ export function ImportExportDialog({
             <div className="rounded-md bg-secondary/50 px-3 py-2.5 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  {mockExportCounts[entity]} {config.labelPlural}
+                  {mockExportCounts[entity]} {t(config.labelPluralKey)}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  {exportFields.size} Felder als {formatLabels[exportFormat]}
+                  {t('crm.importExport.exportSummary', { fields: exportFields.size, format: formatLabels[exportFormat] })}
                 </p>
               </div>
               <button
@@ -859,12 +861,12 @@ export function ImportExportDialog({
                 {exporting ? (
                   <>
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    Exportiere...
+                    {t('crm.importExport.exporting')}
                   </>
                 ) : (
                   <>
                     <Download className="h-3.5 w-3.5" />
-                    Exportieren
+                    {t('crm.importExport.export')}
                   </>
                 )}
               </button>

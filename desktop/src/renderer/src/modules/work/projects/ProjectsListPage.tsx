@@ -7,6 +7,7 @@
  * creating from templates, and filtering template projects.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { EmptyState } from '@/components/shared'
 import { EmptyGeneric } from '@/components/shared/illustrations'
@@ -42,6 +43,7 @@ import ProjectCreateDialog from './ProjectCreateDialog'
 const PAGE_SIZE = 12
 
 export default function ProjectsListPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -101,13 +103,13 @@ export default function ProjectsListPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Projekte
+            {t('work.projects.loadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('work.common.unexpectedError')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -117,7 +119,7 @@ export default function ProjectsListPage() {
   return (
     <div className="p-6 space-y-4">
       <PageHeader
-        title="Projekte"
+        title={t('work.projects.title')}
         icon={FolderKanban}
         moduleId="projects"
         actions={
@@ -129,12 +131,12 @@ export default function ProjectsListPage() {
                 className="gap-2"
               >
                 <Copy className="h-4 w-4" />
-                Aus Vorlage erstellen
+                {t('work.projects.createFromTemplate')}
               </Button>
             )}
             <Button onClick={() => setCreateOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Neues Projekt
+              {t('work.projects.newProject')}
             </Button>
           </div>
         }
@@ -145,7 +147,7 @@ export default function ProjectsListPage() {
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Projekte suchen..."
+            placeholder={t('work.projects.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -165,7 +167,7 @@ export default function ProjectsListPage() {
           }}
         >
           <LayoutTemplate className="h-3.5 w-3.5" />
-          Vorlagen
+          {t('work.projects.templates')}
         </Button>
       </div>
 
@@ -179,15 +181,15 @@ export default function ProjectsListPage() {
       ) : projects.length === 0 ? (
         <EmptyState
           illustration={<EmptyGeneric />}
-          title={showTemplates ? 'Keine Vorlagen gefunden' : 'Keine Projekte gefunden'}
+          title={showTemplates ? t('work.projects.noTemplates') : t('work.projects.noProjects')}
           description={
             debouncedSearch
-              ? 'Versuche einen anderen Suchbegriff.'
+              ? t('work.projects.tryOtherSearch')
               : showTemplates
-                ? 'Speichere ein Projekt als Vorlage, um es hier zu sehen.'
-                : 'Erstelle dein erstes Projekt, um loszulegen.'
+                ? t('work.projects.noTemplatesHint')
+                : t('work.projects.noProjectsHint')
           }
-          action={!debouncedSearch && !showTemplates ? { label: 'Erstes Projekt erstellen', onClick: () => setCreateOpen(true) } : undefined}
+          action={!debouncedSearch && !showTemplates ? { label: t('work.projects.createFirst'), onClick: () => setCreateOpen(true) } : undefined}
         />
       ) : (
         <>
@@ -206,7 +208,7 @@ export default function ProjectsListPage() {
                     <div className="flex items-center gap-1.5 shrink-0">
                       {project.is_template && (
                         <Badge variant="secondary" className="text-xs">
-                          Vorlage
+                          {t('work.projects.template')}
                         </Badge>
                       )}
                       <Badge variant="outline" className="text-xs font-mono">
@@ -217,14 +219,14 @@ export default function ProjectsListPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                    {project.description || 'Keine Beschreibung'}
+                    {project.description || t('work.projects.noDescription')}
                   </p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
-                      {project.member_count ?? 0} Mitglied{(project.member_count ?? 0) !== 1 ? 'er' : ''}
+                      {t('work.projects.memberCount', { count: project.member_count ?? 0 })}
                     </span>
                     <span>
-                      {project.task_count ?? 0} Aufgabe{(project.task_count ?? 0) !== 1 ? 'n' : ''}
+                      {t('work.projects.taskCount', { count: project.task_count ?? 0 })}
                     </span>
                     {project.owner_name && (
                       <span className="truncate max-w-[120px]">{project.owner_name}</span>
@@ -239,7 +241,7 @@ export default function ProjectsListPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {total} Projekt{total !== 1 ? 'e' : ''} gesamt
+                {t('work.projects.totalProjects', { count: total })}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -251,7 +253,7 @@ export default function ProjectsListPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  Seite {page} von {totalPages}
+                  {t('work.pagination.page', { page, totalPages })}
                 </span>
                 <Button
                   variant="outline"
@@ -282,16 +284,16 @@ export default function ProjectsListPage() {
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Projekt aus Vorlage erstellen</DialogTitle>
+            <DialogTitle>{t('work.projects.createFromTemplate')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             {/* Template selection */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Vorlage</label>
+              <label className="text-sm font-medium">{t('work.projects.template')}</label>
               <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border border-border p-1">
                 {templates.length === 0 ? (
                   <p className="px-2 py-3 text-sm text-muted-foreground text-center">
-                    Keine Vorlagen vorhanden.
+                    {t('work.projects.noTemplatesAvailable')}
                   </p>
                 ) : (
                   templates.map((tpl) => (
@@ -317,9 +319,9 @@ export default function ProjectsListPage() {
 
             {/* New project name */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Projektname</label>
+              <label className="text-sm font-medium">{t('work.projects.projectName')}</label>
               <Input
-                placeholder="Neuer Projektname..."
+                placeholder={t('work.projects.newProjectNamePlaceholder')}
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
               />
@@ -327,7 +329,7 @@ export default function ProjectsListPage() {
 
             {/* New project key */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Projektschluessel</label>
+              <label className="text-sm font-medium">{t('work.projects.projectKey')}</label>
               <Input
                 placeholder="z.B. ACME"
                 value={templateKey}
@@ -336,7 +338,7 @@ export default function ProjectsListPage() {
                 maxLength={10}
               />
               <p className="text-xs text-muted-foreground">
-                Wird automatisch in Grossbuchstaben umgewandelt.
+                {t('work.projects.keyAutoUppercase')}
               </p>
             </div>
 
@@ -345,7 +347,7 @@ export default function ProjectsListPage() {
                 variant="outline"
                 onClick={() => setTemplateDialogOpen(false)}
               >
-                Abbrechen
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleCreateFromTemplate}
@@ -356,7 +358,7 @@ export default function ProjectsListPage() {
                   createFromTemplate.isPending
                 }
               >
-                {createFromTemplate.isPending ? 'Erstelle...' : 'Aus Vorlage erstellen'}
+                {createFromTemplate.isPending ? t('work.projects.creating') : t('work.projects.createFromTemplate')}
               </Button>
             </div>
           </div>

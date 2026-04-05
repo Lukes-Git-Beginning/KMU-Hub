@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Clock } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
@@ -41,11 +42,12 @@ const recentActivity: Activity[] = [
 ]
 
 export function ActivitySection() {
+  const { t } = useTranslation()
   return (
     <div className="rounded-lg border border-border bg-card p-6">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">
-          Letzte Aktivitäten
+          {t('dashboard.activity.title')}
         </h2>
         <Clock className="h-5 w-5 text-muted-foreground" />
       </div>

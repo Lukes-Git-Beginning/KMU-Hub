@@ -6,6 +6,7 @@
  * collapse/expand toggles.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronRight,
   ChevronDown,
@@ -81,6 +82,7 @@ export default function TaskRow({
   statuses,
   members,
 }: TaskRowProps) {
+  const { t } = useTranslation()
   const updateTask = useUpdateTask()
   const openTaskPanel = useWorkStore((s) => s.openTaskPanel)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -135,9 +137,9 @@ export default function TaskRow({
     const now = new Date()
     const diffMs = d.getTime() - now.getTime()
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-    if (diffDays < 0) return `${Math.abs(diffDays)}d überfällig`
-    if (diffDays === 0) return 'Heute'
-    if (diffDays === 1) return 'Morgen'
+    if (diffDays < 0) return t('work.list.daysOverdue', { count: Math.abs(diffDays) })
+    if (diffDays === 0) return t('work.time.today')
+    if (diffDays === 1) return t('work.time.tomorrow')
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
   }
 
@@ -219,7 +221,7 @@ export default function TaskRow({
             className="text-sm text-left truncate w-full hover:underline cursor-pointer"
             onClick={() => task.id && openTaskPanel(task.id)}
             onDoubleClick={() => setEditingTitle(true)}
-            title="Klicken zum Öffnen, Doppelklick zum Bearbeiten"
+            title={t('work.list.clickToOpenDblEdit')}
           >
             {task.title}
           </button>
@@ -228,12 +230,12 @@ export default function TaskRow({
 
       {/* Blocked indicator */}
       {task.has_blocked_deps && (
-        <Lock className="h-3.5 w-3.5 shrink-0 text-warning-foreground" title="Blockiert" />
+        <Lock className="h-3.5 w-3.5 shrink-0 text-warning-foreground" title={t('work.tasks.blocked')} />
       )}
 
       {/* Subtask count */}
       {(task.subtask_count ?? 0) > 0 && (
-        <span className="shrink-0 flex items-center gap-0.5 text-xs text-muted-foreground" title="Unteraufgaben">
+        <span className="shrink-0 flex items-center gap-0.5 text-xs text-muted-foreground" title={t('work.tasks.subtasks')}>
           <ListTree className="h-3 w-3" />
           {task.completed_subtask_count ?? 0}/{task.subtask_count}
         </span>
@@ -244,7 +246,7 @@ export default function TaskRow({
         <PopoverTrigger asChild>
           <button type="button" className="shrink-0 cursor-pointer">
             <StatusBadge
-              name={task.status_name ?? 'Offen'}
+              name={task.status_name ?? t('work.status.open')}
               color={task.status_color}
               isClosed={task.is_closed}
             />
@@ -295,12 +297,12 @@ export default function TaskRow({
                 <PriorityBadge priority={p} compact />
                 <span>
                   {p === 'urgent'
-                    ? 'Dringend'
+                    ? t('work.priority.urgent')
                     : p === 'high'
-                      ? 'Hoch'
+                      ? t('work.priority.high')
                       : p === 'medium'
-                        ? 'Normal'
-                        : 'Niedrig'}
+                        ? t('work.priority.normal')
+                        : t('work.priority.low')}
                 </span>
               </button>
             ))}
@@ -314,7 +316,7 @@ export default function TaskRow({
           <button
             type="button"
             className="shrink-0 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer w-24 truncate"
-            title={task.assignee_name || 'Nicht zugewiesen'}
+            title={task.assignee_name || t('work.tasks.unassigned')}
           >
             <User className="h-3 w-3" />
             <span className="truncate">
@@ -332,7 +334,7 @@ export default function TaskRow({
               )}
               onClick={() => handleAssigneeChange('__none__')}
             >
-              Nicht zugewiesen
+              {t('work.tasks.unassigned')}
             </button>
             {members.map((m) => (
               <button
@@ -344,7 +346,7 @@ export default function TaskRow({
                 )}
                 onClick={() => m.user_id && handleAssigneeChange(m.user_id)}
               >
-                {m.display_name || m.email || 'Benutzer'}
+                {m.display_name || m.email || t('work.tasks.user')}
               </button>
             ))}
           </div>
@@ -372,7 +374,7 @@ export default function TaskRow({
         <PopoverContent className="w-auto p-3" align="end">
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">
-              Fällig am
+              {t('work.tasks.dueAt')}
             </label>
             <Input
               type="date"
@@ -387,7 +389,7 @@ export default function TaskRow({
                 className="h-7 w-full text-xs"
                 onClick={() => handleDueDateChange('')}
               >
-                Datum entfernen
+                {t('work.tasks.removeDate')}
               </Button>
             )}
           </div>

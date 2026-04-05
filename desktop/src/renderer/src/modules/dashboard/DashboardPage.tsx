@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Pencil, Check, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AlertsSection, ModulesGrid } from '@/components/dashboard'
@@ -8,16 +9,16 @@ import { QuickActionsBar } from '@/components/dashboard/QuickActionsBar'
 import { ProfileWidgetSuggestions } from '@/components/dashboard/ProfileWidgetSuggestions'
 import { TextReveal } from '@/components/shared/TextReveal'
 
-function getGreeting(): string {
+function getGreetingKey(): string {
   const hour = new Date().getHours()
-  if (hour < 12) return 'Guten Morgen'
-  if (hour < 18) return 'Guten Tag'
-  return 'Guten Abend'
+  if (hour < 12) return 'dashboard.greeting.morning'
+  if (hour < 18) return 'dashboard.greeting.afternoon'
+  return 'dashboard.greeting.evening'
 }
 
 export default function DashboardPage() {
-   
-  const greeting = useMemo(() => getGreeting(), [])
+  const { t } = useTranslation()
+  const greetingKey = useMemo(() => getGreetingKey(), [])
   const isEditing = useDashboardStore((s) => s.isEditing)
   const toggleEditing = useDashboardStore((s) => s.toggleEditing)
   const resetToDefaults = useDashboardStore((s) => s.resetToDefaults)
@@ -34,10 +35,10 @@ export default function DashboardPage() {
         <div className="mb-8 flex items-start justify-between animate-fade-up">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
-              <TextReveal text={greeting} wordDelay={80} />
+              <TextReveal text={t(greetingKey)} wordDelay={80} />
             </h1>
             <p className="mt-1 text-sm text-muted-foreground animate-fade-up" style={{ animationDelay: '200ms' }}>
-              Willkommen bei Cosmi &ndash; Ihre All-in-One Plattform
+              {t('dashboard.greeting.subtitle')}
             </p>
           </div>
 
@@ -51,7 +52,7 @@ export default function DashboardPage() {
                 className="text-muted-foreground"
               >
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                Zurücksetzen
+                {t('dashboard.edit.reset')}
               </Button>
             )}
             <Button
@@ -62,12 +63,12 @@ export default function DashboardPage() {
               {isEditing ? (
                 <>
                   <Check className="mr-1.5 h-3.5 w-3.5" />
-                  Fertig
+                  {t('dashboard.edit.done')}
                 </>
               ) : (
                 <>
                   <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                  Dashboard anpassen
+                  {t('dashboard.edit.customize')}
                 </>
               )}
             </Button>
@@ -98,11 +99,11 @@ export default function DashboardPage() {
         <div className="mb-8 animate-fade-up stagger-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">
-              Widgets
+              {t('dashboard.widgets.title')}
             </h2>
             {isEditing && (
               <p className="text-xs text-muted-foreground">
-                Widgets verschieben, skalieren oder entfernen
+                {t('dashboard.widgets.editHint')}
               </p>
             )}
           </div>

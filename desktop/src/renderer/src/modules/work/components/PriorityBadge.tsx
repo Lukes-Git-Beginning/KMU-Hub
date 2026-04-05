@@ -4,6 +4,7 @@
  * Supports full mode (icon + text) and compact mode (icon only) for
  * space-constrained contexts like Kanban cards.
  */
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, ArrowUp, Minus, ArrowDown } from 'lucide-react'
 import { cn } from '@/lib'
 
@@ -14,28 +15,28 @@ const priorityConfig: Record<
   {
     color: string
     icon: React.ComponentType<{ className?: string }>
-    label: string
+    labelKey: string
   }
 > = {
   urgent: {
     color: 'text-destructive bg-error-light border-destructive/30',
     icon: AlertTriangle,
-    label: 'Dringend',
+    labelKey: 'work.priority.urgent',
   },
   high: {
     color: 'text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950 dark:border-orange-800',
     icon: ArrowUp,
-    label: 'Hoch',
+    labelKey: 'work.priority.high',
   },
   medium: {
     color: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800',
     icon: Minus,
-    label: 'Normal',
+    labelKey: 'work.priority.normal',
   },
   low: {
     color: 'text-gray-500 bg-gray-50 border-gray-200 dark:text-gray-400 dark:bg-gray-800 dark:border-gray-700',
     icon: ArrowDown,
-    label: 'Niedrig',
+    labelKey: 'work.priority.low',
   },
 }
 
@@ -50,8 +51,10 @@ export default function PriorityBadge({
   compact = false,
   className,
 }: PriorityBadgeProps) {
+  const { t } = useTranslation()
   const config = priorityConfig[priority] ?? priorityConfig.medium
   const Icon = config.icon
+  const label = t(config.labelKey)
 
   if (compact) {
     return (
@@ -61,7 +64,7 @@ export default function PriorityBadge({
           config.color,
           className
         )}
-        title={config.label}
+        title={label}
       >
         <Icon className="h-3 w-3" />
       </span>
@@ -77,7 +80,7 @@ export default function PriorityBadge({
       )}
     >
       <Icon className="h-3 w-3" />
-      {config.label}
+      {label}
     </span>
   )
 }

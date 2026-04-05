@@ -6,6 +6,7 @@
  * in custom_fields with `_`-prefixed keys.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   User,
   Mail,
@@ -68,16 +69,20 @@ interface ContactFormDialogProps {
 // Options
 // ---------------------------------------------------------------------------
 
-const salutations = ['', 'Herr', 'Frau']
+const salutations = [
+  { value: '', labelKey: 'crm.contacts.salutation.none' },
+  { value: 'Herr', labelKey: 'crm.contacts.salutation.mr' },
+  { value: 'Frau', labelKey: 'crm.contacts.salutation.ms' },
+]
 const categories = [
-  { value: 'customer', label: 'Kunde' },
-  { value: 'employee', label: 'Mitarbeiter' },
-  { value: 'partner', label: 'Partner' },
+  { value: 'customer', labelKey: 'crm.contacts.category.customer' },
+  { value: 'employee', labelKey: 'crm.contacts.category.employee' },
+  { value: 'partner', labelKey: 'crm.contacts.category.partner' },
 ]
 const statuses = [
-  { value: 'active', label: 'Aktiv' },
-  { value: 'prospect', label: 'Interessent' },
-  { value: 'inactive', label: 'Inaktiv' },
+  { value: 'active', labelKey: 'crm.contacts.status.active' },
+  { value: 'prospect', labelKey: 'crm.contacts.status.prospect' },
+  { value: 'inactive', labelKey: 'crm.contacts.status.inactive' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -91,6 +96,7 @@ export function ContactFormDialog({
   onSubmit,
   isEdit = false,
 }: ContactFormDialogProps) {
+  const { t } = useTranslation()
   const [salutation, setSalutation] = useState('')
   const [title, setTitle] = useState('')
   const [firstName, setFirstName] = useState('')
@@ -219,12 +225,12 @@ export function ContactFormDialog({
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}
+            {isEdit ? t('crm.contacts.editTitle') : t('crm.contacts.newTitle')}
           </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? 'Kontaktdaten aktualisieren.'
-              : 'Erstelle einen neuen Kontakt.'}
+              ? t('crm.contacts.editDescription')
+              : t('crm.contacts.newDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -233,7 +239,7 @@ export function ContactFormDialog({
           <div className="grid grid-cols-[120px_1fr] gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Anrede
+                {t('crm.contacts.salutation')}
               </label>
               <select
                 value={salutation}
@@ -241,15 +247,15 @@ export function ContactFormDialog({
                 className={inputClass}
               >
                 {salutations.map((s) => (
-                  <option key={s} value={s}>
-                    {s || 'Keine'}
+                  <option key={s.value} value={s.value}>
+                    {t(s.labelKey)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Titel
+                {t('crm.field.titleHonorific')}
               </label>
               <input
                 type="text"
@@ -266,7 +272,7 @@ export function ContactFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <User className="h-3.5 w-3.5 text-muted-foreground" />
-                Vorname *
+                {t('crm.field.firstName')} *
               </label>
               <input
                 type="text"
@@ -279,7 +285,7 @@ export function ContactFormDialog({
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Nachname *
+                {t('crm.field.lastName')} *
               </label>
               <input
                 type="text"
@@ -296,7 +302,7 @@ export function ContactFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                E-Mail
+                {t('crm.field.email')}
               </label>
               <input
                 type="email"
@@ -309,7 +315,7 @@ export function ContactFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                Telefon
+                {t('crm.field.phone')}
               </label>
               <input
                 type="text"
@@ -326,7 +332,7 @@ export function ContactFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
-                Mobil
+                {t('crm.field.mobile')}
               </label>
               <input
                 type="text"
@@ -339,7 +345,7 @@ export function ContactFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                Unternehmen
+                {t('crm.field.company')}
               </label>
               <input
                 type="text"
@@ -356,7 +362,7 @@ export function ContactFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                Position
+                {t('crm.field.jobTitle')}
               </label>
               <input
                 type="text"
@@ -368,7 +374,7 @@ export function ContactFormDialog({
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Abteilung
+                {t('crm.field.department')}
               </label>
               <input
                 type="text"
@@ -384,7 +390,7 @@ export function ContactFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Kategorie
+                {t('crm.field.category')}
               </label>
               <select
                 value={category}
@@ -393,14 +399,14 @@ export function ContactFormDialog({
               >
                 {categories.map((c) => (
                   <option key={c.value} value={c.value}>
-                    {c.label}
+                    {t(c.labelKey)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">
-                Status
+                {t('common.status')}
               </label>
               <select
                 value={status}
@@ -409,7 +415,7 @@ export function ContactFormDialog({
               >
                 {statuses.map((s) => (
                   <option key={s.value} value={s.value}>
-                    {s.label}
+                    {t(s.labelKey)}
                   </option>
                 ))}
               </select>
@@ -427,7 +433,7 @@ export function ContactFormDialog({
             ) : (
               <ChevronDown className="h-3.5 w-3.5" />
             )}
-            {showMore ? 'Weniger anzeigen' : 'Adresse, Website & Social Media'}
+            {showMore ? t('crm.showLess') : t('crm.contacts.addressAndSocial')}
           </button>
 
           {showMore && (
@@ -436,7 +442,7 @@ export function ContactFormDialog({
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                   <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                  Adresse
+                  {t('crm.field.address')}
                 </label>
                 <input
                   type="text"
@@ -474,7 +480,7 @@ export function ContactFormDialog({
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                  Website
+                  {t('crm.field.website')}
                 </label>
                 <input
                   type="text"
@@ -517,7 +523,7 @@ export function ContactFormDialog({
 
           {/* Tags */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tags</label>
+            <label className="text-sm font-medium text-foreground">{t('crm.field.tags')}</label>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-1">
                 {tags.map((tag) => (
@@ -549,7 +555,7 @@ export function ContactFormDialog({
                     addTag()
                   }
                 }}
-                placeholder="Tag hinzufügen..."
+                placeholder={t('crm.tags.addPlaceholder')}
                 className="h-9 flex-1 rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
               <button
@@ -565,12 +571,12 @@ export function ContactFormDialog({
           {/* Notes */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Notizen
+              {t('crm.field.notes')}
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Interne Notizen..."
+              placeholder={t('crm.field.notesPlaceholder')}
               rows={3}
               className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary resize-none"
             />
@@ -582,14 +588,14 @@ export function ContactFormDialog({
               onClick={() => onOpenChange(false)}
               className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={!firstName.trim() || !lastName.trim()}
               className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {isEdit ? 'Speichern' : 'Erstellen'}
+              {isEdit ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>

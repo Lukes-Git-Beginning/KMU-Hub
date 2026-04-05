@@ -6,6 +6,7 @@
  * Click navigates to the deals list filtered by stage.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { TrendingUp } from 'lucide-react'
 import { usePipelineStages } from '@/api/hooks/usePipelineStages'
@@ -26,6 +27,7 @@ function formatCurrency(value?: number): string {
 }
 
 function DealPipeline(_props: WidgetProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data, isLoading, error, refetch } = usePipelineStages()
 
@@ -35,9 +37,9 @@ function DealPipeline(_props: WidgetProps) {
     return (
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-sm text-muted-foreground">Fehler beim Laden</p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.error.loading')}</p>
           <Button variant="ghost" size="sm" className="mt-2" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -62,7 +64,7 @@ function DealPipeline(_props: WidgetProps) {
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
           <TrendingUp className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">Keine Deals vorhanden</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('dashboard.deals.noDeals')}</p>
         </div>
       </div>
     )
@@ -90,7 +92,7 @@ function DealPipeline(_props: WidgetProps) {
             <div className="mb-1 flex items-center justify-between">
               <span className="text-xs font-medium">{stage.name}</span>
               <span className="text-xs text-muted-foreground">
-                {dealCount} Deal{dealCount !== 1 ? 's' : ''}
+                {t('dashboard.deals.dealCount', { count: dealCount })}
               </span>
             </div>
             <div className="flex items-center gap-2">

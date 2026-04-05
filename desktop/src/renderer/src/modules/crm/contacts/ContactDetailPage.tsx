@@ -8,6 +8,7 @@
  */
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   Pencil,
@@ -34,11 +35,11 @@ import { ConfirmDialog } from '@/components/shared'
 import { activityTypeLabel, activityTypeIcon } from '../activities/activityUtils'
 import { ContactFormDialog, type ContactFormData } from './ContactFormDialog'
 
-const PRIORITY_LABELS: Record<string, string> = {
-  urgent: 'Dringend',
-  high: 'Hoch',
-  normal: 'Normal',
-  low: 'Niedrig',
+const PRIORITY_LABEL_KEYS: Record<string, string> = {
+  urgent: 'crm.priority.urgent',
+  high: 'crm.priority.high',
+  normal: 'crm.priority.normal',
+  low: 'crm.priority.low',
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -49,6 +50,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 export default function ContactDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState<'activities' | 'tasks'>('activities')
@@ -128,9 +130,9 @@ export default function ContactDetailPage() {
           ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
         },
       })
-      toast.success('Kontakt aktualisiert')
+      toast.success(t('crm.contacts.updated'))
     } catch {
-      toast.error('Fehler beim Aktualisieren des Kontakts')
+      toast.error(t('crm.contacts.updateError'))
     }
   }
 
@@ -138,10 +140,10 @@ export default function ContactDetailPage() {
     if (!id) return
     try {
       await deleteContact.mutateAsync(id)
-      toast.success('Kontakt gelöscht')
+      toast.success(t('crm.contacts.deleted'))
       navigate('/crm/contacts')
     } catch {
-      toast.error('Fehler beim Löschen des Kontakts')
+      toast.error(t('crm.contacts.deleteError'))
     }
   }
 
@@ -150,13 +152,13 @@ export default function ContactDetailPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden des Kontakts
+            {t('crm.contacts.loadErrorSingle')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('crm.error.unexpected')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -178,14 +180,14 @@ export default function ContactDetailPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Kontakt nicht gefunden
+            {t('crm.contacts.notFound')}
           </p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => navigate('/crm/contacts')}
           >
-            Zurück zur Liste
+            {t('crm.backToList')}
           </Button>
         </div>
       </div>
@@ -203,7 +205,7 @@ export default function ContactDetailPage() {
             onClick={() => navigate('/crm/contacts')}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Zurück
+            {t('common.back')}
           </Button>
           <h1 className="text-2xl font-semibold text-foreground">
             {contact.firstName} {contact.lastName}
@@ -212,7 +214,7 @@ export default function ContactDetailPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
             <Pencil className="h-4 w-4 mr-1" />
-            Bearbeiten
+            {t('common.edit')}
           </Button>
           <Button
             variant="outline"
@@ -221,7 +223,7 @@ export default function ContactDetailPage() {
             onClick={() => setShowDeleteConfirm(true)}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Löschen
+            {t('common.delete')}
           </Button>
         </div>
       </div>
@@ -230,7 +232,7 @@ export default function ContactDetailPage() {
         {/* Contact Info Card */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Kontaktinformationen</CardTitle>
+            <CardTitle>{t('crm.contacts.info')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {contact.email && (
@@ -263,7 +265,7 @@ export default function ContactDetailPage() {
                   to={`/crm/companies/${contact.companyId}`}
                   className="text-sm text-primary hover:underline"
                 >
-                  {contact.companyName || 'Unternehmen'}
+                  {contact.companyName || t('crm.field.company')}
                 </Link>
               </div>
             )}
@@ -273,7 +275,7 @@ export default function ContactDetailPage() {
                 <Separator />
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Notizen
+                    {t('crm.field.notes')}
                   </p>
                   <p className="text-sm whitespace-pre-wrap">{contact.notes}</p>
                 </div>
@@ -287,7 +289,7 @@ export default function ContactDetailPage() {
                   <Separator />
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-2">
-                      Benutzerdefinierte Felder
+                      {t('crm.field.customFields')}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(contact.customFields).map(
@@ -310,7 +312,7 @@ export default function ContactDetailPage() {
         {/* Tags Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Tags</CardTitle>
+            <CardTitle>{t('crm.field.tags')}</CardTitle>
           </CardHeader>
           <CardContent>
             {contact.tags && contact.tags.length > 0 ? (
@@ -335,7 +337,7 @@ export default function ContactDetailPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Keine Tags zugewiesen.
+                {t('crm.tags.none')}
               </p>
             )}
           </CardContent>
@@ -356,7 +358,7 @@ export default function ContactDetailPage() {
               )}
               onClick={() => setActiveSection('activities')}
             >
-              Aktivitäten
+              {t('crm.activities.title')}
               {activities.length > 0 && (
                 <span className="ml-1.5 text-xs text-muted-foreground">
                   ({activities.length})
@@ -373,7 +375,7 @@ export default function ContactDetailPage() {
               )}
               onClick={() => setActiveSection('tasks')}
             >
-              Aufgaben
+              {t('crm.tasks.title')}
               {linkedTasks.length > 0 && (
                 <span className="ml-1.5 text-xs text-muted-foreground">
                   ({linkedTasks.length})
@@ -387,7 +389,7 @@ export default function ContactDetailPage() {
             <>
               {activities.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Keine Aktivitäten für diesen Kontakt.
+                  {t('crm.contacts.noActivities')}
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -405,11 +407,11 @@ export default function ContactDetailPage() {
                               {activity.subject}
                             </p>
                             <Badge variant="outline" className="text-xs shrink-0">
-                              {activityTypeLabel(activity.activity_type)}
+                              {t(activityTypeLabel(activity.activity_type))}
                             </Badge>
                             {activity.is_completed && (
                               <Badge variant="secondary" className="text-xs shrink-0">
-                                Erledigt
+                                {t('crm.activities.completed')}
                               </Badge>
                             )}
                           </div>
@@ -445,7 +447,7 @@ export default function ContactDetailPage() {
             <>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-muted-foreground">
-                  {linkedTasks.length} verknüpfte Aufgabe{linkedTasks.length !== 1 ? 'n' : ''}
+                  {t('crm.tasks.linkedCount', { count: linkedTasks.length })}
                 </p>
                 <Button
                   variant="outline"
@@ -456,13 +458,13 @@ export default function ContactDetailPage() {
                   }
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Aufgabe erstellen
+                  {t('crm.tasks.create')}
                 </Button>
               </div>
 
               {linkedTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">
-                  Keine Aufgaben mit diesem Kontakt verknüpft.
+                  {t('crm.contacts.noTasks')}
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -471,7 +473,7 @@ export default function ContactDetailPage() {
                       task.project_key && task.task_number
                         ? `${task.project_key}-${task.task_number}`
                         : ''
-                    const priorityLabel = PRIORITY_LABELS[task.priority ?? 'normal']
+                    const priorityLabel = t(PRIORITY_LABEL_KEYS[task.priority ?? 'normal'])
                     const priorityColor = PRIORITY_COLORS[task.priority ?? 'normal']
 
                     return (
@@ -559,9 +561,9 @@ export default function ContactDetailPage() {
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Kontakt löschen"
-        description={`Moechtest du "${contact.firstName} ${contact.lastName}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`}
-        confirmLabel="Löschen"
+        title={t('crm.contacts.deleteTitle')}
+        description={t('crm.contacts.deleteConfirm', { name: `${contact.firstName} ${contact.lastName}` })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />

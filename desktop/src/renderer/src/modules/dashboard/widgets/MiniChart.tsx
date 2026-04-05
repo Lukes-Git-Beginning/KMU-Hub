@@ -2,6 +2,7 @@
  * Mini Chart widget — monthly revenue bar chart with 12-month overview.
  */
 import { memo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { BarChart3 } from 'lucide-react'
 import { useFinanceDashboard } from '@/api/hooks/useFinance'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
@@ -11,13 +12,14 @@ function fmt(n: number) {
 }
 
 function MiniChart(_props: WidgetProps) {
+  const { t } = useTranslation()
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   const { data: dashboard, isLoading } = useFinanceDashboard()
 
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label={t('common.loading')} className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -39,7 +41,7 @@ function MiniChart(_props: WidgetProps) {
             <BarChart3 className="h-4 w-4 text-blue-600" />
           </div>
           <div>
-            <p className="text-xs font-medium text-muted-foreground">Jahresumsatz</p>
+            <p className="text-xs font-medium text-muted-foreground">{t('dashboard.miniChart.yearlyRevenue')}</p>
             <p className="text-sm font-bold text-foreground">{fmt(total)}</p>
           </div>
         </div>
@@ -87,7 +89,7 @@ function MiniChart(_props: WidgetProps) {
           })
         ) : (
           <div className="flex w-full items-center justify-center">
-            <p className="text-xs text-muted-foreground">Keine Umsatzdaten vorhanden</p>
+            <p className="text-xs text-muted-foreground">{t('dashboard.miniChart.noRevenueData')}</p>
           </div>
         )}
       </div>

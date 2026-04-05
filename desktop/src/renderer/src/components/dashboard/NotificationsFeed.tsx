@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   Calendar,
@@ -25,11 +26,11 @@ interface FeedNotification {
 }
 
 const tabs = [
-  { id: 'mails' as TabId, label: 'Mails', icon: Mail },
-  { id: 'calendar' as TabId, label: 'Kalender', icon: Calendar },
-  { id: 'messages' as TabId, label: 'Nachrichten', icon: MessageSquare },
-  { id: 'projects' as TabId, label: 'Projekte', icon: FolderKanban },
-  { id: 'tasks' as TabId, label: 'Aufgaben', icon: CheckSquare },
+  { id: 'mails' as TabId, labelKey: 'dashboard.feed.tabs.mails', icon: Mail },
+  { id: 'calendar' as TabId, labelKey: 'dashboard.feed.tabs.calendar', icon: Calendar },
+  { id: 'messages' as TabId, labelKey: 'dashboard.feed.tabs.messages', icon: MessageSquare },
+  { id: 'projects' as TabId, labelKey: 'dashboard.feed.tabs.projects', icon: FolderKanban },
+  { id: 'tasks' as TabId, labelKey: 'dashboard.feed.tabs.tasks', icon: CheckSquare },
 ]
 
 const feedData: Record<TabId, FeedNotification[]> = {
@@ -67,10 +68,11 @@ function ViewToggle({
   state: ViewState
   onChange: (s: ViewState) => void
 }) {
-  const items: { value: ViewState; icon: typeof Minimize2; title: string }[] = [
-    { value: 'minimized', icon: Minimize2, title: 'Minimiert' },
-    { value: 'half', icon: ChevronDown, title: 'Halb' },
-    { value: 'full', icon: Maximize2, title: 'Voll' },
+  const { t } = useTranslation()
+  const items: { value: ViewState; icon: typeof Minimize2; titleKey: string }[] = [
+    { value: 'minimized', icon: Minimize2, titleKey: 'dashboard.view.minimized' },
+    { value: 'half', icon: ChevronDown, titleKey: 'dashboard.view.half' },
+    { value: 'full', icon: Maximize2, titleKey: 'dashboard.view.full' },
   ]
 
   return (
@@ -81,7 +83,7 @@ function ViewToggle({
           <button
             key={item.value}
             onClick={() => onChange(item.value)}
-            title={item.title}
+            title={t(item.titleKey)}
             className={cn(
               'rounded p-1.5 transition-colors',
               state === item.value
@@ -98,6 +100,7 @@ function ViewToggle({
 }
 
 export function NotificationsFeed() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabId>('mails')
   const [viewState, setViewState] = useState<ViewState>('half')
 
@@ -113,7 +116,7 @@ export function NotificationsFeed() {
     <div className="mb-8 overflow-hidden rounded-lg border border-border bg-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <h2 className="text-lg font-semibold text-foreground">Benachrichtigungen</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t('dashboard.feed.title')}</h2>
         <ViewToggle state={viewState} onChange={setViewState} />
       </div>
 
@@ -137,7 +140,7 @@ export function NotificationsFeed() {
                     )}
                   >
                     <Icon className="h-4 w-4" />
-                    <span className="text-sm font-medium">{tab.label}</span>
+                    <span className="text-sm font-medium">{t(tab.labelKey)}</span>
                   </button>
                 )
               })}
@@ -149,7 +152,7 @@ export function NotificationsFeed() {
             {display.length === 0 ? (
               <div className="p-8 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Keine Benachrichtigungen
+                  {t('dashboard.feed.noNotifications')}
                 </p>
               </div>
             ) : (

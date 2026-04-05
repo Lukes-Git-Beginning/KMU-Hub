@@ -5,6 +5,7 @@
  * Works offline (no API dependency). Click marks as read and navigates.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   Bell,
@@ -42,6 +43,7 @@ const iconMap: Record<string, React.ElementType> = {
 }
 
 function NotificationFeedWidget(_props: WidgetProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { notifications, markAsRead } = useNotificationsStore()
   const unreadCount = notifications.filter((n) => !n.isRead).length
@@ -57,7 +59,7 @@ function NotificationFeedWidget(_props: WidgetProps) {
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
           <BellOff className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">Keine Benachrichtigungen</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('dashboard.notifications.none')}</p>
         </div>
       </div>
     )
@@ -69,7 +71,7 @@ function NotificationFeedWidget(_props: WidgetProps) {
       {unreadCount > 0 && (
         <div className="flex items-center gap-2 border-b border-border/60 px-4 py-2">
           <Bell className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-medium text-primary">{unreadCount} ungelesen</span>
+          <span className="text-xs font-medium text-primary">{t('dashboard.notifications.unread', { count: unreadCount })}</span>
         </div>
       )}
 
@@ -123,7 +125,7 @@ function NotificationFeedWidget(_props: WidgetProps) {
           to="/notifications"
           className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
         >
-          Alle anzeigen
+          {t('dashboard.notifications.showAll')}
           <ArrowRight className="h-3 w-3" />
         </Link>
       </div>

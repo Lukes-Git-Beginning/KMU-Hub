@@ -5,6 +5,7 @@
  * Sort within groups: Created, Due Date, Priority, Title, Task Number + asc/desc.
  * Quick filter pills for priority levels, assignee, and status dropdowns.
  */
+import { useTranslation } from 'react-i18next'
 import { Filter, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -37,27 +38,27 @@ interface TaskListHeaderProps {
   statuses: Array<{ id?: string; name?: string; color?: string }>
 }
 
-const GROUP_OPTIONS: Array<{ value: GroupBy; label: string }> = [
-  { value: 'status', label: 'Status' },
-  { value: 'assignee', label: 'Zuständig' },
-  { value: 'priority', label: 'Priorität' },
-  { value: 'due_date', label: 'Fälligkeitsdatum' },
-  { value: 'none', label: 'Keine Gruppierung' },
+const GROUP_OPTIONS: Array<{ value: GroupBy; labelKey: string }> = [
+  { value: 'status', labelKey: 'common.status' },
+  { value: 'assignee', labelKey: 'work.tasks.assignee' },
+  { value: 'priority', labelKey: 'work.tasks.priority' },
+  { value: 'due_date', labelKey: 'work.tasks.dueDate' },
+  { value: 'none', labelKey: 'work.list.noGrouping' },
 ]
 
-const SORT_OPTIONS: Array<{ value: SortBy; label: string }> = [
-  { value: 'created_at', label: 'Erstellt' },
-  { value: 'due_date', label: 'Fällig am' },
-  { value: 'priority', label: 'Priorität' },
-  { value: 'title', label: 'Titel' },
-  { value: 'task_number', label: 'Aufgabennummer' },
+const SORT_OPTIONS: Array<{ value: SortBy; labelKey: string }> = [
+  { value: 'created_at', labelKey: 'work.list.created' },
+  { value: 'due_date', labelKey: 'work.tasks.dueDate' },
+  { value: 'priority', labelKey: 'work.tasks.priority' },
+  { value: 'title', labelKey: 'work.list.title' },
+  { value: 'task_number', labelKey: 'work.list.taskNumber' },
 ]
 
-const PRIORITY_PILLS: Array<{ value: string; label: string; className: string }> = [
-  { value: 'urgent', label: 'Dringend', className: 'bg-error-light text-destructive border-destructive/30 hover:bg-destructive/15' },
-  { value: 'high', label: 'Hoch', className: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100' },
-  { value: 'medium', label: 'Normal', className: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' },
-  { value: 'low', label: 'Niedrig', className: 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100' },
+const PRIORITY_PILLS: Array<{ value: string; labelKey: string; className: string }> = [
+  { value: 'urgent', labelKey: 'work.priority.urgent', className: 'bg-error-light text-destructive border-destructive/30 hover:bg-destructive/15' },
+  { value: 'high', labelKey: 'work.priority.high', className: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100' },
+  { value: 'medium', labelKey: 'work.priority.normal', className: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' },
+  { value: 'low', labelKey: 'work.priority.low', className: 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100' },
 ]
 
 export default function TaskListHeader({
@@ -73,13 +74,14 @@ export default function TaskListHeader({
   onFilterStatusIdChange,
   statuses,
 }: TaskListHeaderProps) {
+  const { t } = useTranslation()
   const hasActiveFilters = filterPriority !== null || filterStatusId !== null
 
   return (
     <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-border">
       {/* Group by */}
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-muted-foreground">Gruppieren:</span>
+        <span className="text-xs text-muted-foreground">{t('work.list.groupBy')}:</span>
         <Select value={groupBy} onValueChange={(v) => onGroupByChange(v as GroupBy)}>
           <SelectTrigger className="h-7 w-[140px] text-xs">
             <SelectValue />
@@ -87,7 +89,7 @@ export default function TaskListHeader({
           <SelectContent>
             {GROUP_OPTIONS.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
+                {t(opt.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -96,7 +98,7 @@ export default function TaskListHeader({
 
       {/* Sort by */}
       <div className="flex items-center gap-1.5">
-        <span className="text-xs text-muted-foreground">Sortieren:</span>
+        <span className="text-xs text-muted-foreground">{t('work.list.sortBy')}:</span>
         <Select value={sortBy} onValueChange={(v) => onSortByChange(v as SortBy)}>
           <SelectTrigger className="h-7 w-[130px] text-xs">
             <SelectValue />
@@ -104,7 +106,7 @@ export default function TaskListHeader({
           <SelectContent>
             {SORT_OPTIONS.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
+                {t(opt.labelKey)}
               </SelectItem>
             ))}
           </SelectContent>

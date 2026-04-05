@@ -2,6 +2,7 @@
  * Calendar Upcoming widget — today's events from real API.
  */
 import { memo, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Clock, MapPin } from 'lucide-react'
 import { useCalendars } from '@/api/hooks/useCalendars'
 import { useEventsInRange } from '@/api/hooks/useEvents'
@@ -9,7 +10,7 @@ import { expandedEventToUI } from '@/modules/kalender/adapters'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function CalendarUpcoming(_props: WidgetProps) {
-   
+  const { t } = useTranslation()
   const { todayStart, todayEnd, today, dd } = useMemo(() => {
     const today = new Date()
     const dd = String(today.getDate()).padStart(2, '0')
@@ -36,13 +37,13 @@ function CalendarUpcoming(_props: WidgetProps) {
         const diffMin = (eh * 60 + em) - (sh * 60 + sm)
         let duration = ''
         if (uiEvent.isAllDay) {
-          duration = 'Ganztägig'
+          duration = t('dashboard.calendar.allDay')
         } else if (diffMin >= 60) {
           const hours = Math.floor(diffMin / 60)
           const mins = diffMin % 60
-          duration = mins > 0 ? `${hours} Std ${mins} Min` : `${hours} Std`
+          duration = mins > 0 ? `${hours} ${t('dashboard.calendar.hours')} ${mins} ${t('dashboard.calendar.minutes')}` : `${hours} ${t('dashboard.calendar.hours')}`
         } else {
-          duration = `${diffMin} Min`
+          duration = `${diffMin} ${t('dashboard.calendar.minutes')}`
         }
 
         return {
@@ -55,12 +56,12 @@ function CalendarUpcoming(_props: WidgetProps) {
         }
       })
       .sort((a, b) => a.time.localeCompare(b.time))
-  }, [eventData])
+  }, [eventData, t])
 
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label={t('common.loading')} className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -79,7 +80,7 @@ function CalendarUpcoming(_props: WidgetProps) {
           <p className="text-sm font-medium text-foreground">
             {today.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
-          <p className="text-xs text-muted-foreground">{events.length} Termine heute</p>
+          <p className="text-xs text-muted-foreground">{t('dashboard.calendar.eventsToday', { count: events.length })}</p>
         </div>
       </div>
 
@@ -112,7 +113,7 @@ function CalendarUpcoming(_props: WidgetProps) {
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-sm text-muted-foreground">Keine Termine heute</p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.calendar.noEventsToday')}</p>
         </div>
       )}
     </div>

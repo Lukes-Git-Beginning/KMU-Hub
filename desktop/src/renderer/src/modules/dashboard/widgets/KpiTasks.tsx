@@ -2,11 +2,13 @@
  * KPI Tasks widget — task completion progress with breakdown.
  */
 import { memo, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Circle, AlertTriangle } from 'lucide-react'
 import { useMyTasks } from '@/api/hooks/useTasks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function KpiTasks(_props: WidgetProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useMyTasks({ include_completed: true })
 
   const stats = useMemo(() => {
@@ -42,7 +44,7 @@ function KpiTasks(_props: WidgetProps) {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label={t('common.loading')} className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -51,9 +53,9 @@ function KpiTasks(_props: WidgetProps) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
   const segments = [
-    { label: 'Erledigt', count: done, color: 'bg-success', textColor: 'text-success', icon: CheckCircle2 },
-    { label: 'In Arbeit', count: inProgress, color: 'bg-blue-500', textColor: 'text-blue-600', icon: Circle },
-    { label: 'Überfällig', count: overdue, color: 'bg-destructive', textColor: 'text-destructive', icon: AlertTriangle },
+    { label: t('dashboard.kpiTasks.done'), count: done, color: 'bg-success', textColor: 'text-success', icon: CheckCircle2 },
+    { label: t('dashboard.kpiTasks.inProgress'), count: inProgress, color: 'bg-blue-500', textColor: 'text-blue-600', icon: Circle },
+    { label: t('dashboard.kpiTasks.overdue'), count: overdue, color: 'bg-destructive', textColor: 'text-destructive', icon: AlertTriangle },
   ]
 
   return (
@@ -61,7 +63,7 @@ function KpiTasks(_props: WidgetProps) {
       {/* Progress header */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground">Aufgaben diese Woche</span>
+          <span className="text-xs font-medium text-muted-foreground">{t('dashboard.kpiTasks.thisWeek')}</span>
           <span className="text-xs font-bold text-foreground">{pct}%</span>
         </div>
 
@@ -82,7 +84,7 @@ function KpiTasks(_props: WidgetProps) {
         </div>
 
         <p className="mt-2 text-lg font-bold text-foreground">
-          {done} <span className="text-sm font-normal text-muted-foreground">von {total}</span>
+          {done} <span className="text-sm font-normal text-muted-foreground">{t('dashboard.kpiTasks.of', { total })}</span>
         </p>
       </div>
 

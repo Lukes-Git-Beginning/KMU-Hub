@@ -21,6 +21,7 @@ import {
   Plug,
   Sparkles,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -50,31 +51,37 @@ type TabKey = 'profile' | 'appearance' | 'language' | 'security' | 'notification
 
 interface TabConfig {
   key: TabKey
-  label: string
+  labelKey: string
   icon: typeof User
-  group?: string
+  groupKey?: string
 }
 
 const ALL_TABS: TabConfig[] = [
-  { key: 'profile', label: 'Profil', icon: User, group: 'Persönlich' },
-  { key: 'appearance', label: 'Darstellung', icon: Palette, group: 'Persönlich' },
-  { key: 'language', label: 'Sprache & Region', icon: Globe, group: 'Persönlich' },
-  { key: 'security', label: 'Sicherheit', icon: Shield, group: 'Persönlich' },
-  { key: 'notifications', label: 'Benachrichtigungen', icon: Bell, group: 'Persönlich' },
-  { key: 'mail', label: 'E-Mail', icon: Mail, group: 'Module' },
-  { key: 'calendar', label: 'Kalender', icon: Calendar, group: 'Module' },
-  { key: 'finance', label: 'Buchhaltung', icon: Receipt, group: 'Module' },
-  { key: 'company', label: 'Firma', icon: Landmark, group: 'Admin' },
-  { key: 'it-admin', label: 'IT-Admin', icon: Monitor, group: 'Admin' },
-  { key: 'integrations', label: 'Integrationen', icon: Plug, group: 'Admin' },
-  { key: 'privacy', label: 'Datenschutz', icon: Lock, group: 'Admin' },
-  { key: 'ai', label: 'KI-Assistent', icon: Sparkles, group: 'Admin' },
-  { key: 'about', label: 'Über Cosmi', icon: Info, group: 'Sonstiges' },
+  { key: 'profile', labelKey: 'settings.tabs.profile', icon: User, groupKey: 'settings.groups.personal' },
+  { key: 'appearance', labelKey: 'settings.tabs.appearance', icon: Palette, groupKey: 'settings.groups.personal' },
+  { key: 'language', labelKey: 'settings.tabs.language', icon: Globe, groupKey: 'settings.groups.personal' },
+  { key: 'security', labelKey: 'settings.tabs.security', icon: Shield, groupKey: 'settings.groups.personal' },
+  { key: 'notifications', labelKey: 'settings.tabs.notifications', icon: Bell, groupKey: 'settings.groups.personal' },
+  { key: 'mail', labelKey: 'settings.tabs.mail', icon: Mail, groupKey: 'settings.groups.modules' },
+  { key: 'calendar', labelKey: 'settings.tabs.calendar', icon: Calendar, groupKey: 'settings.groups.modules' },
+  { key: 'finance', labelKey: 'settings.tabs.finance', icon: Receipt, groupKey: 'settings.groups.modules' },
+  { key: 'company', labelKey: 'settings.tabs.company', icon: Landmark, groupKey: 'settings.groups.admin' },
+  { key: 'it-admin', labelKey: 'settings.tabs.itAdmin', icon: Monitor, groupKey: 'settings.groups.admin' },
+  { key: 'integrations', labelKey: 'settings.tabs.integrations', icon: Plug, groupKey: 'settings.groups.admin' },
+  { key: 'privacy', labelKey: 'settings.tabs.privacy', icon: Lock, groupKey: 'settings.groups.admin' },
+  { key: 'ai', labelKey: 'settings.tabs.ai', icon: Sparkles, groupKey: 'settings.groups.admin' },
+  { key: 'about', labelKey: 'settings.tabs.about', icon: Info, groupKey: 'settings.groups.other' },
 ]
 
-const TAB_GROUPS = ['Persönlich', 'Module', 'Admin', 'Sonstiges']
+const TAB_GROUP_KEYS = [
+  'settings.groups.personal',
+  'settings.groups.modules',
+  'settings.groups.admin',
+  'settings.groups.other',
+]
 
 export default function SettingsPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabKey>('profile')
   const user = useAuthStore((s) => s.user)
 
@@ -89,14 +96,14 @@ export default function SettingsPage() {
     <div className="flex h-full overflow-hidden animate-fade-up">
       {/* Settings sidebar */}
       <aside className="w-56 shrink-0 border-r border-border bg-card p-4 overflow-y-auto">
-        <h3 className="text-sm font-medium text-foreground mb-4 px-2">Einstellungen</h3>
+        <h3 className="text-sm font-medium text-foreground mb-4 px-2">{t('settings.title')}</h3>
         <nav className="space-y-4">
-          {TAB_GROUPS.map((group) => {
-            const groupTabs = tabs.filter((t) => t.group === group)
+          {TAB_GROUP_KEYS.map((groupKey) => {
+            const groupTabs = tabs.filter((tab) => tab.groupKey === groupKey)
             if (groupTabs.length === 0) return null
             return (
-              <div key={group}>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 mb-1">{group}</p>
+              <div key={groupKey}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 mb-1">{t(groupKey)}</p>
                 <div className="space-y-0.5">
                   {groupTabs.map((tab) => {
                     const Icon = tab.icon
@@ -111,7 +118,7 @@ export default function SettingsPage() {
                         }`}
                       >
                         <Icon className="h-4 w-4 shrink-0" />
-                        {tab.label}
+                        {t(tab.labelKey)}
                       </button>
                     )
                   })}
@@ -147,6 +154,7 @@ export default function SettingsPage() {
 // Profile Tab — now wired to settings store
 // ============================================================
 function ProfileTab() {
+  const { t } = useTranslation()
   const { profile, updateProfile } = useSettingsStore()
   const [firstName, setFirstName] = useState(profile.firstName)
   const [lastName, setLastName] = useState(profile.lastName)
@@ -157,14 +165,14 @@ function ProfileTab() {
 
   const handleSave = () => {
     updateProfile({ firstName, lastName, email, phone, position, bio })
-    toast.success('Profil gespeichert')
+    toast.success(t('settings.profile.saved'))
   }
 
   const handlePhotoChange = () => {
-    toast.success('Foto-Upload wird simuliert...')
+    toast.success(t('settings.profile.photoUploading'))
     setTimeout(() => {
       updateProfile({ avatarUrl: 'mock-avatar.jpg' })
-      toast.success('Profilbild aktualisiert')
+      toast.success(t('settings.profile.photoUpdated'))
     }, 1000)
   }
 
@@ -172,8 +180,8 @@ function ProfileTab() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-foreground mb-1">Profil</h2>
-      <p className="text-sm text-muted-foreground mb-6">Verwalte deine persönlichen Informationen</p>
+      <h2 className="text-foreground mb-1">{t('settings.tabs.profile')}</h2>
+      <p className="text-sm text-muted-foreground mb-6">{t('settings.profile.subtitle')}</p>
 
       {/* Avatar */}
       <div className="flex items-center gap-4 mb-8">
@@ -182,9 +190,9 @@ function ProfileTab() {
         </div>
         <div>
           <Button variant="outline" size="sm" onClick={handlePhotoChange}>
-            Foto ändern
+            {t('settings.profile.changePhoto')}
           </Button>
-          <p className="text-xs text-muted-foreground mt-1">JPG, PNG oder GIF, max. 5 MB</p>
+          <p className="text-xs text-muted-foreground mt-1">{t('settings.profile.photoHint')}</p>
         </div>
       </div>
 
@@ -192,28 +200,28 @@ function ProfileTab() {
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Vorname</label>
+            <label className="block text-sm font-medium text-foreground">{t('settings.profile.firstName')}</label>
             <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Nachname</label>
+            <label className="block text-sm font-medium text-foreground">{t('settings.profile.lastName')}</label>
             <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </div>
         </div>
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-foreground">E-Mail</label>
+          <label className="block text-sm font-medium text-foreground">{t('settings.profile.email')}</label>
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-foreground">Telefon</label>
+          <label className="block text-sm font-medium text-foreground">{t('settings.profile.phone')}</label>
           <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-foreground">Position</label>
+          <label className="block text-sm font-medium text-foreground">{t('settings.profile.position')}</label>
           <Input value={position} onChange={(e) => setPosition(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-foreground">Bio</label>
+          <label className="block text-sm font-medium text-foreground">{t('settings.profile.bio')}</label>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
@@ -224,7 +232,7 @@ function ProfileTab() {
       </div>
 
       <div className="mt-6 flex gap-2">
-        <Button onClick={handleSave}>Speichern</Button>
+        <Button onClick={handleSave}>{t('common.save')}</Button>
         <Button
           variant="outline"
           onClick={() => {
@@ -236,7 +244,7 @@ function ProfileTab() {
             setBio(profile.bio)
           }}
         >
-          Abbrechen
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -247,6 +255,7 @@ function ProfileTab() {
 // Appearance Tab — wired to store
 // ============================================================
 function AppearanceTab() {
+  const { t } = useTranslation()
   const { appearance, updateAppearance } = useSettingsStore()
 
   const theme = useUIStore((s) => s.theme)
@@ -261,63 +270,63 @@ function AppearanceTab() {
   const setDeskBackground = useUIStore((s) => s.setDeskBackground)
 
   const themes = [
-    { id: 'light' as const, label: 'Hell', desc: 'Warme, helle Oberfläche' },
-    { id: 'dark' as const, label: 'Dunkel', desc: 'Augenfreundlich bei wenig Licht' },
-    { id: 'auto' as const, label: 'System', desc: 'Folgt den Systemeinstellungen' },
+    { id: 'light' as const, labelKey: 'settings.appearance.themeLight', descKey: 'settings.appearance.themeLightDesc' },
+    { id: 'dark' as const, labelKey: 'settings.appearance.themeDark', descKey: 'settings.appearance.themeDarkDesc' },
+    { id: 'auto' as const, labelKey: 'settings.appearance.themeSystem', descKey: 'settings.appearance.themeSystemDesc' },
   ]
 
-  const handleThemeChange = (t: 'light' | 'dark' | 'auto') => {
-    setTheme(t)
-    updateAppearance({ theme: t })
+  const handleThemeChange = (val: 'light' | 'dark' | 'auto') => {
+    setTheme(val)
+    updateAppearance({ theme: val })
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-foreground mb-1">Darstellung</h2>
-      <p className="text-sm text-muted-foreground mb-6">Passe das Erscheinungsbild der App an</p>
+      <h2 className="text-foreground mb-1">{t('settings.tabs.appearance')}</h2>
+      <p className="text-sm text-muted-foreground mb-6">{t('settings.appearance.subtitle')}</p>
 
       <ThemePreview className="mb-8" />
 
-      <h3 className="text-sm font-medium text-foreground mb-3">Farbschema</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.colorScheme')}</h3>
       <div className="grid grid-cols-3 gap-3 mb-8">
-        {themes.map((t) => (
+        {themes.map((themeItem) => (
           <button
-            key={t.id}
-            onClick={() => handleThemeChange(t.id)}
+            key={themeItem.id}
+            onClick={() => handleThemeChange(themeItem.id)}
             className={`relative rounded-lg border p-4 text-center transition-colors ${
-              theme === t.id
+              theme === themeItem.id
                 ? 'border-primary bg-primary-light'
                 : 'border-border bg-card hover:bg-secondary'
             }`}
           >
-            {theme === t.id && (
+            {theme === themeItem.id && (
               <span className="absolute top-2 right-2">
                 <Check className="h-4 w-4 text-primary" />
               </span>
             )}
             <div className={`mx-auto mb-2 h-8 w-8 rounded-full border ${
-              t.id === 'light' ? 'bg-amber-100 border-amber-300' :
-              t.id === 'dark' ? 'bg-slate-700 border-slate-500' :
+              themeItem.id === 'light' ? 'bg-amber-100 border-amber-300' :
+              themeItem.id === 'dark' ? 'bg-slate-700 border-slate-500' :
               'bg-gradient-to-br from-amber-100 to-slate-700 border-gray-400'
             }`} />
-            <p className="text-sm font-medium text-foreground">{t.label}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{t.desc}</p>
+            <p className="text-sm font-medium text-foreground">{t(themeItem.labelKey)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t(themeItem.descKey)}</p>
           </button>
         ))}
       </div>
 
       {/* ── COLOR PALETTE PICKER ────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Farbpalette</h3>
-      <p className="text-xs text-muted-foreground mb-3">Wähle die Akzentfarben für die gesamte App</p>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.colorPalette')}</h3>
+      <p className="text-xs text-muted-foreground mb-3">{t('settings.appearance.colorPaletteDesc')}</p>
       <PaletteSwitcher className="mb-8" />
 
       {/* ── ACCENT INTENSITY ─────────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Akzentfarben-Intensitaet</h3>
-      <p className="text-xs text-muted-foreground mb-3">Bestimme wie stark die Akzentfarben in der App eingesetzt werden</p>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.accentIntensity')}</h3>
+      <p className="text-xs text-muted-foreground mb-3">{t('settings.appearance.accentIntensityDesc')}</p>
       <div className="grid grid-cols-2 gap-3 mb-8">
         {([
-          { id: 'subtle' as const, label: 'Dezent', desc: 'Akzente nur bei KPIs, Status-Badges und wichtigen CTAs' },
-          { id: 'vivid' as const, label: 'Lebendig', desc: 'Akzente auch bei Tabs, Kategorien, Charts und Tags' },
+          { id: 'subtle' as const, labelKey: 'settings.appearance.accentSubtle', descKey: 'settings.appearance.accentSubtleDesc' },
+          { id: 'vivid' as const, labelKey: 'settings.appearance.accentVivid', descKey: 'settings.appearance.accentVividDesc' },
         ]).map((opt) => (
           <button
             key={opt.id}
@@ -338,24 +347,24 @@ function AppearanceTab() {
               <span className="h-3 w-3 rounded-full" style={{ background: 'var(--accent-2)' }} />
               <span className="h-3 w-3 rounded-full" style={{ background: 'var(--primary)' }} />
             </div>
-            <p className="text-sm font-medium text-foreground">{opt.label}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+            <p className="text-sm font-medium text-foreground">{t(opt.labelKey)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t(opt.descKey)}</p>
           </button>
         ))}
       </div>
 
       {/* ── NAVIGATION LAYOUT ────────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Navigation</h3>
-      <p className="text-xs text-muted-foreground mb-3">Wähle wie du durch die App navigierst</p>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.navigation')}</h3>
+      <p className="text-xs text-muted-foreground mb-3">{t('settings.appearance.navigationDesc')}</p>
       <LayoutSwitcher className="mb-8" />
 
       {/* ── FENSTER-STIL ──────────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Fenster-Stil</h3>
-      <p className="text-xs text-muted-foreground mb-3">Vollbild oder abgerundetes Fenster mit Rand</p>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.windowStyle')}</h3>
+      <p className="text-xs text-muted-foreground mb-3">{t('settings.appearance.windowStyleDesc')}</p>
       <div className="grid grid-cols-2 gap-3 mb-8">
         {([
-          { id: 'full' as const, label: 'Vollbild', desc: 'Fenster komplett ausgefüllt' },
-          { id: 'bubble' as const, label: 'Bubble', desc: 'Abgerundeter Rahmen mit Rand' },
+          { id: 'full' as const, labelKey: 'settings.appearance.windowFull', descKey: 'settings.appearance.windowFullDesc' },
+          { id: 'bubble' as const, labelKey: 'settings.appearance.windowBubble', descKey: 'settings.appearance.windowBubbleDesc' },
         ]).map((style) => (
           <button
             key={style.id}
@@ -392,19 +401,19 @@ function AppearanceTab() {
                 </div>
               )}
             </div>
-            <p className="text-sm font-medium text-foreground">{style.label}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{style.desc}</p>
+            <p className="text-sm font-medium text-foreground">{t(style.labelKey)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t(style.descKey)}</p>
           </button>
         ))}
       </div>
 
       {/* ── OBERFLAECHE (SOLID / MILCHGLAS) ─────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Oberflaeche</h3>
-      <p className="text-xs text-muted-foreground mb-3">Standard oder Milchglas-Effekt für die gesamte App</p>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.surface')}</h3>
+      <p className="text-xs text-muted-foreground mb-3">{t('settings.appearance.surfaceDesc')}</p>
       <div className="grid grid-cols-2 gap-3 mb-8">
         {([
-          { id: 'solid' as const, label: 'Standard', desc: 'Solide, deckende Oberflaechen' },
-          { id: 'glass' as const, label: 'Milchglas', desc: 'Frosted Glass mit Hintergrund-Durchschein' },
+          { id: 'solid' as const, labelKey: 'settings.appearance.surfaceSolid', descKey: 'settings.appearance.surfaceSolidDesc' },
+          { id: 'glass' as const, labelKey: 'settings.appearance.surfaceGlass', descKey: 'settings.appearance.surfaceGlassDesc' },
         ]).map((opt) => (
           <button
             key={opt.id}
@@ -443,8 +452,8 @@ function AppearanceTab() {
                 </div>
               )}
             </div>
-            <p className="text-sm font-medium text-foreground">{opt.label}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+            <p className="text-sm font-medium text-foreground">{t(opt.labelKey)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t(opt.descKey)}</p>
           </button>
         ))}
       </div>
@@ -452,8 +461,8 @@ function AppearanceTab() {
       {/* ── HINTERGRUND (nur bei Milchglas) ──────────── */}
       {uiLook === 'glass' && (
         <>
-          <h3 className="text-sm font-medium text-foreground mb-3">Hintergrund</h3>
-          <p className="text-xs text-muted-foreground mb-3">Wähle einen Hintergrund der durch die Milchglas-Oberflaeche scheint</p>
+          <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.background')}</h3>
+          <p className="text-xs text-muted-foreground mb-3">{t('settings.appearance.backgroundDesc')}</p>
           <div className="grid grid-cols-4 gap-2 mb-8">
             <button
               onClick={() => setDeskBackground(null)}
@@ -463,7 +472,7 @@ function AppearanceTab() {
                   : 'border-border hover:border-primary/40'
               }`}
             >
-              <span className="text-xs text-muted-foreground">Keiner</span>
+              <span className="text-xs text-muted-foreground">{t('settings.appearance.bgNone')}</span>
               {!deskBackground && (
                 <span className="absolute top-1 right-1">
                   <Check className="h-3 w-3 text-primary" />
@@ -495,15 +504,15 @@ function AppearanceTab() {
       )}
 
       {/* ── HEADER WIDGETS ─────────────────────────── */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Header-Widgets</h3>
-      <p className="text-xs text-muted-foreground mb-3">Wähle bis zu 3 Mini-Widgets für die Kopfleiste</p>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.headerWidgets')}</h3>
+      <p className="text-xs text-muted-foreground mb-3">{t('settings.appearance.headerWidgetsDesc')}</p>
       <HeaderWidgetPicker className="mb-8" />
 
       <div className="mt-4 mb-4 border-t border-border" />
 
-      <h3 className="text-sm font-medium text-foreground mb-3">Schriftgröße</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.appearance.fontSize')}</h3>
       <div className="flex items-center gap-3 mb-2">
-        <span className="text-xs text-muted-foreground">Klein</span>
+        <span className="text-xs text-muted-foreground">{t('settings.appearance.fontSmall')}</span>
         <input
           type="range"
           min={12}
@@ -512,7 +521,7 @@ function AppearanceTab() {
           onChange={(e) => updateAppearance({ fontSize: Number(e.target.value) })}
           className="flex-1 accent-[var(--primary)]"
         />
-        <span className="text-xs text-muted-foreground">Gross</span>
+        <span className="text-xs text-muted-foreground">{t('settings.appearance.fontLarge')}</span>
       </div>
       <p className="text-xs text-muted-foreground mb-8">{appearance.fontSize}px</p>
     </div>
@@ -523,6 +532,7 @@ function AppearanceTab() {
 // Language Tab — wired to store
 // ============================================================
 function LanguageTab() {
+  const { t } = useTranslation()
   const { language, updateLanguage } = useSettingsStore()
   const [locale, setLocale] = useState(language.locale)
   const [timezone, setTimezone] = useState(language.timezone)
@@ -536,15 +546,15 @@ function LanguageTab() {
 
   const handleSave = () => {
     updateLanguage({ locale, timezone, dateFormat })
-    toast.success('Sprache & Region gespeichert')
+    toast.success(t('settings.languageRegion.saved'))
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-foreground mb-1">Sprache & Region</h2>
-      <p className="text-sm text-muted-foreground mb-6">Sprache, Zeitzone und Datumsformat einstellen</p>
+      <h2 className="text-foreground mb-1">{t('settings.tabs.language')}</h2>
+      <p className="text-sm text-muted-foreground mb-6">{t('settings.languageRegion.subtitle')}</p>
 
-      <h3 className="text-sm font-medium text-foreground mb-3">Sprache</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.languageRegion.language')}</h3>
       <div className="space-y-2 mb-8">
         {languages.map((lang) => (
           <button
@@ -563,7 +573,7 @@ function LanguageTab() {
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Zeitzone</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">{t('settings.languageRegion.timezone')}</label>
           <select
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
@@ -577,7 +587,7 @@ function LanguageTab() {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Datumsformat</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">{t('settings.languageRegion.dateFormat')}</label>
           <select
             value={dateFormat}
             onChange={(e) => setDateFormat(e.target.value)}
@@ -590,7 +600,7 @@ function LanguageTab() {
         </div>
       </div>
 
-      <Button onClick={handleSave}>Speichern</Button>
+      <Button onClick={handleSave}>{t('common.save')}</Button>
     </div>
   )
 }
@@ -599,6 +609,7 @@ function LanguageTab() {
 // Security Tab — 2FA setup, sessions, password
 // ============================================================
 function SecurityTab() {
+  const { t } = useTranslation()
   const { security, enable2FA, disable2FA, updateSecurity } = useSettingsStore()
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -619,23 +630,23 @@ function SecurityTab() {
   const isExpired = daysUntilExpiry === 0
 
   const mockSessions = [
-    { id: 1, device: 'Desktop — Windows', location: 'Zürich, CH', lastActive: 'Jetzt aktiv', isCurrent: true, icon: Monitor },
-    { id: 2, device: 'iPhone 15 Pro', location: 'Zürich, CH', lastActive: 'Vor 2 Stunden', isCurrent: false, icon: Smartphone },
-    { id: 3, device: 'MacBook Pro', location: 'Bern, CH', lastActive: 'Vor 3 Tagen', isCurrent: false, icon: Monitor },
+    { id: 1, device: 'Desktop — Windows', location: 'Zürich, CH', lastActiveKey: 'settings.security.sessionNow', isCurrent: true, icon: Monitor },
+    { id: 2, device: 'iPhone 15 Pro', location: 'Zürich, CH', lastActiveKey: 'settings.security.session2h', isCurrent: false, icon: Smartphone },
+    { id: 3, device: 'MacBook Pro', location: 'Bern, CH', lastActiveKey: 'settings.security.session3d', isCurrent: false, icon: Monitor },
   ]
 
   const handlePasswordChange = () => {
     if (!currentPw || !newPw) return
     if (newPw !== confirmPw) {
-      toast.error('Passwörter stimmen nicht überein')
+      toast.error(t('settings.security.passwordMismatch'))
       return
     }
     if (newPw.length < 8) {
-      toast.error('Passwort muss mindestens 8 Zeichen haben')
+      toast.error(t('settings.security.passwordMinLength'))
       return
     }
     updateSecurity({ passwordLastChanged: new Date().toISOString() })
-    toast.success('Passwort geändert')
+    toast.success(t('settings.security.passwordChanged'))
     setCurrentPw('')
     setNewPw('')
     setConfirmPw('')
@@ -644,24 +655,24 @@ function SecurityTab() {
   const handle2FAEnable = () => {
     enable2FA()
     setShow2FASetup(false)
-    toast.success('Zwei-Faktor-Authentifizierung aktiviert')
+    toast.success(t('settings.security.twoFAEnabled'))
   }
 
   const handle2FADisable = () => {
     disable2FA()
     setShowDisable2FA(false)
-    toast.success('Zwei-Faktor-Authentifizierung deaktiviert')
+    toast.success(t('settings.security.twoFADisabled'))
   }
 
   const handleRevokeSession = () => {
-    toast.success('Sitzung beendet')
+    toast.success(t('settings.security.sessionRevoked'))
     setShowRevokeSession(null)
   }
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-foreground mb-1">Sicherheit</h2>
-      <p className="text-sm text-muted-foreground mb-6">Passwort, 2FA und Sitzungen verwalten</p>
+      <h2 className="text-foreground mb-1">{t('settings.tabs.security')}</h2>
+      <p className="text-sm text-muted-foreground mb-6">{t('settings.security.subtitle')}</p>
 
       {/* Password Expiry Info */}
       {expiryDays > 0 && (
@@ -680,20 +691,20 @@ function SecurityTab() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
-                {isExpired ? 'Passwort abgelaufen' :
-                 isExpiringSoon ? `Passwort laeuft in ${daysUntilExpiry} Tagen ab` :
-                 `Nächste Änderung in ${daysUntilExpiry} Tagen`}
+                {isExpired ? t('settings.security.passwordExpired') :
+                 isExpiringSoon ? t('settings.security.passwordExpiresSoon', { days: daysUntilExpiry }) :
+                 t('settings.security.passwordNextChange', { days: daysUntilExpiry })}
               </p>
               <p className="text-xs text-muted-foreground">
-                Zuletzt geaendert: {lastChanged?.toLocaleDateString('de-DE') ?? 'Unbekannt'}
-                {' · '}Richtlinie: alle {expiryDays} Tage
+                {t('settings.security.lastChanged')}: {lastChanged?.toLocaleDateString('de-DE') ?? t('settings.security.unknown')}
+                {' · '}{t('settings.security.policy')}: {t('settings.security.everyDays', { days: expiryDays })}
               </p>
             </div>
             {(isExpired || isExpiringSoon) && (
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${
                 isExpired ? 'bg-error/15 text-error' : 'bg-warning/15 text-warning'
               }`}>
-                {isExpired ? 'Sofort ändern' : 'Bald fällig'}
+                {isExpired ? t('settings.security.changeNow') : t('settings.security.dueSoon')}
               </span>
             )}
           </div>
@@ -702,10 +713,10 @@ function SecurityTab() {
 
       {/* Password */}
       <section className="mb-8">
-        <h3 className="text-sm font-medium text-foreground mb-3">Passwort ändern</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.security.changePassword')}</h3>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Aktuelles Passwort</label>
+            <label className="block text-sm font-medium text-foreground">{t('settings.security.currentPassword')}</label>
             <div className="relative">
               <Input
                 type={showCurrent ? 'text' : 'password'}
@@ -721,7 +732,7 @@ function SecurityTab() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Neues Passwort</label>
+            <label className="block text-sm font-medium text-foreground">{t('settings.security.newPassword')}</label>
             <div className="relative">
               <Input
                 type={showNew ? 'text' : 'password'}
@@ -737,18 +748,18 @@ function SecurityTab() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Passwort bestätigen</label>
+            <label className="block text-sm font-medium text-foreground">{t('settings.security.confirmPassword')}</label>
             <Input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
           </div>
         </div>
         <Button onClick={handlePasswordChange} className="mt-3" size="sm" disabled={!currentPw || !newPw || !confirmPw}>
-          Passwort ändern
+          {t('settings.security.changePassword')}
         </Button>
       </section>
 
       {/* 2FA */}
       <section className="mb-8">
-        <h3 className="text-sm font-medium text-foreground mb-3">Zwei-Faktor-Authentifizierung</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.security.twoFA')}</h3>
 
         {!security.twoFactorEnabled ? (
           <>
@@ -758,21 +769,21 @@ function SecurityTab() {
                   <Key className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">2FA nicht aktiviert</p>
-                  <p className="text-xs text-muted-foreground">Schütze dein Konto mit einem zweiten Faktor</p>
+                  <p className="text-sm font-medium text-foreground">{t('settings.security.twoFANotActive')}</p>
+                  <p className="text-xs text-muted-foreground">{t('settings.security.twoFAProtect')}</p>
                 </div>
               </div>
               <Button size="sm" onClick={() => setShow2FASetup(true)}>
-                Aktivieren
+                {t('settings.security.enable')}
               </Button>
             </div>
 
             {/* 2FA setup flow */}
             {show2FASetup && (
               <div className="mt-4 rounded-lg border border-border bg-card p-4 space-y-4">
-                <h4 className="text-sm font-medium text-foreground">2FA einrichten</h4>
+                <h4 className="text-sm font-medium text-foreground">{t('settings.security.setup2FA')}</h4>
                 <p className="text-xs text-muted-foreground">
-                  Scanne den QR-Code mit deiner Authenticator-App (z.B. Google Authenticator, Authy).
+                  {t('settings.security.scanQR')}
                 </p>
 
                 {/* QR code mockup */}
@@ -787,16 +798,16 @@ function SecurityTab() {
                 </div>
 
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Oder manuell eingeben:</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t('settings.security.manualEntry')}:</p>
                   <code className="rounded bg-secondary px-2 py-1 text-xs font-mono text-foreground">JBSWY3DPEHPK3PXP</code>
                 </div>
 
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" size="sm" onClick={() => setShow2FASetup(false)}>
-                    Abbrechen
+                    {t('common.cancel')}
                   </Button>
                   <Button size="sm" onClick={handle2FAEnable}>
-                    2FA aktivieren
+                    {t('settings.security.activate2FA')}
                   </Button>
                 </div>
               </div>
@@ -810,20 +821,20 @@ function SecurityTab() {
                   <Check className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">2FA ist aktiv</p>
-                  <p className="text-xs text-muted-foreground">Dein Konto ist durch einen zweiten Faktor geschützt</p>
+                  <p className="text-sm font-medium text-foreground">{t('settings.security.twoFAActive')}</p>
+                  <p className="text-xs text-muted-foreground">{t('settings.security.twoFAActiveDesc')}</p>
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={() => setShowDisable2FA(true)}>
-                Deaktivieren
+                {t('settings.security.disable')}
               </Button>
             </div>
 
             {/* Backup codes */}
             <div className="rounded-lg border border-border bg-card p-4">
-              <h4 className="text-sm font-medium text-foreground mb-2">Backup-Codes</h4>
+              <h4 className="text-sm font-medium text-foreground mb-2">{t('settings.security.backupCodes')}</h4>
               <p className="text-xs text-muted-foreground mb-3">
-                Bewahre diese Codes sicher auf. Jeder Code kann einmalig verwendet werden.
+                {t('settings.security.backupCodesDesc')}
               </p>
               <div className="grid grid-cols-3 gap-2 mb-3">
                 {security.backupCodes.map((code) => (
@@ -837,11 +848,11 @@ function SecurityTab() {
                 size="sm"
                 onClick={() => {
                   navigator.clipboard.writeText(security.backupCodes.join('\n'))
-                  toast.success('Backup-Codes in Zwischenablage kopiert')
+                  toast.success(t('settings.security.codesCopied'))
                 }}
               >
                 <Copy className="mr-1.5 h-3.5 w-3.5" />
-                Codes kopieren
+                {t('settings.security.copyCodes')}
               </Button>
             </div>
           </div>
@@ -850,7 +861,7 @@ function SecurityTab() {
 
       {/* Sessions */}
       <section>
-        <h3 className="text-sm font-medium text-foreground mb-3">Aktive Sitzungen</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.security.activeSessions')}</h3>
         <div className="space-y-2">
           {mockSessions.map((session) => {
             const Icon = session.icon
@@ -862,17 +873,17 @@ function SecurityTab() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-foreground">{session.device}</p>
                   <p className="text-xs text-muted-foreground">
-                    {session.location} &middot; {session.lastActive}
+                    {session.location} &middot; {t(session.lastActiveKey)}
                   </p>
                 </div>
                 {session.isCurrent ? (
-                  <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] text-success font-medium">Aktuell</span>
+                  <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] text-success font-medium">{t('settings.security.current')}</span>
                 ) : (
                   <button
                     onClick={() => setShowRevokeSession(session.id)}
                     className="text-xs text-error hover:underline"
                   >
-                    Abmelden
+                    {t('settings.security.logout')}
                   </button>
                 )}
               </div>
@@ -885,9 +896,9 @@ function SecurityTab() {
       <ConfirmDialog
         open={showDisable2FA}
         onOpenChange={setShowDisable2FA}
-        title="2FA deaktivieren?"
-        description="Dein Konto wird nur noch durch dein Passwort geschützt. Dies wird nicht empfohlen."
-        confirmLabel="2FA deaktivieren"
+        title={t('settings.security.disable2FATitle')}
+        description={t('settings.security.disable2FADesc')}
+        confirmLabel={t('settings.security.disable2FAConfirm')}
         variant="destructive"
         onConfirm={handle2FADisable}
       />
@@ -895,9 +906,9 @@ function SecurityTab() {
       <ConfirmDialog
         open={showRevokeSession !== null}
         onOpenChange={(open) => { if (!open) setShowRevokeSession(null) }}
-        title="Sitzung beenden?"
-        description="Das Gerät wird abgemeldet und muss sich erneut anmelden."
-        confirmLabel="Abmelden"
+        title={t('settings.security.endSessionTitle')}
+        description={t('settings.security.endSessionDesc')}
+        confirmLabel={t('settings.security.logout')}
         variant="destructive"
         onConfirm={handleRevokeSession}
       />
@@ -909,6 +920,7 @@ function SecurityTab() {
 // About Tab
 // ============================================================
 function AboutTab() {
+  const { t } = useTranslation()
   const startTour = useTourStore((s) => s.startTour)
   const tours = useTourStore((s) => s.tours)
 
@@ -924,7 +936,7 @@ function AboutTab() {
           </div>
         </div>
         <p className="text-primary-foreground/80 text-sm mb-3">
-          All-in-One Business-Plattform für DACH-KMUs
+          {t('settings.about.tagline')}
         </p>
         <div className="flex items-center gap-3">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs text-primary-foreground">v0.1.0 Beta</span>
@@ -933,7 +945,7 @@ function AboutTab() {
       </div>
 
       {/* Product family */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Produkt-Familie</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.about.productFamily')}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
         <div className="rounded-lg border border-border bg-card p-4 flex flex-col items-center gap-2">
           <img src={branding.cosmi.logoTransparent} alt="Cosmi" className="max-h-12 w-auto object-contain" />
@@ -950,7 +962,7 @@ function AboutTab() {
       </div>
 
       {/* Support & Contact */}
-      <h3 className="text-sm font-medium text-foreground mb-3">Support & Kontakt</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.about.supportContact')}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-3 mb-2">
@@ -958,8 +970,8 @@ function AboutTab() {
               <Mail className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">E-Mail Support</p>
-              <p className="text-xs text-muted-foreground">Mo-Fr, 08:00-18:00 Uhr</p>
+              <p className="text-sm font-medium text-foreground">{t('settings.about.emailSupport')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.about.emailSupportHours')}</p>
             </div>
           </div>
           <p className="text-sm text-primary ml-12">support@zentria.tech</p>
@@ -970,8 +982,8 @@ function AboutTab() {
               <Calendar className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Telefon-Support</p>
-              <p className="text-xs text-muted-foreground">Mo-Fr, 09:00-17:00 Uhr</p>
+              <p className="text-sm font-medium text-foreground">{t('settings.about.phoneSupport')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.about.phoneSupportHours')}</p>
             </div>
           </div>
           <p className="text-sm text-primary ml-12">+49 30 000 00 00</p>
@@ -982,7 +994,7 @@ function AboutTab() {
               <Info className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Wissensdatenbank</p>
+              <p className="text-sm font-medium text-foreground">{t('settings.about.knowledgeBase')}</p>
               <p className="text-xs text-muted-foreground">docs.zentria.tech</p>
             </div>
           </div>
@@ -1001,8 +1013,8 @@ function AboutTab() {
       </div>
 
       {/* Interactive Tours */}
-      <h3 className="text-sm font-medium text-foreground mb-1">Interaktive Touren</h3>
-      <p className="text-xs text-muted-foreground mb-3">Starte eine geführte Tour um die App oder einzelne Module kennenzulernen</p>
+      <h3 className="text-sm font-medium text-foreground mb-1">{t('settings.about.tours')}</h3>
+      <p className="text-xs text-muted-foreground mb-3">{t('settings.about.toursDesc')}</p>
       <div className="space-y-2 mb-8">
         {tours.map((tour) => (
           <div
@@ -1018,19 +1030,19 @@ function AboutTab() {
               size="sm"
               onClick={() => startTour(tour.id)}
             >
-              Tour starten
+              {t('settings.about.startTour')}
             </Button>
           </div>
         ))}
       </div>
 
       {/* System info */}
-      <h3 className="text-sm font-medium text-foreground mb-3">System</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.about.system')}</h3>
       <div className="rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground space-y-1">
-        <div className="flex justify-between"><span>Version</span><span className="text-foreground">0.1.0 (Beta)</span></div>
-        <div className="flex justify-between"><span>Lizenz</span><span className="text-foreground">Enterprise</span></div>
-        <div className="flex justify-between"><span>Hosting</span><span className="text-foreground">EU (Hetzner)</span></div>
-        <div className="flex justify-between"><span>Datenschutz</span><span className="text-foreground">DSGVO-konform</span></div>
+        <div className="flex justify-between"><span>{t('settings.about.version')}</span><span className="text-foreground">0.1.0 (Beta)</span></div>
+        <div className="flex justify-between"><span>{t('settings.about.license')}</span><span className="text-foreground">Enterprise</span></div>
+        <div className="flex justify-between"><span>{t('settings.about.hosting')}</span><span className="text-foreground">EU (Hetzner)</span></div>
+        <div className="flex justify-between"><span>{t('settings.about.privacy')}</span><span className="text-foreground">{t('settings.about.gdprCompliant')}</span></div>
       </div>
     </div>
   )

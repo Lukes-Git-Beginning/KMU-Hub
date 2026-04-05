@@ -5,6 +5,7 @@
  * Dismissable suggestion cards: "Widget X hinzufügen".
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Truck,
   FileCheck,
@@ -23,8 +24,8 @@ import type { BusinessProfileId } from '../../config/business-profiles'
 
 interface WidgetSuggestion {
   id: string
-  label: string
-  description: string
+  labelKey: string
+  descriptionKey: string
   icon: React.ElementType
   /** nav-items module ID for color lookup */
   moduleId: string
@@ -32,19 +33,19 @@ interface WidgetSuggestion {
 
 const profileSuggestions: Record<string, WidgetSuggestion[]> = {
   handwerk: [
-    { id: 'fuhrpark-status', label: 'Fuhrpark-Status', description: 'Fahrzeuge und nächste Termine', icon: Truck, moduleId: 'fuhrpark' },
-    { id: 'aktive-rapporte', label: 'Aktive Rapporte', description: 'Offene Rapporte und Freigaben', icon: FileCheck, moduleId: 'rapporte' },
-    { id: 'zeiterfassung-quick', label: 'Zeiterfassung', description: 'Timer starten und Stunden', icon: Clock, moduleId: 'zeiterfassung' },
+    { id: 'fuhrpark-status', labelKey: 'dashboard.suggestions.fleetStatus', descriptionKey: 'dashboard.suggestions.fleetStatusDesc', icon: Truck, moduleId: 'fuhrpark' },
+    { id: 'aktive-rapporte', labelKey: 'dashboard.suggestions.activeReports', descriptionKey: 'dashboard.suggestions.activeReportsDesc', icon: FileCheck, moduleId: 'rapporte' },
+    { id: 'zeiterfassung-quick', labelKey: 'dashboard.suggestions.timeTracking', descriptionKey: 'dashboard.suggestions.timeTrackingDesc', icon: Clock, moduleId: 'zeiterfassung' },
   ],
   it_tech: [
-    { id: 'offene-tickets', label: 'Offene Tickets', description: 'Support-Tickets nach Prioritaet', icon: Ticket, moduleId: 'helpdesk' },
-    { id: 'sprint-status', label: 'Sprint-Status', description: 'Aktuelle Sprint-Fortschritte', icon: Rocket, moduleId: 'projects' },
-    { id: 'nachrichten-quick', label: 'Nachrichten', description: 'Ungelesene Chat-Nachrichten', icon: MessageSquare, moduleId: 'chat' },
+    { id: 'offene-tickets', labelKey: 'dashboard.suggestions.openTickets', descriptionKey: 'dashboard.suggestions.openTicketsDesc', icon: Ticket, moduleId: 'helpdesk' },
+    { id: 'sprint-status', labelKey: 'dashboard.suggestions.sprintStatus', descriptionKey: 'dashboard.suggestions.sprintStatusDesc', icon: Rocket, moduleId: 'projects' },
+    { id: 'nachrichten-quick', labelKey: 'dashboard.suggestions.messages', descriptionKey: 'dashboard.suggestions.messagesDesc', icon: MessageSquare, moduleId: 'chat' },
   ],
   dienstleistung: [
-    { id: 'nächste-termine', label: 'Nächste Termine', description: 'Kommende Termine und Meetings', icon: Clock, moduleId: 'calendar' },
-    { id: 'offene-rechnungen', label: 'Offene Rechnungen', description: 'Überfällige und offene Rechnungen', icon: Receipt, moduleId: 'finance' },
-    { id: 'kontakte-quick', label: 'Kontakte', description: 'Zuletzt bearbeitete Kontakte', icon: Users, moduleId: 'contacts' },
+    { id: 'nächste-termine', labelKey: 'dashboard.suggestions.nextAppointments', descriptionKey: 'dashboard.suggestions.nextAppointmentsDesc', icon: Clock, moduleId: 'calendar' },
+    { id: 'offene-rechnungen', labelKey: 'dashboard.suggestions.openInvoices', descriptionKey: 'dashboard.suggestions.openInvoicesDesc', icon: Receipt, moduleId: 'finance' },
+    { id: 'kontakte-quick', labelKey: 'dashboard.suggestions.contacts', descriptionKey: 'dashboard.suggestions.contactsDesc', icon: Users, moduleId: 'contacts' },
   ],
 }
 
@@ -59,6 +60,7 @@ function getSuggestionsForProfile(profileId: BusinessProfileId | null): WidgetSu
 }
 
 export function ProfileWidgetSuggestions() {
+  const { t } = useTranslation()
   const { businessProfileId } = useProfileStore()
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const [allDismissed, setAllDismissed] = useState(false)
@@ -72,13 +74,13 @@ export function ProfileWidgetSuggestions() {
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Empfohlene Widgets
+          {t('dashboard.suggestions.title')}
         </h3>
         <button
           onClick={() => setAllDismissed(true)}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          Alle ausblenden
+          {t('dashboard.suggestions.hideAll')}
         </button>
       </div>
       <div className="flex flex-wrap gap-3">
@@ -94,8 +96,8 @@ export function ProfileWidgetSuggestions() {
               <suggestion.icon className="h-4.5 w-4.5" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">{suggestion.label}</p>
-              <p className="text-xs text-muted-foreground">{suggestion.description}</p>
+              <p className="text-sm font-medium text-foreground">{t(suggestion.labelKey)}</p>
+              <p className="text-xs text-muted-foreground">{t(suggestion.descriptionKey)}</p>
             </div>
             <button className="ml-2 rounded-md bg-primary/10 p-1.5 text-primary hover:bg-primary/20 transition-colors">
               <Plus className="h-3.5 w-3.5" />

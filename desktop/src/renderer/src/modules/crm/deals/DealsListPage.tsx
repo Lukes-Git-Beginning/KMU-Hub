@@ -7,6 +7,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Plus,
   Search,
@@ -48,6 +49,7 @@ function formatCurrency(value?: number, currency?: string): string {
 }
 
 export default function DealsListPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [view, setView] = useState<'list' | 'pipeline'>('list')
   const [search, setSearch] = useState('')
@@ -93,9 +95,9 @@ export default function DealsListPage() {
           ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
         },
       })
-      toast.success('Deal erstellt')
+      toast.success(t('crm.deals.created'))
     } catch {
-      toast.error('Fehler beim Erstellen des Deals')
+      toast.error(t('crm.deals.createError'))
     }
   }
 
@@ -104,13 +106,13 @@ export default function DealsListPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Deals
+            {t('crm.deals.loadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('crm.error.unexpected')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -121,8 +123,8 @@ export default function DealsListPage() {
     <div className="p-6 space-y-4">
       {/* Header */}
       <PageHeader
-        title="Deals"
-        description={`${data?.total ?? 0} Deals`}
+        title={t('crm.deals.title')}
+        description={t('crm.deals.count', { count: data?.total ?? 0 })}
         icon={TrendingUp}
         moduleId="contacts"
         actions={
@@ -147,7 +149,7 @@ export default function DealsListPage() {
             </div>
             <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Neuer Deal
+              {t('crm.deals.new')}
             </Button>
           </div>
         }
@@ -161,7 +163,7 @@ export default function DealsListPage() {
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Deals suchen..."
+              placeholder={t('crm.deals.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -178,17 +180,17 @@ export default function DealsListPage() {
             <div className="flex flex-col items-center justify-center py-16">
               <TrendingUp className="h-12 w-12 text-muted-foreground" />
               <p className="mt-4 text-lg font-medium text-foreground">
-                Keine Deals gefunden
+                {t('crm.deals.noResults')}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {debouncedSearch
-                  ? 'Versuche einen anderen Suchbegriff.'
-                  : 'Erstelle deinen ersten Deal, um loszulegen.'}
+                  ? t('crm.tryDifferentSearch')
+                  : t('crm.deals.emptyHint')}
               </p>
               {!debouncedSearch && (
                 <Button className="mt-4 gap-2" onClick={() => setShowCreateDialog(true)}>
                   <Plus className="h-4 w-4" />
-                  Ersten Deal erstellen
+                  {t('crm.deals.createFirst')}
                 </Button>
               )}
             </div>
@@ -197,12 +199,12 @@ export default function DealsListPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Phase</TableHead>
-                    <TableHead>Wert</TableHead>
-                    <TableHead>Kontakt</TableHead>
-                    <TableHead>Erwarteter Abschluss</TableHead>
-                    <TableHead>Tags</TableHead>
+                    <TableHead>{t('crm.field.name')}</TableHead>
+                    <TableHead>{t('crm.deals.stage')}</TableHead>
+                    <TableHead>{t('crm.deals.value')}</TableHead>
+                    <TableHead>{t('crm.field.contact')}</TableHead>
+                    <TableHead>{t('crm.deals.expectedClose')}</TableHead>
+                    <TableHead>{t('crm.field.tags')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -260,7 +262,7 @@ export default function DealsListPage() {
 
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  {total} Deal{total !== 1 ? 's' : ''} gesamt
+                  {t('crm.deals.totalCount', { count: total })}
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
@@ -272,7 +274,7 @@ export default function DealsListPage() {
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <span className="text-sm text-muted-foreground">
-                    Seite {page} von {totalPages}
+                    {t('crm.pagination', { page, totalPages })}
                   </span>
                   <Button
                     variant="outline"

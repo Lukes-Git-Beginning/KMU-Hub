@@ -2,6 +2,7 @@
  * KPI Revenue widget — monthly revenue with comparison to previous month.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Euro, TrendingUp, TrendingDown } from 'lucide-react'
 import { useFinanceDashboard } from '@/api/hooks/useFinance'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
@@ -11,12 +12,13 @@ function fmt(n: number) {
 }
 
 function KpiRevenue(_props: WidgetProps) {
+  const { t } = useTranslation()
   const { data: dashboard, isLoading } = useFinanceDashboard()
 
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label={t('common.loading')} className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -41,7 +43,7 @@ function KpiRevenue(_props: WidgetProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/10">
             <Euro className="h-4 w-4 text-success" />
           </div>
-          <span className="text-xs font-medium text-muted-foreground">Monatsumsatz</span>
+          <span className="text-xs font-medium text-muted-foreground">{t('dashboard.kpiRevenue.monthlyRevenue')}</span>
         </div>
         <p className="text-2xl font-bold text-foreground">{fmt(current)}</p>
         <div className="mt-1 flex items-center gap-1">
@@ -53,7 +55,7 @@ function KpiRevenue(_props: WidgetProps) {
           <span className={`text-xs font-medium ${isUp ? 'text-success' : 'text-destructive'}`}>
             {isUp ? '+' : ''}{changePercent.toFixed(1)}%
           </span>
-          <span className="text-xs text-muted-foreground">vs. Vormonat ({fmt(previous)})</span>
+          <span className="text-xs text-muted-foreground">{t('dashboard.kpiRevenue.vsPreviousMonth', { amount: fmt(previous) })}</span>
         </div>
       </div>
 
@@ -73,7 +75,7 @@ function KpiRevenue(_props: WidgetProps) {
           ))
         ) : (
           <div className="flex w-full items-center justify-center">
-            <p className="text-[10px] text-muted-foreground">Kein Monatsverlauf verfügbar</p>
+            <p className="text-[10px] text-muted-foreground">{t('dashboard.kpiRevenue.noMonthlyData')}</p>
           </div>
         )}
       </div>

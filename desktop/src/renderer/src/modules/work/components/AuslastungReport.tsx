@@ -7,6 +7,7 @@
  * Mock data for design — backend swap: real time tracking data from API.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   BarChart3,
   CalendarDays,
@@ -127,6 +128,7 @@ function getUtilTextColor(pct: number): string {
 // ---------------------------------------------------------------------------
 
 export default function AuslastungReport({ projectId: _projectId }: AuslastungReportProps) {
+  const { t } = useTranslation()
   const [viewMode, setViewMode] = useState<ViewMode>('week')
 
   // Calculate summary stats
@@ -178,7 +180,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
         <div className="flex items-center gap-3">
           <BarChart3 className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">
-            Teamauslastung
+            {t('work.utilization.title')}
           </span>
         </div>
 
@@ -191,7 +193,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
             onClick={() => setViewMode('week')}
           >
             <CalendarDays className="h-3.5 w-3.5" />
-            Woche
+            {t('work.utilization.week')}
           </Button>
           <Button
             variant={viewMode === 'month' ? 'secondary' : 'ghost'}
@@ -200,7 +202,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
             onClick={() => setViewMode('month')}
           >
             <CalendarRange className="h-3.5 w-3.5" />
-            Monat
+            {t('work.utilization.month')}
           </Button>
         </div>
       </div>
@@ -212,7 +214,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
           <div className="rounded-lg border border-border bg-card p-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <User className="h-3.5 w-3.5" />
-              Teammitglieder
+              {t('work.utilization.teamMembers')}
             </div>
             <p className="text-lg font-semibold text-foreground">
               {MOCK_TEAM.length}
@@ -222,7 +224,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
           <div className="rounded-lg border border-border bg-card p-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <TrendingUp className="h-3.5 w-3.5" />
-              Durchschn. Auslastung
+              {t('work.utilization.avgUtilization')}
             </div>
             <p className={cn('text-lg font-semibold', getUtilTextColor(avgUtilization))}>
               {avgUtilization}%
@@ -232,7 +234,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
           <div className="rounded-lg border border-border bg-card p-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <Clock className="h-3.5 w-3.5" />
-              Personalkosten (Zeitraum)
+              {t('work.utilization.personnelCosts')}
             </div>
             <p className="text-lg font-semibold text-foreground">
               {formatCurrency(totalCost)}
@@ -245,7 +247,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
           {/* Period headers */}
           <div className="grid items-center gap-2" style={{ gridTemplateColumns: `180px repeat(${periods.length}, 1fr)` }}>
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-              Mitarbeiter
+              {t('work.utilization.employee')}
             </span>
             {periods.map((period) => (
               <span
@@ -326,15 +328,15 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
           <div className="flex items-center gap-4 pt-3 text-[10px] text-muted-foreground border-t border-border mt-2">
             <div className="flex items-center gap-1.5">
               <div className="h-3 w-5 rounded bg-success" />
-              <span>&lt;80% (Kapazitaet frei)</span>
+              <span>{t('work.utilization.legendFree')}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-3 w-5 rounded bg-warning" />
-              <span>80-100% (Gut ausgelastet)</span>
+              <span>{t('work.utilization.legendGood')}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-3 w-5 rounded bg-destructive" />
-              <span>&gt;100% (Überlastet)</span>
+              <span>{t('work.utilization.legendOverloaded')}</span>
             </div>
           </div>
         </div>
@@ -345,7 +347,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive" />
               <span className="text-sm font-medium text-destructive">
-                Überlastungswarnungen
+                {t('work.utilization.overloadWarnings')}
               </span>
             </div>
             <div className="space-y-1">
@@ -353,12 +355,12 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
                 <div key={i} className="flex items-center gap-2 text-xs text-destructive">
                   <span className="font-medium">{warn.name}</span>
                   <span className="text-destructive">—</span>
-                  <span>{warn.period}: {warn.pct}% Auslastung</span>
+                  <span>{warn.period}: {warn.pct}% {t('work.utilization.utilization')}</span>
                 </div>
               ))}
               {overloaded.length > 8 && (
                 <p className="text-xs text-destructive">
-                  ... und {overloaded.length - 8} weitere
+                  {t('work.utilization.andMore', { count: overloaded.length - 8 })}
                 </p>
               )}
             </div>

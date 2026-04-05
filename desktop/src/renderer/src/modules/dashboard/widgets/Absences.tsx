@@ -2,18 +2,19 @@
  * Absences widget — who is out today (sick, vacation, etc.).
  */
 import { memo, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Palmtree, Thermometer, Baby, GraduationCap, Home } from 'lucide-react'
 import { useAbsenceCalendar } from '@/api/hooks/hr-hooks'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 type AbsenceType = 'urlaub' | 'krank' | 'elternzeit' | 'weiterbildung' | 'homeoffice'
 
-const TYPE_CONFIG: Record<AbsenceType, { icon: typeof Palmtree; label: string; color: string; bgColor: string }> = {
-  urlaub: { icon: Palmtree, label: 'Urlaub', color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
-  krank: { icon: Thermometer, label: 'Krank', color: 'text-destructive', bgColor: 'bg-destructive/10' },
-  elternzeit: { icon: Baby, label: 'Elternzeit', color: 'text-violet-600', bgColor: 'bg-violet-500/10' },
-  weiterbildung: { icon: GraduationCap, label: 'Weiterbildung', color: 'text-warning-foreground', bgColor: 'bg-warning/10' },
-  homeoffice: { icon: Home, label: 'Homeoffice', color: 'text-cyan-600', bgColor: 'bg-cyan-500/10' },
+const TYPE_CONFIG: Record<AbsenceType, { icon: typeof Palmtree; labelKey: string; color: string; bgColor: string }> = {
+  urlaub: { icon: Palmtree, labelKey: 'dashboard.absences.vacation', color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
+  krank: { icon: Thermometer, labelKey: 'dashboard.absences.sick', color: 'text-destructive', bgColor: 'bg-destructive/10' },
+  elternzeit: { icon: Baby, labelKey: 'dashboard.absences.parentalLeave', color: 'text-violet-600', bgColor: 'bg-violet-500/10' },
+  weiterbildung: { icon: GraduationCap, labelKey: 'dashboard.absences.training', color: 'text-warning-foreground', bgColor: 'bg-warning/10' },
+  homeoffice: { icon: Home, labelKey: 'dashboard.absences.homeOffice', color: 'text-cyan-600', bgColor: 'bg-cyan-500/10' },
 }
 
 /** Map leave type key from API to local AbsenceType. */
@@ -47,7 +48,7 @@ function formatDate(dateStr: string): string {
 }
 
 function Absences(_props: WidgetProps) {
-   
+  const { t } = useTranslation()
   const todayStr = useMemo(() => {
     const today = new Date()
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -72,7 +73,7 @@ function Absences(_props: WidgetProps) {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div role="status" aria-label="Laden" className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div role="status" aria-label={t('common.loading')} className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
@@ -82,7 +83,7 @@ function Absences(_props: WidgetProps) {
       {/* Summary */}
       <div className="px-4 pt-4 pb-2">
         <p className="text-xs text-muted-foreground">
-          <span className="font-semibold text-foreground">{absences.length}</span> Personen heute abwesend
+          <span className="font-semibold text-foreground">{absences.length}</span> {t('dashboard.absences.absentToday')}
         </p>
       </div>
 
@@ -104,10 +105,10 @@ function Absences(_props: WidgetProps) {
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`flex items-center gap-1 text-[10px] rounded-full px-1.5 py-0.5 ${config.bgColor} ${config.color}`}>
                     <Icon className="h-2.5 w-2.5" />
-                    {config.label}
+                    {t(config.labelKey)}
                   </span>
                   {absence.until && (
-                    <span className="text-[10px] text-muted-foreground">bis {absence.until}</span>
+                    <span className="text-[10px] text-muted-foreground">{t('dashboard.absences.until')} {absence.until}</span>
                   )}
                 </div>
               </div>
@@ -118,7 +119,7 @@ function Absences(_props: WidgetProps) {
 
       {absences.length === 0 && (
         <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-sm text-muted-foreground">Alle da!</p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.absences.allPresent')}</p>
         </div>
       )}
     </div>

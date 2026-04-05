@@ -1,32 +1,34 @@
+import { useTranslation } from 'react-i18next'
 import { AlertCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 interface Alert {
   id: number
-  title: string
+  titleKey: string
   type: 'warning' | 'info'
-  action: string
+  actionKey: string
   path: string
 }
 
 const alerts: Alert[] = [
   {
     id: 1,
-    title: '3 Projekte mit Deadline diese Woche',
+    titleKey: 'dashboard.alerts.projectDeadline',
     type: 'warning',
-    action: 'Projekte anzeigen',
+    actionKey: 'dashboard.alerts.showProjects',
     path: '/work/projects',
   },
   {
     id: 2,
-    title: 'Finanz-Integration verfügbar',
+    titleKey: 'dashboard.alerts.financeIntegration',
     type: 'info',
-    action: 'Jetzt verbinden',
+    actionKey: 'dashboard.alerts.connectNow',
     path: '/finanzen',
   },
 ]
 
 export function AlertsSection() {
+  const { t } = useTranslation()
   if (alerts.length === 0) return null
 
   return (
@@ -48,7 +50,7 @@ export function AlertsSection() {
                   : 'text-info-foreground'
               }`}
             />
-            <span className="text-sm text-foreground">{alert.title}</span>
+            <span className="text-sm text-foreground">{t(alert.titleKey)}</span>
           </div>
           <Link
             to={alert.path}
@@ -58,7 +60,7 @@ export function AlertsSection() {
                 : 'text-info-foreground'
             }`}
           >
-            {alert.action}
+            {t(alert.actionKey)}
           </Link>
         </div>
       ))}

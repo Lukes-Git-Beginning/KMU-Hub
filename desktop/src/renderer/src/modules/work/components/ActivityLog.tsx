@@ -5,6 +5,7 @@
  * creation events, comments, and file attachments. Status changes are
  * visually prominent with color-coded indicators.
  */
+import { useTranslation } from 'react-i18next'
 import {
   ArrowRight,
   UserPlus,
@@ -23,7 +24,7 @@ interface ActivityLogProps {
   taskId: string
 }
 
-function formatRelativeTime(dateStr?: string): string {
+function formatRelativeTime(dateStr: string | undefined, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (!dateStr) return ''
   const date = new Date(dateStr)
   const now = new Date()
@@ -32,10 +33,10 @@ function formatRelativeTime(dateStr?: string): string {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMin < 1) return 'gerade eben'
-  if (diffMin < 60) return `vor ${diffMin} Min.`
-  if (diffHours < 24) return `vor ${diffHours} Std.`
-  if (diffDays < 7) return `vor ${diffDays} Tag${diffDays === 1 ? '' : 'en'}`
+  if (diffMin < 1) return t('work.time.justNow')
+  if (diffMin < 60) return t('work.time.minutesAgo', { count: diffMin })
+  if (diffHours < 24) return t('work.time.hoursAgo', { count: diffHours })
+  if (diffDays < 7) return t('work.time.daysAgo', { count: diffDays })
   return date.toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
@@ -92,54 +93,55 @@ function getActionColor(action?: string): string {
   }
 }
 
-function formatActivityDescription(activity: TaskActivity): string {
-  const actor = activity.actor_name ?? 'Jemand'
+function formatActivityDescription(activity: TaskActivity, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  const actor = activity.actor_name ?? t('work.activity.someone')
   const oldVal = activity.old_value
   const newVal = activity.new_value
 
   switch (activity.action) {
     case 'status_changed':
-      return `${actor} hat den Status von "${oldVal}" zu "${newVal}" geändert`
+      return t('work.activity.statusChanged', { actor, oldVal, newVal })
     case 'assigned':
-      if (newVal && !oldVal) return `${actor} hat ${newVal} zugewiesen`
-      if (!newVal && oldVal) return `${actor} hat die Zuweisung von ${oldVal} entfernt`
-      return `${actor} hat die Zuweisung von ${oldVal} zu ${newVal} geändert`
+      if (newVal && !oldVal) return t('work.activity.assigned', { actor, name: newVal })
+      if (!newVal && oldVal) return t('work.activity.assignmentRemoved', { actor, name: oldVal })
+      return t('work.activity.assignmentChanged', { actor, oldVal, newVal })
     case 'unassigned':
-      return `${actor} hat die Zuweisung entfernt`
+      return t('work.activity.unassigned', { actor })
     case 'priority_changed':
-      return `${actor} hat die Priorität von "${oldVal}" auf "${newVal}" geändert`
+      return t('work.activity.priorityChanged', { actor, oldVal, newVal })
     case 'created':
-      return `${actor} hat die Aufgabe erstellt`
+      return t('work.activity.created', { actor })
     case 'commented':
-      return `${actor} hat kommentiert`
+      return t('work.activity.commented', { actor })
     case 'attachment_added':
-      return `${actor} hat "${newVal}" angehängt`
+      return t('work.activity.attachmentAdded', { actor, name: newVal })
     case 'attachment_removed':
-      return `${actor} hat "${oldVal}" entfernt`
+      return t('work.activity.attachmentRemoved', { actor, name: oldVal })
     case 'linked':
-      return `${actor} hat ${newVal} verknüpft`
+      return t('work.activity.linked', { actor, name: newVal })
     case 'unlinked':
-      return `${actor} hat ${oldVal} entfernt`
+      return t('work.activity.unlinked', { actor, name: oldVal })
     case 'dependency_added':
-      return `${actor} hat eine Abhängigkeit hinzugefügt: ${newVal}`
+      return t('work.activity.dependencyAdded', { actor, name: newVal })
     case 'dependency_removed':
-      return `${actor} hat eine Abhängigkeit entfernt: ${oldVal}`
+      return t('work.activity.dependencyRemoved', { actor, name: oldVal })
     default:
       if (activity.field_name) {
-        return `${actor} hat ${activity.field_name} von "${oldVal}" zu "${newVal}" geändert`
+        return t('work.activity.fieldChanged', { actor, field: activity.field_name, oldVal, newVal })
       }
-      return `${actor} hat eine Änderung vorgenommen`
+      return t('work.activity.genericChange', { actor })
   }
 }
 
 export default function ActivityLog({ taskId }: ActivityLogProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useTaskActivities(taskId)
   const activities = data?.activities ?? []
 
   if (isLoading) {
     return (
       <div className="py-4 text-center text-sm text-muted-foreground">
-        Aktivitäten werden geladen...
+        {t('work.activity.loading')}
       </div>
     )
   }
@@ -147,7 +149,7 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
   if (activities.length === 0) {
     return (
       <div className="py-6 text-center text-sm text-muted-foreground">
-        Keine Aktivitäten vorhanden
+        {t('work.activity.empty')}
       </div>
     )
   }
@@ -182,10 +184,10 @@ export default function ActivityLog({ taskId }: ActivityLogProps) {
                   isStatusChange ? 'font-medium' : 'text-muted-foreground'
                 )}
               >
-                {formatActivityDescription(activity)}
+                {formatActivityDescription(activity, t)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {formatRelativeTime(activity.created_at)}
+                {formatRelativeTime(activity.created_at, t)}
               </p>
             </div>
           </div>

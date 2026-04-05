@@ -5,6 +5,7 @@
  * and relative timestamp. Click navigates to the linked entity.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Activity } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -16,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function ActivityFeed(_props: WidgetProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data, isLoading, error, refetch } = useActivities({
     page_size: 8,
@@ -29,9 +31,9 @@ function ActivityFeed(_props: WidgetProps) {
     return (
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-sm text-muted-foreground">Fehler beim Laden</p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.error.loading')}</p>
           <Button variant="ghost" size="sm" className="mt-2" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -59,7 +61,7 @@ function ActivityFeed(_props: WidgetProps) {
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
           <Activity className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">Keine Aktivitäten</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('dashboard.activityFeed.noActivities')}</p>
         </div>
       </div>
     )

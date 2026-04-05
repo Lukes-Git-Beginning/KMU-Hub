@@ -5,6 +5,7 @@
  * and edit/delete actions for entries owned by the current user.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Clock, Pencil, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
@@ -53,6 +54,7 @@ function formatTime(dateStr: string | undefined): string {
 }
 
 export default function TimeEntryList({ taskId }: TimeEntryListProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useTimeEntries(taskId)
   const deleteEntry = useDeleteTimeEntry()
   const currentUserId = useAuthStore((s) => s.user?.id)
@@ -69,7 +71,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
   if (isLoading) {
     return (
       <div className="text-xs text-muted-foreground py-2">
-        Zeiteinträge werden geladen...
+        {t('work.timeEntries.loading')}
       </div>
     )
   }
@@ -77,7 +79,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
   if (entries.length === 0) {
     return (
       <div className="text-xs text-muted-foreground py-2">
-        Keine Zeiteinträge vorhanden.
+        {t('work.timeEntries.empty')}
       </div>
     )
   }
@@ -101,7 +103,7 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
                 <div className="flex items-center gap-2">
                   <User className="h-3 w-3 text-muted-foreground shrink-0" />
                   <span className="font-medium truncate">
-                    {entry.user_name || 'Benutzer'}
+                    {entry.user_name || t('work.tasks.user')}
                   </span>
                   <span className="text-muted-foreground">
                     {formatDate(entry.started_at)}
@@ -115,14 +117,14 @@ export default function TimeEntryList({ taskId }: TimeEntryListProps) {
                   <span className="font-mono font-medium">
                     {isRunning ? (
                       <span className="text-green-600 dark:text-green-400">
-                        Läuft...
+                        {t('work.timeEntries.running')}
                       </span>
                     ) : (
                       formatDuration(entry.duration_seconds)
                     )}
                   </span>
                   {entry.is_manual && (
-                    <span className="text-muted-foreground">(manuell)</span>
+                    <span className="text-muted-foreground">({t('work.timeEntries.manual')})</span>
                   )}
                 </div>
                 {entry.description && (

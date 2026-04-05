@@ -6,6 +6,7 @@
  * Mock data for design — backend swap: real time entries from Zeiterfassung API.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Clock,
   FileText,
@@ -74,6 +75,7 @@ export default function HoursToInvoiceDialog({
   onOpenChange,
   projectName,
 }: HoursToInvoiceDialogProps) {
+  const { t } = useTranslation()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(MOCK_TIME_ENTRIES.map((e) => e.id))
   )
@@ -130,7 +132,7 @@ export default function HoursToInvoiceDialog({
   )
 
   const handleCreateInvoice = () => {
-    toast.success('Rechnung wird erstellt...', {
+    toast.success(t('work.invoice.creating'), {
       description: `${selectedEntries.length} Positionen, ${formatCurrency(totalAmount)}`,
     })
     onOpenChange(false)
@@ -142,7 +144,7 @@ export default function HoursToInvoiceDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
-            Stunden zu Rechnung
+            {t('work.invoice.title')}
             {projectName && (
               <span className="text-sm font-normal text-muted-foreground">
                 — {projectName}
@@ -157,7 +159,7 @@ export default function HoursToInvoiceDialog({
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Calculator className="h-4 w-4" />
               <span>
-                {selectedIds.size} von {MOCK_TIME_ENTRIES.length} Einträgen ausgewaehlt
+                {t('work.invoice.entriesSelected', { selected: selectedIds.size, total: MOCK_TIME_ENTRIES.length })}
               </span>
             </div>
             <button
@@ -165,8 +167,8 @@ export default function HoursToInvoiceDialog({
               className="text-xs text-primary hover:underline"
             >
               {selectedIds.size === MOCK_TIME_ENTRIES.length
-                ? 'Alle abwählen'
-                : 'Alle wählen'}
+                ? t('work.invoice.deselectAll')
+                : t('work.invoice.selectAll')}
             </button>
           </div>
 
@@ -175,12 +177,12 @@ export default function HoursToInvoiceDialog({
             {/* Header */}
             <div className="grid grid-cols-[28px_80px_1fr_110px_70px_80px_90px] gap-2 items-center bg-secondary/50 px-3 py-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
               <span />
-              <span>Datum</span>
-              <span>Aufgabe</span>
-              <span>Mitarbeiter</span>
-              <span className="text-right">Stunden</span>
-              <span className="text-right">Satz (CHF/h)</span>
-              <span className="text-right">Gesamt</span>
+              <span>{t('work.invoice.date')}</span>
+              <span>{t('work.invoice.task')}</span>
+              <span>{t('work.utilization.employee')}</span>
+              <span className="text-right">{t('work.budget.hours')}</span>
+              <span className="text-right">{t('work.invoice.rate')}</span>
+              <span className="text-right">{t('work.budget.total')}</span>
             </div>
 
             {/* Rows */}
@@ -276,7 +278,7 @@ export default function HoursToInvoiceDialog({
               className="gap-1.5"
             >
               <FileText className="h-3.5 w-3.5" />
-              Rechnung erstellen
+              {t('work.invoice.createInvoice')}
             </Button>
           </div>
         </div>

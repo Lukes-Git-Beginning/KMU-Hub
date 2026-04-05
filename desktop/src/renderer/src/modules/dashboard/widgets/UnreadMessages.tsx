@@ -5,6 +5,7 @@
  * and timestamp. Click navigates to the chat module with the channel selected.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -16,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 function UnreadMessages(_props: WidgetProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data, isLoading, error, refetch } = useChannels()
 
@@ -28,9 +30,9 @@ function UnreadMessages(_props: WidgetProps) {
     return (
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-sm text-muted-foreground">Fehler beim Laden</p>
+          <p className="text-sm text-muted-foreground">{t('dashboard.error.loading')}</p>
           <Button variant="ghost" size="sm" className="mt-2" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -59,7 +61,7 @@ function UnreadMessages(_props: WidgetProps) {
       <div className="flex h-full items-center justify-center p-4">
         <div className="text-center">
           <MessageSquare className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-2 text-sm text-muted-foreground">Alle Nachrichten gelesen</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t('dashboard.unreadMessages.allRead')}</p>
         </div>
       </div>
     )

@@ -5,6 +5,7 @@
  * due date range, and a completed tasks toggle. Composes filter values
  * into query parameters for search/list hooks.
  */
+import { useTranslation } from 'react-i18next'
 import {
   FolderKanban,
   CircleDot,
@@ -44,10 +45,10 @@ const EMPTY_FILTERS: TaskFilters = {
 }
 
 const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Dringend', className: 'text-destructive' },
-  { value: 'high', label: 'Hoch', className: 'text-orange-600' },
-  { value: 'medium', label: 'Normal', className: 'text-blue-600' },
-  { value: 'low', label: 'Niedrig', className: 'text-gray-500' },
+  { value: 'urgent', labelKey: 'work.priority.urgent', className: 'text-destructive' },
+  { value: 'high', labelKey: 'work.priority.high', className: 'text-orange-600' },
+  { value: 'medium', labelKey: 'work.priority.normal', className: 'text-blue-600' },
+  { value: 'low', labelKey: 'work.priority.low', className: 'text-gray-500' },
 ]
 
 interface TaskFilterBarProps {
@@ -62,6 +63,7 @@ export default function TaskFilterBar({
   onFiltersChange,
   hideProjectFilter = false,
 }: TaskFilterBarProps) {
+  const { t } = useTranslation()
   const { data: projectsData } = useProjects({ page_size: 100 })
   const projects = projectsData?.projects ?? []
 
@@ -102,7 +104,7 @@ export default function TaskFilterBar({
               )}
             >
               <FolderKanban className="h-3.5 w-3.5" />
-              Projekt
+              {t('work.filter.project')}
               {filters.projectIds.length > 0 && (
                 <Badge
                   variant="secondary"
@@ -117,7 +119,7 @@ export default function TaskFilterBar({
             <div className="max-h-48 overflow-y-auto space-y-0.5">
               {projects.length === 0 ? (
                 <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Keine Projekte
+                  {t('work.projects.noProjects')}
                 </p>
               ) : (
                 projects.map((p) => (
@@ -171,7 +173,7 @@ export default function TaskFilterBar({
             )}
           >
             <AlertTriangle className="h-3.5 w-3.5" />
-            Priorität
+            {t('work.tasks.priority')}
             {filters.priorities.length > 0 && (
               <Badge
                 variant="secondary"
@@ -210,7 +212,7 @@ export default function TaskFilterBar({
                       : 'border-border'
                   )}
                 />
-                <span className={opt.className}>{opt.label}</span>
+                <span className={opt.className}>{t(opt.labelKey)}</span>
               </button>
             ))}
           </div>
@@ -230,7 +232,7 @@ export default function TaskFilterBar({
             )}
           >
             <Calendar className="h-3.5 w-3.5" />
-            Fällig
+            {t('work.tasks.dueDate')}
             {(filters.dueDateFrom || filters.dueDateTo) && (
               <Badge
                 variant="secondary"
@@ -243,7 +245,7 @@ export default function TaskFilterBar({
         </PopoverTrigger>
         <PopoverContent className="w-56 p-3 space-y-2" align="start">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Von</label>
+            <label className="text-xs text-muted-foreground">{t('work.filter.from')}</label>
             <Input
               type="date"
               className="h-7 text-xs"
@@ -257,7 +259,7 @@ export default function TaskFilterBar({
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Bis</label>
+            <label className="text-xs text-muted-foreground">{t('work.filter.to')}</label>
             <Input
               type="date"
               className="h-7 text-xs"
@@ -283,7 +285,7 @@ export default function TaskFilterBar({
                 })
               }
             >
-              Datum zurücksetzen
+              {t('work.filter.resetDate')}
             </Button>
           )}
         </PopoverContent>
@@ -305,7 +307,7 @@ export default function TaskFilterBar({
         }
       >
         <CircleDot className="h-3.5 w-3.5" />
-        Erledigte
+        {t('work.filter.completed')}
       </Button>
 
       {/* Reset all */}
@@ -317,7 +319,7 @@ export default function TaskFilterBar({
           onClick={resetFilters}
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Zurücksetzen
+          {t('common.resetFilters')}
         </Button>
       )}
     </div>

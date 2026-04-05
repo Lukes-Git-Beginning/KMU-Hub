@@ -7,6 +7,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Plus,
   Search,
@@ -50,6 +51,7 @@ const PAGE_SIZE = 20
 type VisibilityFilter = 'all' | 'shared' | 'personal'
 
 export default function ContactsListPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -115,9 +117,9 @@ export default function ContactsListPage() {
           ...(form.tags.length > 0 ? { _tags: form.tags } : {}),
         },
       })
-      toast.success('Kontakt erstellt')
+      toast.success(t('crm.contacts.created'))
     } catch {
-      toast.error('Fehler beim Erstellen des Kontakts')
+      toast.error(t('crm.contacts.createError'))
     }
   }
 
@@ -126,13 +128,13 @@ export default function ContactsListPage() {
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Kontakte
+            {t('crm.contacts.loadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('crm.error.unexpected')}
           </p>
           <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -143,15 +145,15 @@ export default function ContactsListPage() {
     <div className="p-6 space-y-4">
       {/* Header */}
       <PageHeader
-        title="Kontakte"
-        description={`${total} Kontakte`}
+        title={t('crm.contacts.title')}
+        description={t('crm.contacts.count', { count: total })}
         icon={Contact}
         moduleId="contacts"
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
               <Upload className="h-4 w-4" />
-              Importieren
+              {t('crm.import')}
             </Button>
             <Button
               variant="outline"
@@ -159,11 +161,11 @@ export default function ContactsListPage() {
               className="gap-2"
             >
               <Download className="h-4 w-4" />
-              Exportieren
+              {t('crm.export')}
             </Button>
             <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Neuer Kontakt
+              {t('crm.contacts.new')}
             </Button>
           </div>
         }
@@ -174,8 +176,8 @@ export default function ContactsListPage() {
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            aria-label="Kontakte suchen"
-            placeholder="Kontakte suchen..."
+            aria-label={t('crm.contacts.search')}
+            placeholder={t('crm.contacts.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -189,12 +191,12 @@ export default function ContactsListPage() {
           }}
         >
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="Sichtbarkeit" />
+            <SelectValue placeholder={t('crm.contacts.visibility')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Alle Kontakte</SelectItem>
-            <SelectItem value="shared">Geteilte</SelectItem>
-            <SelectItem value="personal">Persönliche</SelectItem>
+            <SelectItem value="all">{t('crm.contacts.visibilityAll')}</SelectItem>
+            <SelectItem value="shared">{t('crm.contacts.visibilityShared')}</SelectItem>
+            <SelectItem value="personal">{t('crm.contacts.visibilityPersonal')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -210,18 +212,18 @@ export default function ContactsListPage() {
         <div className="flex flex-col items-center justify-center py-16">
           <Users className="h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-lg font-medium text-foreground">
-            Keine Kontakte gefunden
+            {t('crm.contacts.noResults')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {debouncedSearch
-              ? 'Versuche einen anderen Suchbegriff.'
-              : 'Erstelle deinen ersten Kontakt oder importiere Kontakte.'}
+              ? t('crm.tryDifferentSearch')
+              : t('crm.contacts.emptyHint')}
           </p>
           {!debouncedSearch && (
             <div className="mt-4 flex gap-2">
               <Button className="gap-2" onClick={() => setShowCreateDialog(true)}>
                 <Plus className="h-4 w-4" />
-                Ersten Kontakt erstellen
+                {t('crm.contacts.createFirst')}
               </Button>
               <Button
                 variant="outline"
@@ -229,7 +231,7 @@ export default function ContactsListPage() {
                 onClick={() => setImportOpen(true)}
               >
                 <Upload className="h-4 w-4" />
-                Importieren
+                {t('crm.import')}
               </Button>
             </div>
           )}
@@ -239,13 +241,13 @@ export default function ContactsListPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-8"><span className="sr-only">Sichtbarkeit</span></TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>E-Mail</TableHead>
-                <TableHead>Telefon</TableHead>
-                <TableHead>Unternehmen</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Erstellt</TableHead>
+                <TableHead className="w-8"><span className="sr-only">{t('crm.contacts.visibility')}</span></TableHead>
+                <TableHead>{t('crm.field.name')}</TableHead>
+                <TableHead>{t('crm.field.email')}</TableHead>
+                <TableHead>{t('crm.field.phone')}</TableHead>
+                <TableHead>{t('crm.field.company')}</TableHead>
+                <TableHead>{t('crm.field.tags')}</TableHead>
+                <TableHead>{t('crm.field.created')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -264,12 +266,12 @@ export default function ContactsListPage() {
                       {visibility === 'personal' ? (
                         <Lock
                           className="h-3.5 w-3.5 text-warning"
-                          aria-label="Persönlich"
+                          aria-label={t('crm.contacts.visibilityPersonal')}
                         />
                       ) : (
                         <Globe
                           className="h-3.5 w-3.5 text-muted-foreground"
-                          aria-label="Geteilt"
+                          aria-label={t('crm.contacts.visibilityShared')}
                         />
                       )}
                     </TableCell>
@@ -321,7 +323,7 @@ export default function ContactsListPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {total} Kontakt{total !== 1 ? 'e' : ''} gesamt
+              {t('crm.contacts.totalCount', { count: total })}
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -333,7 +335,7 @@ export default function ContactsListPage() {
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm text-muted-foreground">
-                Seite {page} von {totalPages}
+                {t('crm.pagination', { page, totalPages })}
               </span>
               <Button
                 variant="outline"

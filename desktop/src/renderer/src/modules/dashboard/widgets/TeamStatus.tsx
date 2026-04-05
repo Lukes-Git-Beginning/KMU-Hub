@@ -5,6 +5,7 @@
  * for real-time presence status.
  */
 import { memo, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { useEmployees } from '@/api/hooks/hr-hooks'
 import { useBulkPresence } from '@/api/hooks/usePresence'
@@ -13,11 +14,11 @@ import type { WidgetProps } from '@/components/widgets/WidgetRegistry'
 
 type UIStatus = 'online' | 'away' | 'busy' | 'offline'
 
-const STATUS_CONFIG: Record<UIStatus, { color: string; label: string }> = {
-  online: { color: 'bg-success', label: 'Online' },
-  away: { color: 'bg-warning', label: 'Abwesend' },
-  busy: { color: 'bg-destructive', label: 'Beschaeftigt' },
-  offline: { color: 'bg-muted-foreground/50', label: 'Offline' },
+const STATUS_CONFIG: Record<UIStatus, { color: string; labelKey: string }> = {
+  online: { color: 'bg-success', labelKey: 'dashboard.teamStatus.online' },
+  away: { color: 'bg-warning', labelKey: 'dashboard.teamStatus.away' },
+  busy: { color: 'bg-destructive', labelKey: 'dashboard.teamStatus.busy' },
+  offline: { color: 'bg-muted-foreground/50', labelKey: 'dashboard.teamStatus.offline' },
 }
 
 const STATUS_ORDER: UIStatus[] = ['online', 'busy', 'away', 'offline']
@@ -45,6 +46,7 @@ function getInitials(name: string): string {
 }
 
 function TeamStatus(_props: WidgetProps) {
+  const { t } = useTranslation()
   const { data: employeeData, isLoading: loadingEmployees } = useEmployees()
   const employees = useMemo(() => employeeData?.employees ?? [], [employeeData?.employees])
 
@@ -58,12 +60,12 @@ function TeamStatus(_props: WidgetProps) {
   const team = useMemo(() => {
     return employees.map((e) => ({
       id: e.id,
-      name: e.userName ?? `${e.department ?? 'Mitarbeiter'}`,
+      name: e.userName ?? `${e.department ?? t('dashboard.teamStatus.employee')}`,
       role: e.positionTitle ?? e.department ?? '',
       status: mapPresence(presenceMap?.[e.userId]?.status),
       avatar: getInitials(e.userName ?? '?'),
     }))
-  }, [employees, presenceMap])
+  }, [employees, presenceMap, t])
 
   const sorted = useMemo(
     () => [...team].sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)),
@@ -87,7 +89,7 @@ function TeamStatus(_props: WidgetProps) {
   if (team.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-4">
-        <p className="text-xs text-muted-foreground">Keine Teammitglieder gefunden</p>
+        <p className="text-xs text-muted-foreground">{t('dashboard.teamStatus.noMembers')}</p>
       </div>
     )
   }
@@ -100,7 +102,7 @@ function TeamStatus(_props: WidgetProps) {
           <div key={s} className="flex items-center gap-1">
             <span className={`h-2 w-2 rounded-full ${STATUS_CONFIG[s].color}`} />
             <span className="text-xs text-muted-foreground">
-              {counts[s]} {STATUS_CONFIG[s].label}
+              {counts[s]} {t(STATUS_CONFIG[s].labelKey)}
             </span>
           </div>
         ))}

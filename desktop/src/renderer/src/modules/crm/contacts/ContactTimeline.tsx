@@ -5,6 +5,7 @@
  * Filter by type. Mock data for design. Backend swap: replace with API hook.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Clock,
   Filter,
@@ -15,14 +16,14 @@ import { TimelineItem, type TimelineEntry, type TimelineActivityType } from './T
 // Filter config
 // ---------------------------------------------------------------------------
 
-const filterOptions: { value: TimelineActivityType | 'all'; label: string }[] = [
-  { value: 'all', label: 'Alle' },
-  { value: 'email', label: 'E-Mails' },
-  { value: 'call', label: 'Anrufe' },
-  { value: 'meeting', label: 'Meetings' },
-  { value: 'deal', label: 'Deals' },
-  { value: 'ticket', label: 'Tickets' },
-  { value: 'note', label: 'Notizen' },
+const filterOptions: { value: TimelineActivityType | 'all'; labelKey: string }[] = [
+  { value: 'all', labelKey: 'crm.timeline.filterAll' },
+  { value: 'email', labelKey: 'crm.timeline.filterEmails' },
+  { value: 'call', labelKey: 'crm.timeline.filterCalls' },
+  { value: 'meeting', labelKey: 'crm.timeline.filterMeetings' },
+  { value: 'deal', labelKey: 'crm.timeline.filterDeals' },
+  { value: 'ticket', labelKey: 'crm.timeline.filterTickets' },
+  { value: 'note', labelKey: 'crm.timeline.filterNotes' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -145,6 +146,7 @@ interface ContactTimelineProps {
 }
 
 export function ContactTimeline({ contactId: _contactId }: ContactTimelineProps) {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<TimelineActivityType | 'all'>('all')
   const [visibleCount, setVisibleCount] = useState(8)
 
@@ -162,7 +164,7 @@ export function ContactTimeline({ contactId: _contactId }: ContactTimelineProps)
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          Aktivitaeten-Timeline
+          {t('crm.timeline.title')}
           <span className="text-xs text-muted-foreground font-normal">({filtered.length})</span>
         </div>
         <div className="flex items-center gap-1">
@@ -177,7 +179,7 @@ export function ContactTimeline({ contactId: _contactId }: ContactTimelineProps)
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
@@ -186,7 +188,7 @@ export function ContactTimeline({ contactId: _contactId }: ContactTimelineProps)
       {/* Timeline */}
       {visible.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted-foreground">
-          Keine Aktivitaeten für diesen Filter.
+          {t('crm.timeline.noResults')}
         </div>
       ) : (
         <div>
@@ -206,7 +208,7 @@ export function ContactTimeline({ contactId: _contactId }: ContactTimelineProps)
           onClick={() => setVisibleCount((c) => c + 8)}
           className="w-full rounded-md border border-border py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         >
-          Weitere laden ({filtered.length - visibleCount} übrig)
+          {t('crm.timeline.loadMore', { count: filtered.length - visibleCount })}
         </button>
       )}
     </div>

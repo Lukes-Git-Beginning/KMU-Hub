@@ -5,6 +5,7 @@
  * Mock-first: works with local state, ready for API swap.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   TrendingUp,
   Calendar,
@@ -29,12 +30,12 @@ import {
 // ---------------------------------------------------------------------------
 
 const pipelineStages = [
-  { value: 'lead', label: 'Lead', color: '#94a3b8' },
-  { value: 'qualified', label: 'Qualifiziert', color: '#60a5fa' },
-  { value: 'proposal', label: 'Angebot', color: '#a78bfa' },
-  { value: 'negotiation', label: 'Verhandlung', color: '#f59e0b' },
-  { value: 'won', label: 'Gewonnen', color: '#22c55e' },
-  { value: 'lost', label: 'Verloren', color: '#ef4444' },
+  { value: 'lead', labelKey: 'crm.deals.stage.lead', color: '#94a3b8' },
+  { value: 'qualified', labelKey: 'crm.deals.stage.qualified', color: '#60a5fa' },
+  { value: 'proposal', labelKey: 'crm.deals.stage.proposal', color: '#a78bfa' },
+  { value: 'negotiation', labelKey: 'crm.deals.stage.negotiation', color: '#f59e0b' },
+  { value: 'won', labelKey: 'crm.deals.stage.won', color: '#22c55e' },
+  { value: 'lost', labelKey: 'crm.deals.stage.lost', color: '#ef4444' },
 ]
 
 const currencies = [
@@ -44,10 +45,10 @@ const currencies = [
 ]
 
 const priorities = [
-  { value: 'low', label: 'Niedrig' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'high', label: 'Hoch' },
-  { value: 'urgent', label: 'Dringend' },
+  { value: 'low', labelKey: 'crm.priority.low' },
+  { value: 'normal', labelKey: 'crm.priority.normal' },
+  { value: 'high', labelKey: 'crm.priority.high' },
+  { value: 'urgent', labelKey: 'crm.priority.urgent' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -96,6 +97,7 @@ export function DealFormDialog({
   isEdit = false,
   stages: stagesProp,
 }: DealFormDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
   const [currency, setCurrency] = useState('EUR')
@@ -167,7 +169,7 @@ export function DealFormDialog({
   // Resolve which stages to render: API stages (prop) or hardcoded fallback
   const resolvedStages = stagesProp
     ? stagesProp.map((s) => ({ value: s.id, label: s.name, color: s.color, probability: s.probability }))
-    : pipelineStages.map((s) => ({ value: s.value, label: s.label, color: s.color, probability: undefined }))
+    : pipelineStages.map((s) => ({ value: s.value, label: t(s.labelKey), color: s.color, probability: undefined }))
 
   // Auto-update probability based on stage
   const handleStageChange = (newStage: string) => {
@@ -194,9 +196,9 @@ export function DealFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Deal bearbeiten' : 'Neuer Deal'}</DialogTitle>
+          <DialogTitle>{isEdit ? t('crm.deals.editTitle') : t('crm.deals.newTitle')}</DialogTitle>
           <DialogDescription>
-            {isEdit ? 'Deal-Daten aktualisieren.' : 'Erstelle eine neue Verkaufschance.'}
+            {isEdit ? t('crm.deals.editDescription') : t('crm.deals.newDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -205,7 +207,7 @@ export function DealFormDialog({
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
               <Target className="h-3.5 w-3.5 text-muted-foreground" />
-              Deal-Name *
+              {t('crm.deals.dealName')} *
             </label>
             <input
               type="text"
@@ -222,7 +224,7 @@ export function DealFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Banknote className="h-3.5 w-3.5 text-muted-foreground" />
-                Wert
+                {t('crm.deals.value')}
               </label>
               <input
                 type="number"
@@ -235,7 +237,7 @@ export function DealFormDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Waehrung</label>
+              <label className="text-sm font-medium text-foreground">{t('crm.deals.currency')}</label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
@@ -253,7 +255,7 @@ export function DealFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
-                Phase
+                {t('crm.deals.stage')}
               </label>
               <div className="grid grid-cols-3 gap-1">
                 {resolvedStages.map((s) => (
@@ -274,14 +276,14 @@ export function DealFormDialog({
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Prioritaet</label>
+              <label className="text-sm font-medium text-foreground">{t('crm.deals.priority')}</label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:border-primary"
               >
                 {priorities.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
+                  <option key={p.value} value={p.value}>{t(p.labelKey)}</option>
                 ))}
               </select>
             </div>
@@ -292,7 +294,7 @@ export function DealFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Percent className="h-3.5 w-3.5 text-muted-foreground" />
-                Wahrscheinlichkeit (%)
+                {t('crm.deals.probability')}
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -315,7 +317,7 @@ export function DealFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                Erw. Abschluss
+                {t('crm.deals.expectedCloseShort')}
               </label>
               <input
                 type="date"
@@ -331,7 +333,7 @@ export function DealFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <User className="h-3.5 w-3.5 text-muted-foreground" />
-                Kontakt
+                {t('crm.field.contact')}
               </label>
               <input
                 type="text"
@@ -344,7 +346,7 @@ export function DealFormDialog({
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                Unternehmen
+                {t('crm.field.company')}
               </label>
               <input
                 type="text"
@@ -358,7 +360,7 @@ export function DealFormDialog({
 
           {/* Tags */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Tags</label>
+            <label className="text-sm font-medium text-foreground">{t('crm.field.tags')}</label>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-1">
                 {tags.map((tag) => (
@@ -377,7 +379,7 @@ export function DealFormDialog({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
-                placeholder="Tag hinzufügen..."
+                placeholder={t('crm.tags.addPlaceholder')}
                 className="h-9 flex-1 rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               />
               <button
@@ -392,11 +394,11 @@ export function DealFormDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Notizen</label>
+            <label className="text-sm font-medium text-foreground">{t('crm.field.notes')}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Interne Notizen zum Deal..."
+              placeholder={t('crm.deals.notesPlaceholder')}
               rows={3}
               className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary resize-none"
             />
@@ -406,7 +408,7 @@ export function DealFormDialog({
           {Number(value) > 0 && (
             <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Gewichteter Wert</span>
+                <span className="text-muted-foreground">{t('crm.deals.weightedValue')}</span>
                 <span className="font-medium text-foreground">
                   {new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(
                     (Number(value) * Number(probability)) / 100
@@ -433,14 +435,14 @@ export function DealFormDialog({
               onClick={() => onOpenChange(false)}
               className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSubmit}
               disabled={!name.trim()}
               className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {isEdit ? 'Speichern' : 'Erstellen'}
+              {isEdit ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>

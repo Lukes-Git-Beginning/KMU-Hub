@@ -6,6 +6,7 @@
  * viewport width. Drag-and-drop is a future enhancement.
  */
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { usePipelineStages } from '@/api/hooks/usePipelineStages'
 import { useDeals } from '@/api/hooks/useDeals'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,6 +25,7 @@ function formatCurrency(value?: number, currency?: string): string {
 }
 
 export default function DealPipelineView() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const {
     data: stagesData,
@@ -49,10 +51,10 @@ export default function DealPipelineView() {
       <div className="flex items-center justify-center py-16">
         <div className="text-center">
           <p className="text-lg font-semibold text-foreground">
-            Fehler beim Laden der Pipeline
+            {t('crm.deals.pipelineLoadError')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : 'Ein unerwarteter Fehler ist aufgetreten.'}
+            {error instanceof Error ? error.message : t('crm.error.unexpected')}
           </p>
           <Button
             variant="outline"
@@ -62,7 +64,7 @@ export default function DealPipelineView() {
               refetchDeals()
             }}
           >
-            Erneut versuchen
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -88,10 +90,10 @@ export default function DealPipelineView() {
     return (
       <div className="flex flex-col items-center justify-center py-16">
         <p className="text-lg font-medium text-foreground">
-          Keine Pipeline-Phasen definiert
+          {t('crm.deals.noStages')}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pipeline-Phasen werden im Backend konfiguriert.
+          {t('crm.deals.noStagesHint')}
         </p>
       </div>
     )
@@ -139,7 +141,7 @@ export default function DealPipelineView() {
                 <div>
                   <p className="text-sm font-semibold">{stage.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {stageDeals.length} Deal{stageDeals.length !== 1 ? 's' : ''}{' '}
+                    {t('crm.deals.dealCount', { count: stageDeals.length })}{' '}
                     &middot; {formatCurrency(stageTotal)}
                   </p>
                 </div>
@@ -155,7 +157,7 @@ export default function DealPipelineView() {
                 {stageDeals.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border p-4 text-center">
                     <p className="text-xs text-muted-foreground">
-                      Keine Deals
+                      {t('crm.deals.noDeals')}
                     </p>
                   </div>
                 ) : (
@@ -182,7 +184,7 @@ export default function DealPipelineView() {
                       )}
                       {deal.expectedCloseDate && (
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Abschluss:{' '}
+                          {t('crm.deals.closeLabel')}:{' '}
                           {new Date(
                             deal.expectedCloseDate
                           ).toLocaleDateString('de-DE')}

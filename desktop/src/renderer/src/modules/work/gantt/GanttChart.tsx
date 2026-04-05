@@ -7,6 +7,7 @@
  * section below the timeline. Supports interactive bar drag for rescheduling.
  */
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQueries } from '@tanstack/react-query'
 import {
   ZoomIn,
@@ -54,15 +55,16 @@ interface GanttChartProps {
 }
 
 const ZOOM_LEVELS: ZoomLevel[] = ['day', 'week', 'month']
-const ZOOM_LABELS: Record<ZoomLevel, string> = {
-  day: 'Tag',
-  week: 'Woche',
-  month: 'Monat',
+const ZOOM_LABEL_KEYS: Record<ZoomLevel, string> = {
+  day: 'work.gantt.day',
+  week: 'work.gantt.week',
+  month: 'work.gantt.month',
 }
 
 const MAX_GANTT_TASKS = 500
 
 export default function GanttChart({ projectId }: GanttChartProps) {
+  const { t } = useTranslation()
   const [zoom, setZoom] = useState<ZoomLevel>('week')
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const openTaskPanel = useWorkStore((s) => s.openTaskPanel)
@@ -255,13 +257,13 @@ export default function GanttChart({ projectId }: GanttChartProps) {
         { id: taskId, due_date: isoEnd },
         {
           onSuccess: () => {
-            toast.success('Aufgabenzeitraum aktualisiert', {
-              description: `Neues Fälligkeitsdatum: ${format(newEnd, 'dd.MM.yyyy', { locale: de })}`,
+            toast.success(t('work.gantt.dateUpdated'), {
+              description: t('work.gantt.newDueDate', { date: format(newEnd, 'dd.MM.yyyy', { locale: de }) }),
             })
           },
           onError: () => {
-            toast.error('Fehler beim Aktualisieren', {
-              description: 'Die Änderung konnte nicht gespeichert werden.',
+            toast.error(t('work.gantt.updateError'), {
+              description: t('work.gantt.updateErrorDesc'),
             })
           },
         }
@@ -289,10 +291,10 @@ export default function GanttChart({ projectId }: GanttChartProps) {
         <div className="text-center">
           <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <p className="mt-4 text-lg font-semibold text-foreground">
-            Keine Aufgaben vorhanden
+            {t('work.gantt.noTasks')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Erstellen Sie Aufgaben, um die Timeline zu sehen.
+            {t('work.gantt.noTasksHint')}
           </p>
         </div>
       </div>
@@ -306,11 +308,10 @@ export default function GanttChart({ projectId }: GanttChartProps) {
         <div className="text-center">
           <AlertTriangle className="mx-auto h-12 w-12 text-warning" />
           <p className="mt-4 text-lg font-semibold text-foreground">
-            Zu viele Aufgaben für Gantt-Ansicht
+            {t('work.gantt.tooManyTasks')}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Dieses Projekt hat mehr als {MAX_GANTT_TASKS} Aufgaben.
-            Bitte nutzen Sie die Listen- oder Kanban-Ansicht.
+            {t('work.gantt.tooManyTasksHint', { max: MAX_GANTT_TASKS })}
           </p>
         </div>
       </div>
@@ -337,19 +338,19 @@ export default function GanttChart({ projectId }: GanttChartProps) {
                 size="sm"
                 onClick={handleZoomIn}
                 disabled={currentZoomIndex === 0}
-                title="Hineinzoomen"
+                title={t('work.gantt.zoomIn')}
               >
                 <ZoomIn className="h-4 w-4" />
               </Button>
               <span className="text-xs font-medium text-muted-foreground min-w-[50px] text-center">
-                {ZOOM_LABELS[zoom]}
+                {t(ZOOM_LABEL_KEYS[zoom])}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleZoomOut}
                 disabled={currentZoomIndex === ZOOM_LEVELS.length - 1}
-                title="Herauszoomen"
+                title={t('work.gantt.zoomOut')}
               >
                 <ZoomOut className="h-4 w-4" />
               </Button>
@@ -357,7 +358,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
 
             {/* Today button */}
             <Button variant="outline" size="sm" onClick={scrollToToday}>
-              Heute
+              {t('work.gantt.today')}
             </Button>
 
             {/* Date range */}
@@ -368,11 +369,11 @@ export default function GanttChart({ projectId }: GanttChartProps) {
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <div className="h-3 w-6 rounded border-2 border-error bg-error/20" />
-              <span>Kritischer Pfad</span>
+              <span>{t('work.gantt.criticalPath')}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <ArrowRight className="h-3 w-3" />
-              <span>Abhaengigkeit</span>
+              <span>{t('work.gantt.dependency')}</span>
             </div>
           </div>
         </div>
@@ -390,7 +391,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
                 className="flex-shrink-0 flex items-center border-b border-r border-border px-3 text-xs font-medium text-muted-foreground bg-background"
                 style={{ width: TASK_INFO_WIDTH, height: HEADER_HEIGHT }}
               >
-                Aufgabe
+                {t('work.gantt.task')}
               </div>
               {/* Timeline columns header */}
               <div style={{ width: timelineWidth }}>
@@ -471,7 +472,7 @@ export default function GanttChart({ projectId }: GanttChartProps) {
                   className="flex items-center border-y border-border bg-muted/30 px-3 text-xs font-medium text-muted-foreground"
                   style={{ height: ROW_HEIGHT }}
                 >
-                  Ungeplant ({unscheduled.length})
+                  {t('work.gantt.unscheduled')} ({unscheduled.length})
                 </div>
 
                 {/* Unscheduled task rows */}

@@ -6,6 +6,7 @@
  * without needing a dedicated endpoint.
  */
 import { memo, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Hash, ArrowRight, Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useChannels } from '@/api/hooks/useChannels'
@@ -31,6 +32,7 @@ function formatTime(iso?: string): string {
 const MAX_MESSAGES = 7
 
 function TeamChat(_props: WidgetProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: channelData, isLoading } = useChannels()
   const channels = useMemo(() => channelData?.channels ?? [], [channelData?.channels])
@@ -42,7 +44,7 @@ function TeamChat(_props: WidgetProps) {
         id: ch.last_message!.id ?? ch.id ?? '',
         senderName: [ch.last_message!.sender_first_name, ch.last_message!.sender_last_name]
           .filter(Boolean)
-          .join(' ') || 'Unbekannt',
+          .join(' ') || t('dashboard.teamChat.unknown'),
         senderInitials: getInitials(
           ch.last_message!.sender_first_name,
           ch.last_message!.sender_last_name,
@@ -55,7 +57,7 @@ function TeamChat(_props: WidgetProps) {
       }))
       .sort((a, b) => b.sortKey.localeCompare(a.sortKey))
       .slice(0, MAX_MESSAGES)
-  }, [channels])
+  }, [channels, t])
 
   const unreadCount = recentMessages.filter((m) => m.unread).length
 
@@ -71,16 +73,16 @@ function TeamChat(_props: WidgetProps) {
     return (
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <span className="text-xs text-muted-foreground">Letzte Nachrichten</span>
+          <span className="text-xs text-muted-foreground">{t('dashboard.teamChat.recentMessages')}</span>
           <button
             onClick={() => navigate('/chat')}
             className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
           >
-            Alle anzeigen <ArrowRight className="h-2.5 w-2.5" />
+            {t('dashboard.notifications.showAll')} <ArrowRight className="h-2.5 w-2.5" />
           </button>
         </div>
         <div className="flex flex-1 items-center justify-center px-4">
-          <p className="text-xs text-muted-foreground">Keine Nachrichten vorhanden</p>
+          <p className="text-xs text-muted-foreground">{t('dashboard.teamChat.noMessages')}</p>
         </div>
       </div>
     )
@@ -96,7 +98,7 @@ function TeamChat(_props: WidgetProps) {
               {unreadCount}
             </span>
           )}
-          Letzte Nachrichten
+          {t('dashboard.teamChat.recentMessages')}
         </span>
         <button
           onClick={() => navigate('/chat')}

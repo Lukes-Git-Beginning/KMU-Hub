@@ -7,6 +7,7 @@
  * "N more nested" link). Keeps the board clean per design principle.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib'
 import type { TaskData } from '../list/TaskRow'
@@ -29,6 +30,7 @@ export default function KanbanSubtaskGroup({
   onTaskClick,
   childrenMap,
 }: KanbanSubtaskGroupProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(depth < 2)
 
   if (subtasks.length === 0) return null
@@ -44,7 +46,7 @@ export default function KanbanSubtaskGroup({
             if (subtasks[0]?.id) onTaskClick(subtasks[0].id)
           }}
         >
-          {subtasks.length} weitere verschachtelt...
+          {t('work.kanban.moreNested', { count: subtasks.length })}
         </button>
       </div>
     )
@@ -63,7 +65,7 @@ export default function KanbanSubtaskGroup({
         ) : (
           <ChevronRight className="h-3 w-3" />
         )}
-        {subtasks.length} Unteraufgabe{subtasks.length !== 1 ? 'n' : ''}
+        {t('work.tasks.subtaskCount', { count: subtasks.length })}
       </button>
 
       {expanded && (
