@@ -11,7 +11,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv001,
       number: 'RE-2026-001',
+      invoice_number: 'RE-2026-001',
       status: 'paid' as const,
+      customer: { id: IDS.companies.gruberMaschinenbau, name: 'Gruber Maschinenbau GmbH' },
       customer_name: 'Gruber Maschinenbau GmbH',
       customer_id: IDS.companies.gruberMaschinenbau,
       issue_date: daysAgo(45),
@@ -30,7 +32,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv002,
       number: 'RE-2026-002',
+      invoice_number: 'RE-2026-002',
       status: 'paid' as const,
+      customer: { id: IDS.companies.helvetiaSoftware, name: 'Helvetia Software AG' },
       customer_name: 'Helvetia Software AG',
       customer_id: IDS.companies.helvetiaSoftware,
       issue_date: daysAgo(40),
@@ -49,7 +53,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv003,
       number: 'RE-2026-003',
+      invoice_number: 'RE-2026-003',
       status: 'paid' as const,
+      customer: { id: IDS.companies.alpenLogistik, name: 'Alpen Logistik KG' },
       customer_name: 'Alpen Logistik KG',
       customer_id: IDS.companies.alpenLogistik,
       issue_date: daysAgo(35),
@@ -68,7 +74,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv004,
       number: 'RE-2026-004',
+      invoice_number: 'RE-2026-004',
       status: 'paid' as const,
+      customer: { id: IDS.companies.rheinConsulting, name: 'Rhein Consulting GmbH' },
       customer_name: 'Rhein Consulting GmbH',
       customer_id: IDS.companies.rheinConsulting,
       issue_date: daysAgo(30),
@@ -89,7 +97,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv005,
       number: 'RE-2026-005',
+      invoice_number: 'RE-2026-005',
       status: 'sent' as const,
+      customer: { id: IDS.companies.bavariaElektro, name: 'Bavaria Elektro AG' },
       customer_name: 'Bavaria Elektro AG',
       customer_id: IDS.companies.bavariaElektro,
       issue_date: daysAgo(10),
@@ -109,7 +119,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv006,
       number: 'RE-2026-006',
+      invoice_number: 'RE-2026-006',
       status: 'sent' as const,
+      customer: { id: IDS.companies.zurichFintech, name: 'Zürich Fintech Solutions' },
       customer_name: 'Zürich Fintech Solutions',
       customer_id: IDS.companies.zurichFintech,
       issue_date: daysAgo(7),
@@ -127,7 +139,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv007,
       number: 'RE-2026-007',
+      invoice_number: 'RE-2026-007',
       status: 'sent' as const,
+      customer: { id: IDS.companies.wienerDesign, name: 'Wiener Design Studio' },
       customer_name: 'Wiener Design Studio',
       customer_id: IDS.companies.wienerDesign,
       issue_date: daysAgo(5),
@@ -148,7 +162,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv008,
       number: 'RE-2026-008',
+      invoice_number: 'RE-2026-008',
       status: 'overdue' as const,
+      customer: { id: IDS.companies.schwarzwaldHolz, name: 'Schwarzwald Holz GmbH' },
       customer_name: 'Schwarzwald Holz GmbH',
       customer_id: IDS.companies.schwarzwaldHolz,
       issue_date: daysAgo(60),
@@ -167,7 +183,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv009,
       number: 'RE-2026-009',
+      invoice_number: 'RE-2026-009',
       status: 'overdue' as const,
+      customer: { id: IDS.companies.nordlichtMedia, name: 'Nordlicht Media GmbH' },
       customer_name: 'Nordlicht Media GmbH',
       customer_id: IDS.companies.nordlichtMedia,
       issue_date: daysAgo(50),
@@ -188,7 +206,9 @@ export const mockInvoices = {
     {
       id: IDS.invoices.inv010,
       number: 'RE-2026-010',
+      invoice_number: 'RE-2026-010',
       status: 'draft' as const,
+      customer: { id: IDS.companies.donauPharma, name: 'Donau Pharma AG' },
       customer_name: 'Donau Pharma AG',
       customer_id: IDS.companies.donauPharma,
       issue_date: today(),
@@ -209,7 +229,9 @@ export const mockInvoices = {
     {
       id: 'inv-011',
       number: 'RE-2026-011',
+      invoice_number: 'RE-2026-011',
       status: 'draft' as const,
+      customer: { id: IDS.companies.bernSolar, name: 'Bern Solar GmbH' },
       customer_name: 'Bern Solar GmbH',
       customer_id: IDS.companies.bernSolar,
       issue_date: today(),
@@ -230,7 +252,9 @@ export const mockInvoices = {
     {
       id: 'inv-012',
       number: 'RE-2026-012',
+      invoice_number: 'RE-2026-012',
       status: 'cancelled' as const,
+      customer: { id: IDS.companies.hanseatischIT, name: 'Hanseatisch IT Services' },
       customer_name: 'Hanseatisch IT Services',
       customer_id: IDS.companies.hanseatischIT,
       issue_date: daysAgo(25),
@@ -260,7 +284,9 @@ export const mockQuotes = {
     {
       id: 'qt-001',
       number: 'AN-2026-001',
+      quote_number: 'AN-2026-001',
       status: 'accepted' as const,
+      customer: { id: IDS.companies.gruberMaschinenbau, name: 'Gruber Maschinenbau GmbH' },
       customer_name: 'Gruber Maschinenbau GmbH',
       customer_id: IDS.companies.gruberMaschinenbau,
       valid_until: daysAgo(10),
@@ -275,7 +301,9 @@ export const mockQuotes = {
     {
       id: 'qt-002',
       number: 'AN-2026-002',
+      quote_number: 'AN-2026-002',
       status: 'sent' as const,
+      customer: { id: IDS.companies.donauPharma, name: 'Donau Pharma AG' },
       customer_name: 'Donau Pharma AG',
       customer_id: IDS.companies.donauPharma,
       valid_until: daysFromNow(14),
@@ -292,7 +320,9 @@ export const mockQuotes = {
     {
       id: 'qt-003',
       number: 'AN-2026-003',
+      quote_number: 'AN-2026-003',
       status: 'draft' as const,
+      customer: { id: IDS.companies.bernSolar, name: 'Bern Solar GmbH' },
       customer_name: 'Bern Solar GmbH',
       customer_id: IDS.companies.bernSolar,
       valid_until: daysFromNow(30),
@@ -308,7 +338,9 @@ export const mockQuotes = {
     {
       id: 'qt-004',
       number: 'AN-2026-004',
+      quote_number: 'AN-2026-004',
       status: 'rejected' as const,
+      customer: { id: IDS.companies.hanseatischIT, name: 'Hanseatisch IT Services' },
       customer_name: 'Hanseatisch IT Services',
       customer_id: IDS.companies.hanseatischIT,
       valid_until: daysAgo(5),
@@ -324,7 +356,9 @@ export const mockQuotes = {
     {
       id: 'qt-005',
       number: 'AN-2026-005',
+      quote_number: 'AN-2026-005',
       status: 'expired' as const,
+      customer: { id: IDS.companies.nordlichtMedia, name: 'Nordlicht Media GmbH' },
       customer_name: 'Nordlicht Media GmbH',
       customer_id: IDS.companies.nordlichtMedia,
       valid_until: daysAgo(15),
@@ -339,7 +373,9 @@ export const mockQuotes = {
     {
       id: 'qt-006',
       number: 'AN-2026-006',
+      quote_number: 'AN-2026-006',
       status: 'sent' as const,
+      customer: { id: IDS.companies.bavariaElektro, name: 'Bavaria Elektro AG' },
       customer_name: 'Bavaria Elektro AG',
       customer_id: IDS.companies.bavariaElektro,
       valid_until: daysFromNow(21),
@@ -366,8 +402,10 @@ export const mockCreditNotes = {
     {
       id: 'cn-001',
       number: 'GS-2026-001',
+      credit_note_number: 'GS-2026-001',
       status: 'issued' as const,
       invoice_number: 'RE-2026-012',
+      customer: { id: IDS.companies.hanseatischIT, name: 'Hanseatisch IT Services' },
       customer_name: 'Hanseatisch IT Services',
       customer_id: IDS.companies.hanseatischIT,
       issue_date: daysAgo(20),
@@ -379,8 +417,10 @@ export const mockCreditNotes = {
     {
       id: 'cn-002',
       number: 'GS-2026-002',
+      credit_note_number: 'GS-2026-002',
       status: 'issued' as const,
       invoice_number: 'RE-2026-003',
+      customer: { id: IDS.companies.alpenLogistik, name: 'Alpen Logistik KG' },
       customer_name: 'Alpen Logistik KG',
       customer_id: IDS.companies.alpenLogistik,
       issue_date: daysAgo(28),
@@ -392,8 +432,10 @@ export const mockCreditNotes = {
     {
       id: 'cn-003',
       number: 'GS-2026-003',
+      credit_note_number: 'GS-2026-003',
       status: 'draft' as const,
       invoice_number: 'RE-2026-008',
+      customer: { id: IDS.companies.schwarzwaldHolz, name: 'Schwarzwald Holz GmbH' },
       customer_name: 'Schwarzwald Holz GmbH',
       customer_id: IDS.companies.schwarzwaldHolz,
       issue_date: today(),

@@ -18,6 +18,7 @@ import { inboxHandlers } from './inbox'
 import { videoHandlers } from './video'
 import { dashboardHandlers } from './dashboard'
 import { settingsHandlers } from './settings'
+import { hrHandlers } from './hr'
 
 export const handlers = [
   ...authHandlers,
@@ -36,4 +37,5 @@ export const handlers = [
   ...videoHandlers,
   ...dashboardHandlers,
   ...settingsHandlers,
+  ...hrHandlers,
 ]
