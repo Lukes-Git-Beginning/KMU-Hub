@@ -18,6 +18,11 @@ import messagesIT from '@/i18n/messages/it.json'
 // Module-scoped addition bundles (merged into de during i18n migration)
 import additionsCRM from '@/i18n/additions/crm.json'
 import additionsDashboard from '@/i18n/additions/dashboard.json'
+import additionsFinanzen from '@/i18n/additions/finanzen.json'
+import additionsKommunikation from '@/i18n/additions/kommunikation.json'
+import additionsProfil from '@/i18n/additions/profil.json'
+import additionsSettings from '@/i18n/additions/settings.json'
+import additionsTeam from '@/i18n/additions/team.json'
 import additionsWork from '@/i18n/additions/work.json'
 
 import type { SupportedLocale } from '@/stores/locale'
@@ -27,6 +32,11 @@ const mergedDE = {
   ...messagesDE,
   ...additionsCRM,
   ...additionsDashboard,
+  ...additionsFinanzen,
+  ...additionsKommunikation,
+  ...additionsProfil,
+  ...additionsSettings,
+  ...additionsTeam,
   ...additionsWork,
 }
 
