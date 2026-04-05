@@ -5,6 +5,7 @@
  * CRUD operations via useContactsStore.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Settings2,
   Plus,
@@ -33,13 +34,13 @@ import {
 // Type options
 // ---------------------------------------------------------------------------
 
-const fieldTypes: { value: CustomFieldType; icon: typeof Type; label: string; description: string }[] = [
-  { value: 'text', icon: Type, label: 'Text', description: 'Freitext-Eingabe' },
-  { value: 'number', icon: Hash, label: 'Zahl', description: 'Numerischer Wert' },
-  { value: 'date', icon: Calendar, label: 'Datum', description: 'Datumsauswahl' },
-  { value: 'dropdown', icon: ChevronDown, label: 'Dropdown', description: 'Auswahl aus Liste' },
-  { value: 'checkbox', icon: CheckSquare, label: 'Checkbox', description: 'Ja/Nein-Feld' },
-  { value: 'url', icon: Link2, label: 'URL', description: 'Webadresse' },
+const fieldTypes: { value: CustomFieldType; icon: typeof Type; labelKey: string; descriptionKey: string }[] = [
+  { value: 'text', icon: Type, labelKey: 'kontakte.customField.type.text', descriptionKey: 'kontakte.customField.typeDesc.text' },
+  { value: 'number', icon: Hash, labelKey: 'kontakte.customField.type.number', descriptionKey: 'kontakte.customField.typeDesc.number' },
+  { value: 'date', icon: Calendar, labelKey: 'kontakte.customField.type.date', descriptionKey: 'kontakte.customField.typeDesc.date' },
+  { value: 'dropdown', icon: ChevronDown, labelKey: 'kontakte.customField.type.dropdown', descriptionKey: 'kontakte.customField.typeDesc.dropdown' },
+  { value: 'checkbox', icon: CheckSquare, labelKey: 'kontakte.customField.type.checkbox', descriptionKey: 'kontakte.customField.typeDesc.checkbox' },
+  { value: 'url', icon: Link2, labelKey: 'kontakte.customField.type.url', descriptionKey: 'kontakte.customField.typeDesc.url' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,7 @@ interface CustomFieldsConfigProps {
 }
 
 export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigProps) {
+  const { t } = useTranslation()
   const fields = useContactsStore((s) => s.customFieldDefinitions)
   const addField = useContactsStore((s) => s.addCustomFieldDefinition)
   const updateField = useContactsStore((s) => s.updateCustomFieldDefinition)
@@ -75,7 +77,7 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
       field.options = newOptions.split(',').map((o) => o.trim()).filter(Boolean)
     }
     addField(field)
-    toast.success(`Feld "${newName.trim()}" erstellt`)
+    toast.success(t('kontakte.customField.fieldCreated', { name: newName.trim() }))
     setNewName('')
     setNewType('text')
     setNewRequired(false)
@@ -86,7 +88,7 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
   const handleDelete = () => {
     if (!deleteTarget) return
     deleteField(deleteTarget.id)
-    toast.success(`Feld "${deleteTarget.name}" gelöscht`)
+    toast.success(t('kontakte.customField.fieldDeleted', { name: deleteTarget.name }))
     setDeleteTarget(null)
   }
 
@@ -97,10 +99,10 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-muted-foreground" />
-              Benutzerdefinierte Felder
+              {t('kontakte.customField.title')}
             </DialogTitle>
             <DialogDescription>
-              Verwalte die Felder die bei Kontakten, Firmen und Deals angezeigt werden.
+              {t('kontakte.customField.description')}
             </DialogDescription>
           </DialogHeader>
 
@@ -109,14 +111,14 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {fields.length} Felder definiert
+                  {t('kontakte.customField.fieldsDefined', { count: fields.length })}
                 </span>
                 <button
                   onClick={() => setShowAddForm(true)}
                   className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Neues Feld
+                  {t('kontakte.customField.newField')}
                 </button>
               </div>
 
@@ -124,7 +126,7 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
               {showAddForm && (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">Neues Feld</span>
+                    <span className="text-sm font-medium text-foreground">{t('kontakte.customField.newField')}</span>
                     <button onClick={() => setShowAddForm(false)} className="rounded-md p-1 text-muted-foreground hover:text-foreground">
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -135,7 +137,7 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Feldname"
+                    placeholder={t('kontakte.customField.fieldName')}
                     className="h-8 w-full rounded-md border border-border bg-transparent px-2 text-sm outline-none focus:border-primary"
                     autoFocus
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
@@ -157,7 +159,7 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
                           }`}
                         >
                           <FtIcon className="h-3 w-3" />
-                          {ft.label}
+                          {t(ft.labelKey)}
                         </button>
                       )
                     })}
@@ -169,7 +171,7 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
                       type="text"
                       value={newOptions}
                       onChange={(e) => setNewOptions(e.target.value)}
-                      placeholder="Optionen (kommagetrennt)"
+                      placeholder={t('kontakte.customField.optionsCommaSeparated')}
                       className="h-8 w-full rounded-md border border-border bg-transparent px-2 text-sm outline-none focus:border-primary"
                     />
                   )}
@@ -183,14 +185,14 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
                         onChange={(e) => setNewRequired(e.target.checked)}
                         className="rounded accent-primary"
                       />
-                      Pflichtfeld
+                      {t('kontakte.customField.requiredField')}
                     </label>
                     <button
                       onClick={handleAdd}
                       disabled={!newName.trim()}
                       className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                     >
-                      Hinzufügen
+                      {t('kontakte.customField.add')}
                     </button>
                   </div>
                 </div>
@@ -200,9 +202,9 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
               {fields.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-8 text-center">
                   <Settings2 className="mx-auto h-8 w-8 text-muted-foreground/30" />
-                  <p className="mt-2 text-sm text-muted-foreground">Keine Felder definiert.</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t('kontakte.customField.noFieldsDefined')}</p>
                   <p className="text-xs text-muted-foreground/70">
-                    Klicke "Neues Feld" um ein benutzerdefiniertes Feld zu erstellen.
+                    {t('kontakte.customField.createFieldHint')}
                   </p>
                 </div>
               ) : (
@@ -230,9 +232,9 @@ export function CustomFieldsConfig({ open, onOpenChange }: CustomFieldsConfigPro
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={() => setDeleteTarget(null)}
-        title="Feld löschen"
-        description={`"${deleteTarget?.name}" wird unwiderruflich gelöscht. Alle gespeicherten Werte für dieses Feld gehen verloren.`}
-        confirmLabel="Löschen"
+        title={t('kontakte.customField.deleteTitle')}
+        description={t('kontakte.customField.deleteDescription', { name: deleteTarget?.name })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />

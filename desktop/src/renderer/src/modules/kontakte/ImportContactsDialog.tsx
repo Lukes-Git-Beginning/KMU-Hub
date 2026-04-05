@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -142,6 +143,7 @@ function parseCSV(text: string): ParsedContact[] {
 }
 
 export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportContactsDialogProps) {
+  const { t } = useTranslation()
   const [file, setFile] = useState<File | null>(null)
   const [parsed, setParsed] = useState<ParsedContact[]>([])
   const [error, setError] = useState('')
@@ -163,7 +165,7 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
     setImported(false)
 
     if (!f.name.endsWith('.csv')) {
-      setError('Nur CSV-Dateien werden unterstützt. Bitte eine .csv Datei wählen.')
+      setError(t('kontakte.import.csvOnly'))
       return
     }
 
@@ -171,12 +173,12 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
       const text = await f.text()
       const contacts = parseCSV(text)
       if (contacts.length === 0) {
-        setError('Keine Kontakte gefunden. Stelle sicher, dass die CSV-Datei Spaltenheader hat (z.B. Vorname, Nachname, Email).')
+        setError(t('kontakte.import.noContactsFound'))
       } else {
         setParsed(contacts)
       }
     } catch {
-      setError('Fehler beim Lesen der Datei.')
+      setError(t('kontakte.import.readError'))
     }
   }, [])
 
@@ -204,17 +206,17 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Kontakte importieren</DialogTitle>
+          <DialogTitle>{t('kontakte.import.title')}</DialogTitle>
         </DialogHeader>
 
         {imported ? (
           <div className="py-8 text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-3" />
             <p className="text-base font-medium text-[var(--heading)]">
-              {importCount} Kontakte importiert
+              {t('kontakte.import.importedCount', { count: importCount })}
             </p>
             <p className="text-sm text-[var(--muted)] mt-1">
-              Die Kontakte wurden erfolgreich hinzugefügt.
+              {t('kontakte.import.importedSuccess')}
             </p>
           </div>
         ) : (
@@ -228,10 +230,10 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
             >
               <Upload className="h-8 w-8 text-[var(--muted)] mb-2" />
               <p className="text-sm font-medium text-[var(--body)]">
-                CSV-Datei hierher ziehen
+                {t('kontakte.import.dragCsv')}
               </p>
               <p className="text-xs text-[var(--muted)] mt-1">
-                oder klicken zum Auswählen
+                {t('kontakte.import.orClickToSelect')}
               </p>
               <input
                 id="csv-upload"
@@ -268,15 +270,15 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
             {parsed.length > 0 && (
               <div>
                 <h4 className="text-xs font-medium uppercase text-[var(--muted)] mb-2">
-                  Vorschau ({parsed.length} Kontakte)
+                  {t('kontakte.import.preview', { count: parsed.length })}
                 </h4>
                 <div className="max-h-48 overflow-y-auto rounded-md border border-border">
                   <table className="w-full text-xs">
                     <thead className="bg-secondary/50 sticky top-0">
                       <tr>
-                        <th className="text-left px-2 py-1.5 font-medium text-[var(--muted)]">Name</th>
-                        <th className="text-left px-2 py-1.5 font-medium text-[var(--muted)]">E-Mail</th>
-                        <th className="text-left px-2 py-1.5 font-medium text-[var(--muted)]">Firma</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-[var(--muted)]">{t('kontakte.import.colName')}</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-[var(--muted)]">{t('kontakte.import.colEmail')}</th>
+                        <th className="text-left px-2 py-1.5 font-medium text-[var(--muted)]">{t('kontakte.import.colCompany')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -293,7 +295,7 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
                   </table>
                   {parsed.length > 20 && (
                     <p className="px-2 py-1.5 text-[10px] text-[var(--muted)] border-t border-border-muted">
-                      ... und {parsed.length - 20} weitere
+                      {t('kontakte.import.andMore', { count: parsed.length - 20 })}
                     </p>
                   )}
                 </div>
@@ -303,7 +305,7 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
             {/* Format hint */}
             <div className="rounded-md bg-secondary/50 px-3 py-2">
               <p className="text-xs text-[var(--muted)]">
-                <strong>Format:</strong> CSV mit Spaltenheadern. Unterstuetzte Felder: Vorname, Nachname, Email, Telefon, Mobil, Firma, Position, Abteilung, Strasse, PLZ, Ort, Land, Website, Notizen, Anrede, Kategorie
+                <strong>{t('kontakte.import.formatLabel')}:</strong> {t('kontakte.import.formatDescription')}
               </p>
             </div>
           </div>
@@ -311,12 +313,12 @@ export function ImportContactsDialog({ open, onOpenChange, onImport }: ImportCon
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
-            {imported ? 'Schliessen' : 'Abbrechen'}
+            {imported ? t('common.close') : t('common.cancel')}
           </Button>
           {!imported && parsed.length > 0 && (
             <Button onClick={handleImport}>
               <Upload className="mr-1.5 h-4 w-4" />
-              {parsed.length} Kontakte importieren
+              {t('kontakte.import.importCount', { count: parsed.length })}
             </Button>
           )}
         </DialogFooter>

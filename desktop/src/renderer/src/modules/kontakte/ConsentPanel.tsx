@@ -21,6 +21,7 @@ import {
   Download,
   BadgeCheck,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 // ---------------------------------------------------------------------------
@@ -135,6 +136,7 @@ interface ConsentPanelProps {
 }
 
 export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
+  const { t } = useTranslation()
   const [consents, setConsents] = useState<ConsentEntry[]>(() => createMockConsents(contactId))
   const [grantingId, setGrantingId] = useState<string | null>(null)
   const [selectedSource, setSelectedSource] = useState('Webformular')
@@ -169,7 +171,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
       ),
     )
     setGrantingId(null)
-    toast.success('Einwilligung erteilt')
+    toast.success(t('kontakte.consent.granted'))
   }
 
   const handleRevoke = (id: string) => {
@@ -186,7 +188,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
           : c,
       ),
     )
-    toast.success('Einwilligung widerrufen')
+    toast.success(t('kontakte.consent.revoked'))
   }
 
   const handleGrantAll = () => {
@@ -205,7 +207,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
             },
       ),
     )
-    toast.success('Alle Einwilligungen erteilt')
+    toast.success(t('kontakte.consent.allGranted'))
   }
 
   const handleRevokeAll = () => {
@@ -222,11 +224,11 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
             },
       ),
     )
-    toast.success('Alle Einwilligungen widerrufen')
+    toast.success(t('kontakte.consent.allRevoked'))
   }
 
   const handleExportCSV = () => {
-    toast.success('Einwilligungen als CSV exportiert')
+    toast.success(t('kontakte.consent.exportedCSV'))
   }
 
   return (
@@ -235,18 +237,18 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">DSGVO-Einwilligungen</span>
+          <span className="text-sm font-medium text-foreground">{t('kontakte.consent.title')}</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <Check className="h-3 w-3 text-success" />
-              {grantedCount} erteilt
+              {grantedCount} {t('kontakte.consent.grantedLabel')}
             </span>
             {revokedCount > 0 && (
               <span className="flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3 text-warning" />
-                {revokedCount} widerrufen
+                {revokedCount} {t('kontakte.consent.revokedLabel')}
               </span>
             )}
           </div>
@@ -254,21 +256,21 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
             <button
               onClick={handleGrantAll}
               className="rounded px-1.5 py-0.5 text-[10px] text-success hover:bg-success-light transition-colors"
-              title="Alle erteilen"
+              title={t('kontakte.consent.grantAll')}
             >
-              Alle erteilen
+              {t('kontakte.consent.grantAll')}
             </button>
             <button
               onClick={handleRevokeAll}
               className="rounded px-1.5 py-0.5 text-[10px] text-error hover:bg-error-light transition-colors"
-              title="Alle widerrufen"
+              title={t('kontakte.consent.revokeAll')}
             >
-              Alle widerrufen
+              {t('kontakte.consent.revokeAll')}
             </button>
             <button
               onClick={handleExportCSV}
               className="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              title="Einwilligungen als CSV exportieren"
+              title={t('kontakte.consent.exportCSVTitle')}
             >
               <Download className="h-3 w-3" />
             </button>
@@ -280,7 +282,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
       <div className="flex items-start gap-2 rounded-md bg-info-light/50 px-3 py-2">
         <Info className="h-3.5 w-3.5 text-info mt-0.5 shrink-0" />
         <p className="text-[11px] text-info">
-          Einwilligungen für {contactName}. Jede Änderung wird mit Zeitstempel und Quelle protokolliert.
+          {t('kontakte.consent.infoBanner', { name: contactName })}
         </p>
       </div>
 
@@ -316,7 +318,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                     className="flex items-center gap-1 rounded-md border border-error/30 px-2.5 py-1 text-[11px] font-medium text-error hover:bg-error-light transition-colors"
                   >
                     <X className="h-3 w-3" />
-                    Widerrufen
+                    {t('kontakte.consent.revoke')}
                   </button>
                 ) : (
                   <button
@@ -324,7 +326,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                     className="flex items-center gap-1 rounded-md border border-success/30 px-2.5 py-1 text-[11px] font-medium text-success hover:bg-success-light transition-colors"
                   >
                     <Check className="h-3 w-3" />
-                    Erteilen
+                    {t('kontakte.consent.grant')}
                   </button>
                 )}
               </div>
@@ -335,11 +337,11 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                   {consent.grantedAt && (
                     <span className="flex items-center gap-1">
                       <Clock className="h-2.5 w-2.5" />
-                      Erteilt: {consent.grantedAt}
+                      {t('kontakte.consent.grantedAt')}: {consent.grantedAt}
                     </span>
                   )}
                   {consent.source && (
-                    <span>Quelle: {consent.source}</span>
+                    <span>{t('kontakte.consent.source')}: {consent.source}</span>
                   )}
                   {consent.source === 'E-Mail-Bestätigung' && (
                     <span className="flex items-center gap-1 rounded-full bg-primary-light px-1.5 py-0 text-[9px] font-medium text-primary">
@@ -350,7 +352,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                   {consent.revokedAt && (
                     <span className="text-warning flex items-center gap-1">
                       <AlertTriangle className="h-2.5 w-2.5" />
-                      Widerrufen: {consent.revokedAt}
+                      {t('kontakte.consent.revokedAt')}: {consent.revokedAt}
                     </span>
                   )}
                   {consent.history.length > 0 && (
@@ -363,7 +365,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                       ) : (
                         <ChevronRight className="h-2.5 w-2.5" />
                       )}
-                      Verlauf ({consent.history.length})
+                      {t('kontakte.consent.history')} ({consent.history.length})
                     </button>
                   )}
                 </div>
@@ -377,7 +379,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                       <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${h.action === 'granted' ? 'bg-success' : 'bg-warning'}`} />
                       <span className="text-muted-foreground">{h.date}</span>
                       <span className={h.action === 'granted' ? 'text-success' : 'text-warning'}>
-                        {h.action === 'granted' ? 'Erteilt' : 'Widerrufen'}
+                        {h.action === 'granted' ? t('kontakte.consent.grantedAt') : t('kontakte.consent.revokedAt')}
                       </span>
                       <span className="text-muted-foreground">via {h.source}</span>
                     </div>
@@ -401,7 +403,7 @@ export function ConsentPanel({ contactId, contactName }: ConsentPanelProps) {
                     onClick={() => handleGrant(consent.id)}
                     className="h-7 rounded-md bg-success px-3 text-xs font-medium text-white hover:bg-success/90 transition-colors"
                   >
-                    Bestätigen
+                    {t('common.confirm')}
                   </button>
                   <button
                     onClick={() => setGrantingId(null)}

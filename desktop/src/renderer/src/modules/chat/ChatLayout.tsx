@@ -6,6 +6,7 @@
  * no channel is selected.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MessageSquare } from 'lucide-react'
 import { ChannelList } from './channels/ChannelList'
 import { ChannelHeader } from './channels/ChannelHeader'
@@ -14,6 +15,7 @@ import { MessageInput } from './messages/MessageInput'
 import { ThreadPanel } from './threads/ThreadPanel'
 
 export default function ChatLayout() {
+  const { t } = useTranslation()
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
   const [selectedThreadMessageId, setSelectedThreadMessageId] = useState<string | null>(null)
 
@@ -56,10 +58,10 @@ export default function ChatLayout() {
             <div className="text-center">
               <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <h2 className="mt-4 text-lg font-semibold text-foreground">
-                Wähle einen Channel
+                {t('chat.empty.title')}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Wähle einen Channel oder eine Direktnachricht aus der Liste, um zu chatten.
+                {t('chat.empty.description')}
               </p>
             </div>
           </div>

@@ -5,6 +5,7 @@
  * and hover actions (reply, edit, delete for own messages).
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { MessageSquare, Pencil, Trash2, SmilePlus } from 'lucide-react'
@@ -42,6 +43,7 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, attachments }: MessageBubbleProps) {
+  const { t } = useTranslation()
   const [showActions, setShowActions] = useState(false)
   const [reactions, setReactions] = useState<Reaction[]>(() => generateMockReactions(message.id ?? ''))
   const [showPicker, setShowPicker] = useState(false)
@@ -71,7 +73,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
 
   const senderName = [message.sender_first_name, message.sender_last_name]
     .filter(Boolean)
-    .join(' ') || 'Unbekannt'
+    .join(' ') || t('chat.unknown')
 
   const initials = [message.sender_first_name, message.sender_last_name]
     .filter(Boolean)
@@ -101,7 +103,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
             <span className="text-xs text-muted-foreground">{timeAgo}</span>
           </div>
           <p className="text-sm italic text-muted-foreground">
-            Diese Nachricht wurde gelöscht.
+            {t('chat.messages.deleted')}
           </p>
         </div>
       </div>
@@ -131,7 +133,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
           <span className="text-sm font-medium text-foreground">{senderName}</span>
           <span className="text-xs text-muted-foreground">{timeAgo}</span>
           {isEdited && (
-            <span className="text-xs text-muted-foreground">(bearbeitet)</span>
+            <span className="text-xs text-muted-foreground">({t('chat.messages.edited')})</span>
           )}
         </div>
 
@@ -168,7 +170,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
             onClick={() => message.id && onOpenThread?.(message.id)}
           >
             <MessageSquare className="h-3 w-3" />
-            {replyCount} {replyCount === 1 ? 'Antwort' : 'Antworten'}
+            {t('chat.messages.replyCount', { count: replyCount })}
           </button>
         )}
       </div>
@@ -187,7 +189,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
                 <SmilePlus className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Reagieren</TooltipContent>
+            <TooltipContent>{t('chat.messages.react')}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -201,7 +203,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
                 <MessageSquare className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Antworten</TooltipContent>
+            <TooltipContent>{t('chat.messages.reply')}</TooltipContent>
           </Tooltip>
 
           {isOwn && (
@@ -217,7 +219,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Bearbeiten</TooltipContent>
+                <TooltipContent>{t('common.edit')}</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -231,7 +233,7 @@ export function MessageBubble({ message, isOwn, onOpenThread, onEdit, onDelete, 
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Löschen</TooltipContent>
+                <TooltipContent>{t('common.delete')}</TooltipContent>
               </Tooltip>
             </>
           )}

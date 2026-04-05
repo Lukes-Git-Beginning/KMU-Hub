@@ -5,6 +5,7 @@
  * Active channel is highlighted. Unread badges shown for channels with new messages.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Hash, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { useChannels, useDMs, useUnreadCounts, type ChannelInfo } from '@/api/hooks/useChannels'
@@ -30,6 +31,7 @@ interface ChannelListProps {
 }
 
 export function ChannelList({ selectedChannelId, onSelectChannel }: ChannelListProps) {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState('')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
 
@@ -62,7 +64,7 @@ export function ChannelList({ selectedChannelId, onSelectChannel }: ChannelListP
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Suchen..."
+            placeholder={t('chat.channels.searchPlaceholder')}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="pl-9 h-9"
@@ -75,7 +77,7 @@ export function ChannelList({ selectedChannelId, onSelectChannel }: ChannelListP
         <div className="px-3 pb-2">
           <div className="flex items-center justify-between py-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Channels
+              {t('chat.channels.title')}
             </span>
             <Button
               variant="ghost"
@@ -99,7 +101,7 @@ export function ChannelList({ selectedChannelId, onSelectChannel }: ChannelListP
             ))}
             {channels.length === 0 && (
               <p className="py-2 text-center text-xs text-muted-foreground">
-                Keine Channels gefunden
+                {t('chat.channels.noResults')}
               </p>
             )}
           </div>
@@ -111,7 +113,7 @@ export function ChannelList({ selectedChannelId, onSelectChannel }: ChannelListP
         <div className="px-3 pt-2 pb-4">
           <div className="flex items-center justify-between py-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Direktnachrichten
+              {t('chat.dms.title')}
             </span>
           </div>
 
@@ -127,7 +129,7 @@ export function ChannelList({ selectedChannelId, onSelectChannel }: ChannelListP
             ))}
             {dms.length === 0 && (
               <p className="py-2 text-center text-xs text-muted-foreground">
-                Keine Direktnachrichten
+                {t('chat.dms.noResults')}
               </p>
             )}
           </div>
@@ -189,8 +191,9 @@ function DMItem({
   unreadCount: number
   onClick: () => void
 }) {
+  const { t } = useTranslation()
   const presenceMap = usePresenceStore((s) => s.presenceMap)
-  const name = channel.name || 'Unbekannt'
+  const name = channel.name || t('chat.unknown')
   const initials = name
     .split(' ')
     .slice(0, 2)

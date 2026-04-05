@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ const GROUP_COLORS = [
 ]
 
 export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogProps) {
+  const { t } = useTranslation()
   const { groups, addGroup, updateGroup, deleteGroup } = useContactsStore()
 
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -63,7 +65,7 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Gruppen verwalten</DialogTitle>
+          <DialogTitle>{t('kontakte.groups.manage')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 py-2">
@@ -78,7 +80,7 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
-                    placeholder="Gruppenname"
+                    placeholder={t('kontakte.groups.groupName')}
                     autoFocus
                   />
                   <div className="flex items-center gap-1.5">
@@ -96,11 +98,11 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
                   <div className="flex justify-end gap-1.5">
                     <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                       <X className="h-3.5 w-3.5 mr-1" />
-                      Abbrechen
+                      {t('common.cancel')}
                     </Button>
                     <Button size="sm" onClick={saveEdit} disabled={!editName.trim()}>
                       <Check className="h-3.5 w-3.5 mr-1" />
-                      Speichern
+                      {t('common.save')}
                     </Button>
                   </div>
                 </div>
@@ -111,14 +113,14 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
               return (
                 <div key={group.id} className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
                   <p className="text-sm text-red-700 dark:text-red-400 mb-2">
-                    Gruppe &quot;{group.name}&quot; löschen? Die Kontakte bleiben erhalten.
+                    {t('kontakte.groups.deleteConfirm', { name: group.name })}
                   </p>
                   <div className="flex justify-end gap-1.5">
                     <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmId(null)}>
-                      Abbrechen
+                      {t('common.cancel')}
                     </Button>
                     <Button variant="destructive" size="sm" onClick={() => handleDelete(group.id)}>
-                      Löschen
+                      {t('common.delete')}
                     </Button>
                   </div>
                 </div>
@@ -137,7 +139,7 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium text-[var(--body)]">{group.name}</span>
                   <span className="ml-2 text-xs text-[var(--muted)]">
-                    {memberCount} {memberCount === 1 ? 'Kontakt' : 'Kontakte'}
+                    {t('kontakte.groups.memberCount', { count: memberCount })}
                   </span>
                 </div>
                 <div className="hidden group-hover:flex items-center gap-0.5">
@@ -161,9 +163,9 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
           {groups.length === 0 && !isCreating && (
             <div className="py-6 text-center">
               <Users className="mx-auto h-8 w-8 text-[var(--muted)] mb-2" />
-              <p className="text-sm text-[var(--muted)]">Noch keine Gruppen</p>
+              <p className="text-sm text-[var(--muted)]">{t('kontakte.groups.noGroups')}</p>
               <p className="text-xs text-[var(--muted)] mt-1">
-                Erstelle Gruppen um Kontakte zu organisieren
+                {t('kontakte.groups.noGroupsHint')}
               </p>
             </div>
           )}
@@ -175,7 +177,7 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                placeholder="Neuer Gruppenname"
+                placeholder={t('kontakte.groups.newGroupName')}
                 autoFocus
               />
               <div className="flex items-center gap-1.5">
@@ -192,11 +194,11 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
               </div>
               <div className="flex justify-end gap-1.5">
                 <Button variant="ghost" size="sm" onClick={() => setIsCreating(false)}>
-                  Abbrechen
+                  {t('common.cancel')}
                 </Button>
                 <Button size="sm" onClick={handleCreate} disabled={!newName.trim()}>
                   <Plus className="h-3.5 w-3.5 mr-1" />
-                  Erstellen
+                  {t('common.create')}
                 </Button>
               </div>
             </div>
@@ -211,7 +213,7 @@ export function GroupManagerDialog({ open, onOpenChange }: GroupManagerDialogPro
               }}
             >
               <Plus className="h-4 w-4 mr-1.5" />
-              Neue Gruppe
+              {t('kontakte.groups.newGroup')}
             </Button>
           )}
         </div>

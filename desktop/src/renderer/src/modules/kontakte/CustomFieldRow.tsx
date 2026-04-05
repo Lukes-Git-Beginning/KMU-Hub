@@ -4,6 +4,7 @@
  * Shows field name, type icon, required badge, and edit/delete actions.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Type,
   Hash,
@@ -23,13 +24,13 @@ import type { CustomFieldDefinition, CustomFieldType } from '@/stores/contacts'
 // Type config
 // ---------------------------------------------------------------------------
 
-const typeConfig: Record<CustomFieldType, { icon: typeof Type; label: string; color: string }> = {
-  text: { icon: Type, label: 'Text', color: 'text-blue-500' },
-  number: { icon: Hash, label: 'Zahl', color: 'text-emerald-500' },
-  date: { icon: Calendar, label: 'Datum', color: 'text-orange-500' },
-  dropdown: { icon: ChevronDown, label: 'Dropdown', color: 'text-violet-500' },
-  checkbox: { icon: CheckSquare, label: 'Checkbox', color: 'text-pink-500' },
-  url: { icon: Link2, label: 'URL', color: 'text-cyan-500' },
+const typeConfig: Record<CustomFieldType, { icon: typeof Type; labelKey: string; color: string }> = {
+  text: { icon: Type, labelKey: 'kontakte.customField.type.text', color: 'text-blue-500' },
+  number: { icon: Hash, labelKey: 'kontakte.customField.type.number', color: 'text-emerald-500' },
+  date: { icon: Calendar, labelKey: 'kontakte.customField.type.date', color: 'text-orange-500' },
+  dropdown: { icon: ChevronDown, labelKey: 'kontakte.customField.type.dropdown', color: 'text-violet-500' },
+  checkbox: { icon: CheckSquare, labelKey: 'kontakte.customField.type.checkbox', color: 'text-pink-500' },
+  url: { icon: Link2, labelKey: 'kontakte.customField.type.url', color: 'text-cyan-500' },
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +44,7 @@ interface CustomFieldRowProps {
 }
 
 export function CustomFieldRow({ field, onUpdate, onDelete }: CustomFieldRowProps) {
+  const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(field.name)
   const [editRequired, setEditRequired] = useState(field.required)
@@ -87,12 +89,12 @@ export function CustomFieldRow({ field, onUpdate, onDelete }: CustomFieldRowProp
             autoFocus
             onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel() }}
           />
-          <span className="text-[10px] font-medium text-muted-foreground uppercase">{tc.label}</span>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase">{t(tc.labelKey)}</span>
         </div>
 
         {field.type === 'dropdown' && (
           <div className="pl-6">
-            <label className="text-[11px] text-muted-foreground">Optionen (kommagetrennt)</label>
+            <label className="text-[11px] text-muted-foreground">{t('kontakte.customField.optionsCommaSeparated')}</label>
             <input
               type="text"
               value={editOptions}
@@ -111,7 +113,7 @@ export function CustomFieldRow({ field, onUpdate, onDelete }: CustomFieldRowProp
               onChange={(e) => setEditRequired(e.target.checked)}
               className="rounded accent-primary"
             />
-            Pflichtfeld
+            {t('kontakte.customField.requiredField')}
           </label>
           <div className="flex items-center gap-1">
             <button onClick={handleCancel} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent transition-colors">
@@ -136,16 +138,16 @@ export function CustomFieldRow({ field, onUpdate, onDelete }: CustomFieldRowProp
       <Icon className={`h-4 w-4 shrink-0 ${tc.color}`} />
       <span className="text-sm font-medium text-foreground flex-1">{field.name}</span>
       <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-        {tc.label}
+        {t(tc.labelKey)}
       </span>
       {field.required && (
         <span className="rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning">
-          Pflicht
+          {t('kontakte.customField.required')}
         </span>
       )}
       {field.type === 'dropdown' && field.options && (
         <span className="text-[10px] text-muted-foreground">
-          {field.options.length} Optionen
+          {t('kontakte.customField.optionsCount', { count: field.options.length })}
         </span>
       )}
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">

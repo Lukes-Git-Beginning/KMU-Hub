@@ -3,6 +3,8 @@
  *
  * Shows a mock form with all defined custom fields, rendered by their type.
  */
+import { useTranslation } from 'react-i18next'
+import i18next from 'i18next'
 import {
   Type,
   Hash,
@@ -36,15 +38,17 @@ interface CustomFieldPreviewProps {
 }
 
 export function CustomFieldPreview({ fields }: CustomFieldPreviewProps) {
+  const { t } = useTranslation()
+
   if (fields.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-center">
         <Eye className="mx-auto h-8 w-8 text-muted-foreground/30" />
         <p className="mt-2 text-sm text-muted-foreground">
-          Noch keine Felder definiert.
+          {t('kontakte.customField.noFieldsDefined')}
         </p>
         <p className="text-xs text-muted-foreground/70">
-          Erstelle ein benutzerdefiniertes Feld um die Vorschau zu sehen.
+          {t('kontakte.customField.createFieldHint')}
         </p>
       </div>
     )
@@ -54,7 +58,7 @@ export function CustomFieldPreview({ fields }: CustomFieldPreviewProps) {
     <div className="rounded-lg border border-border p-4 space-y-3">
       <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
         <Eye className="h-3.5 w-3.5" />
-        Formular-Vorschau
+        {t('kontakte.customField.formPreview')}
       </div>
 
       <div className="space-y-3">
@@ -86,7 +90,7 @@ function renderFieldPreview(field: CustomFieldDefinition) {
 
   switch (field.type) {
     case 'text':
-      return <div className={baseClasses + ' flex items-center'}>Beispieltext...</div>
+      return <div className={baseClasses + ' flex items-center'}>{i18next.t('kontakte.customField.previewText')}</div>
     case 'number':
       return <div className={baseClasses + ' flex items-center'}>12345</div>
     case 'date':
@@ -105,7 +109,7 @@ function renderFieldPreview(field: CustomFieldDefinition) {
     case 'dropdown':
       return (
         <div className={baseClasses + ' flex items-center justify-between'}>
-          <span>{field.options?.[0] ?? 'Auswählen...'}</span>
+          <span>{field.options?.[0] ?? i18next.t('kontakte.customField.selectPlaceholder')}</span>
           <ChevronDown className="h-3.5 w-3.5" />
         </div>
       )

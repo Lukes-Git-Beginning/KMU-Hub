@@ -10,6 +10,7 @@ import {
   GitMerge,
   Search,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { Contact } from '@/stores/contacts'
 import { useContacts } from '@/api/hooks/useContacts'
@@ -45,14 +46,14 @@ function findDuplicates(target: Contact, contacts: Contact[]): DuplicateMatch[] 
     // Email match (highest weight)
     if (target.email && c.email && target.email.toLowerCase() === c.email.toLowerCase()) {
       score += 50
-      reasons.push('Gleiche E-Mail')
+      reasons.push('kontakte.duplicate.sameEmail')
     }
 
     // Phone match
     const normalizePhone = (p: string) => p.replace(/\s+/g, '').replace(/[^0-9+]/g, '')
     if (target.phone && c.phone && normalizePhone(target.phone) === normalizePhone(c.phone)) {
       score += 30
-      reasons.push('Gleiche Telefonnummer')
+      reasons.push('kontakte.duplicate.samePhone')
     }
 
     // Name similarity
@@ -60,16 +61,16 @@ function findDuplicates(target: Contact, contacts: Contact[]): DuplicateMatch[] 
     const nameB = `${c.firstName} ${c.lastName}`.toLowerCase()
     if (nameA === nameB) {
       score += 40
-      reasons.push('Gleicher Name')
+      reasons.push('kontakte.duplicate.sameName')
     } else if (target.lastName.toLowerCase() === c.lastName.toLowerCase()) {
       score += 20
-      reasons.push('Gleicher Nachname')
+      reasons.push('kontakte.duplicate.sameLastName')
     }
 
     // Company match
     if (target.company && c.company && target.company.toLowerCase() === c.company.toLowerCase()) {
       score += 10
-      reasons.push('Gleiche Firma')
+      reasons.push('kontakte.duplicate.sameCompany')
     }
 
     if (score >= 20) {
@@ -97,6 +98,7 @@ export function DuplicateDetectionDialog({
   onOpenChange,
   targetContact,
 }: DuplicateDetectionDialogProps) {
+  const { t } = useTranslation()
   const { data } = useContacts()
   const contacts = (data?.contacts ?? []).map(backendContactToUI)
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
@@ -129,7 +131,7 @@ export function DuplicateDetectionDialog({
   }
 
   const handleMerge = () => {
-    toast.success('Kontakte zusammengefuehrt')
+    toast.success(t('kontakte.duplicate.merged'))
     onOpenChange(false)
     setStep('list')
     setSelectedMatchId(null)
@@ -150,19 +152,19 @@ export function DuplicateDetectionDialog({
             {step === 'list' ? (
               <>
                 <AlertTriangle className="h-5 w-5 text-warning" />
-                Duplikaterkennung
+                {t('kontakte.duplicate.title')}
               </>
             ) : (
               <>
                 <GitMerge className="h-5 w-5 text-primary" />
-                Kontakte zusammenführen
+                {t('kontakte.duplicate.mergeTitle')}
               </>
             )}
           </DialogTitle>
           <DialogDescription>
             {step === 'list'
-              ? `Mögliche Duplikate für "${targetContact.firstName} ${targetContact.lastName}".`
-              : 'Wähle für jedes Feld den Wert den du behalten möchtest.'}
+              ? t('kontakte.duplicate.possibleDuplicatesFor', { name: `${targetContact.firstName} ${targetContact.lastName}` })
+              : t('kontakte.duplicate.selectFieldValues')}
           </DialogDescription>
         </DialogHeader>
 
@@ -171,9 +173,9 @@ export function DuplicateDetectionDialog({
             {duplicates.length === 0 ? (
               <div className="py-8 text-center">
                 <Search className="mx-auto h-10 w-10 text-muted-foreground/30" />
-                <p className="mt-3 text-sm font-medium text-foreground">Keine Duplikate gefunden</p>
+                <p className="mt-3 text-sm font-medium text-foreground">{t('kontakte.duplicate.noDuplicates')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Dieser Kontakt scheint einzigartig zu sein.
+                  {t('kontakte.duplicate.contactIsUnique')}
                 </p>
               </div>
             ) : (

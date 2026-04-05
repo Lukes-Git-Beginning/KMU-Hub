@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ChevronDown, ChevronUp, Plus, X, Globe, Linkedin } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { Contact } from '@/stores/contacts'
 
 interface ContactFormDialogProps {
@@ -27,26 +28,26 @@ interface ContactFormDialogProps {
   onSubmit: (data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>) => void
 }
 
-const categories = [
-  { value: 'employee', label: 'Mitarbeiter' },
-  { value: 'customer', label: 'Kunde' },
-  { value: 'partner', label: 'Partner' },
+const categoryKeys = [
+  { value: 'employee', labelKey: 'kontakte.category.employee' },
+  { value: 'customer', labelKey: 'kontakte.category.customer' },
+  { value: 'partner', labelKey: 'kontakte.category.partner' },
 ]
 
-const statuses = [
-  { value: 'active', label: 'Aktiv' },
-  { value: 'prospect', label: 'Interessent' },
-  { value: 'inactive', label: 'Inaktiv' },
+const statusKeys = [
+  { value: 'active', labelKey: 'kontakte.status.active' },
+  { value: 'prospect', labelKey: 'kontakte.status.prospect' },
+  { value: 'inactive', labelKey: 'kontakte.status.inactive' },
 ]
 
-const salutations = [
-  { value: '', label: 'Keine Anrede' },
-  { value: 'Herr', label: 'Herr' },
-  { value: 'Frau', label: 'Frau' },
+const salutationKeys = [
+  { value: '', labelKey: 'kontakte.form.noSalutation' },
+  { value: 'Herr', labelKey: 'kontakte.form.salutationMr' },
+  { value: 'Frau', labelKey: 'kontakte.form.salutationMs' },
 ]
 
 const academicTitles = [
-  { value: '', label: 'Kein Titel' },
+  { value: '', labelKey: 'kontakte.form.noTitle' },
   { value: 'Dr.', label: 'Dr.' },
   { value: 'Prof.', label: 'Prof.' },
   { value: 'Prof. Dr.', label: 'Prof. Dr.' },
@@ -63,6 +64,7 @@ const availableTags = [
 ]
 
 export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: ContactFormDialogProps) {
+  const { t } = useTranslation()
   const isEdit = !!contact
 
   const [salutation, setSalutation] = useState<'Herr' | 'Frau' | ''>('')
@@ -176,47 +178,47 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</DialogTitle>
+          <DialogTitle>{isEdit ? t('kontakte.form.editTitle') : t('kontakte.form.createTitle')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Salutation + Title + Name */}
           <div className="grid grid-cols-[100px_110px_1fr_1fr] gap-3">
             <div className="space-y-1.5">
-              <Label>Anrede</Label>
+              <Label>{t('kontakte.form.salutation')}</Label>
               <Select value={salutation} onValueChange={(v) => setSalutation(v as typeof salutation)}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
-                  {salutations.map((s) => (
-                    <SelectItem key={s.value} value={s.value || '_none'}>{s.label}</SelectItem>
+                  {salutationKeys.map((s) => (
+                    <SelectItem key={s.value} value={s.value || '_none'}>{t(s.labelKey)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Titel</Label>
+              <Label>{t('kontakte.form.title')}</Label>
               <Select value={title} onValueChange={setTitle}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
-                  {academicTitles.map((t) => (
-                    <SelectItem key={t.value} value={t.value || '_none'}>{t.label}</SelectItem>
+                  {academicTitles.map((at) => (
+                    <SelectItem key={at.value} value={at.value || '_none'}>{at.labelKey ? t(at.labelKey) : at.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Vorname *</Label>
+              <Label>{t('kontakte.form.firstName')} *</Label>
               <Input
-                placeholder="Max"
+                placeholder={t('kontakte.form.firstNamePlaceholder')}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 autoFocus
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Nachname *</Label>
+              <Label>{t('kontakte.form.lastName')} *</Label>
               <Input
-                placeholder="Mustermann"
+                placeholder={t('kontakte.form.lastNamePlaceholder')}
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
               />
@@ -226,16 +228,16 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
           {/* Email + Phone */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>E-Mail</Label>
+              <Label>{t('kontakte.form.email')}</Label>
               <Input
                 type="email"
-                placeholder="max@firma.de"
+                placeholder={t('kontakte.form.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Telefon</Label>
+              <Label>{t('kontakte.form.phone')}</Label>
               <Input
                 placeholder="+49 30 123 45 67"
                 value={phone}
@@ -247,7 +249,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
           {/* Mobile + Company */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Mobil</Label>
+              <Label>{t('kontakte.form.mobile')}</Label>
               <Input
                 placeholder="+49 170 123 4567"
                 value={mobile}
@@ -255,9 +257,9 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Firma</Label>
+              <Label>{t('kontakte.form.company')}</Label>
               <Input
-                placeholder="Firma GmbH"
+                placeholder={t('kontakte.form.companyPlaceholder')}
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
               />
@@ -267,17 +269,17 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
           {/* Job Title + Department */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Position</Label>
+              <Label>{t('kontakte.form.jobTitle')}</Label>
               <Input
-                placeholder="Geschäftsführer"
+                placeholder={t('kontakte.form.jobTitlePlaceholder')}
                 value={jobTitle}
                 onChange={(e) => setJobTitle(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Abteilung</Label>
+              <Label>{t('kontakte.form.department')}</Label>
               <Input
-                placeholder="Entwicklung"
+                placeholder={t('kontakte.form.departmentPlaceholder')}
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
               />
@@ -287,23 +289,23 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
           {/* Category + Status */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Kategorie</Label>
+              <Label>{t('kontakte.form.category')}</Label>
               <Select value={category} onValueChange={(v) => setCategory(v as typeof category)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  {categoryKeys.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{t(c.labelKey)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Status</Label>
+              <Label>{t('common.status')}</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  {statusKeys.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{t(s.labelKey)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -312,7 +314,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
 
           {/* Tags */}
           <div className="space-y-1.5">
-            <Label>Tags</Label>
+            <Label>{t('kontakte.form.tags')}</Label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {selectedTags.map((tag) => (
                 <span
@@ -330,7 +332,7 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
               ))}
             </div>
             <Input
-              placeholder="Tag suchen oder hinzufügen..."
+              placeholder={t('kontakte.form.tagSearchPlaceholder')}
               value={tagSearch}
               onChange={(e) => setTagSearch(e.target.value)}
               onKeyDown={(e) => {
@@ -365,32 +367,32 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
             className="flex items-center gap-1 text-sm text-primary hover:underline"
           >
             {showExtras ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {showExtras ? 'Weniger Optionen' : 'Adresse, Social Media & mehr'}
+            {showExtras ? t('kontakte.form.lessOptions') : t('kontakte.form.moreOptions')}
           </button>
 
           {showExtras && (
             <div className="space-y-4 rounded-lg border border-border p-3">
               {/* Address */}
               <div className="space-y-3">
-                <Label className="text-xs font-medium uppercase text-muted-foreground">Adresse</Label>
+                <Label className="text-xs font-medium uppercase text-muted-foreground">{t('kontakte.form.address')}</Label>
                 <Input
-                  placeholder="Strasse und Hausnummer"
+                  placeholder={t('kontakte.form.streetPlaceholder')}
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
                 />
                 <div className="grid grid-cols-[100px_1fr_1fr] gap-3">
                   <Input
-                    placeholder="PLZ"
+                    placeholder={t('kontakte.form.zipPlaceholder')}
                     value={zip}
                     onChange={(e) => setZip(e.target.value)}
                   />
                   <Input
-                    placeholder="Ort"
+                    placeholder={t('kontakte.form.cityPlaceholder')}
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                   />
                   <Input
-                    placeholder="Land"
+                    placeholder={t('kontakte.form.countryPlaceholder')}
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
                   />
@@ -401,10 +403,10 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1">
                   <Globe className="h-3.5 w-3.5" />
-                  Website
+                  {t('kontakte.form.website')}
                 </Label>
                 <Input
-                  placeholder="www.firma.de"
+                  placeholder={t('kontakte.form.websitePlaceholder')}
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                 />
@@ -418,15 +420,15 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
                     LinkedIn
                   </Label>
                   <Input
-                    placeholder="profilname"
+                    placeholder={t('kontakte.form.linkedinPlaceholder')}
                     value={linkedin}
                     onChange={(e) => setLinkedin(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Xing</Label>
+                  <Label>{t('kontakte.form.xing')}</Label>
                   <Input
-                    placeholder="Profil_Name"
+                    placeholder={t('kontakte.form.xingPlaceholder')}
                     value={xing}
                     onChange={(e) => setXing(e.target.value)}
                   />
@@ -435,9 +437,9 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
 
               {/* Notes */}
               <div className="space-y-1.5">
-                <Label>Notizen</Label>
+                <Label>{t('kontakte.form.notes')}</Label>
                 <Textarea
-                  placeholder="Interne Notizen zum Kontakt..."
+                  placeholder={t('kontakte.form.notesPlaceholder')}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
@@ -449,11 +451,11 @@ export function ContactFormDialog({ open, onOpenChange, contact, onSubmit }: Con
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={!firstName.trim() || !lastName.trim()}>
             <Plus className="mr-1.5 h-4 w-4" />
-            {isEdit ? 'Speichern' : 'Kontakt erstellen'}
+            {isEdit ? t('common.save') : t('kontakte.form.createContact')}
           </Button>
         </DialogFooter>
       </DialogContent>

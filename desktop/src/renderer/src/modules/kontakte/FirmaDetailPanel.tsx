@@ -18,6 +18,7 @@ import {
   Briefcase,
   Calendar,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useContactsStore } from '@/stores/contacts'
 
 // ---------------------------------------------------------------------------
@@ -64,6 +65,7 @@ interface FirmaDetailPanelProps {
 }
 
 export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps) {
+  const { t } = useTranslation()
   const contacts = useContactsStore((s) => s.contacts)
 
   // Find employees at this company
@@ -99,7 +101,7 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
           <div>
             <h2 className="text-sm font-semibold text-foreground">{companyName}</h2>
             <p className="text-[11px] text-muted-foreground">
-              {employees.length} Kontakt{employees.length !== 1 ? 'e' : ''} · {deals.length} Deal{deals.length !== 1 ? 's' : ''}
+              {t('kontakte.firma.contactsCount', { count: employees.length })} · {t('kontakte.firma.dealsCount', { count: deals.length })}
             </p>
           </div>
         </div>
@@ -116,7 +118,7 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
         {/* Company info */}
         {companyInfo && (
           <div className="border-b border-border px-4 py-3 space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Unternehmensdaten</h3>
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('kontakte.firma.companyData')}</h3>
             {companyInfo.city && (
               <div className="flex items-center gap-2 text-sm text-foreground">
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
@@ -150,10 +152,10 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
         <div className="border-b border-border px-4 py-3">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             <Users className="inline h-3 w-3 mr-1" />
-            Mitarbeiter ({employees.length})
+            {t('kontakte.firma.employees', { count: employees.length })}
           </h3>
           {employees.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Keine Kontakte zugeordnet.</p>
+            <p className="text-xs text-muted-foreground">{t('kontakte.firma.noContactsAssigned')}</p>
           ) : (
             <div className="space-y-1.5">
               {employees.map((emp) => (
@@ -172,12 +174,12 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
                   </div>
                   <div className="flex items-center gap-1">
                     {emp.email && (
-                      <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors" title={emp.email} aria-label={`E-Mail an ${emp.email}`}>
+                      <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors" title={emp.email} aria-label={t('kontakte.firma.emailTo', { email: emp.email })}>
                         <Mail className="h-3 w-3" />
                       </button>
                     )}
                     {emp.phone && (
-                      <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors" title={emp.phone} aria-label={`Anrufen: ${emp.phone}`}>
+                      <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors" title={emp.phone} aria-label={t('kontakte.firma.callPhone', { phone: emp.phone })}>
                         <Phone className="h-3 w-3" />
                       </button>
                     )}
@@ -192,10 +194,10 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
         <div className="border-b border-border px-4 py-3">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             <TrendingUp className="inline h-3 w-3 mr-1" />
-            Deals ({deals.length})
+            {t('kontakte.firma.deals', { count: deals.length })}
           </h3>
           {deals.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Keine Deals verknüpft.</p>
+            <p className="text-xs text-muted-foreground">{t('kontakte.firma.noDealsLinked')}</p>
           ) : (
             <>
               <div className="space-y-1.5">
@@ -222,13 +224,13 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
               {/* Deal summary */}
               <div className="mt-2 rounded-md bg-secondary/50 px-3 py-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Gesamtwert</span>
+                  <span className="text-muted-foreground">{t('kontakte.firma.totalValue')}</span>
                   <span className="font-medium text-foreground">
                     {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(totalDealValue)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs mt-0.5">
-                  <span className="text-muted-foreground">Gewichtet</span>
+                  <span className="text-muted-foreground">{t('kontakte.firma.weighted')}</span>
                   <span className="font-medium text-primary">
                     {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(weightedValue)}
                   </span>
@@ -242,7 +244,7 @@ export function FirmaDetailPanel({ companyName, onClose }: FirmaDetailPanelProps
         <div className="px-4 py-3">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             <Calendar className="inline h-3 w-3 mr-1" />
-            Letzte Aktivitaeten
+            {t('kontakte.firma.recentActivities')}
           </h3>
           <div className="space-y-2">
             {employees.slice(0, 3).flatMap((emp) =>

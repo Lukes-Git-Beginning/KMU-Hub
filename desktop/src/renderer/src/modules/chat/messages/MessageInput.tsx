@@ -5,6 +5,7 @@
  * typing indicator emission via WebSocket, and send button.
  */
 import { useState, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Send, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSendMessage, useSendTypingIndicator } from '@/api/hooks/useMessages'
@@ -26,6 +27,7 @@ interface MessageInputProps {
 }
 
 export function MessageInput({ channelId, parentMessageId, placeholder }: MessageInputProps) {
+  const { t } = useTranslation()
   const [content, setContent] = useState('')
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [pendingFiles, setPendingFiles] = useState<AttachedFile[]>([])
@@ -108,7 +110,7 @@ export function MessageInput({ channelId, parentMessageId, placeholder }: Messag
   )
 
   const handleAttachClick = useCallback(() => {
-    toast.info('Dateien per Drag & Drop in den Chat ziehen')
+    toast.info(t('chat.input.dragDropHint'))
   }, [])
 
   const handleFilesAdded = useCallback((files: AttachedFile[]) => {
@@ -157,7 +159,7 @@ export function MessageInput({ channelId, parentMessageId, placeholder }: Messag
                 <Paperclip className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Datei anhängen</TooltipContent>
+            <TooltipContent>{t('chat.input.attachFile')}</TooltipContent>
           </Tooltip>
 
           <Textarea
@@ -165,7 +167,7 @@ export function MessageInput({ channelId, parentMessageId, placeholder }: Messag
             value={content}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder ?? 'Nachricht schreiben... (@Erwähnung)'}
+            placeholder={placeholder ?? t('chat.input.placeholder')}
             className="min-h-[36px] max-h-[144px] resize-none"
             rows={1}
           />
@@ -181,7 +183,7 @@ export function MessageInput({ channelId, parentMessageId, placeholder }: Messag
                 <Send className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Senden (Enter)</TooltipContent>
+            <TooltipContent>{t('chat.input.send')}</TooltipContent>
           </Tooltip>
         </div>
       </div>

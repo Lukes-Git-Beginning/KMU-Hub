@@ -3,6 +3,7 @@
  *
  * Shows a field from both contacts, lets user pick which value to keep.
  */
+import { useTranslation } from 'react-i18next'
 
 // ---------------------------------------------------------------------------
 // Component
@@ -23,6 +24,7 @@ export function MergeFieldSelector({
   selected,
   onSelect,
 }: MergeFieldSelectorProps) {
+  const { t } = useTranslation()
   if (!valueA && !valueB) return null
   if (valueA === valueB) {
     return (
@@ -44,7 +46,7 @@ export function MergeFieldSelector({
             : 'border-border text-foreground/70 hover:bg-accent'
         }`}
       >
-        {valueA || <span className="text-muted-foreground italic">Leer</span>}
+        {valueA || <span className="text-muted-foreground italic">{t('kontakte.merge.empty')}</span>}
       </button>
       <button
         onClick={() => onSelect('b')}
@@ -54,7 +56,7 @@ export function MergeFieldSelector({
             : 'border-border text-foreground/70 hover:bg-accent'
         }`}
       >
-        {valueB || <span className="text-muted-foreground italic">Leer</span>}
+        {valueB || <span className="text-muted-foreground italic">{t('kontakte.merge.empty')}</span>}
       </button>
     </div>
   )

@@ -4,6 +4,7 @@
  * Shows channel name, member count, description, and typing indicators.
  * Actions: members list button, search messages button.
  */
+import { useTranslation } from 'react-i18next'
 import { Hash, Users, Search } from 'lucide-react'
 import { useChannel, useChannelMembers } from '@/api/hooks/useChannels'
 import { useTypingIndicator } from '@/api/hooks/useMessages'
@@ -19,6 +20,7 @@ interface ChannelHeaderProps {
 }
 
 export function ChannelHeader({ channelId }: ChannelHeaderProps) {
+  const { t } = useTranslation()
   const { data: channelData } = useChannel(channelId)
   const { data: membersData } = useChannelMembers(channelId)
   const { typingUsers } = useTypingIndicator(channelId)
@@ -27,7 +29,7 @@ export function ChannelHeader({ channelId }: ChannelHeaderProps) {
   const memberCount = membersData?.total ?? channel?.member_count ?? 0
   const isDM = channel?.is_dm ?? false
 
-  const typingText = getTypingText(typingUsers)
+  const typingText = getTypingText(typingUsers, t)
 
   return (
     <div className="flex flex-col border-b border-border bg-card px-4 py-2">
@@ -35,7 +37,7 @@ export function ChannelHeader({ channelId }: ChannelHeaderProps) {
         <div className="flex items-center gap-2 min-w-0">
           {!isDM && <Hash className="h-4 w-4 shrink-0 text-muted-foreground" />}
           <h2 className="text-sm font-semibold text-foreground truncate">
-            {channel?.name ?? 'Channel'}
+            {channel?.name ?? t('chat.channels.title')}
           </h2>
           {channel?.description && (
             <span className="hidden md:inline text-xs text-muted-foreground truncate">
@@ -51,7 +53,7 @@ export function ChannelHeader({ channelId }: ChannelHeaderProps) {
                 <Users className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{memberCount} Mitglieder</TooltipContent>
+            <TooltipContent>{t('chat.header.members', { count: memberCount })}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -60,7 +62,7 @@ export function ChannelHeader({ channelId }: ChannelHeaderProps) {
                 <Search className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Nachrichten suchen</TooltipContent>
+            <TooltipContent>{t('chat.header.searchMessages')}</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -77,9 +79,9 @@ export function ChannelHeader({ channelId }: ChannelHeaderProps) {
   )
 }
 
-function getTypingText(typingUsers: string[]): string | null {
+function getTypingText(typingUsers: string[], t: (key: string, opts?: Record<string, unknown>) => string): string | null {
   if (typingUsers.length === 0) return null
-  if (typingUsers.length === 1) return `${typingUsers[0]} tippt...`
-  if (typingUsers.length === 2) return `${typingUsers[0]} und ${typingUsers[1]} tippen...`
-  return 'Mehrere Personen tippen...'
+  if (typingUsers.length === 1) return t('chat.header.typingOne', { user: typingUsers[0] })
+  if (typingUsers.length === 2) return t('chat.header.typingTwo', { user1: typingUsers[0], user2: typingUsers[1] })
+  return t('chat.header.typingMany')
 }

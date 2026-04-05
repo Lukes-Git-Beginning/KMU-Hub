@@ -16,6 +16,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Contact } from '@/stores/contacts'
@@ -32,15 +33,15 @@ interface ContactDetailPanelProps {
 }
 
 const statusConfig = {
-  active: { label: 'Aktiv', variant: 'default' as const, color: 'bg-green-500' },
-  prospect: { label: 'Interessent', variant: 'secondary' as const, color: 'bg-amber-500' },
-  inactive: { label: 'Inaktiv', variant: 'outline' as const, color: 'bg-gray-400' },
+  active: { labelKey: 'kontakte.status.active', variant: 'default' as const, color: 'bg-green-500' },
+  prospect: { labelKey: 'kontakte.status.prospect', variant: 'secondary' as const, color: 'bg-amber-500' },
+  inactive: { labelKey: 'kontakte.status.inactive', variant: 'outline' as const, color: 'bg-gray-400' },
 }
 
-const categoryLabels: Record<string, string> = {
-  employee: 'Mitarbeiter',
-  customer: 'Kunde',
-  partner: 'Partner',
+const categoryLabelKeys: Record<string, string> = {
+  employee: 'kontakte.category.employee',
+  customer: 'kontakte.category.customer',
+  partner: 'kontakte.category.partner',
 }
 
 const activityIcons: Record<string, typeof Mail> = {
@@ -50,11 +51,11 @@ const activityIcons: Record<string, typeof Mail> = {
   note: StickyNote,
 }
 
-const activityLabels: Record<string, string> = {
-  email: 'E-Mail',
-  call: 'Anruf',
-  meeting: 'Meeting',
-  note: 'Notiz',
+const activityLabelKeys: Record<string, string> = {
+  email: 'kontakte.activity.email',
+  call: 'kontakte.activity.call',
+  meeting: 'kontakte.activity.meeting',
+  note: 'kontakte.activity.note',
 }
 
 export function ContactDetailPanel({
@@ -67,6 +68,7 @@ export function ContactDetailPanel({
   onMessage,
   onToggleFavorite,
 }: ContactDetailPanelProps) {
+  const { t } = useTranslation()
   const status = statusConfig[contact.status]
 
   return (
@@ -84,21 +86,21 @@ export function ContactDetailPanel({
             <button
               onClick={() => onToggleFavorite(contact.id)}
               className="rounded-md p-1.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-              title={contact.isFavorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten'}
+              title={contact.isFavorite ? t('kontakte.action.unfavorite') : t('kontakte.action.addToFavorites')}
             >
               <Star className={`h-4 w-4 ${contact.isFavorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />
             </button>
             <button
               onClick={() => onEdit(contact)}
               className="rounded-md p-1.5 text-primary-foreground/70 hover:text-primary-foreground transition-colors"
-              title="Bearbeiten"
+              title={t('common.edit')}
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
               onClick={() => onDelete(contact.id)}
               className="rounded-md p-1.5 text-primary-foreground/70 hover:text-red-300 transition-colors"
-              title="Löschen"
+              title={t('common.delete')}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -120,10 +122,10 @@ export function ContactDetailPanel({
             <div className="flex items-center gap-2 mt-2">
               <Badge variant={status.variant} className="text-xs">
                 <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${status.color}`} />
-                {status.label}
+                {t(status.labelKey)}
               </Badge>
               <span className="rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs text-primary-foreground">
-                {categoryLabels[contact.category]}
+                {t(categoryLabelKeys[contact.category])}
               </span>
             </div>
           </div>
@@ -136,21 +138,21 @@ export function ContactDetailPanel({
             className="flex items-center gap-1.5 rounded-lg bg-primary-foreground/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary-foreground/30 transition-colors"
           >
             <Phone className="h-3.5 w-3.5" />
-            Anrufen
+            {t('kontakte.action.call')}
           </button>
           <button
             onClick={() => onEmail(contact)}
             className="flex items-center gap-1.5 rounded-lg bg-primary-foreground/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary-foreground/30 transition-colors"
           >
             <Mail className="h-3.5 w-3.5" />
-            E-Mail
+            {t('kontakte.action.emailShort')}
           </button>
           <button
             onClick={() => onMessage(contact)}
             className="flex items-center gap-1.5 rounded-lg bg-primary-foreground/20 px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary-foreground/30 transition-colors"
           >
             <MessageSquare className="h-3.5 w-3.5" />
-            Nachricht
+            {t('kontakte.action.message')}
           </button>
         </div>
       </div>
@@ -159,7 +161,7 @@ export function ContactDetailPanel({
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {/* Contact info */}
         <section>
-          <h3 className="text-sm font-medium text-foreground mb-3">Kontaktdaten</h3>
+          <h3 className="text-sm font-medium text-foreground mb-3">{t('kontakte.detail.contactData')}</h3>
           <div className="space-y-2.5">
             <div className="flex items-center gap-3 text-sm">
               <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -175,7 +177,7 @@ export function ContactDetailPanel({
               <div className="flex items-center gap-3 text-sm">
                 <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-foreground">{contact.mobile}</span>
-                <span className="text-xs text-muted-foreground">(Mobil)</span>
+                <span className="text-xs text-muted-foreground">({t('kontakte.form.mobile')})</span>
               </div>
             )}
             <div className="flex items-center gap-3 text-sm">
@@ -205,7 +207,7 @@ export function ContactDetailPanel({
             <div className="flex items-center gap-3 text-sm">
               <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground">
-                Letzter Kontakt: {new Date(contact.lastContact).toLocaleDateString('de-DE')}
+                {t('kontakte.detail.lastContact')}: {new Date(contact.lastContact).toLocaleDateString('de-DE')}
               </span>
             </div>
           </div>
@@ -216,7 +218,7 @@ export function ContactDetailPanel({
           <>
             <Separator />
             <section>
-              <h3 className="text-sm font-medium text-foreground mb-3">Social Media</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('kontakte.detail.socialMedia')}</h3>
               <div className="flex gap-2">
                 {contact.socialMedia.linkedin && (
                   <a
@@ -250,7 +252,7 @@ export function ContactDetailPanel({
           <>
             <Separator />
             <section>
-              <h3 className="text-sm font-medium text-foreground mb-3">Tags</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('kontakte.detail.tags')}</h3>
               <div className="flex flex-wrap gap-1.5">
                 {contact.tags.map((tag) => (
                   <Badge key={tag} variant="secondary" className="text-xs">
@@ -267,7 +269,7 @@ export function ContactDetailPanel({
           <>
             <Separator />
             <section>
-              <h3 className="text-sm font-medium text-foreground mb-3">Projekte</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('kontakte.detail.projects')}</h3>
               <div className="space-y-1.5">
                 {contact.projects.map((project) => (
                   <div
@@ -288,7 +290,7 @@ export function ContactDetailPanel({
           <>
             <Separator />
             <section>
-              <h3 className="text-sm font-medium text-foreground mb-3">Letzte Aktivitäten</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('kontakte.detail.recentActivities')}</h3>
               <div className="space-y-3">
                 {contact.activities.slice(0, 5).map((activity) => {
                   const Icon = activityIcons[activity.type] || FileText
@@ -301,7 +303,7 @@ export function ContactDetailPanel({
                         <p className="text-sm text-foreground">{activity.description}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs text-muted-foreground">
-                            {activityLabels[activity.type]}
+                            {t(activityLabelKeys[activity.type])}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             · {new Date(activity.date).toLocaleDateString('de-DE')}
@@ -321,7 +323,7 @@ export function ContactDetailPanel({
           <>
             <Separator />
             <section>
-              <h3 className="text-sm font-medium text-foreground mb-3">Notizen</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('kontakte.detail.notes')}</h3>
               <p className="text-sm text-text-body whitespace-pre-wrap">{contact.notes}</p>
             </section>
           </>
@@ -331,7 +333,7 @@ export function ContactDetailPanel({
         <Separator />
         <section className="pb-4">
           <p className="text-xs text-muted-foreground">
-            Erstellt am {new Date(contact.createdAt).toLocaleDateString('de-DE')}
+            {t('kontakte.detail.createdAt')} {new Date(contact.createdAt).toLocaleDateString('de-DE')}
           </p>
         </section>
       </div>

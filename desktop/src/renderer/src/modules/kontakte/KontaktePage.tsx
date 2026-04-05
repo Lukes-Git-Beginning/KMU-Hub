@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   Search,
@@ -38,9 +39,9 @@ type CategoryFilter = 'all' | 'employee' | 'customer' | 'partner' | `group:${str
 type SortField = 'name' | 'company' | 'lastContact'
 
 const _categoryLabels: Record<string, string> = {
-  employee: 'Mitarbeiter',
-  customer: 'Kunde',
-  partner: 'Partner',
+  employee: 'employee',
+  customer: 'customer',
+  partner: 'partner',
 }
 
 const statusColors: Record<string, string> = {
@@ -49,13 +50,14 @@ const statusColors: Record<string, string> = {
   inactive: 'bg-secondary text-text-disabled',
 }
 
-const statusLabels: Record<string, string> = {
-  active: 'Aktiv',
-  prospect: 'Interessent',
-  inactive: 'Inaktiv',
+const statusLabelKeys: Record<string, string> = {
+  active: 'kontakte.status.active',
+  prospect: 'kontakte.status.prospect',
+  inactive: 'kontakte.status.inactive',
 }
 
 export default function KontaktePage() {
+  const { t } = useTranslation()
   const { groups, favoriteIds, toggleFavorite } =
     useContactsStore()
   const { startCall, endCall, activeCallContactId, activeCallContactName } = useMeetingsStore()
@@ -116,10 +118,10 @@ export default function KontaktePage() {
   const deleteTarget = contacts.find((c) => c.id === deleteConfirmId)
 
   const categories: { key: CategoryFilter; label: string; icon: typeof User; count: number }[] = [
-    { key: 'all', label: 'Alle', icon: Users, count: contacts.length },
-    { key: 'employee', label: 'Mitarbeiter', icon: User, count: contacts.filter((c) => c.category === 'employee').length },
-    { key: 'customer', label: 'Kunden', icon: Briefcase, count: contacts.filter((c) => c.category === 'customer').length },
-    { key: 'partner', label: 'Partner', icon: Building2, count: contacts.filter((c) => c.category === 'partner').length },
+    { key: 'all', label: t('kontakte.category.all'), icon: Users, count: contacts.length },
+    { key: 'employee', label: t('kontakte.category.employee'), icon: User, count: contacts.filter((c) => c.category === 'employee').length },
+    { key: 'customer', label: t('kontakte.category.customers'), icon: Briefcase, count: contacts.filter((c) => c.category === 'customer').length },
+    { key: 'partner', label: t('kontakte.category.partner'), icon: Building2, count: contacts.filter((c) => c.category === 'partner').length },
   ]
 
   const handleCreateSubmit = async (data: Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>) => {
@@ -128,10 +130,10 @@ export default function KontaktePage() {
         id: editContact.id,
         ...uiFormToUpdateRequest(data),
       })
-      toast.success('Kontakt aktualisiert')
+      toast.success(t('kontakte.toast.contactUpdated'))
     } else {
       await createContactMutation.mutateAsync(uiFormToCreateRequest(data))
-      toast.success('Kontakt erstellt')
+      toast.success(t('kontakte.toast.contactCreated'))
     }
     setEditContact(null)
   }
@@ -139,7 +141,7 @@ export default function KontaktePage() {
   const handleDelete = async () => {
     if (deleteConfirmId) {
       await deleteContactMutation.mutateAsync(deleteConfirmId)
-      toast.success('Kontakt gelöscht')
+      toast.success(t('kontakte.toast.contactDeleted'))
       if (selectedContactId === deleteConfirmId) setSelectedContactId(null)
       setDeleteConfirmId(null)
     }
@@ -151,12 +153,12 @@ export default function KontaktePage() {
       data: { to: contact.email, name: `${contact.firstName} ${contact.lastName}` },
     })
     navigate('/mails')
-    toast.info(`E-Mail an ${contact.firstName} ${contact.lastName}`)
+    toast.info(t('kontakte.toast.emailTo', { name: `${contact.firstName} ${contact.lastName}` }))
   }
 
   const handleCall = (contact: Contact) => {
     startCall(contact.id, `${contact.firstName} ${contact.lastName}`)
-    toast.info(`Anruf an ${contact.firstName} ${contact.lastName}...`)
+    toast.info(t('kontakte.toast.callTo', { name: `${contact.firstName} ${contact.lastName}` }))
   }
 
   const handleMessage = (contact: Contact) => {
@@ -165,23 +167,23 @@ export default function KontaktePage() {
       data: { contactId: contact.id, name: `${contact.firstName} ${contact.lastName}` },
     })
     navigate('/chat')
-    toast.info(`Chat mit ${contact.firstName} ${contact.lastName}`)
+    toast.info(t('kontakte.toast.chatWith', { name: `${contact.firstName} ${contact.lastName}` }))
   }
 
   const handleExportVCard = (contact: Contact) => {
-    toast.success(`vCard für ${contact.firstName} ${contact.lastName} exportiert`)
+    toast.success(t('kontakte.toast.vcardExported', { name: `${contact.firstName} ${contact.lastName}` }))
   }
 
   const handleDuplicate = async (contact: Contact) => {
     await createContactMutation.mutateAsync(
-      uiFormToCreateRequest({ ...contact, firstName: `${contact.firstName} (Kopie)`, isFavorite: false })
+      uiFormToCreateRequest({ ...contact, firstName: `${contact.firstName} (${t('kontakte.action.copy')})`, isFavorite: false })
     )
-    toast.success('Kontakt dupliziert')
+    toast.success(t('kontakte.toast.contactDuplicated'))
   }
 
   const getContactActions = (c: Contact): ActionItem[] => [
     {
-      label: 'Bearbeiten',
+      label: t('common.edit'),
       icon: Pencil,
       onClick: () => {
         setEditContact(c)
@@ -189,42 +191,42 @@ export default function KontaktePage() {
       },
     },
     {
-      label: 'Duplizieren',
+      label: t('kontakte.action.duplicate'),
       icon: Copy,
       onClick: () => handleDuplicate(c),
     },
     {
-      label: c.isFavorite ? 'Aus Favoriten' : 'Favorisieren',
+      label: c.isFavorite ? t('kontakte.action.unfavorite') : t('kontakte.action.favorite'),
       icon: Star,
       onClick: () => {
         toggleFavorite(c.id)
-        toast.success(c.isFavorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten hinzugefügt')
+        toast.success(c.isFavorite ? t('kontakte.toast.removedFromFavorites') : t('kontakte.toast.addedToFavorites'))
       },
     },
     {
-      label: 'E-Mail senden',
+      label: t('kontakte.action.sendEmail'),
       icon: Mail,
       onClick: () => handleEmail(c),
       separator: true,
     },
     {
-      label: 'Anrufen',
+      label: t('kontakte.action.call'),
       icon: Phone,
       onClick: () => handleCall(c),
     },
     {
-      label: 'Nachricht',
+      label: t('kontakte.action.message'),
       icon: MessageSquare,
       onClick: () => handleMessage(c),
     },
     {
-      label: 'vCard exportieren',
+      label: t('kontakte.action.exportVCard'),
       icon: Download,
       onClick: () => handleExportVCard(c),
       separator: true,
     },
     {
-      label: 'Löschen',
+      label: t('common.delete'),
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(c.id),
@@ -236,7 +238,7 @@ export default function KontaktePage() {
     <div className="flex h-full overflow-hidden animate-fade-in">
       {/* Category sidebar */}
       <aside className="w-52 shrink-0 border-r border-border bg-card p-3 overflow-y-auto">
-        <h3 className="text-sm font-medium text-foreground mb-3 px-2">Kategorien</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3 px-2">{t('kontakte.sidebar.categories')}</h3>
         <nav className="space-y-0.5">
           {categories.map((cat) => {
             const Icon = cat.icon
@@ -264,12 +266,12 @@ export default function KontaktePage() {
             <div className="flex items-center justify-between px-2 mb-2">
               <h3 className="text-sm font-medium text-foreground flex items-center gap-1.5">
                 <FolderOpen className="h-3.5 w-3.5" />
-                Gruppen
+                {t('kontakte.sidebar.groups')}
               </h3>
               <button
                 onClick={() => setGroupManagerOpen(true)}
                 className="rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
-                title="Gruppen verwalten"
+                title={t('kontakte.sidebar.manageGroups')}
               >
                 <Settings2 className="h-3.5 w-3.5" />
               </button>
@@ -299,7 +301,7 @@ export default function KontaktePage() {
           <div className="mt-6">
             <h3 className="text-sm font-medium text-foreground mb-3 px-2 flex items-center gap-1.5">
               <Star className="h-3.5 w-3.5 text-yellow-500" />
-              Favoriten
+              {t('kontakte.sidebar.favorites')}
             </h3>
             <nav className="space-y-0.5">
               {contacts
@@ -337,8 +339,8 @@ export default function KontaktePage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Kontakt suchen..."
-              aria-label="Kontakt suchen"
+              placeholder={t('kontakte.search.placeholder')}
+              aria-label={t('kontakte.search.placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -350,16 +352,16 @@ export default function KontaktePage() {
               setSortField(next[(next.indexOf(sortField) + 1) % next.length])
             }}
             className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-            title={`Sortierung: ${sortField === 'name' ? 'Name' : sortField === 'company' ? 'Firma' : 'Letzter Kontakt'}`}
-            aria-label={`Sortierung: ${sortField === 'name' ? 'Name' : sortField === 'company' ? 'Firma' : 'Letzter Kontakt'}`}
+            title={t('kontakte.sort.label', { field: sortField === 'name' ? t('kontakte.sort.name') : sortField === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact') })}
+            aria-label={t('kontakte.sort.label', { field: sortField === 'name' ? t('kontakte.sort.name') : sortField === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact') })}
           >
             <ArrowUpDown className="h-4 w-4" />
           </button>
           <button
             onClick={() => setImportOpen(true)}
             className="rounded-lg border border-border p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-            title="Kontakte importieren"
-            aria-label="Kontakte importieren"
+            title={t('kontakte.action.importContacts')}
+            aria-label={t('kontakte.action.importContacts')}
           >
             <Upload className="h-4 w-4" />
           </button>
@@ -371,16 +373,16 @@ export default function KontaktePage() {
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden lg:inline">Neu</span>
+            <span className="hidden lg:inline">{t('kontakte.action.new')}</span>
           </button>
         </div>
 
         {/* Sort indicator */}
         <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border-muted text-xs text-muted-foreground">
-          <span>{isLoading ? '…' : filtered.length} Kontakte</span>
+          <span>{isLoading ? '…' : filtered.length} {t('kontakte.list.contacts')}</span>
           <span>·</span>
           <span>
-            Sortiert nach {sortField === 'name' ? 'Name' : sortField === 'company' ? 'Firma' : 'Letzter Kontakt'}
+            {t('kontakte.sort.sortedBy', { field: sortField === 'name' ? t('kontakte.sort.name') : sortField === 'company' ? t('kontakte.sort.company') : t('kontakte.sort.lastContact') })}
           </span>
         </div>
 
@@ -389,14 +391,14 @@ export default function KontaktePage() {
           {isLoading && (
             <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm">Kontakte werden geladen…</span>
+              <span className="text-sm">{t('kontakte.list.loading')}</span>
             </div>
           )}
 
           {isError && !isLoading && (
             <div className="flex flex-col items-center justify-center py-16 gap-2">
-              <p className="text-sm text-destructive">Backend nicht erreichbar.</p>
-              <p className="text-xs text-muted-foreground">Bitte Gateway starten: <code>make run-gateway</code></p>
+              <p className="text-sm text-destructive">{t('kontakte.error.backendUnavailable')}</p>
+              <p className="text-xs text-muted-foreground">{t('kontakte.error.startGateway')}</p>
             </div>
           )}
 
@@ -421,7 +423,7 @@ export default function KontaktePage() {
                     {contact.firstName} {contact.lastName}
                   </span>
                   <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] ${statusColors[contact.status]}`}>
-                    {statusLabels[contact.status]}
+                    {t(statusLabelKeys[contact.status])}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
@@ -437,16 +439,16 @@ export default function KontaktePage() {
           {!isLoading && !isError && filtered.length === 0 && (
             <EmptyState
               icon={Users}
-              title="Keine Kontakte gefunden"
+              title={t('kontakte.empty.title')}
               description={
                 search
-                  ? 'Versuche einen anderen Suchbegriff'
-                  : 'Erstelle deinen ersten Kontakt'
+                  ? t('kontakte.empty.tryDifferentSearch')
+                  : t('kontakte.empty.createFirst')
               }
               action={
                 !search
                   ? {
-                      label: 'Neuer Kontakt',
+                      label: t('kontakte.action.newContact'),
                       onClick: () => {
                         setEditContact(null)
                         setFormOpen(true)
@@ -480,9 +482,9 @@ export default function KontaktePage() {
         <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
           <div className="text-center">
             <User className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Wähle einen Kontakt aus</p>
+            <p className="text-sm">{t('kontakte.empty.selectContact')}</p>
             <p className="text-xs mt-1 text-muted-foreground/60">
-              oder erstelle einen neuen mit dem + Button
+              {t('kontakte.empty.orCreateNew')}
             </p>
           </div>
         </div>
@@ -503,9 +505,9 @@ export default function KontaktePage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Kontakt löschen?"
-        description={`"${deleteTarget ? `${deleteTarget.firstName} ${deleteTarget.lastName}` : ''}" wird unwiderruflich gelöscht.`}
-        confirmLabel="Löschen"
+        title={t('kontakte.confirm.deleteTitle')}
+        description={t('kontakte.confirm.deleteDescription', { name: deleteTarget ? `${deleteTarget.firstName} ${deleteTarget.lastName}` : '' })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />
@@ -519,7 +521,7 @@ export default function KontaktePage() {
             data.map((c) => createContactMutation.mutateAsync(uiFormToCreateRequest(c as Omit<Contact, 'id' | 'initials' | 'createdAt' | 'activities'>)))
           )
           const succeeded = results.filter((r) => r.status === 'fulfilled').length
-          toast.success(`${succeeded} Kontakte importiert`)
+          toast.success(t('kontakte.toast.contactsImported', { count: succeeded }))
           return succeeded
         }}
       />
@@ -536,7 +538,7 @@ export default function KontaktePage() {
         open={!!activeCallContactId}
         onEnd={() => {
           endCall()
-          toast.info('Anruf beendet')
+          toast.info(t('kontakte.toast.callEnded'))
         }}
       />
     </div>

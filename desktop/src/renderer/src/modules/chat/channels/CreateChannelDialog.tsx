@@ -5,6 +5,7 @@
  * On success, closes dialog and selects the new channel.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useCreateChannel } from '@/api/hooks/useChannels'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,7 @@ interface CreateChannelDialogProps {
 }
 
 export function CreateChannelDialog({ open, onOpenChange, onCreated }: CreateChannelDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
@@ -66,18 +68,18 @@ export function CreateChannelDialog({ open, onOpenChange, onCreated }: CreateCha
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Neuen Channel erstellen</DialogTitle>
+            <DialogTitle>{t('chat.createChannel.title')}</DialogTitle>
             <DialogDescription>
-              Erstelle einen Channel, um mit deinem Team zu kommunizieren.
+              {t('chat.createChannel.description')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="channel-name">Name</Label>
+              <Label htmlFor="channel-name">{t('chat.createChannel.nameLabel')}</Label>
               <Input
                 id="channel-name"
-                placeholder="z.B. allgemein, marketing, development"
+                placeholder={t('chat.createChannel.namePlaceholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
@@ -85,10 +87,10 @@ export function CreateChannelDialog({ open, onOpenChange, onCreated }: CreateCha
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="channel-description">Beschreibung (optional)</Label>
+              <Label htmlFor="channel-description">{t('chat.createChannel.descriptionLabel')}</Label>
               <Textarea
                 id="channel-description"
-                placeholder="Worum geht es in diesem Channel?"
+                placeholder={t('chat.createChannel.descriptionPlaceholder')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
@@ -104,7 +106,7 @@ export function CreateChannelDialog({ open, onOpenChange, onCreated }: CreateCha
                 className="h-4 w-4 rounded border-border"
               />
               <Label htmlFor="channel-private" className="text-sm font-normal">
-                Privater Channel (nur auf Einladung)
+                {t('chat.createChannel.privateLabel')}
               </Label>
             </div>
           </div>
@@ -115,13 +117,13 @@ export function CreateChannelDialog({ open, onOpenChange, onCreated }: CreateCha
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
               disabled={!name.trim() || createChannel.isPending}
             >
-              {createChannel.isPending ? 'Erstelle...' : 'Erstellen'}
+              {createChannel.isPending ? t('chat.createChannel.creating') : t('common.create')}
             </Button>
           </DialogFooter>
         </form>

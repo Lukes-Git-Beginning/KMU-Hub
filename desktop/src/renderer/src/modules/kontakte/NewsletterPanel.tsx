@@ -5,6 +5,7 @@
  * Mock data for design — backend swap: replace with API hooks.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   RefreshCw,
@@ -83,6 +84,7 @@ const mockLists = [
 // ---------------------------------------------------------------------------
 
 export function NewsletterPanel() {
+  const { t } = useTranslation()
   const [syncing, setSyncing] = useState(false)
   const [activeTab, setActiveTab] = useState<'services' | 'lists' | 'history'>('services')
 
@@ -90,7 +92,7 @@ export function NewsletterPanel() {
     setSyncing(true)
     setTimeout(() => {
       setSyncing(false)
-      toast.success('Kontakte synchronisiert')
+      toast.success(t('kontakte.newsletter.syncSuccess'))
     }, 2000)
   }
 
@@ -100,7 +102,7 @@ export function NewsletterPanel() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Mail className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">Newsletter-Integration</span>
+          <span className="text-sm font-medium text-foreground">{t('kontakte.newsletter.title')}</span>
         </div>
         <button
           onClick={handleSync}
@@ -108,16 +110,16 @@ export function NewsletterPanel() {
           className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-accent transition-colors disabled:opacity-50"
         >
           <RefreshCw className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Synchronisiere...' : 'Kontakte sync'}
+          {syncing ? t('kontakte.newsletter.syncing') : t('kontakte.newsletter.syncContacts')}
         </button>
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-border">
         {[
-          { key: 'services' as const, label: 'Dienste' },
-          { key: 'lists' as const, label: 'Listen' },
-          { key: 'history' as const, label: 'Verlauf' },
+          { key: 'services' as const, label: t('kontakte.newsletter.tabServices') },
+          { key: 'lists' as const, label: t('kontakte.newsletter.tabLists') },
+          { key: 'history' as const, label: t('kontakte.newsletter.tabHistory') },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -164,7 +166,7 @@ export function NewsletterPanel() {
                       : 'bg-primary text-primary-foreground hover:bg-primary/90'
                   }`}
                 >
-                  {svc.connected ? 'Einstellungen' : 'Verbinden'}
+                  {svc.connected ? t('kontakte.newsletter.settings') : t('kontakte.newsletter.connect')}
                 </button>
               </div>
 
@@ -172,11 +174,11 @@ export function NewsletterPanel() {
                 <div className="mt-2 grid grid-cols-3 gap-3 pl-6">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Users className="h-3 w-3" />
-                    {svc.subscriberCount} Abonnenten
+                    {t('kontakte.newsletter.subscribers', { count: svc.subscriberCount })}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Zap className="h-3 w-3" />
-                    {svc.listCount} Listen
+                    {t('kontakte.newsletter.lists', { count: svc.listCount })}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Calendar className="h-3 w-3" />
@@ -202,7 +204,7 @@ export function NewsletterPanel() {
                 <span className="text-sm text-foreground">{list.name}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">{list.count} Kontakte</span>
+                <span className="text-xs text-muted-foreground">{t('kontakte.newsletter.contactsCount', { count: list.count })}</span>
                 <button className="rounded-md p-1 text-muted-foreground hover:text-primary transition-colors">
                   <ExternalLink className="h-3 w-3" />
                 </button>
@@ -227,15 +229,15 @@ export function NewsletterPanel() {
               <div className="mt-1.5 flex items-center gap-4 pl-5">
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Users className="h-2.5 w-2.5" />
-                  {entry.recipients} Empfänger
+                  {t('kontakte.newsletter.recipients', { count: entry.recipients })}
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Mail className="h-2.5 w-2.5" />
-                  {entry.opens} Öffnungen ({Math.round((entry.opens / entry.recipients) * 100)}%)
+                  {t('kontakte.newsletter.opens', { count: entry.opens, rate: Math.round((entry.opens / entry.recipients) * 100) })}
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <BarChart3 className="h-2.5 w-2.5" />
-                  {entry.clicks} Klicks ({Math.round((entry.clicks / entry.recipients) * 100)}%)
+                  {t('kontakte.newsletter.clicks', { count: entry.clicks, rate: Math.round((entry.clicks / entry.recipients) * 100) })}
                 </span>
               </div>
             </div>

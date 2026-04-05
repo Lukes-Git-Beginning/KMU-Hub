@@ -5,13 +5,19 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 
 ## Aktueller Stand (2026-04-06)
 
-### Committed (3 Commits auf main, gepusht):
+### Committed (4 Commits auf main):
 - `1b7ee22` — i18next Infrastruktur + react-intl entfernt (20 Dateien)
 - `cf825a7` — Dashboard, CRM instrumentiert (78 Dateien)
 - `10cffa5` — Work, Profil, Settings, Kommunikation, Finanzen, Team (107 Dateien)
+- `88d9f1f` — Schritt 1B: 4 additions JSONs extrahiert + Loader aktualisiert
 
-### Uncommitted:
-- Schritt 1B abgeschlossen: 4 fehlende JSONs extrahiert + i18n.ts Loader komplett
+### Uncommitted (Batch A teilweise):
+- **kontakte-2** ✅ — 6 Dateien instrumentiert, kontakte-2.json erstellt (64 Keys)
+- **chat-1** ✅ — 7 Dateien instrumentiert, chat.json erstellt (37 Keys)
+- **kontakte-1** ⚠️ FEHLER — Agent abgebrochen (Escape). 6/7 .tsx-Dateien modifiziert, ABER:
+  - `kontakte.json` wurde NICHT erstellt (Keys fehlen!)
+  - `DuplicateMatchCard.tsx` wurde NICHT bearbeitet
+  - Fix nötig: kontakte.json aus den t()-Calls in den 6 modifizierten Dateien extrahieren + DuplicateMatchCard.tsx instrumentieren
 
 ### Modul-Status Phase 3
 
@@ -27,13 +33,16 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 | ✅ | kommunikation | 22/22 | kommunikation.json ✅ | 167 |
 | ✅ | finanzen | 15/16 | finanzen.json ✅ | 244 |
 | ✅ | team | 14/14 | team.json ✅ | 233 |
-| ❌ | 13 Module | 0 | ❌ | Nicht begonnen |
+| ⚠️ | kontakte | 14/15 | kontakte-2.json ✅, kontakte.json ❌ | 64 (Teil) |
+| ✅ | chat | 7/13 | chat.json ✅ | 37 (Teil) |
+| ❌ | 11 Module | 0 | ❌ | Nicht begonnen |
 | ❌ | Components | 0 | ❌ | Nicht begonnen |
 
 ### i18n.ts Loader
 Importiert: crm, dashboard, finanzen, kommunikation, profil, settings, team, work (8/8 fertig).
+Noch NICHT importiert: kontakte, chat (+ 11 weitere Module aus Schritt 2).
 
-### Additions-Keys gesamt: 1.964
+### Additions-Keys gesamt: ~2.065 (1.964 + 64 kontakte-2 + 37 chat)
 
 ---
 
@@ -43,24 +52,27 @@ Importiert: crm, dashboard, finanzen, kommunikation, profil, settings, team, wor
 
 ---
 
-## Schritt 2: Verbleibende Module (13 Module, ~86 Dateien) ← NÄCHSTER SCHRITT
+## Schritt 2: Verbleibende Module (13 Module, ~95 Dateien) ← IN PROGRESS
 
 Jeder Agent bekommt max 7 Dateien + erstellt/erweitert die JSON.
 Basispfad: `desktop/src/renderer/src/modules/`
 
-### Batch A (3 parallel)
+### ~~Batch A~~ (teilweise erledigt)
 
-**Agent: kontakte-1** (7 Dateien)
-- KontaktePage.tsx, ContactFormDialog.tsx, ContactDetailPanel.tsx, FirmaDetailPanel.tsx, ConsentPanel.tsx, DuplicateDetectionDialog.tsx, DuplicateMatchCard.tsx
-- Prefix: `kontakte.` → Erstelle additions/kontakte.json
+**Agent: kontakte-1** ⚠️ ABGEBROCHEN — 6/7 Dateien instrumentiert, JSON NICHT erstellt
+- ✅ KontaktePage.tsx, ContactFormDialog.tsx, ContactDetailPanel.tsx, FirmaDetailPanel.tsx, ConsentPanel.tsx, DuplicateDetectionDialog.tsx
+- ❌ DuplicateMatchCard.tsx — nicht bearbeitet
+- ❌ kontakte.json — nicht erstellt
+- **FIX NÖTIG:** kontakte.json aus t()-Calls extrahieren + DuplicateMatchCard.tsx instrumentieren
 
-**Agent: kontakte-2** (7 Dateien + adapters.ts)
-- CustomFieldPreview.tsx, CustomFieldRow.tsx, CustomFieldsConfig.tsx, GroupManagerDialog.tsx, ImportContactsDialog.tsx, MergeFieldSelector.tsx, NewsletterPanel.tsx, adapters.ts
-- Prefix: `kontakte.` → ERWEITERE additions/kontakte.json
+**Agent: kontakte-2** ✅ (6/8 Dateien instrumentiert, 2 übersprungen)
+- ✅ CustomFieldRow, CustomFieldsConfig, GroupManagerDialog, ImportContactsDialog, MergeFieldSelector, NewsletterPanel
+- ⏭️ CustomFieldPreview (bereits instrumentiert), adapters.ts (keine UI-Strings)
+- Erstellt: additions/kontakte-2.json (64 Keys)
 
-**Agent: chat-1** (7 Dateien)
-- ChatLayout.tsx, channels/ChannelHeader.tsx, channels/ChannelList.tsx, channels/CreateChannelDialog.tsx, messages/MessageBubble.tsx, messages/MessageInput.tsx, messages/MessageList.tsx
-- Prefix: `chat.` → Erstelle additions/chat.json
+**Agent: chat-1** ✅ (7 Dateien instrumentiert)
+- ✅ ChatLayout, ChannelHeader, ChannelList, CreateChannelDialog, MessageBubble, MessageInput, MessageList
+- Erstellt: additions/chat.json (37 Keys)
 
 ### Batch B (3 parallel)
 

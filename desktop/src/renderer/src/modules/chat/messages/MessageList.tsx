@@ -6,6 +6,7 @@
  * date separators, and real-time updates via WebSocket.
  */
 import { useEffect, useRef, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { format, isToday, isYesterday } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { Loader2 } from 'lucide-react'
@@ -24,6 +25,7 @@ type FlatItem =
   | { type: 'message'; message: MessageInfo }
 
 export function MessageList({ channelId, onOpenThread }: MessageListProps) {
+  const { t } = useTranslation()
   const currentUserId = useAuthStore((s) => s.user?.id)
   const scrollRef = useRef<HTMLDivElement>(null)
   const wasAtBottomRef = useRef(true)
@@ -43,7 +45,7 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
 
   // Flatten grouped messages into a single array for virtualizer
   const flatItems = useMemo<FlatItem[]>(() => {
-    const groups = groupByDate(messages)
+    const groups = groupByDate(messages, t)
     const items: FlatItem[] = []
     for (const group of groups) {
       items.push({ type: 'date', date: group.date })
@@ -52,7 +54,7 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
       }
     }
     return items
-  }, [messages])
+  }, [messages, t])
 
   const virtualizer = useVirtualizer({
     count: flatItems.length,
@@ -89,24 +91,24 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const handleEdit = useCallback((messageId: string, content: string) => {
-    const newContent = window.prompt('Nachricht bearbeiten:', content)
+    const newContent = window.prompt(t('chat.messages.editPrompt'), content)
     if (newContent !== null && newContent.trim() !== content) {
       editMessage.mutate({ messageId, content: newContent.trim() })
     }
-  }, [editMessage])
+  }, [editMessage, t])
 
   const handleDelete = useCallback((messageId: string) => {
-    if (window.confirm('Nachricht wirklich löschen?')) {
+    if (window.confirm(t('chat.messages.deleteConfirm'))) {
       deleteMessage.mutate(messageId)
     }
-  }, [deleteMessage])
+  }, [deleteMessage, t])
 
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-          <p className="mt-4 text-sm text-muted-foreground">Nachrichten laden...</p>
+          <p className="mt-4 text-sm text-muted-foreground">{t('chat.messages.loading')}</p>
         </div>
       </div>
     )
@@ -117,7 +119,7 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">
-            Noch keine Nachrichten. Schreibe die erste!
+            {t('chat.messages.empty')}
           </p>
         </div>
       </div>
@@ -143,7 +145,7 @@ export function MessageList({ channelId, onOpenThread }: MessageListProps) {
             className="text-xs text-muted-foreground hover:text-foreground"
             onClick={() => fetchNextPage()}
           >
-            Ältere Nachrichten laden
+            {t('chat.messages.loadOlder')}
           </button>
         </div>
       )}
@@ -205,13 +207,13 @@ interface MessageGroup {
   messages: MessageInfo[]
 }
 
-function groupByDate(messages: MessageInfo[]): MessageGroup[] {
+function groupByDate(messages: MessageInfo[], t: (key: string) => string): MessageGroup[] {
   const groups = new Map<string, MessageInfo[]>()
 
   for (const msg of messages) {
     const dateStr = msg.created_at
-      ? formatDateLabel(new Date(msg.created_at))
-      : 'Unbekannt'
+      ? formatDateLabel(new Date(msg.created_at), t)
+      : t('chat.unknown')
 
     const existing = groups.get(dateStr)
     if (existing) {
@@ -227,8 +229,8 @@ function groupByDate(messages: MessageInfo[]): MessageGroup[] {
   }))
 }
 
-function formatDateLabel(date: Date): string {
-  if (isToday(date)) return 'Heute'
-  if (isYesterday(date)) return 'Gestern'
+function formatDateLabel(date: Date, t: (key: string) => string): string {
+  if (isToday(date)) return t('chat.messages.today')
+  if (isYesterday(date)) return t('chat.messages.yesterday')
   return format(date, 'd. MMMM yyyy', { locale: de })
 }
