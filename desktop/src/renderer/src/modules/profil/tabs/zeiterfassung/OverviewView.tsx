@@ -58,7 +58,7 @@ export default function OverviewView({ onNavigate }: OverviewViewProps) {
   // ── This Month ──────────────────────────────────────
   const thisMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
   const monthEntries = useMemo(
-    () => entries.filter((e) => e.date.startsWith(thisMonth)),
+    () => entries.filter((e) => e.date?.startsWith(thisMonth)),
     [entries, thisMonth],
   )
   const monthMinutes = monthEntries.reduce((s, e) => s + e.durationMinutes, 0)

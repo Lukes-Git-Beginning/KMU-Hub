@@ -167,7 +167,7 @@ export function CreditNoteDialog({
                 <SelectContent>
                   {eligibleInvoices.map((inv) => (
                     <SelectItem key={inv.id} value={inv.id}>
-                      {inv.invoice_number} - {inv.customer.name} ({formatEUR(inv.tax_breakdown.gross_total)})
+                      {inv.invoice_number} - {inv.customer?.name ?? ''} ({formatEUR(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -187,12 +187,12 @@ export function CreditNoteDialog({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Kunde</span>
-                  <span className="text-foreground">{selectedInvoice.customer.name}</span>
+                  <span className="text-foreground">{selectedInvoice.customer?.name ?? ''}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Rechnungsbetrag</span>
                   <span className="font-medium text-foreground">
-                    {formatEUR(selectedInvoice.tax_breakdown.gross_total)}
+                    {formatEUR(selectedInvoice.tax_breakdown?.gross_total ?? selectedInvoice.total_gross ?? 0)}
                   </span>
                 </div>
               </div>

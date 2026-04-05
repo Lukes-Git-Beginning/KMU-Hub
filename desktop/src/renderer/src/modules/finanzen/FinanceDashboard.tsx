@@ -293,11 +293,11 @@ export function FinanceDashboard() {
                       {inv.invoice_number}
                     </p>
                     <p className="text-[10px] text-muted-foreground truncate">
-                      {inv.customer.name}
+                      {inv.customer?.name ?? inv.customer_name ?? ''}
                     </p>
                   </div>
                   <span className="text-foreground font-medium ml-2 shrink-0">
-                    {formatEUR(inv.tax_breakdown.gross_total)}
+                    {formatEUR(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)}
                   </span>
                 </div>
               ))}

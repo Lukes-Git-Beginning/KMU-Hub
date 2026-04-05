@@ -1,13 +1,16 @@
+// Demo mode MUST be imported first — it overrides globalThis.fetch at
+// module scope so that openapi-fetch (and every other client) captures
+// the intercepted version.
+import { startDemoMode } from './mocks/demo-mode'
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { onlineManager } from '@tanstack/react-query'
 import './styles/globals.css'
 import App from './App'
 import { useAuthStore } from './stores/auth'
-import { startDemoMode } from './mocks/demo-mode'
 
-// Start demo mode (fetch interceptor) before anything else.
-// No-op when RENDERER_VITE_DEMO_MODE is not 'true'.
+// Clear stale query cache in demo mode.
 startDemoMode()
 
 // Configure TanStack Query's online manager to use browser online/offline events.

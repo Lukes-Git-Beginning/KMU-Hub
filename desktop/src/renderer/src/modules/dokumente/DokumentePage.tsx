@@ -232,7 +232,7 @@ export default function DokumentePage() {
   const filtered = useMemo(() => {
     if (!search) return files
     const q = search.toLowerCase()
-    return files.filter((f) => f.filename.toLowerCase().includes(q))
+    return files.filter((f) => f.filename?.toLowerCase().includes(q))
   }, [files, search])
 
   const contentSubfolders = subFolders?.folders ?? []

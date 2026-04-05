@@ -15,16 +15,10 @@ import { handlers } from './handlers'
 
 export const DEMO_MODE = import.meta.env.RENDERER_VITE_DEMO_MODE === 'true'
 
-export function startDemoMode(): void {
-  if (!DEMO_MODE) return
-
-  // Clear stale query cache so fresh mock data is loaded
-  try {
-    localStorage.removeItem('kmuhub-query-cache')
-  } catch {
-    // localStorage may be unavailable
-  }
-
+// ── Intercept fetch at module scope ──────────────────────────────────
+// Must run BEFORE any other module captures globalThis.fetch (e.g.
+// openapi-fetch's createClient). Import this module first in main.tsx.
+if (DEMO_MODE) {
   const originalFetch = window.fetch.bind(window)
 
   window.fetch = async function interceptedFetch(
@@ -53,4 +47,15 @@ export function startDemoMode(): void {
   }
 
   console.info('[Demo Mode] Fetch interceptor active — all API calls are mocked')
+}
+
+export function startDemoMode(): void {
+  if (!DEMO_MODE) return
+
+  // Clear stale query cache so fresh mock data is loaded
+  try {
+    localStorage.removeItem('kmuhub-query-cache')
+  } catch {
+    // localStorage may be unavailable
+  }
 }

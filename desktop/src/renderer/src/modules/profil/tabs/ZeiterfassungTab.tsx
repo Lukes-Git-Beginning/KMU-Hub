@@ -286,7 +286,7 @@ export default function ZeiterfassungTab() {
         {activeView === 'today' && (
           <TodayView
             summary={dailySummary}
-            entries={entries.filter((e) => e.clockIn.startsWith(todayStr))}
+            entries={entries.filter((e) => e.clockIn?.startsWith(todayStr))}
           />
         )}
         {activeView === 'week' && (

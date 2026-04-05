@@ -44,7 +44,7 @@ export function PaymentRecordDialog({
   const { data: invoice } = useInvoice(invoiceId ?? '')
   const { data: paymentsData } = usePayments(invoiceId ?? '')
 
-  const grossTotal = Number(invoice?.tax_breakdown.gross_total ?? 0)
+  const grossTotal = Number(invoice?.tax_breakdown?.gross_total ?? invoice?.total_gross ?? 0)
   const totalPaid = (paymentsData?.payments ?? []).reduce(
     (sum, p) => sum + Number(p.amount),
     0,

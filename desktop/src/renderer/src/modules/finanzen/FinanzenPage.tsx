@@ -196,8 +196,8 @@ export default function FinanzenPage() {
     if (!search) return true
     const q = search.toLowerCase()
     return (
-      inv.customer.name.toLowerCase().includes(q) ||
-      inv.invoice_number.toLowerCase().includes(q)
+      inv.customer?.name?.toLowerCase().includes(q) ||
+      inv.invoice_number?.toLowerCase().includes(q)
     )
   })
 
@@ -205,8 +205,8 @@ export default function FinanzenPage() {
     if (!search) return true
     const s = search.toLowerCase()
     return (
-      q.customer.name.toLowerCase().includes(s) ||
-      q.quote_number.toLowerCase().includes(s)
+      q.customer?.name?.toLowerCase().includes(s) ||
+      q.quote_number?.toLowerCase().includes(s)
     )
   })
 
@@ -214,8 +214,8 @@ export default function FinanzenPage() {
     if (!search) return true
     const q = search.toLowerCase()
     return (
-      cn.customer.name.toLowerCase().includes(q) ||
-      cn.credit_note_number.toLowerCase().includes(q)
+      cn.customer?.name?.toLowerCase().includes(q) ||
+      cn.credit_note_number?.toLowerCase().includes(q)
     )
   })
 
@@ -568,7 +568,7 @@ export default function FinanzenPage() {
             {filteredInvoices.map((inv) => {
               const sc = invoiceStatusConfig[inv.status]
               const StatusIcon = sc.icon
-              const grossTotal = Number(inv.tax_breakdown.gross_total)
+              const grossTotal = Number(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)
               return (
                 <div
                   key={inv.id}
@@ -595,7 +595,7 @@ export default function FinanzenPage() {
                     }`}
                   >
                     {inv.status !== 'paid'
-                      ? formatEUR(inv.tax_breakdown.gross_total)
+                      ? formatEUR(inv.tax_breakdown?.gross_total ?? inv.total_gross ?? 0)
                       : '--'}
                   </span>
                   <div className="flex items-center gap-1 flex-wrap">
@@ -658,7 +658,7 @@ export default function FinanzenPage() {
                     {q.customer.name}
                   </span>
                   <span className="text-sm font-medium text-foreground">
-                    {formatEUR(q.tax_breakdown.gross_total)}
+                    {formatEUR(q.tax_breakdown?.gross_total ?? q.total_gross ?? 0)}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {new Date(q.valid_until).toLocaleDateString('de-DE')}
@@ -717,7 +717,7 @@ export default function FinanzenPage() {
                     {cn.original_invoice_id.slice(0, 8)}...
                   </span>
                   <span className="text-sm font-medium text-foreground">
-                    {formatEUR(cn.tax_breakdown.gross_total)}
+                    {formatEUR(cn.tax_breakdown?.gross_total ?? cn.total_gross ?? 0)}
                   </span>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${

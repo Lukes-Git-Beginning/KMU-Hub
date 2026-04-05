@@ -1008,7 +1008,12 @@ export const mockEntityTasks = {
 // ---------------------------------------------------------------------------
 
 export function getMyTasks(userId: string) {
-  const tasks = mockTasks.tasks.filter((t) => t.assignee_id === userId)
+  let tasks = mockTasks.tasks.filter((t) => t.assignee_id === userId)
+  // Fallback: if no tasks match (e.g. demo user ID mismatch), return tasks
+  // assigned to the default demo user so the UI isn't empty
+  if (tasks.length === 0) {
+    tasks = mockTasks.tasks.filter((t) => t.assignee_id === IDS.users.stefan)
+  }
   return { tasks, total: tasks.length, page: 1, page_size: 50 }
 }
 

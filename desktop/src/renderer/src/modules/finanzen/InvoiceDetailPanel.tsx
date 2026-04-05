@@ -109,7 +109,7 @@ export function InvoiceDetailPanel({
 
   const status = statusConfig[invoice.status]
   const StatusIcon = status.icon
-  const grossTotal = Number(invoice.tax_breakdown.gross_total)
+  const grossTotal = Number(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)
   const payments = paymentsData?.payments ?? []
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0)
   const remaining = Math.max(0, grossTotal - totalPaid)
@@ -248,9 +248,9 @@ export function InvoiceDetailPanel({
         <div className="space-y-1.5 text-xs">
           <div className="flex justify-between text-muted-foreground">
             <span>Zwischensumme (netto)</span>
-            <span>{formatEUR(invoice.tax_breakdown.subtotal)}</span>
+            <span>{formatEUR(invoice.tax_breakdown?.subtotal ?? invoice.total_net ?? 0)}</span>
           </div>
-          {Object.entries(invoice.tax_breakdown.tax_by_rate ?? {}).map(
+          {Object.entries(invoice.tax_breakdown?.tax_by_rate ?? {}).map(
             ([rate, amount]) => (
               <div
                 key={rate}
@@ -263,7 +263,7 @@ export function InvoiceDetailPanel({
           )}
           <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
             <span>Gesamtbetrag</span>
-            <span>{formatEUR(invoice.tax_breakdown.gross_total)}</span>
+            <span>{formatEUR(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}</span>
           </div>
           {totalPaid > 0 && (
             <>
@@ -324,9 +324,9 @@ export function InvoiceDetailPanel({
         {/* PDF Preview (3.18) */}
         <PDFPreviewPanel
           invoiceNumber={invoice.invoice_number}
-          customerName={invoice.customer.name}
+          customerName={invoice.customer?.name ?? ''}
           date={new Date(invoice.invoice_date).toLocaleDateString('de-DE')}
-          amount={formatEUR(invoice.tax_breakdown.gross_total)}
+          amount={formatEUR(invoice.tax_breakdown?.gross_total ?? invoice.total_gross ?? 0)}
           onDownload={() => downloadPDF.mutate(invoiceId)}
         />
 
