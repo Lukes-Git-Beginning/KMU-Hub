@@ -398,9 +398,9 @@ export const EXTERNAL_CONTACTS: MockExternalContact[] = [
   {
     id: 'x14', salutation: 'Frau', title: '', firstName: 'Carla', lastName: 'Ruiz', initials: 'CR',
     email: 'ruiz@linguaplus.de', phone: '+49 89 444 5566', mobile: '+49 173 445 5667',
-    company: 'LinguaPlus GmbH', jobTitle: 'Uebersetzerin DE/ES/EN',
+    company: 'LinguaPlus GmbH', jobTitle: 'Übersetzerin DE/ES/EN',
     category: 'partner', status: 'active', city: 'München',
-    tags: ['Uebersetzung', 'Lokalisierung'], notes: 'Uebersetzt Marketingmaterial und Docs. Schnell und zuverlaessig.',
+    tags: ['Übersetzung', 'Lokalisierung'], notes: 'Übersetzt Marketingmaterial und Docs. Schnell und zuverlässig.',
     lastContact: '2026-01-28',
   },
   {

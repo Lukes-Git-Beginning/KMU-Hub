@@ -81,8 +81,8 @@ const SALARY_STATEMENTS: SalaryStatement[] = [
 ]
 
 const TIME_ACCOUNTS: TimeAccount[] = [
-  { label: 'Ueberstunden (Monat)', hours: 4.5, type: 'positive' },
-  { label: 'Ueberstunden (gesamt)', hours: 18.25, type: 'positive' },
+  { label: 'Überstunden (Monat)', hours: 4.5, type: 'positive' },
+  { label: 'Überstunden (gesamt)', hours: 18.25, type: 'positive' },
   { label: 'Gleitzeit-Saldo', hours: 2.75, type: 'positive' },
   { label: 'Resturlaub (Tage)', hours: 22, type: 'neutral' },
 ]
@@ -224,7 +224,7 @@ export function SelfServiceView() {
                   { label: 'Urlaub beantragen', icon: Calendar, onClick: () => toast.info('Urlaubsantrag-Dialog (Mock)') },
                   { label: 'Homeoffice melden', icon: MapPin, onClick: () => toast.info('Homeoffice-Meldung (Mock)') },
                   { label: 'Krank melden', icon: AlertCircle, onClick: () => toast.info('Krankmeldung (Mock)') },
-                  { label: 'Ueberstunden melden', icon: Clock, onClick: () => toast.info('Ueberstunden-Meldung (Mock)') },
+                  { label: 'Überstunden melden', icon: Clock, onClick: () => toast.info('Überstunden-Meldung (Mock)') },
                 ].map((action) => {
                   const Icon = action.icon
                   return (

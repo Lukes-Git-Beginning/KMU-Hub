@@ -120,7 +120,7 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
           <span>{publishedCount}</span>
         </div>
         <div className="flex justify-between">
-          <span>Entwuerfe</span>
+          <span>Entwürfe</span>
           <span>{totalArticles - publishedCount}</span>
         </div>
       </div>

@@ -43,7 +43,7 @@ export const mockEmailFolders = {
     },
     {
       id: IDS.emailFolders.drafts,
-      name: 'Entwuerfe',
+      name: 'Entwürfe',
       type: 'drafts',
       unread_count: 0,
       total_count: 2,

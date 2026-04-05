@@ -229,9 +229,9 @@ function ContractDialog({
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[90vh] overflow-y-auto">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated max-h-[calc(100vh-2rem)] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">
             {isEdit ? 'Vertrag bearbeiten' : 'Neuen Vertrag anlegen'}

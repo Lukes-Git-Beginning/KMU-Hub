@@ -532,9 +532,9 @@ export default function DokumentePage() {
   const getActiveSectionName = (): string => {
     if (activeSpecialView === SIDEBAR_FAVORITES) return 'Favoriten'
     if (activeSpecialView === SIDEBAR_SHARED) return 'Geteilt mit mir'
-    if (activeSpecialView === SIDEBAR_VIRTUAL_CHAT) return 'Chat-Anhaenge'
-    if (activeSpecialView === SIDEBAR_VIRTUAL_EMAIL) return 'E-Mail-Anhaenge'
-    if (activeSpecialView === SIDEBAR_VIRTUAL_TASK) return 'Aufgaben-Anhaenge'
+    if (activeSpecialView === SIDEBAR_VIRTUAL_CHAT) return 'Chat-Anhänge'
+    if (activeSpecialView === SIDEBAR_VIRTUAL_EMAIL) return 'E-Mail-Anhänge'
+    if (activeSpecialView === SIDEBAR_VIRTUAL_TASK) return 'Aufgaben-Anhänge'
     if (breadcrumbs.length > 0) return breadcrumbs[breadcrumbs.length - 1].name
     return 'Alle Dateien'
   }
@@ -745,7 +745,7 @@ export default function DokumentePage() {
               {/* Virtual folders */}
               <div className="border-t border-border pt-4">
                 <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
-                  Anhaenge
+                  Anhänge
                 </h3>
                 <nav className="space-y-0.5">
                   <button
@@ -757,7 +757,7 @@ export default function DokumentePage() {
                     }`}
                   >
                     <MessageSquare className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Chat-Anhaenge</span>
+                    <span className="truncate">Chat-Anhänge</span>
                   </button>
                   <button
                     onClick={() => navigateToSpecial(SIDEBAR_VIRTUAL_EMAIL)}
@@ -768,7 +768,7 @@ export default function DokumentePage() {
                     }`}
                   >
                     <Mail className="h-4 w-4 shrink-0" />
-                    <span className="truncate">E-Mail-Anhaenge</span>
+                    <span className="truncate">E-Mail-Anhänge</span>
                   </button>
                   <button
                     onClick={() => navigateToSpecial(SIDEBAR_VIRTUAL_TASK)}
@@ -779,7 +779,7 @@ export default function DokumentePage() {
                     }`}
                   >
                     <CheckSquare className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Aufgaben-Anhaenge</span>
+                    <span className="truncate">Aufgaben-Anhänge</span>
                   </button>
                 </nav>
               </div>

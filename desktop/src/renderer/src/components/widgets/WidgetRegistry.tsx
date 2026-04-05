@@ -119,10 +119,10 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   'notification-feed': {
     id: 'notification-feed',
     name: 'Benachrichtigungs-Feed',
-    description: 'Letzte 10 Benachrichtigungen (offline-faehig).',
+    description: 'Letzte 10 Benachrichtigungen (offline-fähig).',
     icon: Bell,
-    defaultSize: { w: 4, h: 4 },
-    minSize: { w: 3, h: 3 },
+    defaultSize: { w: 4, h: 6 },
+    minSize: { w: 3, h: 4 },
     component: lazy(() => import('../../modules/dashboard/widgets/NotificationFeedWidget')),
     roles: ['admin', 'manager', 'member'],
   },

@@ -20,7 +20,7 @@ import {
 export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
   de: 'Deutsch',
   en: 'English',
-  fr: 'Francais',
+  fr: 'Français',
   it: 'Italiano',
 }
 

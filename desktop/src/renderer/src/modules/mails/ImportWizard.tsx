@@ -446,7 +446,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                   </div>
                   <div className="p-3 rounded-lg bg-muted/50 text-center">
                     <p className="text-2xl font-bold">{result.skipped_count}</p>
-                    <p className="text-xs text-muted-foreground">Uebersprungen</p>
+                    <p className="text-xs text-muted-foreground">Übersprungen</p>
                   </div>
                 </div>
 

@@ -158,13 +158,13 @@ const availabilityDot: Record<string, string> = {
 
 const availabilityLabel: Record<string, string> = {
   available: 'Verfügbar',
-  limited: 'Eingeschraenkt',
+  limited: 'Eingeschränkt',
   unavailable: 'Nicht verfügbar',
 }
 
 const availabilityLevelColors: Record<AvailabilityLevel, { bg: string; text: string; label: string }> = {
   green: { bg: 'bg-success/20', text: 'text-success', label: 'Verfügbar' },
-  yellow: { bg: 'bg-warning/20', text: 'text-warning', label: 'Eingeschraenkt' },
+  yellow: { bg: 'bg-warning/20', text: 'text-warning', label: 'Eingeschränkt' },
   red: { bg: 'bg-error/20', text: 'text-error', label: 'Nicht verfügbar' },
 }
 
@@ -952,7 +952,7 @@ export default function SchichtenPage() {
                   <div className="h-2.5 w-2.5 rounded-full bg-success" />
                   <span className="text-[11px] text-muted-foreground">Verfügbar</span>
                   <div className="h-2.5 w-2.5 rounded-full bg-warning ml-2" />
-                  <span className="text-[11px] text-muted-foreground">Eingeschraenkt</span>
+                  <span className="text-[11px] text-muted-foreground">Eingeschränkt</span>
                   <div className="h-2.5 w-2.5 rounded-full bg-error ml-2" />
                   <span className="text-[11px] text-muted-foreground">Abwesend</span>
                 </div>

@@ -266,7 +266,7 @@ export default function TodayView() {
         </div>
         {totalMinutes > targetMinutes && (
           <p className="text-xs text-success mt-1">
-            +{formatMinutes(totalMinutes - targetMinutes)} Ueberstunden
+            +{formatMinutes(totalMinutes - targetMinutes)} Überstunden
           </p>
         )}
         {totalMinutes < targetMinutes && totalMinutes > 0 && (

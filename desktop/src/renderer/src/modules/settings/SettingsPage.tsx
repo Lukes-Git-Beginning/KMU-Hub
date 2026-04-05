@@ -531,7 +531,7 @@ function LanguageTab() {
   const languages = [
     { id: 'de' as const, label: 'Deutsch', flag: 'DE' },
     { id: 'en' as const, label: 'English', flag: 'EN' },
-    { id: 'fr' as const, label: 'Francais', flag: 'FR' },
+    { id: 'fr' as const, label: 'Français', flag: 'FR' },
   ]
 
   const handleSave = () => {

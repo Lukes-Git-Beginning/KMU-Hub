@@ -13,6 +13,34 @@ import { toast } from 'sonner'
 import { useSettingsStore } from '@/stores/settings'
 
 const HOLIDAY_REGIONS = [
+  // Deutschland — alle 16 Bundesländer
+  { id: 'DE-BW', label: 'Baden-Württemberg' },
+  { id: 'DE-BY', label: 'Bayern' },
+  { id: 'DE-BE', label: 'Berlin' },
+  { id: 'DE-BB', label: 'Brandenburg' },
+  { id: 'DE-HB', label: 'Bremen' },
+  { id: 'DE-HH', label: 'Hamburg' },
+  { id: 'DE-HE', label: 'Hessen' },
+  { id: 'DE-MV', label: 'Mecklenburg-Vorpommern' },
+  { id: 'DE-NI', label: 'Niedersachsen' },
+  { id: 'DE-NW', label: 'Nordrhein-Westfalen' },
+  { id: 'DE-RP', label: 'Rheinland-Pfalz' },
+  { id: 'DE-SL', label: 'Saarland' },
+  { id: 'DE-SN', label: 'Sachsen' },
+  { id: 'DE-ST', label: 'Sachsen-Anhalt' },
+  { id: 'DE-SH', label: 'Schleswig-Holstein' },
+  { id: 'DE-TH', label: 'Thüringen' },
+  // Österreich
+  { id: 'AT-B', label: 'Burgenland' },
+  { id: 'AT-K', label: 'Kärnten' },
+  { id: 'AT-NÖ', label: 'Niederösterreich' },
+  { id: 'AT-OÖ', label: 'Oberösterreich' },
+  { id: 'AT-S', label: 'Salzburg' },
+  { id: 'AT-ST', label: 'Steiermark' },
+  { id: 'AT-T', label: 'Tirol' },
+  { id: 'AT-V', label: 'Vorarlberg' },
+  { id: 'AT-W', label: 'Wien' },
+  // Schweiz
   { id: 'CH-ZH', label: 'Zürich' },
   { id: 'CH-BE', label: 'Bern' },
   { id: 'CH-LU', label: 'Luzern' },
@@ -20,11 +48,6 @@ const HOLIDAY_REGIONS = [
   { id: 'CH-AG', label: 'Aargau' },
   { id: 'CH-BS', label: 'Basel-Stadt' },
   { id: 'CH-GE', label: 'Genf' },
-  { id: 'DE-BY', label: 'Bayern' },
-  { id: 'DE-BW', label: 'Baden-Wuerttemberg' },
-  { id: 'DE-NW', label: 'Nordrhein-Westfalen' },
-  { id: 'AT-W', label: 'Wien' },
-  { id: 'AT-T', label: 'Tirol' },
 ]
 
 const REMINDERS = [

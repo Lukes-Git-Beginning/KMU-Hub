@@ -163,7 +163,7 @@ const MOCK_COMPARISON: ComparisonBar[] = [
 ]
 
 const MOCK_BWA: DATEVRow[] = [
-  { position: '1', label: 'Umsatzerloese', currentMonth: 284350, previousMonth: 275100, yearToDate: 559450 },
+  { position: '1', label: 'Umsatzerlöse', currentMonth: 284350, previousMonth: 275100, yearToDate: 559450 },
   { position: '2', label: 'Bestandsveränderung', currentMonth: -2100, previousMonth: 1500, yearToDate: -600 },
   { position: '3', label: 'Gesamtleistung', currentMonth: 282250, previousMonth: 276600, yearToDate: 558850 },
   { position: '4', label: 'Materialaufwand', currentMonth: -85200, previousMonth: -82400, yearToDate: -167600 },

@@ -340,7 +340,7 @@ export function HRIntegrationPanel() {
 
         <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
           <FileText className="h-3 w-3" />
-          Werte sind Richtwerte. Exakte Berechnung erfolgt ueber die verbundene Lohnbuchhaltung.
+          Werte sind Richtwerte. Exakte Berechnung erfolgt über die verbundene Lohnbuchhaltung.
         </p>
       </div>
     </div>

@@ -75,7 +75,7 @@ export default function WikiPage() {
       result = result.filter(
         (a) =>
           a.title.toLowerCase().includes(q) ||
-          a.tags.some((t) => t.toLowerCase().includes(q)) ||
+          (a.tags ?? []).some((t) => t.toLowerCase().includes(q)) ||
           a.authorName.toLowerCase().includes(q),
       )
     }
@@ -161,7 +161,7 @@ export default function WikiPage() {
                           <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${st?.bg ?? ''}`}>
                             {st?.label ?? article.status}
                           </span>
-                          {article.tags.slice(0, 2).map((tag) => (
+                          {(article.tags ?? []).slice(0, 2).map((tag) => (
                             <span key={tag} className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 text-[9px] text-muted-foreground">
                               <Tag className="h-2 w-2" />{tag}
                             </span>
@@ -171,7 +171,7 @@ export default function WikiPage() {
                             <Eye className="h-2.5 w-2.5" />{article.viewCount}
                           </div>
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <History className="h-2.5 w-2.5" />v{article.versions.length}
+                            <History className="h-2.5 w-2.5" />v{(article.versions ?? []).length}
                           </div>
                         </div>
                       </button>

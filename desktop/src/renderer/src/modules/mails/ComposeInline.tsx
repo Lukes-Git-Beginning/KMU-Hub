@@ -371,7 +371,7 @@ export function ComposeInline({
           <div className="flex items-center gap-1">
             <button
               className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-              title="Datei anhaengen"
+              title="Datei anhängen"
             >
               <Paperclip className="h-4 w-4" />
             </button>

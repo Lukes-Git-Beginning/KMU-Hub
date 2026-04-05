@@ -388,7 +388,7 @@ export const useWikiStore = create<WikiState>()(
                     {
                       id: `wv${nextVersionId++}`,
                       articleId: id,
-                      version: a.versions.length + 1,
+                      version: (a.versions ?? []).length + 1,
                       editorName: updates.lastEditedBy || a.lastEditedBy,
                       editedAt: now,
                       changeNote: 'Bearbeitet',
@@ -466,6 +466,7 @@ export const useWikiStore = create<WikiState>()(
     }),
     {
       name: 'kmuhub-wiki',
+      version: 2,
       partialize: (state) => ({
         selectedCategoryId: state.selectedCategoryId,
       }),

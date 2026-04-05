@@ -57,7 +57,7 @@ const statusConfig: Record<
     icon: CheckCircle2,
   },
   overdue: {
-    label: 'Ueberfällig',
+    label: 'Überfällig',
     color: 'text-error',
     bg: 'bg-error-light',
     icon: AlertCircle,

@@ -38,7 +38,7 @@ function statusBadge(status: string) {
     case 'skipped':
       return (
         <Badge className="bg-warning/15 text-warning-foreground border-warning/30 hover:bg-warning/15">
-          Uebersprungen
+          Übersprungen
         </Badge>
       )
     default:

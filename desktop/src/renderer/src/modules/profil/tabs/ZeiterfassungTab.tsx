@@ -184,7 +184,7 @@ export default function ZeiterfassungTab() {
     <div className="h-full flex flex-col">
       {/* Timer Toolbar */}
       <div className="border-b border-border bg-card/50 px-6 py-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 max-w-4xl mx-auto">
           {/* Clock In/Out Controls */}
           <div className="flex items-center gap-2">
             {!status?.isClockedIn ? (
@@ -233,7 +233,7 @@ export default function ZeiterfassungTab() {
             </span>
             {overtimeMinutes > 0 && (
               <span className="text-xs text-warning font-medium">
-                (+{formatMinutesDisplay(overtimeMinutes)} Ueberstunden)
+                (+{formatMinutesDisplay(overtimeMinutes)} Überstunden)
               </span>
             )}
             <div className="w-24 h-2 rounded-full bg-secondary overflow-hidden">
@@ -374,7 +374,7 @@ function TodayView({ summary, entries }: { summary?: DailySummaryType; entries: 
             <p className="text-lg font-semibold text-foreground">{formatMinutesDisplay(summary.netWorkMinutes)}</p>
           </div>
           <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground mb-1">Ueberstunden</p>
+            <p className="text-xs text-muted-foreground mb-1">Überstunden</p>
             <p className={cn('text-lg font-semibold', summary.overtimeMinutes > 0 ? 'text-warning' : 'text-foreground')}>
               {summary.overtimeMinutes > 0 ? '+' : ''}{formatMinutesDisplay(summary.overtimeMinutes)}
             </p>
@@ -451,7 +451,7 @@ function WeeklyView({ summary }: { summary?: { weekStart: string; days: DailySum
           <p className="text-lg font-semibold text-foreground">{formatMinutesDisplay(summary.netWorkMinutes)}</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground mb-1">Ueberstunden</p>
+          <p className="text-xs text-muted-foreground mb-1">Überstunden</p>
           <p className={cn('text-lg font-semibold', summary.totalOvertimeMinutes > 0 ? 'text-warning' : 'text-foreground')}>
             {summary.totalOvertimeMinutes > 0 ? '+' : ''}{formatMinutesDisplay(summary.totalOvertimeMinutes)}
           </p>
@@ -467,7 +467,7 @@ function WeeklyView({ summary }: { summary?: { weekStart: string; days: DailySum
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Arbeitszeit</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Pause</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Netto</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Ueberstunden</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Überstunden</th>
             </tr>
           </thead>
           <tbody>

@@ -61,7 +61,7 @@ const statusConfig: Record<DocStatus, { label: string; bg: string; text: string 
   active: { label: 'Aktiv', bg: 'bg-info-light', text: 'text-info' },
   pending: { label: 'Ausstehend', bg: 'bg-secondary', text: 'text-muted-foreground' },
   cancelled: { label: 'Storniert', bg: 'bg-secondary', text: 'text-muted-foreground' },
-  overdue: { label: 'Ueberfällig', bg: 'bg-error-light', text: 'text-error' },
+  overdue: { label: 'Überfällig', bg: 'bg-error-light', text: 'text-error' },
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +179,7 @@ export function BelegketteTab() {
           ['total', 'Gesamt', stats.total, 'bg-secondary text-foreground'],
           ['open', 'Offen', stats.open, 'bg-info-light text-info'],
           ['complete', 'Abgeschlossen', stats.complete, 'bg-success-light text-success'],
-          ['overdue', 'Ueberfällig', stats.overdue, 'bg-error-light text-error'],
+          ['overdue', 'Überfällig', stats.overdue, 'bg-error-light text-error'],
         ] as const).map(([key, label, count, _colors]) => (
           <button
             key={key}
@@ -252,7 +252,7 @@ export function BelegketteTab() {
                       ) : chain.nodes.some((n) => n.status === 'overdue') ? (
                         <span className="flex items-center gap-1 rounded-full bg-error-light px-2 py-0.5 text-[10px] font-medium text-error">
                           <AlertCircle className="h-3 w-3" />
-                          Ueberfällig
+                          Überfällig
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">

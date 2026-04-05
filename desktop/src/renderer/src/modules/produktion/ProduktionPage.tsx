@@ -90,7 +90,7 @@ const workStepStatusLabels: Record<string, string> = {
   pending: 'Ausstehend',
   in_progress: 'In Arbeit',
   completed: 'Erledigt',
-  skipped: 'Uebersprungen',
+  skipped: 'Übersprungen',
 }
 
 const workStepStatusColors: Record<string, string> = {

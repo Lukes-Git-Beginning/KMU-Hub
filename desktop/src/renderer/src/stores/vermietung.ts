@@ -150,9 +150,9 @@ const MOCK_OBJECTS: RentalObject[] = [
   },
   {
     id: 'obj-8',
-    name: 'PKW-Anhaenger',
+    name: 'PKW-Anhänger',
     type: 'fahrzeug',
-    description: 'Einachser-Anhaenger 750kg, Plane & Spriegel, Stuetzrad',
+    description: 'Einachser-Anhänger 750kg, Plane & Spriegel, Stuetzrad',
     location: 'Tiefgarage',
     serialNumber: 'ZH-ANH-1105',
     dailyRate: 55,
@@ -251,7 +251,7 @@ const MOCK_RESERVATIONS: Reservation[] = [
   {
     id: 'res-7',
     objectId: 'obj-8',
-    objectName: 'PKW-Anhaenger',
+    objectName: 'PKW-Anhänger',
     startDate: '2026-02-05',
     endDate: '2026-02-07',
     renter: 'Baumann GmbH',

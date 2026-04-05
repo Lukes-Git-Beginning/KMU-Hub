@@ -600,7 +600,7 @@ export function ImportExportDialog({
                       <p className="text-xs font-medium text-foreground">Duplikate behandeln</p>
                       <div className="flex items-center gap-2">
                         {([
-                          ['skip', 'Ueberspringen'],
+                          ['skip', 'Überspringen'],
                           ['update', 'Aktualisieren'],
                           ['create', 'Neu anlegen'],
                         ] as const).map(([key, label]) => (
@@ -726,7 +726,7 @@ export function ImportExportDialog({
                             {duplicateCount} mögliche Duplikate erkannt
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Basierend auf E-Mail-Adresse und Name. Aktion: {duplicateAction === 'skip' ? 'Ueberspringen' : duplicateAction === 'update' ? 'Aktualisieren' : 'Neu anlegen'}.
+                            Basierend auf E-Mail-Adresse und Name. Aktion: {duplicateAction === 'skip' ? 'Überspringen' : duplicateAction === 'update' ? 'Aktualisieren' : 'Neu anlegen'}.
                           </p>
                         </div>
                       </div>

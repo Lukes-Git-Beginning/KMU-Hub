@@ -143,7 +143,7 @@ export function TourOverlay() {
             onClick={skipTour}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            Ueberspringen
+            Überspringen
           </button>
           <div className="flex-1" />
           {currentStep > 0 && (

@@ -25,7 +25,7 @@ const STATUS_LABELS: Record<InvoiceStatus, string> = {
   draft: 'Entwurf',
   sent: 'Gesendet',
   paid: 'Bezahlt',
-  overdue: 'Ueberfällig',
+  overdue: 'Überfällig',
   cancelled: 'Storniert',
 }
 
@@ -179,7 +179,7 @@ export function FinanceDashboard() {
           bg="bg-warning-light"
         />
         <MetricCard
-          label="Ueberfällig"
+          label="Überfällig"
           value={formatEUR(overdueAmount)}
           icon={AlertCircle}
           color="text-error"

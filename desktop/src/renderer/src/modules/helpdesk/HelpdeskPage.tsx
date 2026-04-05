@@ -262,7 +262,7 @@ export default function HelpdeskPage() {
               className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
             >
               <Clock className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Geschaeftszeiten</span>
+              <span className="hidden sm:inline">Geschäftszeiten</span>
             </button>
             <button
               onClick={() => setRoutingConfigOpen(true)}

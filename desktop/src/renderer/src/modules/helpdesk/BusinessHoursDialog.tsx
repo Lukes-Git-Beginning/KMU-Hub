@@ -92,7 +92,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
   }
 
   const handleSave = () => {
-    toast.success('Geschaeftszeiten gespeichert')
+    toast.success('Geschäftszeiten gespeichert')
     onClose()
   }
 
@@ -103,7 +103,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
         <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" />
-            <DialogTitle className="text-base font-semibold text-foreground">Geschaeftszeiten konfigurieren</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-foreground">Geschäftszeiten konfigurieren</DialogTitle>
           </div>
           <DialogDescription className="sr-only">Öffnungszeiten und Feiertage konfigurieren</DialogDescription>
         </DialogHeader>

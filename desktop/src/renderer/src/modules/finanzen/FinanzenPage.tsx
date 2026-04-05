@@ -79,7 +79,7 @@ const invoiceStatusConfig: Record<
     icon: CheckCircle2,
   },
   overdue: {
-    label: 'Ueberfällig',
+    label: 'Überfällig',
     colors: 'bg-error-light text-error',
     icon: AlertCircle,
   },
@@ -514,7 +514,7 @@ export default function FinanzenPage() {
                   draft: 'Entwurf',
                   sent: 'Gesendet',
                   paid: 'Bezahlt',
-                  overdue: 'Ueberfällig',
+                  overdue: 'Überfällig',
                   cancelled: 'Storniert',
                 }
                 return (

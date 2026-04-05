@@ -135,7 +135,7 @@ export function DunningPanel() {
             <RefreshCw
               className={`mr-1.5 h-3.5 w-3.5 ${detectDunnings.isPending ? 'animate-spin' : ''}`}
             />
-            Ueberfällige Rechnungen prüfen
+            Überfällige Rechnungen prüfen
           </Button>
         </div>
       </div>

@@ -135,7 +135,7 @@ export default function WidgetContainer() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-3 pt-2 max-h-[60vh] overflow-y-auto pr-1">
             {widgetList.map((widget) => {
               const isActive = activeWidgets.includes(widget.id)
               const Icon = widget.icon

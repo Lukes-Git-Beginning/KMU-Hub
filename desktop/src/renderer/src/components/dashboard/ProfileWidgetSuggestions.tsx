@@ -43,7 +43,7 @@ const profileSuggestions: Record<string, WidgetSuggestion[]> = {
   ],
   dienstleistung: [
     { id: 'nächste-termine', label: 'Nächste Termine', description: 'Kommende Termine und Meetings', icon: Clock, moduleId: 'calendar' },
-    { id: 'offene-rechnungen', label: 'Offene Rechnungen', description: 'Ueberfällige und offene Rechnungen', icon: Receipt, moduleId: 'finance' },
+    { id: 'offene-rechnungen', label: 'Offene Rechnungen', description: 'Überfällige und offene Rechnungen', icon: Receipt, moduleId: 'finance' },
     { id: 'kontakte-quick', label: 'Kontakte', description: 'Zuletzt bearbeitete Kontakte', icon: Users, moduleId: 'contacts' },
   ],
 }

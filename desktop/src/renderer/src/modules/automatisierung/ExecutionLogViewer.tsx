@@ -49,7 +49,7 @@ const STATUS_CONFIG: Record<
   },
   skipped: {
     icon: MinusCircle,
-    label: 'Uebersprungen',
+    label: 'Übersprungen',
     className: 'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400',
   },
   aborted: {
@@ -188,7 +188,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'completed', label: 'Abgeschlossen' },
   { value: 'failed', label: 'Fehlgeschlagen' },
   { value: 'running', label: 'Laeuft' },
-  { value: 'skipped', label: 'Uebersprungen' },
+  { value: 'skipped', label: 'Übersprungen' },
   { value: 'aborted', label: 'Abgebrochen' },
 ]
 

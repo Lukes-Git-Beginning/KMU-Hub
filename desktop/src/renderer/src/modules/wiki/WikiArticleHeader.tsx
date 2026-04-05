@@ -86,7 +86,7 @@ export function WikiArticleHeader({
             <span>{article.viewCount} Aufrufe</span>
             <span>·</span>
             <History className="h-3 w-3" />
-            <span>v{article.versions.length}</span>
+            <span>v{(article.versions ?? []).length}</span>
           </div>
         </div>
 

@@ -334,7 +334,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
             </div>
             <div className="flex items-center gap-1.5">
               <div className="h-3 w-5 rounded bg-destructive" />
-              <span>&gt;100% (Ueberlastet)</span>
+              <span>&gt;100% (Überlastet)</span>
             </div>
           </div>
         </div>
@@ -345,7 +345,7 @@ export default function AuslastungReport({ projectId: _projectId }: AuslastungRe
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive" />
               <span className="text-sm font-medium text-destructive">
-                Ueberlastungswarnungen
+                Überlastungswarnungen
               </span>
             </div>
             <div className="space-y-1">

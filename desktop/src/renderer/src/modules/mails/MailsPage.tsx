@@ -584,7 +584,7 @@ export default function MailsPage() {
               {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
                 <div className="mt-6 border-t border-border pt-4">
                   <p className="text-xs font-medium text-muted-foreground mb-2">
-                    Anhaenge ({selectedMessage.attachments.length})
+                    Anhänge ({selectedMessage.attachments.length})
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {selectedMessage.attachments.map((att) => (
