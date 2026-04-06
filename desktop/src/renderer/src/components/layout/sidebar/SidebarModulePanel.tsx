@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Pin, PinOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
 import { useUIStore } from '@/stores/ui'
 import type { NavItemConfig } from './nav-items'
@@ -10,6 +11,7 @@ interface SidebarModulePanelProps {
 }
 
 export function SidebarModulePanel({ items, onSelect }: SidebarModulePanelProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const pinnedModules = useUIStore((s) => s.pinnedModules)
@@ -18,7 +20,7 @@ export function SidebarModulePanel({ items, onSelect }: SidebarModulePanelProps)
   return (
     <div className="p-3">
       <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 px-1">
-        Alle Module
+        {t('layout.sidebar.allModules')}
       </p>
       <div className="grid grid-cols-3 gap-1.5">
         {items.map((item) => {
@@ -72,7 +74,7 @@ export function SidebarModulePanel({ items, onSelect }: SidebarModulePanelProps)
                     ? 'text-primary opacity-80 hover:opacity-100'
                     : 'text-muted-foreground opacity-0 group-hover:opacity-60 hover:!opacity-100'
                 )}
-                title={isPinned ? 'Aus Sidebar entfernen' : 'Zur Sidebar hinzufügen'}
+                title={isPinned ? t('layout.sidebar.unpinModule') : t('layout.sidebar.pinModule')}
               >
                 {isPinned ? (
                   <Pin className="h-3 w-3" />

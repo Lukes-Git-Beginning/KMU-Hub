@@ -8,41 +8,72 @@
  * Click navigates to /kalender.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 interface DeskCalendarProps {
   size?: number
 }
 
-const WEEKDAYS_SHORT = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
-const MONTHS_SHORT = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+const WEEKDAY_KEYS = [
+  'desk.calendar.dayShort.sun',
+  'desk.calendar.dayShort.mon',
+  'desk.calendar.dayShort.tue',
+  'desk.calendar.dayShort.wed',
+  'desk.calendar.dayShort.thu',
+  'desk.calendar.dayShort.fri',
+  'desk.calendar.dayShort.sat',
+]
 
-function getDateInfo() {
+const MONTH_KEYS = [
+  'desk.calendar.monthShort.jan',
+  'desk.calendar.monthShort.feb',
+  'desk.calendar.monthShort.mar',
+  'desk.calendar.monthShort.apr',
+  'desk.calendar.monthShort.may',
+  'desk.calendar.monthShort.jun',
+  'desk.calendar.monthShort.jul',
+  'desk.calendar.monthShort.aug',
+  'desk.calendar.monthShort.sep',
+  'desk.calendar.monthShort.oct',
+  'desk.calendar.monthShort.nov',
+  'desk.calendar.monthShort.dec',
+]
+
+function getDateIndices() {
   const now = new Date()
   return {
     day: now.getDate(),
-    weekdayShort: WEEKDAYS_SHORT[now.getDay()],
-    month: MONTHS_SHORT[now.getMonth()],
+    weekdayIndex: now.getDay(),
+    monthIndex: now.getMonth(),
     isWeekend: now.getDay() === 0 || now.getDay() === 6,
   }
 }
 
 export function DeskCalendar({ size = 64 }: DeskCalendarProps) {
-  const [dateInfo, setDateInfo] = useState(getDateInfo)
+  const { t } = useTranslation()
+  const [dateIndices, setDateIndices] = useState(getDateIndices)
   const navigate = useNavigate()
 
-   
+  const dateInfo = {
+    day: dateIndices.day,
+    weekdayShort: t(WEEKDAY_KEYS[dateIndices.weekdayIndex]),
+    month: t(MONTH_KEYS[dateIndices.monthIndex]),
+    isWeekend: dateIndices.isWeekend,
+  }
+
+
   useEffect(() => {
     const now = new Date()
     const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
     const msUntilMidnight = tomorrow.getTime() - now.getTime()
 
     const timeout = setTimeout(() => {
-      setDateInfo(getDateInfo())
+      setDateIndices(getDateIndices())
     }, msUntilMidnight)
 
     return () => clearTimeout(timeout)
-  }, [dateInfo])
+  }, [dateIndices])
 
   const scale = size / 64
 
@@ -50,7 +81,7 @@ export function DeskCalendar({ size = 64 }: DeskCalendarProps) {
     <button
       onClick={() => navigate('/kalender')}
       className="select-none cursor-pointer hover:scale-105 transition-transform"
-      title="Klick: Kalender öffnen"
+      title={t('desk.calendar.openTooltip')}
       style={{ width: size, height: size * 1.15 }}
     >
       <div

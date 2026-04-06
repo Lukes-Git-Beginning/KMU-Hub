@@ -8,6 +8,7 @@
  * Click toggles between variants (persisted via callback).
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/stores/ui'
 
 interface DeskClockProps {
@@ -130,6 +131,7 @@ function DigitalClock({ size }: { size: number }) {
 }
 
 export function DeskClock({ size = 64 }: DeskClockProps) {
+  const { t } = useTranslation()
   const decoration = useUIStore((s) => s.deskDecorations['left-wall-clock'])
   const setDecoration = useUIStore((s) => s.setDeskDecoration)
   const variant = decoration?.variant ?? 'analog'
@@ -147,7 +149,7 @@ export function DeskClock({ size = 64 }: DeskClockProps) {
     <button
       onClick={toggleVariant}
       className="cursor-pointer hover:scale-105 transition-transform"
-      title="Klick: Analog/Digital wechseln"
+      title={t('desk.clock.toggleTooltip')}
     >
       {variant === 'digital' ? (
         <DigitalClock size={size} />

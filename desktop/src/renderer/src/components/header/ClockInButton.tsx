@@ -9,6 +9,7 @@
  * automatically via mutation onSuccess callbacks in hr-hooks.ts.
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Square, Coffee, Timer } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/api/hooks/hr-hooks'
 
 export function ClockInButton() {
+  const { t } = useTranslation()
   const { data: status } = useWorkTimeStatus()
   const clockInMutation = useClockIn()
   const clockOutMutation = useClockOut()
@@ -108,17 +110,17 @@ export function ClockInButton() {
             ? 'bg-success/10 hover:bg-success/15'
             : 'hover:bg-accent',
         )}
-        title={status?.isClockedIn ? 'Eingestempelt' : 'Einstempeln'}
+        title={status?.isClockedIn ? t('header.clockIn.clockedIn') : t('header.clockIn.clockIn')}
       >
         {!status?.isClockedIn ? (
           <>
             <Timer className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground text-xs hidden sm:inline">Einstempeln</span>
+            <span className="text-muted-foreground text-xs hidden sm:inline">{t('header.clockIn.clockIn')}</span>
           </>
         ) : status.isOnBreak ? (
           <>
             <Coffee className="h-4 w-4 text-warning-foreground" />
-            <span className="text-xs font-medium text-warning-foreground">Pause</span>
+            <span className="text-xs font-medium text-warning-foreground">{t('header.clockIn.break')}</span>
           </>
         ) : (
           <>
@@ -139,7 +141,7 @@ export function ClockInButton() {
           <div className="p-3 space-y-2">
             <div className="text-center mb-2">
               <span className="text-lg font-mono font-bold text-primary tabular-nums">
-                {status.isOnBreak ? 'Pause' : elapsedDisplay}
+                {status.isOnBreak ? t('header.clockIn.break') : elapsedDisplay}
               </span>
             </div>
 
@@ -150,7 +152,7 @@ export function ClockInButton() {
                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <Coffee className="h-3.5 w-3.5" />
-                Pause beenden
+                {t('header.clockIn.endBreak')}
               </button>
             ) : (
               <>
@@ -160,7 +162,7 @@ export function ClockInButton() {
                   className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors"
                 >
                   <Coffee className="h-3.5 w-3.5" />
-                  Pause starten
+                  {t('header.clockIn.startBreak')}
                 </button>
                 <button
                   onClick={handleClockOut}
@@ -168,7 +170,7 @@ export function ClockInButton() {
                   className="w-full flex items-center justify-center gap-2 rounded-lg bg-destructive px-3 py-2 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
                 >
                   <Square className="h-3.5 w-3.5" />
-                  Ausstempeln
+                  {t('header.clockIn.clockOut')}
                 </button>
               </>
             )}

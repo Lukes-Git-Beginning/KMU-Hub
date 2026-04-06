@@ -6,6 +6,7 @@
  * "Add Widget" button opens a picker dialog.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import ReactGridLayout, { type Layout } from 'react-grid-layout'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,7 @@ function useDebouncedLayoutUpdate(
 }
 
 export default function WidgetContainer() {
+  const { t } = useTranslation()
   const layouts = useDashboardStore((s) => s.layouts)
   const activeWidgets = useDashboardStore((s) => s.activeWidgets)
   const isEditing = useDashboardStore((s) => s.isEditing)
@@ -120,7 +122,7 @@ export default function WidgetContainer() {
             className="shadow-lg"
           >
             <Plus className="mr-2 h-4 w-4" />
-            Widget hinzufügen
+            {t('widgets.container.addWidget')}
           </Button>
         </div>
       )}
@@ -129,9 +131,9 @@ export default function WidgetContainer() {
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Widget hinzufügen</DialogTitle>
+            <DialogTitle>{t('widgets.container.addWidget')}</DialogTitle>
             <DialogDescription>
-              Wählen Sie ein Widget für Ihr Dashboard aus.
+              {t('widgets.container.addWidgetDescription')}
             </DialogDescription>
           </DialogHeader>
 
@@ -170,7 +172,7 @@ export default function WidgetContainer() {
                     </p>
                     {isActive && (
                       <p className="mt-1 text-xs text-muted-foreground italic">
-                        Bereits aktiv
+                        {t('widgets.container.alreadyActive')}
                       </p>
                     )}
                   </div>

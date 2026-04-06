@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Sparkles, User, LayoutGrid, Compass, Clock, PartyPopper,
   ChevronRight, ChevronLeft,
@@ -19,86 +20,92 @@ interface OnboardingStep {
   features?: string[]
 }
 
-const STEPS: OnboardingStep[] = [
-  {
-    id: 'welcome',
-    icon: Sparkles,
-    iconColor: 'text-primary',
-    iconBg: 'bg-primary/10',
-    title: 'Willkommen bei Cosmi!',
-    description: 'Dein All-in-One Arbeitsplatz für dein Unternehmen. Lass uns die wichtigsten Funktionen entdecken.',
-  },
-  {
-    id: 'profile',
-    icon: User,
-    iconColor: 'text-blue-600 dark:text-blue-400',
-    iconBg: 'bg-blue-500/10',
-    title: 'Dein Profil',
-    description: 'Richte dein Profil ein, damit dein Team dich erkennen kann.',
-    features: [
-      'Profilbild und persönliche Informationen',
-      'Zeiterfassung und Stundenübersicht',
-      'Abwesenheiten und Urlaubsanträge',
-    ],
-  },
-  {
-    id: 'modules',
-    icon: LayoutGrid,
-    iconColor: 'text-emerald-600 dark:text-emerald-400',
-    iconBg: 'bg-emerald-500/10',
-    title: 'Deine Module',
-    description: 'Cosmi vereint alles, was du zum Arbeiten brauchst.',
-    features: [
-      'Projekte & Aufgaben verwalten',
-      'Chat & Meetings mit dem Team',
-      'E-Mail & Kalender organisieren',
-      'Dokumente & Kontakte pflegen',
-      'Finanzen & Team-Verwaltung',
-    ],
-  },
-  {
-    id: 'navigation',
-    icon: Compass,
-    iconColor: 'text-purple-600 dark:text-purple-400',
-    iconBg: 'bg-purple-500/10',
-    title: 'Navigation',
-    description: 'Finde dich schnell in Cosmi zurecht.',
-    features: [
-      'Sidebar links für alle Module',
-      'Ctrl+K für die globale Suche',
-      'Tagesplanung direkt im Header',
-      'Schreibtisch-Ansicht mit persönlichem Touch',
-    ],
-  },
-  {
-    id: 'timetracking',
-    icon: Clock,
-    iconColor: 'text-amber-600 dark:text-amber-400',
-    iconBg: 'bg-amber-500/10',
-    title: 'Zeiterfassung',
-    description: 'Tracke deine Arbeitszeit direkt im Header — einfach und schnell.',
-    features: [
-      'Ein-Klick Timer mit Kategorien',
-      'Vorlagen für wiederkehrende Aufgaben',
-      'Soll/Ist Vergleich und Überstunden',
-      'Team-Übersicht: Wer arbeitet woran?',
-    ],
-  },
-  {
-    id: 'done',
-    icon: PartyPopper,
-    iconColor: 'text-primary',
-    iconBg: 'bg-primary/10',
-    title: 'Alles bereit!',
-    description: 'Du bist startklar. Erkunde Cosmi und mach dein Team produktiver.',
-  },
-]
+type TFunction = (key: string) => string
+
+function buildSteps(t: TFunction): OnboardingStep[] {
+  return [
+    {
+      id: 'welcome',
+      icon: Sparkles,
+      iconColor: 'text-primary',
+      iconBg: 'bg-primary/10',
+      title: t('onboarding.welcome.title'),
+      description: t('onboarding.welcome.description'),
+    },
+    {
+      id: 'profile',
+      icon: User,
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-500/10',
+      title: t('onboarding.profile.title'),
+      description: t('onboarding.profile.description'),
+      features: [
+        t('onboarding.profile.feature1'),
+        t('onboarding.profile.feature2'),
+        t('onboarding.profile.feature3'),
+      ],
+    },
+    {
+      id: 'modules',
+      icon: LayoutGrid,
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      iconBg: 'bg-emerald-500/10',
+      title: t('onboarding.modules.title'),
+      description: t('onboarding.modules.description'),
+      features: [
+        t('onboarding.modules.feature1'),
+        t('onboarding.modules.feature2'),
+        t('onboarding.modules.feature3'),
+        t('onboarding.modules.feature4'),
+        t('onboarding.modules.feature5'),
+      ],
+    },
+    {
+      id: 'navigation',
+      icon: Compass,
+      iconColor: 'text-purple-600 dark:text-purple-400',
+      iconBg: 'bg-purple-500/10',
+      title: t('onboarding.navigation.title'),
+      description: t('onboarding.navigation.description'),
+      features: [
+        t('onboarding.navigation.feature1'),
+        t('onboarding.navigation.feature2'),
+        t('onboarding.navigation.feature3'),
+        t('onboarding.navigation.feature4'),
+      ],
+    },
+    {
+      id: 'timetracking',
+      icon: Clock,
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      iconBg: 'bg-amber-500/10',
+      title: t('onboarding.timeTracking.title'),
+      description: t('onboarding.timeTracking.description'),
+      features: [
+        t('onboarding.timeTracking.feature1'),
+        t('onboarding.timeTracking.feature2'),
+        t('onboarding.timeTracking.feature3'),
+        t('onboarding.timeTracking.feature4'),
+      ],
+    },
+    {
+      id: 'done',
+      icon: PartyPopper,
+      iconColor: 'text-primary',
+      iconBg: 'bg-primary/10',
+      title: t('onboarding.done.title'),
+      description: t('onboarding.done.description'),
+    },
+  ]
+}
 
 export function OnboardingWizard() {
+  const { t } = useTranslation()
   const [currentStep, setCurrentStep] = useState(0)
   const [showConfetti, setShowConfetti] = useState(false)
   const setOnboardingCompleted = useUIStore((s) => s.setOnboardingCompleted)
 
+  const STEPS = buildSteps(t)
   const step = STEPS[currentStep]
   const isFirst = currentStep === 0
   const isLast = currentStep === STEPS.length - 1
@@ -123,7 +130,7 @@ export function OnboardingWizard() {
   return (
     <Dialog open>
       <DialogContent className="gap-0 p-0 max-w-lg [&>button:last-child]:hidden">
-        <DialogTitle className="sr-only">Onboarding abgeschlossen</DialogTitle>
+        <DialogTitle className="sr-only">{t('onboarding.dialogTitle')}</DialogTitle>
         {/* Confetti */}
         {showConfetti && <Confetti />}
 
@@ -177,13 +184,13 @@ export function OnboardingWizard() {
               {!isFirst && (
                 <Button variant="ghost" size="sm" onClick={() => setCurrentStep((s) => s - 1)}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  Zurück
+                  {t('common.back')}
                 </Button>
               )}
             </div>
 
             <Button onClick={handleNext} disabled={showConfetti}>
-              {isLast ? "Los geht's!" : 'Weiter'}
+              {isLast ? t('onboarding.nav.letsGo') : t('common.next')}
               {!isLast && <ChevronRight className="h-4 w-4 ml-1" />}
             </Button>
           </div>
@@ -195,7 +202,7 @@ export function OnboardingWizard() {
                 onClick={handleSkip}
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                Überspringen
+                {t('onboarding.nav.skip')}
               </button>
             </div>
           )}

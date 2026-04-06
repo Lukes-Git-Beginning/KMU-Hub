@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Play, Pause, Square, Timer, ArrowRight, Coffee, ArrowRightLeft,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import { formatMinutes, isToday } from '@/modules/profil/tabs/zeiterfassung/time
 // ---------------------------------------------------------------------------
 
 export function TimeTrackerWidget() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedProject, setSelectedProject] = useState('')
@@ -184,17 +186,17 @@ export function TimeTrackerWidget() {
               : 'bg-success/10 hover:bg-success/15'
             : 'hover:bg-accent',
         )}
-        title={isClockedIn ? (isOnBreak ? 'Pause' : 'Eingestempelt') : 'Einstempeln'}
+        title={isClockedIn ? (isOnBreak ? t('header.timeTracker.break') : t('header.timeTracker.clockedIn')) : t('header.timeTracker.clockIn')}
       >
         {!isClockedIn ? (
           <>
             <Timer className="h-4 w-4 text-muted-foreground" />
-            <span className="text-muted-foreground text-xs hidden sm:inline">Einstempeln</span>
+            <span className="text-muted-foreground text-xs hidden sm:inline">{t('header.timeTracker.clockIn')}</span>
           </>
         ) : isOnBreak ? (
           <>
             <Coffee className="h-4 w-4 text-warning" />
-            <span className="text-xs font-medium text-warning-foreground">Pause</span>
+            <span className="text-xs font-medium text-warning-foreground">{t('header.timeTracker.break')}</span>
           </>
         ) : (
           <>
@@ -231,8 +233,8 @@ export function TimeTrackerWidget() {
             <div className="p-4 space-y-3">
               <div className="text-center space-y-1">
                 <Timer className="h-6 w-6 text-muted-foreground mx-auto" />
-                <p className="text-sm font-medium text-foreground">Arbeitstag starten</p>
-                <p className="text-xs text-muted-foreground">Stempel dich ein um die Zeiterfassung zu beginnen</p>
+                <p className="text-sm font-medium text-foreground">{t('header.timeTracker.startDayTitle')}</p>
+                <p className="text-xs text-muted-foreground">{t('header.timeTracker.startDaySubtitle')}</p>
               </div>
               {overtimeSaldo !== 0 && (
                 <div className="text-center">
@@ -240,7 +242,7 @@ export function TimeTrackerWidget() {
                     'text-xs font-medium tabular-nums',
                     overtimeSaldo >= 0 ? 'text-success-foreground' : 'text-destructive',
                   )}>
-                    Saldo: {overtimeSaldo >= 0 ? '+' : ''}{formatMinutes(overtimeSaldo)}
+                    {t('header.timeTracker.saldo')}: {overtimeSaldo >= 0 ? '+' : ''}{formatMinutes(overtimeSaldo)}
                   </span>
                 </div>
               )}
@@ -249,13 +251,13 @@ export function TimeTrackerWidget() {
                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <Play className="h-4 w-4" />
-                Einstempeln
+                {t('header.timeTracker.clockIn')}
               </button>
               <button
                 onClick={handleGoToProfile}
                 className="w-full flex items-center justify-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
               >
-                Zur Zeiterfassung
+                {t('header.timeTracker.goToTimeTracking')}
                 <ArrowRight className="h-3 w-3" />
               </button>
             </div>
@@ -263,13 +265,13 @@ export function TimeTrackerWidget() {
             <div className="p-4 space-y-3">
               <div className="text-center space-y-1">
                 <Coffee className="h-6 w-6 text-warning mx-auto" />
-                <p className="text-sm font-medium text-foreground">Pause</p>
+                <p className="text-sm font-medium text-foreground">{t('header.timeTracker.break')}</p>
                 <span className="text-2xl font-mono font-bold text-warning tabular-nums">
                   {formatElapsed(breakElapsed)}
                 </span>
               </div>
               <div className="text-center text-xs text-muted-foreground">
-                Arbeitszeit: {formatElapsed(workElapsed)}
+                {t('header.timeTracker.workTime')}: {formatElapsed(workElapsed)}
               </div>
               <div className="flex gap-2">
                 <button
@@ -277,7 +279,7 @@ export function TimeTrackerWidget() {
                   className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
                   <Play className="h-3.5 w-3.5" />
-                  Pause beenden
+                  {t('header.timeTracker.endBreak')}
                 </button>
                 <button
                   onClick={handleClockOut}
@@ -292,7 +294,7 @@ export function TimeTrackerWidget() {
               {/* ── Work Time Header ── */}
               <div className="px-4 py-3 border-b border-border">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground">Arbeitszeit</span>
+                  <span className="text-xs text-muted-foreground">{t('header.timeTracker.workTime')}</span>
                   <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
                     {formatElapsed(workElapsed)}
                   </span>
@@ -314,7 +316,7 @@ export function TimeTrackerWidget() {
                     'text-[10px] font-medium tabular-nums',
                     overtimeSaldo >= 0 ? 'text-success-foreground' : 'text-destructive',
                   )}>
-                    Saldo: {overtimeSaldo >= 0 ? '+' : ''}{formatMinutes(overtimeSaldo)}
+                    {t('header.timeTracker.saldo')}: {overtimeSaldo >= 0 ? '+' : ''}{formatMinutes(overtimeSaldo)}
                   </span>
                 </div>
               </div>
@@ -327,7 +329,7 @@ export function TimeTrackerWidget() {
                       <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: activeCategory.color }} />
                     )}
                     <span className="text-sm font-medium text-foreground truncate">
-                      {activeCategory?.name ?? 'Aufgabe'}
+                      {activeCategory?.name ?? t('header.timeTracker.task')}
                     </span>
                     <div className="flex-1" />
                     <span className={cn(
@@ -347,7 +349,7 @@ export function TimeTrackerWidget() {
                         className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-foreground hover:bg-secondary transition-colors"
                       >
                         <Pause className="h-3 w-3" />
-                        Pause
+                        {t('header.timeTracker.pause')}
                       </button>
                     ) : (
                       <button
@@ -355,7 +357,7 @@ export function TimeTrackerWidget() {
                         className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-primary/90 transition-colors"
                       >
                         <Play className="h-3 w-3" />
-                        Weiter
+                        {t('header.timeTracker.resume')}
                       </button>
                     )}
                     <button
@@ -363,14 +365,14 @@ export function TimeTrackerWidget() {
                       className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-foreground hover:bg-secondary transition-colors"
                     >
                       <ArrowRightLeft className="h-3 w-3" />
-                      Wechseln
+                      {t('header.timeTracker.switchTask')}
                     </button>
                     <button
                       onClick={stopTimer}
                       className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 text-xs text-destructive hover:bg-destructive/20 transition-colors"
                     >
                       <Square className="h-3 w-3" />
-                      Stop
+                      {t('header.timeTracker.stop')}
                     </button>
                   </div>
                 </div>
@@ -380,7 +382,7 @@ export function TimeTrackerWidget() {
               {(activeTimer.status === 'idle' || showTaskPicker) && (
                 <div className="px-4 py-3 border-b border-border space-y-2">
                   <span className="text-xs font-medium text-muted-foreground">
-                    {activeTimer.status !== 'idle' ? 'Aufgabe wechseln' : 'Aufgabe starten'}
+                    {activeTimer.status !== 'idle' ? t('header.timeTracker.switchTask') : t('header.timeTracker.startTask')}
                   </span>
 
                   {/* Category chips */}
@@ -408,7 +410,7 @@ export function TimeTrackerWidget() {
                     onChange={(e) => { setSelectedProject(e.target.value); setSelectedTask('') }}
                     className="h-7 w-full rounded-md border border-border bg-transparent px-2 text-xs outline-none focus:border-primary"
                   >
-                    <option value="">Projekt (optional)...</option>
+                    <option value="">{t('header.timeTracker.projectPlaceholder')}</option>
                     {MOCK_PROJECTS.map((p) => (
                       <option key={p.id} value={p.id}>{p.key} — {p.name}</option>
                     ))}
@@ -420,7 +422,7 @@ export function TimeTrackerWidget() {
                       onChange={(e) => setSelectedTask(e.target.value)}
                       className="h-7 w-full rounded-md border border-border bg-transparent px-2 text-xs outline-none focus:border-primary"
                     >
-                      <option value="">Aufgabe...</option>
+                      <option value="">{t('header.timeTracker.taskPlaceholder')}</option>
                       {availableTasks.map((t) => (
                         <option key={t.id} value={t.id}>{t.key} — {t.title}</option>
                       ))}
@@ -430,7 +432,7 @@ export function TimeTrackerWidget() {
                   {/* Description */}
                   <input
                     type="text"
-                    placeholder="Beschreibung..."
+                    placeholder={t('header.timeTracker.descriptionPlaceholder')}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     onKeyDown={(e) => {
@@ -447,9 +449,9 @@ export function TimeTrackerWidget() {
                     className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
                   >
                     {activeTimer.status !== 'idle' ? (
-                      <><ArrowRightLeft className="h-3 w-3" />Wechseln</>
+                      <><ArrowRightLeft className="h-3 w-3" />{t('header.timeTracker.switchTask')}</>
                     ) : (
-                      <><Play className="h-3 w-3" />Start</>
+                      <><Play className="h-3 w-3" />{t('header.timeTracker.start')}</>
                     )}
                   </button>
 
@@ -477,7 +479,7 @@ export function TimeTrackerWidget() {
               {/* ── Today's Entries ── */}
               {todayEntries.length > 0 && (
                 <div className="px-4 py-2 border-b border-border">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Heute</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('header.timeTracker.today')}</span>
                   {todayEntries.slice(-4).map((entry) => {
                     const cat = categories.find((c) => c.id === entry.categoryId)
                     return (
@@ -506,21 +508,21 @@ export function TimeTrackerWidget() {
                     className="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary transition-colors"
                   >
                     <Coffee className="h-3.5 w-3.5" />
-                    Pause
+                    {t('header.timeTracker.break')}
                   </button>
                   <button
                     onClick={handleClockOut}
                     className="flex-1 flex items-center justify-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
                   >
                     <Square className="h-3.5 w-3.5" />
-                    Ausstempeln
+                    {t('header.timeTracker.clockOut')}
                   </button>
                 </div>
                 <button
                   onClick={handleGoToProfile}
                   className="w-full flex items-center justify-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
                 >
-                  Zur Zeiterfassung
+                  {t('header.timeTracker.goToTimeTracking')}
                   <ArrowRight className="h-3 w-3" />
                 </button>
               </div>

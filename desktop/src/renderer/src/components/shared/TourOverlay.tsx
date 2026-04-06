@@ -8,6 +8,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTourStore } from '@/stores/tour'
+import { useTranslation } from 'react-i18next'
 
 export function TourOverlay() {
   const activeTour = useTourStore((s) => s.activeTour)
@@ -16,6 +17,8 @@ export function TourOverlay() {
   const prevStep = useTourStore((s) => s.prevStep)
   const skipTour = useTourStore((s) => s.skipTour)
   const goToStep = useTourStore((s) => s.goToStep)
+
+  const { t } = useTranslation()
 
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
 
@@ -143,7 +146,7 @@ export function TourOverlay() {
             onClick={skipTour}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            Überspringen
+            {t('shared.tour.skip')}
           </button>
           <div className="flex-1" />
           {currentStep > 0 && (
@@ -152,14 +155,14 @@ export function TourOverlay() {
               className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
             >
               <ChevronLeft className="h-3 w-3" />
-              Zurück
+              {t('shared.tour.back')}
             </button>
           )}
           <button
             onClick={nextStep}
             className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            {isLast ? 'Fertig' : 'Weiter'}
+            {isLast ? t('shared.tour.finish') : t('shared.tour.next')}
             {!isLast && <ChevronRight className="h-3 w-3" />}
           </button>
         </div>

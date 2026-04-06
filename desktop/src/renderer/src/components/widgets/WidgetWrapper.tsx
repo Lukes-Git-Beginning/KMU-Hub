@@ -5,6 +5,7 @@
  * Suspense loading skeleton, and an error boundary for crash isolation.
  */
 import { Suspense, Component, memo, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, GripVertical } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -36,10 +37,10 @@ interface ErrorBoundaryState {
 }
 
 class WidgetErrorBoundary extends Component<
-  { children: ReactNode; onRetry: () => void },
+  { children: ReactNode; onRetry: () => void; errorLabel: string; retryLabel: string },
   ErrorBoundaryState
 > {
-  constructor(props: { children: ReactNode; onRetry: () => void }) {
+  constructor(props: { children: ReactNode; onRetry: () => void; errorLabel: string; retryLabel: string }) {
     super(props)
     this.state = { hasError: false, error: null }
   }
@@ -59,7 +60,7 @@ class WidgetErrorBoundary extends Component<
         <div className="flex h-full items-center justify-center p-4">
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              Fehler beim Laden
+              {this.props.errorLabel}
             </p>
             <Button
               variant="ghost"
@@ -67,7 +68,7 @@ class WidgetErrorBoundary extends Component<
               className="mt-2"
               onClick={this.handleRetry}
             >
-              Erneut versuchen
+              {this.props.retryLabel}
             </Button>
           </div>
         </div>
@@ -81,6 +82,7 @@ export const WidgetWrapper = memo(function WidgetWrapper({
   widgetId,
   isEditing,
 }: WidgetWrapperProps) {
+  const { t } = useTranslation()
   const definition = widgetRegistry[widgetId]
   const removeWidget = useDashboardStore((s) => s.removeWidget)
 
@@ -109,7 +111,7 @@ export const WidgetWrapper = memo(function WidgetWrapper({
               e.stopPropagation()
               removeWidget(widgetId)
             }}
-            aria-label={`${definition.name} entfernen`}
+            aria-label={t('widgets.wrapper.removeLabel', { name: definition.name })}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -118,7 +120,11 @@ export const WidgetWrapper = memo(function WidgetWrapper({
 
       {/* Widget content */}
       <CardContent className="flex-1 overflow-auto p-0">
-        <WidgetErrorBoundary onRetry={() => { /* re-render triggers refetch */ }}>
+        <WidgetErrorBoundary
+          onRetry={() => { /* re-render triggers refetch */ }}
+          errorLabel={t('widgets.wrapper.errorLoading')}
+          retryLabel={t('common.retry')}
+        >
           <Suspense fallback={<WidgetSkeleton />}>
             <WidgetComponent
               widgetId={widgetId}

@@ -1,5 +1,6 @@
 import { Search, X } from 'lucide-react'
 import { forwardRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface SearchInputProps {
   value: string
@@ -9,6 +10,7 @@ interface SearchInputProps {
 
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   ({ value, onChange, onClear }, ref) => {
+    const { t } = useTranslation()
     return (
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -16,7 +18,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Suchen oder Befehl eingeben..."
+          placeholder={t('shared.globalSearch.inputPlaceholder')}
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           autoComplete="off"
           spellCheck={false}

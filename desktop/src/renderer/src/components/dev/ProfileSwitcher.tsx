@@ -10,6 +10,7 @@
  * Only visible when DEV_BYPASS_AUTH is enabled.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Users, ChevronUp, Check, X, Building2, Eye, RotateCcw } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { DEV_PROFILES, type DevProfile } from '@/config/roles'
@@ -19,6 +20,7 @@ import { useProfileStore } from '@/stores/profile'
 type PanelTab = 'roles' | 'business'
 
 export function ProfileSwitcher() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [tab, setTab] = useState<PanelTab>('roles')
   const currentUser = useAuthStore((s) => s.user)
@@ -51,7 +53,7 @@ export function ProfileSwitcher() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-4 left-4 z-[100] flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 shadow-lg hover:shadow-xl transition-all hover:scale-105 glass-elevated"
-        title="Profil wechseln (Dev-Tool)"
+        title={t('devTools.switchProfileTooltip')}
       >
         {currentRoleId ? (
           <div
@@ -66,7 +68,7 @@ export function ProfileSwitcher() {
         <span className="text-xs font-medium text-foreground hidden sm:inline">
           {currentRoleId
             ? DEV_PROFILES.find((p) => p.id === currentRoleId)?.label
-            : 'Profil wählen'}
+            : t('devTools.noProfile')}
         </span>
         {currentBusinessProfile && (
           <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -87,7 +89,7 @@ export function ProfileSwitcher() {
             {/* Header with tabs */}
             <div className="border-b border-border bg-secondary/30">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
-                <p className="text-sm font-medium text-foreground">Dev-Tools</p>
+                <p className="text-sm font-medium text-foreground">{t('devTools.title')}</p>
                 <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-4 w-4" />
                 </button>
@@ -100,7 +102,7 @@ export function ProfileSwitcher() {
                   }`}
                 >
                   <Users className="h-3.5 w-3.5" />
-                  Rollen
+                  {t('devTools.tab.roles')}
                 </button>
                 <button
                   onClick={() => setTab('business')}
@@ -109,7 +111,7 @@ export function ProfileSwitcher() {
                   }`}
                 >
                   <Building2 className="h-3.5 w-3.5" />
-                  Branche
+                  {t('devTools.tab.industry')}
                 </button>
               </div>
             </div>
@@ -163,7 +165,7 @@ export function ProfileSwitcher() {
                     <span className="text-xl w-8 text-center shrink-0">&#x2699;&#xFE0F;</span>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium ${!businessProfileId ? 'text-primary' : 'text-foreground'}`}>
-                        Kein Profil (alle Module)
+                        {t('devTools.noProfileAllModules')}
                       </p>
                     </div>
                     {!businessProfileId && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
@@ -211,7 +213,7 @@ export function ProfileSwitcher() {
                 />
                 <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-[11px] text-muted-foreground">
-                  Alle Module anzeigen (Dev)
+                  {t('devTools.showAllModules')}
                 </span>
               </label>
               <button
@@ -223,7 +225,7 @@ export function ProfileSwitcher() {
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[11px] text-destructive hover:bg-destructive/10 transition-colors"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                Demo zuruecksetzen
+                {t('devTools.resetDemo')}
               </button>
             </div>
           </div>

@@ -39,6 +39,17 @@ import additionsKalender from '@/i18n/additions/kalender.json'
 import additionsRapporte from '@/i18n/additions/rapporte.json'
 import additionsNotifications from '@/i18n/additions/notifications.json'
 
+// Component-scoped addition bundles (Step 3: components/ directories)
+import additionsLayoutCore from '@/i18n/additions/components-layout-core.json'
+import additionsLayoutNav from '@/i18n/additions/components-layout-nav.json'
+import additionsHeaderWidgets from '@/i18n/additions/components-header-widgets.json'
+import additionsHeaderMenus from '@/i18n/additions/components-header-menus.json'
+import additionsHeaderTime from '@/i18n/additions/components-header-time.json'
+import additionsSharedSearchEditor from '@/i18n/additions/components-shared-search-editor.json'
+import additionsSharedMisc from '@/i18n/additions/components-shared-misc.json'
+import additionsWidgets from '@/i18n/additions/components-widgets.json'
+import additionsChatDeskOnboarding from '@/i18n/additions/components-chat-desk-onboarding.json'
+
 import type { SupportedLocale } from '@/stores/locale'
 
 /** Merge addition bundles into the base DE messages. */
@@ -66,6 +77,16 @@ const mergedDE = {
   ...additionsKalender,
   ...additionsRapporte,
   ...additionsNotifications,
+  // Component additions (Step 3)
+  ...additionsLayoutCore,
+  ...additionsLayoutNav,
+  ...additionsHeaderWidgets,
+  ...additionsHeaderMenus,
+  ...additionsHeaderTime,
+  ...additionsSharedSearchEditor,
+  ...additionsSharedMisc,
+  ...additionsWidgets,
+  ...additionsChatDeskOnboarding,
 }
 
 export function initI18n(locale: SupportedLocale): typeof i18n {

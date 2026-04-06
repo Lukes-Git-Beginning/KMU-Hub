@@ -6,9 +6,11 @@
  * Both transitions use smooth slide animations.
  */
 import { WifiOff, Wifi } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 
 export function OfflineBanner() {
+  const { t } = useTranslation()
   const { isOnline, wasOffline } = useOnlineStatus()
 
   // Show reconnected banner briefly after coming back online
@@ -20,7 +22,7 @@ export function OfflineBanner() {
         aria-live="polite"
       >
         <Wifi className="h-4 w-4" />
-        <span>Wieder verbunden</span>
+        <span>{t('layout.offlineBanner.reconnected')}</span>
       </div>
     )
   }
@@ -34,10 +36,7 @@ export function OfflineBanner() {
         aria-live="assertive"
       >
         <WifiOff className="h-4 w-4" />
-        <span>
-          Offline &mdash; Daten werden aus dem Cache angezeigt. Änderungen sind
-          nicht möglich.
-        </span>
+        <span>{t('layout.offlineBanner.offlineMessage')}</span>
       </div>
     )
   }

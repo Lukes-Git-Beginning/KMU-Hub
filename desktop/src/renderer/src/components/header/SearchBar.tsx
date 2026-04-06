@@ -21,6 +21,7 @@ import {
   type GlobalSearchResultItem,
 } from '@/api/hooks/useGlobalSearch'
 import { moduleHsl, moduleHslBg } from '@/components/layout/sidebar/nav-items'
+import { useTranslation } from 'react-i18next'
 
 // ---------------------------------------------------------------------------
 // Module config — colors derived from nav-items.ts (single source of truth)
@@ -35,11 +36,11 @@ interface ModuleConfig {
 }
 
 const MODULE_CONFIG: Record<string, ModuleConfig> = {
-  crm: { label: 'Kontakte', icon: Users, colorId: 'contacts', basePath: '/kontakte' },
-  documents: { label: 'Dateien', icon: FileText, colorId: 'documents', basePath: '/dokumente' },
-  email: { label: 'E-Mails', icon: Mail, colorId: 'mail', basePath: '/email' },
-  tasks: { label: 'Aufgaben', icon: CheckSquare, colorId: 'tasks', basePath: '/work/my-tasks' },
-  messages: { label: 'Nachrichten', icon: MessageSquare, colorId: 'chat', basePath: '/chat' },
+  crm: { label: 'header.searchBar.moduleContacts', icon: Users, colorId: 'contacts', basePath: '/kontakte' },
+  documents: { label: 'header.searchBar.moduleDocuments', icon: FileText, colorId: 'documents', basePath: '/dokumente' },
+  email: { label: 'header.searchBar.moduleEmail', icon: Mail, colorId: 'mail', basePath: '/email' },
+  tasks: { label: 'header.searchBar.moduleTasks', icon: CheckSquare, colorId: 'tasks', basePath: '/work/my-tasks' },
+  messages: { label: 'header.searchBar.moduleMessages', icon: MessageSquare, colorId: 'chat', basePath: '/chat' },
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +109,11 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
  * via the global search API with grouped results.
  */
 export function SearchBar() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [activeFilter, setActiveFilter] = useState<string>('Alle')
+  const ALL_FILTER_KEY = 'all'
+  const [activeFilter, setActiveFilter] = useState<string>(ALL_FILTER_KEY)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set())
   const inputRef = useRef<HTMLInputElement>(null)
@@ -121,8 +124,8 @@ export function SearchBar() {
 
   // Determine which modules to search based on active filter
   const searchModules = useMemo(() => {
-    if (activeFilter === 'Alle') return undefined
-    // Map German filter label back to module key
+    if (activeFilter === ALL_FILTER_KEY) return undefined
+    // Map filter key (module config label key) back to module key
     const entry = Object.entries(MODULE_CONFIG).find(
       ([, config]) => config.label === activeFilter,
     )
@@ -153,7 +156,7 @@ export function SearchBar() {
   // Build filter list from available modules
   const availableFilters = useMemo(() => {
     const filters: Array<{ key: string; label: string; count: number }> = [
-      { key: 'Alle', label: 'Alle', count: 0 },
+      { key: ALL_FILTER_KEY, label: t('header.searchBar.filterAll'), count: 0 },
     ]
     let totalCount = 0
 
@@ -163,7 +166,7 @@ export function SearchBar() {
         if (config && mod.total > 0) {
           filters.push({
             key: config.label,
-            label: `${config.label} (${mod.total})`,
+            label: `${t(config.label)} (${mod.total})`,
             count: mod.total,
           })
           totalCount += mod.total
@@ -173,11 +176,11 @@ export function SearchBar() {
 
     filters[0].count = totalCount
     if (totalCount > 0) {
-      filters[0].label = `Alle (${totalCount})`
+      filters[0].label = `${t('header.searchBar.filterAll')} (${totalCount})`
     }
 
     return filters
-  }, [data])
+  }, [data, t])
 
   // Ctrl+K shortcut
   useEffect(() => {
@@ -198,7 +201,7 @@ export function SearchBar() {
     } else {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state on dialog close
       setQuery('')
-      setActiveFilter('Alle')
+      setActiveFilter(ALL_FILTER_KEY)
       setHighlightedIndex(0)
       setExpandedModules(new Set())
     }
@@ -271,7 +274,7 @@ export function SearchBar() {
         className="flex w-full items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
         <Search className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Suchen...</span>
+        <span className="hidden sm:inline">{t('header.searchBar.placeholder')}</span>
         <kbd className="hidden md:inline-flex h-5 items-center rounded border border-border bg-card px-1.5 text-[10px] font-medium text-text-disabled">
           Ctrl+K
         </kbd>
@@ -294,7 +297,7 @@ export function SearchBar() {
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="Projekte, Aufgaben, Kontakte, Dokumente..."
+                placeholder={t('header.searchBar.inputPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -372,7 +375,7 @@ export function SearchBar() {
                 <div className="py-10 text-center">
                   <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive/50" />
                   <p className="text-sm text-muted-foreground">
-                    Suche fehlgeschlagen. Versuche es erneut.
+                    {t('header.searchBar.searchFailed')}
                   </p>
                 </div>
               )}
@@ -386,7 +389,7 @@ export function SearchBar() {
                   <div className="py-10 text-center">
                     <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
                     <p className="text-sm text-muted-foreground">
-                      Keine Ergebnisse für &ldquo;{debouncedQuery}&rdquo;
+                      {t('header.searchBar.noResults', { query: debouncedQuery })}
                     </p>
                   </div>
                 )}
@@ -395,7 +398,7 @@ export function SearchBar() {
               {debouncedQuery.length < 2 && (
                 <div className="py-10 text-center">
                   <p className="text-sm text-muted-foreground">
-                    Tippe, um zu suchen
+                    {t('header.searchBar.typeToSearch')}
                   </p>
                 </div>
               )}
@@ -407,19 +410,19 @@ export function SearchBar() {
                 <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
                   ↑↓
                 </kbd>{' '}
-                Navigieren
+                {t('header.searchBar.hintNavigate')}
               </span>
               <span>
                 <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
                   ↵
                 </kbd>{' '}
-                Öffnen
+                {t('header.searchBar.hintOpen')}
               </span>
               <span>
                 <kbd className="px-1 py-0.5 bg-secondary border border-border rounded">
                   Esc
                 </kbd>{' '}
-                Schließen
+                {t('header.searchBar.hintClose')}
               </span>
             </div>
           </div>
@@ -448,6 +451,8 @@ function ModuleGroup({
   flatResults: Array<{ module: string; item: GlobalSearchResultItem }>
   onResultClick: (module: string, item: GlobalSearchResultItem) => void
 }) {
+  const { t } = useTranslation()
+
   if (!module.results?.length) return null
 
   const config = MODULE_CONFIG[module.module]
@@ -475,7 +480,7 @@ function ModuleGroup({
         )}
         <ModuleIcon className="h-3.5 w-3.5" style={{ color: moduleHsl(config.colorId) }} />
         <span>
-          {config.label} ({module.total})
+          {t(config.label)} ({module.total})
         </span>
       </button>
 
@@ -525,7 +530,7 @@ function ModuleGroup({
           onClick={() => onToggleExpand(module.module)}
           className="w-full text-center py-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
         >
-          Mehr anzeigen ({module.results.length - 5} weitere)
+          {t('header.searchBar.showMore', { count: module.results.length - 5 })}
         </button>
       )}
     </div>

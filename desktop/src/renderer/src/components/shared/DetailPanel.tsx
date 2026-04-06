@@ -3,6 +3,7 @@ import { X, Maximize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib'
+import { useTranslation } from 'react-i18next'
 
 interface DetailPanelProps {
   open: boolean
@@ -29,6 +30,8 @@ export function DetailPanel({
   className,
   width = 'w-[400px]',
 }: DetailPanelProps) {
+  const { t } = useTranslation()
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -58,7 +61,7 @@ export function DetailPanel({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title || 'Detail-Panel'}
+        aria-label={title || t('shared.detailPanel.panelLabel')}
         className={cn(
           'fixed right-0 top-0 z-50 flex h-full flex-col border-l bg-[var(--card)] shadow-xl glass-elevated',
           'animate-in slide-in-from-right duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
@@ -94,7 +97,7 @@ export function DetailPanel({
                   size="icon"
                   className="h-7 w-7"
                   onClick={onExpand}
-                  aria-label="Erweitern"
+                  aria-label={t('shared.detailPanel.expand')}
                 >
                   <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
@@ -104,7 +107,7 @@ export function DetailPanel({
                 size="icon"
                 className="h-7 w-7"
                 onClick={onClose}
-                aria-label="Schließen"
+                aria-label={t('shared.detailPanel.close')}
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>

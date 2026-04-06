@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   User,
@@ -48,24 +49,13 @@ const typeIcons: Record<SearchResultType, LucideIcon> = {
   ticket: LifeBuoy,
 }
 
-const typeLabels: Record<SearchResultType, string> = {
-  contact: 'Kontakte',
-  project: 'Projekte',
-  task: 'Aufgaben',
-  document: 'Dokumente',
-  wiki: 'Wiki',
-  event: 'Termine',
-  email: 'E-Mails',
-  conversation: 'Konversationen',
-  invoice: 'Rechnungen',
-  ticket: 'Tickets',
-}
+// typeLabels is now built inside the component via useTranslation
 
 // ---------------------------------------------------------------------------
 // Mock search — searches through existing store data
 // ---------------------------------------------------------------------------
 
-function useMockSearch(query: string): GroupedResult[] {
+function useMockSearch(query: string, typeLabels: Record<SearchResultType, string>): GroupedResult[] {
   const { data } = useContacts()
   const contacts = (data?.contacts ?? []).map(backendContactToUI)
 
@@ -132,7 +122,7 @@ function useMockSearch(query: string): GroupedResult[] {
     }
 
     return groups
-  }, [query, contacts])
+  }, [query, contacts, typeLabels])
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +130,21 @@ function useMockSearch(query: string): GroupedResult[] {
 // ---------------------------------------------------------------------------
 
 export function GlobalSearchDialog() {
+  const { t } = useTranslation()
+
+  const typeLabels: Record<SearchResultType, string> = {
+    contact: t('shared.globalSearch.typeContacts'),
+    project: t('shared.globalSearch.typeProjects'),
+    task: t('shared.globalSearch.typeTasks'),
+    document: t('shared.globalSearch.typeDocuments'),
+    wiki: t('shared.globalSearch.typeWiki'),
+    event: t('shared.globalSearch.typeEvents'),
+    email: t('shared.globalSearch.typeEmails'),
+    conversation: t('shared.globalSearch.typeConversations'),
+    invoice: t('shared.globalSearch.typeInvoices'),
+    ticket: t('shared.globalSearch.typeTickets'),
+  }
+
   const isOpen = useSearchStore((s) => s.isOpen)
   const open = useSearchStore((s) => s.open)
   const close = useSearchStore((s) => s.close)
@@ -154,7 +159,7 @@ export function GlobalSearchDialog() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [activeIndex, setActiveIndex] = useState(0)
 
-  const searchResults = useMockSearch(query)
+  const searchResults = useMockSearch(query, typeLabels)
   const hasQuery = query.trim().length > 0
 
   // Semantic search (AI)
@@ -174,7 +179,7 @@ export function GlobalSearchDialog() {
     const timer = setTimeout(() => {
       const mockSemanticMap: Record<string, GroupedResult> = {
         default: {
-          label: 'KI-Ergebnisse',
+          label: t('shared.globalSearch.aiResults'),
           items: [
             { id: 'ai-1', icon: Sparkles, title: 'Ähnliches Thema im Wiki', subtitle: 'Onboarding-Prozess — 87% Relevanz', route: '/wiki' },
             { id: 'ai-2', icon: Sparkles, title: 'Verwandtes Ticket', subtitle: '#1038 PDF-Export — 72% Relevanz', route: '/helpdesk' },
@@ -303,7 +308,7 @@ export function GlobalSearchDialog() {
         className="top-[20%] max-w-lg translate-y-0 gap-0 overflow-hidden p-0 sm:top-[20%] sm:translate-y-0"
         onKeyDown={handleKeyDown}
       >
-        <DialogTitle className="sr-only">Globale Suche</DialogTitle>
+        <DialogTitle className="sr-only">{t('shared.globalSearch.title')}</DialogTitle>
 
         <SearchInput
           ref={inputRef}
@@ -336,14 +341,14 @@ export function GlobalSearchDialog() {
                 {semanticLoading && (
                   <div className="flex items-center gap-2 px-4 py-3 border-t border-border">
                     <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    <span className="text-xs text-primary">KI sucht semantisch...</span>
+                    <span className="text-xs text-primary">{t('shared.globalSearch.semanticSearching')}</span>
                   </div>
                 )}
               </>
             ) : (
               <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
                 <Search className="h-8 w-8 opacity-40" />
-                <span className="text-sm">Keine Ergebnisse für &quot;{query}&quot;</span>
+                <span className="text-sm">{t('shared.globalSearch.noResults', { query })}</span>
               </div>
             )
           ) : (
@@ -368,15 +373,15 @@ export function GlobalSearchDialog() {
         <div className="flex items-center gap-3 border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">↑↓</kbd>
-            Navigieren
+            {t('shared.globalSearch.kbdNavigate')}
           </span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">↵</kbd>
-            Öffnen
+            {t('shared.globalSearch.kbdOpen')}
           </span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">esc</kbd>
-            Schließen
+            {t('shared.globalSearch.kbdClose')}
           </span>
         </div>
       </DialogContent>

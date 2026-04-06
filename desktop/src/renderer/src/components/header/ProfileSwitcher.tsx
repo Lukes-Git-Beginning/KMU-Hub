@@ -2,8 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 import { Check, ChevronDown, Plus } from 'lucide-react'
 import { useProfileStore } from '@/stores/profile'
 import { cn } from '@/lib/cn'
+import { useTranslation } from 'react-i18next'
 
 export function ProfileSwitcher() {
+  const { t } = useTranslation()
   const profiles = useProfileStore((s) => s.profiles)
   const activeProfileId = useProfileStore((s) => s.activeProfileId)
   const switchProfile = useProfileStore((s) => s.switchProfile)
@@ -40,8 +42,8 @@ export function ProfileSwitcher() {
   const handleCreateProfile = () => {
     const count = profiles.length + 1
     createProfile({
-      name: `Profil ${count}`,
-      description: 'Benutzerdefiniertes Profil',
+      name: t('header.profileSwitcher.newProfileName', { count }),
+      description: t('header.profileSwitcher.customProfileDescription'),
       icon: '\uD83D\uDCCC',
       color: '#6366f1',
       isDefault: false,
@@ -68,10 +70,10 @@ export function ProfileSwitcher() {
           {/* Header */}
           <div className="px-4 py-3 border-b border-border">
             <h3 className="font-semibold text-foreground">
-              Arbeitsprofile wechseln
+              {t('header.profileSwitcher.title')}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ctrl + Shift + [1-9] für Schnellwechsel
+              {t('header.profileSwitcher.quickSwitchHint')}
             </p>
           </div>
 
@@ -121,7 +123,7 @@ export function ProfileSwitcher() {
               className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
             >
               <Plus className="h-4 w-4" />
-              Neues Profil erstellen
+              {t('header.profileSwitcher.createNewProfile')}
             </button>
           </div>
         </div>

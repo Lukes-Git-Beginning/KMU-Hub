@@ -5,6 +5,7 @@
  * widgets the user actually has active.
  */
 import { lazy, type LazyExoticComponent, type ComponentType } from 'react'
+import i18next from 'i18next'
 import {
   Users,
   TrendingUp,
@@ -58,8 +59,8 @@ export interface WidgetDefinition {
 export const widgetRegistry: Record<string, WidgetDefinition> = {
   'recent-contacts': {
     id: 'recent-contacts',
-    name: 'Letzte Kontakte',
-    description: 'Die zuletzt aktualisierten Kontakte.',
+    name: i18next.t('widgets.registry.recentContacts.name'),
+    description: i18next.t('widgets.registry.recentContacts.description'),
     icon: Users,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 2, h: 2 },
@@ -68,8 +69,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'deal-pipeline': {
     id: 'deal-pipeline',
-    name: 'Deal Pipeline',
-    description: 'Kurzübersicht der Deals pro Phase.',
+    name: i18next.t('widgets.registry.dealPipeline.name'),
+    description: i18next.t('widgets.registry.dealPipeline.description'),
     icon: TrendingUp,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 4, h: 3 },
@@ -78,8 +79,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'unread-messages': {
     id: 'unread-messages',
-    name: 'Ungelesene Nachrichten',
-    description: 'Kanäle und DMs mit ungelesenen Nachrichten.',
+    name: i18next.t('widgets.registry.unreadMessages.name'),
+    description: i18next.t('widgets.registry.unreadMessages.description'),
     icon: MessageSquare,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 2, h: 2 },
@@ -88,8 +89,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'activity-feed': {
     id: 'activity-feed',
-    name: 'Aktivitäten',
-    description: 'Letzte CRM-Aktivitäten im Überblick.',
+    name: i18next.t('widgets.registry.activityFeed.name'),
+    description: i18next.t('widgets.registry.activityFeed.description'),
     icon: Activity,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -98,8 +99,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'quick-actions': {
     id: 'quick-actions',
-    name: 'Schnellaktionen',
-    description: 'Schnellzugriff auf häufige Aktionen.',
+    name: i18next.t('widgets.registry.quickActions.name'),
+    description: i18next.t('widgets.registry.quickActions.description'),
     icon: Zap,
     defaultSize: { w: 4, h: 2 },
     minSize: { w: 2, h: 2 },
@@ -108,8 +109,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'notification-summary': {
     id: 'notification-summary',
-    name: 'Benachrichtigungen',
-    description: 'Aktuelle Benachrichtigungen auf einen Blick.',
+    name: i18next.t('widgets.registry.notificationSummary.name'),
+    description: i18next.t('widgets.registry.notificationSummary.description'),
     icon: Bell,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 2, h: 2 },
@@ -118,8 +119,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'notification-feed': {
     id: 'notification-feed',
-    name: 'Benachrichtigungs-Feed',
-    description: 'Letzte 10 Benachrichtigungen (offline-fähig).',
+    name: i18next.t('widgets.registry.notificationFeed.name'),
+    description: i18next.t('widgets.registry.notificationFeed.description'),
     icon: Bell,
     defaultSize: { w: 4, h: 6 },
     minSize: { w: 3, h: 4 },
@@ -128,8 +129,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'kpi-revenue': {
     id: 'kpi-revenue',
-    name: 'Umsatz',
-    description: 'Monatsumsatz mit Vormonatsvergleich und Mini-Chart.',
+    name: i18next.t('widgets.registry.kpiRevenue.name'),
+    description: i18next.t('widgets.registry.kpiRevenue.description'),
     icon: Euro,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 3, h: 2 },
@@ -138,8 +139,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'kpi-tasks': {
     id: 'kpi-tasks',
-    name: 'Aufgaben',
-    description: 'Aufgaben-Fortschritt mit Fortschrittsbalken.',
+    name: i18next.t('widgets.registry.kpiTasks.name'),
+    description: i18next.t('widgets.registry.kpiTasks.description'),
     icon: CheckCircle2,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 3, h: 2 },
@@ -148,8 +149,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'kpi-deals': {
     id: 'kpi-deals',
-    name: 'Deal-Überblick',
-    description: 'Pipeline-Wert, Win-Rate und Deal-Statistiken.',
+    name: i18next.t('widgets.registry.kpiDeals.name'),
+    description: i18next.t('widgets.registry.kpiDeals.description'),
     icon: Handshake,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 3, h: 2 },
@@ -158,8 +159,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'calendar-upcoming': {
     id: 'calendar-upcoming',
-    name: 'Termine heute',
-    description: 'Die nächsten Termine des Tages.',
+    name: i18next.t('widgets.registry.calendarUpcoming.name'),
+    description: i18next.t('widgets.registry.calendarUpcoming.description'),
     icon: Calendar,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -168,8 +169,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'team-status': {
     id: 'team-status',
-    name: 'Team-Status',
-    description: 'Überblick wer online, abwesend oder offline ist.',
+    name: i18next.t('widgets.registry.teamStatus.name'),
+    description: i18next.t('widgets.registry.teamStatus.description'),
     icon: UserCheck,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -178,8 +179,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'mini-chart': {
     id: 'mini-chart',
-    name: 'Umsatz-Chart',
-    description: '12-Monats-Umsatz als interaktives Balkendiagramm.',
+    name: i18next.t('widgets.registry.miniChart.name'),
+    description: i18next.t('widgets.registry.miniChart.description'),
     icon: BarChart3,
     defaultSize: { w: 6, h: 3 },
     minSize: { w: 4, h: 2 },
@@ -188,8 +189,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'my-tasks': {
     id: 'my-tasks',
-    name: 'Meine Aufgaben',
-    description: 'Persönliche offene Aufgaben mit Deadlines.',
+    name: i18next.t('widgets.registry.myTasks.name'),
+    description: i18next.t('widgets.registry.myTasks.description'),
     icon: ClipboardList,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -198,8 +199,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'my-calendar': {
     id: 'my-calendar',
-    name: 'Mein Kalender',
-    description: 'Persönlicher Tagesplan mit Timeline.',
+    name: i18next.t('widgets.registry.myCalendar.name'),
+    description: i18next.t('widgets.registry.myCalendar.description'),
     icon: CalendarDays,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -208,8 +209,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'time-clock': {
     id: 'time-clock',
-    name: 'Stempeluhr',
-    description: 'Ein-/Ausstempeln und heutige Arbeitszeit.',
+    name: i18next.t('widgets.registry.timeClock.name'),
+    description: i18next.t('widgets.registry.timeClock.description'),
     icon: Clock,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 3, h: 2 },
@@ -218,8 +219,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   'team-chat': {
     id: 'team-chat',
-    name: 'Team-Chat',
-    description: 'Letzte Nachrichten aus Team-Kanälen.',
+    name: i18next.t('widgets.registry.teamChat.name'),
+    description: i18next.t('widgets.registry.teamChat.description'),
     icon: MessageCircle,
     defaultSize: { w: 4, h: 4 },
     minSize: { w: 3, h: 3 },
@@ -228,8 +229,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   absences: {
     id: 'absences',
-    name: 'Abwesenheiten',
-    description: 'Wer ist heute krank, im Urlaub oder abwesend.',
+    name: i18next.t('widgets.registry.absences.name'),
+    description: i18next.t('widgets.registry.absences.description'),
     icon: UserX,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 3, h: 2 },
@@ -238,8 +239,8 @@ export const widgetRegistry: Record<string, WidgetDefinition> = {
   },
   birthdays: {
     id: 'birthdays',
-    name: 'Geburtstage',
-    description: 'Nächste Geburtstage im Team.',
+    name: i18next.t('widgets.registry.birthdays.name'),
+    description: i18next.t('widgets.registry.birthdays.description'),
     icon: Cake,
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 3, h: 2 },

@@ -11,10 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/stores/settings'
+import { useTranslation } from 'react-i18next'
 
 export function PasswordExpiryDialog() {
   const security = useSettingsStore((s) => s.security)
   const updateSecurity = useSettingsStore((s) => s.updateSecurity)
+
+  const { t } = useTranslation()
 
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
@@ -34,15 +37,15 @@ export function PasswordExpiryDialog() {
   const handleSubmit = () => {
     if (!currentPw || !newPw) return
     if (newPw !== confirmPw) {
-      toast.error('Passwörter stimmen nicht überein')
+      toast.error(t('shared.passwordExpiry.errorMismatch'))
       return
     }
     if (newPw.length < 8) {
-      toast.error('Passwort muss mindestens 8 Zeichen haben')
+      toast.error(t('shared.passwordExpiry.errorTooShort'))
       return
     }
     updateSecurity({ passwordLastChanged: new Date().toISOString() })
-    toast.success('Passwort erfolgreich geändert')
+    toast.success(t('shared.passwordExpiry.successChanged'))
     setCurrentPw('')
     setNewPw('')
     setConfirmPw('')
@@ -57,9 +60,9 @@ export function PasswordExpiryDialog() {
               <Shield className="h-6 w-6 text-error" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-semibold text-foreground">Passwort abgelaufen</DialogTitle>
+              <DialogTitle className="text-lg font-semibold text-foreground">{t('shared.passwordExpiry.title')}</DialogTitle>
               <DialogDescription>
-                Dein Passwort muss geändert werden bevor du fortfahren kannst.
+                {t('shared.passwordExpiry.description')}
               </DialogDescription>
             </div>
           </div>
@@ -67,7 +70,7 @@ export function PasswordExpiryDialog() {
 
         <div className="space-y-3 px-6 pb-2">
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Aktuelles Passwort</label>
+            <label className="block text-sm font-medium text-foreground">{t('shared.passwordExpiry.currentPassword')}</label>
             <div className="relative">
               <Input
                 type={showCurrent ? 'text' : 'password'}
@@ -84,7 +87,7 @@ export function PasswordExpiryDialog() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Neues Passwort</label>
+            <label className="block text-sm font-medium text-foreground">{t('shared.passwordExpiry.newPassword')}</label>
             <div className="relative">
               <Input
                 type={showNew ? 'text' : 'password'}
@@ -100,7 +103,7 @@ export function PasswordExpiryDialog() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Passwort bestätigen</label>
+            <label className="block text-sm font-medium text-foreground">{t('shared.passwordExpiry.confirmPassword')}</label>
             <Input
               type="password"
               value={confirmPw}
@@ -116,7 +119,7 @@ export function PasswordExpiryDialog() {
             className="w-full"
             disabled={!currentPw || !newPw || !confirmPw}
           >
-            Passwort ändern
+            {t('shared.passwordExpiry.changeButton')}
           </Button>
         </div>
       </DialogContent>

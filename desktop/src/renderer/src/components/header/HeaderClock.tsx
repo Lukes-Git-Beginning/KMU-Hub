@@ -5,27 +5,51 @@
  * styled to look like physical objects sitting in the header.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
-const WEEKDAYS_SHORT = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
-const MONTHS_SHORT = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+const WEEKDAY_KEYS = [
+  'header.clock.dayShort.sun',
+  'header.clock.dayShort.mon',
+  'header.clock.dayShort.tue',
+  'header.clock.dayShort.wed',
+  'header.clock.dayShort.thu',
+  'header.clock.dayShort.fri',
+  'header.clock.dayShort.sat',
+]
 
-function getTimeInfo() {
+const MONTH_KEYS = [
+  'header.clock.monthShort.jan',
+  'header.clock.monthShort.feb',
+  'header.clock.monthShort.mar',
+  'header.clock.monthShort.apr',
+  'header.clock.monthShort.may',
+  'header.clock.monthShort.jun',
+  'header.clock.monthShort.jul',
+  'header.clock.monthShort.aug',
+  'header.clock.monthShort.sep',
+  'header.clock.monthShort.oct',
+  'header.clock.monthShort.nov',
+  'header.clock.monthShort.dec',
+]
+
+function getRawTimeInfo() {
   const now = new Date()
   return {
     hours: String(now.getHours()).padStart(2, '0'),
     minutes: String(now.getMinutes()).padStart(2, '0'),
     day: now.getDate(),
-    weekday: WEEKDAYS_SHORT[now.getDay()],
-    month: MONTHS_SHORT[now.getMonth()],
+    weekdayIndex: now.getDay(),
+    monthIndex: now.getMonth(),
   }
 }
 
 export function HeaderClock() {
-  const [time, setTime] = useState(getTimeInfo)
+  const { t } = useTranslation()
+  const [time, setTime] = useState(getRawTimeInfo)
 
    
   useEffect(() => {
-    const interval = setInterval(() => setTime(getTimeInfo()), 1000)
+    const interval = setInterval(() => setTime(getRawTimeInfo()), 1000)
     return () => clearInterval(interval)
   }, [])
 
@@ -64,7 +88,7 @@ export function HeaderClock() {
           style={{ background: 'hsl(0 55% 48%)' }}
         >
           <span className="text-[8px] font-bold uppercase tracking-wider text-white leading-none">
-            {time.weekday}
+            {t(WEEKDAY_KEYS[time.weekdayIndex])}
           </span>
         </div>
 
@@ -83,7 +107,7 @@ export function HeaderClock() {
             className="text-[7px] font-medium uppercase tracking-wider leading-none mt-[2px]"
             style={{ color: 'hsl(25 15% 50%)' }}
           >
-            {time.month}
+            {t(MONTH_KEYS[time.monthIndex])}
           </span>
         </div>
 

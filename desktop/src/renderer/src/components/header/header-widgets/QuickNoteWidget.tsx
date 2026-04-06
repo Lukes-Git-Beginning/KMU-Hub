@@ -2,6 +2,7 @@
  * Header mini-widget — quick pinned note / reminder.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { StickyNote, X } from 'lucide-react'
 import {
   Popover,
@@ -16,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 
 export function QuickNoteWidget() {
+  const { t } = useTranslation()
   const [note, setNote] = useState(() =>
     localStorage.getItem('kmuhub-quicknote') ?? ''
   )
@@ -48,13 +50,13 @@ export function QuickNoteWidget() {
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          {note || 'Kurznotiz hinzufügen'}
+          {note || t('header.quickNote.addPlaceholder')}
         </TooltipContent>
       </Tooltip>
 
       <PopoverContent className="w-64 p-3" side="bottom" align="center">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-medium text-muted-foreground">Kurznotiz</p>
+          <p className="text-xs font-medium text-muted-foreground">{t('header.quickNote.title')}</p>
           {note && (
             <Button
               variant="ghost"
@@ -69,7 +71,7 @@ export function QuickNoteWidget() {
         <textarea
           value={note}
           onChange={(e) => handleSave(e.target.value)}
-          placeholder="Erinnerung, Notiz..."
+          placeholder={t('header.quickNote.inputPlaceholder')}
           rows={3}
           maxLength={200}
           className="w-full rounded-md border border-border bg-input-background px-2.5 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"

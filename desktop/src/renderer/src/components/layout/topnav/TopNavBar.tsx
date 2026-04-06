@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router-dom'
 import { LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/cn'
@@ -18,6 +19,7 @@ import type { NavItemConfig } from '../sidebar/nav-items'
  * Supports mouse-wheel horizontal scrolling.
  */
 export function TopNavBar() {
+  const { t } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
   const { mainItems, bottomItems } = useFilteredNavItems()
   const enabledItems = mainItems.filter((i) => i.enabled)
@@ -48,7 +50,7 @@ export function TopNavBar() {
       {/* Grid button — opens module overview */}
       <Popover open={overviewOpen} onOpenChange={setOverviewOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Module anzeigen">
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label={t('layout.topnav.showModules')}>
             <LayoutGrid className="h-4 w-4" aria-hidden="true" />
           </Button>
         </PopoverTrigger>

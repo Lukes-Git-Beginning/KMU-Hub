@@ -7,6 +7,7 @@
 import type { Editor } from '@tiptap/react'
 import { Bold, Italic, Underline, Link, Unlink } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ToolbarButton } from './ToolbarButton'
 
 interface EditorBubbleMenuProps {
@@ -14,6 +15,7 @@ interface EditorBubbleMenuProps {
 }
 
 export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
+  const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -66,31 +68,31 @@ export function EditorBubbleMenu({ editor }: EditorBubbleMenuProps) {
         icon={Bold}
         onClick={() => editor.chain().focus().toggleBold().run()}
         active={editor.isActive('bold')}
-        tooltip="Fett"
+        tooltip={t('shared.editor.bold')}
       />
       <ToolbarButton
         icon={Italic}
         onClick={() => editor.chain().focus().toggleItalic().run()}
         active={editor.isActive('italic')}
-        tooltip="Kursiv"
+        tooltip={t('shared.editor.italic')}
       />
       <ToolbarButton
         icon={Underline}
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         active={editor.isActive('underline')}
-        tooltip="Unterstrichen"
+        tooltip={t('shared.editor.underline')}
       />
       {editor.isActive('link') ? (
         <ToolbarButton
           icon={Unlink}
           onClick={() => editor.chain().focus().unsetLink().run()}
-          tooltip="Link entfernen"
+          tooltip={t('shared.editor.removeLink')}
         />
       ) : (
         <ToolbarButton
           icon={Link}
           onClick={setLink}
-          tooltip="Link einfügen"
+          tooltip={t('shared.editor.insertLink')}
         />
       )}
     </div>

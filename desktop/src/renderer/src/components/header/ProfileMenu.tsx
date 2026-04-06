@@ -6,12 +6,14 @@ import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/cn'
 import { ConfirmDialog } from '@/components/shared'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 export function ProfileMenu() {
   const [isOpen, setIsOpen] = useState(false)
   const [showLogout, setShowLogout] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
 
@@ -21,10 +23,10 @@ export function ProfileMenu() {
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
   const role =
     user?.roles?.includes('admin')
-      ? 'Administrator'
+      ? t('header.profileMenu.roleAdmin')
       : user?.roles?.includes('manager')
-        ? 'Projektleiter'
-        : 'Mitarbeiter'
+        ? t('header.profileMenu.roleManager')
+        : t('header.profileMenu.roleEmployee')
 
    
   useEffect(() => {
@@ -52,7 +54,7 @@ export function ProfileMenu() {
   }
 
   const handleHelp = () => {
-    toast.info('Nutze das ? Symbol unten rechts für Hilfe')
+    toast.info(t('header.profileMenu.helpToast'))
     setIsOpen(false)
   }
 
@@ -64,7 +66,7 @@ export function ProfileMenu() {
   const confirmLogout = () => {
     logout()
     setShowLogout(false)
-    toast.success('Erfolgreich abgemeldet')
+    toast.success(t('header.profileMenu.loggedOutToast'))
   }
 
   return (
@@ -112,7 +114,7 @@ export function ProfileMenu() {
                     {firstName} {lastName}
                   </p>
                   <p className="text-sm text-muted-foreground">{email}</p>
-                  <p className="text-xs text-primary mt-0.5">Profil anzeigen</p>
+                  <p className="text-xs text-primary mt-0.5">{t('header.profileMenu.viewProfile')}</p>
                 </div>
               </div>
             </button>
@@ -127,7 +129,7 @@ export function ProfileMenu() {
                   <User className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 text-left">
-                  <span className="text-sm">Mein Profil</span>
+                  <span className="text-sm">{t('header.profileMenu.myProfile')}</span>
                 </div>
               </button>
 
@@ -139,7 +141,7 @@ export function ProfileMenu() {
                   <Settings className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 text-left">
-                  <span className="text-sm">Einstellungen</span>
+                  <span className="text-sm">{t('header.profileMenu.settings')}</span>
                 </div>
                 <kbd className="hidden md:inline-flex items-center rounded border border-border bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground font-mono">
                   Ctrl+,
@@ -153,17 +155,17 @@ export function ProfileMenu() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
                   <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <span className="text-sm">Hilfe & Support</span>
+                <span className="text-sm">{t('header.profileMenu.helpSupport')}</span>
               </button>
 
               <button
-                onClick={() => toast.info('Tastaturkürzel: Ctrl+K (Suche), Ctrl+N (Neu), Ctrl+, (Einstellungen), Esc (Schließen)')}
+                onClick={() => toast.info(t('header.profileMenu.shortcutsToast'))}
                 className="w-full flex items-center gap-3 px-3 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10">
                   <Keyboard className="h-4 w-4 text-warning-foreground" />
                 </div>
-                <span className="text-sm">Tastaturkürzel</span>
+                <span className="text-sm">{t('header.profileMenu.shortcuts')}</span>
               </button>
 
               {/* Divider */}
@@ -176,7 +178,7 @@ export function ProfileMenu() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-error/10">
                   <LogOut className="h-4 w-4 text-error" />
                 </div>
-                <span className="text-sm">Abmelden</span>
+                <span className="text-sm">{t('header.profileMenu.logout')}</span>
               </button>
             </div>
           </div>
@@ -186,9 +188,9 @@ export function ProfileMenu() {
       <ConfirmDialog
         open={showLogout}
         onOpenChange={setShowLogout}
-        title="Abmelden?"
-        description="Du wirst von Cosmi abgemeldet. Alle nicht gespeicherten Änderungen gehen verloren."
-        confirmLabel="Abmelden"
+        title={t('header.profileMenu.logoutDialogTitle')}
+        description={t('header.profileMenu.logoutDialogDescription')}
+        confirmLabel={t('header.profileMenu.logout')}
         variant="destructive"
         onConfirm={confirmLogout}
       />

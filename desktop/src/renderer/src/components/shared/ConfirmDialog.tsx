@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib'
 import { AlertTriangle, Trash2, Info } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -48,13 +49,16 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = 'Bestätigen',
-  cancelLabel = 'Abbrechen',
+  confirmLabel,
+  cancelLabel,
   variant = 'default',
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation()
   const config = variantConfig[variant]
   const Icon = config.icon
+  const resolvedConfirmLabel = confirmLabel ?? t('shared.confirmDialog.confirm')
+  const resolvedCancelLabel = cancelLabel ?? t('shared.confirmDialog.cancel')
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -71,12 +75,12 @@ export function ConfirmDialog({
           </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel>{resolvedCancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             className={cn(config.buttonClass)}
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

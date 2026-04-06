@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, ArrowRight, Clock, Check, Calendar } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
@@ -40,6 +41,7 @@ function sortByPriority(tasksList: PlannerTask[]) {
 }
 
 export function DailyPlannerWidget() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabType>('today')
   const [tasks, setTasks] = useState<PlannerTask[]>(INITIAL_TASKS)
@@ -155,7 +157,7 @@ export function DailyPlannerWidget() {
           <div className="flex items-center justify-between border-b border-border p-4">
             <div className="flex items-center gap-2">
               <Check className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Meine Tagesplanung</h3>
+              <h3 className="font-semibold text-foreground">{t('header.dailyPlanner.title')}</h3>
             </div>
             <button
               onClick={() => setIsOpen(false)}
@@ -173,7 +175,7 @@ export function DailyPlannerWidget() {
                 className="mx-4 my-3 flex w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-lg border border-dashed border-primary p-3 text-sm font-medium text-primary transition-colors hover:bg-primary-light"
               >
                 <Plus className="h-4 w-4" />
-                Neue Aufgabe hinzufügen
+                {t('header.dailyPlanner.addTask')}
               </button>
             )}
 
@@ -182,12 +184,12 @@ export function DailyPlannerWidget() {
               <div className="m-4 space-y-3 rounded-lg border border-primary bg-secondary p-4">
                 <div>
                   <label className="mb-1 block text-xs text-muted-foreground">
-                    Aufgabe hinzufügen:
+                    {t('header.dailyPlanner.addTaskLabel')}
                   </label>
                   <Input
                     value={newText}
                     onChange={(e) => setNewText(e.target.value)}
-                    placeholder="z.B. Meeting-Notizen schreiben..."
+                    placeholder={t('header.dailyPlanner.taskPlaceholder')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') addTask()
                       if (e.key === 'Escape') setShowAddForm(false)
@@ -197,17 +199,17 @@ export function DailyPlannerWidget() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-muted-foreground">
-                    Priorität (optional):
+                    {t('header.dailyPlanner.priorityLabel')}
                   </label>
                   <Select value={newPriority} onValueChange={(v) => setNewPriority(v as PlannerTask['priority'])}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Priorität..." />
+                      <SelectValue placeholder={t('header.dailyPlanner.priorityPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="high">Hoch</SelectItem>
-                      <SelectItem value="medium">Mittel</SelectItem>
-                      <SelectItem value="low">Niedrig</SelectItem>
-                      <SelectItem value="none">Keine</SelectItem>
+                      <SelectItem value="high">{t('header.dailyPlanner.priorityHigh')}</SelectItem>
+                      <SelectItem value="medium">{t('header.dailyPlanner.priorityMedium')}</SelectItem>
+                      <SelectItem value="low">{t('header.dailyPlanner.priorityLow')}</SelectItem>
+                      <SelectItem value="none">{t('header.dailyPlanner.priorityNone')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -216,13 +218,13 @@ export function DailyPlannerWidget() {
                     onClick={() => setShowAddForm(false)}
                     className="rounded-lg bg-secondary px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
                   >
-                    Abbrechen
+                    {t('common.cancel')}
                   </button>
                   <button
                     onClick={addTask}
                     className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:opacity-90"
                   >
-                    Hinzufügen
+                    {t('header.dailyPlanner.add')}
                   </button>
                 </div>
               </div>
@@ -233,10 +235,10 @@ export function DailyPlannerWidget() {
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   {activeTab === 'today'
-                    ? `HEUTE (${todayTasks.length})`
+                    ? t('header.dailyPlanner.tabTodayCount', { count: todayTasks.length })
                     : activeTab === 'tomorrow'
-                      ? `MORGEN (${tomorrowTasks.length})`
-                      : `SPAETER (${laterTasks.length})`}
+                      ? t('header.dailyPlanner.tabTomorrowCount', { count: tomorrowTasks.length })
+                      : t('header.dailyPlanner.tabLaterCount', { count: laterTasks.length })}
                 </h4>
                 <div className="flex items-center gap-2">
                   {(['today', 'tomorrow', 'later'] as const).map((tab) => (
@@ -248,10 +250,10 @@ export function DailyPlannerWidget() {
                       }`}
                     >
                       {tab === 'today'
-                        ? 'Heute'
+                        ? t('header.dailyPlanner.tabToday')
                         : tab === 'tomorrow'
-                          ? 'Morgen'
-                          : 'Später'}
+                          ? t('header.dailyPlanner.tabTomorrow')
+                          : t('header.dailyPlanner.tabLater')}
                     </button>
                   ))}
                 </div>
@@ -262,10 +264,10 @@ export function DailyPlannerWidget() {
                   <div className="py-8 text-center">
                     <div className="mb-2 text-4xl">&#10003;</div>
                     <p className="text-sm font-medium text-foreground">
-                      Keine Aufgaben!
+                      {t('header.dailyPlanner.emptyTitle')}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Fuege Tasks hinzu, die du erledigen möchtest.
+                      {t('header.dailyPlanner.emptySubtitle')}
                     </p>
                   </div>
                 )}
@@ -287,13 +289,13 @@ export function DailyPlannerWidget() {
               <div className="border-t border-border px-4 pb-4 pt-4">
                 <div className="mb-2 flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    ERLEDIGT ({completedTasks.length})
+                    {t('header.dailyPlanner.completedCount', { count: completedTasks.length })}
                   </h4>
                   <button
                     onClick={() => setShowCompleted(!showCompleted)}
                     className="text-xs text-primary hover:opacity-80"
                   >
-                    {showCompleted ? 'Ausblenden' : 'Anzeigen'}
+                    {showCompleted ? t('header.dailyPlanner.hide') : t('header.dailyPlanner.show')}
                   </button>
                 </div>
                 {showCompleted && (
@@ -349,6 +351,7 @@ function TaskItem({
   onDelete: (id: string) => void
   onMoveToTomorrow: (id: string) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-lg border border-border bg-secondary p-3 transition-colors hover:border-primary/50">
       <div className="flex items-start gap-3">
@@ -379,7 +382,7 @@ function TaskItem({
             className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           >
             <ArrowRight className="h-3 w-3" />
-            Morgen
+            {t('header.dailyPlanner.tabTomorrow')}
           </button>
           <button
             onClick={() => onDelete(task.id)}

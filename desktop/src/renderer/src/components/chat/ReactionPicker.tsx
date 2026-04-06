@@ -7,6 +7,7 @@
  * commonly used emoji without needing to open the full picker.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Smile } from 'lucide-react'
 import { EmojiPicker, type Emoji } from 'frimousse'
 import { useToggleReaction } from '@/api/hooks/useReactions'
@@ -26,17 +27,18 @@ interface ReactionPickerProps {
   messageId: string
 }
 
-/** Frequently used emoji for the quick-reaction bar. */
+/** Frequently used emoji for the quick-reaction bar. Keys resolved via t() at render time. */
 const QUICK_REACTIONS = [
-  { emoji: '\uD83D\uDC4D', label: 'Daumen hoch' },
-  { emoji: '\u2764\uFE0F', label: 'Herz' },
-  { emoji: '\uD83D\uDE02', label: 'Tränen lachend' },
-  { emoji: '\uD83D\uDC4F', label: 'Klatschen' },
-  { emoji: '\uD83E\uDD14', label: 'Nachdenklich' },
-  { emoji: '\uD83D\uDE80', label: 'Rakete' },
+  { emoji: '\uD83D\uDC4D', labelKey: 'chat.reactionPicker.quickReaction.thumbsUp' },
+  { emoji: '\u2764\uFE0F', labelKey: 'chat.reactionPicker.quickReaction.heart' },
+  { emoji: '\uD83D\uDE02', labelKey: 'chat.reactionPicker.quickReaction.laughing' },
+  { emoji: '\uD83D\uDC4F', labelKey: 'chat.reactionPicker.quickReaction.clapping' },
+  { emoji: '\uD83E\uDD14', labelKey: 'chat.reactionPicker.quickReaction.thinking' },
+  { emoji: '\uD83D\uDE80', labelKey: 'chat.reactionPicker.quickReaction.rocket' },
 ]
 
 export function ReactionPicker({ messageId }: ReactionPickerProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const toggleReaction = useToggleReaction()
 
@@ -58,13 +60,13 @@ export function ReactionPicker({ messageId }: ReactionPickerProps) {
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              aria-label="Reaktion hinzufügen"
+              aria-label={t('chat.reactionPicker.addReaction')}
             >
               <Smile className="h-3.5 w-3.5" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent>Reaktion</TooltipContent>
+        <TooltipContent>{t('chat.reactionPicker.tooltip')}</TooltipContent>
       </Tooltip>
 
       <PopoverContent
@@ -80,8 +82,8 @@ export function ReactionPicker({ messageId }: ReactionPickerProps) {
               key={qr.emoji}
               className="rounded p-1 text-lg transition-colors hover:bg-accent"
               onClick={() => handleSelect(qr.emoji)}
-              title={qr.label}
-              aria-label={qr.label}
+              title={t(qr.labelKey)}
+              aria-label={t(qr.labelKey)}
             >
               {qr.emoji}
             </button>
@@ -97,19 +99,19 @@ export function ReactionPicker({ messageId }: ReactionPickerProps) {
         >
           <EmojiPicker.Search
             className="mx-2 mt-2 mb-1 h-8 w-[calc(100%-1rem)] rounded-md border border-input bg-transparent px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            placeholder="Emoji suchen..."
-            aria-label="Emoji suchen"
+            placeholder={t('chat.reactionPicker.searchPlaceholder')}
+            aria-label={t('chat.reactionPicker.searchAriaLabel')}
             autoFocus
           />
           <EmojiPicker.Viewport className="relative flex-1 overflow-y-auto px-1">
             <EmojiPicker.Loading>
               <span className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Laden...
+                {t('common.loading')}
               </span>
             </EmojiPicker.Loading>
             <EmojiPicker.Empty>
               <span className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Kein Emoji gefunden.
+                {t('chat.reactionPicker.noEmoji')}
               </span>
             </EmojiPicker.Empty>
             <EmojiPicker.List

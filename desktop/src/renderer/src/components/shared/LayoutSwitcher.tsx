@@ -1,21 +1,11 @@
 import { useUIStore } from '@/stores/ui'
 import type { NavLayout } from '@/stores/ui'
 import { cn } from '@/lib'
+import { useTranslation } from 'react-i18next'
 
 interface LayoutSwitcherProps {
   className?: string
 }
-
-const layouts: Array<{
-  id: NavLayout
-  label: string
-  desc: string
-}> = [
-  { id: 'sidebar', label: 'Sidebar', desc: 'Klassische Seitenleiste links' },
-  { id: 'dock', label: 'Dock', desc: 'Schwebende Leiste am unteren Rand' },
-  { id: 'topnav', label: 'Top-Nav', desc: 'Horizontale Tabs oben' },
-  { id: 'classic', label: 'Kompakt', desc: 'Reduzierte Ansicht' },
-]
 
 /** Mini SVG thumbnails for each layout */
 function LayoutPreview({ layout, active }: { layout: NavLayout; active: boolean }) {
@@ -69,8 +59,16 @@ function LayoutPreview({ layout, active }: { layout: NavLayout; active: boolean 
 }
 
 export function LayoutSwitcher({ className }: LayoutSwitcherProps) {
+  const { t } = useTranslation()
   const navLayout = useUIStore((s) => s.navLayout)
   const setNavLayout = useUIStore((s) => s.setNavLayout)
+
+  const layouts: Array<{ id: NavLayout; label: string; desc: string }> = [
+    { id: 'sidebar', label: t('shared.layoutSwitcher.sidebar.label'), desc: t('shared.layoutSwitcher.sidebar.desc') },
+    { id: 'dock', label: t('shared.layoutSwitcher.dock.label'), desc: t('shared.layoutSwitcher.dock.desc') },
+    { id: 'topnav', label: t('shared.layoutSwitcher.topnav.label'), desc: t('shared.layoutSwitcher.topnav.desc') },
+    { id: 'classic', label: t('shared.layoutSwitcher.classic.label'), desc: t('shared.layoutSwitcher.classic.desc') },
+  ]
 
   return (
     <div className={cn('grid grid-cols-4 gap-3', className)}>

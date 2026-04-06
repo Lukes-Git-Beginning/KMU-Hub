@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib'
+import { useTranslation } from 'react-i18next'
 
 export interface ActionItem {
   label: string
@@ -32,6 +33,8 @@ export function ItemActions({
   onAdvanced,
   triggerClassName,
 }: ItemActionsProps) {
+  const { t } = useTranslation()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -74,7 +77,7 @@ export function ItemActions({
               }}
               className="cursor-pointer font-medium"
             >
-              {advancedLabel || 'Erweiterte Optionen'}
+              {advancedLabel || t('shared.itemActions.advancedOptions')}
             </DropdownMenuItem>
           </>
         )}

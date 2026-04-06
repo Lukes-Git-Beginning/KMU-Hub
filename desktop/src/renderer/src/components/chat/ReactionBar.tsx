@@ -7,6 +7,7 @@
  *
  * Returns null when there are no reactions (no empty-state rendering).
  */
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
 import { useReactions, useToggleReaction } from '@/api/hooks/useReactions'
 import {
@@ -21,6 +22,7 @@ interface ReactionBarProps {
 }
 
 export function ReactionBar({ messageId }: ReactionBarProps) {
+  const { t } = useTranslation()
   const { data: reactions } = useReactions(messageId)
   const toggleReaction = useToggleReaction()
 
@@ -53,7 +55,10 @@ export function ReactionBar({ messageId }: ReactionBarProps) {
           <TooltipContent side="top" className="text-xs">
             {reaction.user_ids.length <= 5
               ? reaction.user_ids.join(', ')
-              : `${reaction.user_ids.slice(0, 5).join(', ')} und ${reaction.user_ids.length - 5} weitere`}
+              : t('chat.reactionBar.andMore', {
+                  names: reaction.user_ids.slice(0, 5).join(', '),
+                  count: reaction.user_ids.length - 5,
+                })}
           </TooltipContent>
         </Tooltip>
       ))}

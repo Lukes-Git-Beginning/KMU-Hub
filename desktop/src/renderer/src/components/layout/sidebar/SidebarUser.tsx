@@ -1,4 +1,5 @@
 import { LogOut } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
 import { useAuthStore } from '@/stores/auth'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -21,6 +22,7 @@ interface SidebarUserProps {
 }
 
 export function SidebarUser({ collapsed }: SidebarUserProps) {
+  const { t } = useTranslation()
   const storeUser = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
 
@@ -46,7 +48,7 @@ export function SidebarUser({ collapsed }: SidebarUserProps) {
         {collapsed && (
           <TooltipContent side="right">
             <p>{displayName}</p>
-            <p className="text-xs text-muted-foreground">Online</p>
+            <p className="text-xs text-muted-foreground">{t('layout.sidebar.userOnline')}</p>
           </TooltipContent>
         )}
       </Tooltip>
@@ -68,7 +70,7 @@ export function SidebarUser({ collapsed }: SidebarUserProps) {
                 <LogOut className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Abmelden</TooltipContent>
+            <TooltipContent>{t('layout.sidebar.logout')}</TooltipContent>
           </Tooltip>
         </>
       )}

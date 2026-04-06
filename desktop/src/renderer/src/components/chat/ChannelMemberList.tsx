@@ -5,6 +5,7 @@
  * presence status. Per user decision, presence dots appear only in
  * chat participant lists and DMs (not in CRM or calendar).
  */
+import { useTranslation } from 'react-i18next'
 import { useChannelMembers } from '@/api/hooks/useChannels'
 import { PresenceIndicator } from '@/features/presence'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -15,6 +16,7 @@ interface ChannelMemberListProps {
 }
 
 export function ChannelMemberList({ channelId }: ChannelMemberListProps) {
+  const { t } = useTranslation()
   const { data: membersData, isLoading } = useChannelMembers(channelId)
 
   const members = membersData?.members ?? []
@@ -22,7 +24,7 @@ export function ChannelMemberList({ channelId }: ChannelMemberListProps) {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <span className="text-sm text-muted-foreground">Laden...</span>
+        <span className="text-sm text-muted-foreground">{t('common.loading')}</span>
       </div>
     )
   }
@@ -31,7 +33,7 @@ export function ChannelMemberList({ channelId }: ChannelMemberListProps) {
     <div className="flex h-full flex-col border-l border-border bg-card">
       <div className="border-b border-border px-4 py-3">
         <h3 className="text-sm font-semibold text-foreground">
-          Mitglieder ({members.length})
+          {t('chat.memberList.title', { count: members.length })}
         </h3>
       </div>
 
@@ -40,7 +42,7 @@ export function ChannelMemberList({ channelId }: ChannelMemberListProps) {
           {members.map((member) => {
             const name = [member.first_name, member.last_name]
               .filter(Boolean)
-              .join(' ') || 'Unbekannt'
+              .join(' ') || t('chat.memberList.unknownMember')
 
             const initials = [member.first_name, member.last_name]
               .filter(Boolean)

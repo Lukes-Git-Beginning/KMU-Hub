@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Globe } from 'lucide-react'
 import { useUIStore } from '@/stores/ui'
 import { cn } from '@/lib/cn'
+import { useTranslation } from 'react-i18next'
 
 interface Language {
   code: string
@@ -20,6 +21,7 @@ const languages: Language[] = [
 export function LanguageSwitcher() {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const { t } = useTranslation()
   const locale = useUIStore((s) => s.locale)
   const setLocale = useUIStore((s) => s.setLocale)
 
@@ -80,7 +82,7 @@ export function LanguageSwitcher() {
               <span className="text-foreground">{lang.name}</span>
               {lang.disabled && (
                 <span className="ml-auto text-xs text-muted-foreground">
-                  (Bald)
+                  {t('header.languageSwitcher.comingSoon')}
                 </span>
               )}
             </button>

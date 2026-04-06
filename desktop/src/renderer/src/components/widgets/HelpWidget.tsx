@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   HelpCircle, X, Search, ChevronDown, ChevronUp, Mail, BookOpen, ExternalLink,
 } from 'lucide-react'
@@ -10,32 +11,33 @@ interface FAQItem {
   answer: string
 }
 
-const FAQ_ITEMS: FAQItem[] = [
-  { question: 'Wie erstelle ich ein neues Projekt?', answer: 'Gehe zu Projekte in der Sidebar und klicke auf "+ Neues Projekt". Gib den Projektnamen, die Beschreibung und das Team ein.' },
-  { question: 'Wie tracke ich meine Arbeitszeit?', answer: 'Nutze den Timer im Header oder gehe zu deinem Profil → Zeiterfassung. Dort kannst du auch manuell Zeiten nachtragen.' },
-  { question: 'Wie erstelle ich eine Rechnung?', answer: 'Gehe zu Finanzen → Rechnungen und klicke auf "Neue Rechnung". Wähle den Kunden, fuege Positionen hinzu und versende die Rechnung.' },
-  { question: 'Wie lade ich Teammitglieder ein?', answer: 'Gehe zu Team in der Sidebar. Als Admin oder Manager kannst du über "Mitglied hinzufügen" neue Personen einladen.' },
-  { question: 'Wie funktioniert der Chat?', answer: 'Klicke auf Chat in der Sidebar. Du kannst Direktnachrichten senden oder Gruppenkanale für Projekte erstellen.' },
-  { question: 'Wie beantrage ich Urlaub?', answer: 'Gehe zu deinem Profil → Abwesenheiten und klicke auf "Neue Anfrage". Wähle den Zeitraum und den Grund aus.' },
-  { question: 'Wie ändere ich mein Passwort?', answer: 'Gehe zu Einstellungen → Sicherheit. Dort kannst du dein Passwort ändern und Zwei-Faktor-Authentifizierung aktivieren.' },
-  { question: 'Wie exportiere ich Daten?', answer: 'In den meisten Modulen gibt es einen Export-Button. Zeiterfassung, Kontakte und Rechnungen können als CSV oder PDF exportiert werden.' },
-]
-
-const SHORTCUTS = [
-  { keys: 'Ctrl+K', description: 'Globale Suche' },
-  { keys: 'Ctrl+,', description: 'Einstellungen' },
-  { keys: 'Ctrl+N', description: 'Neues Element' },
-  { keys: 'Ctrl+Shift+F', description: 'Vollbild umschalten' },
-  { keys: 'Esc', description: 'Dialog/Panel schliessen' },
-]
-
 type SectionKey = 'faq' | 'shortcuts' | 'contact' | 'docs'
 
 export function HelpWidget() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(new Set(['faq']))
   const panelRef = useRef<HTMLDivElement>(null)
+
+  const FAQ_ITEMS: FAQItem[] = [
+    { question: t('widgets.help.faq.createProject.question'), answer: t('widgets.help.faq.createProject.answer') },
+    { question: t('widgets.help.faq.trackTime.question'), answer: t('widgets.help.faq.trackTime.answer') },
+    { question: t('widgets.help.faq.createInvoice.question'), answer: t('widgets.help.faq.createInvoice.answer') },
+    { question: t('widgets.help.faq.inviteTeam.question'), answer: t('widgets.help.faq.inviteTeam.answer') },
+    { question: t('widgets.help.faq.chat.question'), answer: t('widgets.help.faq.chat.answer') },
+    { question: t('widgets.help.faq.requestLeave.question'), answer: t('widgets.help.faq.requestLeave.answer') },
+    { question: t('widgets.help.faq.changePassword.question'), answer: t('widgets.help.faq.changePassword.answer') },
+    { question: t('widgets.help.faq.exportData.question'), answer: t('widgets.help.faq.exportData.answer') },
+  ]
+
+  const SHORTCUTS = [
+    { keys: 'Ctrl+K', description: t('widgets.help.shortcuts.globalSearch') },
+    { keys: 'Ctrl+,', description: t('widgets.help.shortcuts.settings') },
+    { keys: 'Ctrl+N', description: t('widgets.help.shortcuts.newItem') },
+    { keys: 'Ctrl+Shift+F', description: t('widgets.help.shortcuts.toggleFullscreen') },
+    { keys: 'Esc', description: t('widgets.help.shortcuts.closeDialog') },
+  ]
 
   // Filter FAQ
   const filteredFAQ = search
@@ -90,7 +92,7 @@ export function HelpWidget() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-primary" />
-              <h3 className="font-semibold text-sm text-foreground">Hilfe & Support</h3>
+              <h3 className="font-semibold text-sm text-foreground">{t('widgets.help.title')}</h3>
             </div>
             <button onClick={() => setIsOpen(false)} className="p-1 rounded hover:bg-accent transition-colors">
               <X className="h-4 w-4 text-muted-foreground" />
@@ -102,7 +104,7 @@ export function HelpWidget() {
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Hilfe suchen..."
+                placeholder={t('widgets.help.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-8 text-xs pl-8"
@@ -114,13 +116,13 @@ export function HelpWidget() {
           <div className="overflow-y-auto max-h-[360px]">
             {/* FAQ Section */}
             <Section
-              title="Häufige Fragen"
+              title={t('widgets.help.sections.faq')}
               sectionKey="faq"
               isOpen={openSections.has('faq')}
               onToggle={toggleSection}
             >
               {filteredFAQ.length === 0 && (
-                <p className="text-xs text-muted-foreground px-4 py-2">Keine Ergebnisse für "{search}"</p>
+                <p className="text-xs text-muted-foreground px-4 py-2">{t('widgets.help.noResults', { query: search })}</p>
               )}
               {filteredFAQ.map((item, i) => (
                 <FAQAccordion key={i} item={item} />
@@ -130,7 +132,7 @@ export function HelpWidget() {
             {/* Shortcuts Section */}
             {!search && (
               <Section
-                title="Tastaturkürzel"
+                title={t('widgets.help.sections.shortcuts')}
                 sectionKey="shortcuts"
                 isOpen={openSections.has('shortcuts')}
                 onToggle={toggleSection}
@@ -151,7 +153,7 @@ export function HelpWidget() {
             {/* Contact Section */}
             {!search && (
               <Section
-                title="Kontakt & Support"
+                title={t('widgets.help.sections.contact')}
                 sectionKey="contact"
                 isOpen={openSections.has('contact')}
                 onToggle={toggleSection}
@@ -167,7 +169,7 @@ export function HelpWidget() {
                   </div>
                   <button className="flex items-center gap-2 text-xs text-primary hover:text-primary/80 transition-colors mt-1">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    Support-Ticket erstellen
+                    {t('widgets.help.contact.createTicket')}
                   </button>
                 </div>
               </Section>
@@ -176,16 +178,16 @@ export function HelpWidget() {
             {/* Docs Section */}
             {!search && (
               <Section
-                title="Dokumentation"
+                title={t('widgets.help.sections.docs')}
                 sectionKey="docs"
                 isOpen={openSections.has('docs')}
                 onToggle={toggleSection}
               >
                 <div className="px-4 py-1 space-y-2">
                   {[
-                    { label: 'Benutzerhandbuch', icon: BookOpen },
-                    { label: 'API Dokumentation', icon: BookOpen },
-                    { label: 'Changelog', icon: BookOpen },
+                    { label: t('widgets.help.docs.userManual'), icon: BookOpen },
+                    { label: t('widgets.help.docs.apiDocs'), icon: BookOpen },
+                    { label: t('widgets.help.docs.changelog'), icon: BookOpen },
                   ].map((doc, i) => (
                     <button key={i} className="flex items-center gap-2 text-xs text-foreground hover:text-primary transition-colors w-full">
                       <doc.icon className="h-3.5 w-3.5 text-muted-foreground" />

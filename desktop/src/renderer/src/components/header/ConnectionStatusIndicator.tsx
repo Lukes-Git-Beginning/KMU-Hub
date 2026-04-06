@@ -7,6 +7,7 @@
  *   - Amber dot + pulse: reconnecting (WS connecting or browser offline with token)
  *   - Red dot: disconnected (offline or WS failed)
  */
+import { useTranslation } from 'react-i18next'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useWSConnectionState } from '@/hooks/useWebSocket'
 import {
@@ -24,32 +25,22 @@ function deriveStatus(isOnline: boolean, wsState: string): IndicatorStatus {
   return 'disconnected'
 }
 
-const STATUS_CONFIG: Record<IndicatorStatus, { color: string; pulse: boolean; label: string; tooltip: string }> = {
-  connected: {
-    color: 'bg-success',
-    pulse: false,
-    label: 'Verbunden',
-    tooltip: 'Verbunden mit dem Server',
-  },
-  reconnecting: {
-    color: 'bg-warning',
-    pulse: true,
-    label: 'Verbindung wird hergestellt',
-    tooltip: 'Verbindung wird hergestellt...',
-  },
-  disconnected: {
-    color: 'bg-destructive',
-    pulse: false,
-    label: 'Nicht verbunden',
-    tooltip: 'Keine Verbindung zum Server',
-  },
+const STATUS_COLORS: Record<IndicatorStatus, { color: string; pulse: boolean }> = {
+  connected: { color: 'bg-success', pulse: false },
+  reconnecting: { color: 'bg-warning', pulse: true },
+  disconnected: { color: 'bg-destructive', pulse: false },
 }
 
 export function ConnectionStatusIndicator() {
+  const { t } = useTranslation()
   const { isOnline } = useOnlineStatus()
   const wsState = useWSConnectionState()
   const status = deriveStatus(isOnline, wsState)
-  const config = STATUS_CONFIG[status]
+  const { color, pulse } = STATUS_COLORS[status]
+
+  const label = t(`header.connectionStatus.${status}.label`)
+  const tooltip = t(`header.connectionStatus.${status}.tooltip`)
+  const config = { color, pulse, label, tooltip }
 
   return (
     <Tooltip>

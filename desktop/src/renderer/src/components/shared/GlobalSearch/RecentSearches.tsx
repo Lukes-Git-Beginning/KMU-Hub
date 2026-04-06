@@ -1,4 +1,5 @@
 import { Clock, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { RecentSearch } from '@/stores/search'
 
 interface RecentSearchesProps {
@@ -14,19 +15,21 @@ export function RecentSearches({
   onRemove,
   onClearAll,
 }: RecentSearchesProps) {
+  const { t } = useTranslation()
+
   if (searches.length === 0) return null
 
   return (
     <div className="px-2 py-1.5">
       <div className="flex items-center justify-between px-2 pb-1">
         <span className="text-xs font-medium text-muted-foreground">
-          Letzte Suchen
+          {t('shared.globalSearch.recentSearches')}
         </span>
         <button
           onClick={onClearAll}
           className="text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
-          Alle löschen
+          {t('shared.globalSearch.clearAll')}
         </button>
       </div>
       {searches.map((search) => (

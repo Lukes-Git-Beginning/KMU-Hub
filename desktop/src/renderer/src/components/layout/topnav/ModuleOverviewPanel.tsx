@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import type { NavItemConfig } from '../sidebar/nav-items'
@@ -8,12 +9,13 @@ interface ModuleOverviewPanelProps {
 }
 
 export function ModuleOverviewPanel({ items, onSelect }: ModuleOverviewPanelProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
 
   return (
     <div className="p-4">
-      <h3 className="text-sm font-semibold text-foreground mb-3">Alle Module</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-3">{t('layout.topnav.allModules')}</h3>
       <div className="grid grid-cols-4 gap-2">
         {items.map((item) => {
           const Icon = item.icon

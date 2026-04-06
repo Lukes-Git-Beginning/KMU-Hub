@@ -1,6 +1,7 @@
 /**
  * Header widget registry — defines available mini-widgets for the header bar.
  */
+import i18next from 'i18next'
 import type { ComponentType } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -27,36 +28,36 @@ export interface HeaderWidgetDef {
 export const headerWidgetRegistry: Record<string, HeaderWidgetDef> = {
   'next-meeting': {
     id: 'next-meeting',
-    name: 'Nächster Termin',
-    description: 'Zeigt den nächsten Kalender-Termin an.',
+    name: i18next.t('header.widgetRegistry.nextMeeting.name'),
+    description: i18next.t('header.widgetRegistry.nextMeeting.description'),
     icon: Calendar,
     component: NextMeetingWidget,
   },
   weather: {
     id: 'weather',
-    name: 'Wetter',
-    description: 'Aktuelle Temperatur und Wetterlage.',
+    name: i18next.t('header.widgetRegistry.weather.name'),
+    description: i18next.t('header.widgetRegistry.weather.description'),
     icon: CloudSun,
     component: WeatherWidget,
   },
   pomodoro: {
     id: 'pomodoro',
-    name: 'Pomodoro',
-    description: 'Fokus-Timer mit 25/5 Minuten Rhythmus.',
+    name: i18next.t('header.widgetRegistry.pomodoro.name'),
+    description: i18next.t('header.widgetRegistry.pomodoro.description'),
     icon: Timer,
     component: PomodoroWidget,
   },
   'unread-count': {
     id: 'unread-count',
-    name: 'Ungelesen',
-    description: 'Zeigt die Anzahl ungelesener Nachrichten.',
+    name: i18next.t('header.widgetRegistry.unreadCount.name'),
+    description: i18next.t('header.widgetRegistry.unreadCount.description'),
     icon: MessageSquare,
     component: UnreadCountWidget,
   },
   'quick-note': {
     id: 'quick-note',
-    name: 'Kurznotiz',
-    description: 'Schnelle Notiz oder Erinnerung.',
+    name: i18next.t('header.widgetRegistry.quickNote.name'),
+    description: i18next.t('header.widgetRegistry.quickNote.description'),
     icon: StickyNote,
     component: QuickNoteWidget,
   },

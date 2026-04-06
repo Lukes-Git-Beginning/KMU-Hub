@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
@@ -14,6 +15,7 @@ import { PageTransitionOutlet } from '../PageTransitionOutlet'
 import { DockBar } from './DockBar'
 
 export function DockLayout() {
+  const { t } = useTranslation()
   const { isOnline } = useOnlineStatus()
   useNotificationWebSocket()
 
@@ -31,11 +33,11 @@ export function DockLayout() {
               <span
                 className={`inline-block h-2 w-2 rounded-full ${isOnline ? 'bg-success' : 'bg-destructive'}`}
                 role="status"
-                aria-label={isOnline ? 'Online' : 'Offline'}
+                aria-label={isOnline ? t('layout.dock.statusOnline') : t('layout.dock.statusOffline')}
               />
             </TooltipTrigger>
             <TooltipContent>
-              {isOnline ? 'Verbunden' : 'Keine Verbindung'}
+              {isOnline ? t('layout.dock.connected') : t('layout.dock.noConnection')}
             </TooltipContent>
           </Tooltip>
           <ProfileMenu />
