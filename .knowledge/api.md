@@ -1,6 +1,6 @@
 ---
 tags: [api, endpoints, openapi]
-updated: 2026-03-05
+updated: 2026-04-06
 ---
 # API-Referenz
 
@@ -11,20 +11,33 @@ updated: 2026-03-05
 
 ## Endpoint-Gruppen
 
-| Domain | Tags | Beispiel-Pfade |
-|--------|------|----------------|
-| Auth | auth, users | `/api/v1/auth/login`, `/auth/register`, `/auth/refresh` |
-| CRM | contacts, companies, deals, pipeline-stages, activities, custom-fields, tags | `/api/v1/contacts`, `/companies`, `/deals` |
-| Chat | chat-channels, chat-messages, reactions, presence, chat-files | `/api/v1/chat/channels`, `/chat/messages` |
-| Notifications | notifications | `/api/v1/notifications` (list, read, preferences, mutes) |
-| Dashboard | dashboard | Layout-Management pro User/Rolle |
-| Work | projects, tasks, task-comments, task-files, time-tracking | `/api/v1/projects`, `/tasks`, `/time-entries` |
-| Calendar | calendars, events, resources, holidays, meetings | `/api/v1/calendars`, `/events`, `/resources` |
-| Video | video-calls, recordings | `/api/v1/video/calls`, `/recordings` |
-| Finance | quotes, invoices, payments, credit-notes, dunning, datev | `/api/v1/quotes`, `/invoices`, `/datev/export` |
-| Inbox | inbox-messages, inbox-teams, inbox-routing | `/api/v1/inbox/messages`, `/inbox/routing` |
-| Automation | automations | Workflow CRUD, Execution Logs, Templates |
-| Health | health | `/health` (public, kein Auth) |
+| Domain | Praefix | Notizen |
+|--------|---------|---------|
+| Auth | `/api/v1/auth/…` | Login, Register, 2FA, Refresh, /auth/me |
+| CRM | `/api/v1/contacts`, `/companies`, `/deals` | Pipeline-Stages, Activities, Custom-Fields, Tags |
+| CRM Extended | `/api/v1/contacts/…/consent`, `/…/duplicates` | Consent-Management, Duplicate Detection (pg_trgm) |
+| Chat | `/api/v1/chat/channels`, `/chat/messages` | Reactions, Presence, Files |
+| Notifications | `/api/v1/notifications` | List, Read, Preferences, Mutes |
+| Dashboard | `/api/v1/dashboard` | Layout-Management pro User/Rolle |
+| Work | `/api/v1/projects`, `/tasks`, `/time-entries` | Task-Comments, Files, Time Tracking |
+| Calendar | `/api/v1/calendars`, `/events`, `/resources` | Resources, Holidays, Meetings |
+| Video | `/api/v1/video/calls`, `/recordings` | LiveKit-basiert |
+| Finance | `/api/v1/quotes`, `/invoices`, `/datev/export` | Payments, Credit Notes, Dunning, ZUGFeRD |
+| Inbox | `/api/v1/inbox` | Messages, Routing Rules, Teams (Unified Inbox) |
+| Automation | `/api/v1/automations` | Workflow CRUD, Execution Logs, Templates |
+| HR | `/api/v1/hr/employees`, `/hr/leave`, `/hr/absences` | Teilt "biz" gRPC-Server |
+| Security | `/api/v1/security/…` | Audit Logs, 2FA, App-Passwords, GDPR Export — teilt "auth" gRPC |
+| Plugin | `/api/v1/plugins/…` | Manifests, Installations, Execution-Logs, Templates |
+| Global Search | `/api/v1/search` | Cross-Service (CRM + Dokumente), 500ms Timeout |
+| Guest Chat | `/api/v1/guest/…` | Public, kein Auth, eigene Session-Tokens |
+| Bexio | `/api/v1/integrations/bexio/…` | OAuth-Flow, Sync Trigger/Status/Logs |
+| Lexware | `/api/v1/integrations/lexware/…` | API-Key-basiert |
+| DATEV Upload | `/api/v1/datev/upload` | CSV-Upload (Buchungsstapel) |
+| CalDAV/CardDAV | `/caldav/…`, `/carddav/…` | go-webdav Proxy, App-Passwords |
+| WOPI | `/api/v1/wopi/…` | Document Lock/Unlock, CheckFileInfo (OnlyOffice) |
+| Integration Config | `/api/v1/integrations/configs` | Teams/Slack Webhooks + OAuth |
+| Registrar | (intern) | Service-Registrierung im Gateway |
+| Health | `/health` | Public, kein Auth, Version/Commit/BuildTime |
 
 ## Auth-Flow
 1. POST `/api/v1/auth/login` (email + password)
@@ -42,12 +55,12 @@ updated: 2026-03-05
 ## Frontend-Integration
 - API-Client: `desktop/src/renderer/src/api/client.ts` (openapi-fetch)
 - Automatischer Bearer-Header aus Auth-Store
-- 401-Interception → transparenter Token-Refresh
-- Concurrent-Refresh De-Duplication
+- 401-Interception → transparenter Token-Refresh mit Concurrent De-Duplication
 - Offline-Guard: Blockt POST/PUT/DELETE wenn `!navigator.onLine`
 - 40+ React Query Hooks in `desktop/src/renderer/src/api/hooks/`
 
 ## Verwandte Notes
-- [[architektur]] — Service-Architektur
+- [[architektur]] — Service-Architektur & Gateway Routes
 - [[datenbank]] — Schema & Tabellen
 - [[security]] — Auth & Middleware
+- [[integrationen]] — Bexio, Lexware, DATEV Details

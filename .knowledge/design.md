@@ -1,6 +1,6 @@
 ---
 tags: [frontend, design, tools, skills, audit]
-updated: 2026-03-26
+updated: 2026-04-06
 ---
 # Design System
 
@@ -127,6 +127,13 @@ Install-Pattern: `npx shadcn@latest add "https://magicui.design/r/<name>" --yes`
 - **Magic MCP (21st.dev)** — Component Generation im IDE
 - **v0 by Vercel** — Prototyping mit shadcn Output
 
+## LanguageSwitcher
+- Datei: `src/renderer/src/components/header/LanguageSwitcher.tsx`
+- Wechselt zwischen de / en / fr / it (4 Locales)
+- Nutzt `useLocaleStore` (Zustand) + `i18n.changeLanguage()`
+- Vollstaendige i18n-Dokumentation: [[i18n]]
+
 ## Verwandte Notes
 - [[architektur]] — Frontend Stack
+- [[i18n]] — Internationalisierung
 - [[milestones]] — Wiring Progress

@@ -1,6 +1,6 @@
 ---
-tags: [security, auth, compliance]
-updated: 2026-03-05
+tags: [security, auth, compliance, gdpr]
+updated: 2026-04-06
 ---
 # Security & Compliance
 
@@ -34,12 +34,12 @@ updated: 2026-03-05
 - Response: 429 mit `Retry-After: 1`
 
 ## Vault Service (Secrets)
-- Verschlüsselte Secrets in PostgreSQL
+- Verschluesselte Secrets in PostgreSQL
 - `VAULT_MASTER_SECRET` (32+ Zeichen) als Env-Var
 - Verwendet fuer: OAuth-Tokens (Bexio, DATEV), API-Keys (Lexware), Email-Passwoerter
 
 ## Electron Token-Persistence
-- `safeStorage.encryptString()` für verschlüsselte Speicherung
+- `safeStorage.encryptString()` fuer verschluesselte Speicherung
 - Datei: `app.getPath('userData')/tokens.enc`
 - Fallback: Plaintext auf Linux ohne Keyring
 - Geladen beim App-Start → `useAuthStore.initialize()`
@@ -50,11 +50,24 @@ updated: 2026-03-05
 - Email-Validierung, Passwort-Strength-Checks
 
 ## GDPR / Datenschutz
-- Audit-Logging: `security_audit_logs` Tabelle
-- Erasure-Support implementiert
-- **OFFEN (Phase B Blocker):** AVV/DPA, AGB, DSGVO-Prüfung durch Anwalt
+
+### Implementiert
+- Audit-Logging: `security_audit_logs` Tabelle — vollstaendig aktiv
+- Erasure-Support: GDPR-Loeschbegehren via `gdpr_deletion_requests` Tabelle (status: pending/completed)
+- GDPR-Dateiexport: `/api/v1/security/gdpr/export` + `/gdpr/exports` + `/gdpr/download/{token}`
+- Security-Routen teilen den "auth" gRPC-Server (kein separater Service noetig)
+- **Consent Management (Migration 060):**
+  - `consent_records`: Einwilligungen pro Kontakt (6 Typen: marketing_email, marketing_phone, profiling, newsletter, data_processing, data_sharing)
+  - Legal Basis: consent, legitimate_interest, contract, legal_obligation
+  - IP-Adresse, Quelle, Zeitstempel fuer Audit-Trail
+  - CRM Extended Routes: `/api/v1/contacts/…/consent`
+
+### Offen (Phase C Blocker)
+- **AVV/DPA** (Auftragsverarbeitungsvertrag): Blocker fuer Pilot-Onboarding mit echten Kundendaten — wartet auf UG-Gruendung 01.05.2026
+- AGB, DSGVO-Pruefung durch Anwalt
 
 ## Verwandte Notes
 - [[architektur]] — Service-Architektur
 - [[api]] — Endpoints & Auth-Flow
+- [[datenbank]] — Consent/GDPR Tabellen
 - [[deployment]] — Infrastruktur-Security

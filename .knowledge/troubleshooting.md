@@ -1,6 +1,6 @@
 ---
 tags: [troubleshooting, debug]
-updated: 2026-04-01
+updated: 2026-04-06
 ---
 # Troubleshooting & Bekannte Probleme
 
@@ -58,7 +58,15 @@ Aus Vorgaenger-Projekt (slot_booking_webapp) gelernt:
 - CORS Wildcard → Explizite Allowlist
 - Deployment ohne Backup → IMMER zuerst Backup
 
+## i18n Migration — Lessons Learned
+- **Agent Token-Limits:** Massen-Instrumentierung (200+ Dateien) ueberschreitet Kontext — Waves von 30-50 Dateien, separate Commits
+- **JSON-Extraktion trennen:** Erst Schluessel in additions/*.json extrahieren, dann useTranslation/t()-Calls einfuegen — reduziert Merge-Konflikte
+- **`keySeparator: false` ist kritisch:** Ohne diese Option wuerde `"crm.contacts.title"` als nested Object geparst — immer explizit setzen
+- **Marken-Namen nicht uebersetzen:** "Cosmi", "Zentria" nie in `t()` wrappen
+- **ICU-Syntax:** i18next-icu verwendet `{count, plural, one {…} other {…}}` — nicht react-intl's `=1 {…}` Notation
+
 ## Verwandte Notes
 - [[architektur]] — Architektur-Regeln
+- [[i18n]] — i18n-Architektur & Konventionen
 - [[deployment]] — Docker & CI/CD
 - [[stack]] — Dev-Tooling & Pfade

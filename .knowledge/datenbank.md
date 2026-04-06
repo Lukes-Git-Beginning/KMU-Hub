@@ -1,6 +1,6 @@
 ---
 tags: [datenbank, schema, migrations]
-updated: 2026-03-05
+updated: 2026-04-06
 ---
 # Datenbank
 
@@ -84,11 +84,27 @@ updated: 2026-03-05
 - `security_tokens` — Sessions, App-Tokens
 - `app_passwords` — CalDAV/OAuth App-Passwoerter
 
+### CRM Erweiterungen (Migration 059)
+- `pg_trgm` Extension aktiviert (Fuzzy-Matching)
+- `contacts.merged_into_id UUID` — Soft-Merge Tracking
+- `companies.merged_into_id UUID` — Soft-Merge Tracking
+- GIN-Trigram-Index auf `contacts` (first+last name) und `companies` (name)
+
+### Consent Management (Migration 060)
+- `consent_records` — contact_id (FK), consent_type ENUM (marketing_email, marketing_phone, profiling, newsletter, data_processing, data_sharing), granted BOOL, legal_basis ENUM (consent, legitimate_interest, contract, legal_obligation), source, ip_address INET, granted_at, revoked_at
+- `gdpr_deletion_requests` — contact_id, requested_by, reason, status (pending/completed), completed_at
+
+### Finance Erweiterungen (Migration 061)
+- `finance_invoices.zugferd_profile VARCHAR(20)` — NULL = plain PDF, sonst 'MINIMUM' / 'BASIC_WL' / 'EN16931'
+- `finance_invoices.time_tracking_source JSONB` — Audit-Trail fuer Zeiterfassung→Rechnung
+- `hr_employee_profiles.hourly_rate DECIMAL(10,2)` — Stundensatz fuer Rechnungsstellung
+
 ## Index-Strategie
 - **Composite:** `(project_key, archived_at)`, `(user_id, role, name)`
 - **Conditional:** `(status) WHERE status != 'ended'` für aktive Records
 - **Case-insensitive:** `LOWER(email)`, `LOWER(name)` für Suche
 - **Time-series:** `created_at DESC` für chronologische Queries
+- **Trigram (pg_trgm):** `gin_trgm_ops` auf contacts Name + companies Name — Fuzzy Duplicate Detection
 - **Foreign Keys:** ON DELETE CASCADE oder SET NULL
 
 ## Verwandte Notes

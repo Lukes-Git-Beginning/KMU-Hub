@@ -1,6 +1,6 @@
 ---
 tags: [deployment, docker, ci-cd]
-updated: 2026-03-08
+updated: 2026-04-06
 ---
 # Deployment & Infrastruktur
 
@@ -50,6 +50,15 @@ Datei: `deploy/docker/docker-compose.yml`
   5. **Smoke** — Go Smoke Tests (abhaengig von E2E)
   6. **OpenAPI Validate** — Spec-Validierung
 - Service-Container: postgres:16-alpine + redis:7-alpine
+
+### Desktop CI Pipeline (`.github/workflows/ci-desktop.yml`)
+- **Trigger:** Push auf main/develop, PRs (nur bei desktop/ Aenderungen)
+- **Node Version:** 20
+- **Jobs:** Lint → Typecheck → Test → Build
+
+### Weitere Workflows
+- **`claude-pr.yml`** — Automatisches Claude Code PR-Review (Architektur-Compliance, Security)
+- **`security-review.yml`** — Security-fokussiertes Code-Review bei PRs
 
 ### CD Pipeline (`.github/workflows/cd.yml`)
 - **Trigger:** `workflow_dispatch` (manuell, mit optional `skip_backup`)
@@ -130,6 +139,15 @@ RUN go build -ldflags "-X .../gateway.BuildVersion=$BUILD_VERSION -X .../gateway
 ```
 Package-Level Vars in `backend/internal/gateway/route_health.go`:
 `BuildVersion`, `BuildCommit`, `BuildTime`
+
+## Kubernetes (Sekundaer)
+- Manifeste: `deploy/k8s/` (base/, overlays/, namespace.yaml)
+- Status: Konfiguration vorhanden; primaeres Deployment weiterhin Docker Compose
+- Kustomize-Struktur: base + environment overlays
+
+## OnlyOffice vs. Collabora
+- **Aktuell:** OnlyOffice DocumentServer (Port 8088, Docker) — aktiv
+- **Geplant:** Collabora als Ersatz (MPL 2.0 sicherer als AGPL) — noch nicht umgesetzt
 
 ## Self-Hosted (Kunden)
 - Docker Compose Setup

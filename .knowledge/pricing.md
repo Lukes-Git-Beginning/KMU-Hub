@@ -1,6 +1,6 @@
 ---
 tags: [pricing, strategie, cosmi, orbit]
-updated: 2026-04-02
+updated: 2026-04-06
 ---
 # Preismodell — COSMI (SaaS) + ORBIT (Self-Hosted)
 

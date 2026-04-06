@@ -1,6 +1,6 @@
 ---
 tags: [fortschritt, milestones]
-updated: 2026-04-01
+updated: 2026-04-06
 ---
 # Milestones
 
@@ -49,6 +49,18 @@ updated: 2026-04-01
 | Locale: de-CH → de-DE | 104 Dateien, Default-Währung CHF → EUR |
 | Umlaut-Normalisierung | ae/oe/ue → ä/ö/ü in ~255 Dateien (nur Display-Text, nicht Code) |
 
+## i18n Migration Sprint (2026-04-06)
+| Schritt | Details |
+|---------|---------|
+| Library-Migration | react-intl → i18next v26 + react-i18next v17 + i18next-icu v2 |
+| Wave 1: Module | 32 Module instrumentiert (useTranslation + t() Calls) |
+| Wave 1: Komponenten | 9 Komponentengruppen instrumentiert (46 Dateien) |
+| Additions-JSONs | 41 JSON-Dateien in `i18n/additions/` — 4.500+ Schluessel |
+| Merge-System | `mergedDE` in `i18n.ts` — alle Additions statisch in de.json integriert |
+| Verbleibend (Wave 2+3) | ~47 Dateien (Settings, Integrations, Sub-Pages, Dialoge) |
+| Verbleibend | Keys in de.json konsolidieren, EN/FR/IT-Uebersetzungen, Strict Types |
+
 ## Verwandte Notes
+- [[i18n]] — i18n-Architektur & Schluessel-Konventionen
 - [[design]] — Frontend Wiring Progress
 - [[architektur]] — Technischer Kontext
