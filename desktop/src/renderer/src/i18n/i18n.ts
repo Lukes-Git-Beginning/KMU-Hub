@@ -24,6 +24,20 @@ import additionsProfil from '@/i18n/additions/profil.json'
 import additionsSettings from '@/i18n/additions/settings.json'
 import additionsTeam from '@/i18n/additions/team.json'
 import additionsWork from '@/i18n/additions/work.json'
+import additionsKontakte from '@/i18n/additions/kontakte.json'
+import additionsKontakte2 from '@/i18n/additions/kontakte-2.json'
+import additionsChat from '@/i18n/additions/chat.json'
+import additionsWiki from '@/i18n/additions/wiki.json'
+import additionsAutomatisierung from '@/i18n/additions/automatisierung.json'
+import additionsDokumente from '@/i18n/additions/dokumente.json'
+import additionsAdmin from '@/i18n/additions/admin.json'
+import additionsMeetings from '@/i18n/additions/meetings.json'
+import additionsMails from '@/i18n/additions/mails.json'
+import additionsHelpdesk from '@/i18n/additions/helpdesk.json'
+import additionsBuchhaltung from '@/i18n/additions/buchhaltung.json'
+import additionsKalender from '@/i18n/additions/kalender.json'
+import additionsRapporte from '@/i18n/additions/rapporte.json'
+import additionsNotifications from '@/i18n/additions/notifications.json'
 
 import type { SupportedLocale } from '@/stores/locale'
 
@@ -38,6 +52,20 @@ const mergedDE = {
   ...additionsSettings,
   ...additionsTeam,
   ...additionsWork,
+  ...additionsKontakte,
+  ...additionsKontakte2,
+  ...additionsChat,
+  ...additionsWiki,
+  ...additionsAutomatisierung,
+  ...additionsDokumente,
+  ...additionsAdmin,
+  ...additionsMeetings,
+  ...additionsMails,
+  ...additionsHelpdesk,
+  ...additionsBuchhaltung,
+  ...additionsKalender,
+  ...additionsRapporte,
+  ...additionsNotifications,
 }
 
 export function initI18n(locale: SupportedLocale): typeof i18n {
