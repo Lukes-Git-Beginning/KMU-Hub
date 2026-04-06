@@ -6,6 +6,7 @@
  * for recurring meetings.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Calendar,
   Clock,
@@ -41,11 +42,11 @@ interface MeetingLobbyProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const rsvpLabels: Record<RsvpStatus, string> = {
-  accepted: 'Zugesagt',
-  declined: 'Abgelehnt',
-  tentative: 'Vielleicht',
-  pending: 'Ausstehend',
+const rsvpLabelKeys: Record<RsvpStatus, string> = {
+  accepted: 'meetings.rsvp.accepted',
+  declined: 'meetings.rsvp.declined',
+  tentative: 'meetings.rsvp.tentative',
+  pending: 'meetings.rsvp.pending',
 }
 
 const rsvpColors: Record<RsvpStatus, string> = {
@@ -75,6 +76,7 @@ function formatDate(isoDate: string): string {
 // ---------------------------------------------------------------------------
 
 export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobbyProps) {
+  const { t } = useTranslation()
   const { data: meeting, isLoading } = useMeeting(meetingId)
   const { data: previousNotes } = usePreviousMeetingNotes(meetingId)
   const startMutation = useStartMeeting()
@@ -148,7 +150,7 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
           <div className="mb-6">
             <h3 className="text-xs font-medium uppercase text-muted-foreground mb-2">
               <FileText className="mr-1 inline h-3.5 w-3.5" />
-              Agenda
+              {t('meetings.form.agenda')}
             </h3>
             <div className="rounded-lg border border-border bg-card p-3 text-sm text-foreground whitespace-pre-wrap">
               {meeting.agenda}
@@ -160,7 +162,7 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
         <div className="mb-6">
           <h3 className="text-xs font-medium uppercase text-muted-foreground mb-2">
             <Users className="mr-1 inline h-3.5 w-3.5" />
-            Teilnehmer ({attendees.length})
+            {t('meetings.form.participants')} ({attendees.length})
           </h3>
           <div className="space-y-2">
             {attendees.map((a) => (
@@ -177,7 +179,7 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
                   variant="outline"
                   className={`text-[10px] ${rsvpColors[a.rsvp_status]}`}
                 >
-                  {rsvpLabels[a.rsvp_status]}
+                  {t(rsvpLabelKeys[a.rsvp_status])}
                 </Badge>
               </div>
             ))}
@@ -188,10 +190,10 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
         <div className="mb-6">
           <h3 className="text-xs font-medium uppercase text-muted-foreground mb-2">
             <FileText className="mr-1 inline h-3.5 w-3.5" />
-            Geteilte Dokumente
+            {t('meetings.lobby.sharedDocuments')}
           </h3>
           <div className="rounded-lg border border-dashed border-border p-3 text-center text-sm text-muted-foreground">
-            Dateimanager-Integration folgt in Phase 11
+            {t('meetings.lobby.fileManagerPlaceholder')}
           </div>
         </div>
 
@@ -209,7 +211,7 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
               ) : (
                 <ChevronDown className="h-3.5 w-3.5" />
               )}
-              Letzte Notizen
+              {t('meetings.lobby.previousNotes')}
             </button>
             {previousNotesExpanded && (
               <div className="rounded-lg border border-border bg-amber-50/50 p-3 text-sm text-foreground whitespace-pre-wrap">
@@ -226,7 +228,7 @@ export function MeetingLobby({ meetingId, onJoinMeeting, onCancel }: MeetingLobb
           disabled={startMutation.isPending}
         >
           <Phone className="mr-2 h-5 w-5" />
-          {startMutation.isPending ? 'Meeting wird gestartet...' : 'Meeting beitreten'}
+          {startMutation.isPending ? t('meetings.lobby.starting') : t('meetings.lobby.joinMeeting')}
         </Button>
       </div>
     </div>

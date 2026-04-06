@@ -9,6 +9,7 @@
  * - Visual "Speichern..." / "Gespeichert" indicator
  */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Save, Lock, Globe, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAIStore } from '@/stores/ai'
@@ -45,6 +46,7 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number):
 // ---------------------------------------------------------------------------
 
 export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
+  const { t } = useTranslation()
   const { data: existingNotes, isLoading } = useMeetingNotes(meetingId)
   const saveMutation = useSaveMeetingNotes()
 
@@ -56,16 +58,16 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
   const handleSummarize = () => {
     setSummaryLoading(true)
     setTimeout(() => {
-      const summary = `## Zusammenfassung\n\n**Teilnehmer:** 4 Personen\n**Dauer:** ca. 45 Minuten\n\n### Besprochene Themen:\n- Projektfortschritt Q1 wurde positiv bewertet\n- Budget für Q2 muss bis Freitag finalisiert werden\n- Neue Kundenanfrage von Müller GmbH priorisieren\n\n### Action Items:\n- [ ] Budget-Entwurf erstellen (Marco, bis Fr 28.02.)\n- [ ] Angebot für Müller GmbH vorbereiten (Sarah, bis Mi 26.02.)\n- [ ] Nächstes Meeting: Montag 10:00 Uhr\n\n---\n\n`
+      const summary = `## ${t('meetings.notes.summaryHeading')}\n\n**${t('meetings.notes.summaryParticipants')}:** 4 ${t('meetings.notes.summaryPersons')}\n**${t('meetings.notes.summaryDuration')}:** ca. 45 ${t('meetings.notes.summaryMinutes')}\n\n### ${t('meetings.notes.summaryTopics')}:\n- Projektfortschritt Q1 wurde positiv bewertet\n- Budget für Q2 muss bis Freitag finalisiert werden\n- Neue Kundenanfrage von Müller GmbH priorisieren\n\n### Action Items:\n- [ ] Budget-Entwurf erstellen (Marco, bis Fr 28.02.)\n- [ ] Angebot für Müller GmbH vorbereiten (Sarah, bis Mi 26.02.)\n- [ ] Nächstes Meeting: Montag 10:00 Uhr\n\n---\n\n`
       setContent(summary + content)
       setSummaryLoading(false)
       useAIStore.getState().addActivityLog({
         module: 'Meetings',
-        action: 'Zusammenfassung erstellt',
-        inputPreview: content.slice(0, 60) || '(Leere Notizen)',
-        outputPreview: '3 Themen, 3 Action Items',
+        action: t('meetings.notes.summaryCreated'),
+        inputPreview: content.slice(0, 60) || t('meetings.notes.emptyNotes'),
+        outputPreview: t('meetings.notes.summaryOutputPreview'),
       })
-      toast.success('Zusammenfassung eingefuegt')
+      toast.success(t('meetings.notes.summaryInserted'))
     }, 2000)
   }
   const [lastSaved, setLastSaved] = useState('')
@@ -154,20 +156,20 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-foreground">Notizen</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('meetings.notes.title')}</h3>
           {aiMeetingsEnabled && (
             <button
               onClick={handleSummarize}
               disabled={summaryLoading || !content.trim()}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
-              title="KI-Zusammenfassung generieren"
+              title={t('meetings.notes.generateSummary')}
             >
               {summaryLoading ? (
                 <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               ) : (
                 <Sparkles className="h-3 w-3" />
               )}
-              Zusammenfassen
+              {t('meetings.notes.summarize')}
             </button>
           )}
         </div>
@@ -177,13 +179,13 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
             {saveStatus === 'saving' && (
               <>
                 <Save className="h-3 w-3 animate-pulse" />
-                Speichern...
+                {t('meetings.notes.saving')}
               </>
             )}
             {saveStatus === 'saved' && (
               <>
                 <Save className="h-3 w-3 text-green-500" />
-                Gespeichert
+                {t('meetings.notes.saved')}
               </>
             )}
           </span>
@@ -201,7 +203,7 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
               id="notes-private"
             />
             <Label htmlFor="notes-private" className="text-xs cursor-pointer">
-              {isPrivate ? 'Privat' : 'Geteilt'}
+              {isPrivate ? t('meetings.notes.private') : t('meetings.notes.shared')}
             </Label>
           </div>
         </div>
@@ -211,7 +213,7 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
       <div className="flex-1 p-4">
         <textarea
           className="w-full h-full min-h-[200px] resize-none rounded-lg border border-border bg-card p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
-          placeholder="Notizen hier eingeben... Zeilen mit '- [ ]' oder 'TODO:' werden als Action Items erkannt."
+          placeholder={t('meetings.notes.placeholder')}
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
@@ -228,7 +230,7 @@ export function MeetingNotesPanel({ meetingId }: MeetingNotesPanelProps) {
           className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save className="h-3.5 w-3.5" />
-          Jetzt speichern
+          {t('meetings.notes.saveNow')}
         </button>
       </div>
     </div>

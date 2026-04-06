@@ -9,6 +9,7 @@
  * 5. Confirm - summary, execute import, show results
  */
 import { useState, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Upload, FileSpreadsheet, FileText, Check, AlertCircle, Loader2 } from 'lucide-react'
 import {
   Dialog,
@@ -51,15 +52,17 @@ interface ImportWizardProps {
 
 type FileType = 'csv' | 'vcard'
 
-const STEP_TITLES = [
-  'Datei hochladen',
-  'Vorschau',
-  'Felder zuordnen',
-  'Optionen',
-  'Importieren',
-]
-
 export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) {
+  const { t } = useTranslation()
+
+  const STEP_TITLES = [
+    t('mails.import.steps.upload'),
+    t('mails.import.steps.preview'),
+    t('mails.import.steps.mapping'),
+    t('mails.import.steps.options'),
+    t('mails.import.steps.import'),
+  ]
+
   const [step, setStep] = useState(0)
   const [file, setFile] = useState<File | null>(null)
   const [fileType, setFileType] = useState<FileType>('csv')
@@ -191,9 +194,9 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Kontakte importieren</DialogTitle>
+          <DialogTitle>{t('mails.import.title')}</DialogTitle>
           <DialogDescription>
-            {STEP_TITLES[step]} (Schritt {step + 1} von 5)
+            {STEP_TITLES[step]} ({t('mails.import.stepOf', { current: step + 1, total: 5 })})
           </DialogDescription>
         </DialogHeader>
 
@@ -225,10 +228,10 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
             >
               <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
               <p className="text-sm font-medium text-foreground">
-                Datei hierher ziehen oder klicken
+                {t('mails.import.dropzone')}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                CSV (.csv) oder vCard (.vcf, .vcard)
+                {t('mails.import.fileTypes')}
               </p>
               <input
                 ref={fileInputRef}
@@ -252,7 +255,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{file.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {fileType === 'csv' ? 'CSV-Datei' : 'vCard-Datei'} ({(file.size / 1024).toFixed(1)} KB)
+                    {fileType === 'csv' ? t('mails.import.csvFile') : t('mails.import.vcardFile')} ({(file.size / 1024).toFixed(1)} KB)
                   </p>
                 </div>
                 <Button
@@ -263,7 +266,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                     setFile(null)
                   }}
                 >
-                  Entfernen
+                  {t('mails.import.remove')}
                 </Button>
               </div>
             )}
@@ -271,7 +274,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
             {previewMutation.isError && (
               <div className="flex items-center gap-2 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4" />
-                Datei konnte nicht gelesen werden. Bitte prüfen Sie das Format.
+                {t('mails.import.readError')}
               </div>
             )}
           </div>
@@ -281,7 +284,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
         {step === 1 && preview && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Vorschau der ersten Zeilen Ihrer CSV-Datei:
+              {t('mails.import.previewDescription')}
             </p>
             <div className="border rounded-md overflow-auto max-h-64">
               <Table>
@@ -308,8 +311,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
               </Table>
             </div>
             <p className="text-xs text-muted-foreground">
-              {preview.columns.length} Spalten erkannt,{' '}
-              {Object.keys(preview.detected_mapping).length} automatisch zugeordnet
+              {t('mails.import.columnsDetected', { columns: preview.columns.length, mapped: Object.keys(preview.detected_mapping).length })}
             </p>
           </div>
         )}
@@ -318,7 +320,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
         {step === 2 && preview && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Ordnen Sie die CSV-Spalten den Kontaktfeldern zu:
+              {t('mails.import.mappingDescription')}
             </p>
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {preview.columns.map((col) => (
@@ -351,20 +353,20 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
         {step === 3 && (
           <div className="space-y-6">
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Sichtbarkeit</Label>
+              <Label className="text-sm font-medium">{t('mails.import.visibility')}</Label>
               <Select value={visibility} onValueChange={setVisibility}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="shared">Geteilt (für alle sichtbar)</SelectItem>
-                  <SelectItem value="personal">Persönlich (nur für mich)</SelectItem>
+                  <SelectItem value="shared">{t('mails.import.shared')}</SelectItem>
+                  <SelectItem value="personal">{t('mails.import.personal')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 {visibility === 'shared'
-                  ? 'Alle Teammitglieder können diese Kontakte sehen und bearbeiten.'
-                  : 'Nur Sie können diese Kontakte sehen. Admins haben weiterhin Zugriff.'}
+                  ? t('mails.import.sharedDescription')
+                  : t('mails.import.personalDescription')}
               </p>
             </div>
 
@@ -376,11 +378,10 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
               />
               <div>
                 <Label htmlFor="merge" className="text-sm font-medium cursor-pointer">
-                  Duplikate automatisch zusammenführen
+                  {t('mails.import.mergeDuplicates')}
                 </Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Kontakte mit gleicher E-Mail-Adresse werden zusammengefuehrt.
-                  Bestehende Felder werden nicht überschrieben.
+                  {t('mails.import.mergeDescription')}
                 </p>
               </div>
             </div>
@@ -394,29 +395,29 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
               <>
                 <div className="p-4 rounded-lg bg-muted/50 space-y-2">
                   <p className="text-sm">
-                    <span className="font-medium">Datei:</span> {file?.name}
+                    <span className="font-medium">{t('mails.import.confirmFile')}:</span> {file?.name}
                   </p>
                   <p className="text-sm">
-                    <span className="font-medium">Format:</span>{' '}
+                    <span className="font-medium">{t('mails.export.format')}:</span>{' '}
                     {fileType === 'csv' ? 'CSV' : 'vCard'}
                   </p>
                   <p className="text-sm">
-                    <span className="font-medium">Sichtbarkeit:</span>{' '}
-                    {visibility === 'shared' ? 'Geteilt' : 'Persönlich'}
+                    <span className="font-medium">{t('mails.import.visibility')}:</span>{' '}
+                    {visibility === 'shared' ? t('mails.import.sharedLabel') : t('mails.import.personalLabel')}
                   </p>
                   <p className="text-sm">
-                    <span className="font-medium">Duplikate zusammenführen:</span>{' '}
-                    {mergeByEmail ? 'Ja' : 'Nein'}
+                    <span className="font-medium">{t('mails.import.mergeDuplicates')}:</span>{' '}
+                    {mergeByEmail ? t('common.yes') : t('common.no')}
                   </p>
                   {fileType === 'csv' && (
                     <p className="text-sm">
-                      <span className="font-medium">Zugeordnete Felder:</span>{' '}
+                      <span className="font-medium">{t('mails.import.mappedFields')}:</span>{' '}
                       {Object.values(fieldMapping).filter((v) => v !== '__ignore').length}
                     </p>
                   )}
                 </div>
                 <Button onClick={handleImport} className="w-full">
-                  Importieren
+                  {t('mails.import.importBtn')}
                 </Button>
               </>
             )}
@@ -424,7 +425,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
             {isImporting && (
               <div className="flex flex-col items-center gap-3 py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Kontakte werden importiert...</p>
+                <p className="text-sm text-muted-foreground">{t('mails.import.importing')}</p>
               </div>
             )}
 
@@ -432,33 +433,33 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-green-600">
                   <Check className="h-5 w-5" />
-                  <span className="font-medium">Import abgeschlossen</span>
+                  <span className="font-medium">{t('mails.import.completed')}</span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="p-3 rounded-lg bg-muted/50 text-center">
                     <p className="text-2xl font-bold">{result.imported_count}</p>
-                    <p className="text-xs text-muted-foreground">Importiert</p>
+                    <p className="text-xs text-muted-foreground">{t('mails.import.imported')}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-muted/50 text-center">
                     <p className="text-2xl font-bold">{result.merged_count}</p>
-                    <p className="text-xs text-muted-foreground">Zusammengefuehrt</p>
+                    <p className="text-xs text-muted-foreground">{t('mails.import.merged')}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-muted/50 text-center">
                     <p className="text-2xl font-bold">{result.skipped_count}</p>
-                    <p className="text-xs text-muted-foreground">Übersprungen</p>
+                    <p className="text-xs text-muted-foreground">{t('mails.import.skipped')}</p>
                   </div>
                 </div>
 
                 {result.errors && result.errors.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-destructive">
-                      {result.errors.length} Fehler:
+                      {t('mails.import.errorCount', { count: result.errors.length })}:
                     </p>
                     <div className="max-h-32 overflow-y-auto space-y-1">
                       {result.errors.map((err, i) => (
                         <p key={i} className="text-xs text-muted-foreground">
-                          Zeile {err.row}: {err.reason}
+                          {t('mails.import.errorRow', { row: err.row })}: {err.reason}
                         </p>
                       ))}
                     </div>
@@ -470,7 +471,7 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
             {(importCSVMutation.isError || importVCardMutation.isError) && (
               <div className="flex items-center gap-2 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4" />
-                Import fehlgeschlagen. Bitte versuchen Sie es erneut.
+                {t('mails.import.failed')}
               </div>
             )}
           </div>
@@ -480,14 +481,14 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
           {step < 4 && (
             <>
               <Button variant="outline" onClick={handleClose}>
-                Abbrechen
+                {t('common.cancel')}
               </Button>
               {step > 0 && (
                 <Button
                   variant="outline"
                   onClick={() => setStep((s) => Math.max(0, s - 1))}
                 >
-                  Zurück
+                  {t('common.back')}
                 </Button>
               )}
               <Button
@@ -497,16 +498,16 @@ export default function ImportWizard({ open, onOpenChange }: ImportWizardProps) 
                 {previewMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Laden...
+                    {t('common.loading')}
                   </>
                 ) : (
-                  'Weiter'
+                  t('common.next')
                 )}
               </Button>
             </>
           )}
           {step === 4 && result && (
-            <Button onClick={handleClose}>Fertig</Button>
+            <Button onClick={handleClose}>{t('mails.import.done')}</Button>
           )}
         </DialogFooter>
       </DialogContent>

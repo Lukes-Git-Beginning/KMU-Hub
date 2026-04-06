@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Video,
   Plus,
@@ -30,7 +31,7 @@ type ViewMode = 'grid' | 'timeline'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-function getRelativeTime(date: string, startTime: string, duration: number, status: Meeting['status']): string | null {
+function getRelativeTime(date: string, startTime: string, duration: number, status: Meeting['status'], _t: (key: string, opts?: Record<string, unknown>) => string): string | null {
   const now = new Date()
   const meetingStart = new Date(`${date}T${startTime}:00`)
   const _meetingEnd = new Date(meetingStart.getTime() + duration * 60_000)
@@ -38,22 +39,22 @@ function getRelativeTime(date: string, startTime: string, duration: number, stat
 
   if (status === 'live') {
     const elapsedMin = Math.round((now.getTime() - meetingStart.getTime()) / 60_000)
-    if (elapsedMin <= 0) return 'Startet jetzt'
-    return `Läuft seit ${elapsedMin} Min`
+    if (elapsedMin <= 0) return _t('meetings.time.startsNow')
+    return _t('meetings.time.runningSince', { minutes: elapsedMin })
   }
 
   if (status === 'cancelled' || status === 'past') return null
   if (diffMs < 0) return null
 
   const diffMin = Math.round(diffMs / 60_000)
-  if (diffMin < 60) return `in ${diffMin} Min`
+  if (diffMin < 60) return _t('meetings.time.inMinutes', { minutes: diffMin })
   const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `in ${diffH}h`
+  if (diffH < 24) return _t('meetings.time.inHours', { hours: diffH })
   const diffD = Math.round(diffH / 24)
-  return `in ${diffD}d`
+  return _t('meetings.time.inDays', { days: diffD })
 }
 
-function groupByDate(meetings: Meeting[]): { label: string; date: string; meetings: Meeting[] }[] {
+function groupByDate(meetings: Meeting[], _t: (key: string) => string): { label: string; date: string; meetings: Meeting[] }[] {
   const groups: Record<string, Meeting[]> = {}
   for (const m of meetings) {
     if (!groups[m.date]) groups[m.date] = []
@@ -67,8 +68,8 @@ function groupByDate(meetings: Meeting[]): { label: string; date: string; meetin
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, items]) => {
       let label: string
-      if (date === today) label = 'Heute'
-      else if (date === tomorrow) label = 'Morgen'
+      if (date === today) label = _t('meetings.time.today')
+      else if (date === tomorrow) label = _t('meetings.time.tomorrow')
       else label = new Date(date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
       return { label, date, meetings: items.sort((a, b) => a.startTime.localeCompare(b.startTime)) }
     })
@@ -77,6 +78,7 @@ function groupByDate(meetings: Meeting[]): { label: string; date: string; meetin
 // ── Main Component ───────────────────────────────────────────────
 
 export default function MeetingsPage() {
+  const { t } = useTranslation()
   const { meetings, addMeeting, updateMeeting, deleteMeeting, cancelMeeting, duplicateMeeting } =
     useMeetingsStore()
 
@@ -102,10 +104,10 @@ export default function MeetingsPage() {
   const pastMeetings = filtered.filter((m) => m.status === 'past')
 
   const tabs: { key: FilterTab; label: string; count: number }[] = [
-    { key: 'all', label: 'Alle', count: filtered.length },
-    { key: 'live', label: 'Live', count: meetings.filter((m) => m.status === 'live').length },
-    { key: 'scheduled', label: 'Geplant', count: meetings.filter((m) => m.status === 'scheduled').length },
-    { key: 'past', label: 'Vergangen', count: meetings.filter((m) => m.status === 'past').length },
+    { key: 'all', label: t('meetings.filter.all'), count: filtered.length },
+    { key: 'live', label: t('meetings.filter.live'), count: meetings.filter((m) => m.status === 'live').length },
+    { key: 'scheduled', label: t('meetings.filter.scheduled'), count: meetings.filter((m) => m.status === 'scheduled').length },
+    { key: 'past', label: t('meetings.filter.past'), count: meetings.filter((m) => m.status === 'past').length },
   ]
 
   const selectedMeeting = meetings.find((m) => m.id === selectedMeetingId) || null
@@ -116,10 +118,10 @@ export default function MeetingsPage() {
   const handleCreateSubmit = (data: Omit<Meeting, 'id'>) => {
     if (editMeeting) {
       updateMeeting(editMeeting.id, data)
-      toast.success('Meeting aktualisiert')
+      toast.success(t('meetings.toast.updated'))
     } else {
       addMeeting(data)
-      toast.success('Meeting erstellt')
+      toast.success(t('meetings.toast.created'))
     }
     setEditMeeting(null)
   }
@@ -127,7 +129,7 @@ export default function MeetingsPage() {
   const handleDelete = () => {
     if (deleteConfirmId) {
       deleteMeeting(deleteConfirmId)
-      toast.success('Meeting gelöscht')
+      toast.success(t('meetings.toast.deleted'))
       setDeleteConfirmId(null)
       if (selectedMeetingId === deleteConfirmId) setSelectedMeetingId(null)
     }
@@ -136,7 +138,7 @@ export default function MeetingsPage() {
   const handleCancel = () => {
     if (cancelConfirmId) {
       cancelMeeting(cancelConfirmId)
-      toast.success('Meeting abgesagt')
+      toast.success(t('meetings.toast.cancelled'))
       setCancelConfirmId(null)
     }
   }
@@ -145,26 +147,26 @@ export default function MeetingsPage() {
     const actions: ActionItem[] = []
     if (m.status === 'scheduled') {
       actions.push({
-        label: 'Bearbeiten',
+        label: t('common.edit'),
         icon: Pencil,
         onClick: () => { setEditMeeting(m); setFormOpen(true) },
       })
     }
     actions.push({
-      label: 'Duplizieren',
+      label: t('meetings.actions.duplicate'),
       icon: Copy,
-      onClick: () => { duplicateMeeting(m.id); toast.success('Meeting dupliziert') },
+      onClick: () => { duplicateMeeting(m.id); toast.success(t('meetings.toast.duplicated')) },
     })
     if (m.status !== 'past' && m.status !== 'cancelled') {
       actions.push({
-        label: 'Absagen',
+        label: t('meetings.actions.cancel'),
         icon: Ban,
         onClick: () => setCancelConfirmId(m.id),
         separator: true,
       })
     }
     actions.push({
-      label: 'Löschen',
+      label: t('common.delete'),
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(m.id),
@@ -178,7 +180,7 @@ export default function MeetingsPage() {
       {/* Header */}
       <PageHeader
         title="Meetings"
-        description="Plane und verwalte deine Meetings"
+        description={t('meetings.page.description')}
         icon={Video}
         moduleId="meetings"
         actions={
@@ -187,7 +189,7 @@ export default function MeetingsPage() {
             className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Neues Meeting
+            {t('meetings.actions.new')}
           </button>
         }
         className="mb-6"
@@ -199,7 +201,7 @@ export default function MeetingsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Meeting suchen..."
+            placeholder={t('meetings.search.placeholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -229,14 +231,14 @@ export default function MeetingsPage() {
           <button
             onClick={() => setViewMode('grid')}
             className={`rounded-md p-1.5 transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
-            title="Grid-Ansicht"
+            title={t('meetings.view.grid')}
           >
             <LayoutGrid className="h-4 w-4" />
           </button>
           <button
             onClick={() => setViewMode('timeline')}
             className={`rounded-md p-1.5 transition-colors ${viewMode === 'timeline' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'}`}
-            title="Timeline-Ansicht"
+            title={t('meetings.view.timeline')}
           >
             <List className="h-4 w-4" />
           </button>
@@ -253,7 +255,7 @@ export default function MeetingsPage() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-error opacity-75" />
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-error" />
                 </span>
-                <h3 className="text-sm font-medium text-foreground">Live jetzt</h3>
+                <h3 className="text-sm font-medium text-foreground">{t('meetings.section.liveNow')}</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {liveMeetings.map((m) => (
@@ -272,7 +274,7 @@ export default function MeetingsPage() {
 
           {scheduledMeetings.length > 0 && (filter === 'all' || filter === 'scheduled') && (
             <section className="mb-8 animate-fade-up" style={{ animationDelay: '100ms' }}>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Geplante Meetings</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">{t('meetings.section.scheduled')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {scheduledMeetings.map((m) => (
                   <MeetingCard
@@ -289,7 +291,7 @@ export default function MeetingsPage() {
 
           {pastMeetings.length > 0 && (filter === 'all' || filter === 'past') && (
             <section className="mb-8 animate-fade-up" style={{ animationDelay: '200ms' }}>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Vergangene Meetings</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">{t('meetings.section.past')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {pastMeetings.map((m) => (
                   <MeetingCard
@@ -309,7 +311,7 @@ export default function MeetingsPage() {
       {/* ── TIMELINE VIEW ─────────────────────────────────── */}
       {viewMode === 'timeline' && (
         <div className="space-y-6 animate-fade-up">
-          {groupByDate(filtered).map((group) => (
+          {groupByDate(filtered, t).map((group) => (
             <section key={group.date}>
               <h3 className="text-sm font-semibold text-foreground mb-3 sticky top-0 bg-[var(--background)] py-1 z-[1]">
                 {group.label}
@@ -334,9 +336,9 @@ export default function MeetingsPage() {
       {filtered.length === 0 && (
         <EmptyState
           icon={Video}
-          title="Keine Meetings gefunden"
-          description={search ? 'Versuche einen anderen Suchbegriff' : 'Erstelle dein erstes Meeting'}
-          action={!search ? { label: 'Neues Meeting', onClick: () => { setEditMeeting(null); setFormOpen(true) } } : undefined}
+          title={t('meetings.empty.title')}
+          description={search ? t('meetings.empty.searchHint') : t('meetings.empty.description')}
+          action={!search ? { label: t('meetings.actions.new'), onClick: () => { setEditMeeting(null); setFormOpen(true) } } : undefined}
         />
       )}
 
@@ -363,7 +365,7 @@ export default function MeetingsPage() {
         <MeetingRoomView
           meeting={meetingRoomMeeting}
           open={!!meetingRoomId}
-          onLeave={() => { setMeetingRoomId(null); toast.info('Meeting verlassen') }}
+          onLeave={() => { setMeetingRoomId(null); toast.info(t('meetings.toast.left')) }}
         />
       )}
 
@@ -371,9 +373,9 @@ export default function MeetingsPage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Meeting löschen?"
-        description={`"${deleteTarget?.title}" wird unwiderruflich gelöscht.`}
-        confirmLabel="Löschen"
+        title={t('meetings.confirm.deleteTitle')}
+        description={t('meetings.confirm.deleteDescription', { title: deleteTarget?.title })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />
@@ -382,9 +384,9 @@ export default function MeetingsPage() {
       <ConfirmDialog
         open={!!cancelConfirmId}
         onOpenChange={(open) => !open && setCancelConfirmId(null)}
-        title="Meeting absagen?"
-        description={`"${cancelTarget?.title}" wird abgesagt. Teilnehmer werden benachrichtigt.`}
-        confirmLabel="Absagen"
+        title={t('meetings.confirm.cancelTitle')}
+        description={t('meetings.confirm.cancelDescription', { title: cancelTarget?.title })}
+        confirmLabel={t('meetings.actions.cancel')}
         variant="warning"
         onConfirm={handleCancel}
       />
@@ -407,10 +409,11 @@ function MeetingCard({
   onDetails: () => void
   onAdvanced: () => void
 }) {
+  const { t } = useTranslation()
   const isLive = meeting.status === 'live'
   const isPast = meeting.status === 'past'
   const isCancelled = meeting.status === 'cancelled'
-  const relTime = getRelativeTime(meeting.date, meeting.startTime, meeting.duration, meeting.status)
+  const relTime = getRelativeTime(meeting.date, meeting.startTime, meeting.duration, meeting.status, t)
 
   return (
     <div
@@ -443,7 +446,7 @@ function MeetingCard({
               {relTime}
             </span>
           )}
-          <ItemActions items={actions} advancedLabel="Erweiterte Optionen" onAdvanced={onAdvanced} />
+          <ItemActions items={actions} advancedLabel={t('meetings.actions.advanced')} onAdvanced={onAdvanced} />
         </div>
       </div>
 
@@ -456,16 +459,16 @@ function MeetingCard({
         </span>
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
-          {meeting.startTime} Uhr
+          {meeting.startTime} {t('meetings.time.clock')}
         </span>
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
-          {meeting.duration >= 60 ? `${meeting.duration / 60} Std` : `${meeting.duration} Min`}
+          {meeting.duration >= 60 ? `${meeting.duration / 60} ${t('meetings.time.hours')}` : `${meeting.duration} ${t('meetings.time.minutes')}`}
         </span>
         {meeting.recurrence !== 'none' && (
           <span className="flex items-center gap-1 text-primary">
             <Repeat className="h-3 w-3" />
-            {meeting.recurrence === 'daily' ? 'Tgl.' : meeting.recurrence === 'weekly' ? 'Wchtl.' : 'Mtl.'}
+            {meeting.recurrence === 'daily' ? t('meetings.recurrence.dailyShort') : meeting.recurrence === 'weekly' ? t('meetings.recurrence.weeklyShort') : t('meetings.recurrence.monthlyShort')}
           </span>
         )}
       </div>
@@ -501,7 +504,7 @@ function MeetingCard({
             )}
           </div>
           {meeting.invitationsSent && (
-            <span title="Einladungen versendet" className="text-emerald-500">
+            <span title={t('meetings.invitations.sent')} className="text-emerald-500">
               <Mail className="h-3.5 w-3.5" />
             </span>
           )}
@@ -513,7 +516,7 @@ function MeetingCard({
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Phone className="h-3 w-3" />
-            Beitreten
+            {t('meetings.actions.join')}
           </button>
         )}
         {!isLive && !isPast && !isCancelled && (
@@ -522,10 +525,10 @@ function MeetingCard({
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
           >
             <ExternalLink className="h-3 w-3" />
-            Details
+            {t('common.details')}
           </button>
         )}
-        {isCancelled && <span className="text-xs text-red-500 font-medium">Abgesagt</span>}
+        {isCancelled && <span className="text-xs text-red-500 font-medium">{t('meetings.status.cancelled')}</span>}
       </div>
     </div>
   )
@@ -546,10 +549,11 @@ function TimelineRow({
   onDetails: () => void
   onAdvanced: () => void
 }) {
+  const { t } = useTranslation()
   const isLive = meeting.status === 'live'
   const isPast = meeting.status === 'past'
   const isCancelled = meeting.status === 'cancelled'
-  const relTime = getRelativeTime(meeting.date, meeting.startTime, meeting.duration, meeting.status)
+  const relTime = getRelativeTime(meeting.date, meeting.startTime, meeting.duration, meeting.status, t)
 
   return (
     <div
@@ -569,7 +573,7 @@ function TimelineRow({
       <div className="w-14 shrink-0 text-center">
         <span className="text-sm font-medium text-foreground">{meeting.startTime}</span>
         <p className="text-[10px] text-muted-foreground">
-          {meeting.duration >= 60 ? `${meeting.duration / 60} Std` : `${meeting.duration} Min`}
+          {meeting.duration >= 60 ? `${meeting.duration / 60} ${t('meetings.time.hours')}` : `${meeting.duration} ${t('meetings.time.minutes')}`}
         </p>
       </div>
 
@@ -601,7 +605,7 @@ function TimelineRow({
             </span>
           )}
           {meeting.invitationsSent && (
-            <span className="text-emerald-500" title="Einladungen versendet">
+            <span className="text-emerald-500" title={t('meetings.invitations.sent')}>
               <Mail className="h-3 w-3" />
             </span>
           )}
@@ -634,11 +638,11 @@ function TimelineRow({
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Phone className="h-3 w-3" />
-            Beitreten
+            {t('meetings.actions.join')}
           </button>
         )}
-        {isCancelled && <span className="text-xs text-red-500 font-medium">Abgesagt</span>}
-        <ItemActions items={actions} advancedLabel="Erweiterte Optionen" onAdvanced={onAdvanced} />
+        {isCancelled && <span className="text-xs text-red-500 font-medium">{t('meetings.status.cancelled')}</span>}
+        <ItemActions items={actions} advancedLabel={t('meetings.actions.advanced')} onAdvanced={onAdvanced} />
       </div>
     </div>
   )

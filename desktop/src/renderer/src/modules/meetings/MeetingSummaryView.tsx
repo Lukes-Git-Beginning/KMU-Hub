@@ -5,6 +5,7 @@
  * Organizer can edit summary notes and finalize.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Clock,
   Users,
@@ -66,6 +67,7 @@ function formatDate(isoDate: string): string {
 // ---------------------------------------------------------------------------
 
 export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewProps) {
+  const { t } = useTranslation()
   const { data: meeting } = useMeeting(meetingId)
   const { data: notes } = useMeetingNotes(meetingId)
   const { data: actionItems = [] } = useActionItems(meetingId)
@@ -107,17 +109,17 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
       },
       {
         onSuccess: () => {
-          toast.success('Notizen gespeichert')
+          toast.success(t('meetings.notes.notesSaved'))
           setIsEditing(false)
         },
-        onError: () => toast.error('Fehler beim Speichern'),
+        onError: () => toast.error(t('meetings.notes.saveError')),
       },
     )
   }
 
   const handleFinalize = () => {
     setIsFinalized(true)
-    toast.success('Summary fertiggestellt')
+    toast.success(t('meetings.summary.finalized'))
   }
 
   return (
@@ -130,7 +132,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
         </p>
         {meeting.status === 'completed' && (
           <Badge variant="secondary" className="mt-2">
-            Abgeschlossen
+            {t('meetings.summary.completed')}
           </Badge>
         )}
       </div>
@@ -146,7 +148,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
               <p className="text-2xl font-semibold text-foreground">
                 {formatDuration(durationMin)}
               </p>
-              <p className="text-xs text-muted-foreground">Meeting-Dauer</p>
+              <p className="text-xs text-muted-foreground">{t('meetings.summary.duration')}</p>
             </div>
           </div>
         </div>
@@ -156,7 +158,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
       <section className="mb-6">
         <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-3">
           <Users className="h-4 w-4" />
-          Teilnehmer ({summary?.attendee_count ?? attendees.length})
+          {t('meetings.summary.attendees')} ({summary?.attendee_count ?? attendees.length})
         </h2>
         <div className="flex flex-wrap gap-2">
           {attendees.map((a) => (
@@ -178,7 +180,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
                     : 'text-muted-foreground'
                 }`}
               >
-                {a.rsvp_status === 'accepted' ? 'Anwesend' : a.rsvp_status}
+                {a.rsvp_status === 'accepted' ? t('meetings.summary.present') : a.rsvp_status}
               </Badge>
             </div>
           ))}
@@ -192,7 +194,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
         <div className="flex items-center justify-between mb-3">
           <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <FileText className="h-4 w-4" />
-            Notizen
+            {t('meetings.notes.title')}
           </h2>
           {isOrganizer && !isFinalized && !isEditing && (
             <Button
@@ -203,7 +205,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
                 setIsEditing(true)
               }}
             >
-              Bearbeiten
+              {t('common.edit')}
             </Button>
           )}
         </div>
@@ -219,14 +221,14 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSaveNotes} disabled={saveMutation.isPending}>
                 <Save className="mr-1.5 h-3.5 w-3.5" />
-                {saveMutation.isPending ? 'Speichern...' : 'Speichern'}
+                {saveMutation.isPending ? t('meetings.notes.saving') : t('common.save')}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsEditing(false)}
               >
-                Abbrechen
+                {t('common.cancel')}
               </Button>
             </div>
           </div>
@@ -234,11 +236,11 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
           <div className="rounded-lg border border-border bg-card p-4 text-sm text-foreground whitespace-pre-wrap">
             {notes?.content ??
               summary?.notes_summary ??
-              'Keine Notizen vorhanden.'}
+              t('meetings.notes.noNotes')}
             {notes?.is_private && (
               <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                 <Lock className="h-3 w-3" />
-                Privat
+                {t('meetings.notes.private')}
               </div>
             )}
           </div>
@@ -251,11 +253,11 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
       <section className="mb-6">
         <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-3">
           <ListTodo className="h-4 w-4" />
-          Action Items ({actionItems.length})
+          {t('meetings.summary.actionItems')} ({actionItems.length})
           {actionItems.length > 0 && (
             <span className="text-xs text-muted-foreground ml-1">
-              {completedCount}/{actionItems.length} erledigt
-              {convertedCount > 0 && ` | ${convertedCount} als Task`}
+              {completedCount}/{actionItems.length} {t('meetings.summary.done')}
+              {convertedCount > 0 && ` | ${convertedCount} ${t('meetings.summary.asTask')}`}
             </span>
           )}
         </h2>
@@ -293,7 +295,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
             </div>
           ))}
           {actionItems.length === 0 && (
-            <p className="text-sm text-muted-foreground">Keine Action Items</p>
+            <p className="text-sm text-muted-foreground">{t('meetings.summary.noActionItems')}</p>
           )}
         </div>
       </section>
@@ -305,7 +307,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
           <section className="mb-6">
             <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-3">
               <PlayCircle className="h-4 w-4" />
-              Aufnahmen ({recordings.length})
+              {t('meetings.summary.recordings')} ({recordings.length})
             </h2>
             <div className="space-y-2">
               {recordings.map((rec) => (
@@ -319,7 +321,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
                       <p className="text-sm text-foreground">
                         {rec.duration_seconds
                           ? formatDuration(Math.round(rec.duration_seconds / 60))
-                          : 'Aufnahme'}
+                          : t('meetings.summary.recording')}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(rec.created_at).toLocaleString('de-DE')}
@@ -352,7 +354,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
           <Separator className="my-6" />
           <div className="flex justify-center">
             <Button onClick={handleFinalize} className="px-8">
-              Summary fertigstellen
+              {t('meetings.summary.finalize')}
             </Button>
           </div>
         </>
@@ -361,7 +363,7 @@ export function MeetingSummaryView({ meetingId, summary }: MeetingSummaryViewPro
       {isFinalized && (
         <div className="text-center py-4">
           <Badge variant="secondary" className="text-sm">
-            Summary fertiggestellt
+            {t('meetings.summary.finalized')}
           </Badge>
         </div>
       )}

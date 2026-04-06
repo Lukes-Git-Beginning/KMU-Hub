@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ export function ComposeModal({
   prefillTo,
   accountId,
 }: ComposeModalProps) {
+  const { t } = useTranslation()
   const sendEmail = useSendEmail()
   const saveDraft = useSaveDraft()
   const replyEmail = useReplyEmail()
@@ -87,12 +89,12 @@ export function ComposeModal({
       setEditorVersion((v) => v + 1)
       setAIDraftLoading(false)
       useAIStore.getState().addActivityLog({
-        module: 'E-Mail',
-        action: isReply ? 'Antwort-Entwurf generiert' : 'Entwurf generiert',
-        inputPreview: subject || '(Kein Betreff)',
+        module: t('mails.ai.module'),
+        action: isReply ? t('mails.ai.replyDraftGenerated') : t('mails.ai.draftGenerated'),
+        inputPreview: subject || t('mails.compose.noSubject'),
         outputPreview: 'Sehr geehrte...',
       })
-      toast.success('KI-Entwurf eingefuegt')
+      toast.success(t('mails.toast.aiDraftInserted'))
     }, 1500)
   }
 
@@ -108,7 +110,7 @@ export function ComposeModal({
       setBody(
         buildReplyHtml(
           signature,
-          `Am ${replyTo.date} schrieb ${replyTo.from.name || replyTo.from.email}:`,
+          t('mails.compose.replyHeader', { date: replyTo.date, sender: replyTo.from.name || replyTo.from.email }),
           replyTo.body_html || `<p>${replyTo.body_text || ''}</p>`,
         ),
       )
@@ -121,7 +123,7 @@ export function ComposeModal({
       setBody(
         buildReplyHtml(
           signature,
-          `Am ${replyTo.date} schrieb ${replyTo.from.name || replyTo.from.email}:`,
+          t('mails.compose.replyHeader', { date: replyTo.date, sender: replyTo.from.name || replyTo.from.email }),
           replyTo.body_html || `<p>${replyTo.body_text || ''}</p>`,
         ),
       )
@@ -133,7 +135,7 @@ export function ComposeModal({
       setBody(
         buildForwardHtml(
           signature,
-          `Weitergeleitete Nachricht von ${replyTo.from.name || ''} &lt;${replyTo.from.email}&gt; am ${replyTo.date}:`,
+          t('mails.compose.forwardHeader', { name: replyTo.from.name || '', email: replyTo.from.email, date: replyTo.date }),
           replyTo.body_html || `<p>${replyTo.body_text || ''}</p>`,
         ),
       )
@@ -185,8 +187,8 @@ export function ComposeModal({
           reply_all: mode === 'reply-all',
         },
         {
-          onSuccess: () => { toast.success('E-Mail gesendet'); onOpenChange(false) },
-          onError: (err) => toast.error(`Senden fehlgeschlagen: ${err.message}`),
+          onSuccess: () => { toast.success(t('mails.toast.emailSent')); onOpenChange(false) },
+          onError: (err) => toast.error(t('mails.toast.sendFailed', { error: err.message })),
         },
       )
     } else if (mode === 'forward' && replyTo) {
@@ -199,8 +201,8 @@ export function ComposeModal({
           body_text: bodyText,
         },
         {
-          onSuccess: () => { toast.success('E-Mail weitergeleitet'); onOpenChange(false) },
-          onError: (err) => toast.error(`Weiterleiten fehlgeschlagen: ${err.message}`),
+          onSuccess: () => { toast.success(t('mails.toast.emailForwarded')); onOpenChange(false) },
+          onError: (err) => toast.error(t('mails.toast.forwardFailed', { error: err.message })),
         },
       )
     } else {
@@ -215,8 +217,8 @@ export function ComposeModal({
           body_text: bodyText,
         },
         {
-          onSuccess: () => { toast.success('E-Mail gesendet'); onOpenChange(false) },
-          onError: (err) => toast.error(`Senden fehlgeschlagen: ${err.message}`),
+          onSuccess: () => { toast.success(t('mails.toast.emailSent')); onOpenChange(false) },
+          onError: (err) => toast.error(t('mails.toast.sendFailed', { error: err.message })),
         },
       )
     }
@@ -229,14 +231,14 @@ export function ComposeModal({
         to: toAddresses(to),
         cc: cc.length > 0 ? toAddresses(cc) : undefined,
         bcc: bcc.length > 0 ? toAddresses(bcc) : undefined,
-        subject: subject.trim() || '(Kein Betreff)',
+        subject: subject.trim() || t('mails.compose.noSubject'),
         body_html: body,
         body_text: stripHtml(body),
         in_reply_to_message_id: replyTo?.id,
       },
       {
-        onSuccess: () => { toast.success('Entwurf gespeichert'); onOpenChange(false) },
-        onError: (err) => toast.error(`Speichern fehlgeschlagen: ${err.message}`),
+        onSuccess: () => { toast.success(t('mails.toast.draftSaved')); onOpenChange(false) },
+        onError: (err) => toast.error(t('mails.toast.saveFailed', { error: err.message })),
       },
     )
   }
@@ -251,10 +253,10 @@ export function ComposeModal({
     sendEmail.isPending || replyEmail.isPending || forwardEmail.isPending
 
   const modeTitle = {
-    compose: 'Neue E-Mail',
-    reply: 'Antworten',
-    'reply-all': 'Allen antworten',
-    forward: 'Weiterleiten',
+    compose: t('mails.compose.newEmail'),
+    reply: t('mails.compose.reply'),
+    'reply-all': t('mails.compose.replyAll'),
+    forward: t('mails.compose.forward'),
   }
 
   const toSuggestions = filteredSuggestions(toInput, to, allContacts)
@@ -291,7 +293,7 @@ export function ComposeModal({
                 onClick={() => setShowCcBcc(true)}
                 className="text-xs text-primary hover:underline ml-1"
               >
-                Cc/Bcc hinzufügen
+                {t('mails.compose.addCcBcc')}
               </button>
             )}
 
@@ -332,7 +334,7 @@ export function ComposeModal({
 
             <div className="flex items-center gap-2">
               <Input
-                placeholder="Betreff"
+                placeholder={t('mails.compose.subject')}
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 className="flex-1 border-0 border-b border-border rounded-none px-1 focus-visible:ring-0 font-medium"
@@ -340,24 +342,24 @@ export function ComposeModal({
               <button
                 onClick={() => setTemplateOpen(true)}
                 className="shrink-0 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                title="Vorlage einfügen"
+                title={t('mails.compose.insertTemplate')}
               >
                 <FileText className="h-3.5 w-3.5" />
-                Vorlage
+                {t('mails.compose.template')}
               </button>
               {aiEmailEnabled && (
                 <button
                   onClick={handleAIDraft}
                   disabled={aiDraftLoading}
                   className="shrink-0 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-primary hover:bg-primary-light transition-colors disabled:opacity-40"
-                  title="KI-Entwurf generieren"
+                  title={t('mails.compose.aiDraftTitle')}
                 >
                   {aiDraftLoading ? (
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   ) : (
                     <Sparkles className="h-3.5 w-3.5" />
                   )}
-                  KI-Entwurf
+                  {t('mails.compose.aiDraft')}
                 </button>
               )}
             </div>
@@ -366,7 +368,7 @@ export function ComposeModal({
               key={editorVersion}
               content={body}
               onChange={setBody}
-              placeholder="Nachricht schreiben..."
+              placeholder={t('mails.compose.messagePlaceholder')}
               compact
               showFooter={false}
               minHeight="180px"
@@ -382,14 +384,14 @@ export function ComposeModal({
                 disabled={to.length === 0 || isSending}
               >
                 <Send className="mr-1.5 h-4 w-4" />
-                {isSending ? 'Sende...' : 'Senden'}
+                {isSending ? t('mails.compose.sending') : t('mails.compose.send')}
               </Button>
               <Button
                 variant="outline"
                 size="icon"
                 onClick={handleSaveDraft}
                 disabled={saveDraft.isPending}
-                title="Als Entwurf speichern"
+                title={t('mails.compose.saveAsDraft')}
               >
                 <Save className="h-4 w-4" />
               </Button>
@@ -397,14 +399,14 @@ export function ComposeModal({
             <div className="flex items-center gap-1">
               <button
                 className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                title="Datei anhängen"
+                title={t('mails.compose.attachFile')}
               >
                 <Paperclip className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onOpenChange(false)}
                 className="rounded p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
-                title="Verwerfen"
+                title={t('mails.compose.discard')}
               >
                 <Trash2 className="h-4 w-4" />
               </button>

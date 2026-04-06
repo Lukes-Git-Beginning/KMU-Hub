@@ -8,6 +8,7 @@
  * - Batch convert to tasks with project picker
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus,
   X,
@@ -51,6 +52,7 @@ interface MeetingActionItemsProps {
 // ---------------------------------------------------------------------------
 
 export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItemsProps) {
+  const { t } = useTranslation()
   const { data: actionItems = [], isLoading } = useActionItems(meetingId)
   const { data: projectsData } = useProjects()
   const projects = projectsData?.projects ?? []
@@ -87,7 +89,7 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
           setNewDescription('')
           setNewAssigneeId('')
         },
-        onError: () => toast.error('Fehler beim Erstellen'),
+        onError: () => toast.error(t('meetings.actionItems.errorCreate')),
       },
     )
   }
@@ -107,20 +109,20 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
       { itemId, data: { description: trimmed } },
       {
         onSuccess: () => setEditingId(null),
-        onError: () => toast.error('Fehler beim Aktualisieren'),
+        onError: () => toast.error(t('meetings.actionItems.errorUpdate')),
       },
     )
   }
 
   const handleDelete = (itemId: string) => {
     deleteMutation.mutate(itemId, {
-      onError: () => toast.error('Fehler beim Löschen'),
+      onError: () => toast.error(t('meetings.actionItems.errorDelete')),
     })
   }
 
   const handleConvert = () => {
     if (!selectedProjectId) {
-      toast.error('Bitte wähle ein Projekt aus')
+      toast.error(t('meetings.actionItems.selectProject'))
       return
     }
 
@@ -128,9 +130,9 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
       { meetingId, projectId: selectedProjectId },
       {
         onSuccess: (data) => {
-          toast.success(`${data.task_ids.length} Tasks erstellt`)
+          toast.success(t('meetings.actionItems.tasksCreated', { count: data.task_ids.length }))
         },
-        onError: () => toast.error('Fehler bei der Konvertierung'),
+        onError: () => toast.error(t('meetings.actionItems.errorConvert')),
       },
     )
   }
@@ -148,7 +150,7 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
       {/* Header */}
       <div className="px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold text-foreground">
-          Action Items ({actionItems.length})
+          {t('meetings.actionItems.title')} ({actionItems.length})
         </h3>
       </div>
 
@@ -250,7 +252,7 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
 
         {actionItems.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Noch keine Action Items
+            {t('meetings.actionItems.empty')}
           </p>
         )}
       </div>
@@ -260,7 +262,7 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
         <div className="px-4 py-3 border-t border-border">
           <div className="flex items-center gap-2">
             <Input
-              placeholder="Neues Action Item..."
+              placeholder={t('meetings.actionItems.newPlaceholder')}
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
               onKeyDown={(e) => {
@@ -285,13 +287,13 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
         <div className="flex items-center gap-2 mb-2">
           <FolderKanban className="h-4 w-4 text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">
-            Als Tasks erstellen
+            {t('meetings.actionItems.createAsTasks')}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
             <SelectTrigger className="text-sm flex-1">
-              <SelectValue placeholder="Projekt wählen..." />
+              <SelectValue placeholder={t('meetings.actionItems.selectProjectPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {projects.map((p) => (
@@ -310,13 +312,13 @@ export function MeetingActionItems({ meetingId, isEditable }: MeetingActionItems
             {convertMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              'Alle Action Items als Tasks erstellen'
+              t('meetings.actionItems.convertAll')
             )}
           </Button>
         </div>
         {allConverted && actionItems.length > 0 && (
           <p className="text-xs text-green-600 mt-1.5">
-            Alle Action Items wurden bereits konvertiert.
+            {t('meetings.actionItems.allConverted')}
           </p>
         )}
       </div>

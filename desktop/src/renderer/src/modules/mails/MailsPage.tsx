@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   Inbox,
@@ -99,6 +100,7 @@ function getRetentionInfo(msg: EmailMessageInfo): RetentionInfo | null {
 }
 
 export default function MailsPage() {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const userId = user?.id ?? ''
   const consumeIntent = useNavigationStore((s) => s.consumeIntent)
@@ -198,7 +200,7 @@ export default function MailsPage() {
       deleteMessage.mutate(deleteConfirmId)
       if (selectedMessageId === deleteConfirmId) setSelectedMessageId(null)
       setDeleteConfirmId(null)
-      toast.success('E-Mail gelöscht')
+      toast.success(t('mails.toast.emailDeleted'))
     }
   }
 
@@ -207,7 +209,7 @@ export default function MailsPage() {
     if (archiveFolder) {
       moveToFolder.mutate({ messageId: id, targetFolderId: archiveFolder.id })
       if (selectedMessageId === id) setSelectedMessageId(null)
-      toast.success('Archiviert')
+      toast.success(t('mails.toast.archived'))
     }
   }
 
@@ -217,35 +219,35 @@ export default function MailsPage() {
 
     if (currentFolder?.folder_type === 'inbox') {
       actions.push(
-        { label: 'Antworten', icon: Reply, onClick: () => openCompose('reply', msg) },
-        { label: 'Allen antworten', icon: ReplyAll, onClick: () => openCompose('reply-all', msg) },
-        { label: 'Weiterleiten', icon: Forward, onClick: () => openCompose('forward', msg) },
+        { label: t('mails.actions.reply'), icon: Reply, onClick: () => openCompose('reply', msg) },
+        { label: t('mails.actions.replyAll'), icon: ReplyAll, onClick: () => openCompose('reply-all', msg) },
+        { label: t('mails.actions.forward'), icon: Forward, onClick: () => openCompose('forward', msg) },
       )
     }
 
     actions.push({
-      label: msg.is_starred ? 'Stern entfernen' : 'Stern vergeben',
+      label: msg.is_starred ? t('mails.actions.unstar') : t('mails.actions.star'),
       icon: Star,
       onClick: () => {
         toggleStar.mutate(msg.id)
-        toast.success(msg.is_starred ? 'Stern entfernt' : 'Stern vergeben')
+        toast.success(msg.is_starred ? t('mails.toast.starRemoved') : t('mails.toast.starAdded'))
       },
       separator: true,
     })
 
     actions.push({
-      label: msg.is_read ? 'Als ungelesen' : 'Als gelesen',
+      label: msg.is_read ? t('mails.actions.markUnread') : t('mails.actions.markRead'),
       icon: msg.is_read ? EyeOff : Eye,
       onClick: () => {
         if (msg.is_read) markUnread.mutate(msg.id)
         else markRead.mutate(msg.id)
-        toast.success(msg.is_read ? 'Als ungelesen markiert' : 'Als gelesen markiert')
+        toast.success(msg.is_read ? t('mails.toast.markedUnread') : t('mails.toast.markedRead'))
       },
     })
 
     if (currentFolder?.folder_type !== 'archive') {
       actions.push({
-        label: 'Archivieren',
+        label: t('mails.actions.archive'),
         icon: Archive,
         onClick: () => handleArchive(msg.id),
         separator: true,
@@ -253,12 +255,12 @@ export default function MailsPage() {
     }
 
     actions.push(
-      { label: 'Drucken', icon: Printer, onClick: () => toast.success('Druckvorschau wird geöffnet...'), separator: true },
-      { label: 'Exportieren', icon: Download, onClick: () => toast.success('PDF Export wird vorbereitet...') },
+      { label: t('mails.actions.print'), icon: Printer, onClick: () => toast.success(t('mails.toast.printPreview')), separator: true },
+      { label: t('mails.actions.export'), icon: Download, onClick: () => toast.success(t('mails.toast.pdfExport')) },
     )
 
     actions.push({
-      label: 'Löschen',
+      label: t('common.delete'),
       icon: Trash2,
       variant: 'destructive',
       onClick: () => setDeleteConfirmId(msg.id),
@@ -304,8 +306,8 @@ export default function MailsPage() {
       <div className="flex h-full items-center justify-center">
         <EmptyState
           icon={Settings}
-          title="Kein E-Mail-Konto eingerichtet"
-          description="Richte dein E-Mail-Konto in den Einstellungen ein, um E-Mails zu senden und empfangen."
+          title={t('mails.noAccount.title')}
+          description={t('mails.noAccount.description')}
         />
       </div>
     )
@@ -320,7 +322,7 @@ export default function MailsPage() {
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors mb-4"
         >
           <Plus className="h-4 w-4" />
-          Neue E-Mail
+          {t('mails.newEmail')}
         </button>
 
         <nav className="space-y-0.5">
@@ -360,7 +362,7 @@ export default function MailsPage() {
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${syncStatusData?.status === 'syncing' ? 'animate-spin' : ''}`} />
-            {syncStatusData?.status === 'syncing' ? 'Synchronisiere...' : 'Synchronisieren'}
+            {syncStatusData?.status === 'syncing' ? t('mails.syncing') : t('mails.sync')}
           </button>
         )}
       </aside>
@@ -379,7 +381,7 @@ export default function MailsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="E-Mails suchen..."
+                placeholder={t('mails.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setPage(1) }}
                 className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -450,11 +452,11 @@ export default function MailsPage() {
             {!messagesLoading && messages.length === 0 && (
               <EmptyState
                 icon={Mail}
-                title="Keine E-Mails"
+                title={t('mails.empty.title')}
                 description={
                   searchQuery
-                    ? 'Keine E-Mails für diesen Suchbegriff'
-                    : 'Dieser Ordner ist leer'
+                    ? t('mails.empty.noSearchResults')
+                    : t('mails.empty.folderEmpty')
                 }
               />
             )}
@@ -482,37 +484,37 @@ export default function MailsPage() {
               </button>
               <div className="flex-1" />
               <div className="flex items-center gap-1">
-                <button onClick={() => openCompose('reply', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Antworten" aria-label="Antworten">
+                <button onClick={() => openCompose('reply', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title={t('mails.actions.reply')} aria-label={t('mails.actions.reply')}>
                   <Reply className="h-4 w-4" />
                 </button>
-                <button onClick={() => openCompose('reply-all', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Allen antworten" aria-label="Allen antworten">
+                <button onClick={() => openCompose('reply-all', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title={t('mails.actions.replyAll')} aria-label={t('mails.actions.replyAll')}>
                   <ReplyAll className="h-4 w-4" />
                 </button>
-                <button onClick={() => openCompose('forward', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Weiterleiten" aria-label="Weiterleiten">
+                <button onClick={() => openCompose('forward', selectedMessage)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" title={t('mails.actions.forward')} aria-label={t('mails.actions.forward')}>
                   <Forward className="h-4 w-4" />
                 </button>
                 <span className="mx-1 h-5 w-px bg-border" />
                 <button
                   onClick={() => {
                     toggleStar.mutate(selectedMessage.id)
-                    toast.success(selectedMessage.is_starred ? 'Stern entfernt' : 'Stern vergeben')
+                    toast.success(selectedMessage.is_starred ? t('mails.toast.starRemoved') : t('mails.toast.starAdded'))
                   }}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title={selectedMessage.is_starred ? 'Stern entfernen' : 'Stern vergeben'}
+                  title={selectedMessage.is_starred ? t('mails.actions.unstar') : t('mails.actions.star')}
                 >
                   <Star className={`h-4 w-4 ${selectedMessage.is_starred ? 'fill-warning text-warning' : ''}`} />
                 </button>
                 <button
                   onClick={() => handleArchive(selectedMessage.id)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  title="Archivieren"
+                  title={t('mails.actions.archive')}
                 >
                   <Archive className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setDeleteConfirmId(selectedMessage.id)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-red-500"
-                  title="Löschen"
+                  title={t('common.delete')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -532,10 +534,10 @@ export default function MailsPage() {
                     <span className="text-xs text-muted-foreground truncate">&lt;{selectedMessage.from.email}&gt;</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    An: {selectedMessage.to.map((a) => a.name || a.email).join(', ')}
+                    {t('mails.detail.to')}: {selectedMessage.to.map((a) => a.name || a.email).join(', ')}
                     {selectedMessage.cc.length > 0 && ` · Cc: ${selectedMessage.cc.map((a) => a.name || a.email).join(', ')}`}
                     {' · '}
-                    {formatDate(selectedMessage.date)} um {formatTime(selectedMessage.date)}
+                    {formatDate(selectedMessage.date)} {t('mails.detail.at')} {formatTime(selectedMessage.date)}
                   </p>
                 </div>
               </div>
@@ -545,7 +547,7 @@ export default function MailsPage() {
                 <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
                   <Users className="h-4 w-4 text-primary" />
                   <span className="text-xs text-primary font-medium">
-                    Mit {crmLinks.length} CRM-Kontakt{crmLinks.length > 1 ? 'en' : ''} verknüpft
+                    {t('mails.detail.crmLinked', { count: crmLinks.length })}
                   </span>
                 </div>
               )}
@@ -558,7 +560,7 @@ export default function MailsPage() {
                     <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <div>
                       <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                        Aufbewahrungspflicht: {retention.label}
+                        {t('mails.detail.retentionObligation')}: {retention.label}
                       </span>
                       <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-0.5">
                         {retention.basis}
@@ -584,13 +586,13 @@ export default function MailsPage() {
               {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
                 <div className="mt-6 border-t border-border pt-4">
                   <p className="text-xs font-medium text-muted-foreground mb-2">
-                    Anhänge ({selectedMessage.attachments.length})
+                    {t('mails.detail.attachments')} ({selectedMessage.attachments.length})
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {selectedMessage.attachments.map((att) => (
                       <button
                         key={att.id}
-                        onClick={() => toast.success(`"${att.filename}" wird heruntergeladen`)}
+                        onClick={() => toast.success(t('mails.toast.downloading', { filename: att.filename }))}
                         className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 hover:bg-secondary hover:shadow-sm transition-all"
                       >
                         <Paperclip className="h-4 w-4 text-muted-foreground" />
@@ -611,7 +613,7 @@ export default function MailsPage() {
                   className="flex w-full items-center gap-2 rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-secondary transition-colors"
                 >
                   <Reply className="h-4 w-4" />
-                  Antworten...
+                  {t('mails.actions.replyEllipsis')}
                 </button>
               </div>
             </div>
@@ -620,7 +622,7 @@ export default function MailsPage() {
           <div className="hidden md:flex flex-1 items-center justify-center text-muted-foreground">
             <div className="text-center">
               <Mail className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Wähle eine E-Mail aus</p>
+              <p className="text-sm">{t('mails.selectEmail')}</p>
             </div>
           </div>
         )}
@@ -630,9 +632,9 @@ export default function MailsPage() {
       <ConfirmDialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="E-Mail löschen?"
-        description={`"${deleteTarget?.subject}" wird gelöscht.`}
-        confirmLabel="Löschen"
+        title={t('mails.deleteConfirm.title')}
+        description={t('mails.deleteConfirm.description', { subject: deleteTarget?.subject })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />

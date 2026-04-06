@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { useContacts } from '@/api/hooks/useContacts'
 import { backendContactToUI } from '@/modules/kontakte/adapters'
@@ -132,6 +133,7 @@ export function RecipientField({
   onKeyDown: (e: React.KeyboardEvent) => void
   contactMap?: Map<string, string>
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
@@ -162,7 +164,7 @@ export function RecipientField({
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={recipients.length === 0 ? 'Empfänger...' : ''}
+            placeholder={recipients.length === 0 ? t('mails.compose.recipientPlaceholder') : ''}
             className="flex-1 min-w-[120px] bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -46,24 +47,24 @@ interface MeetingFormDialogProps {
 
 const rooms = ['Konferenzraum A', 'Konferenzraum B', 'Huddle Space', 'Besprechungsraum', 'Remote']
 const durations = [15, 30, 45, 60, 90, 120]
-const recurrenceOptions = [
-  { value: 'none', label: 'Keine Wiederholung' },
-  { value: 'daily', label: 'Täglich' },
-  { value: 'weekly', label: 'Wöchentlich' },
-  { value: 'monthly', label: 'Monatlich' },
-  { value: 'custom', label: 'Benutzerdefiniert' },
+const recurrenceOptionKeys = [
+  { value: 'none', key: 'meetings.recurrence.none' },
+  { value: 'daily', key: 'meetings.recurrence.daily' },
+  { value: 'weekly', key: 'meetings.recurrence.weekly' },
+  { value: 'monthly', key: 'meetings.recurrence.monthly' },
+  { value: 'custom', key: 'meetings.recurrence.custom' },
 ]
 
-const customIntervalUnits = [
-  { value: 'days', label: 'Tage' },
-  { value: 'weeks', label: 'Wochen' },
-  { value: 'months', label: 'Monate' },
+const customIntervalUnitKeys = [
+  { value: 'days', key: 'meetings.interval.days' },
+  { value: 'weeks', key: 'meetings.interval.weeks' },
+  { value: 'months', key: 'meetings.interval.months' },
 ]
-const reminderOptions = [
-  { value: 'none', label: 'Keine Erinnerung' },
-  { value: '15min', label: '15 Minuten vorher' },
-  { value: '30min', label: '30 Minuten vorher' },
-  { value: '1h', label: '1 Stunde vorher' },
+const reminderOptionKeys = [
+  { value: 'none', key: 'meetings.reminder.none' },
+  { value: '15min', key: 'meetings.reminder.15min' },
+  { value: '30min', key: 'meetings.reminder.30min' },
+  { value: '1h', key: 'meetings.reminder.1h' },
 ]
 const projects = ['Website Relaunch', 'Mobile App', 'CRM Integration', 'Security Audit', 'Finanzen', 'Allgemein']
 
@@ -90,6 +91,7 @@ const availableParticipants = [
 ]
 
 export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: MeetingFormDialogProps) {
+  const { t } = useTranslation()
   const isEdit = !!meeting
 
   const [title, setTitle] = useState('')
@@ -252,7 +254,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Meeting bearbeiten' : 'Neues Meeting'}</DialogTitle>
+          <DialogTitle>{isEdit ? t('meetings.form.editTitle') : t('meetings.form.newTitle')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
@@ -260,10 +262,10 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
               <Video className="h-3.5 w-3.5 text-[var(--muted)]" />
-              Titel *
+              {t('meetings.form.title')} *
             </Label>
             <Input
-              placeholder="z.B. Sprint Planning"
+              placeholder={t('meetings.form.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
@@ -272,7 +274,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
 
           {/* ── Color Picker ── */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Farbe</Label>
+            <Label className="text-xs">{t('meetings.form.color')}</Label>
             <div className="flex items-center gap-2">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -294,7 +296,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
           <div>
             <Label className="flex items-center gap-1.5 mb-1.5">
               <Calendar className="h-3.5 w-3.5 text-[var(--muted)]" />
-              Termin
+              {t('meetings.form.appointment')}
             </Label>
             <div className="grid grid-cols-3 gap-3">
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -312,7 +314,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                 <SelectContent>
                   {durations.map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {d >= 60 ? `${d / 60} Std` : `${d} Min`}
+                      {d >= 60 ? `${d / 60} ${t('meetings.time.hours')}` : `${d} ${t('meetings.time.minutes')}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -325,7 +327,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-[var(--muted)]" />
-                Raum
+                {t('meetings.form.room')}
               </Label>
               <Select value={room} onValueChange={setRoom}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -341,7 +343,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                 <Switch checked={isVideoCall} onCheckedChange={setIsVideoCall} id="video-toggle" />
                 <Label htmlFor="video-toggle" className="cursor-pointer flex items-center gap-1.5">
                   <Video className="h-3.5 w-3.5 text-[var(--muted)]" />
-                  Video-Call
+                  {t('meetings.form.videoCall')}
                 </Label>
               </div>
             </div>
@@ -351,7 +353,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-[var(--muted)]" />
-              Teilnehmer
+              {t('meetings.form.participants')}
             </Label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {selectedParticipants.map((pId) => {
@@ -374,7 +376,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
               })}
             </div>
             <Input
-              placeholder="Teilnehmer suchen..."
+              placeholder={t('meetings.form.searchParticipants')}
               value={participantSearch}
               onChange={(e) => setParticipantSearch(e.target.value)}
               className="text-sm"
@@ -404,10 +406,10 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
               <FolderOpen className="h-3.5 w-3.5 text-[var(--muted)]" />
-              Projekt
+              {t('meetings.form.project')}
             </Label>
             <Select value={project} onValueChange={setProject}>
-              <SelectTrigger><SelectValue placeholder="Projekt zuordnen..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('meetings.form.assignProject')} /></SelectTrigger>
               <SelectContent>
                 {projects.map((p) => (
                   <SelectItem key={p} value={p}>{p}</SelectItem>
@@ -422,7 +424,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
             className="flex items-center gap-1 text-sm text-primary hover:underline"
           >
             {showExtras ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {showExtras ? 'Weniger Optionen' : 'Weitere Optionen'}
+            {showExtras ? t('meetings.form.lessOptions') : t('meetings.form.moreOptions')}
           </button>
 
           {showExtras && (
@@ -432,20 +434,20 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
                     <Repeat className="h-3.5 w-3.5 text-[var(--muted)]" />
-                    Wiederholung
+                    {t('meetings.form.recurrence')}
                   </Label>
                   <Select value={recurrenceDisplay} onValueChange={handleRecurrenceChange}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {recurrenceOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      {recurrenceOptionKeys.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{t(o.key)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {recurrenceDisplay === 'custom' && (
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">Alle</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{t('meetings.recurrence.every')}</span>
                         <Input
                           type="number"
                           min={1}
@@ -461,33 +463,33 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                         }}>
                           <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {customIntervalUnits.map((u) => (
-                              <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                            {customIntervalUnitKeys.map((u) => (
+                              <SelectItem key={u.value} value={u.value}>{t(u.key)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <p className="text-[10px] text-muted-foreground">
-                        Nächste {Math.min(customInterval * 3, 12)} Termine werden automatisch erstellt
+                        {t('meetings.recurrence.nextAppointments', { count: Math.min(customInterval * 3, 12) })}
                       </p>
                     </div>
                   )}
                   {recurrenceDisplay !== 'none' && recurrenceDisplay !== 'custom' && (
                     <p className="mt-1 text-[10px] text-muted-foreground">
-                      Nächste Termine werden automatisch erstellt
+                      {t('meetings.recurrence.autoCreate')}
                     </p>
                   )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
                     <Bell className="h-3.5 w-3.5 text-[var(--muted)]" />
-                    Erinnerung
+                    {t('meetings.form.reminder')}
                   </Label>
                   <Select value={reminder} onValueChange={(v) => setReminder(v as typeof reminder)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {reminderOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      {reminderOptionKeys.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{t(o.key)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -498,10 +500,10 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-[var(--muted)]" />
-                  Beschreibung
+                  {t('meetings.form.description')}
                 </Label>
                 <Textarea
-                  placeholder="Kontext, Ziele, Vorbereitung..."
+                  placeholder={t('meetings.form.descriptionPlaceholder')}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
@@ -512,7 +514,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5">
                   <ListChecks className="h-3.5 w-3.5 text-[var(--muted)]" />
-                  Agenda
+                  {t('meetings.form.agenda')}
                 </Label>
                 {agendaItems.length > 0 && (
                   <div className="space-y-1 mb-2">
@@ -560,7 +562,7 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                     value={newAgendaText}
                     onChange={(e) => setNewAgendaText(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddAgenda()}
-                    placeholder="Neuen Agenda-Punkt hinzufügen..."
+                    placeholder={t('meetings.form.addAgendaItem')}
                     className="text-sm"
                   />
                   <Button
@@ -580,11 +582,11 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5">
                   <Paperclip className="h-3.5 w-3.5 text-[var(--muted)]" />
-                  Dateien
+                  {t('meetings.form.files')}
                 </Label>
                 <button className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors w-full">
                   <Paperclip className="h-4 w-4" />
-                  Dateien anhängen...
+                  {t('meetings.form.attachFiles')}
                 </button>
               </div>
 
@@ -594,14 +596,14 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
                   <Switch checked={addToCalendar} onCheckedChange={setAddToCalendar} id="cal-toggle" />
                   <Label htmlFor="cal-toggle" className="cursor-pointer flex items-center gap-1.5 text-sm">
                     <Calendar className="h-3.5 w-3.5 text-[var(--muted)]" />
-                    Automatisch im Kalender eintragen
+                    {t('meetings.form.addToCalendar')}
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={sendInvitations} onCheckedChange={setSendInvitations} id="invite-toggle" />
                   <Label htmlFor="invite-toggle" className="cursor-pointer flex items-center gap-1.5 text-sm">
                     <Users className="h-3.5 w-3.5 text-[var(--muted)]" />
-                    Teilnehmer per E-Mail einladen
+                    {t('meetings.form.inviteByEmail')}
                   </Label>
                 </div>
               </div>
@@ -611,11 +613,11 @@ export function MeetingFormDialog({ open, onOpenChange, meeting, onSubmit }: Mee
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={!title.trim()}>
             <Plus className="mr-1.5 h-4 w-4" />
-            {isEdit ? 'Speichern' : 'Meeting erstellen'}
+            {isEdit ? t('common.save') : t('meetings.form.createMeeting')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Minimize2 } from 'lucide-react'
 import { cn } from '@/lib'
 
@@ -10,6 +11,7 @@ interface CallOverlayProps {
 }
 
 export function CallOverlay({ contactName, contactInitials, open, onEnd }: CallOverlayProps) {
+  const { t } = useTranslation()
   const [isMuted, setIsMuted] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
   const [callState, setCallState] = useState<'ringing' | 'connected'>('ringing')
@@ -116,7 +118,7 @@ export function CallOverlay({ contactName, contactInitials, open, onEnd }: CallO
 
         {/* Status */}
         <p className="text-sm text-muted-foreground mb-8">
-          {callState === 'ringing' ? 'Klingelt...' : formatTime(elapsed)}
+          {callState === 'ringing' ? t('meetings.call.ringing') : formatTime(elapsed)}
         </p>
 
         {/* Controls */}

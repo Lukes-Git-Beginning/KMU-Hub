@@ -5,6 +5,7 @@
  * (CSV or vCard). Triggers a browser file download on export.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Download, Loader2, AlertCircle } from 'lucide-react'
 import {
   Dialog,
@@ -36,6 +37,7 @@ export default function ExportDialog({
   onOpenChange,
   contactIds,
 }: ExportDialogProps) {
+  const { t } = useTranslation()
   const [format, setFormat] = useState<ExportFormat>('csv')
   const [selectedFields, setSelectedFields] = useState<Set<string>>(
     () => new Set(EXPORT_FIELDS.map((f) => f.key)),
@@ -83,18 +85,18 @@ export default function ExportDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Kontakte exportieren</DialogTitle>
+          <DialogTitle>{t('mails.export.title')}</DialogTitle>
           <DialogDescription>
             {contactIds.length > 0
-              ? `${contactIds.length} Kontakt${contactIds.length !== 1 ? 'e' : ''} exportieren`
-              : 'Alle sichtbaren Kontakte exportieren'}
+              ? t('mails.export.selectedCount', { count: contactIds.length })
+              : t('mails.export.allVisible')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Format selection */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">Format</Label>
+            <Label className="text-sm font-medium">{t('mails.export.format')}</Label>
             <div className="flex gap-3">
               <button
                 type="button"
@@ -107,7 +109,7 @@ export default function ExportDialog({
               >
                 <p className="text-sm font-medium">CSV</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Für Excel, Google Sheets
+                  {t('mails.export.csvDescription')}
                 </p>
               </button>
               <button
@@ -121,7 +123,7 @@ export default function ExportDialog({
               >
                 <p className="text-sm font-medium">vCard</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Für Outlook, Apple Kontakte
+                  {t('mails.export.vcardDescription')}
                 </p>
               </button>
             </div>
@@ -131,7 +133,7 @@ export default function ExportDialog({
           {format === 'csv' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Felder</Label>
+                <Label className="text-sm font-medium">{t('mails.export.fields')}</Label>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -139,8 +141,8 @@ export default function ExportDialog({
                   onClick={toggleAll}
                 >
                   {selectedFields.size === EXPORT_FIELDS.length
-                    ? 'Keine auswählen'
-                    : 'Alle auswählen'}
+                    ? t('mails.export.selectNone')
+                    : t('mails.export.selectAll')}
                 </Button>
               </div>
               <div className="space-y-2">
@@ -166,14 +168,14 @@ export default function ExportDialog({
           {isError && (
             <div className="flex items-center gap-2 text-sm text-destructive">
               <AlertCircle className="h-4 w-4" />
-              Export fehlgeschlagen. Bitte versuchen Sie es erneut.
+              {t('mails.export.failed')}
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleExport}
@@ -182,12 +184,12 @@ export default function ExportDialog({
             {isExporting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Exportieren...
+                {t('mails.export.exporting')}
               </>
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Exportieren
+                {t('mails.export.exportBtn')}
               </>
             )}
           </Button>

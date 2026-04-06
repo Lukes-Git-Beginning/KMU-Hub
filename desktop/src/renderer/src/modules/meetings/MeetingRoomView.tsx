@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Mic,
   MicOff,
@@ -29,6 +30,7 @@ interface MeetingRoomViewProps {
 }
 
 export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps) {
+  const { t } = useTranslation()
   const [isMuted, setIsMuted] = useState(false)
   const [isCameraOff, setIsCameraOff] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
@@ -59,7 +61,7 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
   }
 
   const participants = meeting.participants && meeting.participants.length > 0 ? meeting.participants : [
-    { id: 'self', name: 'Du', initials: 'DU' },
+    { id: 'self', name: t('meetings.room.you'), initials: t('meetings.room.youInitials') },
   ]
 
   // Grid layout based on participant count
@@ -104,12 +106,12 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
       {isScreenSharing && (
         <div className="flex items-center justify-center gap-2 bg-primary/10 border-b border-primary/20 px-4 py-1.5">
           <Monitor className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium text-primary">Du teilst deinen Bildschirm</span>
+          <span className="text-xs font-medium text-primary">{t('meetings.room.sharingScreen')}</span>
           <button
             onClick={() => setIsScreenSharing(false)}
             className="ml-2 rounded-md bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 transition-colors"
           >
-            Freigabe beenden
+            {t('meetings.room.stopSharing')}
           </button>
         </div>
       )}
@@ -159,9 +161,9 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
             {/* Sidebar tab headers */}
             <div className="flex items-center border-b border-border">
               {([
-                { key: 'participants' as SidebarTab, label: 'Teilnehmer', icon: Users },
-                { key: 'chat' as SidebarTab, label: 'Chat', icon: MessageSquare },
-                { key: 'settings' as SidebarTab, label: 'Einstellungen', icon: Settings },
+                { key: 'participants' as SidebarTab, label: t('meetings.form.participants'), icon: Users },
+                { key: 'chat' as SidebarTab, label: t('meetings.room.chat'), icon: MessageSquare },
+                { key: 'settings' as SidebarTab, label: t('meetings.room.settings'), icon: Settings },
               ]).map((tab) => (
                 <button
                   key={tab.key}
@@ -208,13 +210,13 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
               <div className="flex flex-1 flex-col">
                 <div className="flex-1 overflow-y-auto p-3">
                   <p className="text-xs text-muted-foreground/70 text-center mt-8">
-                    Noch keine Nachrichten
+                    {t('meetings.room.noMessages')}
                   </p>
                 </div>
                 <div className="border-t border-border p-2">
                   <input
                     type="text"
-                    placeholder="Nachricht..."
+                    placeholder={t('meetings.room.messagePlaceholder')}
                     className="w-full rounded-md bg-muted px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
@@ -225,28 +227,28 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
             {sidebarTab === 'settings' && (
               <div className="flex-1 overflow-y-auto p-3 space-y-4">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Mikrofon</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">{t('meetings.room.microphone')}</label>
                   <select className="w-full rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs text-foreground">
-                    <option>Standard-Mikrofon</option>
+                    <option>{t('meetings.room.defaultMicrophone')}</option>
                     <option>Headset (USB)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Lautsprecher</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">{t('meetings.room.speaker')}</label>
                   <select className="w-full rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs text-foreground">
-                    <option>Standard-Lautsprecher</option>
+                    <option>{t('meetings.room.defaultSpeaker')}</option>
                     <option>Headset (USB)</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Kamera</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">{t('meetings.room.camera')}</label>
                   <select className="w-full rounded-md border border-border bg-muted/50 px-2 py-1.5 text-xs text-foreground">
-                    <option>Integrierte Webcam</option>
+                    <option>{t('meetings.room.builtInWebcam')}</option>
                     <option>HD Pro Webcam</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Layout</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">{t('meetings.room.layout')}</label>
                   <div className="flex gap-1">
                     {(['grid', 'speaker', 'sidebar'] as const).map((l) => (
                       <button
@@ -256,7 +258,7 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
                           l === 'grid' ? 'bg-primary/15 text-primary' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                         )}
                       >
-                        {l === 'grid' ? 'Raster' : l === 'speaker' ? 'Sprecher' : 'Seite'}
+                        {l === 'grid' ? t('meetings.room.layoutGrid') : l === 'speaker' ? t('meetings.room.layoutSpeaker') : t('meetings.room.layoutSidebar')}
                       </button>
                     ))}
                   </div>
@@ -271,44 +273,44 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
       <div className="flex items-center justify-center gap-2 px-4 py-3 bg-card/80">
         <ToolbarButton
           icon={isMuted ? MicOff : Mic}
-          label={isMuted ? 'Stumm' : 'Mikrofon'}
+          label={isMuted ? t('meetings.room.muted') : t('meetings.room.microphone')}
           active={!isMuted}
           danger={isMuted}
           onClick={() => setIsMuted(!isMuted)}
         />
         <ToolbarButton
           icon={isCameraOff ? VideoOff : Video}
-          label={isCameraOff ? 'Kamera aus' : 'Kamera'}
+          label={isCameraOff ? t('meetings.room.cameraOff') : t('meetings.room.camera')}
           active={!isCameraOff}
           danger={isCameraOff}
           onClick={() => setIsCameraOff(!isCameraOff)}
         />
         <ToolbarButton
           icon={Monitor}
-          label="Bildschirm"
+          label={t('meetings.room.screen')}
           active={isScreenSharing}
           onClick={() => setIsScreenSharing(!isScreenSharing)}
         />
         <ToolbarButton
           icon={Hand}
-          label="Hand"
+          label={t('meetings.room.hand')}
           active={isHandRaised}
           onClick={() => setIsHandRaised(!isHandRaised)}
         />
         <ToolbarButton
           icon={Presentation}
-          label="Whiteboard"
+          label={t('meetings.room.whiteboard')}
           onClick={() => {}}
         />
         <ToolbarButton
           icon={MessageSquare}
-          label="Chat"
+          label={t('meetings.room.chat')}
           active={sidebarTab === 'chat'}
           onClick={() => setSidebarTab(sidebarTab === 'chat' ? null : 'chat')}
         />
         <ToolbarButton
           icon={Users}
-          label="Teilnehmer"
+          label={t('meetings.form.participants')}
           active={sidebarTab === 'participants'}
           onClick={() => setSidebarTab(sidebarTab === 'participants' ? null : 'participants')}
         />
@@ -320,7 +322,7 @@ export function MeetingRoomView({ meeting, open, onLeave }: MeetingRoomViewProps
           className="flex items-center gap-2 rounded-full bg-red-600 px-5 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
         >
           <PhoneOff className="h-4 w-4" />
-          Verlassen
+          {t('meetings.room.leave')}
         </button>
       </div>
     </div>

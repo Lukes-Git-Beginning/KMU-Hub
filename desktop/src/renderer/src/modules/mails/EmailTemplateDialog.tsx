@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -143,10 +144,10 @@ const templates: EmailTemplate[] = [
 // Category labels
 // ---------------------------------------------------------------------------
 
-const categoryLabels: Record<string, string> = {
-  vertrieb: 'Vertrieb',
-  kommunikation: 'Kommunikation',
-  finanzen: 'Finanzen',
+const categoryLabelKeys: Record<string, string> = {
+  vertrieb: 'mails.templates.categories.vertrieb',
+  kommunikation: 'mails.templates.categories.kommunikation',
+  finanzen: 'mails.templates.categories.finanzen',
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +165,7 @@ export function EmailTemplateDialog({
   onOpenChange,
   onSelect,
 }: EmailTemplateDialogProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -198,7 +200,7 @@ export function EmailTemplateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>E-Mail-Vorlage wählen</DialogTitle>
+          <DialogTitle>{t('mails.templates.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden gap-4 min-h-0">
@@ -210,7 +212,7 @@ export function EmailTemplateDialog({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Vorlagen suchen..."
+                placeholder={t('mails.templates.searchPlaceholder')}
                 className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
@@ -218,7 +220,7 @@ export function EmailTemplateDialog({
               {Object.entries(grouped).map(([category, items]) => (
                 <div key={category}>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                    {categoryLabels[category] ?? category}
+                    {categoryLabelKeys[category] ? t(categoryLabelKeys[category]) : category}
                   </p>
                   <div className="space-y-0.5">
                     {items.map((t) => {
@@ -243,7 +245,7 @@ export function EmailTemplateDialog({
               ))}
               {filtered.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Keine Vorlagen gefunden
+                  {t('mails.templates.noResults')}
                 </p>
               )}
             </div>
@@ -254,14 +256,14 @@ export function EmailTemplateDialog({
             {selected ? (
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Betreff</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t('mails.compose.subject')}</p>
                   <p className="text-sm font-medium text-foreground">
                     {selected.subject}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Vorschau
+                    {t('mails.templates.preview')}
                   </p>
                   <div
                     className="rounded-lg border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none text-sm"
@@ -270,7 +272,7 @@ export function EmailTemplateDialog({
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1.5">
-                    Platzhalter
+                    {t('mails.templates.placeholders')}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {selected.placeholders.map((p) => (
@@ -289,7 +291,7 @@ export function EmailTemplateDialog({
                 <div className="text-center">
                   <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">
-                    Wähle eine Vorlage aus der Liste
+                    {t('mails.templates.selectFromList')}
                   </p>
                 </div>
               </div>
@@ -300,11 +302,11 @@ export function EmailTemplateDialog({
         {/* Footer */}
         <div className="flex justify-end gap-2 pt-3 border-t border-border">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleInsert} disabled={!selected}>
             <FileText className="h-4 w-4 mr-1.5" />
-            Vorlage einfügen
+            {t('mails.compose.insertTemplate')}
           </Button>
         </div>
       </DialogContent>

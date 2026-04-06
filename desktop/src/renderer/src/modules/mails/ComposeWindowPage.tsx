@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -26,6 +27,7 @@ import {
 } from './compose-shared'
 
 export default function ComposeWindowPage() {
+  const { t } = useTranslation()
   const { composeDraft, setComposeDraft } = useMailsStore()
   const sendEmail = useSendEmail()
   const saveDraftMutation = useSaveDraft()
@@ -116,11 +118,11 @@ export default function ComposeWindowPage() {
         },
         {
           onSuccess: () => {
-            toast.success('E-Mail gesendet')
+            toast.success(t('mails.toast.emailSent'))
             setTimeout(closeWindow, 300)
           },
           onError: (err) =>
-            toast.error(`Senden fehlgeschlagen: ${err.message}`),
+            toast.error(t('mails.toast.sendFailed', { error: err.message })),
         },
       )
     } else if (mode === 'forward' && replyToMessageId) {
@@ -134,11 +136,11 @@ export default function ComposeWindowPage() {
         },
         {
           onSuccess: () => {
-            toast.success('E-Mail weitergeleitet')
+            toast.success(t('mails.toast.emailForwarded'))
             setTimeout(closeWindow, 300)
           },
           onError: (err) =>
-            toast.error(`Weiterleiten fehlgeschlagen: ${err.message}`),
+            toast.error(t('mails.toast.forwardFailed', { error: err.message })),
         },
       )
     } else {
@@ -154,11 +156,11 @@ export default function ComposeWindowPage() {
         },
         {
           onSuccess: () => {
-            toast.success('E-Mail gesendet')
+            toast.success(t('mails.toast.emailSent'))
             setTimeout(closeWindow, 300)
           },
           onError: (err) =>
-            toast.error(`Senden fehlgeschlagen: ${err.message}`),
+            toast.error(t('mails.toast.sendFailed', { error: err.message })),
         },
       )
     }
@@ -172,18 +174,18 @@ export default function ComposeWindowPage() {
         to: toAddresses(to),
         cc: cc.length > 0 ? toAddresses(cc) : undefined,
         bcc: bcc.length > 0 ? toAddresses(bcc) : undefined,
-        subject: subject.trim() || '(Kein Betreff)',
+        subject: subject.trim() || t('mails.compose.noSubject'),
         body_html: body,
         body_text: stripHtml(body),
         in_reply_to_message_id: replyToMessageId,
       },
       {
         onSuccess: () => {
-          toast.success('Entwurf gespeichert')
+          toast.success(t('mails.toast.draftSaved'))
           setTimeout(closeWindow, 300)
         },
         onError: (err) =>
-          toast.error(`Speichern fehlgeschlagen: ${err.message}`),
+          toast.error(t('mails.toast.saveFailed', { error: err.message })),
       },
     )
   }
@@ -203,10 +205,10 @@ export default function ComposeWindowPage() {
     sendEmail.isPending || replyEmail.isPending || forwardEmail.isPending
 
   const modeTitle: Record<ComposeMode, string> = {
-    compose: 'Neue E-Mail',
-    reply: 'Antworten',
-    'reply-all': 'Allen antworten',
-    forward: 'Weiterleiten',
+    compose: t('mails.compose.newEmail'),
+    reply: t('mails.compose.reply'),
+    'reply-all': t('mails.compose.replyAll'),
+    forward: t('mails.compose.forward'),
   }
 
   const toSuggestions = filteredSuggestions(toInput, to, allContacts)
@@ -225,10 +227,10 @@ export default function ComposeWindowPage() {
             onClick={() => setTemplateOpen(true)}
             className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors flex items-center gap-1"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            title="Vorlage einfügen"
+            title={t('mails.compose.insertTemplate')}
           >
             <FileText className="h-3.5 w-3.5" />
-            Vorlage
+            {t('mails.compose.template')}
           </button>
         </div>
 
@@ -257,7 +259,7 @@ export default function ComposeWindowPage() {
               onClick={() => setShowCcBcc(true)}
               className="text-xs text-primary hover:underline ml-1"
             >
-              Cc/Bcc hinzufügen
+              {t('mails.compose.addCcBcc')}
             </button>
           )}
 
@@ -297,7 +299,7 @@ export default function ComposeWindowPage() {
           )}
 
           <Input
-            placeholder="Betreff"
+            placeholder={t('mails.compose.subject')}
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             className="border-0 border-b border-border rounded-none px-1 focus-visible:ring-0 font-medium"
@@ -307,7 +309,7 @@ export default function ComposeWindowPage() {
             key={editorVersion}
             content={body}
             onChange={setBody}
-            placeholder="Nachricht schreiben..."
+            placeholder={t('mails.compose.messagePlaceholder')}
             compact
             showFooter={false}
             minHeight="200px"
@@ -323,14 +325,14 @@ export default function ComposeWindowPage() {
               disabled={to.length === 0 || isSending}
             >
               <Send className="mr-1.5 h-4 w-4" />
-              {isSending ? 'Sende...' : 'Senden'}
+              {isSending ? t('mails.compose.sending') : t('mails.compose.send')}
             </Button>
             <Button
               variant="outline"
               size="icon"
               onClick={handleSaveDraft}
               disabled={saveDraftMutation.isPending}
-              title="Als Entwurf speichern"
+              title={t('mails.compose.saveAsDraft')}
             >
               <Save className="h-4 w-4" />
             </Button>
@@ -338,14 +340,14 @@ export default function ComposeWindowPage() {
           <div className="flex items-center gap-1">
             <button
               className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-              title="Datei anhängen"
+              title={t('mails.compose.attachFile')}
             >
               <Paperclip className="h-4 w-4" />
             </button>
             <button
               onClick={handleDiscard}
               className="rounded p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
-              title="Verwerfen"
+              title={t('mails.compose.discard')}
             >
               <Trash2 className="h-4 w-4" />
             </button>

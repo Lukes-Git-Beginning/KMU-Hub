@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -42,6 +43,7 @@ export function ComposeInline({
   accountId,
   onClose,
 }: ComposeInlineProps) {
+  const { t } = useTranslation()
   const { setComposeDraft } = useMailsStore()
   const sendEmail = useSendEmail()
   const saveDraft = useSaveDraft()
@@ -74,7 +76,7 @@ export function ComposeInline({
       setBody(
         buildReplyHtml(
           signature,
-          `Am ${replyTo.date} schrieb ${replyTo.from.name || replyTo.from.email}:`,
+          t('mails.compose.replyHeader', { date: replyTo.date, sender: replyTo.from.name || replyTo.from.email }),
           replyTo.body_html || `<p>${replyTo.body_text || ''}</p>`,
         ),
       )
@@ -87,7 +89,7 @@ export function ComposeInline({
       setBody(
         buildReplyHtml(
           signature,
-          `Am ${replyTo.date} schrieb ${replyTo.from.name || replyTo.from.email}:`,
+          t('mails.compose.replyHeader', { date: replyTo.date, sender: replyTo.from.name || replyTo.from.email }),
           replyTo.body_html || `<p>${replyTo.body_text || ''}</p>`,
         ),
       )
@@ -99,7 +101,7 @@ export function ComposeInline({
       setBody(
         buildForwardHtml(
           signature,
-          `Weitergeleitete Nachricht von ${replyTo.from.name || ''} &lt;${replyTo.from.email}&gt; am ${replyTo.date}:`,
+          t('mails.compose.forwardHeader', { name: replyTo.from.name || '', email: replyTo.from.email, date: replyTo.date }),
           replyTo.body_html || `<p>${replyTo.body_text || ''}</p>`,
         ),
       )
@@ -151,8 +153,8 @@ export function ComposeInline({
           reply_all: mode === 'reply-all',
         },
         {
-          onSuccess: () => { toast.success('E-Mail gesendet'); onClose() },
-          onError: (err) => toast.error(`Senden fehlgeschlagen: ${err.message}`),
+          onSuccess: () => { toast.success(t('mails.toast.emailSent')); onClose() },
+          onError: (err) => toast.error(t('mails.toast.sendFailed', { error: err.message })),
         },
       )
     } else if (mode === 'forward' && replyTo) {
@@ -165,8 +167,8 @@ export function ComposeInline({
           body_text: bodyText,
         },
         {
-          onSuccess: () => { toast.success('E-Mail weitergeleitet'); onClose() },
-          onError: (err) => toast.error(`Weiterleiten fehlgeschlagen: ${err.message}`),
+          onSuccess: () => { toast.success(t('mails.toast.emailForwarded')); onClose() },
+          onError: (err) => toast.error(t('mails.toast.forwardFailed', { error: err.message })),
         },
       )
     } else {
@@ -181,8 +183,8 @@ export function ComposeInline({
           body_text: bodyText,
         },
         {
-          onSuccess: () => { toast.success('E-Mail gesendet'); onClose() },
-          onError: (err) => toast.error(`Senden fehlgeschlagen: ${err.message}`),
+          onSuccess: () => { toast.success(t('mails.toast.emailSent')); onClose() },
+          onError: (err) => toast.error(t('mails.toast.sendFailed', { error: err.message })),
         },
       )
     }
@@ -195,14 +197,14 @@ export function ComposeInline({
         to: toAddresses(to),
         cc: cc.length > 0 ? toAddresses(cc) : undefined,
         bcc: bcc.length > 0 ? toAddresses(bcc) : undefined,
-        subject: subject.trim() || '(Kein Betreff)',
+        subject: subject.trim() || t('mails.compose.noSubject'),
         body_html: body,
         body_text: stripHtml(body),
         in_reply_to_message_id: replyTo?.id,
       },
       {
-        onSuccess: () => { toast.success('Entwurf gespeichert'); onClose() },
-        onError: (err) => toast.error(`Speichern fehlgeschlagen: ${err.message}`),
+        onSuccess: () => { toast.success(t('mails.toast.draftSaved')); onClose() },
+        onError: (err) => toast.error(t('mails.toast.saveFailed', { error: err.message })),
       },
     )
   }
@@ -217,10 +219,10 @@ export function ComposeInline({
     sendEmail.isPending || replyEmail.isPending || forwardEmail.isPending
 
   const modeTitle: Record<ComposeMode, string> = {
-    compose: 'Neue E-Mail',
-    reply: 'Antworten',
-    'reply-all': 'Allen antworten',
-    forward: 'Weiterleiten',
+    compose: t('mails.compose.newEmail'),
+    reply: t('mails.compose.reply'),
+    'reply-all': t('mails.compose.replyAll'),
+    forward: t('mails.compose.forward'),
   }
 
   const toSuggestions = filteredSuggestions(toInput, to, allContacts)
@@ -239,7 +241,7 @@ export function ComposeInline({
             <button
               onClick={() => setTemplateOpen(true)}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              title="Vorlage einfügen"
+              title={t('mails.compose.insertTemplate')}
             >
               <FileText className="h-4 w-4" />
             </button>
@@ -259,7 +261,7 @@ export function ComposeInline({
                 onClose()
               }}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              title="Als Fenster öffnen"
+              title={t('mails.compose.openAsWindow')}
             >
               <Maximize2 className="h-4 w-4" />
             </button>
@@ -289,7 +291,7 @@ export function ComposeInline({
               onClick={() => setShowCcBcc(true)}
               className="text-xs text-primary hover:underline ml-1"
             >
-              Cc/Bcc hinzufügen
+              {t('mails.compose.addCcBcc')}
             </button>
           )}
 
@@ -329,7 +331,7 @@ export function ComposeInline({
           )}
 
           <Input
-            placeholder="Betreff"
+            placeholder={t('mails.compose.subject')}
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             className="border-0 border-b border-border rounded-none px-1 focus-visible:ring-0 font-medium"
@@ -339,7 +341,7 @@ export function ComposeInline({
             key={editorVersion}
             content={body}
             onChange={setBody}
-            placeholder="Nachricht schreiben..."
+            placeholder={t('mails.compose.messagePlaceholder')}
             compact
             showFooter={false}
             minHeight="180px"
@@ -356,14 +358,14 @@ export function ComposeInline({
               disabled={to.length === 0 || isSending}
             >
               <Send className="mr-1.5 h-4 w-4" />
-              {isSending ? 'Sende...' : 'Senden'}
+              {isSending ? t('mails.compose.sending') : t('mails.compose.send')}
             </Button>
             <Button
               variant="outline"
               size="icon"
               onClick={handleSaveDraft}
               disabled={saveDraft.isPending}
-              title="Als Entwurf speichern"
+              title={t('mails.compose.saveAsDraft')}
             >
               <Save className="h-4 w-4" />
             </Button>
@@ -371,14 +373,14 @@ export function ComposeInline({
           <div className="flex items-center gap-1">
             <button
               className="rounded p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-              title="Datei anhängen"
+              title={t('mails.compose.attachFile')}
             >
               <Paperclip className="h-4 w-4" />
             </button>
             <button
               onClick={onClose}
               className="rounded p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
-              title="Verwerfen"
+              title={t('mails.compose.discard')}
             >
               <Trash2 className="h-4 w-4" />
             </button>

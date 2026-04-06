@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Calendar,
   Clock,
@@ -43,24 +44,24 @@ interface MeetingDetailPanelProps {
 }
 
 const statusConfig = {
-  live: { label: 'Live', dot: 'bg-destructive' },
-  scheduled: { label: 'Geplant', dot: 'bg-blue-500' },
-  past: { label: 'Vergangen', dot: 'bg-gray-400' },
-  cancelled: { label: 'Abgesagt', dot: 'bg-gray-400' },
+  live: { key: 'meetings.status.live', dot: 'bg-destructive' },
+  scheduled: { key: 'meetings.status.scheduled', dot: 'bg-blue-500' },
+  past: { key: 'meetings.status.past', dot: 'bg-gray-400' },
+  cancelled: { key: 'meetings.status.cancelled', dot: 'bg-gray-400' },
 }
 
-const recurrenceLabels: Record<string, string> = {
-  none: 'Einmalig',
-  daily: 'Täglich',
-  weekly: 'Wöchentlich',
-  monthly: 'Monatlich',
+const recurrenceLabelKeys: Record<string, string> = {
+  none: 'meetings.recurrence.once',
+  daily: 'meetings.recurrence.daily',
+  weekly: 'meetings.recurrence.weekly',
+  monthly: 'meetings.recurrence.monthly',
 }
 
-const reminderLabels: Record<string, string> = {
-  none: 'Keine',
-  '15min': '15 Min vorher',
-  '30min': '30 Min vorher',
-  '1h': '1 Std vorher',
+const reminderLabelKeys: Record<string, string> = {
+  none: 'meetings.reminder.noneShort',
+  '15min': 'meetings.reminder.15minShort',
+  '30min': 'meetings.reminder.30minShort',
+  '1h': 'meetings.reminder.1hShort',
 }
 
 type TabId = 'details' | 'agenda' | 'notes'
@@ -83,6 +84,7 @@ export function MeetingDetailPanel({
   onDelete,
   onJoin,
 }: MeetingDetailPanelProps) {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabId>('details')
   const [newAgendaText, setNewAgendaText] = useState('')
   const [notesValue, setNotesValue] = useState('')
@@ -149,9 +151,9 @@ export function MeetingDetailPanel({
   }
 
   const tabs: { id: TabId; label: string; icon: typeof ListChecks }[] = [
-    { id: 'details', label: 'Details', icon: FileText },
-    { id: 'agenda', label: 'Agenda', icon: ListChecks },
-    { id: 'notes', label: 'Notizen', icon: StickyNote },
+    { id: 'details', label: t('common.details'), icon: FileText },
+    { id: 'agenda', label: t('meetings.form.agenda'), icon: ListChecks },
+    { id: 'notes', label: t('meetings.detail.notes'), icon: StickyNote },
   ]
 
   return (
@@ -177,14 +179,14 @@ export function MeetingDetailPanel({
               <button
                 onClick={() => onEdit(meeting)}
                 className="rounded-md p-1.5 text-white/70 hover:text-white transition-colors"
-                title="Bearbeiten"
+                title={t('common.edit')}
               >
                 <Pencil className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onDelete(meeting.id)}
                 className="rounded-md p-1.5 text-white/70 hover:text-red-300 transition-colors"
-                title="Löschen"
+                title={t('common.delete')}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -212,7 +214,7 @@ export function MeetingDetailPanel({
               <div className="flex items-center gap-2 mt-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white">
                   <span className={`inline-block h-1.5 w-1.5 rounded-full ${status.dot}`} />
-                  {status.label}
+                  {t(status.key)}
                 </span>
                 {meeting.isVideoCall && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs text-white">
@@ -230,7 +232,7 @@ export function MeetingDetailPanel({
               <div
                 key={p.id}
                 className="relative group"
-                title={`${p.name}${p.id === meeting.organizerId ? ' (Organisator)' : ''}`}
+                title={`${p.name}${p.id === meeting.organizerId ? ` (${t('meetings.detail.organizer')})` : ''}`}
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/30 bg-white/20 text-[10px] font-medium text-white">
                   {p.initials}
@@ -241,7 +243,7 @@ export function MeetingDetailPanel({
               </div>
             ))}
             <span className="ml-1 text-xs text-white/60">
-              {(meeting.participants?.length ?? 0)} Teilnehmer
+              {(meeting.participants?.length ?? 0)} {t('meetings.form.participants')}
             </span>
           </div>
 
@@ -253,7 +255,7 @@ export function MeetingDetailPanel({
                 className="flex items-center gap-1.5 rounded-lg bg-white/25 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/35 transition-colors"
               >
                 <Video className="h-3.5 w-3.5" />
-                Beitreten
+                {t('meetings.actions.join')}
               </button>
             )}
             {meeting.status === 'scheduled' && (
@@ -262,7 +264,7 @@ export function MeetingDetailPanel({
                 className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs text-white hover:bg-white/30 transition-colors"
               >
                 <Pencil className="h-3.5 w-3.5" />
-                Bearbeiten
+                {t('common.edit')}
               </button>
             )}
             <button
@@ -270,7 +272,7 @@ export function MeetingDetailPanel({
               className="flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1.5 text-xs text-white hover:bg-white/30 transition-colors"
             >
               <Link2 className="h-3.5 w-3.5" />
-              Link kopieren
+              {t('meetings.actions.copyLink')}
             </button>
           </div>
         </div>
@@ -334,14 +336,15 @@ export function MeetingDetailPanel({
    ═══════════════════════════════════════════════════════════════ */
 
 function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMeeting: (id: string, updates: Partial<Meeting>) => void }) {
+  const { t } = useTranslation()
   const handleAddToCalendar = () => {
     onUpdateMeeting(meeting.id, { calendarEventId: `cal-${meeting.id}` })
-    toast.success('Meeting wurde dem Kalender hinzugefügt')
+    toast.success(t('meetings.toast.addedToCalendar'))
   }
 
   const handleSendInvitations = () => {
     onUpdateMeeting(meeting.id, { invitationsSent: true })
-    toast.success(`Einladungen an ${(meeting.participants?.length ?? 0)} Teilnehmer versendet (inkl. .ics Kalendereinladung)`)
+    toast.success(t('meetings.toast.invitationsSent', { count: (meeting.participants?.length ?? 0) }))
   }
 
   return (
@@ -362,10 +365,10 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
         <div className="flex items-center gap-2.5 text-sm">
           <Clock className="h-4 w-4 text-[var(--muted)] shrink-0" />
           <span className="text-[var(--body)]">
-            {meeting.startTime} Uhr &middot;{' '}
+            {meeting.startTime} {t('meetings.time.clock')} &middot;{' '}
             {meeting.duration >= 60
-              ? `${meeting.duration / 60} Std`
-              : `${meeting.duration} Min`}
+              ? `${meeting.duration / 60} ${t('meetings.time.hours')}`
+              : `${meeting.duration} ${t('meetings.time.minutes')}`}
           </span>
         </div>
         <div className="flex items-center gap-2.5 text-sm">
@@ -376,14 +379,14 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
           <div className="flex items-center gap-2.5 text-sm">
             <Repeat className="h-4 w-4 text-primary shrink-0" />
             <span className="text-[var(--body)]">
-              Wiederholt sich {recurrenceLabels[meeting.recurrence].toLowerCase()}
+              {t('meetings.detail.repeats')} {t(recurrenceLabelKeys[meeting.recurrence]).toLowerCase()}
             </span>
           </div>
         )}
         <div className="flex items-center gap-2.5 text-sm">
           <Clock className="h-4 w-4 text-[var(--muted)] shrink-0" />
           <span className="text-[var(--body)]">
-            Erinnerung: {reminderLabels[meeting.reminder]}
+            {t('meetings.form.reminder')}: {t(reminderLabelKeys[meeting.reminder])}
           </span>
         </div>
       </div>
@@ -394,7 +397,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
       {meeting.project && (
         <>
           <div>
-            <h4 className="mb-1.5 text-xs font-medium uppercase text-[var(--muted)]">Projekt</h4>
+            <h4 className="mb-1.5 text-xs font-medium uppercase text-[var(--muted)]">{t('meetings.form.project')}</h4>
             <div className="flex items-center gap-2 text-sm text-primary">
               <FolderOpen className="h-4 w-4" />
               {meeting.project}
@@ -408,28 +411,28 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
       <div>
         <h4 className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
           <Calendar className="mr-1 inline h-3.5 w-3.5" />
-          Kalender
+          {t('meetings.detail.calendar')}
         </h4>
         {meeting.calendarEventId ? (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
               <Check className="h-4 w-4 text-success shrink-0" />
-              <span className="text-success font-medium">Im Kalender eingetragen</span>
+              <span className="text-success font-medium">{t('meetings.detail.inCalendar')}</span>
             </div>
             <button className="flex items-center gap-1.5 text-xs text-primary hover:underline transition-colors">
               <ExternalLink className="h-3 w-3" />
-              Im Kalender öffnen
+              {t('meetings.detail.openInCalendar')}
             </button>
           </div>
         ) : (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Calendar className="h-4 w-4 shrink-0" />
-              <span>Nicht im Kalender</span>
+              <span>{t('meetings.detail.notInCalendar')}</span>
             </div>
             <Button variant="outline" size="sm" onClick={handleAddToCalendar} className="w-full">
               <Calendar className="mr-1.5 h-4 w-4" />
-              Zum Kalender hinzufügen
+              {t('meetings.detail.addToCalendar')}
             </Button>
           </div>
         )}
@@ -441,13 +444,13 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
       <div>
         <h4 className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
           <Mail className="mr-1 inline h-3.5 w-3.5" />
-          Einladungen
+          {t('meetings.invitations.title')}
         </h4>
         {meeting.invitationsSent ? (
           <div className="space-y-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-success-light px-2.5 py-1 text-xs font-medium text-success">
               <Check className="h-3 w-3" />
-              Einladungen versendet
+              {t('meetings.invitations.sent')}
             </span>
             <div className="space-y-1.5 mt-2">
               {(meeting.participants ?? []).map((p) => (
@@ -460,7 +463,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
                   </div>
                   <span className="inline-flex items-center gap-1 text-[10px] text-success">
                     <Check className="h-2.5 w-2.5" />
-                    Gesendet
+                    {t('meetings.invitations.sentStatus')}
                   </span>
                 </div>
               ))}
@@ -470,7 +473,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
           <div className="space-y-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-light px-2.5 py-1 text-xs font-medium text-warning-foreground">
               <Mail className="h-3 w-3" />
-              Einladungen ausstehend
+              {t('meetings.invitations.pending')}
             </span>
             <div className="space-y-1.5 mt-2">
               {(meeting.participants ?? []).map((p) => (
@@ -481,13 +484,13 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
                     </span>
                     <span className="text-xs text-[var(--body)]">{p.name}</span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">Ausstehend</span>
+                  <span className="text-[10px] text-muted-foreground">{t('meetings.invitations.pendingStatus')}</span>
                 </div>
               ))}
             </div>
             <Button variant="outline" size="sm" onClick={handleSendInvitations} className="w-full mt-1">
               <Send className="mr-1.5 h-4 w-4" />
-              Einladungen senden
+              {t('meetings.invitations.send')}
             </Button>
           </div>
         )}
@@ -499,7 +502,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
       <div>
         <h4 className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
           <Users className="mr-1 inline h-3.5 w-3.5" />
-          Teilnehmer ({(meeting.participants?.length ?? 0)})
+          {t('meetings.form.participants')} ({(meeting.participants?.length ?? 0)})
         </h4>
         <div className="space-y-1.5">
           {(meeting.participants ?? []).map((p) => (
@@ -511,7 +514,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
               {p.id === meeting.organizerId && (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-warning-light px-1.5 py-0.5 text-[10px] font-medium text-warning-foreground">
                   <Crown className="h-2.5 w-2.5" />
-                  Organisator
+                  {t('meetings.detail.organizer')}
                 </span>
               )}
             </div>
@@ -525,7 +528,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
           <Separator />
           <div>
             <h4 className="mb-1.5 text-xs font-medium uppercase text-[var(--muted)]">
-              Beschreibung
+              {t('meetings.form.description')}
             </h4>
             <p className="text-sm text-[var(--body)] whitespace-pre-wrap">
               {meeting.description}
@@ -541,7 +544,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
           <div>
             <h4 className="mb-2 text-xs font-medium uppercase text-[var(--muted)]">
               <FileText className="mr-1 inline h-3.5 w-3.5" />
-              Dateien ({meeting.files.length})
+              {t('meetings.form.files')} ({meeting.files.length})
             </h4>
             <div className="space-y-1.5">
               {meeting.files.map((f) => (
@@ -567,7 +570,7 @@ function DetailsTab({ meeting, onUpdateMeeting }: { meeting: Meeting; onUpdateMe
         </h4>
         <Button variant="outline" size="sm" className="w-full">
           <Presentation className="mr-1.5 h-4 w-4" />
-          Whiteboard starten
+          {t('meetings.detail.startWhiteboard')}
         </Button>
       </div>
     </div>
@@ -597,6 +600,7 @@ function AgendaTab({
   onRemove,
   onReorder,
 }: AgendaTabProps) {
+  const { t } = useTranslation()
   const doneCount = (meeting.agenda ?? []).filter((a) => a.done).length
   const total = (meeting.agenda?.length ?? 0)
   const progress = total > 0 ? (doneCount / total) * 100 : 0
@@ -607,9 +611,9 @@ function AgendaTab({
       {total > 0 && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-[var(--muted)]">Fortschritt</span>
+            <span className="text-xs text-[var(--muted)]">{t('meetings.agenda.progress')}</span>
             <span className="text-xs font-medium text-[var(--body)]">
-              {doneCount}/{total} Punkte erledigt
+              {t('meetings.agenda.itemsDone', { done: doneCount, total })}
             </span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
@@ -652,7 +656,7 @@ function AgendaTab({
                 <button
                   onClick={() => onReorder(item.id, 'up')}
                   className="rounded p-0.5 text-[var(--muted)] hover:text-[var(--body)] transition-colors"
-                  title="Nach oben"
+                  title={t('meetings.agenda.moveUp')}
                 >
                   <ChevronUp className="h-3.5 w-3.5" />
                 </button>
@@ -661,7 +665,7 @@ function AgendaTab({
                 <button
                   onClick={() => onReorder(item.id, 'down')}
                   className="rounded p-0.5 text-[var(--muted)] hover:text-[var(--body)] transition-colors"
-                  title="Nach unten"
+                  title={t('meetings.agenda.moveDown')}
                 >
                   <ChevronDown className="h-3.5 w-3.5" />
                 </button>
@@ -669,7 +673,7 @@ function AgendaTab({
               <button
                 onClick={() => onRemove(item.id)}
                 className="rounded p-0.5 text-[var(--muted)] hover:text-destructive transition-colors"
-                title="Entfernen"
+                title={t('meetings.agenda.remove')}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -685,7 +689,7 @@ function AgendaTab({
           value={newText}
           onChange={(e) => onNewTextChange(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && onAdd()}
-          placeholder="Neuen Punkt hinzufügen..."
+          placeholder={t('meetings.agenda.addPlaceholder')}
           className="flex-1 rounded-md border border-border bg-transparent px-3 py-1.5 text-sm text-[var(--body)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <Button
@@ -704,10 +708,10 @@ function AgendaTab({
         <div className="py-8 text-center">
           <ListChecks className="mx-auto h-8 w-8 text-[var(--muted)] mb-2" />
           <p className="text-sm text-[var(--muted)]">
-            Noch keine Agenda-Punkte
+            {t('meetings.agenda.empty')}
           </p>
           <p className="text-xs text-[var(--muted)] mt-1">
-            Fuege Punkte über das Eingabefeld hinzu
+            {t('meetings.agenda.emptyHint')}
           </p>
         </div>
       )}
@@ -728,24 +732,25 @@ function NotesTab({
   onChange: (value: string) => void
   isPast: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="h-full space-y-3">
       <div className="flex items-center gap-2">
         <FileText className="h-4 w-4 text-[var(--muted)]" />
-        <h4 className="text-sm font-medium text-[var(--body)]">Protokoll / Notizen</h4>
+        <h4 className="text-sm font-medium text-[var(--body)]">{t('meetings.notes.title')}</h4>
       </div>
       <RichTextEditor
         content={value}
         onChange={onChange}
-        placeholder="Meeting-Notizen hier erfassen..."
+        placeholder={t('meetings.notes.placeholder')}
         editable={!isPast}
       />
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-[var(--muted)]">
-          {isPast ? 'Nur-Lese-Ansicht (vergangenes Meeting)' : 'Änderungen werden automatisch gespeichert'}
+          {isPast ? t('meetings.notes.readOnly') : t('meetings.notes.autoSave')}
         </p>
         <p className="text-[10px] text-[var(--muted)]">
-          Zuletzt bearbeitet: {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          {t('meetings.notes.lastEdited')}: {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
     </div>
