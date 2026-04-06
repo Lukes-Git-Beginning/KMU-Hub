@@ -5,7 +5,7 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 
 ## Aktueller Stand (2026-04-06)
 
-### Committed (8 Commits auf main):
+### Committed (13 Commits auf main):
 - `1b7ee22` — i18next Infrastruktur + react-intl entfernt (20 Dateien)
 - `cf825a7` — Dashboard, CRM instrumentiert (78 Dateien)
 - `10cffa5` — Work, Profil, Settings, Kommunikation, Finanzen, Team (107 Dateien)
@@ -17,6 +17,8 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 - `99a97bd` — Dokumente complete (163 Keys) + Admin (270 Keys)
 - `fafc4a8` — Meetings (201 Keys) + Mails (115 Keys)
 - `99b36e0` — Helpdesk (120), Buchhaltung (158), Kalender (33), Rapporte (130), Notifications (30)
+- `44aa791` — i18n Loader mit allen Modul-Additions aktualisiert
+- `50c1b15` — Component-Verzeichnisse instrumentiert (412 Keys, 9 JSONs)
 
 ### Modul-Status Phase 3
 
@@ -45,13 +47,12 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 | ✅ | kalender | kalender.json | 33 |
 | ✅ | rapporte | rapporte.json | 130 |
 | ✅ | notifications | notifications.json | 30 |
-| ❌ | Components | — | ~85 Dateien offen |
+| ✅ | Components | 9 JSONs | 412 |
 
 ### i18n.ts Loader
-Importiert: crm, dashboard, finanzen, kommunikation, profil, settings, team, work (8/8).
-Noch NICHT importiert: kontakte, kontakte-2, chat, wiki, automatisierung, dokumente, admin, meetings, mails, helpdesk, buchhaltung, kalender, rapporte, notifications (14 JSONs).
+Alle 31 additions-JSONs (22 Module + 9 Components) importiert und in mergedDE gemergt.
 
-### Additions-Keys gesamt: ~3.600+
+### Additions-Keys gesamt: ~4.000+
 
 ---
 
@@ -59,84 +60,24 @@ Noch NICHT importiert: kontakte, kontakte-2, chat, wiki, automatisierung, dokume
 
 ## ~~Schritt 2: Verbleibende Module (13 Module)~~ ✅ ERLEDIGT
 
-Alle 13 Module vollständig instrumentiert in Session vom 2026-04-06:
-- Batch A (vorherige Session): kontakte (partial), chat (partial)
-- Batch B: chat complete, wiki
-- Batch C: automatisierung, dokumente (partial)
-- Batch D: dokumente complete, admin
-- Batch E: meetings, mails
-- Batch F: helpdesk, buchhaltung, kalender, rapporte, notifications
+## ~~Schritt 2.5: Loader Update~~ ✅ ERLEDIGT (Commit `44aa791`)
+
+## ~~Schritt 3: Component-Verzeichnisse~~ ✅ ERLEDIGT (Commit `50c1b15`)
+
+9 Agents in 3 Batches (je 3 parallel), 46 Dateien instrumentiert, 412 Keys in 9 JSONs:
+- `components-layout-core.json` (13 Keys) — ModuleShell, OfflineBanner, Sidebar*
+- `components-layout-nav.json` (35 Keys) — nav-items, DockLayout, TopNav*
+- `components-header-widgets.json` (30 Keys) — ClockIn, ConnectionStatus, header-widgets/*
+- `components-header-menus.json` (35 Keys) — ProfileMenu, ProfileSwitcher, LanguageSwitcher, SearchBar
+- `components-header-time.json` (62 Keys) — DailyPlanner, HeaderClock, TimeTracker
+- `components-shared-search-editor.json` (45 Keys) — GlobalSearch/*, RichTextEditor/*
+- `components-shared-misc.json` (43 Keys) — ConfirmDialog, DetailPanel, PasswordExpiry, Tour, Layout/PaletteSwitcher
+- `components-widgets.json` (75 Keys) — WidgetWrapper, HelpWidget, WidgetContainer, WidgetRegistry
+- `components-chat-desk-onboarding.json` (74 Keys) — Chat/*, Desk/*, OnboardingWizard, dev/ProfileSwitcher
 
 ---
 
-## Schritt 2.5: Loader Update ← NÄCHSTER SCHRITT
-
-1. Alle 14 fehlenden additions/*.json in i18n.ts importieren
-2. `npx tsc --noEmit` — muss sauber sein
-3. Commit: `feat(i18n): update i18n loader with all module additions`
-
----
-
-## Schritt 3: Component-Verzeichnisse (~85 Dateien, skip illustrations)
-
-Basispfad: `desktop/src/renderer/src/components/`
-
-### Batch G (3 parallel)
-
-**Agent: layout-1** (7 Dateien)
-- AppShell.tsx, BackgroundPattern.tsx, classic/ClassicLayout.tsx, classic/ClassicSidebar.tsx, DeskEnvironment.tsx, DeskFrame.tsx, Header.tsx
-- Prefix: `layout.` → Erstelle additions/layout.json
-
-**Agent: layout-2** (7 Dateien)
-- ModuleShell.tsx, OfflineBanner.tsx, PageTransitionOutlet.tsx, sidebar/Sidebar.tsx, sidebar/SidebarBadge.tsx, sidebar/SidebarBranding.tsx, sidebar/SidebarModulePanel.tsx
-- Prefix: `layout.` → ERWEITERE additions/layout.json
-
-**Agent: layout-3** (8 Dateien)
-- sidebar/SidebarNav.tsx, sidebar/SidebarUser.tsx, sidebar/nav-items.ts, dock/DockBar.tsx, dock/DockLayout.tsx, topnav/ModuleOverviewPanel.tsx, topnav/TopNavBar.tsx, topnav/TopNavLayout.tsx
-- Prefix: `layout.` → ERWEITERE additions/layout.json
-
-### Batch H (3 parallel)
-
-**Agent: shared-1** (7 Dateien)
-- ConfirmDialog.tsx, DetailPanel.tsx, EmptyState.tsx, FormField.tsx, ItemActions.tsx, PageHeader.tsx, StatCard.tsx
-- Prefix: `shared.` → Erstelle additions/shared.json
-
-**Agent: shared-2** (9 Dateien)
-- LayoutSwitcher.tsx, LoadingSpinner.tsx, PaletteSwitcher.tsx, PasswordExpiryDialog.tsx, TourOverlay.tsx, AnimatedCheckmark.tsx, AnimatedList.tsx, ConfettiBurst.tsx, TextReveal.tsx
-- Prefix: `shared.` → ERWEITERE additions/shared.json
-- HINWEIS: Viele haben wahrscheinlich KEINE deutschen Strings — nur instrumentieren wenn nötig
-
-**Agent: shared-3** (6 Dateien)
-- GlobalSearch/GlobalSearchDialog.tsx, GlobalSearch/QuickActions.tsx, GlobalSearch/RecentSearches.tsx, GlobalSearch/SearchInput.tsx, GlobalSearch/SearchResultGroup.tsx, GlobalSearch/SearchResultItem.tsx
-- Prefix: `shared.globalSearch.` → ERWEITERE additions/shared.json
-
-### Batch I (3 parallel)
-
-**Agent: shared-4** (5 Dateien)
-- RichTextEditor/RichTextEditor.tsx, RichTextEditor/EditorBubbleMenu.tsx, RichTextEditor/EditorFooter.tsx, RichTextEditor/EditorToolbar.tsx, RichTextEditor/ToolbarButton.tsx
-- Prefix: `shared.editor.` → ERWEITERE additions/shared.json
-
-**Agent: header-1** (7 Dateien)
-- ClockInButton.tsx, ConnectionStatusIndicator.tsx, DailyPlannerWidget.tsx, HeaderClock.tsx, LanguageSwitcher.tsx, ProfileMenu.tsx, ProfileSwitcher.tsx
-- Prefix: `header.` → Erstelle additions/header.json
-
-**Agent: header-2** (8 Dateien)
-- SearchBar.tsx, TimeTrackerWidget.tsx, HeaderWidgetSlots.tsx, header-widgets/NextMeetingWidget.tsx, header-widgets/PomodoroWidget.tsx, header-widgets/QuickNoteWidget.tsx, header-widgets/UnreadCountWidget.tsx, header-widgets/WeatherWidget.tsx
-- Prefix: `header.` → ERWEITERE additions/header.json
-
-### Batch J (1 Agent)
-
-**Agent: components-misc** (~16 Dateien)
-- settings/BexioFieldMappingEditor.tsx, settings/BexioIntegrationCard.tsx, settings/BexioSetupWizard.tsx, settings/BexioSyncDashboard.tsx
-- widgets/HelpWidget.tsx, widgets/WidgetContainer.tsx, widgets/WidgetRegistry.tsx, widgets/WidgetWrapper.tsx
-- desk/decorations/DeskCalendar.tsx, desk/decorations/DeskClock.tsx, desk/DeskDecorations.tsx
-- chat/ChannelMemberList.tsx, chat/ReactionBar.tsx, chat/ReactionPicker.tsx
-- onboarding/OnboardingWizard.tsx, dev/ProfileSwitcher.tsx
-- Prefixes: je nach Verzeichnis → Erstelle additions/components-misc.json
-
----
-
-## Schritt 4: Merge & Loader (1 Session-Task, kein Agent)
+## Schritt 4: Merge & Loader (1 Session-Task, kein Agent) ← NÄCHSTER SCHRITT
 
 1. Alle additions/*.json Keys in de.json mergen
 2. i18n.ts Loader: ALLE additions importieren
@@ -216,12 +157,12 @@ status, actions, required, optional, ok, copy, copied, resetFilters
 |-------|--------|---------|--------|
 | ~~Schritt 1B: JSON-Extraktion~~ | ~~4~~ | ~~scan only~~ | ✅ DONE |
 | ~~Schritt 2: Module Batch A-F~~ | ~18 | ~86 | ✅ DONE |
-| Schritt 2.5: Loader Update | 1 (manuell) | 1 | TODO |
-| Schritt 3: Components Batch G-J | ~10 | ~85 | TODO |
+| ~~Schritt 2.5: Loader Update~~ | 1 | 1 | ✅ DONE |
+| ~~Schritt 3: Components Batch G-J~~ | 9 | 46 | ✅ DONE (412 Keys) |
 | Schritt 4: Merge & Loader | 1 (manuell) | — | TODO |
 | Schritt 5: Übersetzungen | 1-3 | 3 JSON | TODO |
 | Schritt 6: Cleanup | 1 (manuell) | — | TODO |
-| **Total verbleibend** | **~12 Agents** | **~85 Dateien** | |
+| **Total verbleibend** | **~3** | **~3 Dateien** | |
 
 ## Lesson Learned
 - Agents verbrauchen bis zu 250k Tokens bei >10 Dateien. Max 5-7 Dateien pro Agent!
