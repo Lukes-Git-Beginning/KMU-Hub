@@ -4,6 +4,7 @@
  * Shows hook type, module, entity, duration, status, and error messages.
  * Used both standalone (in Logs tab) and inside PluginDetailDialog.
  */
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -21,24 +22,24 @@ interface ExecutionLogViewerProps {
   limit?: number
 }
 
-function statusBadge(status: string) {
+function statusBadge(status: string, t: (key: string) => string) {
   switch (status) {
     case 'success':
       return (
         <Badge className="bg-success/15 text-success border-success/30 hover:bg-success/15">
-          Erfolg
+          {t('admin.plugins.logs.statusSuccess')}
         </Badge>
       )
     case 'error':
       return (
         <Badge className="bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/15">
-          Fehler
+          {t('admin.plugins.logs.statusError')}
         </Badge>
       )
     case 'skipped':
       return (
         <Badge className="bg-warning/15 text-warning-foreground border-warning/30 hover:bg-warning/15">
-          Übersprungen
+          {t('admin.plugins.logs.statusSkipped')}
         </Badge>
       )
     default:
@@ -50,6 +51,7 @@ export function ExecutionLogViewer({
   installationId,
   limit = 50,
 }: ExecutionLogViewerProps) {
+  const { t } = useTranslation()
   const { data: logs, isLoading } = useExecutionLogs(installationId, limit)
 
   if (isLoading) {
@@ -63,7 +65,7 @@ export function ExecutionLogViewer({
   if (!logs || logs.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-4">
-        Keine Ausführungsprotokolle vorhanden.
+        {t('admin.plugins.logs.empty')}
       </p>
     )
   }
@@ -73,12 +75,12 @@ export function ExecutionLogViewer({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Hook-Typ</TableHead>
-            <TableHead>Modul</TableHead>
-            <TableHead>Entitaet</TableHead>
-            <TableHead className="text-right">Dauer</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Zeitpunkt</TableHead>
+            <TableHead>{t('admin.plugins.logs.hookType')}</TableHead>
+            <TableHead>{t('admin.plugins.logs.module')}</TableHead>
+            <TableHead>{t('admin.plugins.logs.entity')}</TableHead>
+            <TableHead className="text-right">{t('admin.plugins.logs.duration')}</TableHead>
+            <TableHead>{t('common.status')}</TableHead>
+            <TableHead>{t('admin.plugins.logs.timestamp')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -95,7 +97,7 @@ export function ExecutionLogViewer({
               <TableCell className="text-right text-sm tabular-nums">
                 {log.duration_ms}ms
               </TableCell>
-              <TableCell>{statusBadge(log.status)}</TableCell>
+              <TableCell>{statusBadge(log.status, t)}</TableCell>
               <TableCell className="text-sm text-muted-foreground">
                 {new Date(log.created_at).toLocaleString('de-DE')}
               </TableCell>

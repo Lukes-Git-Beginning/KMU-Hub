@@ -4,6 +4,7 @@
  * Connected to useUpdateFile / useUpdateFolder mutations.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ export function RenameDialog({
   currentName,
   itemType,
 }: RenameDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const updateFile = useUpdateFile()
   const updateFolder = useUpdateFolder()
@@ -51,11 +53,11 @@ export function RenameDialog({
         { id: targetId, filename: name.trim() },
         {
           onSuccess: () => {
-            toast.success('Datei umbenannt')
+            toast.success(t('dokumente.rename.fileRenamed'))
             onOpenChange(false)
           },
           onError: (err) => {
-            toast.error(`Fehler: ${err.message}`)
+            toast.error(`${t('common.error')}: ${err.message}`)
           },
         },
       )
@@ -64,11 +66,11 @@ export function RenameDialog({
         { id: targetId, name: name.trim() },
         {
           onSuccess: () => {
-            toast.success('Ordner umbenannt')
+            toast.success(t('dokumente.rename.folderRenamed'))
             onOpenChange(false)
           },
           onError: (err) => {
-            toast.error(`Fehler: ${err.message}`)
+            toast.error(`${t('common.error')}: ${err.message}`)
           },
         },
       )
@@ -80,11 +82,11 @@ export function RenameDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>
-            {itemType === 'file' ? 'Datei' : 'Ordner'} umbenennen
+            {itemType === 'file' ? t('dokumente.rename.fileTitle') : t('dokumente.rename.folderTitle')}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-1.5 py-2">
-          <Label>Neuer Name</Label>
+          <Label>{t('dokumente.rename.newName')}</Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -94,7 +96,7 @@ export function RenameDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -102,7 +104,7 @@ export function RenameDialog({
               !name.trim() || name.trim() === currentName || isPending
             }
           >
-            {isPending ? 'Speichere...' : 'Umbenennen'}
+            {isPending ? t('dokumente.rename.saving') : t('dokumente.rename.rename')}
           </Button>
         </DialogFooter>
       </DialogContent>

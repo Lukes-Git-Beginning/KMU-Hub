@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { useTranslation } from 'react-i18next'
 import {
   Power,
   PowerOff,
@@ -39,35 +40,35 @@ interface PluginDetailDialogProps {
   onOpenPermissions: (installation: PluginInstallation) => void
 }
 
-function statusBadge(status: InstallationStatus) {
+function statusBadge(status: InstallationStatus, t: (key: string) => string) {
   switch (status) {
     case 'active':
       return (
         <Badge className="bg-green-500/15 text-green-700 border-green-500/30 hover:bg-green-500/15">
-          Aktiv
+          {t('admin.plugins.status.active')}
         </Badge>
       )
     case 'disabled':
       return (
         <Badge className="bg-gray-500/15 text-gray-700 border-gray-500/30 hover:bg-gray-500/15">
-          Deaktiviert
+          {t('admin.plugins.status.disabled')}
         </Badge>
       )
     case 'pending_approval':
       return (
         <Badge className="bg-yellow-500/15 text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/15">
-          Genehmigung ausstehend
+          {t('admin.plugins.status.pendingApproval')}
         </Badge>
       )
     case 'error':
       return (
         <Badge className="bg-red-500/15 text-red-700 border-red-500/30 hover:bg-red-500/15">
-          Fehler
+          {t('common.error')}
         </Badge>
       )
     case 'uninstalled':
       return (
-        <Badge variant="outline">Deinstalliert</Badge>
+        <Badge variant="outline">{t('admin.plugins.status.uninstalled')}</Badge>
       )
     default:
       return <Badge variant="outline">{status}</Badge>
@@ -80,6 +81,7 @@ export function PluginDetailDialog({
   installation,
   onOpenPermissions,
 }: PluginDetailDialogProps) {
+  const { t } = useTranslation()
   const enablePlugin = useEnablePlugin()
   const disablePlugin = useDisablePlugin()
   const uninstallPlugin = useUninstallPlugin()
@@ -121,15 +123,15 @@ export function PluginDetailDialog({
             </span>
           </DialogTitle>
           <DialogDescription>
-            {installation.plugin_type === 'wasm' ? 'WASM-Plugin' : 'Config-Plugin'}{' '}
-            &middot; Installiert am{' '}
+            {installation.plugin_type === 'wasm' ? t('admin.plugins.type.wasm') : t('admin.plugins.type.config')}{' '}
+            &middot; {t('admin.plugins.installedAt')}{' '}
             {new Date(installation.created_at).toLocaleDateString('de-DE')}
           </DialogDescription>
         </DialogHeader>
 
         {/* Status and actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          {statusBadge(installation.status)}
+          {statusBadge(installation.status, t)}
 
           {installation.status === 'pending_approval' && (
             <Button
@@ -138,7 +140,7 @@ export function PluginDetailDialog({
               onClick={() => onOpenPermissions(installation)}
             >
               <Shield className="h-3.5 w-3.5 mr-1.5" />
-              Berechtigungen prüfen
+              {t('admin.plugins.checkPermissions')}
             </Button>
           )}
 
@@ -154,7 +156,7 @@ export function PluginDetailDialog({
               ) : (
                 <Power className="h-3.5 w-3.5 mr-1.5" />
               )}
-              Aktivieren
+              {t('admin.plugins.enable')}
             </Button>
           )}
 
@@ -170,7 +172,7 @@ export function PluginDetailDialog({
               ) : (
                 <PowerOff className="h-3.5 w-3.5 mr-1.5" />
               )}
-              Deaktivieren
+              {t('admin.plugins.disable')}
             </Button>
           )}
 
@@ -186,7 +188,7 @@ export function PluginDetailDialog({
             ) : (
               <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             )}
-            Deinstallieren
+            {t('admin.plugins.uninstall')}
           </Button>
         </div>
 
@@ -203,11 +205,11 @@ export function PluginDetailDialog({
 
         {/* Settings */}
         <section>
-          <h3 className="text-sm font-medium mb-3">Einstellungen</h3>
+          <h3 className="text-sm font-medium mb-3">{t('admin.plugins.settings')}</h3>
           {settingsLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Einstellungen laden...
+              {t('admin.plugins.loadingSettings')}
             </div>
           ) : (
             <PluginSettingsEditor
@@ -223,7 +225,7 @@ export function PluginDetailDialog({
 
         {/* Permissions */}
         <section>
-          <h3 className="text-sm font-medium mb-2">Berechtigungen</h3>
+          <h3 className="text-sm font-medium mb-2">{t('admin.plugins.permissions')}</h3>
           <div className="flex flex-wrap gap-1.5">
             {(installation.granted_permissions ?? []).map((p) => (
               <Badge
@@ -243,12 +245,12 @@ export function PluginDetailDialog({
                   key={p}
                   className="text-xs font-mono bg-yellow-500/15 text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/15"
                 >
-                  {p} (ausstehend)
+                  {p} ({t('admin.plugins.pending')})
                 </Badge>
               ))}
             {(installation.required_permissions ?? []).length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Keine Berechtigungen erforderlich.
+                {t('admin.plugins.noPermissionsRequired')}
               </p>
             )}
           </div>
@@ -259,7 +261,7 @@ export function PluginDetailDialog({
         {/* Recent execution logs */}
         <section>
           <h3 className="text-sm font-medium mb-3">
-            Letzte Ausführungen
+            {t('admin.plugins.recentExecutions')}
           </h3>
           <ExecutionLogViewer installationId={installation.id} limit={10} />
         </section>

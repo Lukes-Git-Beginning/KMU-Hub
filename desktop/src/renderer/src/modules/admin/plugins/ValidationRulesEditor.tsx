@@ -5,6 +5,7 @@
  * and delete action. Supports filtering by installation.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -54,6 +55,7 @@ const EMPTY_FORM: CreateValidationRuleRequest = {
 export function ValidationRulesEditor({
   installationId,
 }: ValidationRulesEditorProps) {
+  const { t } = useTranslation()
   const { data: rules, isLoading } = useValidationRules(installationId)
   const createRule = useCreateValidationRule()
   const updateRule = useUpdateValidationRule()
@@ -133,11 +135,11 @@ export function ValidationRulesEditor({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {rules?.length ?? 0} Validierungsregel{(rules?.length ?? 0) !== 1 ? 'n' : ''}
+          {t('admin.validation.ruleCount', { count: rules?.length ?? 0 })}
         </p>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Neue Regel
+          {t('admin.validation.newRule')}
         </Button>
       </div>
 
@@ -146,12 +148,12 @@ export function ValidationRulesEditor({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Entitaet</TableHead>
-                <TableHead>Feld</TableHead>
-                <TableHead>Typ</TableHead>
-                <TableHead className="text-center">Aktiv</TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
+                <TableHead>{t('admin.validation.name')}</TableHead>
+                <TableHead>{t('admin.validation.entity')}</TableHead>
+                <TableHead>{t('admin.validation.field')}</TableHead>
+                <TableHead>{t('admin.validation.type')}</TableHead>
+                <TableHead className="text-center">{t('admin.validation.active')}</TableHead>
+                <TableHead className="text-right">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -213,7 +215,7 @@ export function ValidationRulesEditor({
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Keine Validierungsregeln vorhanden.
+          {t('admin.validation.noRules')}
         </p>
       )}
 
@@ -223,25 +225,25 @@ export function ValidationRulesEditor({
           <DialogHeader>
             <DialogTitle>
               {editingRule
-                ? 'Validierungsregel bearbeiten'
-                : 'Neue Validierungsregel'}
+                ? t('admin.validation.editRule')
+                : t('admin.validation.newRuleTitle')}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-sm">Name</Label>
+              <Label className="text-sm">{t('admin.validation.name')}</Label>
               <Input
                 value={form.name}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, name: e.target.value }))
                 }
-                placeholder="z.B. E-Mail Pflichtfeld"
+                placeholder={t('admin.validation.namePlaceholder')}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm">Beschreibung</Label>
+              <Label className="text-sm">{t('admin.validation.description')}</Label>
               <Input
                 value={form.description}
                 onChange={(e) =>
@@ -252,7 +254,7 @@ export function ValidationRulesEditor({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-sm">Entitaetstyp</Label>
+                <Label className="text-sm">{t('admin.validation.entityType')}</Label>
                 <select
                   className="w-full text-sm rounded-md border border-border bg-background px-3 py-2"
                   value={form.entity_type}
@@ -260,28 +262,28 @@ export function ValidationRulesEditor({
                     setForm((f) => ({ ...f, entity_type: e.target.value }))
                   }
                 >
-                  <option value="contact">Kontakt</option>
+                  <option value="contact">{t('admin.validation.entityTypes.contact')}</option>
                   <option value="deal">Deal</option>
-                  <option value="invoice">Rechnung</option>
-                  <option value="quote">Offerte</option>
+                  <option value="invoice">{t('admin.validation.entityTypes.invoice')}</option>
+                  <option value="quote">{t('admin.validation.entityTypes.quote')}</option>
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-sm">Feldname</Label>
+                <Label className="text-sm">{t('admin.validation.fieldName')}</Label>
                 <Input
                   value={form.field_name}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, field_name: e.target.value }))
                   }
-                  placeholder="z.B. email"
+                  placeholder={t('admin.validation.fieldNamePlaceholder')}
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-sm">Regeltyp</Label>
+                <Label className="text-sm">{t('admin.validation.ruleType')}</Label>
                 <select
                   className="w-full text-sm rounded-md border border-border bg-background px-3 py-2"
                   value={form.rule_type}
@@ -289,17 +291,17 @@ export function ValidationRulesEditor({
                     setForm((f) => ({ ...f, rule_type: e.target.value }))
                   }
                 >
-                  <option value="required">Pflichtfeld</option>
+                  <option value="required">{t('admin.validation.ruleTypes.required')}</option>
                   <option value="regex">Regex</option>
-                  <option value="min_length">Mindestlaenge</option>
-                  <option value="max_length">Maximallaenge</option>
-                  <option value="range">Wertebereich</option>
-                  <option value="custom">Benutzerdefiniert</option>
+                  <option value="min_length">{t('admin.validation.ruleTypes.minLength')}</option>
+                  <option value="max_length">{t('admin.validation.ruleTypes.maxLength')}</option>
+                  <option value="range">{t('admin.validation.ruleTypes.range')}</option>
+                  <option value="custom">{t('admin.validation.ruleTypes.custom')}</option>
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-sm">Prioritaet</Label>
+                <Label className="text-sm">{t('admin.validation.priority')}</Label>
                 <Input
                   type="number"
                   value={form.priority}
@@ -314,18 +316,18 @@ export function ValidationRulesEditor({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm">Fehlermeldung</Label>
+              <Label className="text-sm">{t('admin.validation.errorMessage')}</Label>
               <Input
                 value={form.error_message}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, error_message: e.target.value }))
                 }
-                placeholder="z.B. E-Mail ist ein Pflichtfeld"
+                placeholder={t('admin.validation.errorMessagePlaceholder')}
               />
             </div>
 
             <div className="flex items-center justify-between rounded-md border border-border p-3">
-              <Label className="text-sm">Aktiv</Label>
+              <Label className="text-sm">{t('admin.validation.active')}</Label>
               <Switch
                 checked={form.enabled}
                 onCheckedChange={(v) =>
@@ -341,7 +343,7 @@ export function ValidationRulesEditor({
               size="sm"
               onClick={() => setEditDialogOpen(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button
               size="sm"
@@ -351,7 +353,7 @@ export function ValidationRulesEditor({
               {isSaving && (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               )}
-              {editingRule ? 'Speichern' : 'Erstellen'}
+              {editingRule ? t('common.save') : t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -6,6 +6,7 @@
  * adding/removing share recipients.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ export function ShareDialog({
   entityId,
   entityName,
 }: ShareDialogProps) {
+  const { t } = useTranslation()
   const { data: sharesData, isLoading } = useShares(entityType, entityId)
   const shareEntity = useShareEntity()
   const unshareEntity = useUnshareEntity()
@@ -68,11 +70,11 @@ export function ShareDialog({
       },
       {
         onSuccess: () => {
-          toast.success('Freigabe hinzugefügt')
+          toast.success(t('dokumente.share.added'))
           setSearchUserId('')
         },
         onError: (err) => {
-          toast.error(`Fehler: ${err.message}`)
+          toast.error(`${t('common.error')}: ${err.message}`)
         },
       },
     )
@@ -81,16 +83,16 @@ export function ShareDialog({
   const handleRemoveShare = (shareId: string) => {
     unshareEntity.mutate(shareId, {
       onSuccess: () => {
-        toast.success('Freigabe entfernt')
+        toast.success(t('dokumente.share.removed'))
       },
       onError: (err) => {
-        toast.error(`Fehler: ${err.message}`)
+        toast.error(`${t('common.error')}: ${err.message}`)
       },
     })
   }
 
   const copyLink = () => {
-    toast.success('Link kopiert')
+    toast.success(t('dokumente.share.linkCopied'))
   }
 
   return (
@@ -99,7 +101,7 @@ export function ShareDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            {entityType === 'file' ? 'Datei' : 'Ordner'} teilen
+            {entityType === 'file' ? t('dokumente.share.fileTitle') : t('dokumente.share.folderTitle')}
           </DialogTitle>
         </DialogHeader>
 
@@ -108,10 +110,10 @@ export function ShareDialog({
         <div className="space-y-4 py-2">
           {/* Add person */}
           <div className="space-y-1.5">
-            <Label>Person hinzufügen</Label>
+            <Label>{t('dokumente.share.addPerson')}</Label>
             <div className="flex gap-2">
               <Input
-                placeholder="Benutzer-ID eingeben..."
+                placeholder={t('dokumente.share.userIdPlaceholder')}
                 value={searchUserId}
                 onChange={(e) => setSearchUserId(e.target.value)}
                 className="flex-1"
@@ -127,8 +129,8 @@ export function ShareDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="read">Ansehen</SelectItem>
-                  <SelectItem value="write">Bearbeiten</SelectItem>
+                  <SelectItem value="read">{t('dokumente.share.permissionRead')}</SelectItem>
+                  <SelectItem value="write">{t('dokumente.share.permissionWrite')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -142,7 +144,7 @@ export function ShareDialog({
                 {shareEntity.isPending ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : null}
-                Freigeben
+                {t('dokumente.share.share')}
               </Button>
             )}
           </div>
@@ -155,7 +157,7 @@ export function ShareDialog({
           ) : shares.length > 0 ? (
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">
-                Geteilt mit
+                {t('dokumente.share.sharedWith')}
               </Label>
               {shares.map((s) => (
                 <div
@@ -175,7 +177,7 @@ export function ShareDialog({
                         {s.shared_with_user_name}
                       </span>
                       <p className="text-[10px] text-muted-foreground">
-                        von {s.shared_by_name} &middot;{' '}
+                        {t('dokumente.share.by')} {s.shared_by_name} &middot;{' '}
                         {new Date(s.created_at).toLocaleDateString('de-DE')}
                       </p>
                     </div>
@@ -183,8 +185,8 @@ export function ShareDialog({
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">
                       {s.permission === 'write'
-                        ? 'Bearbeiten'
-                        : 'Ansehen'}
+                        ? t('dokumente.share.permissionWrite')
+                        : t('dokumente.share.permissionRead')}
                     </span>
                     <button
                       onClick={() => handleRemoveShare(s.id)}
@@ -202,13 +204,13 @@ export function ShareDialog({
           {/* Copy link */}
           <Button variant="outline" className="w-full" onClick={copyLink}>
             <Link className="mr-1.5 h-4 w-4" />
-            Link kopieren
+            {t('dokumente.share.copyLink')}
           </Button>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Schließen
+            {t('common.close')}
           </Button>
         </DialogFooter>
       </DialogContent>

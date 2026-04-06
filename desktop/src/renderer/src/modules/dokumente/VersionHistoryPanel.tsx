@@ -6,6 +6,7 @@
  * confirmation dialog.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   History,
   Download,
@@ -71,6 +72,7 @@ export function VersionHistoryPanel({
   open,
   onClose,
 }: VersionHistoryPanelProps) {
+  const { t } = useTranslation()
   const { data: versionsData, isLoading } = useFileVersions(fileId)
   const createVersion = useCreateVersion()
   const revertVersion = useRevertVersion()
@@ -87,12 +89,12 @@ export function VersionHistoryPanel({
       { fileId, versionLabel: versionLabel.trim() || undefined },
       {
         onSuccess: () => {
-          toast.success('Version erstellt')
+          toast.success(t('dokumente.version.created'))
           setShowCreateDialog(false)
           setVersionLabel('')
         },
         onError: (err) => {
-          toast.error(`Fehler: ${err.message}`)
+          toast.error(`${t('common.error')}: ${err.message}`)
         },
       },
     )
@@ -104,11 +106,11 @@ export function VersionHistoryPanel({
       { fileId, versionNumber: revertTarget },
       {
         onSuccess: () => {
-          toast.success(`Version ${revertTarget} wiederhergestellt`)
+          toast.success(t('dokumente.version.restored', { version: revertTarget }))
           setRevertTarget(null)
         },
         onError: (err) => {
-          toast.error(`Fehler: ${err.message}`)
+          toast.error(`${t('common.error')}: ${err.message}`)
         },
       },
     )
@@ -119,7 +121,7 @@ export function VersionHistoryPanel({
       <DetailPanel
         open={open}
         onClose={onClose}
-        title="Versionsverlauf"
+        title={t('dokumente.version.title')}
         subtitle={fileName}
         footer={
           <Button
@@ -130,7 +132,7 @@ export function VersionHistoryPanel({
             }}
           >
             <Plus className="mr-1.5 h-4 w-4" />
-            Version erstellen
+            {t('dokumente.version.createVersion')}
           </Button>
         }
       >
@@ -147,7 +149,7 @@ export function VersionHistoryPanel({
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <History className="h-10 w-10 text-muted-foreground mb-3 opacity-40" />
             <p className="text-sm text-muted-foreground">
-              Noch keine Versionen vorhanden
+              {t('dokumente.version.noVersions')}
             </p>
           </div>
         ) : (
@@ -171,10 +173,10 @@ export function VersionHistoryPanel({
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        Version {version.version_number}
+                        {t('dokumente.version.versionNumber', { number: version.version_number })}
                         {idx === 0 && (
                           <span className="ml-1.5 text-xs text-primary">
-                            (Aktuell)
+                            ({t('dokumente.version.current')})
                           </span>
                         )}
                       </p>
@@ -210,11 +212,11 @@ export function VersionHistoryPanel({
                     size="sm"
                     className="h-7 text-xs"
                     onClick={() =>
-                      toast.success('Download wird gestartet...')
+                      toast.success(t('dokumente.version.downloadStarting'))
                     }
                   >
                     <Download className="mr-1 h-3 w-3" />
-                    Herunterladen
+                    {t('common.download')}
                   </Button>
                   {idx > 0 && (
                     <Button
@@ -226,7 +228,7 @@ export function VersionHistoryPanel({
                       }
                     >
                       <RotateCcw className="mr-1 h-3 w-3" />
-                      Wiederherstellen
+                      {t('dokumente.version.restore')}
                     </Button>
                   )}
                 </div>
@@ -240,19 +242,19 @@ export function VersionHistoryPanel({
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Neue Version erstellen</DialogTitle>
+            <DialogTitle>{t('dokumente.version.createNewVersion')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-1.5 py-2">
-            <Label>Versionslabel (optional)</Label>
+            <Label>{t('dokumente.version.labelOptional')}</Label>
             <Input
-              placeholder='z.B. "Final Draft", "v2 for Review"'
+              placeholder={t('dokumente.version.labelPlaceholder')}
               value={versionLabel}
               onChange={(e) => setVersionLabel(e.target.value)}
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleCreateVersion()}
             />
             <p className="text-xs text-muted-foreground">
-              Ein Label hilft, diese Version später wiederzufinden.
+              {t('dokumente.version.labelHint')}
             </p>
           </div>
           <DialogFooter>
@@ -260,13 +262,13 @@ export function VersionHistoryPanel({
               variant="outline"
               onClick={() => setShowCreateDialog(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleCreateVersion}
               disabled={createVersion.isPending}
             >
-              {createVersion.isPending ? 'Erstelle...' : 'Erstellen'}
+              {createVersion.isPending ? t('dokumente.version.creating') : t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -276,9 +278,9 @@ export function VersionHistoryPanel({
       <ConfirmDialog
         open={revertTarget !== null}
         onOpenChange={(open) => !open && setRevertTarget(null)}
-        title="Version wiederherstellen?"
-        description={`Die aktuelle Version wird durch Version ${revertTarget} ersetzt. Die bisherige aktuelle Version bleibt im Verlauf erhalten.`}
-        confirmLabel="Wiederherstellen"
+        title={t('dokumente.version.restoreTitle')}
+        description={t('dokumente.version.restoreDescription', { version: revertTarget })}
+        confirmLabel={t('dokumente.version.restore')}
         variant="default"
         onConfirm={handleRevert}
       />

@@ -5,6 +5,7 @@
  * and delete action. Supports filtering by installation.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,6 +54,7 @@ const EMPTY_FORM: CreateWorkflowRuleRequest = {
 export function WorkflowRulesEditor({
   installationId,
 }: WorkflowRulesEditorProps) {
+  const { t } = useTranslation()
   const { data: rules, isLoading } = useWorkflowRules(installationId)
   const createRule = useCreateWorkflowRule()
   const updateRule = useUpdateWorkflowRule()
@@ -153,11 +155,11 @@ export function WorkflowRulesEditor({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {rules?.length ?? 0} Workflow-Regel{(rules?.length ?? 0) !== 1 ? 'n' : ''}
+          {t('admin.workflows.ruleCount', { count: rules?.length ?? 0 })}
         </p>
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Neue Regel
+          {t('admin.workflows.newRule')}
         </Button>
       </div>
 
@@ -166,11 +168,11 @@ export function WorkflowRulesEditor({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Trigger</TableHead>
-                <TableHead className="text-center">Aktionen</TableHead>
-                <TableHead className="text-center">Aktiv</TableHead>
-                <TableHead className="text-right">Bearbeiten</TableHead>
+                <TableHead>{t('admin.workflows.name')}</TableHead>
+                <TableHead>{t('admin.workflows.trigger')}</TableHead>
+                <TableHead className="text-center">{t('common.actions')}</TableHead>
+                <TableHead className="text-center">{t('admin.workflows.active')}</TableHead>
+                <TableHead className="text-right">{t('common.edit')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -227,7 +229,7 @@ export function WorkflowRulesEditor({
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Keine Workflow-Regeln vorhanden.
+          {t('admin.workflows.noRules')}
         </p>
       )}
 
@@ -237,25 +239,25 @@ export function WorkflowRulesEditor({
           <DialogHeader>
             <DialogTitle>
               {editingRule
-                ? 'Workflow-Regel bearbeiten'
-                : 'Neue Workflow-Regel'}
+                ? t('admin.workflows.editRule')
+                : t('admin.workflows.newRuleTitle')}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-sm">Name</Label>
+              <Label className="text-sm">{t('admin.workflows.name')}</Label>
               <Input
                 value={form.name}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, name: e.target.value }))
                 }
-                placeholder="z.B. Willkommens-E-Mail senden"
+                placeholder={t('admin.workflows.namePlaceholder')}
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm">Beschreibung</Label>
+              <Label className="text-sm">{t('admin.workflows.description')}</Label>
               <Input
                 value={form.description}
                 onChange={(e) =>
@@ -266,7 +268,7 @@ export function WorkflowRulesEditor({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-sm">Trigger-Ereignis</Label>
+                <Label className="text-sm">{t('admin.workflows.triggerEvent')}</Label>
                 <select
                   className="w-full text-sm rounded-md border border-border bg-background px-3 py-2"
                   value={form.trigger_event}
@@ -277,19 +279,19 @@ export function WorkflowRulesEditor({
                     }))
                   }
                 >
-                  <option value="contact.created">Kontakt erstellt</option>
-                  <option value="contact.updated">Kontakt aktualisiert</option>
-                  <option value="deal.created">Deal erstellt</option>
-                  <option value="deal.stage_changed">Deal-Phase geändert</option>
-                  <option value="deal.won">Deal gewonnen</option>
-                  <option value="deal.lost">Deal verloren</option>
-                  <option value="invoice.created">Rechnung erstellt</option>
-                  <option value="invoice.paid">Rechnung bezahlt</option>
+                  <option value="contact.created">{t('admin.workflows.triggers.contactCreated')}</option>
+                  <option value="contact.updated">{t('admin.workflows.triggers.contactUpdated')}</option>
+                  <option value="deal.created">{t('admin.workflows.triggers.dealCreated')}</option>
+                  <option value="deal.stage_changed">{t('admin.workflows.triggers.dealStageChanged')}</option>
+                  <option value="deal.won">{t('admin.workflows.triggers.dealWon')}</option>
+                  <option value="deal.lost">{t('admin.workflows.triggers.dealLost')}</option>
+                  <option value="invoice.created">{t('admin.workflows.triggers.invoiceCreated')}</option>
+                  <option value="invoice.paid">{t('admin.workflows.triggers.invoicePaid')}</option>
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-sm">Prioritaet</Label>
+                <Label className="text-sm">{t('admin.workflows.priority')}</Label>
                 <Input
                   type="number"
                   value={form.priority}
@@ -304,7 +306,7 @@ export function WorkflowRulesEditor({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm">Bedingungen (JSON)</Label>
+              <Label className="text-sm">{t('admin.workflows.conditionsJson')}</Label>
               <Textarea
                 className="font-mono text-xs"
                 rows={3}
@@ -315,7 +317,7 @@ export function WorkflowRulesEditor({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm">Aktionen (JSON Array)</Label>
+              <Label className="text-sm">{t('admin.workflows.actionsJson')}</Label>
               <Textarea
                 className="font-mono text-xs"
                 rows={4}
@@ -326,7 +328,7 @@ export function WorkflowRulesEditor({
             </div>
 
             <div className="flex items-center justify-between rounded-md border border-border p-3">
-              <Label className="text-sm">Aktiv</Label>
+              <Label className="text-sm">{t('admin.workflows.active')}</Label>
               <Switch
                 checked={form.enabled}
                 onCheckedChange={(v) =>
@@ -342,7 +344,7 @@ export function WorkflowRulesEditor({
               size="sm"
               onClick={() => setEditDialogOpen(false)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button
               size="sm"
@@ -352,7 +354,7 @@ export function WorkflowRulesEditor({
               {isSaving && (
                 <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               )}
-              {editingRule ? 'Speichern' : 'Erstellen'}
+              {editingRule ? t('common.save') : t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

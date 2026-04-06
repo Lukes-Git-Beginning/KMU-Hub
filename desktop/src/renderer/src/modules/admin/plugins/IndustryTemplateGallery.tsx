@@ -5,6 +5,7 @@
  * plugins with industry-specific defaults, validation rules, and
  * workflow rules.
  */
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -56,6 +57,7 @@ function templateIcon(icon: string) {
 }
 
 export function IndustryTemplateGallery() {
+  const { t } = useTranslation()
   const { data: templates, isLoading } = useIndustryTemplates()
   const applyTemplate = useApplyTemplate()
 
@@ -79,7 +81,7 @@ export function IndustryTemplateGallery() {
   if (!templates || templates.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-4">
-        Keine Branchenvorlagen verfügbar.
+        {t('admin.plugins.templates.empty')}
       </p>
     )
   }
@@ -111,17 +113,17 @@ export function IndustryTemplateGallery() {
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {template.custom_fields.length > 0 && (
                   <Badge variant="outline" className="text-xs">
-                    {template.custom_fields.length} Felder
+                    {template.custom_fields.length} {t('admin.plugins.templates.fields')}
                   </Badge>
                 )}
                 {template.validation_rules.length > 0 && (
                   <Badge variant="outline" className="text-xs">
-                    {template.validation_rules.length} Validierungen
+                    {template.validation_rules.length} {t('admin.plugins.templates.validations')}
                   </Badge>
                 )}
                 {template.workflow_rules.length > 0 && (
                   <Badge variant="outline" className="text-xs">
-                    {template.workflow_rules.length} Workflows
+                    {template.workflow_rules.length} {t('admin.plugins.templates.workflows')}
                   </Badge>
                 )}
               </div>
@@ -133,7 +135,7 @@ export function IndustryTemplateGallery() {
                 className="w-full"
                 onClick={() => setConfirmTemplate(template)}
               >
-                Vorlage anwenden
+                {t('admin.plugins.templates.apply')}
               </Button>
             </CardFooter>
           </Card>
@@ -147,11 +149,9 @@ export function IndustryTemplateGallery() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Branchenvorlage anwenden</DialogTitle>
+            <DialogTitle>{t('admin.plugins.templates.applyTitle')}</DialogTitle>
             <DialogDescription>
-              Moechten Sie die Vorlage &quot;{confirmTemplate?.name}&quot;
-              anwenden? Dadurch werden vorkonfigurierte Felder,
-              Validierungsregeln und Workflows erstellt.
+              {t('admin.plugins.templates.applyDescription', { name: confirmTemplate?.name })}
             </DialogDescription>
           </DialogHeader>
 
@@ -160,20 +160,19 @@ export function IndustryTemplateGallery() {
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-3.5 w-3.5 text-green-500" />
                 <span>
-                  {confirmTemplate.custom_fields.length} benutzerdefinierte
-                  Felder
+                  {confirmTemplate.custom_fields.length} {t('admin.plugins.templates.customFields')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-3.5 w-3.5 text-green-500" />
                 <span>
-                  {confirmTemplate.validation_rules.length} Validierungsregeln
+                  {confirmTemplate.validation_rules.length} {t('admin.plugins.templates.validationRules')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-3.5 w-3.5 text-green-500" />
                 <span>
-                  {confirmTemplate.workflow_rules.length} Workflow-Regeln
+                  {confirmTemplate.workflow_rules.length} {t('admin.plugins.templates.workflowRules')}
                 </span>
               </div>
             </div>
@@ -185,7 +184,7 @@ export function IndustryTemplateGallery() {
               size="sm"
               onClick={() => setConfirmTemplate(null)}
             >
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button
               size="sm"
@@ -197,7 +196,7 @@ export function IndustryTemplateGallery() {
               ) : (
                 <Package className="h-3.5 w-3.5 mr-1.5" />
               )}
-              Anwenden
+              {t('admin.plugins.templates.applyButton')}
             </Button>
           </DialogFooter>
         </DialogContent>

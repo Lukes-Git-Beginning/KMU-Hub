@@ -8,6 +8,7 @@
  * All data is mock — the real backend integration comes in Luke's phases.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Server,
   HardDrive,
@@ -107,19 +108,20 @@ type Tab = 'overview' | 'services' | 'backups' | 'storage' | 'security' | 'updat
 // ---- Page Component ----
 
 export default function InfrastrukturPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [showRestoreConfirm, setShowRestoreConfirm] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [showRestartConfirm, setShowRestartConfirm] = useState<string | null>(null)
 
   const tabs: { id: Tab; label: string; icon: typeof Server }[] = [
-    { id: 'overview', label: 'Übersicht', icon: Activity },
-    { id: 'services', label: 'Dienste', icon: Server },
-    { id: 'backups', label: 'Backups', icon: Database },
-    { id: 'storage', label: 'Speicher', icon: HardDrive },
-    { id: 'security', label: 'Sicherheit', icon: Shield },
-    { id: 'updates', label: 'Updates', icon: ArrowUpCircle },
-    { id: 'logs', label: 'System-Logs', icon: FileText },
+    { id: 'overview', label: t('admin.infra.tabs.overview'), icon: Activity },
+    { id: 'services', label: t('admin.infra.tabs.services'), icon: Server },
+    { id: 'backups', label: t('admin.infra.tabs.backups'), icon: Database },
+    { id: 'storage', label: t('admin.infra.tabs.storage'), icon: HardDrive },
+    { id: 'security', label: t('admin.infra.tabs.security'), icon: Shield },
+    { id: 'updates', label: t('admin.infra.tabs.updates'), icon: ArrowUpCircle },
+    { id: 'logs', label: t('admin.infra.tabs.logs'), icon: FileText },
   ]
 
   return (
@@ -127,19 +129,19 @@ export default function InfrastrukturPage() {
       {/* Header */}
       <div className="shrink-0 border-b border-border bg-card px-6 py-4">
         <PageHeader
-          title="Infrastruktur"
-          description="Server-Verwaltung und Systemübersicht"
+          title={t('admin.infra.title')}
+          description={t('admin.infra.description')}
           icon={Network}
           moduleId="infrastructure"
           actions={
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5">
                 <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                <span className="text-xs font-medium text-success">System Online</span>
+                <span className="text-xs font-medium text-success">{t('admin.infra.systemOnline')}</span>
               </div>
-              <Button variant="outline" size="sm" onClick={() => toast.success('System-Status aktualisiert')}>
+              <Button variant="outline" size="sm" onClick={() => toast.success(t('admin.infra.statusUpdated'))}>
                 <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                Aktualisieren
+                {t('admin.infra.refresh')}
               </Button>
             </div>
           }
@@ -193,12 +195,12 @@ export default function InfrastrukturPage() {
       <ConfirmDialog
         open={showRestoreConfirm !== null}
         onOpenChange={(open) => { if (!open) setShowRestoreConfirm(null) }}
-        title="Backup wiederherstellen?"
-        description="Das aktuelle System wird mit dem ausgewählten Backup überschrieben. Dieser Vorgang kann nicht rückgängig gemacht werden."
-        confirmLabel="Wiederherstellen"
+        title={t('admin.infra.backups.restoreTitle')}
+        description={t('admin.infra.backups.restoreDescription')}
+        confirmLabel={t('admin.infra.backups.restoreButton')}
         variant="destructive"
         onConfirm={() => {
-          toast.success('Wiederherstellung gestartet — dies kann einige Minuten dauern...')
+          toast.success(t('admin.infra.backups.restoreStarted'))
           setShowRestoreConfirm(null)
         }}
       />
@@ -206,12 +208,12 @@ export default function InfrastrukturPage() {
       <ConfirmDialog
         open={showDeleteConfirm !== null}
         onOpenChange={(open) => { if (!open) setShowDeleteConfirm(null) }}
-        title="Backup löschen?"
-        description="Das ausgewählte Backup wird unwiderruflich gelöscht."
-        confirmLabel="Löschen"
+        title={t('admin.infra.backups.deleteTitle')}
+        description={t('admin.infra.backups.deleteDescription')}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={() => {
-          toast.success('Backup gelöscht')
+          toast.success(t('admin.infra.backups.deleted'))
           setShowDeleteConfirm(null)
         }}
       />
@@ -219,11 +221,11 @@ export default function InfrastrukturPage() {
       <ConfirmDialog
         open={showRestartConfirm !== null}
         onOpenChange={(open) => { if (!open) setShowRestartConfirm(null) }}
-        title="Dienst neustarten?"
-        description="Der Dienst wird kurzzeitig nicht verfügbar sein. Laufende Verbindungen werden unterbrochen."
-        confirmLabel="Neustarten"
+        title={t('admin.infra.services.restartTitle')}
+        description={t('admin.infra.services.restartDescription')}
+        confirmLabel={t('admin.infra.services.restartButton')}
         onConfirm={() => {
-          toast.success('Dienst wird neugestartet...')
+          toast.success(t('admin.infra.services.restarting'))
           setShowRestartConfirm(null)
         }}
       />
@@ -235,14 +237,15 @@ export default function InfrastrukturPage() {
 // Overview Tab — Health gauges, quick stats, recent events
 // ============================================================
 function OverviewTab() {
+  const { t } = useTranslation()
   const runningServices = MOCK_SERVICES.filter((s) => s.status === 'running').length
   const warningServices = MOCK_SERVICES.filter((s) => s.status === 'warning').length
 
   const stats = [
-    { label: 'Betriebszeit', value: '14 Tage 6 Std', icon: Clock, color: 'text-primary' },
-    { label: 'Dienste aktiv', value: `${runningServices}/${MOCK_SERVICES.length}`, icon: Server, color: 'text-success' },
-    { label: 'Warnungen', value: String(warningServices), icon: AlertTriangle, color: warningServices > 0 ? 'text-warning' : 'text-success' },
-    { label: 'Letztes Backup', value: 'Heute 03:00', icon: Database, color: 'text-primary' },
+    { label: t('admin.infra.overview.uptime'), value: t('admin.infra.overview.uptimeValue'), icon: Clock, color: 'text-primary' },
+    { label: t('admin.infra.overview.servicesActive'), value: `${runningServices}/${MOCK_SERVICES.length}`, icon: Server, color: 'text-success' },
+    { label: t('admin.infra.overview.warnings'), value: String(warningServices), icon: AlertTriangle, color: warningServices > 0 ? 'text-warning' : 'text-success' },
+    { label: t('admin.infra.overview.lastBackup'), value: t('admin.infra.overview.lastBackupValue'), icon: Database, color: 'text-primary' },
   ]
 
   return (
@@ -265,24 +268,24 @@ function OverviewTab() {
 
       {/* Resource usage */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-foreground mb-4">Ressourcen-Auslastung</h3>
+        <h3 className="text-sm font-medium text-foreground mb-4">{t('admin.infra.overview.resourceUsage')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <GaugeBar label="CPU" value={32} icon={Cpu} unit="%" />
-          <GaugeBar label="Arbeitsspeicher" value={58} icon={MemoryStick} unit="%" detail="4.6 / 8 GB" />
-          <GaugeBar label="Speicherplatz" value={41} icon={HardDrive} unit="%" detail="82 / 200 GB" />
+          <GaugeBar label={t('admin.infra.overview.memory')} value={58} icon={MemoryStick} unit="%" detail="4.6 / 8 GB" />
+          <GaugeBar label={t('admin.infra.overview.diskSpace')} value={41} icon={HardDrive} unit="%" detail="82 / 200 GB" />
         </div>
       </div>
 
       {/* Service overview */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-foreground mb-3">Dienste-Status</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('admin.infra.overview.serviceStatus')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {MOCK_SERVICES.map((svc) => (
             <div key={svc.id} className="flex items-center gap-2 rounded-lg border border-border-muted p-3">
               <StatusDot status={svc.status} />
               <div className="min-w-0">
                 <p className="text-sm text-foreground truncate">{svc.name}</p>
-                <p className="text-[10px] text-muted-foreground">{svc.status === 'running' ? svc.uptime : svc.status === 'warning' ? 'Warnung' : 'Gestoppt'}</p>
+                <p className="text-[10px] text-muted-foreground">{svc.status === 'running' ? svc.uptime : svc.status === 'warning' ? t('admin.infra.statusWarning') : t('admin.infra.statusStopped')}</p>
               </div>
             </div>
           ))}
@@ -291,7 +294,7 @@ function OverviewTab() {
 
       {/* Recent logs */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-foreground mb-3">Letzte Ereignisse</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('admin.infra.overview.recentEvents')}</h3>
         <div className="space-y-2">
           {MOCK_LOGS.slice(0, 5).map((log) => (
             <LogRow key={log.id} log={log} />
@@ -306,18 +309,19 @@ function OverviewTab() {
 // Services Tab — Detailed service management
 // ============================================================
 function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
+  const { t } = useTranslation()
   const [expandedService, setExpandedService] = useState<string | null>(null)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-medium text-foreground">Dienste-Verwaltung</h2>
-          <p className="text-sm text-muted-foreground">Starte, stoppe und überwache einzelne Dienste</p>
+          <h2 className="text-base font-medium text-foreground">{t('admin.infra.services.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('admin.infra.services.description')}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => toast.success('Alle Dienste werden neugestartet...')}>
+        <Button variant="outline" size="sm" onClick={() => toast.success(t('admin.infra.services.restartingAll'))}>
           <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-          Alle neustarten
+          {t('admin.infra.services.restartAll')}
         </Button>
       </div>
 
@@ -333,7 +337,7 @@ function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
                 <StatusDot status={svc.status} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">{svc.name}</p>
-                  <p className="text-xs text-muted-foreground">Betriebszeit: {svc.uptime}</p>
+                  <p className="text-xs text-muted-foreground">{t('admin.infra.services.uptimeLabel')}: {svc.uptime}</p>
                 </div>
                 <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground">
                   <span>CPU: {svc.cpu}</span>
@@ -350,11 +354,11 @@ function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
                 <div className="border-t border-border bg-secondary/10 px-4 py-3">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Status</p>
-                      <p className="text-sm text-foreground capitalize">{svc.status === 'running' ? 'Aktiv' : svc.status === 'warning' ? 'Warnung' : 'Gestoppt'}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('common.status')}</p>
+                      <p className="text-sm text-foreground capitalize">{svc.status === 'running' ? t('admin.infra.statusActive') : svc.status === 'warning' ? t('admin.infra.statusWarning') : t('admin.infra.statusStopped')}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Betriebszeit</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('admin.infra.services.uptimeLabel')}</p>
                       <p className="text-sm text-foreground">{svc.uptime}</p>
                     </div>
                     <div>
@@ -369,20 +373,20 @@ function ServicesTab({ onRestart }: { onRestart: (id: string) => void }) {
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => onRestart(svc.id)}>
                       <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                      Neustarten
+                      {t('admin.infra.services.restart')}
                     </Button>
                     {svc.status === 'running' ? (
-                      <Button size="sm" variant="outline" onClick={() => toast.info(`${svc.name} wird gestoppt...`)}>
+                      <Button size="sm" variant="outline" onClick={() => toast.info(t('admin.infra.services.stopping', { name: svc.name }))}>
                         <Pause className="mr-1.5 h-3.5 w-3.5" />
-                        Stoppen
+                        {t('admin.infra.services.stop')}
                       </Button>
                     ) : (
-                      <Button size="sm" variant="outline" onClick={() => toast.success(`${svc.name} wird gestartet...`)}>
+                      <Button size="sm" variant="outline" onClick={() => toast.success(t('admin.infra.services.starting', { name: svc.name }))}>
                         <Play className="mr-1.5 h-3.5 w-3.5" />
-                        Starten
+                        {t('admin.infra.services.start')}
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" onClick={() => toast.info(`Logs für ${svc.name} werden geladen...`)}>
+                    <Button size="sm" variant="outline" onClick={() => toast.info(t('admin.infra.services.loadingLogs', { name: svc.name }))}>
                       <FileText className="mr-1.5 h-3.5 w-3.5" />
                       Logs
                     </Button>
@@ -407,36 +411,37 @@ function BackupsTab({
   onRestore: (id: string) => void
   onDelete: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const [autoBackup, setAutoBackup] = useState(true)
 
   return (
     <div className="space-y-6">
       {/* Backup config */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-foreground mb-4">Backup-Konfiguration</h3>
+        <h3 className="text-sm font-medium text-foreground mb-4">{t('admin.infra.backups.config')}</h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-foreground">Automatisches Backup</p>
-              <p className="text-xs text-muted-foreground">Täglich um 03:00 Uhr</p>
+              <p className="text-sm text-foreground">{t('admin.infra.backups.automatic')}</p>
+              <p className="text-xs text-muted-foreground">{t('admin.infra.backups.dailyAt')}</p>
             </div>
             <Switch checked={autoBackup} onCheckedChange={setAutoBackup} />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-foreground">Aufbewahrung</p>
-              <p className="text-xs text-muted-foreground">Backups werden 30 Tage aufbewahrt</p>
+              <p className="text-sm text-foreground">{t('admin.infra.backups.retention')}</p>
+              <p className="text-xs text-muted-foreground">{t('admin.infra.backups.retentionDetail')}</p>
             </div>
-            <span className="text-sm text-muted-foreground">30 Tage</span>
+            <span className="text-sm text-muted-foreground">{t('admin.infra.backups.retentionDays')}</span>
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-foreground">Speicherort</p>
+              <p className="text-sm text-foreground">{t('admin.infra.backups.location')}</p>
               <p className="text-xs text-muted-foreground">/var/backups/cosmi/</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => toast.info('Speicherort-Konfiguration wird geöffnet...')}>
+            <Button variant="outline" size="sm" onClick={() => toast.info(t('admin.infra.backups.locationConfigOpening'))}>
               <Settings className="mr-1.5 h-3.5 w-3.5" />
-              Ändern
+              {t('admin.infra.backups.change')}
             </Button>
           </div>
         </div>
@@ -444,20 +449,20 @@ function BackupsTab({
 
       {/* Manual backup button */}
       <div className="flex items-center gap-3">
-        <Button onClick={() => toast.success('Manuelles Backup wird erstellt — dies kann einige Minuten dauern...')}>
+        <Button onClick={() => toast.success(t('admin.infra.backups.manualStarted'))}>
           <Database className="mr-1.5 h-4 w-4" />
-          Backup jetzt erstellen
+          {t('admin.infra.backups.createNow')}
         </Button>
-        <Button variant="outline" onClick={() => toast.info('Backup wird heruntergeladen...')}>
+        <Button variant="outline" onClick={() => toast.info(t('admin.infra.backups.downloading'))}>
           <Download className="mr-1.5 h-4 w-4" />
-          Letztes Backup herunterladen
+          {t('admin.infra.backups.downloadLatest')}
         </Button>
       </div>
 
       {/* Backup history */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="px-5 py-3 border-b border-border bg-secondary/30">
-          <h3 className="text-sm font-medium text-foreground">Backup-Verlauf</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('admin.infra.backups.history')}</h3>
         </div>
         <div className="divide-y divide-border-muted">
           {MOCK_BACKUPS.map((backup) => (
@@ -468,7 +473,7 @@ function BackupsTab({
                   {backup.date} um {backup.time}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {backup.size} &middot; {backup.type === 'automatic' ? 'Automatisch' : 'Manuell'}
+                  {backup.size} &middot; {backup.type === 'automatic' ? t('admin.infra.backups.typeAutomatic') : t('admin.infra.backups.typeManual')}
                 </p>
               </div>
               <div className="flex items-center gap-1">
@@ -477,16 +482,16 @@ function BackupsTab({
                   size="sm"
                   onClick={() => onRestore(backup.id)}
                   disabled={backup.status === 'failed'}
-                  title="Wiederherstellen"
+                  title={t('admin.infra.backups.restoreButton')}
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => toast.info('Backup wird heruntergeladen...')}
+                  onClick={() => toast.info(t('admin.infra.backups.downloading'))}
                   disabled={backup.status === 'failed'}
-                  title="Herunterladen"
+                  title={t('common.download')}
                 >
                   <Download className="h-3.5 w-3.5" />
                 </Button>
@@ -494,7 +499,7 @@ function BackupsTab({
                   variant="ghost"
                   size="sm"
                   onClick={() => onDelete(backup.id)}
-                  title="Löschen"
+                  title={t('common.delete')}
                   className="text-muted-foreground hover:text-error"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -512,12 +517,13 @@ function BackupsTab({
 // Storage Tab — Disk usage breakdown
 // ============================================================
 function StorageTab() {
+  const { t } = useTranslation()
   const storageItems = [
-    { label: 'Datenbank', used: '34.2 GB', percent: 42, color: 'bg-primary' },
-    { label: 'Dokumente & Dateien', used: '28.7 GB', percent: 35, color: 'bg-blue-500' },
-    { label: 'E-Mail-Archiv', used: '12.1 GB', percent: 15, color: 'bg-amber-500' },
-    { label: 'Backups', used: '4.8 GB', percent: 6, color: 'bg-purple-500' },
-    { label: 'System & Logs', used: '2.2 GB', percent: 2, color: 'bg-gray-400' },
+    { label: t('admin.infra.storage.database'), used: '34.2 GB', percent: 42, color: 'bg-primary' },
+    { label: t('admin.infra.storage.documents'), used: '28.7 GB', percent: 35, color: 'bg-blue-500' },
+    { label: t('admin.infra.storage.emailArchive'), used: '12.1 GB', percent: 15, color: 'bg-amber-500' },
+    { label: t('admin.infra.storage.backups'), used: '4.8 GB', percent: 6, color: 'bg-purple-500' },
+    { label: t('admin.infra.storage.systemLogs'), used: '2.2 GB', percent: 2, color: 'bg-gray-400' },
   ]
 
   return (
@@ -526,11 +532,11 @@ function StorageTab() {
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-medium text-foreground">Speicherplatz</h3>
-            <p className="text-xs text-muted-foreground">82.0 GB von 200 GB verwendet (41%)</p>
+            <h3 className="text-sm font-medium text-foreground">{t('admin.infra.storage.title')}</h3>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.storage.usageSummary')}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => toast.info('Speicher-Analyse wird durchgefuehrt...')}>
-            Analyse starten
+          <Button variant="outline" size="sm" onClick={() => toast.info(t('admin.infra.storage.analysisStarting'))}>
+            {t('admin.infra.storage.startAnalysis')}
           </Button>
         </div>
 
@@ -561,13 +567,13 @@ function StorageTab() {
 
       {/* Database info */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-foreground mb-4">Datenbank-Details</h3>
+        <h3 className="text-sm font-medium text-foreground mb-4">{t('admin.infra.storage.dbDetails')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Kontakte', value: '2,847' },
-            { label: 'Dokumente', value: '15,234' },
-            { label: 'E-Mails', value: '48,912' },
-            { label: 'Chat-Nachrichten', value: '124,567' },
+            { label: t('admin.infra.storage.contacts'), value: '2,847' },
+            { label: t('admin.infra.storage.documentsCount'), value: '15,234' },
+            { label: t('admin.infra.storage.emails'), value: '48,912' },
+            { label: t('admin.infra.storage.chatMessages'), value: '124,567' },
           ].map((item) => (
             <div key={item.label} className="text-center p-3 rounded-lg bg-secondary/30">
               <p className="text-lg font-semibold text-foreground">{item.value}</p>
@@ -584,6 +590,7 @@ function StorageTab() {
 // Security Tab — SSL, firewall, encryption
 // ============================================================
 function SecurityTab() {
+  const { t } = useTranslation()
   const [firewallEnabled, setFirewallEnabled] = useState(true)
   const [encryptionEnabled, setEncryptionEnabled] = useState(true)
   const [bruteForceProtection, setBruteForceProtection] = useState(true)
@@ -597,93 +604,93 @@ function SecurityTab() {
             <Lock className="h-5 w-5 text-success" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-foreground">SSL/TLS-Zertifikat</h3>
-            <p className="text-xs text-success font-medium">Gültig bis 15.06.2026</p>
+            <h3 className="text-sm font-medium text-foreground">{t('admin.infra.security.sslCertificate')}</h3>
+            <p className="text-xs text-success font-medium">{t('admin.infra.security.validUntil')}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <p className="text-xs text-muted-foreground">Aussteller</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.security.issuer')}</p>
             <p className="text-foreground">Let's Encrypt</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Domain</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.security.domain')}</p>
             <p className="text-foreground">crm.firma.de</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Typ</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.security.type')}</p>
             <p className="text-foreground">TLS 1.3</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Auto-Erneuerung</p>
-            <p className="text-success">Aktiv</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.security.autoRenewal')}</p>
+            <p className="text-success">{t('admin.infra.statusActive')}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => toast.success('Zertifikat-Erneuerung angestossen...')}>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => toast.success(t('admin.infra.security.renewStarted'))}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-          Jetzt erneuern
+          {t('admin.infra.security.renewNow')}
         </Button>
       </div>
 
       {/* Security toggles */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <h3 className="text-sm font-medium text-foreground">Sicherheits-Einstellungen</h3>
+        <h3 className="text-sm font-medium text-foreground">{t('admin.infra.security.settings')}</h3>
 
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-foreground">Firewall</p>
-            <p className="text-xs text-muted-foreground">Nur erlaubte Ports und IPs zulassen</p>
+            <p className="text-sm text-foreground">{t('admin.infra.security.firewall')}</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.security.firewallDescription')}</p>
           </div>
-          <Switch checked={firewallEnabled} onCheckedChange={(v) => { setFirewallEnabled(v); toast.success(v ? 'Firewall aktiviert' : 'Firewall deaktiviert') }} />
+          <Switch checked={firewallEnabled} onCheckedChange={(v) => { setFirewallEnabled(v); toast.success(v ? t('admin.infra.security.firewallEnabled') : t('admin.infra.security.firewallDisabled')) }} />
         </div>
 
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-foreground">Verschlüsselung (at rest)</p>
-            <p className="text-xs text-muted-foreground">Datenbank und Dateien verschlüsselt speichern</p>
+            <p className="text-sm text-foreground">{t('admin.infra.security.encryption')}</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.security.encryptionDescription')}</p>
           </div>
-          <Switch checked={encryptionEnabled} onCheckedChange={(v) => { setEncryptionEnabled(v); toast.success(v ? 'Verschlüsselung aktiviert' : 'Verschlüsselung deaktiviert') }} />
+          <Switch checked={encryptionEnabled} onCheckedChange={(v) => { setEncryptionEnabled(v); toast.success(v ? t('admin.infra.security.encryptionEnabled') : t('admin.infra.security.encryptionDisabled')) }} />
         </div>
 
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-foreground">Brute-Force-Schutz</p>
-            <p className="text-xs text-muted-foreground">Konto nach 5 fehlgeschlagenen Versuchen sperren</p>
+            <p className="text-sm text-foreground">{t('admin.infra.security.bruteForce')}</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.security.bruteForceDescription')}</p>
           </div>
-          <Switch checked={bruteForceProtection} onCheckedChange={(v) => { setBruteForceProtection(v); toast.success(v ? 'Brute-Force-Schutz aktiviert' : 'Brute-Force-Schutz deaktiviert') }} />
+          <Switch checked={bruteForceProtection} onCheckedChange={(v) => { setBruteForceProtection(v); toast.success(v ? t('admin.infra.security.bruteForceEnabled') : t('admin.infra.security.bruteForceDisabled')) }} />
         </div>
       </div>
 
       {/* Network info */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-foreground mb-3">Netzwerk</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('admin.infra.security.network')}</h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="text-xs text-muted-foreground">Externe IP</p>
+              <p className="text-xs text-muted-foreground">{t('admin.infra.security.externalIp')}</p>
               <p className="text-foreground font-mono text-xs">185.212.71.42</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Wifi className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="text-xs text-muted-foreground">Interne IP</p>
+              <p className="text-xs text-muted-foreground">{t('admin.infra.security.internalIp')}</p>
               <p className="text-foreground font-mono text-xs">10.0.1.10</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Server className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="text-xs text-muted-foreground">Standort</p>
+              <p className="text-xs text-muted-foreground">{t('admin.infra.security.location')}</p>
               <p className="text-foreground">Hetzner, Falkenstein (DE)</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-muted-foreground" />
             <div>
-              <p className="text-xs text-muted-foreground">DDoS-Schutz</p>
-              <p className="text-success">Aktiv</p>
+              <p className="text-xs text-muted-foreground">{t('admin.infra.security.ddosProtection')}</p>
+              <p className="text-success">{t('admin.infra.statusActive')}</p>
             </div>
           </div>
         </div>
@@ -696,67 +703,68 @@ function SecurityTab() {
 // Updates Tab — Version management
 // ============================================================
 function UpdatesTab() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-6">
       {/* Current version */}
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-medium text-foreground">Aktuelle Version</h3>
+            <h3 className="text-sm font-medium text-foreground">{t('admin.infra.updates.currentVersion')}</h3>
             <p className="text-2xl font-bold text-foreground mt-1">v0.1.0</p>
-            <p className="text-xs text-muted-foreground">Installiert am 01.02.2026</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.updates.installedAt')}</p>
           </div>
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-success/10">
             <CheckCircle2 className="h-7 w-7 text-success" />
           </div>
         </div>
         <div className="rounded-lg bg-success/5 border border-success/20 p-3">
-          <p className="text-sm text-success font-medium">System ist auf dem neuesten Stand</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Letzte Prüfung: Heute um 06:00</p>
+          <p className="text-sm text-success font-medium">{t('admin.infra.updates.upToDate')}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('admin.infra.updates.lastCheck')}</p>
         </div>
       </div>
 
       {/* Update settings */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <h3 className="text-sm font-medium text-foreground">Update-Einstellungen</h3>
+        <h3 className="text-sm font-medium text-foreground">{t('admin.infra.updates.settings')}</h3>
 
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-foreground">Automatische Updates</p>
-            <p className="text-xs text-muted-foreground">Sicherheits-Patches automatisch installieren</p>
+            <p className="text-sm text-foreground">{t('admin.infra.updates.autoUpdates')}</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.updates.autoUpdatesDescription')}</p>
           </div>
           <Switch defaultChecked />
         </div>
 
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-foreground">Update-Benachrichtigungen</p>
-            <p className="text-xs text-muted-foreground">Per E-Mail über neue Versionen informieren</p>
+            <p className="text-sm text-foreground">{t('admin.infra.updates.notifications')}</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.updates.notificationsDescription')}</p>
           </div>
           <Switch defaultChecked />
         </div>
 
         <div className="flex items-center justify-between py-2">
           <div>
-            <p className="text-sm text-foreground">Beta-Versionen</p>
-            <p className="text-xs text-muted-foreground">Vorab-Versionen zum Testen erhalten</p>
+            <p className="text-sm text-foreground">{t('admin.infra.updates.betaVersions')}</p>
+            <p className="text-xs text-muted-foreground">{t('admin.infra.updates.betaVersionsDescription')}</p>
           </div>
           <Switch />
         </div>
       </div>
 
       {/* Update check */}
-      <Button onClick={() => toast.info('Nach Updates wird gesucht...')}>
+      <Button onClick={() => toast.info(t('admin.infra.updates.searching'))}>
         <RefreshCw className="mr-1.5 h-4 w-4" />
-        Jetzt nach Updates suchen
+        {t('admin.infra.updates.checkNow')}
       </Button>
 
       {/* Changelog */}
       <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm font-medium text-foreground mb-3">Änderungsprotokoll</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('admin.infra.updates.changelog')}</h3>
         <div className="space-y-4">
           {[
-            { version: 'v0.1.0', date: '01.02.2026', changes: ['Erstinstallation', 'CRM, Chat, Projekte, Auth', 'Desktop-App (Electron)', 'Self-Hosted Deployment'] },
+            { version: 'v0.1.0', date: '01.02.2026', changes: [t('admin.infra.updates.changeInitialInstall'), t('admin.infra.updates.changeCrmChatAuth'), t('admin.infra.updates.changeDesktopApp'), t('admin.infra.updates.changeSelfHosted')] },
           ].map((release) => (
             <div key={release.version}>
               <div className="flex items-center gap-2 mb-1">
@@ -780,6 +788,7 @@ function UpdatesTab() {
 // Logs Tab — Filterable system log
 // ============================================================
 function LogsTab() {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<'all' | 'info' | 'warning' | 'error'>('all')
 
   const filteredLogs = filter === 'all'
@@ -787,25 +796,25 @@ function LogsTab() {
     : MOCK_LOGS.filter((l) => l.level === filter)
 
   const filterOptions: { id: typeof filter; label: string; count: number }[] = [
-    { id: 'all', label: 'Alle', count: MOCK_LOGS.length },
+    { id: 'all', label: t('admin.infra.logs.all'), count: MOCK_LOGS.length },
     { id: 'info', label: 'Info', count: MOCK_LOGS.filter((l) => l.level === 'info').length },
-    { id: 'warning', label: 'Warnungen', count: MOCK_LOGS.filter((l) => l.level === 'warning').length },
-    { id: 'error', label: 'Fehler', count: MOCK_LOGS.filter((l) => l.level === 'error').length },
+    { id: 'warning', label: t('admin.infra.logs.warnings'), count: MOCK_LOGS.filter((l) => l.level === 'warning').length },
+    { id: 'error', label: t('admin.infra.logs.errors'), count: MOCK_LOGS.filter((l) => l.level === 'error').length },
   ]
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-medium text-foreground">System-Logs</h2>
-          <p className="text-sm text-muted-foreground">Ereignisse und Fehlermeldungen aller Dienste</p>
+          <h2 className="text-base font-medium text-foreground">{t('admin.infra.logs.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('admin.infra.logs.description')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => toast.info('Logs werden exportiert...')}>
+          <Button variant="outline" size="sm" onClick={() => toast.info(t('admin.infra.logs.exporting'))}>
             <Download className="mr-1.5 h-3.5 w-3.5" />
-            Exportieren
+            {t('admin.infra.logs.export')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => toast.success('Logs aktualisiert')}>
+          <Button variant="outline" size="sm" onClick={() => toast.success(t('admin.infra.logs.refreshed'))}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
           </Button>
         </div>
@@ -836,7 +845,7 @@ function LogsTab() {
           ))}
           {filteredLogs.length === 0 && (
             <div className="p-8 text-center text-sm text-muted-foreground">
-              Keine Logs für diesen Filter gefunden.
+              {t('admin.infra.logs.noResults')}
             </div>
           )}
         </div>

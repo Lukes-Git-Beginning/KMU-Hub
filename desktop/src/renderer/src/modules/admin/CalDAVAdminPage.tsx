@@ -6,6 +6,7 @@
  * - User audit table (who has CalDAV enabled, password counts)
  * - Admin password revocation per user
  */
+import { useTranslation } from 'react-i18next'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -18,6 +19,7 @@ import {
 } from '@/api/hooks/useCaldav'
 
 export default function CalDAVAdminPage() {
+  const { t } = useTranslation()
   const { data: settings, isLoading: settingsLoading } =
     useAdminCalDAVSettings()
   const setSettings = useSetAdminCalDAVSettings()
@@ -29,29 +31,27 @@ export default function CalDAVAdminPage() {
       <div className="flex items-center gap-3 mb-1">
         <Calendar className="h-5 w-5 text-muted-foreground" />
         <h1 className="text-lg font-semibold text-foreground">
-          CalDAV / CardDAV Verwaltung
+          {t('admin.caldav.title')}
         </h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6">
-        Organisationsweite Einstellungen für die Kalender- und
-        Kontakt-Synchronisierung
+        {t('admin.caldav.description')}
       </p>
 
       {/* Org toggle */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-3">
           <Shield className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-medium">Organisationseinstellungen</h2>
+          <h2 className="text-sm font-medium">{t('admin.caldav.orgSettings')}</h2>
         </div>
 
         <div className="flex items-center justify-between rounded-md border border-border p-4">
           <div>
             <p className="text-sm font-medium">
-              CalDAV/CardDAV aktivieren
+              {t('admin.caldav.enableToggle')}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ermöglicht allen Benutzern, Kalender und Kontakte mit externen
-              Anwendungen zu synchronisieren
+              {t('admin.caldav.enableDescription')}
             </p>
           </div>
           {settingsLoading ? (
@@ -73,7 +73,7 @@ export default function CalDAVAdminPage() {
         <div className="flex items-center gap-2 mb-3">
           <Users className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-medium">
-            Benutzer mit CalDAV-Zugang
+            {t('admin.caldav.usersWithAccess')}
           </h2>
         </div>
 
@@ -87,14 +87,14 @@ export default function CalDAVAdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/50 text-left">
-                  <th className="px-3 py-2 font-medium">Benutzer</th>
-                  <th className="px-3 py-2 font-medium">E-Mail</th>
+                  <th className="px-3 py-2 font-medium">{t('admin.caldav.user')}</th>
+                  <th className="px-3 py-2 font-medium">{t('admin.caldav.email')}</th>
                   <th className="px-3 py-2 font-medium text-center">
-                    Passwörter
+                    {t('admin.caldav.passwords')}
                   </th>
-                  <th className="px-3 py-2 font-medium">Zuletzt</th>
+                  <th className="px-3 py-2 font-medium">{t('admin.caldav.lastUsed')}</th>
                   <th className="px-3 py-2 font-medium text-right">
-                    Aktionen
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
@@ -115,7 +115,7 @@ export default function CalDAVAdminPage() {
                         ? new Date(user.last_used).toLocaleDateString(
                             'de-DE',
                           )
-                        : 'Nie'}
+                        : t('admin.caldav.never')}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <Button
@@ -129,7 +129,7 @@ export default function CalDAVAdminPage() {
                         }
                       >
                         <Trash2 className="h-3.5 w-3.5 mr-1" />
-                        Alle widerrufen
+                        {t('admin.caldav.revokeAll')}
                       </Button>
                     </td>
                   </tr>
@@ -139,7 +139,7 @@ export default function CalDAVAdminPage() {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Noch keine Benutzer mit aktiviertem CalDAV-Zugang.
+            {t('admin.caldav.noUsers')}
           </p>
         )}
       </section>

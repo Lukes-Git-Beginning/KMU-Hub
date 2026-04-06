@@ -5,6 +5,7 @@
  * Generates a mock link with copy-to-clipboard.
  */
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link2, Copy, Check, Shield, Calendar, RefreshCw, Eye, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -29,6 +30,7 @@ function generateMockLink(fileId: string): string {
 }
 
 export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDialogProps) {
+  const { t } = useTranslation()
   const [link, setLink] = useState(() => generateMockLink(fileId))
   const [copied, setCopied] = useState(false)
   const [expiryDays, setExpiryDays] = useState<string>('7')
@@ -40,17 +42,17 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
     try {
       await navigator.clipboard.writeText(link)
       setCopied(true)
-      toast.success('Link kopiert')
+      toast.success(t('dokumente.shareLink.linkCopied'))
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('Kopieren fehlgeschlagen')
+      toast.error(t('dokumente.shareLink.copyFailed'))
     }
   }, [link])
 
   const handleRegenerate = () => {
     setLink(generateMockLink(fileId))
     setCopied(false)
-    toast.success('Neuer Link generiert')
+    toast.success(t('dokumente.shareLink.linkRegenerated'))
   }
 
    
@@ -70,7 +72,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
               <Link2 className="h-4.5 w-4.5 text-primary" />
             </div>
             <div>
-              <DialogTitle className="text-sm font-semibold text-foreground">Link teilen</DialogTitle>
+              <DialogTitle className="text-sm font-semibold text-foreground">{t('dokumente.shareLink.title')}</DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground truncate max-w-[280px]">{fileName}</DialogDescription>
             </div>
           </div>
@@ -80,7 +82,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
         <div className="px-6 py-4 space-y-4">
           {/* Generated link */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Freigabe-Link</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t('dokumente.shareLink.shareLink')}</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -90,7 +92,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
               />
               <button
                 onClick={handleCopy}
-                aria-label="Link kopieren"
+                aria-label={t('dokumente.shareLink.copyLinkAria')}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
               >
                 {copied ? (
@@ -102,7 +104,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
               <button
                 onClick={handleRegenerate}
                 className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted transition-colors"
-                aria-label="Neuen Link generieren"
+                aria-label={t('dokumente.shareLink.regenerateAria')}
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
@@ -113,30 +115,30 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
           <div>
             <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1.5">
               <Calendar className="h-3.5 w-3.5" />
-              Ablaufdatum
+              {t('dokumente.shareLink.expiryDate')}
             </label>
             <select
               value={expiryDays}
               onChange={(e) => setExpiryDays(e.target.value)}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
             >
-              <option value="1">1 Tag</option>
-              <option value="7">7 Tage</option>
-              <option value="14">14 Tage</option>
-              <option value="30">30 Tage</option>
-              <option value="90">90 Tage</option>
-              <option value="0">Kein Ablauf</option>
+              <option value="1">{t('dokumente.shareLink.expiry1Day')}</option>
+              <option value="7">{t('dokumente.shareLink.expiry7Days')}</option>
+              <option value="14">{t('dokumente.shareLink.expiry14Days')}</option>
+              <option value="30">{t('dokumente.shareLink.expiry30Days')}</option>
+              <option value="90">{t('dokumente.shareLink.expiry90Days')}</option>
+              <option value="0">{t('dokumente.shareLink.expiryNone')}</option>
             </select>
             {expiryDays !== '0' && (
               <p className="text-[10px] text-muted-foreground mt-1">
-                Laueft ab am {expiryDate.toLocaleDateString('de-DE')}
+                {t('dokumente.shareLink.expiresOn', { date: expiryDate.toLocaleDateString('de-DE') })}
               </p>
             )}
           </div>
 
           {/* Permission */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Berechtigung</label>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{t('dokumente.shareLink.permission')}</label>
             <div className="flex gap-2">
               <button
                 onClick={() => setPermission('view')}
@@ -147,7 +149,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
                 }`}
               >
                 <Eye className="h-4 w-4" />
-                Nur ansehen
+                {t('dokumente.shareLink.viewOnly')}
               </button>
               <button
                 onClick={() => setPermission('download')}
@@ -158,7 +160,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
                 }`}
               >
                 <Download className="h-4 w-4" />
-                Download erlaubt
+                {t('dokumente.shareLink.downloadAllowed')}
               </button>
             </div>
           </div>
@@ -167,7 +169,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
           <div>
             <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1.5">
               <Shield className="h-3.5 w-3.5" />
-              Passwortschutz
+              {t('dokumente.shareLink.passwordProtection')}
             </label>
             <div className="flex items-center gap-3">
               <button
@@ -187,7 +189,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
                   type="text"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Passwort eingeben..."
+                  placeholder={t('dokumente.shareLink.passwordPlaceholder')}
                   className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground"
                 />
               )}
@@ -201,7 +203,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
           >
-            Schließen
+            {t('common.close')}
           </button>
           <button
             onClick={() => {
@@ -210,7 +212,7 @@ export function ShareLinkDialog({ open, onClose, fileName, fileId }: ShareLinkDi
             }}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Link kopieren & schliessen
+            {t('dokumente.shareLink.copyAndClose')}
           </button>
         </DialogFooter>
       </DialogContent>

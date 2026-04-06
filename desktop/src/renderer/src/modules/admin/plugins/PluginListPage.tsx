@@ -10,6 +10,7 @@
  * - Ausführungsprotokolle: execution log viewer
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -49,34 +50,34 @@ import { ExecutionLogViewer } from './ExecutionLogViewer'
 // Status badge helper
 // ---------------------------------------------------------------------------
 
-function statusBadge(status: InstallationStatus) {
+function statusBadge(status: InstallationStatus, t: (key: string) => string) {
   switch (status) {
     case 'active':
       return (
         <Badge className="bg-green-500/15 text-green-700 border-green-500/30 hover:bg-green-500/15">
-          Aktiv
+          {t('admin.plugins.status.active')}
         </Badge>
       )
     case 'disabled':
       return (
         <Badge className="bg-gray-500/15 text-gray-700 border-gray-500/30 hover:bg-gray-500/15">
-          Deaktiviert
+          {t('admin.plugins.status.disabled')}
         </Badge>
       )
     case 'pending_approval':
       return (
         <Badge className="bg-yellow-500/15 text-yellow-700 border-yellow-500/30 hover:bg-yellow-500/15">
-          Genehmigung ausstehend
+          {t('admin.plugins.status.pendingApproval')}
         </Badge>
       )
     case 'error':
       return (
         <Badge className="bg-red-500/15 text-red-700 border-red-500/30 hover:bg-red-500/15">
-          Fehler
+          {t('common.error')}
         </Badge>
       )
     case 'uninstalled':
-      return <Badge variant="outline">Deinstalliert</Badge>
+      return <Badge variant="outline">{t('admin.plugins.status.uninstalled')}</Badge>
     default:
       return <Badge variant="outline">{status}</Badge>
   }
@@ -102,6 +103,7 @@ function pluginTypeBadge(type: string) {
 // ---------------------------------------------------------------------------
 
 export default function PluginListPage() {
+  const { t } = useTranslation()
   const { data: manifests, isLoading: manifestsLoading } = usePluginManifests()
   const { data: installations, isLoading: installationsLoading } =
     usePluginInstallations()
@@ -143,29 +145,29 @@ export default function PluginListPage() {
       <div className="flex items-center gap-3 mb-1">
         <Puzzle className="h-5 w-5 text-muted-foreground" />
         <h1 className="text-lg font-semibold text-foreground">
-          Plugin-Verwaltung
+          {t('admin.plugins.title')}
         </h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6">
-        Plugins installieren, konfigurieren und verwalten
+        {t('admin.plugins.description')}
       </p>
 
       {/* Tabs */}
       <Tabs defaultValue="installed">
         <TabsList className="mb-4">
           <TabsTrigger value="installed">
-            Installiert
+            {t('admin.plugins.tabs.installed')}
             {installations && installations.length > 0 && (
               <span className="ml-1.5 text-xs text-muted-foreground">
                 ({installations.filter((i) => i.status !== 'uninstalled').length})
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="available">Verfügbar</TabsTrigger>
-          <TabsTrigger value="validation">Validierung</TabsTrigger>
-          <TabsTrigger value="workflows">Workflows</TabsTrigger>
-          <TabsTrigger value="templates">Vorlagen</TabsTrigger>
-          <TabsTrigger value="logs">Protokolle</TabsTrigger>
+          <TabsTrigger value="available">{t('admin.plugins.tabs.available')}</TabsTrigger>
+          <TabsTrigger value="validation">{t('admin.plugins.tabs.validation')}</TabsTrigger>
+          <TabsTrigger value="workflows">{t('admin.plugins.tabs.workflows')}</TabsTrigger>
+          <TabsTrigger value="templates">{t('admin.plugins.tabs.templates')}</TabsTrigger>
+          <TabsTrigger value="logs">{t('admin.plugins.tabs.logs')}</TabsTrigger>
         </TabsList>
 
         {/* Installed Plugins */}
@@ -179,11 +181,11 @@ export default function PluginListPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Plugin</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>Typ</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Aktionen</TableHead>
+                    <TableHead>{t('admin.plugins.table.plugin')}</TableHead>
+                    <TableHead>{t('admin.plugins.table.version')}</TableHead>
+                    <TableHead>{t('admin.plugins.table.type')}</TableHead>
+                    <TableHead>{t('common.status')}</TableHead>
+                    <TableHead className="text-right">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -208,7 +210,7 @@ export default function PluginListPage() {
                           {pluginTypeBadge(installation.plugin_type)}
                         </TableCell>
                         <TableCell>
-                          {statusBadge(installation.status)}
+                          {statusBadge(installation.status, t)}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -219,7 +221,7 @@ export default function PluginListPage() {
                                 onClick={() => openPermissions(installation)}
                               >
                                 <Shield className="h-3.5 w-3.5 mr-1" />
-                                Genehmigen
+                                {t('admin.plugins.approve')}
                               </Button>
                             )}
 
@@ -267,8 +269,7 @@ export default function PluginListPage() {
             <div className="rounded-md border border-border p-8 text-center">
               <Puzzle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
-                Keine Plugins installiert. Wechseln Sie zum Tab
-                &quot;Verfügbar&quot; um Plugins zu installieren.
+                {t('admin.plugins.noPluginsInstalled')}
               </p>
             </div>
           )}
@@ -285,12 +286,12 @@ export default function PluginListPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Plugin</TableHead>
-                    <TableHead>Autor</TableHead>
-                    <TableHead>Version</TableHead>
-                    <TableHead>Typ</TableHead>
-                    <TableHead>Berechtigungen</TableHead>
-                    <TableHead className="text-right">Aktion</TableHead>
+                    <TableHead>{t('admin.plugins.table.plugin')}</TableHead>
+                    <TableHead>{t('admin.plugins.table.author')}</TableHead>
+                    <TableHead>{t('admin.plugins.table.version')}</TableHead>
+                    <TableHead>{t('admin.plugins.table.type')}</TableHead>
+                    <TableHead>{t('admin.plugins.permissions')}</TableHead>
+                    <TableHead className="text-right">{t('admin.plugins.table.action')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -343,7 +344,7 @@ export default function PluginListPage() {
                               variant="outline"
                               className="text-xs text-green-700"
                             >
-                              Installiert
+                              {t('admin.plugins.installed')}
                             </Badge>
                           ) : (
                             <Button
@@ -357,7 +358,7 @@ export default function PluginListPage() {
                               ) : (
                                 <Download className="h-3.5 w-3.5 mr-1" />
                               )}
-                              Installieren
+                              {t('admin.plugins.install')}
                             </Button>
                           )}
                         </TableCell>
@@ -371,7 +372,7 @@ export default function PluginListPage() {
             <div className="rounded-md border border-border p-8 text-center">
               <Puzzle className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
-                Keine Plugin-Manifeste verfügbar.
+                {t('admin.plugins.noManifestsAvailable')}
               </p>
             </div>
           )}

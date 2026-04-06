@@ -6,6 +6,7 @@
  * configuration.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,6 +34,7 @@ export function PluginSettingsEditor({
   onSave,
   isSaving,
 }: PluginSettingsEditorProps) {
+  const { t } = useTranslation()
   const [formValues, setFormValues] = useState<Record<string, unknown>>(values)
 
    
@@ -46,7 +48,7 @@ export function PluginSettingsEditor({
   if (propertyKeys.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Dieses Plugin hat keine konfigurierbaren Einstellungen.
+        {t('admin.plugins.noConfigurableSettings')}
       </p>
     )
   }
@@ -165,7 +167,7 @@ export function PluginSettingsEditor({
         ) : (
           <Save className="h-3.5 w-3.5 mr-1.5" />
         )}
-        Einstellungen speichern
+        {t('admin.plugins.saveSettings')}
       </Button>
     </form>
   )

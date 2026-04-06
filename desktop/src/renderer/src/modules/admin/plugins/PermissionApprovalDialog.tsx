@@ -5,6 +5,7 @@
  * approve them before a plugin can become active.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -27,19 +28,19 @@ interface PermissionApprovalDialogProps {
 }
 
 /** Human-readable label for known permission strings */
-function permissionLabel(permission: string): string {
+function permissionLabel(permission: string, t: (key: string) => string): string {
   const labels: Record<string, string> = {
-    'read:contacts': 'Kontakte lesen',
-    'write:contacts': 'Kontakte schreiben',
-    'read:deals': 'Deals lesen',
-    'write:deals': 'Deals schreiben',
-    'read:invoices': 'Rechnungen lesen',
-    'write:invoices': 'Rechnungen schreiben',
-    'read:settings': 'Einstellungen lesen',
-    'write:settings': 'Einstellungen schreiben',
-    'execute:hooks': 'Hooks ausführen',
-    'read:custom_fields': 'Benutzerdefinierte Felder lesen',
-    'write:custom_fields': 'Benutzerdefinierte Felder schreiben',
+    'read:contacts': t('admin.plugins.permissions.readContacts'),
+    'write:contacts': t('admin.plugins.permissions.writeContacts'),
+    'read:deals': t('admin.plugins.permissions.readDeals'),
+    'write:deals': t('admin.plugins.permissions.writeDeals'),
+    'read:invoices': t('admin.plugins.permissions.readInvoices'),
+    'write:invoices': t('admin.plugins.permissions.writeInvoices'),
+    'read:settings': t('admin.plugins.permissions.readSettings'),
+    'write:settings': t('admin.plugins.permissions.writeSettings'),
+    'execute:hooks': t('admin.plugins.permissions.executeHooks'),
+    'read:custom_fields': t('admin.plugins.permissions.readCustomFields'),
+    'write:custom_fields': t('admin.plugins.permissions.writeCustomFields'),
   }
   return labels[permission] ?? permission
 }
@@ -49,6 +50,7 @@ export function PermissionApprovalDialog({
   onClose,
   installation,
 }: PermissionApprovalDialogProps) {
+  const { t } = useTranslation()
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(
     new Set(),
   )
@@ -94,10 +96,10 @@ export function PermissionApprovalDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-muted-foreground" />
-            Berechtigungen genehmigen
+            {t('admin.plugins.permissions.approveTitle')}
           </DialogTitle>
           <DialogDescription>
-            {installation.manifest_name} benötigt folgende Berechtigungen:
+            {t('admin.plugins.permissions.approveDescription', { name: installation.manifest_name })}
           </DialogDescription>
         </DialogHeader>
 
@@ -106,7 +108,7 @@ export function PermissionApprovalDialog({
           {grantedPermissions.size > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">
-                Bereits genehmigt:
+                {t('admin.plugins.permissions.alreadyApproved')}
               </p>
               {Array.from(grantedPermissions).map((p) => (
                 <div
@@ -115,7 +117,7 @@ export function PermissionApprovalDialog({
                 >
                   <Checkbox checked disabled />
                   <Label className="text-sm text-green-700 dark:text-green-400">
-                    {permissionLabel(p)}
+                    {permissionLabel(p, t)}
                   </Label>
                 </div>
               ))}
@@ -127,7 +129,7 @@ export function PermissionApprovalDialog({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Ausstehende Genehmigung:
+                  {t('admin.plugins.permissions.pendingApproval')}
                 </p>
                 <Button
                   variant="ghost"
@@ -135,7 +137,7 @@ export function PermissionApprovalDialog({
                   className="h-6 text-xs"
                   onClick={selectAll}
                 >
-                  Alle auswählen
+                  {t('admin.plugins.permissions.selectAll')}
                 </Button>
               </div>
               {pendingPermissions.map((p) => (
@@ -149,7 +151,7 @@ export function PermissionApprovalDialog({
                     onCheckedChange={() => togglePermission(p)}
                   />
                   <Label className="text-sm cursor-pointer">
-                    {permissionLabel(p)}
+                    {permissionLabel(p, t)}
                   </Label>
                 </div>
               ))}
@@ -159,7 +161,7 @@ export function PermissionApprovalDialog({
           {pendingPermissions.length === 0 && (
             <div className="rounded-md border border-green-500/30 bg-green-50/10 p-3">
               <p className="text-sm text-green-700 dark:text-green-400">
-                Alle Berechtigungen wurden bereits genehmigt.
+                {t('admin.plugins.permissions.allApproved')}
               </p>
             </div>
           )}
@@ -167,7 +169,7 @@ export function PermissionApprovalDialog({
 
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             size="sm"
@@ -181,8 +183,7 @@ export function PermissionApprovalDialog({
             ) : (
               <Shield className="h-3.5 w-3.5 mr-1.5" />
             )}
-            {selectedPermissions.size} Berechtigung
-            {selectedPermissions.size !== 1 ? 'en' : ''} genehmigen
+            {t('admin.plugins.permissions.approveCount', { count: selectedPermissions.size })}
           </Button>
         </DialogFooter>
       </DialogContent>
