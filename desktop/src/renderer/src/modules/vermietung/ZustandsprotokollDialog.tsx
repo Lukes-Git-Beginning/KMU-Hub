@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Camera, Plus, Check, AlertTriangle, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Reservation, Zustandsprotokoll, ZustandsprotokollItem } from '@/stores/vermietung'
@@ -34,28 +35,28 @@ const DEFAULT_CHECKLIST_LABELS = [
 
 const CONDITION_OPTIONS: {
   value: ZustandsprotokollItem['condition']
-  label: string
+  labelKey: string
   icon: typeof Check
   dot: string
   activeBg: string
 }[] = [
   {
     value: 'ok',
-    label: 'OK',
+    labelKey: 'vermietung.zustandsprotokoll.condition.ok',
     icon: Check,
     dot: 'bg-success',
     activeBg: 'bg-success/15 text-success border-success/40',
   },
   {
     value: 'damaged',
-    label: 'Beschädigt',
+    labelKey: 'vermietung.zustandsprotokoll.condition.damaged',
     icon: AlertTriangle,
     dot: 'bg-warning',
     activeBg: 'bg-warning/15 text-warning border-warning/40',
   },
   {
     value: 'missing',
-    label: 'Fehlend',
+    labelKey: 'vermietung.zustandsprotokoll.condition.missing',
     icon: XCircle,
     dot: 'bg-error',
     activeBg: 'bg-error/15 text-error border-error/40',
@@ -103,6 +104,7 @@ export default function ZustandsprotokollDialog({
   reservation,
   onSave,
 }: ZustandsprotokollDialogProps) {
+  const { t } = useTranslation()
   // Form state
   const [type, setType] = useState<ProtokollType>('pickup')
   const [date, setDate] = useState(todayISO)
@@ -132,7 +134,7 @@ export default function ZustandsprotokollDialog({
 
   const handleSave = () => {
     if (!createdBy.trim()) {
-      toast.error('Bitte den Namen des Erstellers angeben')
+      toast.error(t('vermietung.zustandsprotokoll.errorCreatedBy'))
       return
     }
 
@@ -155,7 +157,7 @@ export default function ZustandsprotokollDialog({
     }
 
     onSave(protokoll)
-    toast.success('Zustandsprotokoll gespeichert')
+    toast.success(t('vermietung.zustandsprotokoll.saveSuccess'))
     onClose()
   }
 
@@ -166,7 +168,7 @@ export default function ZustandsprotokollDialog({
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col gap-0 p-0 glass-elevated">
         {/* ---- Header ---- */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
-          <DialogTitle>Zustandsprotokoll</DialogTitle>
+          <DialogTitle>{t('vermietung.zustandsprotokoll.title')}</DialogTitle>
           <DialogDescription>
             {reservation?.objectName} &middot; {reservation?.renter}
           </DialogDescription>
@@ -177,12 +179,12 @@ export default function ZustandsprotokollDialog({
           {/* ---------- Typ toggle ---------- */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Typ
+              {t('vermietung.zustandsprotokoll.labelTyp')}
             </label>
             <div className="inline-flex rounded-lg border border-border overflow-hidden">
               {([
-                { key: 'pickup' as const, label: 'Abholung' },
-                { key: 'return' as const, label: 'Rückgabe' },
+                { key: 'pickup' as const, labelKey: 'vermietung.zustandsprotokoll.typePickup' },
+                { key: 'return' as const, labelKey: 'vermietung.zustandsprotokoll.typeReturn' },
               ]).map((opt) => (
                 <button
                   key={opt.key}
@@ -194,7 +196,7 @@ export default function ZustandsprotokollDialog({
                       : 'bg-card text-muted-foreground hover:bg-secondary'
                   }`}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               ))}
             </div>
@@ -203,7 +205,7 @@ export default function ZustandsprotokollDialog({
           {/* ---------- Datum ---------- */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Datum
+              {t('vermietung.zustandsprotokoll.labelDatum')}
             </label>
             <input
               type="date"
@@ -217,7 +219,7 @@ export default function ZustandsprotokollDialog({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-medium text-muted-foreground">
-                Checkliste
+                {t('vermietung.zustandsprotokoll.labelCheckliste')}
               </label>
               <button
                 type="button"
@@ -225,7 +227,7 @@ export default function ZustandsprotokollDialog({
                 className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                Punkt
+                {t('vermietung.zustandsprotokoll.buttonAddPoint')}
               </button>
             </div>
 
@@ -262,8 +264,8 @@ export default function ZustandsprotokollDialog({
                               key={opt.value}
                               type="button"
                               onClick={() => updateChecklistItem(idx, { condition: opt.value })}
-                              title={opt.label}
-                              aria-label={`${item.label || `Punkt ${idx + 1}`}: ${opt.label}`}
+                              title={t(opt.labelKey)}
+                              aria-label={`${item.label || `Punkt ${idx + 1}`}: ${t(opt.labelKey)}`}
                               className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${
                                 isActive
                                   ? opt.activeBg
@@ -271,7 +273,7 @@ export default function ZustandsprotokollDialog({
                               }`}
                             >
                               <Icon className="h-3 w-3" />
-                              {opt.label}
+                              {t(opt.labelKey)}
                             </button>
                           )
                         })}
@@ -283,8 +285,8 @@ export default function ZustandsprotokollDialog({
                           type="button"
                           onClick={() => removeChecklistItem(idx)}
                           className="flex-shrink-0 rounded p-0.5 text-muted-foreground hover:text-error transition-colors"
-                          title="Entfernen"
-                          aria-label={`${item.label || `Punkt ${idx + 1}`} entfernen`}
+                          title={t('vermietung.zustandsprotokoll.removePoint')}
+                          aria-label={`${item.label || `Punkt ${idx + 1}`} ${t('vermietung.zustandsprotokoll.removePoint')}`}
                         >
                           <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
@@ -311,7 +313,7 @@ export default function ZustandsprotokollDialog({
           {/* ---------- Fotos (mock counter) ---------- */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Fotos
+              {t('vermietung.zustandsprotokoll.labelFotos')}
             </label>
             <div className="flex items-center gap-3">
               <button
@@ -320,10 +322,12 @@ export default function ZustandsprotokollDialog({
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
               >
                 <Camera className="h-4 w-4" />
-                Foto hinzufügen
+                {t('vermietung.zustandsprotokoll.buttonAddPhoto')}
               </button>
               <span className="text-sm text-foreground font-medium tabular-nums">
-                {photoCount} {photoCount === 1 ? 'Foto' : 'Fotos'}
+                {photoCount === 1
+                  ? t('vermietung.zustandsprotokoll.photoSingular')
+                  : t('vermietung.zustandsprotokoll.photoPlural', { count: photoCount })}
               </span>
               {photoCount > 0 && (
                 <button
@@ -331,7 +335,7 @@ export default function ZustandsprotokollDialog({
                   onClick={() => setPhotoCount((c) => Math.max(0, c - 1))}
                   className="text-xs text-muted-foreground hover:text-error transition-colors"
                 >
-                  Letztes entfernen
+                  {t('vermietung.zustandsprotokoll.buttonRemoveLast')}
                 </button>
               )}
             </div>
@@ -340,13 +344,13 @@ export default function ZustandsprotokollDialog({
           {/* ---------- Notizen ---------- */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Notizen
+              {t('vermietung.zustandsprotokoll.labelNotizen')}
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              placeholder="Allgemeine Anmerkungen zum Zustand..."
+              placeholder={t('vermietung.zustandsprotokoll.placeholderNotizen')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder resize-none focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -354,14 +358,14 @@ export default function ZustandsprotokollDialog({
           {/* ---------- Unterschrift ---------- */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Unterschrift
+              {t('vermietung.zustandsprotokoll.labelUnterschrift')}
             </label>
             {signatureDataUrl ? (
               <div className="space-y-2">
                 <div className="rounded-lg border border-border bg-white dark:bg-card p-2 inline-block">
                   <img
                     src={signatureDataUrl}
-                    alt="Unterschrift"
+                    alt={t('vermietung.zustandsprotokoll.labelUnterschrift')}
                     loading="lazy"
                     decoding="async"
                     className="h-[100px] object-contain"
@@ -373,7 +377,7 @@ export default function ZustandsprotokollDialog({
                     onClick={() => setSignatureDataUrl(undefined)}
                     className="text-xs text-muted-foreground hover:text-error transition-colors"
                   >
-                    Unterschrift entfernen
+                    {t('vermietung.zustandsprotokoll.buttonRemoveSignature')}
                   </button>
                 </div>
               </div>
@@ -389,13 +393,13 @@ export default function ZustandsprotokollDialog({
           {/* ---------- Erstellt von ---------- */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              Erstellt von <span className="text-error">*</span>
+              {t('vermietung.zustandsprotokoll.labelCreatedBy')} <span className="text-error">*</span>
             </label>
             <input
               type="text"
               value={createdBy}
               onChange={(e) => setCreatedBy(e.target.value)}
-              placeholder="Name des Erstellers"
+              placeholder={t('vermietung.zustandsprotokoll.placeholderCreatedBy')}
               className="w-full max-w-[300px] rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -408,14 +412,14 @@ export default function ZustandsprotokollDialog({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             type="button"
             onClick={handleSave}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Protokoll speichern
+            {t('vermietung.zustandsprotokoll.buttonSave')}
           </button>
         </DialogFooter>
       </DialogContent>

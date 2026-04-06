@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -61,10 +62,10 @@ import {
 
 type TabKey = 'formulare' | 'eingänge' | 'vorlagen'
 
-const formStatusLabels: Record<Form['status'], string> = {
-  active: 'Aktiv',
-  draft: 'Entwurf',
-  archived: 'Archiviert',
+const formStatusLabelKeys: Record<Form['status'], string> = {
+  active: 'formulare.status.active',
+  draft: 'formulare.status.draft',
+  archived: 'formulare.status.archived',
 }
 
 const formStatusColors: Record<Form['status'], string> = {
@@ -73,10 +74,10 @@ const formStatusColors: Record<Form['status'], string> = {
   archived: 'bg-warning-light text-warning',
 }
 
-const submissionStatusLabels: Record<FormSubmission['status'], string> = {
-  new: 'Neu',
-  read: 'Gelesen',
-  archived: 'Archiviert',
+const submissionStatusLabelKeys: Record<FormSubmission['status'], string> = {
+  new: 'formulare.submission.status.new',
+  read: 'formulare.submission.status.read',
+  archived: 'formulare.submission.status.archived',
 }
 
 const submissionStatusColors: Record<FormSubmission['status'], string> = {
@@ -85,16 +86,16 @@ const submissionStatusColors: Record<FormSubmission['status'], string> = {
   archived: 'bg-warning-light text-warning',
 }
 
-const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
-  text: 'Textfeld',
-  textarea: 'Textbereich',
-  select: 'Auswahl',
-  checkbox: 'Checkbox',
-  radio: 'Optionen',
-  date: 'Datum',
-  number: 'Zahl',
-  rating: 'Bewertung',
-  file: 'Datei',
+const FIELD_TYPE_LABEL_KEYS: Record<FormFieldType, string> = {
+  text: 'formulare.fieldType.text',
+  textarea: 'formulare.fieldType.textarea',
+  select: 'formulare.fieldType.select',
+  checkbox: 'formulare.fieldType.checkbox',
+  radio: 'formulare.fieldType.radio',
+  date: 'formulare.fieldType.date',
+  number: 'formulare.fieldType.number',
+  rating: 'formulare.fieldType.rating',
+  file: 'formulare.fieldType.file',
 }
 
 const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
@@ -109,16 +110,16 @@ const FIELD_TYPE_ICONS: Record<FormFieldType, typeof Type> = {
   file: Paperclip,
 }
 
-const FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string }[] = [
-  { value: 'text', label: 'Textfeld' },
-  { value: 'textarea', label: 'Textbereich' },
-  { value: 'select', label: 'Auswahl (Dropdown)' },
-  { value: 'radio', label: 'Optionen (Radio)' },
-  { value: 'checkbox', label: 'Checkbox' },
-  { value: 'date', label: 'Datum' },
-  { value: 'number', label: 'Zahl' },
-  { value: 'rating', label: 'Bewertung (Sterne)' },
-  { value: 'file', label: 'Datei-Upload' },
+const FIELD_TYPE_OPTION_KEYS: { value: FormFieldType; labelKey: string }[] = [
+  { value: 'text', labelKey: 'formulare.fieldType.text' },
+  { value: 'textarea', labelKey: 'formulare.fieldType.textarea' },
+  { value: 'select', labelKey: 'formulare.fieldType.selectDropdown' },
+  { value: 'radio', labelKey: 'formulare.fieldType.radioOption' },
+  { value: 'checkbox', labelKey: 'formulare.fieldType.checkbox' },
+  { value: 'date', labelKey: 'formulare.fieldType.date' },
+  { value: 'number', labelKey: 'formulare.fieldType.number' },
+  { value: 'rating', labelKey: 'formulare.fieldType.ratingStars' },
+  { value: 'file', labelKey: 'formulare.fieldType.fileUpload' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -126,6 +127,7 @@ const FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string }[] = [
 // ---------------------------------------------------------------------------
 
 export default function FormularePage() {
+  const { t } = useTranslation()
   const {
     forms,
     templates,
@@ -139,6 +141,21 @@ export default function FormularePage() {
     removeField,
     reorderFields,
   } = useFormulareStore()
+
+  const formStatusLabels = useMemo(
+    () => Object.fromEntries(Object.entries(formStatusLabelKeys).map(([k, v]) => [k, t(v)])) as Record<Form['status'], string>,
+    [t],
+  )
+
+  const submissionStatusLabels = useMemo(
+    () => Object.fromEntries(Object.entries(submissionStatusLabelKeys).map(([k, v]) => [k, t(v)])) as Record<FormSubmission['status'], string>,
+    [t],
+  )
+
+  const FIELD_TYPE_LABELS = useMemo(
+    () => Object.fromEntries(Object.entries(FIELD_TYPE_LABEL_KEYS).map(([k, v]) => [k, t(v)])) as Record<FormFieldType, string>,
+    [t],
+  )
 
   // Tab & search
   const [tab, setTab] = useState<TabKey>('formulare')
@@ -286,52 +303,52 @@ export default function FormularePage() {
   const getFormActions = useCallback(
     (form: Form) => [
       {
-        label: 'Bearbeiten',
+        label: t('formulare.actions.bearbeiten'),
         icon: Edit,
         onClick: () => openEditor(form),
       },
       {
-        label: 'Duplizieren',
+        label: t('formulare.actions.duplizieren'),
         icon: Copy,
         onClick: () => {
           duplicateForm(form.id)
-          toast.success(`"${form.name}" wurde dupliziert`)
+          toast.success(t('formulare.toast.dupliziert', { name: form.name }))
         },
       },
       {
-        label: 'Teilen',
+        label: t('formulare.actions.teilen'),
         icon: Share2,
         onClick: () => setShowShareDialog(form),
       },
       {
         label:
-          form.status === 'archived' ? 'Aktivieren' : 'Archivieren',
+          form.status === 'archived' ? t('formulare.actions.aktivieren') : t('formulare.actions.archivieren'),
         icon: Archive,
         onClick: () => {
           const newStatus = form.status === 'archived' ? 'active' : 'archived'
           updateForm(form.id, { status: newStatus })
           toast.success(
             form.status === 'archived'
-              ? `"${form.name}" wurde aktiviert`
-              : `"${form.name}" wurde archiviert`
+              ? t('formulare.toast.aktiviert', { name: form.name })
+              : t('formulare.toast.archiviert', { name: form.name })
           )
         },
       },
       { separator: true as const, label: '', onClick: () => {} },
       {
-        label: 'Löschen',
+        label: t('common.delete'),
         icon: Trash2,
         variant: 'destructive' as const,
         onClick: () => setConfirmDelete(form),
       },
     ],
-    [duplicateForm, updateForm]
+    [t, duplicateForm, updateForm]
   )
 
   const handleDeleteForm = (form: Form) => {
     deleteForm(form.id)
     setConfirmDelete(null)
-    toast.success(`"${form.name}" wurde gelöscht`)
+    toast.success(t('formulare.toast.geloescht', { name: form.name }))
   }
 
   const closeEditor = () => {
@@ -345,7 +362,7 @@ export default function FormularePage() {
       name: editName,
       description: editDescription,
     })
-    toast.success('Formular gespeichert')
+    toast.success(t('formulare.toast.gespeichert'))
     closeEditor()
   }
 
@@ -414,7 +431,7 @@ export default function FormularePage() {
     )
     reorderFields(editingFormId, updatedFields)
     setShowFieldConfigDialog(null)
-    toast.success('Feld aktualisiert')
+    toast.success(t('formulare.toast.feldAktualisiert'))
   }
 
   // New form
@@ -426,7 +443,7 @@ export default function FormularePage() {
 
   const handleCreateForm = () => {
     if (!newFormName.trim()) {
-      toast.error('Bitte einen Namen eingeben')
+      toast.error(t('formulare.toast.nameRequired'))
       return
     }
     if (newFormTemplateId) {
@@ -449,7 +466,7 @@ export default function FormularePage() {
         isTemplate: false,
       })
     }
-    toast.success(`Formular "${newFormName}" erstellt`)
+    toast.success(t('formulare.toast.formularErstellt', { name: newFormName }))
     resetNewFormDialog()
     setShowNewFormDialog(false)
   }
@@ -472,7 +489,7 @@ export default function FormularePage() {
   // Template use
   const handleUseTemplate = (template: Form) => {
     duplicateForm(template.id)
-    toast.success(`Neues Formular aus "${template.name}" erstellt`)
+    toast.success(t('formulare.toast.vorlagenFormularErstellt', { name: template.name }))
   }
 
   // ---------------------------------------------------------------------------
@@ -554,7 +571,7 @@ export default function FormularePage() {
     if (type === 'crm_contact') {
       // No config needed, just add
       updateForm(editingFormId, { actions: [...existing, newAction] })
-      toast.success('CRM-Kontakt Aktion hinzugefügt')
+      toast.success(t('formulare.toast.crmAktionHinzugefuegt'))
     } else {
       // Open inline editor
       updateForm(editingFormId, { actions: [...existing, newAction] })
@@ -581,7 +598,7 @@ export default function FormularePage() {
     }
     updateForm(editingFormId, { actions })
     setEditingActionIndex(null)
-    toast.success('Aktion gespeichert')
+    toast.success(t('formulare.toast.aktionGespeichert'))
   }
 
   const handleRemoveAction = (index: number) => {
@@ -589,14 +606,14 @@ export default function FormularePage() {
     const actions = [...(editingForm.actions ?? [])]
     actions.splice(index, 1)
     updateForm(editingFormId, { actions })
-    toast.success('Aktion entfernt')
+    toast.success(t('formulare.toast.aktionEntfernt'))
   }
 
-  const actionTypeLabels: Record<string, string> = {
-    email: 'E-Mail senden',
-    task: 'Task erstellen',
-    crm_contact: 'CRM-Kontakt anlegen',
-  }
+  const actionTypeLabels: Record<string, string> = useMemo(() => ({
+    email: t('formulare.editor.emailSenden'),
+    task: t('formulare.editor.taskErstellen'),
+    crm_contact: t('formulare.editor.crmKontakt'),
+  }), [t])
 
   const actionTypeIcons: Record<string, typeof Mail> = {
     email: Mail,
@@ -627,9 +644,9 @@ export default function FormularePage() {
   }
 
   const _conditionOperatorLabels: Record<string, string> = {
-    equals: 'ist gleich',
-    not_equals: 'ist nicht gleich',
-    contains: 'enthaelt',
+    equals: t('formulare.fieldConfig.istGleich'),
+    not_equals: t('formulare.fieldConfig.istNichtGleich'),
+    contains: t('formulare.fieldConfig.enthaelt'),
   }
 
   // ---------------------------------------------------------------------------
@@ -671,7 +688,7 @@ export default function FormularePage() {
               value ? 'bg-success-light text-success' : 'bg-secondary text-muted-foreground'
             }`}
           >
-            {value ? 'Ja' : 'Nein'}
+            {value ? t('formulare.submission.ja') : t('formulare.submission.nein')}
           </span>
         )
       case 'select':
@@ -691,10 +708,10 @@ export default function FormularePage() {
         return value ? (
           <span className="inline-flex items-center gap-1.5 text-sm text-primary">
             <Paperclip className="h-3.5 w-3.5" />
-            Datei hochgeladen
+            {t('formulare.submission.dateiHochgeladen')}
           </span>
         ) : (
-          <span className="text-sm text-muted-foreground">Keine Datei</span>
+          <span className="text-sm text-muted-foreground">{t('formulare.submission.keineDatei')}</span>
         )
       default:
         return (
@@ -732,7 +749,7 @@ export default function FormularePage() {
             disabled
             className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-muted-foreground"
           >
-            <option>Bitte wählen...</option>
+            <option>{t('formulare.editor.selectPlaceholder')}</option>
             {field.options?.map((opt) => (
               <option key={opt}>{opt}</option>
             ))}
@@ -785,7 +802,7 @@ export default function FormularePage() {
         return (
           <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary/30 px-4 py-6 text-sm text-muted-foreground">
             <Paperclip className="h-4 w-4" />
-            Datei auswählen oder hierher ziehen
+            {t('formulare.editor.dateiZiehen')}
           </div>
         )
       default:
@@ -807,19 +824,19 @@ export default function FormularePage() {
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            Zurück
+            {t('formulare.editor.zurueck')}
           </button>
           <div className="flex-1" />
 
           {/* 10.4 — Öffentlich toggle */}
           <div className="flex items-center gap-2 mr-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Öffentlich</span>
+            <span className="text-xs text-muted-foreground">{t('formulare.editor.oeffentlich')}</span>
             <button
               onClick={() => {
                 if (!editingFormId || !editingForm) return
                 updateForm(editingFormId, { isPublic: !editingForm.isPublic })
-                toast.success(editingForm.isPublic ? 'Formular ist jetzt privat' : 'Formular ist jetzt öffentlich')
+                toast.success(editingForm.isPublic ? t('formulare.toast.privat') : t('formulare.toast.oeffentlich'))
               }}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                 editingForm?.isPublic ? 'bg-primary' : 'bg-secondary'
@@ -837,23 +854,23 @@ export default function FormularePage() {
           <button
             onClick={() => setShowPublicPreview(true)}
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
-            title="Öffentliche Vorschau"
+            title={t('formulare.editor.vorschau')}
           >
             <Eye className="h-4 w-4" />
-            Vorschau
+            {t('formulare.editor.vorschau')}
           </button>
 
           <button
             onClick={closeEditor}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={saveEditor}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Speichern
+            {t('common.save')}
           </button>
         </div>
 
@@ -863,14 +880,14 @@ export default function FormularePage() {
             type="text"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
-            placeholder="Formularname"
+            placeholder={t('formulare.preview.formularname')}
             className="w-full text-xl font-semibold text-foreground bg-transparent border-b border-border pb-2 focus:outline-none focus:border-primary transition-colors placeholder:text-input-placeholder"
           />
           <input
             type="text"
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
-            placeholder="Beschreibung hinzufügen..."
+            placeholder={t('formulare.newForm.beschreibungPlaceholder')}
             className="w-full text-sm text-muted-foreground bg-transparent border-b border-border-muted pb-2 focus:outline-none focus:border-primary transition-colors placeholder:text-input-placeholder"
           />
         </div>
@@ -881,7 +898,7 @@ export default function FormularePage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-foreground">
-                Felder ({editingForm.fields.filter((f) => f.label !== '__page_break__').length})
+                {t('formulare.editor.felder', { count: editingForm.fields.filter((f) => f.label !== '__page_break__').length })}
               </h3>
               <div className="relative">
                 <button
@@ -889,11 +906,11 @@ export default function FormularePage() {
                   className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Feld hinzufügen
+                  {t('formulare.editor.feldHinzufuegen')}
                 </button>
                 {showAddFieldMenu && (
                   <div className="absolute right-0 top-full mt-1 z-20 w-56 rounded-lg border border-border bg-card shadow-xl py-1">
-                    {FIELD_TYPE_OPTIONS.map((opt) => {
+                    {FIELD_TYPE_OPTION_KEYS.map((opt) => {
                       const Icon = FIELD_TYPE_ICONS[opt.value]
                       return (
                         <button
@@ -902,7 +919,7 @@ export default function FormularePage() {
                           className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                         >
                           <Icon className="h-4 w-4 text-muted-foreground" />
-                          {opt.label}
+                          {t(opt.labelKey)}
                         </button>
                       )
                     })}
@@ -913,7 +930,7 @@ export default function FormularePage() {
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                     >
                       <Split className="h-4 w-4 text-muted-foreground" />
-                      Seitenumbruch einfügen
+                      {t('formulare.editor.seitenumbruch')}
                     </button>
                   </div>
                 )}
@@ -924,7 +941,7 @@ export default function FormularePage() {
               <div className="rounded-lg border-2 border-dashed border-border p-8 text-center">
                 <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground/40" />
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Noch keine Felder. Klicke auf "Feld hinzufügen".
+                  {t('formulare.editor.noFelder')}
                 </p>
               </div>
             ) : (
@@ -941,13 +958,13 @@ export default function FormularePage() {
                       <div key={field.id} className="flex items-center gap-3 py-2 group">
                         <div className="flex-1 border-t border-dashed border-primary/40" />
                         <span className="text-xs font-medium text-primary/70 whitespace-nowrap">
-                          --- Seite {pageNum + 1} ---
+                          {t('formulare.editor.seitenumbruchLabel', { page: pageNum + 1 })}
                         </span>
                         <div className="flex-1 border-t border-dashed border-primary/40" />
                         <button
                           onClick={() => handleRemoveField(field.id)}
                           className="rounded-md p-1 text-muted-foreground hover:text-error hover:bg-error-light transition-colors opacity-0 group-hover:opacity-100"
-                          title="Seitenumbruch entfernen"
+                          title={t('formulare.editor.seitenumbruch')}
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -972,33 +989,33 @@ export default function FormularePage() {
                           </span>
                           {field.required && (
                             <span className="rounded bg-error-light px-1.5 py-0.5 text-[9px] font-medium text-error shrink-0">
-                              Pflicht
+                              {t('formulare.editor.pflicht')}
                             </span>
                           )}
                           {/* 10.1 — Conditional badge */}
                           {field.conditionalLogic && (
                             <span className="rounded bg-warning-light px-1.5 py-0.5 text-[9px] font-medium text-warning shrink-0">
-                              Bedingt
+                              {t('formulare.editor.bedingt')}
                             </span>
                           )}
                         </div>
                         <span className="text-[10px] text-muted-foreground">
                           {FIELD_TYPE_LABELS[field.type]}
-                          {field.options ? ` (${field.options.length} Optionen)` : ''}
+                          {field.options ? ` (${field.options.length} ${t('formulare.fieldConfig.optionen')})` : ''}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => openFieldConfig(field)}
                           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors"
-                          title="Bearbeiten"
+                          title={t('formulare.actions.bearbeiten')}
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => handleRemoveField(field.id)}
                           className="rounded-md p-1.5 text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
-                          title="Löschen"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -1012,10 +1029,10 @@ export default function FormularePage() {
 
           {/* Right: Live preview */}
           <div>
-            <h3 className="text-sm font-medium text-foreground mb-3">Vorschau</h3>
+            <h3 className="text-sm font-medium text-foreground mb-3">{t('formulare.editor.vorschauTitle')}</h3>
             <div className="rounded-xl border border-border bg-card p-5 space-y-4">
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-foreground">{editName || 'Formularname'}</h2>
+                <h2 className="text-lg font-semibold text-foreground">{editName || t('formulare.preview.formularname')}</h2>
                 {editDescription && (
                   <p className="text-sm text-muted-foreground mt-1">{editDescription}</p>
                 )}
@@ -1030,17 +1047,17 @@ export default function FormularePage() {
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
-                    Zurück
+                    {t('formulare.editor.zurueck')}
                   </button>
                   <span className="text-xs font-medium text-foreground">
-                    Seite {previewPage + 1} von {totalPages}
+                    {t('formulare.editor.seite', { current: previewPage + 1, total: totalPages })}
                   </span>
                   <button
                     onClick={() => setPreviewPage(Math.min(totalPages - 1, previewPage + 1))}
                     disabled={previewPage >= totalPages - 1}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
                   >
-                    Weiter
+                    {t('formulare.editor.weiter')}
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1048,7 +1065,7 @@ export default function FormularePage() {
 
               {editingForm.fields.length === 0 ? (
                 <p className="text-sm text-muted-foreground italic">
-                  Fuege Felder hinzu, um eine Vorschau zu sehen.
+                  {t('formulare.editor.vorschauHinweis')}
                 </p>
               ) : (
                 editingForm.fields
@@ -1070,7 +1087,7 @@ export default function FormularePage() {
                         {/* 10.1 — Conditional badge in preview */}
                         {field.conditionalLogic && (
                           <span className="rounded bg-warning-light px-1.5 py-0.5 text-[9px] font-medium text-warning">
-                            Bedingt
+                            {t('formulare.editor.bedingt')}
                           </span>
                         )}
                       </label>
@@ -1083,7 +1100,7 @@ export default function FormularePage() {
                   disabled
                   className="mt-2 rounded-lg bg-primary/50 px-4 py-2 text-sm text-primary-foreground cursor-not-allowed"
                 >
-                  {totalPages > 1 && previewPage < totalPages - 1 ? 'Weiter' : 'Absenden'}
+                  {totalPages > 1 && previewPage < totalPages - 1 ? t('formulare.editor.weiter') : t('formulare.editor.absenden')}
                 </button>
               )}
             </div>
@@ -1102,7 +1119,7 @@ export default function FormularePage() {
               <ChevronRight className="h-4 w-4" />
             )}
             <Zap className="h-4 w-4 text-primary" />
-            Automatische Aktionen
+            {t('formulare.editor.automatischeAktionen')}
             {(editingForm.actions?.length ?? 0) > 0 && (
               <span className="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">
                 {editingForm.actions!.length}
@@ -1131,7 +1148,7 @@ export default function FormularePage() {
                             {actionTypeLabels[action.type]}
                           </p>
                           {action.type === 'email' && action.config.to && (
-                            <p className="text-[10px] text-muted-foreground">an: {action.config.to}</p>
+                            <p className="text-[10px] text-muted-foreground">{t('formulare.editor.an')}: {action.config.to}</p>
                           )}
                           {action.type === 'task' && action.config.title && (
                             <p className="text-[10px] text-muted-foreground">
@@ -1169,12 +1186,12 @@ export default function FormularePage() {
                     {isEditing && action.type === 'email' && (
                       <div className="mt-3 space-y-2 border-t border-border-muted pt-3">
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Empfänger</label>
+                          <label className="text-xs font-medium text-muted-foreground">{t('formulare.editor.empfaenger')}</label>
                           <input
                             type="email"
                             value={actionEmailTo}
                             onChange={(e) => setActionEmailTo(e.target.value)}
-                            placeholder="email@beispiel.de"
+                            placeholder={t('formulare.editor.emailPlaceholder')}
                             className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                           />
                         </div>
@@ -1183,13 +1200,13 @@ export default function FormularePage() {
                             onClick={() => setEditingActionIndex(null)}
                             className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
                           >
-                            Abbrechen
+                            {t('common.cancel')}
                           </button>
                           <button
                             onClick={() => handleSaveAction(idx)}
                             className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover"
                           >
-                            Speichern
+                            {t('common.save')}
                           </button>
                         </div>
                       </div>
@@ -1199,22 +1216,22 @@ export default function FormularePage() {
                     {isEditing && action.type === 'task' && (
                       <div className="mt-3 space-y-2 border-t border-border-muted pt-3">
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Task-Titel</label>
+                          <label className="text-xs font-medium text-muted-foreground">{t('formulare.editor.taskTitel')}</label>
                           <input
                             type="text"
                             value={actionTaskTitle}
                             onChange={(e) => setActionTaskTitle(e.target.value)}
-                            placeholder="z.B. Feedback auswerten"
+                            placeholder={t('formulare.editor.taskTitelPlaceholder')}
                             className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Zustaendig</label>
+                          <label className="text-xs font-medium text-muted-foreground">{t('formulare.editor.zustaendig')}</label>
                           <input
                             type="text"
                             value={actionTaskAssignee}
                             onChange={(e) => setActionTaskAssignee(e.target.value)}
-                            placeholder="z.B. Max Mustermann"
+                            placeholder={t('formulare.editor.zustaendigPlaceholder')}
                             className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                           />
                         </div>
@@ -1223,13 +1240,13 @@ export default function FormularePage() {
                             onClick={() => setEditingActionIndex(null)}
                             className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
                           >
-                            Abbrechen
+                            {t('common.cancel')}
                           </button>
                           <button
                             onClick={() => handleSaveAction(idx)}
                             className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover"
                           >
-                            Speichern
+                            {t('common.save')}
                           </button>
                         </div>
                       </div>
@@ -1245,7 +1262,7 @@ export default function FormularePage() {
                   className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:border-primary/40 transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Aktion hinzufügen
+                  {t('formulare.editor.aktionHinzufuegen')}
                 </button>
                 {showAddActionMenu && (
                   <div className="absolute left-0 top-full mt-1 z-20 w-52 rounded-lg border border-border bg-card shadow-xl py-1">
@@ -1254,21 +1271,21 @@ export default function FormularePage() {
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                     >
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      E-Mail senden
+                      {t('formulare.editor.emailSenden')}
                     </button>
                     <button
                       onClick={() => handleAddAction('task')}
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                     >
                       <ListTodo className="h-4 w-4 text-muted-foreground" />
-                      Task erstellen
+                      {t('formulare.editor.taskErstellen')}
                     </button>
                     <button
                       onClick={() => handleAddAction('crm_contact')}
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                     >
                       <UserPlus className="h-4 w-4 text-muted-foreground" />
-                      CRM-Kontakt anlegen
+                      {t('formulare.editor.crmKontakt')}
                     </button>
                   </div>
                 )}
@@ -1280,14 +1297,14 @@ export default function FormularePage() {
         {/* ====================== 10.4 — PUBLIC PREVIEW MODAL ====================== */}
         <Dialog open={showPublicPreview && !!editingForm} onOpenChange={(o) => { if (!o) setShowPublicPreview(false) }}>
           <DialogContent className="gap-0 p-0 max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
-              <DialogTitle className="sr-only">Formular-Vorschau</DialogTitle>
-              <DialogDescription className="sr-only">Öffentliche Vorschau des Formulars</DialogDescription>
+              <DialogTitle className="sr-only">{t('formulare.editor.vorschau')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('formulare.preview.banner')}</DialogDescription>
 
               {/* Info banner */}
               <div className="flex items-center gap-2 bg-blue-50 border-b border-blue-100 px-6 py-3">
                 <Info className="h-4 w-4 text-blue-500 shrink-0" />
                 <p className="text-xs text-blue-700">
-                  Diese Vorschau zeigt wie das Formular für externe Nutzer aussieht
+                  {t('formulare.preview.banner')}
                 </p>
               </div>
 
@@ -1295,7 +1312,7 @@ export default function FormularePage() {
               <div className="p-8">
                 <div className="mb-6">
                   <h1 className="text-xl font-semibold text-gray-900">
-                    {editName || 'Formularname'}
+                    {editName || t('formulare.preview.formularname')}
                   </h1>
                   {editDescription && (
                     <p className="text-sm text-gray-500 mt-1">{editDescription}</p>
@@ -1328,7 +1345,7 @@ export default function FormularePage() {
                         )}
                         {field.type === 'select' && (
                           <select className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">Bitte wählen...</option>
+                            <option value="">{t('formulare.editor.selectPlaceholder')}</option>
                             {field.options?.map((opt) => (
                               <option key={opt}>{opt}</option>
                             ))}
@@ -1366,7 +1383,7 @@ export default function FormularePage() {
                         {field.type === 'file' && (
                           <div className="flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
                             <Paperclip className="h-4 w-4" />
-                            Datei auswählen oder hierher ziehen
+                            {t('formulare.editor.dateiZiehen')}
                           </div>
                         )}
                       </div>
@@ -1375,7 +1392,7 @@ export default function FormularePage() {
 
                 {editingForm.fields.filter((f) => f.label !== '__page_break__').length > 0 && (
                   <button className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
-                    Absenden
+                    {t('formulare.editor.absenden')}
                   </button>
                 )}
               </div>
@@ -1388,15 +1405,15 @@ export default function FormularePage() {
               <DialogHeader className="border-b border-border px-5 py-4">
                 <div className="flex items-center gap-2">
                   {showFieldConfigDialog && renderFieldIcon(showFieldConfigDialog.field.type, 'h-5 w-5 text-primary')}
-                  <DialogTitle className="text-base font-semibold text-foreground">Feld konfigurieren</DialogTitle>
+                  <DialogTitle className="text-base font-semibold text-foreground">{t('formulare.fieldConfig.title')}</DialogTitle>
                 </div>
-                <DialogDescription className="sr-only">Feldeinstellungen bearbeiten</DialogDescription>
+                <DialogDescription className="sr-only">{t('formulare.fieldConfig.title')}</DialogDescription>
               </DialogHeader>
 
               <div className="p-5 space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">
-                    Bezeichnung <span className="text-destructive">*</span>
+                    {t('formulare.fieldConfig.bezeichnung')} <span className="text-destructive">*</span>
                   </label>
                   <input
                     type="text"
@@ -1407,7 +1424,7 @@ export default function FormularePage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-foreground">Pflichtfeld</label>
+                  <label className="text-sm font-medium text-foreground">{t('formulare.fieldConfig.pflichtfeld')}</label>
                   <button
                     onClick={() => setConfigRequired(!configRequired)}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
@@ -1426,12 +1443,12 @@ export default function FormularePage() {
                   showFieldConfigDialog.field.type === 'textarea' ||
                   showFieldConfigDialog.field.type === 'number') && (
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-foreground">Platzhalter</label>
+                    <label className="text-sm font-medium text-foreground">{t('formulare.fieldConfig.platzhalter')}</label>
                     <input
                       type="text"
                       value={configPlaceholder}
                       onChange={(e) => setConfigPlaceholder(e.target.value)}
-                      placeholder="Platzhaltertext..."
+                      placeholder={t('formulare.fieldConfig.platzhalterPlaceholder')}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                     />
                   </div>
@@ -1441,13 +1458,13 @@ export default function FormularePage() {
                   showFieldConfigDialog.field.type === 'radio') && (
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-foreground">
-                      Optionen <span className="text-xs text-muted-foreground">(kommagetrennt)</span>
+                      {t('formulare.fieldConfig.optionen')} <span className="text-xs text-muted-foreground">{t('formulare.fieldConfig.optionenHint')}</span>
                     </label>
                     <input
                       type="text"
                       value={configOptions}
                       onChange={(e) => setConfigOptions(e.target.value)}
-                      placeholder="Option 1, Option 2, Option 3"
+                      placeholder={t('formulare.fieldConfig.optionenPlaceholder')}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                     />
                   </div>
@@ -1458,7 +1475,7 @@ export default function FormularePage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Zap className="h-4 w-4 text-warning" />
-                      <label className="text-sm font-medium text-foreground">Bedingte Anzeige</label>
+                      <label className="text-sm font-medium text-foreground">{t('formulare.fieldConfig.bedingteAnzeige')}</label>
                     </div>
                     <button
                       onClick={() => setConfigConditionalEnabled(!configConditionalEnabled)}
@@ -1477,18 +1494,18 @@ export default function FormularePage() {
                   {configConditionalEnabled && (
                     <div className="rounded-lg border border-border bg-secondary/20 p-3 space-y-3">
                       <p className="text-xs text-muted-foreground">
-                        Zeige dieses Feld nur wenn...
+                        {t('formulare.fieldConfig.zeigeWenn')}
                       </p>
 
                       {/* Source field dropdown */}
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Quellfeld</label>
+                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('formulare.fieldConfig.quellfeld')}</label>
                         <select
                           value={configConditionalFieldId}
                           onChange={(e) => setConfigConditionalFieldId(e.target.value)}
                           className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                         >
-                          <option value="">Feld wählen...</option>
+                          <option value="">{t('formulare.fieldConfig.quellFeldSelect')}</option>
                           {editingForm!.fields
                             .filter((f) => f.id !== showFieldConfigDialog.field.id && f.label !== '__page_break__')
                             .map((f) => (
@@ -1501,26 +1518,26 @@ export default function FormularePage() {
 
                       {/* Operator dropdown */}
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Bedingung</label>
+                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('formulare.fieldConfig.bedingung')}</label>
                         <select
                           value={configConditionalOperator}
                           onChange={(e) => setConfigConditionalOperator(e.target.value as 'equals' | 'not_equals' | 'contains')}
                           className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                         >
-                          <option value="equals">ist gleich</option>
-                          <option value="not_equals">ist nicht gleich</option>
-                          <option value="contains">enthaelt</option>
+                          <option value="equals">{t('formulare.fieldConfig.istGleich')}</option>
+                          <option value="not_equals">{t('formulare.fieldConfig.istNichtGleich')}</option>
+                          <option value="contains">{t('formulare.fieldConfig.enthaelt')}</option>
                         </select>
                       </div>
 
                       {/* Value input */}
                       <div className="space-y-1">
-                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Wert</label>
+                        <label className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('formulare.fieldConfig.wert')}</label>
                         <input
                           type="text"
                           value={configConditionalValue}
                           onChange={(e) => setConfigConditionalValue(e.target.value)}
-                          placeholder="Erwarteter Wert..."
+                          placeholder={t('formulare.fieldConfig.wertPlaceholder')}
                           className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                         />
                       </div>
@@ -1534,13 +1551,13 @@ export default function FormularePage() {
                   onClick={() => setShowFieldConfigDialog(null)}
                   className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
                 >
-                  Abbrechen
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={saveFieldConfig}
                   className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
                 >
-                  Speichern
+                  {t('common.save')}
                 </button>
               </DialogFooter>
           </DialogContent>
@@ -1556,8 +1573,8 @@ export default function FormularePage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
-        title="Formulare"
-        description={`${activeFormCount} aktive Formulare · ${newSubmissionCount} neue Eingänge`}
+        title={t('formulare.page.title')}
+        description={t('formulare.page.description', { count: activeFormCount, new: newSubmissionCount })}
         icon={FileInput}
         moduleId="formulare"
         className="mb-6"
@@ -1570,7 +1587,7 @@ export default function FormularePage() {
             className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Neues Formular
+            {t('formulare.actions.neuesFormular')}
           </button>
         }
       />
@@ -1584,7 +1601,7 @@ export default function FormularePage() {
             </div>
             <div>
               <p className="text-2xl font-semibold text-foreground">{activeFormCount}</p>
-              <p className="text-xs text-muted-foreground">Aktive Formulare</p>
+              <p className="text-xs text-muted-foreground">{t('formulare.stats.aktiveFormulare')}</p>
             </div>
           </div>
         </div>
@@ -1595,7 +1612,7 @@ export default function FormularePage() {
             </div>
             <div>
               <p className="text-2xl font-semibold text-foreground">{weeklySubmissionCount}</p>
-              <p className="text-xs text-muted-foreground">Eingänge diese Woche</p>
+              <p className="text-xs text-muted-foreground">{t('formulare.stats.eingaengeWoche')}</p>
             </div>
           </div>
         </div>
@@ -1606,7 +1623,7 @@ export default function FormularePage() {
             </div>
             <div>
               <p className="text-2xl font-semibold text-foreground">87%</p>
-              <p className="text-xs text-muted-foreground">Completion Rate</p>
+              <p className="text-xs text-muted-foreground">{t('formulare.stats.completionRate')}</p>
             </div>
           </div>
         </div>
@@ -1615,23 +1632,23 @@ export default function FormularePage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'formulare' as const, label: `Meine Formulare (${activeForms.length})` },
-          { key: 'eingänge' as const, label: `Eingänge (${submissions.length})` },
-          { key: 'vorlagen' as const, label: `Vorlagen (${templates.length})` },
-        ]).map((t) => (
+          { key: 'formulare' as const, label: t('formulare.tabs.meineFormulare', { count: activeForms.length }) },
+          { key: 'eingänge' as const, label: t('formulare.tabs.eingaenge', { count: submissions.length }) },
+          { key: 'vorlagen' as const, label: t('formulare.tabs.vorlagen', { count: templates.length }) },
+        ]).map((tabItem) => (
           <button
-            key={t.key}
+            key={tabItem.key}
             onClick={() => {
-              setTab(t.key)
+              setTab(tabItem.key)
               setSearch('')
             }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key
+              tab === tabItem.key
                 ? 'border-primary text-primary font-medium tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -1644,7 +1661,7 @@ export default function FormularePage() {
             <input
               type="text"
               placeholder={
-                tab === 'formulare' ? 'Formular suchen...' : 'Eingang suchen...'
+                tab === 'formulare' ? t('formulare.search.formulare') : t('formulare.search.eingaenge')
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -1660,29 +1677,29 @@ export default function FormularePage() {
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Download className="h-4 w-4" />
-                Exportieren
+                {t('formulare.export.exportieren')}
               </button>
               {showExportMenu && (
                 <div className="absolute right-0 top-full mt-1 z-20 w-48 rounded-lg border border-border bg-card shadow-xl py-1">
                   <button
                     onClick={() => {
-                      toast.success(`${submissions.length} Einreichungen als CSV exportiert`)
+                      toast.success(t('formulare.export.csvToast', { count: submissions.length }))
                       setShowExportMenu(false)
                     }}
                     className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                   >
                     <Download className="h-4 w-4 text-muted-foreground" />
-                    CSV exportieren
+                    {t('formulare.export.csv')}
                   </button>
                   <button
                     onClick={() => {
-                      toast.success(`${submissions.length} Einreichungen als Excel exportiert`)
+                      toast.success(t('formulare.export.excelToast', { count: submissions.length }))
                       setShowExportMenu(false)
                     }}
                     className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
                   >
                     <Download className="h-4 w-4 text-muted-foreground" />
-                    Excel exportieren
+                    {t('formulare.export.excel')}
                   </button>
                 </div>
               )}
@@ -1697,16 +1714,16 @@ export default function FormularePage() {
           {filteredForms.length === 0 ? (
             <EmptyState
               icon={FileText}
-              title="Keine Formulare gefunden"
+              title={t('formulare.empty.noFormulare')}
               description={
                 search
-                  ? 'Passe deine Suche an'
-                  : 'Erstelle dein erstes Formular'
+                  ? t('formulare.empty.suchHint')
+                  : t('formulare.empty.createHint')
               }
               action={
                 !search
                   ? {
-                      label: 'Neues Formular',
+                      label: t('formulare.empty.createLabel'),
                       onClick: () => {
                         resetNewFormDialog()
                         setShowNewFormDialog(true)
@@ -1757,20 +1774,20 @@ export default function FormularePage() {
                     {/* 10.3 — Actions badge */}
                     {(form.actions?.length ?? 0) > 0 && (
                       <span className="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-medium text-primary">
-                        {form.actions!.length} {form.actions!.length === 1 ? 'Aktion' : 'Aktionen'}
+                        {form.actions!.length} {form.actions!.length === 1 ? t('formulare.card.aktion') : t('formulare.card.aktionen')}
                       </span>
                     )}
                     {/* 10.4 — Public badge */}
                     {form.isPublic && (
                       <span className="rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
-                        Öffentlich
+                        {t('formulare.card.oeffentlich')}
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between border-t border-border-muted pt-3 text-xs text-muted-foreground">
-                    <span>{form.fields.filter((f) => f.label !== '__page_break__').length} Felder</span>
-                    <span>{form.submissionCount} Eingänge</span>
+                    <span>{t('formulare.card.felder', { count: form.fields.filter((f) => f.label !== '__page_break__').length })}</span>
+                    <span>{t('formulare.card.eingaenge', { count: form.submissionCount })}</span>
                     <span>{formatDate(form.createdAt)}</span>
                   </div>
                 </div>
@@ -1786,11 +1803,11 @@ export default function FormularePage() {
           {Object.keys(submissionsByForm).length === 0 ? (
             <EmptyState
               icon={Inbox}
-              title="Keine Eingänge gefunden"
+              title={t('formulare.empty.noEingaenge')}
               description={
                 search
-                  ? 'Passe deine Suche an'
-                  : 'Sobald Formulare ausgefüllt werden, erscheinen die Eingänge hier'
+                  ? t('formulare.empty.suchHint')
+                  : t('formulare.empty.eingaengeHint')
               }
             />
           ) : (
@@ -1816,11 +1833,11 @@ export default function FormularePage() {
                           {group.formName}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          ({group.items.length} Eingänge)
+                          {t('formulare.submission.eingaenge', { count: group.items.length })}
                         </span>
                         {newCount > 0 && (
                           <span className="rounded-full bg-info-light px-2 py-0.5 text-[10px] font-medium text-info">
-                            {newCount} neu
+                            {t('formulare.submission.neu', { count: newCount })}
                           </span>
                         )}
                       </div>
@@ -1833,13 +1850,13 @@ export default function FormularePage() {
                           <thead>
                             <tr className="border-b border-border-muted bg-secondary/30">
                               <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-                                Datum
+                                {t('formulare.submission.table.datum')}
                               </th>
                               <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-                                Absender
+                                {t('formulare.submission.table.absender')}
                               </th>
                               <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-                                Status
+                                {t('formulare.submission.table.status')}
                               </th>
                               <th className="px-4 py-2 text-right font-medium text-muted-foreground" />
                             </tr>
@@ -1873,25 +1890,25 @@ export default function FormularePage() {
                                   <ItemActions
                                     items={[
                                       {
-                                        label: 'Details anzeigen',
+                                        label: t('formulare.submission.detailsAnzeigen'),
                                         icon: Eye,
                                         onClick: () => setSelectedSubmission(sub),
                                       },
                                       {
-                                        label: 'Als gelesen markieren',
+                                        label: t('formulare.submission.alsGelesenMarkieren'),
                                         icon: Eye,
                                         onClick: () => {
                                           updateSubmissionStatus(sub.id, 'read')
-                                          toast.success('Als gelesen markiert')
+                                          toast.success(t('formulare.toast.alsGelesenMarkiert'))
                                         },
                                         disabled: sub.status !== 'new',
                                       },
                                       {
-                                        label: 'Archivieren',
+                                        label: t('formulare.submission.archivieren'),
                                         icon: Archive,
                                         onClick: () => {
                                           updateSubmissionStatus(sub.id, 'archived')
-                                          toast.success('Eingang archiviert')
+                                          toast.success(t('formulare.toast.eingangArchiviert'))
                                         },
                                         disabled: sub.status === 'archived',
                                       },
@@ -1918,8 +1935,8 @@ export default function FormularePage() {
           {templates.length === 0 ? (
             <EmptyState
               icon={LayoutTemplate}
-              title="Keine Vorlagen verfügbar"
-              description="Vorlagen werden hier angezeigt, sobald welche erstellt werden."
+              title={t('formulare.empty.noVorlagen')}
+              description={t('formulare.empty.vorlagenHint')}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1935,7 +1952,7 @@ export default function FormularePage() {
                     <div>
                       <h4 className="text-sm font-medium text-foreground">{tmpl.name}</h4>
                       <p className="text-xs text-muted-foreground">
-                        {tmpl.fields.length} Felder
+                        {t('formulare.card.felder', { count: tmpl.fields.length })}
                       </p>
                     </div>
                   </div>
@@ -1963,7 +1980,7 @@ export default function FormularePage() {
                     onClick={() => handleUseTemplate(tmpl)}
                     className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
                   >
-                    Vorlage verwenden
+                    {t('formulare.vorlagen.verwenden')}
                   </button>
                 </div>
               ))}
@@ -1977,7 +1994,7 @@ export default function FormularePage() {
         open={!!selectedSubmission}
         onClose={() => setSelectedSubmission(null)}
         title={selectedSubmission?.formName ?? ''}
-        subtitle={`Eingegangen am ${selectedSubmission ? formatDateTime(selectedSubmission.submittedAt) : ''}`}
+        subtitle={selectedSubmission ? t('formulare.submission.eingegangen', { date: formatDateTime(selectedSubmission.submittedAt) }) : ''}
         badge={
           selectedSubmission ? (
             <span
@@ -1998,12 +2015,12 @@ export default function FormularePage() {
                   onClick={() => {
                     updateSubmissionStatus(selectedSubmission.id, 'read')
                     setSelectedSubmission({ ...selectedSubmission, status: 'read' })
-                    toast.success('Als gelesen markiert')
+                    toast.success(t('formulare.toast.alsGelesenMarkiert'))
                   }}
                   className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
                 >
                   <Eye className="h-4 w-4" />
-                  Als gelesen markieren
+                  {t('formulare.submission.alsGelesenButton')}
                 </button>
               )}
               {selectedSubmission.status !== 'archived' && (
@@ -2011,11 +2028,11 @@ export default function FormularePage() {
                   onClick={() => {
                     updateSubmissionStatus(selectedSubmission.id, 'archived')
                     setSelectedSubmission({ ...selectedSubmission, status: 'archived' })
-                    toast.success('Eingang archiviert')
+                    toast.success(t('formulare.toast.eingangArchiviert'))
                   }}
                   className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
                 >
-                  Archivieren
+                  {t('formulare.submission.archivieren')}
                 </button>
               )}
             </div>
@@ -2027,7 +2044,7 @@ export default function FormularePage() {
             {/* Submitter info */}
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                Absender
+                {t('formulare.submission.absender')}
               </p>
               <p className="text-sm font-medium text-foreground">
                 {selectedSubmission.submittedBy}
@@ -2037,7 +2054,7 @@ export default function FormularePage() {
             {/* Answers */}
             <div>
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Antworten
+                {t('formulare.submission.antworten')}
               </h4>
               <div className="rounded-lg border border-border divide-y divide-border-muted">
                 {Object.entries(selectedSubmission.answers).map(([fieldId, value]) => {
@@ -2074,50 +2091,50 @@ export default function FormularePage() {
             <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                <DialogTitle className="text-base font-semibold text-foreground">Neues Formular</DialogTitle>
+                <DialogTitle className="text-base font-semibold text-foreground">{t('formulare.newForm.title')}</DialogTitle>
               </div>
-              <DialogDescription className="sr-only">Neues Formular erstellen</DialogDescription>
+              <DialogDescription className="sr-only">{t('formulare.newForm.title')}</DialogDescription>
             </DialogHeader>
 
             <div className="p-5 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Name <span className="text-destructive">*</span>
+                  {t('formulare.share.formular')} <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
                   value={newFormName}
                   onChange={(e) => setNewFormName(e.target.value)}
-                  placeholder="z.B. Kundenfeedback"
+                  placeholder={t('formulare.newForm.namePlaceholder')}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Beschreibung</label>
+                <label className="text-sm font-medium text-foreground">{t('formulare.newForm.beschreibung')}</label>
                 <textarea
                   value={newFormDescription}
                   onChange={(e) => setNewFormDescription(e.target.value)}
                   rows={3}
-                  placeholder="Wofür wird dieses Formular verwendet?"
+                  placeholder={t('formulare.newForm.beschreibungPlaceholder')}
                   className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Von Vorlage erstellen{' '}
-                  <span className="text-xs text-muted-foreground">(optional)</span>
+                  {t('formulare.newForm.vonVorlage')}{' '}
+                  <span className="text-xs text-muted-foreground">{t('formulare.newForm.vonVorlageHint')}</span>
                 </label>
                 <select
                   value={newFormTemplateId}
                   onChange={(e) => setNewFormTemplateId(e.target.value)}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 >
-                  <option value="">Leer beginnen</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.fields.length} Felder)
+                  <option value="">{t('formulare.newForm.leerBeginnen')}</option>
+                  {templates.map((tmplItem) => (
+                    <option key={tmplItem.id} value={tmplItem.id}>
+                      {tmplItem.name} ({t('formulare.card.felder', { count: tmplItem.fields.length })})
                     </option>
                   ))}
                 </select>
@@ -2129,13 +2146,13 @@ export default function FormularePage() {
                 onClick={() => setShowNewFormDialog(false)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleCreateForm}
                 className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
-                Formular erstellen
+                {t('formulare.newForm.erstellen')}
               </button>
             </DialogFooter>
         </DialogContent>
@@ -2147,15 +2164,15 @@ export default function FormularePage() {
             <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <Share2 className="h-5 w-5 text-primary" />
-                <DialogTitle className="text-base font-semibold text-foreground">Formular teilen</DialogTitle>
+                <DialogTitle className="text-base font-semibold text-foreground">{t('formulare.share.title')}</DialogTitle>
               </div>
-              <DialogDescription className="sr-only">Formular per Link oder E-Mail teilen</DialogDescription>
+              <DialogDescription className="sr-only">{t('formulare.share.title')}</DialogDescription>
             </DialogHeader>
 
             <div className="p-5 space-y-4">
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                  Formular
+                  {t('formulare.share.formular')}
                 </p>
                 <p className="text-sm font-medium text-foreground">{showShareDialog?.name}</p>
               </div>
@@ -2163,7 +2180,7 @@ export default function FormularePage() {
               <div className="space-y-2">
                 <button
                   onClick={() => {
-                    toast.success('Link kopiert!')
+                    toast.success(t('formulare.toast.linkKopiert'))
                     setShowShareDialog(null)
                   }}
                   className="flex w-full items-center gap-3 rounded-lg border border-border p-3 hover:bg-secondary/50 transition-colors"
@@ -2172,14 +2189,14 @@ export default function FormularePage() {
                     <Link2 className="h-4 w-4 text-primary" />
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-medium text-foreground">Link kopieren</p>
-                    <p className="text-xs text-muted-foreground">Freigabe-Link in die Zwischenablage</p>
+                    <p className="text-sm font-medium text-foreground">{t('formulare.share.linkKopieren')}</p>
+                    <p className="text-xs text-muted-foreground">{t('formulare.share.linkHint')}</p>
                   </div>
                 </button>
 
                 <button
                   onClick={() => {
-                    toast.success('E-Mail-Einladung wird gesendet...')
+                    toast.success(t('formulare.toast.emailGesendet'))
                     setShowShareDialog(null)
                   }}
                   className="flex w-full items-center gap-3 rounded-lg border border-border p-3 hover:bg-secondary/50 transition-colors"
@@ -2188,8 +2205,8 @@ export default function FormularePage() {
                     <Mail className="h-4 w-4 text-info" />
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-medium text-foreground">Per E-Mail senden</p>
-                    <p className="text-xs text-muted-foreground">Einladungslink per E-Mail verschicken</p>
+                    <p className="text-sm font-medium text-foreground">{t('formulare.share.perEmail')}</p>
+                    <p className="text-xs text-muted-foreground">{t('formulare.share.emailHint')}</p>
                   </div>
                 </button>
               </div>
@@ -2200,7 +2217,7 @@ export default function FormularePage() {
                 onClick={() => setShowShareDialog(null)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Schließen
+                {t('formulare.share.schliessen')}
               </button>
             </DialogFooter>
         </DialogContent>
@@ -2210,9 +2227,9 @@ export default function FormularePage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Formular löschen?"
-        description={`"${confirmDelete?.name}" und alle zugehoerigen Eingänge werden unwiderruflich gelöscht.`}
-        confirmLabel="Löschen"
+        title={t('formulare.delete.title')}
+        description={t('formulare.delete.description', { name: confirmDelete?.name ?? '' })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteForm(confirmDelete)}
       />

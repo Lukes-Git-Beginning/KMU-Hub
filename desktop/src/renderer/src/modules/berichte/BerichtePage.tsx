@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus,
   FileBarChart,
@@ -40,11 +41,11 @@ import {
 
 type TabKey = 'dashboard' | 'erstellen' | 'geplant' | 'datev'
 
-const scheduleLabels: Record<string, string> = {
-  daily: 'Taeglich',
-  weekly: 'Woechentlich',
-  monthly: 'Monatlich',
-  quarterly: 'Quartalsweise',
+const scheduleLabelKeys: Record<string, string> = {
+  daily: 'berichte.schedule.daily',
+  weekly: 'berichte.schedule.weekly',
+  monthly: 'berichte.schedule.monthly',
+  quarterly: 'berichte.schedule.quarterly',
 }
 
 const scheduleColors: Record<string, string> = {
@@ -55,10 +56,10 @@ const scheduleColors: Record<string, string> = {
 }
 
 const TICKET_PRIORITY_DATA = [
-  { label: 'Kritisch', value: 14, color: 'bg-error', track: 'bg-error/20' },
-  { label: 'Hoch', value: 38, color: 'bg-warning', track: 'bg-warning/20' },
-  { label: 'Mittel', value: 62, color: 'bg-info', track: 'bg-info/20' },
-  { label: 'Niedrig', value: 27, color: 'bg-muted-foreground/60', track: 'bg-secondary' },
+  { labelKey: 'berichte.tickets.kritisch', value: 14, color: 'bg-error', track: 'bg-error/20' },
+  { labelKey: 'berichte.tickets.hoch', value: 38, color: 'bg-warning', track: 'bg-warning/20' },
+  { labelKey: 'berichte.tickets.mittel', value: 62, color: 'bg-info', track: 'bg-info/20' },
+  { labelKey: 'berichte.tickets.niedrig', value: 27, color: 'bg-muted-foreground/60', track: 'bg-secondary' },
 ]
 
 /* ---------- helpers ---------- */
@@ -110,7 +111,13 @@ function computeNextRun(lastRun: string, schedule: string): string {
 /* ---------- component ---------- */
 
 export default function BerichtePage() {
+  const { t } = useTranslation()
   const { kpis, chartData, scheduledReports, savedReports, modules, kpiDrilldownData, comparisonChartData, datevBWA, datevSuSa } = useBerichteStore()
+
+  const scheduleLabels = useMemo(
+    () => Object.fromEntries(Object.entries(scheduleLabelKeys).map(([k, v]) => [k, t(v)])),
+    [t],
+  )
 
   /* --- tab state --- */
   const [tab, setTab] = useState<TabKey>('dashboard')
@@ -169,17 +176,17 @@ export default function BerichtePage() {
 
   const handleGenerate = () => {
     if (!reportName.trim()) {
-      toast.error('Bitte einen Berichtsnamen eingeben')
+      toast.error(t('berichte.erstellen.errorName'))
       return
     }
     if (!selectedModule) {
-      toast.error('Bitte ein Modul auswählen')
+      toast.error(t('berichte.erstellen.errorModul'))
       return
     }
     setIsGenerating(true)
     setTimeout(() => {
       setIsGenerating(false)
-      toast.success(`Bericht "${reportName}" wurde als ${format.toUpperCase()} generiert`)
+      toast.success(t('berichte.erstellen.successToast', { name: reportName, format: format.toUpperCase() }))
       setReportName('')
       setSelectedModule('')
     }, 2200)
@@ -188,7 +195,7 @@ export default function BerichtePage() {
   const handleToggleScheduled = (id: string) => {
     setLocalToggles((prev) => {
       const next = { ...prev, [id]: !prev[id] }
-      toast.info(next[id] ? 'Geplanter Bericht aktiviert' : 'Geplanter Bericht deaktiviert')
+      toast.info(next[id] ? t('berichte.geplant.aktiviert') : t('berichte.geplant.deaktiviertToast'))
       return next
     })
   }
@@ -197,11 +204,11 @@ export default function BerichtePage() {
     const email = schedDialogEmail.trim()
     if (!email) return
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error('Bitte eine gültige E-Mail-Adresse eingeben')
+      toast.error(t('berichte.dialog.errorEmail'))
       return
     }
     if (schedDialogRecipients.includes(email)) {
-      toast.error('Diese E-Mail ist bereits in der Liste')
+      toast.error(t('berichte.dialog.errorEmailDoppelt'))
       return
     }
     setSchedDialogRecipients((prev) => [...prev, email])
@@ -214,14 +221,14 @@ export default function BerichtePage() {
 
   const handleSaveScheduled = () => {
     if (!schedDialogReport) {
-      toast.error('Bitte einen Bericht auswählen')
+      toast.error(t('berichte.dialog.errorBericht'))
       return
     }
     if (schedDialogRecipients.length === 0) {
-      toast.error('Bitte mindestens einen Empfänger hinzufügen')
+      toast.error(t('berichte.dialog.mindestEmpfaenger'))
       return
     }
-    toast.success('Geplanter Bericht wurde gespeichert')
+    toast.success(t('berichte.dialog.successToast'))
     setShowScheduleDialog(false)
     setSchedDialogReport('')
     setSchedDialogSchedule('weekly')
@@ -242,8 +249,8 @@ export default function BerichtePage() {
     <div className="flex-1 overflow-y-auto p-6">
       {/* ---- Header ---- */}
       <PageHeader
-        title="Berichte"
-        description={`${kpis.length} KPIs · ${activeScheduled} geplante Berichte aktiv`}
+        title={t('berichte.page.title')}
+        description={t('berichte.page.description', { kpis: kpis.length, scheduled: activeScheduled })}
         icon={BarChart3}
         moduleId="berichte"
         actions={
@@ -252,7 +259,7 @@ export default function BerichtePage() {
             className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
           >
             <Plus className="h-4 w-4" />
-            Neuer Bericht
+            {t('berichte.actions.neuerBericht')}
           </button>
         }
         className="mb-6"
@@ -262,23 +269,23 @@ export default function BerichtePage() {
       <div className="mb-6 flex items-center gap-4 border-b border-border">
         {(
           [
-            { key: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
-            { key: 'erstellen' as const, label: 'Erstellen', icon: FilePlus },
-            { key: 'geplant' as const, label: `Geplant (${scheduledReports.length})`, icon: CalendarClock },
+            { key: 'dashboard' as const, label: t('berichte.tabs.dashboard'), icon: BarChart3 },
+            { key: 'erstellen' as const, label: t('berichte.tabs.erstellen'), icon: FilePlus },
+            { key: 'geplant' as const, label: t('berichte.tabs.geplant', { count: scheduledReports.length }), icon: CalendarClock },
             { key: 'datev' as const, label: 'DATEV', icon: Landmark },
           ] as const
-        ).map((t) => (
+        ).map((tabItem) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tabItem.key}
+            onClick={() => setTab(tabItem.key)}
             className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key
+              tab === tabItem.key
                 ? 'border-primary font-medium text-primary tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <t.icon className="h-3.5 w-3.5" />
-            {t.label}
+            <tabItem.icon className="h-3.5 w-3.5" />
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -296,7 +303,7 @@ export default function BerichtePage() {
               onChange={(e) => setModuleFilter(e.target.value)}
               className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             >
-              <option value="all">Alle Module</option>
+              <option value="all">{t('berichte.dashboard.alleModule')}</option>
               {modules.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
@@ -308,7 +315,7 @@ export default function BerichtePage() {
                 onClick={() => setModuleFilter('all')}
                 className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary"
               >
-                Filter zurücksetzen
+                {t('berichte.dashboard.filterZuruecksetzen')}
               </button>
             )}
           </div>
@@ -319,7 +326,7 @@ export default function BerichtePage() {
               <div className="col-span-full">
                 <EmptyState
                   illustration={<EmptyReports />}
-                  title="Keine KPIs für dieses Modul vorhanden"
+                  title={t('berichte.dashboard.noKpis')}
                 />
               </div>
             )}
@@ -366,7 +373,7 @@ export default function BerichtePage() {
                       <span className="text-sm text-muted-foreground">{kpi.unit}</span>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground">vs. Vormonat</p>
+                  <p className="text-[10px] text-muted-foreground">{t('berichte.dashboard.vorMonat')}</p>
                 </button>
               )
             })}
@@ -377,7 +384,7 @@ export default function BerichtePage() {
             <div className="mb-8 rounded-lg border border-primary/20 bg-card p-5 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-medium text-foreground">
-                  {kpis.find((k) => k.id === drilldownKpi)?.label} — Details
+                  {kpis.find((k) => k.id === drilldownKpi)?.label} — {t('berichte.dashboard.details')}
                 </h3>
                 <button
                   onClick={() => setDrilldownKpi(null)}
@@ -390,10 +397,10 @@ export default function BerichtePage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Datum</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Bezeichnung</th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Wert</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t('berichte.dashboard.drilldown.datum')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t('berichte.dashboard.drilldown.bezeichnung')}</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">{t('berichte.dashboard.drilldown.wert')}</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">{t('berichte.dashboard.drilldown.status')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -426,7 +433,7 @@ export default function BerichtePage() {
               }`}
             >
               <ArrowLeftRight className="h-3.5 w-3.5" />
-              Periodenvergleich
+              {t('berichte.dashboard.periodenvergleich')}
             </button>
           </div>
 
@@ -436,9 +443,9 @@ export default function BerichtePage() {
             <div className="rounded-xl border border-border bg-card p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Umsatzverlauf</h3>
+                  <h3 className="text-sm font-medium text-foreground">{t('berichte.chart.umsatzverlauf')}</h3>
                   <p className="text-xs text-muted-foreground">
-                    {showComparison ? 'Aktuell vs. Vorjahr (Tsd. EUR)' : 'Letzte 6 Monate in Tsd. EUR'}
+                    {showComparison ? t('berichte.chart.umsatzVergleich') : t('berichte.chart.umsatz6Monate')}
                   </p>
                 </div>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light">
@@ -474,11 +481,11 @@ export default function BerichtePage() {
                   <div className="mt-3 flex items-center justify-center gap-4">
                     <div className="flex items-center gap-1.5">
                       <div className="h-2.5 w-2.5 rounded-sm bg-muted-foreground/30" />
-                      <span className="text-[10px] text-muted-foreground">Vorjahr</span>
+                      <span className="text-[10px] text-muted-foreground">{t('berichte.chart.vorjahr')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="h-2.5 w-2.5 rounded-sm bg-primary" />
-                      <span className="text-[10px] text-muted-foreground">Aktuell</span>
+                      <span className="text-[10px] text-muted-foreground">{t('berichte.chart.aktuell')}</span>
                     </div>
                   </div>
                   {/* Difference summary */}
@@ -491,15 +498,15 @@ export default function BerichtePage() {
                       return (
                         <>
                           <div className="rounded-lg bg-muted/50 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground">Aktuell</p>
+                            <p className="text-[10px] text-muted-foreground">{t('berichte.chart.aktuell')}</p>
                             <p className="text-sm font-semibold text-foreground">{totalCurr}k</p>
                           </div>
                           <div className="rounded-lg bg-muted/50 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground">Vorjahr</p>
+                            <p className="text-[10px] text-muted-foreground">{t('berichte.chart.vorjahr')}</p>
                             <p className="text-sm font-semibold text-foreground">{totalPrev}k</p>
                           </div>
                           <div className="rounded-lg bg-muted/50 p-2 text-center">
-                            <p className="text-[10px] text-muted-foreground">Differenz</p>
+                            <p className="text-[10px] text-muted-foreground">{t('berichte.chart.differenz')}</p>
                             <p className={`text-sm font-semibold ${diff >= 0 ? 'text-success' : 'text-destructive'}`}>
                               {diff >= 0 ? '+' : ''}{diff}k ({diff >= 0 ? '+' : ''}{diffPct}%)
                             </p>
@@ -546,8 +553,8 @@ export default function BerichtePage() {
             <div className="rounded-xl border border-border bg-card p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Tickets nach Prioritaet</h3>
-                  <p className="text-xs text-muted-foreground">Aktuelle offene Tickets</p>
+                  <h3 className="text-sm font-medium text-foreground">{t('berichte.chart.ticketsPrioritaet')}</h3>
+                  <p className="text-xs text-muted-foreground">{t('berichte.chart.offeneTickets')}</p>
                 </div>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning-light">
                   <BarChart3 className="h-4 w-4 text-warning" />
@@ -557,10 +564,10 @@ export default function BerichtePage() {
                 {TICKET_PRIORITY_DATA.map((item) => {
                   const pct = Math.max(4, (item.value / ticketMax) * 100)
                   return (
-                    <div key={item.label}>
+                    <div key={item.labelKey}>
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-xs font-medium text-foreground">{item.label}</span>
-                        <span className="text-xs text-muted-foreground">{item.value} Tickets</span>
+                        <span className="text-xs font-medium text-foreground">{t(item.labelKey)}</span>
+                        <span className="text-xs text-muted-foreground">{t('berichte.tickets.count', { count: item.value })}</span>
                       </div>
                       <div className={`h-3 w-full overflow-hidden rounded-full ${item.track}`}>
                         <div
@@ -591,9 +598,9 @@ export default function BerichtePage() {
                   <FilePlus className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Bericht erstellen</h3>
+                  <h3 className="text-sm font-medium text-foreground">{t('berichte.erstellen.title')}</h3>
                   <p className="text-xs text-muted-foreground">
-                    Wähle Modul, Zeitraum und Format
+                    {t('berichte.erstellen.hint')}
                   </p>
                 </div>
               </div>
@@ -602,11 +609,11 @@ export default function BerichtePage() {
                 {/* Report Name */}
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Berichtsname
+                    {t('berichte.erstellen.berichtsname')}
                   </label>
                   <input
                     type="text"
-                    placeholder="z.B. Monatsbericht Februar"
+                    placeholder={t('berichte.erstellen.berichtsnamePlaceholder')}
                     value={reportName}
                     onChange={(e) => setReportName(e.target.value)}
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -616,14 +623,14 @@ export default function BerichtePage() {
                 {/* Module Dropdown */}
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Modul
+                    {t('berichte.erstellen.modul')}
                   </label>
                   <select
                     value={selectedModule}
                     onChange={(e) => setSelectedModule(e.target.value)}
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                   >
-                    <option value="">Modul auswählen...</option>
+                    <option value="">{t('berichte.erstellen.modulSelect')}</option>
                     {modules.map((mod) => (
                       <option key={mod.id} value={mod.id}>
                         {mod.name}
@@ -635,7 +642,7 @@ export default function BerichtePage() {
                 {/* Date Range */}
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Zeitraum
+                    {t('berichte.erstellen.zeitraum')}
                   </label>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
@@ -647,7 +654,7 @@ export default function BerichtePage() {
                         className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground">bis</span>
+                    <span className="text-xs text-muted-foreground">{t('berichte.erstellen.bis')}</span>
                     <div className="relative flex-1">
                       <Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                       <input
@@ -663,7 +670,7 @@ export default function BerichtePage() {
                 {/* Format Radio */}
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Ausgabeformat
+                    {t('berichte.erstellen.ausgabeformat')}
                   </label>
                   <div className="flex gap-3">
                     {(['pdf', 'excel'] as const).map((f) => (
@@ -693,20 +700,20 @@ export default function BerichtePage() {
                     <div className="flex flex-col items-center justify-center gap-3 py-4">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       <p className="text-sm font-medium text-foreground">
-                        Vorschau wird generiert...
+                        {t('berichte.erstellen.vorschauGenerieren')}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Daten werden ausgewertet und formatiert
+                        {t('berichte.erstellen.vorschauDaten')}
                       </p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-2 py-4 text-center">
                       <Eye className="h-8 w-8 text-muted-foreground/40" />
                       <p className="text-sm text-muted-foreground">
-                        Vorschau verfügbar nach Generierung
+                        {t('berichte.erstellen.vorschauVerfuegbar')}
                       </p>
                       <p className="text-xs text-muted-foreground/70">
-                        Felder ausfüllen und &quot;Bericht generieren&quot; klicken
+                        {t('berichte.erstellen.vorschauHint')}
                       </p>
                     </div>
                   )}
@@ -723,7 +730,7 @@ export default function BerichtePage() {
                   ) : (
                     <Download className="h-4 w-4" />
                   )}
-                  {isGenerating ? 'Wird generiert...' : 'Bericht generieren'}
+                  {isGenerating ? t('berichte.erstellen.wirdGeneriert') : t('berichte.erstellen.generieren')}
                 </button>
               </div>
             </div>
@@ -734,13 +741,13 @@ export default function BerichtePage() {
             <div className="rounded-lg border border-border bg-card p-4">
               <div className="mb-4 flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-medium text-foreground">Gespeicherte Berichte</h3>
+                <h3 className="text-sm font-medium text-foreground">{t('berichte.gespeichert.title')}</h3>
               </div>
 
               {savedReports.length === 0 ? (
                 <EmptyState
                   illustration={<EmptyReports />}
-                  title="Noch keine Berichte gespeichert"
+                  title={t('berichte.gespeichert.empty')}
                 />
               ) : (
                 <div className="space-y-3">
@@ -771,12 +778,12 @@ export default function BerichtePage() {
                         </span>
                         <button
                           onClick={() =>
-                            toast.info(`Bericht "${report.name}" wird geöffnet...`)
+                            toast.info(t('berichte.gespeichert.oeffnenToast', { name: report.name }))
                           }
                           className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         >
                           <Eye className="h-3 w-3" />
-                          Öffnen
+                          {t('berichte.gespeichert.oeffnen')}
                         </button>
                       </div>
                     </div>
@@ -796,14 +803,14 @@ export default function BerichtePage() {
           {/* Action bar */}
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {activeScheduled} von {scheduledReports.length} Berichten aktiv
+              {t('berichte.geplant.aktivInfo', { active: activeScheduled, total: scheduledReports.length })}
             </p>
             <button
               onClick={openScheduleDialog}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
             >
               <Plus className="h-4 w-4" />
-              Neuer geplanter Bericht
+              {t('berichte.geplant.neuerBericht')}
             </button>
           </div>
 
@@ -814,22 +821,22 @@ export default function BerichtePage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Name
+                      {t('berichte.geplant.table.name')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Zeitplan
+                      {t('berichte.geplant.table.zeitplan')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Empfänger
+                      {t('berichte.geplant.table.empfaenger')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Letzter Lauf
+                      {t('berichte.geplant.table.letzterLauf')}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
-                      Nächster Lauf
+                      {t('berichte.geplant.table.naechsterLauf')}
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">
-                      Aktiv
+                      {t('berichte.geplant.table.aktiv')}
                     </th>
                   </tr>
                 </thead>
@@ -878,7 +885,7 @@ export default function BerichtePage() {
                           <span className="text-xs text-muted-foreground">
                             {isActive
                               ? computeNextRun(report.lastRun, report.schedule)
-                              : '— (deaktiviert)'}
+                              : t('berichte.geplant.deaktiviert')}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -888,7 +895,7 @@ export default function BerichtePage() {
                               className={`flex h-6 w-10 items-center rounded-full p-0.5 transition-colors ${
                                 isActive ? 'bg-primary' : 'bg-secondary'
                               }`}
-                              aria-label={isActive ? 'Deaktivieren' : 'Aktivieren'}
+                              aria-label={isActive ? t('berichte.geplant.toggle.deaktivieren') : t('berichte.geplant.toggle.aktivieren')}
                             >
                               <div
                                 className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${
@@ -907,8 +914,8 @@ export default function BerichtePage() {
             {scheduledReports.length === 0 && (
               <EmptyState
                 illustration={<EmptyReports />}
-                title="Keine geplanten Berichte"
-                description="Erstelle einen geplanten Bericht"
+                title={t('berichte.geplant.empty')}
+                description={t('berichte.geplant.emptyHint')}
               />
             )}
           </div>
@@ -923,8 +930,8 @@ export default function BerichtePage() {
           <div className="mb-4 flex items-center justify-between">
             <div className="flex gap-1">
               {([
-                { key: 'bwa' as const, label: 'BWA', icon: BarChart3 },
-                { key: 'susa' as const, label: 'Summen & Salden', icon: Table2 },
+                { key: 'bwa' as const, label: t('berichte.datev.bwa'), icon: BarChart3 },
+                { key: 'susa' as const, label: t('berichte.datev.susa'), icon: Table2 },
               ]).map((st) => (
                 <button
                   key={st.key}
@@ -941,29 +948,29 @@ export default function BerichtePage() {
               ))}
             </div>
             <button
-              onClick={() => toast.success('DATEV-Export wird generiert...')}
+              onClick={() => toast.success(t('berichte.datev.exportToast'))}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
             >
               <Download className="h-4 w-4" />
-              DATEV Export
+              {t('berichte.datev.export')}
             </button>
           </div>
 
           {datevSubTab === 'bwa' && (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
               <div className="border-b border-border px-4 py-3">
-                <h3 className="text-sm font-medium text-foreground">Betriebswirtschaftliche Auswertung (BWA)</h3>
-                <p className="text-xs text-muted-foreground">Zeitraum: Februar 2026</p>
+                <h3 className="text-sm font-medium text-foreground">{t('berichte.datev.bwa.title')}</h3>
+                <p className="text-xs text-muted-foreground">{t('berichte.datev.zeitraum')}</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-8">Pos.</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Bezeichnung</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Aktueller Monat</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Vormonat</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Kumuliert</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-8">{t('berichte.datev.table.pos')}</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">{t('berichte.datev.table.bezeichnung')}</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">{t('berichte.datev.table.aktuellerMonat')}</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">{t('berichte.datev.table.vormonat')}</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">{t('berichte.datev.table.kumuliert')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -994,18 +1001,18 @@ export default function BerichtePage() {
           {datevSubTab === 'susa' && (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
               <div className="border-b border-border px-4 py-3">
-                <h3 className="text-sm font-medium text-foreground">Summen- und Saldenliste</h3>
-                <p className="text-xs text-muted-foreground">Zeitraum: Februar 2026</p>
+                <h3 className="text-sm font-medium text-foreground">{t('berichte.datev.susa.title')}</h3>
+                <p className="text-xs text-muted-foreground">{t('berichte.datev.zeitraum')}</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-16">Konto</th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Bezeichnung</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Aktueller Monat</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Vormonat</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">Kumuliert</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground w-16">{t('berichte.datev.table.konto')}</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">{t('berichte.datev.table.bezeichnung')}</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">{t('berichte.datev.table.aktuellerMonat')}</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">{t('berichte.datev.table.vormonat')}</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">{t('berichte.datev.table.kumuliert')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1043,9 +1050,9 @@ export default function BerichtePage() {
                 <CalendarClock className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <DialogTitle className="text-sm">Neuer geplanter Bericht</DialogTitle>
+                <DialogTitle className="text-sm">{t('berichte.dialog.title')}</DialogTitle>
                 <DialogDescription>
-                  Automatischen Berichtsversand einrichten
+                  {t('berichte.dialog.subtitle')}
                 </DialogDescription>
               </div>
             </div>
@@ -1056,14 +1063,14 @@ export default function BerichtePage() {
               {/* Select report */}
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Bericht auswählen
+                  {t('berichte.dialog.berichtSelect')}
                 </label>
                 <select
                   value={schedDialogReport}
                   onChange={(e) => setSchedDialogReport(e.target.value)}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 >
-                  <option value="">Bericht auswählen...</option>
+                  <option value="">{t('berichte.dialog.berichtSelectPlaceholder')}</option>
                   {savedReports.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
@@ -1075,14 +1082,14 @@ export default function BerichtePage() {
               {/* Schedule radio */}
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Zeitplan
+                  {t('berichte.dialog.zeitplan')}
                 </label>
                 <div className="flex gap-2">
                   {(
                     [
-                      { value: 'daily', label: 'Taeglich' },
-                      { value: 'weekly', label: 'Woechentlich' },
-                      { value: 'monthly', label: 'Monatlich' },
+                      { value: 'daily', labelKey: 'berichte.schedule.daily' },
+                      { value: 'weekly', labelKey: 'berichte.schedule.weekly' },
+                      { value: 'monthly', labelKey: 'berichte.schedule.monthly' },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -1094,7 +1101,7 @@ export default function BerichtePage() {
                           : 'border-border text-muted-foreground hover:bg-secondary'
                       }`}
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -1103,14 +1110,14 @@ export default function BerichtePage() {
               {/* Recipients */}
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Empfänger
+                  {t('berichte.dialog.empfaenger')}
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="email"
-                      placeholder="email@firma.de"
+                      placeholder={t('berichte.dialog.emailPlaceholder')}
                       value={schedDialogEmail}
                       onChange={(e) => setSchedDialogEmail(e.target.value)}
                       onKeyDown={(e) => {
@@ -1126,7 +1133,7 @@ export default function BerichtePage() {
                     onClick={handleAddRecipient}
                     className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   >
-                    Hinzufügen
+                    {t('berichte.dialog.hinzufuegen')}
                   </button>
                 </div>
 
@@ -1151,7 +1158,7 @@ export default function BerichtePage() {
                 )}
                 {schedDialogRecipients.length === 0 && (
                   <p className="mt-1.5 text-[10px] text-muted-foreground/60">
-                    Mindestens ein Empfänger erforderlich
+                    {t('berichte.dialog.mindestEmpfaenger')}
                   </p>
                 )}
               </div>
@@ -1162,14 +1169,14 @@ export default function BerichtePage() {
                 onClick={() => setShowScheduleDialog(false)}
                 className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
               >
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleSaveScheduled}
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground transition-colors hover:bg-button-primary-hover"
               >
                 <CalendarClock className="h-4 w-4" />
-                Speichern
+                {t('berichte.dialog.speichern')}
               </button>
             </DialogFooter>
         </DialogContent>

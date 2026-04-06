@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -53,12 +54,12 @@ import MaschinenbelegungChart from './MaschinenbelegungChart'
 type TabKey = 'aufträge' | 'stücklisten' | 'qualität' | 'maschinen'
 type StatusFilter = 'all' | 'planned' | 'in_progress' | 'paused' | 'completed' | 'cancelled'
 
-const orderStatusLabels: Record<string, string> = {
-  planned: 'Geplant',
-  in_progress: 'In Produktion',
-  paused: 'Pausiert',
-  completed: 'Abgeschlossen',
-  cancelled: 'Storniert',
+const orderStatusLabelKeys: Record<string, string> = {
+  planned: 'produktion.status.planned',
+  in_progress: 'produktion.status.inProgress',
+  paused: 'produktion.status.paused',
+  completed: 'produktion.status.completed',
+  cancelled: 'produktion.status.cancelled',
 }
 
 const orderStatusColors: Record<string, string> = {
@@ -77,20 +78,20 @@ const progressBarColors: Record<string, string> = {
   cancelled: 'bg-error',
 }
 
-const statusFilterOptions: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'Alle' },
-  { value: 'planned', label: 'Geplant' },
-  { value: 'in_progress', label: 'In Produktion' },
-  { value: 'paused', label: 'Pausiert' },
-  { value: 'completed', label: 'Abgeschlossen' },
-  { value: 'cancelled', label: 'Storniert' },
+const statusFilterOptionKeys: { value: StatusFilter; labelKey: string }[] = [
+  { value: 'all', labelKey: 'produktion.filter.all' },
+  { value: 'planned', labelKey: 'produktion.filter.planned' },
+  { value: 'in_progress', labelKey: 'produktion.filter.inProgress' },
+  { value: 'paused', labelKey: 'produktion.filter.paused' },
+  { value: 'completed', labelKey: 'produktion.filter.completed' },
+  { value: 'cancelled', labelKey: 'produktion.filter.cancelled' },
 ]
 
-const workStepStatusLabels: Record<string, string> = {
-  pending: 'Ausstehend',
-  in_progress: 'In Arbeit',
-  completed: 'Erledigt',
-  skipped: 'Übersprungen',
+const workStepStatusLabelKeys: Record<string, string> = {
+  pending: 'produktion.workstep.pending',
+  in_progress: 'produktion.workstep.inProgress',
+  completed: 'produktion.workstep.completed',
+  skipped: 'produktion.workstep.skipped',
 }
 
 const workStepStatusColors: Record<string, string> = {
@@ -130,7 +131,17 @@ function getMaterialAvailability(materialName: string, idx: number): 'green' | '
 // ============================================================
 
 export default function ProduktionPage() {
+  const { t } = useTranslation()
   const { orders, boms, qualityChecks, workSteps, machines, machineBookings } = useProduktionStore()
+
+  const orderStatusLabels = useMemo(() => Object.fromEntries(
+    Object.entries(orderStatusLabelKeys).map(([k, v]) => [k, t(v)])
+  ) as Record<string, string>, [t])
+
+  const statusFilterOptions = useMemo(() =>
+    statusFilterOptionKeys.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t]
+  )
 
   const [tab, setTab] = useState<TabKey>('aufträge')
   const [search, setSearch] = useState('')
@@ -192,7 +203,7 @@ export default function ProduktionPage() {
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                Neue Stückliste
+                {t('produktion.actions.neueStückliste')}
               </button>
             )}
             {tab === 'qualität' && (
@@ -201,7 +212,7 @@ export default function ProduktionPage() {
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                Qualitätsprüfung
+                {t('produktion.actions.qualitaetspruefung')}
               </button>
             )}
             <button
@@ -209,7 +220,7 @@ export default function ProduktionPage() {
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neuer Auftrag
+              {t('produktion.actions.neuerAuftrag')}
             </button>
           </div>
         }
@@ -218,19 +229,19 @@ export default function ProduktionPage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'aufträge' as const, label: `Aufträge (${activeOrders.length} aktiv)` },
-          { key: 'stücklisten' as const, label: `Stücklisten (${boms.length})` },
-          { key: 'qualität' as const, label: `Qualität (${qualityChecks.length})` },
-          { key: 'maschinen' as const, label: `Maschinen (${machines.length})` },
-        ]).map((t) => (
+          { key: 'aufträge' as const, label: t('produktion.tabs.auftraege', { count: activeOrders.length }) },
+          { key: 'stücklisten' as const, label: t('produktion.tabs.stuecklisten', { count: boms.length }) },
+          { key: 'qualität' as const, label: t('produktion.tabs.qualitaet', { count: qualityChecks.length }) },
+          { key: 'maschinen' as const, label: t('produktion.tabs.maschinen', { count: machines.length }) },
+        ]).map((tabItem) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tabItem.key}
+            onClick={() => setTab(tabItem.key)}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === tabItem.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -246,7 +257,7 @@ export default function ProduktionPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Auftrag suchen..."
+                placeholder={t('produktion.search.placeholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -274,13 +285,13 @@ export default function ProduktionPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Auftrags-Nr</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Produkt</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Menge</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground min-w-[160px]">Fortschritt</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Start</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fällig</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.auftragNr')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.produkt')}</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('produktion.table.menge')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.status')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground min-w-[160px]">{t('produktion.table.fortschritt')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.start')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.table.faellig')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -326,7 +337,7 @@ export default function ProduktionPage() {
                           }`}>
                             {formatDate(order.dueDate)}
                             {order.status !== 'completed' && order.status !== 'cancelled' && daysLeft < 0 && (
-                              <span className="ml-1">({Math.abs(daysLeft)}d überfällig)</span>
+                              <span className="ml-1">{t('produktion.table.ueberfaellig', { days: Math.abs(daysLeft) })}</span>
                             )}
                           </span>
                         </td>
@@ -339,8 +350,8 @@ export default function ProduktionPage() {
             {filteredOrders.length === 0 && (
               <EmptyState
                 illustration={<EmptyGeneric />}
-                title="Keine Aufträge gefunden"
-                description={search || statusFilter !== 'all' ? 'Passe deine Filter an' : 'Erstelle einen neuen Auftrag'}
+                title={t('produktion.empty.noAuftraege')}
+                description={search || statusFilter !== 'all' ? t('produktion.empty.filterHint') : t('produktion.empty.createHint')}
               />
             )}
           </div>
@@ -355,8 +366,8 @@ export default function ProduktionPage() {
           {boms.length === 0 ? (
             <EmptyState
               illustration={<EmptyGeneric />}
-              title="Keine Stücklisten vorhanden"
-              description="Erstelle eine neue Stückliste"
+              title={t('produktion.stueckliste.noEntries')}
+              description={t('produktion.stueckliste.createHint')}
             />
           ) : (
             boms.map((bom) => {
@@ -377,11 +388,11 @@ export default function ProduktionPage() {
                       <div>
                         <h4 className="text-sm font-medium text-foreground">{bom.productName}</h4>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-muted-foreground">SKU: {bom.sku}</span>
-                          <span className="text-xs text-muted-foreground">&middot; v{bom.version}</span>
-                          <span className="text-xs text-muted-foreground">&middot; {bom.items.length} Positionen</span>
+                          <span className="text-xs text-muted-foreground">{t('produktion.stueckliste.sku')} {bom.sku}</span>
+                          <span className="text-xs text-muted-foreground">&middot; {t('produktion.stueckliste.version', { version: bom.version })}</span>
+                          <span className="text-xs text-muted-foreground">&middot; {t('produktion.stueckliste.positionen', { count: bom.items.length })}</span>
                           {usedByOrders.length > 0 && (
-                            <span className="text-xs text-muted-foreground">&middot; {usedByOrders.length} Aufträge</span>
+                            <span className="text-xs text-muted-foreground">&middot; {t('produktion.stueckliste.auftraege', { count: usedByOrders.length })}</span>
                           )}
                         </div>
                       </div>
@@ -389,11 +400,11 @@ export default function ProduktionPage() {
                     <div className="flex items-center gap-2">
                       {bom.active ? (
                         <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">
-                          Aktiv
+                          {t('produktion.stueckliste.aktiv')}
                         </span>
                       ) : (
                         <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">
-                          Inaktiv
+                          {t('produktion.stueckliste.inaktiv')}
                         </span>
                       )}
                       {expandedBom === bom.id ? (
@@ -409,10 +420,10 @@ export default function ProduktionPage() {
                       <table className="w-full text-sm mt-3">
                         <thead>
                           <tr>
-                            <th className="pb-2 text-left text-xs font-medium text-muted-foreground w-8">#</th>
-                            <th className="pb-2 text-left text-xs font-medium text-muted-foreground">Material</th>
-                            <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Menge</th>
-                            <th className="pb-2 text-left text-xs font-medium text-muted-foreground pl-3">Einheit</th>
+                            <th className="pb-2 text-left text-xs font-medium text-muted-foreground w-8">{t('produktion.stueckliste.table.nr')}</th>
+                            <th className="pb-2 text-left text-xs font-medium text-muted-foreground">{t('produktion.stueckliste.table.material')}</th>
+                            <th className="pb-2 text-right text-xs font-medium text-muted-foreground">{t('produktion.stueckliste.table.menge')}</th>
+                            <th className="pb-2 text-left text-xs font-medium text-muted-foreground pl-3">{t('produktion.stueckliste.table.einheit')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -444,12 +455,12 @@ export default function ProduktionPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Datum</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Auftrags-Nr</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Prüfer</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Bestanden</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Mängel</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Notizen</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.qualitaet.table.datum')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.qualitaet.table.auftragNr')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.qualitaet.table.pruefer')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">{t('produktion.qualitaet.table.bestanden')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('produktion.qualitaet.table.maengel')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('produktion.qualitaet.table.notizen')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -482,8 +493,8 @@ export default function ProduktionPage() {
           {qualityChecks.length === 0 && (
             <EmptyState
               illustration={<EmptyGeneric />}
-              title="Keine Qualitätsprüfungen"
-              description="Prüfungen werden hier aufgelistet"
+              title={t('produktion.qualitaet.empty')}
+              description={t('produktion.qualitaet.emptyHint')}
             />
           )}
         </div>
@@ -559,13 +570,22 @@ function OrderDetailPanel({
   onClose: () => void
   onAddQualityCheck: () => void
 }) {
+  const { t } = useTranslation()
   const daysLeft = getDaysRemaining(order.dueDate)
   const totalDays = Math.ceil(
     (new Date(order.dueDate).getTime() - new Date(order.startDate).getTime()) / (1000 * 60 * 60 * 24),
   )
 
+  const orderStatusLabels = Object.fromEntries(
+    Object.entries(orderStatusLabelKeys).map(([k, v]) => [k, t(v)])
+  ) as Record<string, string>
+
+  const workStepStatusLabels = Object.fromEntries(
+    Object.entries(workStepStatusLabelKeys).map(([k, v]) => [k, t(v)])
+  ) as Record<string, string>
+
   const handleStatusChange = (newStatus: string) => {
-    toast.success(`Status von ${order.orderNr} auf "${orderStatusLabels[newStatus]}" geändert`)
+    toast.success(t('produktion.statusChange.toast', { orderNr: order.orderNr, status: orderStatusLabels[newStatus] }))
   }
 
   // --- 8.14 Material Availability ---
@@ -593,7 +613,7 @@ function OrderDetailPanel({
   const showScrap = order.status !== 'planned'
 
   return (
-    <DetailPanel open={true} title="Auftragsdetails" subtitle={order.orderNr} onClose={onClose}>
+    <DetailPanel open={true} title={t('produktion.detail.title')} subtitle={order.orderNr} onClose={onClose}>
       <div className="space-y-5">
         {/* Header info */}
         <div className="flex items-start justify-between">
@@ -609,7 +629,7 @@ function OrderDetailPanel({
         {/* Large progress bar */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-medium text-foreground">Fortschritt</span>
+            <span className="text-xs font-medium text-foreground">{t('produktion.detail.fortschritt')}</span>
             <span className="text-sm font-semibold text-foreground tabular-nums">{order.progress}%</span>
           </div>
           <div className="h-3 rounded-full bg-secondary overflow-hidden">
@@ -625,21 +645,21 @@ function OrderDetailPanel({
           <div className="flex items-center gap-2 text-muted-foreground">
             <Package className="h-3.5 w-3.5 shrink-0" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Menge</p>
-              <p className="text-foreground font-medium">{order.quantity.toLocaleString('de-DE')} Stk</p>
+              <p className="text-[10px] text-muted-foreground">{t('produktion.detail.menge')}</p>
+              <p className="text-foreground font-medium">{t('produktion.detail.stueck', { qty: order.quantity.toLocaleString('de-DE') })}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Calendar className="h-3.5 w-3.5 shrink-0" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Startdatum</p>
+              <p className="text-[10px] text-muted-foreground">{t('produktion.detail.startdatum')}</p>
               <p className="text-foreground">{formatDate(order.startDate)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-3.5 w-3.5 shrink-0" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Fälligkeitsdatum</p>
+              <p className="text-[10px] text-muted-foreground">{t('produktion.detail.faelligkeitsdatum')}</p>
               <p className={`${
                 order.status !== 'completed' && order.status !== 'cancelled' && daysLeft < 0
                   ? 'text-error font-medium'
@@ -652,7 +672,7 @@ function OrderDetailPanel({
           <div className="flex items-center gap-2 text-muted-foreground">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Verbleibend</p>
+              <p className="text-[10px] text-muted-foreground">{t('produktion.detail.verbleibend')}</p>
               <p className={`font-medium ${
                 order.status === 'completed'
                   ? 'text-success'
@@ -665,14 +685,14 @@ function OrderDetailPanel({
                         : 'text-foreground'
               }`}>
                 {order.status === 'completed'
-                  ? 'Abgeschlossen'
+                  ? t('produktion.status.completed')
                   : order.status === 'cancelled'
-                    ? 'Storniert'
+                    ? t('produktion.status.cancelled')
                     : daysLeft < 0
-                      ? `${Math.abs(daysLeft)} Tage überfällig`
+                      ? t('produktion.detail.tageUeberfaellig', { days: Math.abs(daysLeft) })
                       : daysLeft === 0
-                        ? 'Heute fällig'
-                        : `${daysLeft} Tage`}
+                        ? t('produktion.detail.heuteFaellig')
+                        : t('produktion.detail.tage', { days: daysLeft })}
               </p>
             </div>
           </div>
@@ -682,7 +702,7 @@ function OrderDetailPanel({
         <div className="rounded-md border border-border p-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
             <span>{formatDate(order.startDate)}</span>
-            <span>{totalDays} Tage Laufzeit</span>
+            <span>{t('produktion.detail.laufzeit', { days: totalDays })}</span>
             <span>{formatDate(order.dueDate)}</span>
           </div>
           <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
@@ -701,14 +721,14 @@ function OrderDetailPanel({
         {materialAvailability && bom && (
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Materialverfügbarkeit
+              {t('produktion.detail.materialverfuegbarkeit')}
             </h4>
             <div className="rounded-md border border-border p-3 space-y-3">
               {/* Summary */}
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-primary" />
                 <span className="text-xs font-medium text-foreground">
-                  {materialAvailability.available} von {materialAvailability.total} Materialien verfügbar
+                  {t('produktion.detail.materialVon', { available: materialAvailability.available, total: materialAvailability.total })}
                 </span>
               </div>
 
@@ -716,9 +736,9 @@ function OrderDetailPanel({
               <div className="space-y-1">
                 {materialAvailability.results.map((item, idx) => {
                   const colorMap = {
-                    green: { dot: 'bg-success', text: 'text-success', bg: 'bg-success-light', label: 'Verfügbar' },
-                    yellow: { dot: 'bg-warning', text: 'text-warning', bg: 'bg-warning-light', label: 'Knapp' },
-                    red: { dot: 'bg-error', text: 'text-error', bg: 'bg-error-light', label: 'Fehlt' },
+                    green: { dot: 'bg-success', text: 'text-success', bg: 'bg-success-light', label: t('produktion.material.available') },
+                    yellow: { dot: 'bg-warning', text: 'text-warning', bg: 'bg-warning-light', label: t('produktion.material.limited') },
+                    red: { dot: 'bg-error', text: 'text-error', bg: 'bg-error-light', label: t('produktion.material.missing') },
                   }
                   const c = colorMap[item.availability]
                   return (
@@ -742,7 +762,7 @@ function OrderDetailPanel({
         {bom && (
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Stückliste
+              {t('produktion.detail.stueckliste')}
             </h4>
             <div className="rounded-md border border-border p-3">
               <div className="flex items-center gap-2">
@@ -750,7 +770,7 @@ function OrderDetailPanel({
                 <div>
                   <p className="text-xs font-medium text-foreground">{bom.productName}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    SKU: {bom.sku} &middot; v{bom.version} &middot; {bom.items.length} Positionen
+                    {t('produktion.stueckliste.sku')} {bom.sku} &middot; {t('produktion.stueckliste.version', { version: bom.version })} &middot; {t('produktion.stueckliste.positionen', { count: bom.items.length })}
                   </p>
                 </div>
               </div>
@@ -764,7 +784,7 @@ function OrderDetailPanel({
         {sortedWorkSteps.length > 0 && (
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Arbeitsgaenge
+              {t('produktion.detail.arbeitsgaenge')}
             </h4>
             <div className="rounded-md border border-border p-3 space-y-3">
               {/* Summary bar */}
@@ -772,11 +792,11 @@ function OrderDetailPanel({
                 <div className="flex items-center gap-2">
                   <ListChecks className="h-4 w-4 text-primary" />
                   <span className="text-xs font-medium text-foreground">
-                    {completedSteps} von {sortedWorkSteps.length} Schritten erledigt
+                    {t('produktion.detail.schritte', { completed: completedSteps, total: sortedWorkSteps.length })}
                   </span>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  Gesamt: {formatDuration(totalDuration)}
+                  {t('produktion.detail.gesamt')} {formatDuration(totalDuration)}
                 </span>
               </div>
 
@@ -825,13 +845,13 @@ function OrderDetailPanel({
         {showScrap && (
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Ausschuss
+              {t('produktion.detail.ausschuss')}
             </h4>
             <div className="rounded-md border border-border p-3 space-y-3">
               {order.scrapRate === 0 ? (
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-success" />
-                  <span className="text-xs text-muted-foreground">Kein Ausschuss erfasst</span>
+                  <span className="text-xs text-muted-foreground">{t('produktion.detail.keinAusschuss')}</span>
                 </div>
               ) : (
                 <>
@@ -840,7 +860,7 @@ function OrderDetailPanel({
                     <div className="flex items-center gap-2">
                       <Gauge className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-[10px] text-muted-foreground">Ausschussrate</p>
+                        <p className="text-[10px] text-muted-foreground">{t('produktion.detail.ausschussrate')}</p>
                         <p className={`text-sm font-semibold tabular-nums ${order.scrapRate > 5 ? 'text-error' : 'text-foreground'}`}>
                           {order.scrapRate}%
                         </p>
@@ -849,7 +869,7 @@ function OrderDetailPanel({
                     <div className="flex items-center gap-2">
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-[10px] text-muted-foreground">Ausschuss / Produziert</p>
+                        <p className="text-[10px] text-muted-foreground">{t('produktion.detail.ausschussProduziert')}</p>
                         <p className="text-sm font-medium text-foreground tabular-nums">
                           {order.scrapQuantity} / {order.quantity} Stk
                         </p>
@@ -876,7 +896,7 @@ function OrderDetailPanel({
                     <div className="flex items-center gap-2 rounded-md bg-error-light px-3 py-2">
                       <AlertTriangle className="h-3.5 w-3.5 text-error shrink-0" />
                       <span className="text-xs text-error font-medium">
-                        Ausschussrate über Zielwert (5%)
+                        {t('produktion.detail.ausschussWarnung')}
                       </span>
                     </div>
                   )}
@@ -889,12 +909,12 @@ function OrderDetailPanel({
         {/* Quality checks for this order */}
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            Qualitätsprüfungen ({qualityChecks.length})
+            {t('produktion.detail.qualitaetspruefungen', { count: qualityChecks.length })}
           </h4>
           {qualityChecks.length === 0 ? (
             <EmptyState
               illustration={<EmptyGeneric />}
-              title="Keine Prüfungen vorhanden"
+              title={t('produktion.detail.noPruefungen')}
             />
           ) : (
             <div className="space-y-1.5">
@@ -910,12 +930,12 @@ function OrderDetailPanel({
                       <p className="text-foreground">{qc.inspector}</p>
                       <p className="text-[10px] text-muted-foreground">
                         {formatDate(qc.date)}
-                        {qc.defectsFound > 0 && ` · ${qc.defectsFound} Mängel`}
+                        {qc.defectsFound > 0 && t('produktion.detail.maengel', { count: qc.defectsFound })}
                       </p>
                     </div>
                   </div>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${qc.passed ? 'bg-success-light text-success' : 'bg-error-light text-error'}`}>
-                    {qc.passed ? 'Bestanden' : 'Nicht bestanden'}
+                    {qc.passed ? t('produktion.detail.bestanden') : t('produktion.detail.nichtBestanden')}
                   </span>
                 </div>
               ))}
@@ -933,7 +953,7 @@ function OrderDetailPanel({
                   className="flex items-center gap-1.5 flex-1 justify-center rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
                 >
                   <PauseCircle className="h-3.5 w-3.5" />
-                  Pausieren
+                  {t('produktion.action.pausieren')}
                 </button>
               )}
               {order.status === 'paused' && (
@@ -942,7 +962,7 @@ function OrderDetailPanel({
                   className="flex items-center gap-1.5 flex-1 justify-center rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
                 >
                   <PlayCircle className="h-3.5 w-3.5" />
-                  Fortsetzen
+                  {t('produktion.action.fortsetzen')}
                 </button>
               )}
               {order.status === 'planned' && (
@@ -951,7 +971,7 @@ function OrderDetailPanel({
                   className="flex items-center gap-1.5 flex-1 justify-center rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
                 >
                   <PlayCircle className="h-3.5 w-3.5" />
-                  Starten
+                  {t('produktion.action.starten')}
                 </button>
               )}
               <button
@@ -959,14 +979,14 @@ function OrderDetailPanel({
                 className="flex items-center gap-1.5 flex-1 justify-center rounded-lg bg-primary py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Qualitätsprüfung
+                {t('produktion.action.qualitaetspruefung')}
               </button>
             </>
           )}
           {order.status === 'completed' && (
             <div className="flex items-center gap-2 w-full justify-center py-2 text-xs text-success">
               <CheckCircle2 className="h-4 w-4" />
-              Auftrag abgeschlossen
+              {t('produktion.action.auftragAbgeschlossen')}
             </div>
           )}
         </div>
@@ -988,6 +1008,7 @@ function NewOrderDialog({
   onOpenChange: (open: boolean) => void
   boms: BOM[]
 }) {
+  const { t } = useTranslation()
   const [bomId, setBomId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
@@ -1002,20 +1023,20 @@ function NewOrderDialog({
 
   const handleSave = () => {
     if (!bomId) {
-      toast.error('Bitte wähle eine Stückliste aus')
+      toast.error(t('produktion.dialog.errorStueckliste'))
       return
     }
     if (!quantity || parseInt(quantity) <= 0) {
-      toast.error('Bitte gib eine gültige Menge ein')
+      toast.error(t('produktion.dialog.errorMenge'))
       return
     }
     if (!startDate || !dueDate) {
-      toast.error('Bitte gib Start- und Fälligkeitsdatum ein')
+      toast.error(t('produktion.dialog.errorDaten'))
       return
     }
 
     const selectedBom = boms.find((b) => b.id === bomId)
-    toast.success(`Auftrag für "${selectedBom?.productName}" mit ${quantity} Stk erstellt`)
+    toast.success(t('produktion.dialog.auftragErstelltToast', { name: selectedBom?.productName, qty: quantity }))
     setBomId('')
     setQuantity('')
     setNotes('')
@@ -1026,14 +1047,14 @@ function NewOrderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Neuer Produktionsauftrag</DialogTitle>
+          <DialogTitle>{t('produktion.dialog.neuerAuftrag')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Stückliste / Produkt</Label>
+            <Label className="text-sm font-medium">{t('produktion.dialog.stueckliste')}</Label>
             <Select value={bomId} onValueChange={setBomId}>
               <SelectTrigger>
-                <SelectValue placeholder="Stückliste auswählen..." />
+                <SelectValue placeholder={t('produktion.dialog.stuecklisteSelect')} />
               </SelectTrigger>
               <SelectContent>
                 {activeBoms.map((b) => (
@@ -1046,11 +1067,11 @@ function NewOrderDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Menge</Label>
+            <Label className="text-sm font-medium">{t('produktion.dialog.menge')}</Label>
             <Input
               type="number"
               min="1"
-              placeholder="z.B. 50"
+              placeholder={t('produktion.dialog.mengePlaceholder')}
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
             />
@@ -1058,7 +1079,7 @@ function NewOrderDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Startdatum</Label>
+              <Label className="text-sm font-medium">{t('produktion.dialog.startdatum')}</Label>
               <Input
                 type="date"
                 value={startDate}
@@ -1066,7 +1087,7 @@ function NewOrderDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Fälligkeitsdatum</Label>
+              <Label className="text-sm font-medium">{t('produktion.dialog.faelligkeitsdatum')}</Label>
               <Input
                 type="date"
                 value={dueDate}
@@ -1076,9 +1097,9 @@ function NewOrderDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Notizen</Label>
+            <Label className="text-sm font-medium">{t('produktion.dialog.notizen')}</Label>
             <Textarea
-              placeholder="Optionale Anmerkungen zum Auftrag..."
+              placeholder={t('produktion.dialog.notizenPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
@@ -1090,13 +1111,13 @@ function NewOrderDialog({
               onClick={() => onOpenChange(false)}
               className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="flex-1 rounded-lg bg-primary py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              Auftrag erstellen
+              {t('produktion.dialog.auftragErstellen')}
             </button>
           </div>
         </div>
@@ -1116,6 +1137,7 @@ function NewBomDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation()
   const [productName, setProductName] = useState('')
   const [sku, setSku] = useState('')
   const [version, setVersion] = useState('1.0')
@@ -1138,20 +1160,20 @@ function NewBomDialog({
 
   const handleSave = () => {
     if (!productName.trim()) {
-      toast.error('Bitte gib einen Produktnamen ein')
+      toast.error(t('produktion.dialog.errorProduktname'))
       return
     }
     if (!sku.trim()) {
-      toast.error('Bitte gib eine SKU ein')
+      toast.error(t('produktion.dialog.errorSku'))
       return
     }
     const validMaterials = materials.filter((m) => m.materialName.trim())
     if (validMaterials.length === 0) {
-      toast.error('Mindestens ein Material ist erforderlich')
+      toast.error(t('produktion.dialog.errorMaterial'))
       return
     }
 
-    toast.success(`Stückliste "${productName}" mit ${validMaterials.length} Positionen erstellt`)
+    toast.success(t('produktion.dialog.stuecklisteErstelltToast', { name: productName, count: validMaterials.length }))
     setProductName('')
     setSku('')
     setVersion('1.0')
@@ -1163,14 +1185,14 @@ function NewBomDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Neue Stückliste</DialogTitle>
+          <DialogTitle>{t('produktion.dialog.neueStueckliste')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Produktname</Label>
+              <Label className="text-sm font-medium">{t('produktion.dialog.produktname')}</Label>
               <Input
-                placeholder="z.B. Schaltschrank Pro"
+                placeholder={t('produktion.dialog.produktnamePlaceholder')}
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
               />
@@ -1178,7 +1200,7 @@ function NewBomDialog({
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">SKU</Label>
               <Input
-                placeholder="z.B. SS-PRO-01"
+                placeholder={t('produktion.dialog.skuPlaceholder')}
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
               />
@@ -1186,7 +1208,7 @@ function NewBomDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Version</Label>
+            <Label className="text-sm font-medium">{t('produktion.dialog.version')}</Label>
             <Input
               placeholder="1.0"
               value={version}
@@ -1198,13 +1220,13 @@ function NewBomDialog({
           {/* Materials list */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Materialien</Label>
+              <Label className="text-sm font-medium">{t('produktion.dialog.materialien')}</Label>
               <button
                 onClick={addMaterial}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                Position
+                {t('produktion.dialog.position')}
               </button>
             </div>
             <div className="space-y-2 max-h-[240px] overflow-y-auto">
@@ -1212,7 +1234,7 @@ function NewBomDialog({
                 <div key={idx} className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground w-5 shrink-0 text-right">{idx + 1}.</span>
                   <Input
-                    placeholder="Materialname"
+                    placeholder={t('produktion.dialog.materialnamePlaceholder')}
                     value={mat.materialName}
                     onChange={(e) => updateMaterial(idx, 'materialName', e.target.value)}
                     className="flex-1"
@@ -1256,13 +1278,13 @@ function NewBomDialog({
               onClick={() => onOpenChange(false)}
               className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="flex-1 rounded-lg bg-primary py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              Stückliste erstellen
+              {t('produktion.dialog.stuecklisteErstellen')}
             </button>
           </div>
         </div>
@@ -1286,6 +1308,7 @@ function QualityCheckDialog({
   orders: ProductionOrder[]
   preselectedOrderId: string
 }) {
+  const { t } = useTranslation()
   const [orderId, setOrderId] = useState(preselectedOrderId || '')
   const [inspector, setInspector] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -1301,21 +1324,24 @@ function QualityCheckDialog({
   const handleSave = () => {
     const selectedOrderId = orderId || preselectedOrderId
     if (!selectedOrderId) {
-      toast.error('Bitte wähle einen Auftrag aus')
+      toast.error(t('produktion.dialog.errorAuftrag'))
       return
     }
     if (!inspector) {
-      toast.error('Bitte wähle einen Prüfer aus')
+      toast.error(t('produktion.dialog.errorPruefer'))
       return
     }
     if (!date) {
-      toast.error('Bitte gib ein Datum ein')
+      toast.error(t('produktion.dialog.errorDatum'))
       return
     }
 
     const selectedOrder = orders.find((o) => o.id === selectedOrderId)
     toast.success(
-      `Qualitätsprüfung für ${selectedOrder?.orderNr ?? 'Auftrag'} erfasst — ${passed ? 'Bestanden' : 'Nicht bestanden'}`,
+      t('produktion.dialog.pruefungErstelltToast', {
+        orderNr: selectedOrder?.orderNr ?? t('produktion.dialog.auftrag'),
+        result: passed ? t('produktion.detail.bestanden') : t('produktion.detail.nichtBestanden'),
+      }),
     )
     setOrderId('')
     setInspector('')
@@ -1329,17 +1355,17 @@ function QualityCheckDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Qualitätsprüfung erfassen</DialogTitle>
+          <DialogTitle>{t('produktion.dialog.qualitaetspruefung')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Auftrag</Label>
+            <Label className="text-sm font-medium">{t('produktion.dialog.auftrag')}</Label>
             <Select
               value={orderId || preselectedOrderId}
               onValueChange={setOrderId}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Auftrag auswählen..." />
+                <SelectValue placeholder={t('produktion.dialog.auftragSelect')} />
               </SelectTrigger>
               <SelectContent>
                 {activeOrders.map((o) => (
@@ -1353,10 +1379,10 @@ function QualityCheckDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Prüfer</Label>
+              <Label className="text-sm font-medium">{t('produktion.dialog.pruefer')}</Label>
               <Select value={inspector} onValueChange={setInspector}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Prüfer auswählen..." />
+                  <SelectValue placeholder={t('produktion.dialog.prueferSelect')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Werner Stöckli">Werner Stöckli</SelectItem>
@@ -1365,7 +1391,7 @@ function QualityCheckDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Datum</Label>
+              <Label className="text-sm font-medium">{t('produktion.dialog.datum')}</Label>
               <Input
                 type="date"
                 value={date}
@@ -1385,10 +1411,10 @@ function QualityCheckDialog({
                 )}
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {passed ? 'Bestanden' : 'Nicht bestanden'}
+                    {passed ? t('produktion.detail.bestanden') : t('produktion.detail.nichtBestanden')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {passed ? 'Alle Prüfkriterien erfüllt' : 'Mängel festgestellt'}
+                    {passed ? t('produktion.dialog.allePruefkriterien') : t('produktion.dialog.maengelFestgestellt')}
                   </p>
                 </div>
               </div>
@@ -1399,7 +1425,7 @@ function QualityCheckDialog({
           {/* Defects count (only if not passed) */}
           {!passed && (
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Anzahl Mängel</Label>
+              <Label className="text-sm font-medium">{t('produktion.dialog.anzahlMaengel')}</Label>
               <Input
                 type="number"
                 min="0"
@@ -1411,9 +1437,9 @@ function QualityCheckDialog({
           )}
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Notizen</Label>
+            <Label className="text-sm font-medium">{t('produktion.dialog.notizen')}</Label>
             <Textarea
-              placeholder="Prüfbericht, Bemerkungen, Massnahmen..."
+              placeholder={t('produktion.dialog.pruefbericht')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
@@ -1425,13 +1451,13 @@ function QualityCheckDialog({
               onClick={() => onOpenChange(false)}
               className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="flex-1 rounded-lg bg-primary py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              Prüfung speichern
+              {t('produktion.dialog.pruefungSpeichern')}
             </button>
           </div>
         </div>

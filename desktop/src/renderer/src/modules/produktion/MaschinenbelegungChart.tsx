@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
 import type { Machine, MachineBooking } from '@/stores/produktion'
 
@@ -12,10 +13,10 @@ const RANGE_END = new Date('2026-03-08') // exclusive: day after Mar 7
 const TOTAL_DAYS = 33 // Feb 3 - Mar 7 inclusive = 33 days (Feb has 28 days in 2026)
 const DAY_WIDTH = 30
 
-const machineStatusConfig: Record<string, { dot: string; label: string }> = {
-  available: { dot: 'bg-success', label: 'Verfügbar' },
-  in_use: { dot: 'bg-info', label: 'In Betrieb' },
-  maintenance: { dot: 'bg-error', label: 'Wartung' },
+const machineStatusConfigKeys: Record<string, { dot: string; labelKey: string }> = {
+  available: { dot: 'bg-success', labelKey: 'produktion.machineStatus.available' },
+  in_use: { dot: 'bg-info', labelKey: 'produktion.machineStatus.inUse' },
+  maintenance: { dot: 'bg-error', labelKey: 'produktion.machineStatus.maintenance' },
 }
 
 function getDayOffset(dateStr: string): number {
@@ -43,7 +44,17 @@ function getMondays(): { offset: number; label: string }[] {
 }
 
 export default function MaschinenbelegungChart({ machines, bookings }: MaschinenbelegungChartProps) {
+  const { t } = useTranslation()
   const mondays = useMemo(() => getMondays(), [])
+
+  const machineStatusConfig = useMemo(() => {
+    return Object.fromEntries(
+      Object.entries(machineStatusConfigKeys).map(([key, val]) => [
+        key,
+        { dot: val.dot, label: t(val.labelKey) },
+      ])
+    ) as Record<string, { dot: string; label: string }>
+  }, [t])
 
   const bookingsByMachine = useMemo(() => {
     const map = new Map<string, MachineBooking[]>()
@@ -61,8 +72,8 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         <Cpu className="h-10 w-10 mb-3 opacity-40" />
-        <p className="text-sm font-medium">Keine Maschinen vorhanden</p>
-        <p className="text-xs mt-1">Maschinen werden hier als Belegungsplan angezeigt</p>
+        <p className="text-sm font-medium">{t('produktion.chart.keineMaschinen')}</p>
+        <p className="text-xs mt-1">{t('produktion.chart.maschinenHint')}</p>
       </div>
     )
   }
@@ -77,7 +88,7 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
             <div className="flex border-b border-border">
               {/* Machine name header */}
               <div className="w-[200px] shrink-0 px-4 py-3 border-r border-border">
-                <span className="text-xs font-medium text-muted-foreground">Maschine</span>
+                <span className="text-xs font-medium text-muted-foreground">{t('produktion.chart.maschine')}</span>
               </div>
               {/* Day grid header */}
               <div className="relative" style={{ width: chartWidth, height: 36 }}>
@@ -166,7 +177,7 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
       <div className="flex items-center gap-6 flex-wrap">
         {/* Machine statuses */}
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Maschinenstatus:</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('produktion.chart.maschinenstatus')}</span>
           {Object.entries(machineStatusConfig).map(([key, cfg]) => (
             <div key={key} className="flex items-center gap-1.5">
               <span className={`h-2.5 w-2.5 rounded-full ${cfg.dot}`} />
@@ -178,7 +189,7 @@ export default function MaschinenbelegungChart({ machines, bookings }: Maschinen
         {/* Booking colors — derive from actual data */}
         {bookings.length > 0 && (
           <div className="flex items-center gap-4">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Aufträge:</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('produktion.chart.auftraege')}</span>
             {Array.from(new Map(bookings.map((b) => [b.orderNr, b])).values()).map((b) => (
               <div key={b.orderNr} className="flex items-center gap-1.5">
                 <span

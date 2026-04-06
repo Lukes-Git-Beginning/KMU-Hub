@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -47,11 +48,11 @@ type TabKey = 'artikel' | 'lagerorte' | 'bewegungen' | 'inventur'
 type StatusFilter = 'all' | 'ok' | 'warning' | 'critical'
 type MovementType = 'in' | 'out' | 'transfer' | 'adjustment'
 
-const movementTypeLabels: Record<string, string> = {
-  in: 'Eingang',
-  out: 'Ausgang',
-  transfer: 'Transfer',
-  adjustment: 'Korrektur',
+const movementTypeKeys: Record<string, string> = {
+  in: 'inventar.movementType.in',
+  out: 'inventar.movementType.out',
+  transfer: 'inventar.movementType.transfer',
+  adjustment: 'inventar.movementType.adjustment',
 }
 
 const movementTypeColors: Record<string, string> = {
@@ -61,10 +62,10 @@ const movementTypeColors: Record<string, string> = {
   adjustment: 'bg-warning-light text-warning',
 }
 
-const locationTypeLabels: Record<string, string> = {
-  warehouse: 'Lager',
-  store: 'Filiale',
-  vehicle: 'Fahrzeug',
+const locationTypeKeys: Record<string, string> = {
+  warehouse: 'inventar.locationType.warehouse',
+  store: 'inventar.locationType.store',
+  vehicle: 'inventar.locationType.vehicle',
 }
 
 const locationTypeIcons: Record<string, typeof Warehouse> = {
@@ -80,11 +81,11 @@ const movementTypeIcons: Record<string, typeof ArrowDownToLine> = {
   adjustment: ClipboardEdit,
 }
 
-const inventurStatusLabels: Record<string, string> = {
-  open: 'Offen',
-  counting: 'Zählung',
-  review: 'Prüfung',
-  completed: 'Abgeschlossen',
+const inventurStatusKeys: Record<string, string> = {
+  open: 'inventar.inventurStatus.open',
+  counting: 'inventar.inventurStatus.counting',
+  review: 'inventar.inventurStatus.review',
+  completed: 'inventar.inventurStatus.completed',
 }
 
 const inventurStatusColors: Record<string, string> = {
@@ -104,11 +105,17 @@ function getStockStatus(item: InventoryItem): 'ok' | 'warning' | 'critical' {
   return 'ok'
 }
 
-function getStockStatusDisplay(item: InventoryItem): { color: string; label: string; dotColor: string } {
+const stockStatusLabelKeys: Record<string, string> = {
+  critical: 'inventar.status.critical',
+  warning: 'inventar.status.warning',
+  ok: 'inventar.status.ok',
+}
+
+function getStockStatusDisplay(item: InventoryItem): { color: string; labelKey: string; dotColor: string } {
   const status = getStockStatus(item)
-  if (status === 'critical') return { color: 'bg-error', label: 'Kritisch', dotColor: 'bg-error' }
-  if (status === 'warning') return { color: 'bg-warning', label: 'Warnung', dotColor: 'bg-warning' }
-  return { color: 'bg-success', label: 'OK', dotColor: 'bg-success' }
+  if (status === 'critical') return { color: 'bg-error', labelKey: stockStatusLabelKeys.critical, dotColor: 'bg-error' }
+  if (status === 'warning') return { color: 'bg-warning', labelKey: stockStatusLabelKeys.warning, dotColor: 'bg-warning' }
+  return { color: 'bg-success', labelKey: stockStatusLabelKeys.ok, dotColor: 'bg-success' }
 }
 
 function formatDate(dateStr: string): string {
@@ -130,12 +137,13 @@ function BarcodeScannerDialog({
   onClose: () => void
   onScan: (barcode: string) => void
 }) {
+  const { t } = useTranslation()
   const [barcode, setBarcode] = useState('')
 
   const handleSubmit = () => {
     const trimmed = barcode.trim()
     if (!trimmed) {
-      toast.error('Bitte einen Barcode eingeben')
+      toast.error(t('inventar.barcode.errorEmpty'))
       return
     }
     onScan(trimmed)
@@ -153,9 +161,9 @@ function BarcodeScannerDialog({
         <DialogHeader className="mb-4">
           <div className="flex items-center gap-2">
             <ScanBarcode className="h-5 w-5 text-primary" />
-            <DialogTitle className="text-lg font-semibold text-foreground">Barcode-Scanner</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-foreground">{t('inventar.barcode.title')}</DialogTitle>
           </div>
-          <DialogDescription className="sr-only">Barcode eingeben oder scannen</DialogDescription>
+          <DialogDescription className="sr-only">{t('inventar.barcode.title')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -164,12 +172,12 @@ function BarcodeScannerDialog({
             value={barcode}
             onChange={(e) => setBarcode(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Barcode eingeben oder scannen..."
+            placeholder={t('inventar.barcode.placeholder')}
             autoFocus
             className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
           />
           <p className="text-xs text-muted-foreground">
-            Barcode manuell eingeben oder mit einem externen Scanner erfassen.
+            {t('inventar.barcode.hint')}
           </p>
         </div>
 
@@ -178,13 +186,13 @@ function BarcodeScannerDialog({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Suchen
+            {t('common.search')}
           </button>
         </DialogFooter>
         </div>
@@ -214,6 +222,7 @@ function ArtikelDialog({
   onClose: () => void
   initial?: InventoryItem | null
 }) {
+  const { t } = useTranslation()
   const [form, setForm] = useState<ArtikelFormData>({
     name: initial?.name ?? '',
     sku: initial?.sku ?? '',
@@ -229,14 +238,14 @@ function ArtikelDialog({
 
   const handleSave = () => {
     if (!form.name.trim()) {
-      toast.error('Bitte einen Artikelnamen eingeben')
+      toast.error(t('inventar.artikel.errorName'))
       return
     }
     if (!form.sku.trim()) {
-      toast.error('Bitte eine SKU eingeben')
+      toast.error(t('inventar.artikel.errorSku'))
       return
     }
-    toast.success(isEdit ? `"${form.name}" wurde aktualisiert` : `"${form.name}" wurde angelegt`)
+    toast.success(isEdit ? t('inventar.artikel.saveSuccess', { name: form.name }) : t('inventar.artikel.createSuccess', { name: form.name }))
     onClose()
   }
 
@@ -246,22 +255,22 @@ function ArtikelDialog({
         <div className="p-6">
         <DialogHeader className="mb-5">
           <DialogTitle className="text-lg font-semibold text-foreground">
-            {isEdit ? 'Artikel bearbeiten' : 'Neuen Artikel anlegen'}
+            {isEdit ? t('inventar.artikel.dialogTitleEdit') : t('inventar.artikel.dialogTitleNew')}
           </DialogTitle>
-          <DialogDescription className="sr-only">Artikel-Stammdaten bearbeiten</DialogDescription>
+          <DialogDescription className="sr-only">{t('inventar.artikel.dialogTitleEdit')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Name */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Name <span className="text-destructive">*</span>
+              {t('inventar.artikel.labelName')} <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="z.B. Kabelkanal 20x10mm"
+              placeholder={t('inventar.artikel.placeholderName')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -269,25 +278,25 @@ function ArtikelDialog({
           {/* SKU */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              SKU <span className="text-destructive">*</span>
+              {t('inventar.artikel.labelSku')} <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
               value={form.sku}
               onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-              placeholder="z.B. KK-2010"
+              placeholder={t('inventar.artikel.placeholderSku')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
             />
           </div>
 
           {/* Kategorie */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Kategorie</label>
+            <label className="text-sm font-medium text-foreground">{t('inventar.artikel.labelCategory')}</label>
             <input
               type="text"
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              placeholder="z.B. Elektromaterial"
+              placeholder={t('inventar.artikel.placeholderCategory')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -295,7 +304,7 @@ function ArtikelDialog({
           {/* Mindestbestand + Einheit */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Mindestbestand</label>
+              <label className="text-sm font-medium text-foreground">{t('inventar.artikel.labelMinStock')}</label>
               <input
                 type="number"
                 min={0}
@@ -305,7 +314,7 @@ function ArtikelDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Einheit</label>
+              <label className="text-sm font-medium text-foreground">{t('inventar.artikel.labelUnit')}</label>
               <select
                 value={form.unit}
                 onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
@@ -320,7 +329,7 @@ function ArtikelDialog({
 
           {/* Waehrung */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Waehrung</label>
+            <label className="text-sm font-medium text-foreground">{t('inventar.artikel.labelCurrency')}</label>
             <select
               value={form.currency}
               onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
@@ -335,13 +344,13 @@ function ArtikelDialog({
           {/* Chargennummer */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Chargennummer <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+              {t('inventar.artikel.labelBatchNumber')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span>
             </label>
             <input
               type="text"
               value={form.batchNumber}
               onChange={(e) => setForm((f) => ({ ...f, batchNumber: e.target.value }))}
-              placeholder="z.B. CH-2026-0142"
+              placeholder={t('inventar.artikel.placeholderBatch')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
             />
           </div>
@@ -349,13 +358,13 @@ function ArtikelDialog({
           {/* Seriennummern */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">
-              Seriennummern <span className="text-xs text-muted-foreground font-normal">(kommagetrennt, optional)</span>
+              {t('inventar.artikel.labelSerialNumbers')} <span className="text-xs text-muted-foreground font-normal">({t('inventar.artikel.serialNumbersHint')})</span>
             </label>
             <input
               type="text"
               value={form.serialNumbers}
               onChange={(e) => setForm((f) => ({ ...f, serialNumbers: e.target.value }))}
-              placeholder="z.B. SN-001, SN-002, SN-003"
+              placeholder={t('inventar.artikel.placeholderSerial')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
             />
           </div>
@@ -367,13 +376,13 @@ function ArtikelDialog({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            {isEdit ? 'Speichern' : 'Anlegen'}
+            {isEdit ? t('common.save') : t('inventar.artikel.buttonCreate')}
           </button>
         </DialogFooter>
         </div>
@@ -394,6 +403,7 @@ function BewegungDialog({
   item: InventoryItem | null
   locations: { id: string; name: string }[]
 }) {
+  const { t } = useTranslation()
   const [typ, setTyp] = useState<MovementType>('in')
   const [menge, setMenge] = useState<number>(1)
   const [lagerort, setLagerort] = useState(locations[0]?.name ?? '')
@@ -402,19 +412,19 @@ function BewegungDialog({
 
   const handleSave = () => {
     if (menge <= 0) {
-      toast.error('Bitte eine gültige Menge eingeben')
+      toast.error(t('inventar.bewegung.errorMenge'))
       return
     }
-    const label = movementTypeLabels[typ]
-    toast.success(`${label}: ${menge} ${item?.unit ?? 'Stk'} von "${item?.name}" erfasst`)
+    const label = t(movementTypeKeys[typ])
+    toast.success(t('inventar.bewegung.success', { label, menge, unit: item?.unit ?? 'Stk', name: item?.name }))
     onClose()
   }
 
   const typeOptions: { key: MovementType; label: string; icon: typeof ArrowDownToLine }[] = [
-    { key: 'in', label: 'Eingang', icon: ArrowDownToLine },
-    { key: 'out', label: 'Ausgang', icon: ArrowUpFromLine },
-    { key: 'transfer', label: 'Transfer', icon: RefreshCw },
-    { key: 'adjustment', label: 'Korrektur', icon: ClipboardEdit },
+    { key: 'in', label: t('inventar.movementType.in'), icon: ArrowDownToLine },
+    { key: 'out', label: t('inventar.movementType.out'), icon: ArrowUpFromLine },
+    { key: 'transfer', label: t('inventar.movementType.transfer'), icon: RefreshCw },
+    { key: 'adjustment', label: t('inventar.movementType.adjustment'), icon: ClipboardEdit },
   ]
 
   return (
@@ -422,14 +432,14 @@ function BewegungDialog({
       <DialogContent className="gap-0 p-0 max-w-md">
         <div className="p-6">
         <DialogHeader className="mb-5">
-          <DialogTitle className="text-lg font-semibold text-foreground">Bestandsbewegung</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-foreground">{t('inventar.bewegung.dialogTitle')}</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground mt-0.5">{item?.name} ({item?.sku})</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Typ radio */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Typ</label>
+            <label className="text-sm font-medium text-foreground">{t('inventar.bewegung.labelTyp')}</label>
             <div className="grid grid-cols-2 gap-2">
               {typeOptions.map((opt) => {
                 const Icon = opt.icon
@@ -454,7 +464,7 @@ function BewegungDialog({
 
           {/* Menge */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Menge ({item?.unit ?? 'Stk'})</label>
+            <label className="text-sm font-medium text-foreground">{t('inventar.bewegung.labelMenge', { unit: item?.unit ?? 'Stk' })}</label>
             <input
               type="number"
               min={1}
@@ -466,7 +476,7 @@ function BewegungDialog({
 
           {/* Lagerort */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Lagerort</label>
+            <label className="text-sm font-medium text-foreground">{t('inventar.bewegung.labelLagerort')}</label>
             <select
               value={lagerort}
               onChange={(e) => setLagerort(e.target.value)}
@@ -480,23 +490,23 @@ function BewegungDialog({
 
           {/* Referenz */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Referenz <span className="text-xs text-muted-foreground font-normal">(optional)</span></label>
+            <label className="text-sm font-medium text-foreground">{t('inventar.bewegung.labelReferenz')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span></label>
             <input
               type="text"
               value={referenz}
               onChange={(e) => setReferenz(e.target.value)}
-              placeholder="z.B. PO-2024-032 oder Auftrag #A-450"
+              placeholder={t('inventar.bewegung.placeholderReferenz')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
 
           {/* Notizen */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Notizen <span className="text-xs text-muted-foreground font-normal">(optional)</span></label>
+            <label className="text-sm font-medium text-foreground">{t('inventar.bewegung.labelNotizen')} <span className="text-xs text-muted-foreground font-normal">({t('common.optional')})</span></label>
             <textarea
               value={notizen}
               onChange={(e) => setNotizen(e.target.value)}
-              placeholder="Zusätzliche Informationen..."
+              placeholder={t('inventar.bewegung.placeholderNotizen')}
               rows={3}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
@@ -509,13 +519,13 @@ function BewegungDialog({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Bewegung erfassen
+            {t('inventar.bewegung.buttonErfassen')}
           </button>
         </DialogFooter>
         </div>
@@ -526,6 +536,7 @@ function BewegungDialog({
 
 // ─── Stock Bar Visual ─────────────────────────────────────────────
 function StockBar({ current, min }: { current: number; min: number }) {
+  const { t } = useTranslation()
   const max = Math.max(min * 3, current * 1.2, 1)
   const pct = Math.min((current / max) * 100, 100)
   const minPct = Math.min((min / max) * 100, 100)
@@ -542,12 +553,12 @@ function StockBar({ current, min }: { current: number; min: number }) {
         <div
           className="absolute inset-y-0 w-0.5 bg-foreground/30"
           style={{ left: `${minPct}%` }}
-          title={`Mindestbestand: ${min}`}
+          title={t('inventar.stockBar.minThreshold', { min })}
         />
       </div>
       <div className="flex justify-between text-[10px] text-muted-foreground">
         <span>0</span>
-        <span>Min: {min}</span>
+        <span>{t('inventar.detail.stockBarMin', { min, unit: '' }).trim()}</span>
         <span>{Math.round(max)}</span>
       </div>
     </div>
@@ -556,6 +567,7 @@ function StockBar({ current, min }: { current: number; min: number }) {
 
 // ─── Inventur Session Card ────────────────────────────────────────
 function InventurSessionCard({ session }: { session: InventurSession }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   const totalItems = session.counts.length
@@ -583,7 +595,7 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-3">
           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${inventurStatusColors[session.status]}`}>
-            {inventurStatusLabels[session.status]}
+            {t(inventurStatusKeys[session.status])}
           </span>
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </div>
@@ -596,11 +608,11 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Artikel</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">{t('inventar.inventur.table.artikel')}</th>
                   <th className="px-4 py-2 text-left font-medium text-muted-foreground">SKU</th>
-                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">Soll</th>
-                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">Ist</th>
-                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">Differenz</th>
+                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">{t('inventar.inventur.table.soll')}</th>
+                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">{t('inventar.inventur.table.ist')}</th>
+                  <th className="px-4 py-2 text-right font-medium text-muted-foreground">{t('inventar.inventur.table.differenz')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -632,10 +644,10 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
               <tfoot>
                 <tr className="border-t border-border bg-secondary/30">
                   <td colSpan={2} className="px-4 py-2 text-sm font-medium text-foreground">
-                    Gesamt: {totalItems} Artikel
+                    {t('inventar.inventur.table.total', { count: totalItems })}
                   </td>
                   <td className="px-4 py-2 text-right text-xs text-muted-foreground">
-                    {itemsWithDiff > 0 ? `${itemsWithDiff} mit Differenz` : 'Keine Differenzen'}
+                    {itemsWithDiff > 0 ? t('inventar.inventur.table.withDiff', { count: itemsWithDiff }) : t('inventar.inventur.table.noDiff')}
                   </td>
                   <td className="px-4 py-2" />
                   <td className={`px-4 py-2 text-right font-medium tabular-nums ${
@@ -652,11 +664,11 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
           {session.status === 'review' && (
             <div className="flex justify-end p-3 border-t border-border">
               <button
-                onClick={() => toast.success(`Differenzen für "${session.name}" wurden gebucht`)}
+                onClick={() => toast.success(t('inventar.inventur.bookDifferencesSuccess', { name: session.name }))}
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <ClipboardCheck className="h-4 w-4" />
-                Differenzen buchen
+                {t('inventar.inventur.bookDifferences')}
               </button>
             </div>
           )}
@@ -668,6 +680,7 @@ function InventurSessionCard({ session }: { session: InventurSession }) {
 
 // ─── Main Page ────────────────────────────────────────────────────
 export default function InventarPage() {
+  const { t } = useTranslation()
   const { items, locations, movements, inventurSessions } = useInventarStore()
 
   const [tab, setTab] = useState<TabKey>('artikel')
@@ -768,31 +781,31 @@ export default function InventarPage() {
       setSelectedItem(found)
       setTab('artikel')
       setShowBarcodeScanner(false)
-      toast.success(`Artikel "${found.name}" gefunden`)
+      toast.success(t('inventar.barcode.found', { name: found.name }))
     } else {
-      toast.error('Kein Artikel mit diesem Barcode gefunden')
+      toast.error(t('inventar.barcode.notFound'))
     }
   }
 
   const getItemActions = (item: InventoryItem) => [
-    { label: 'Details anzeigen', icon: Eye, onClick: () => setSelectedItem(item) },
-    { label: 'Bearbeiten', icon: Edit, onClick: () => openArtikelDialog(item) },
-    { label: 'Bestandsbewegung', icon: ArrowRightLeft, onClick: () => openBewegungDialog(item), separator: true },
+    { label: t('inventar.actions.showDetails'), icon: Eye, onClick: () => setSelectedItem(item) },
+    { label: t('common.edit'), icon: Edit, onClick: () => openArtikelDialog(item) },
+    { label: t('inventar.actions.movement'), icon: ArrowRightLeft, onClick: () => openBewegungDialog(item), separator: true },
     { separator: true as const, label: '', onClick: () => {} },
-    { label: 'Löschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(item) },
+    { label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(item) },
   ]
 
   const handleDelete = (item: InventoryItem) => {
     setConfirmDelete(null)
     if (selectedItem?.id === item.id) setSelectedItem(null)
-    toast.success(`"${item.name}" wurde gelöscht`)
+    toast.success(t('inventar.delete.success', { name: item.name }))
   }
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
-        title="Inventar"
-        description={`${items.length} Artikel${lowStockCount > 0 ? ` · ${lowStockCount} kritisch` : ''}${warningCount > 0 ? ` · ${warningCount} Warnung` : ''}${lowStockCount === 0 && warningCount === 0 ? ' · Alle Bestaende OK' : ''}`}
+        title={t('inventar.page.title')}
+        description={`${t('inventar.page.descriptionBase', { count: items.length })}${lowStockCount > 0 ? ` · ${t('inventar.page.descriptionCritical', { count: lowStockCount })}` : ''}${warningCount > 0 ? ` · ${t('inventar.page.descriptionWarning', { count: warningCount })}` : ''}${lowStockCount === 0 && warningCount === 0 ? ` · ${t('inventar.page.descriptionOk')}` : ''}`}
         icon={Warehouse}
         moduleId="inventar"
         className="mb-6"
@@ -802,7 +815,7 @@ export default function InventarPage() {
             className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Artikel hinzufügen
+            {t('inventar.page.addArticle')}
           </button>
         }
       />
@@ -810,19 +823,19 @@ export default function InventarPage() {
       {/* Tabs with badges */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'artikel' as const, label: 'Artikel', count: items.length },
-          { key: 'lagerorte' as const, label: 'Lagerorte', count: locations.length },
-          { key: 'bewegungen' as const, label: 'Bewegungen', count: movements.length },
-          { key: 'inventur' as const, label: 'Inventur', count: inventurSessions.length },
-        ]).map((t) => (
+          { key: 'artikel' as const, label: t('inventar.tab.artikel'), count: items.length },
+          { key: 'lagerorte' as const, label: t('inventar.tab.lagerorte'), count: locations.length },
+          { key: 'bewegungen' as const, label: t('inventar.tab.bewegungen'), count: movements.length },
+          { key: 'inventur' as const, label: t('inventar.tab.inventur'), count: inventurSessions.length },
+        ]).map((tabItem) => (
           <button
-            key={t.key}
-            onClick={() => { setTab(t.key); setSearch('') }}
+            key={tabItem.key}
+            onClick={() => { setTab(tabItem.key); setSearch('') }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
+              tab === tabItem.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t.label} ({t.count})
+            {tabItem.label} ({tabItem.count})
           </button>
         ))}
       </div>
@@ -834,10 +847,10 @@ export default function InventarPage() {
           <input
             type="text"
             placeholder={
-              tab === 'artikel' ? 'Artikel suchen...'
-                : tab === 'lagerorte' ? 'Lagerort suchen...'
-                  : tab === 'bewegungen' ? 'Bewegung suchen...'
-                    : 'Inventur suchen...'
+              tab === 'artikel' ? t('inventar.search.artikel')
+                : tab === 'lagerorte' ? t('inventar.search.lagerorte')
+                  : tab === 'bewegungen' ? t('inventar.search.bewegungen')
+                    : t('inventar.search.inventur')
             }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -849,10 +862,10 @@ export default function InventarPage() {
         <button
           onClick={() => setShowBarcodeScanner(true)}
           className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          title="Barcode scannen"
+          title={t('inventar.search.barcodeScan')}
         >
           <ScanBarcode className="h-4 w-4" />
-          <span className="hidden sm:inline">Barcode scannen</span>
+          <span className="hidden sm:inline">{t('inventar.search.barcodeScan')}</span>
         </button>
 
         {/* Category + Status filters (Artikel tab only) */}
@@ -866,7 +879,7 @@ export default function InventarPage() {
               >
                 {allCategories.map((cat) => (
                   <option key={cat} value={cat}>
-                    {cat === 'all' ? 'Alle Kategorien' : cat}
+                    {cat === 'all' ? t('inventar.search.allCategories') : cat}
                   </option>
                 ))}
               </select>
@@ -879,10 +892,10 @@ export default function InventarPage() {
                 onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
                 className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               >
-                <option value="all">Alle Status</option>
-                <option value="ok">OK</option>
-                <option value="warning">Warnung</option>
-                <option value="critical">Kritisch</option>
+                <option value="all">{t('inventar.search.allStatus')}</option>
+                <option value="ok">{t('inventar.status.ok')}</option>
+                <option value="warning">{t('inventar.status.warning')}</option>
+                <option value="critical">{t('inventar.status.critical')}</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             </div>
@@ -893,7 +906,7 @@ export default function InventarPage() {
                 className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Filter className="h-3.5 w-3.5" />
-                Filter zurücksetzen
+                {t('common.resetFilters')}
               </button>
             )}
           </>
@@ -906,11 +919,11 @@ export default function InventarPage() {
           {filteredItems.length === 0 ? (
             <EmptyState
               icon={Package}
-              title="Keine Artikel gefunden"
+              title={t('inventar.empty.artikel.title')}
               description={
                 search || categoryFilter !== 'all' || statusFilter !== 'all'
-                  ? 'Passe deine Suche oder Filter an'
-                  : 'Fuege deinen ersten Artikel hinzu'
+                  ? t('inventar.empty.artikel.descFilter')
+                  : t('inventar.empty.artikel.descEmpty')
               }
             />
           ) : (
@@ -919,14 +932,14 @@ export default function InventarPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-card">
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground w-12">Status</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">SKU</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Kategorie</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Bestand</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Mindest.</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Standort</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">Preis</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground w-12">{t('inventar.table.status')}</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.table.name')}</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.table.sku')}</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.table.category')}</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('inventar.table.stock')}</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('inventar.table.minStock')}</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.table.location')}</th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('inventar.table.price')}</th>
                       <th className="px-4 py-3 text-right font-medium text-muted-foreground w-12"></th>
                     </tr>
                   </thead>
@@ -949,8 +962,8 @@ export default function InventarPage() {
                                 <span className={`inline-block h-2.5 w-2.5 rounded-full ${status.dotColor}`} />
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p className="text-xs">Bestand: {item.currentStock} / Min: {item.minStock}</p>
-                                <p className="text-xs font-medium">{status.label}</p>
+                                <p className="text-xs">{t('inventar.tooltip.stockInfo', { current: item.currentStock, min: item.minStock })}</p>
+                                <p className="text-xs font-medium">{t(status.labelKey)}</p>
                               </TooltipContent>
                             </Tooltip>
                           </td>
@@ -967,7 +980,7 @@ export default function InventarPage() {
                                     <ShoppingCart className="h-3.5 w-3.5 text-error" />
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p className="text-xs">Nachbestellung empfohlen</p>
+                                    <p className="text-xs">{t('inventar.tooltip.reorderRecommended')}</p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}
@@ -1001,8 +1014,8 @@ export default function InventarPage() {
           {filteredLocations.length === 0 ? (
             <EmptyState
               icon={MapPin}
-              title="Keine Lagerorte gefunden"
-              description={search ? 'Passe deine Suche an' : 'Erstelle deinen ersten Lagerort'}
+              title={t('inventar.empty.lagerorte.title')}
+              description={search ? t('inventar.empty.lagerorte.descFilter') : t('inventar.empty.lagerorte.descEmpty')}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1039,7 +1052,7 @@ export default function InventarPage() {
                         })}
                         {locItems.length > 3 && (
                           <p className="text-xs text-muted-foreground/60 pl-3.5">
-                            +{locItems.length - 3} weitere Artikel
+                            {t('inventar.lagerort.moreItems', { count: locItems.length - 3 })}
                           </p>
                         )}
                       </div>
@@ -1048,15 +1061,15 @@ export default function InventarPage() {
                     <div className="flex items-center justify-between border-t border-border-muted pt-3">
                       <div className="flex items-center gap-2">
                         <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                          {locationTypeLabels[loc.type]}
+                          {t(locationTypeKeys[loc.type])}
                         </span>
                         {criticalInLoc > 0 && (
                           <span className="rounded-full bg-error-light px-2 py-0.5 text-xs text-error">
-                            {criticalInLoc} kritisch
+                            {t('inventar.lagerort.criticalCount', { count: criticalInLoc })}
                           </span>
                         )}
                       </div>
-                      <span className="text-sm text-foreground font-medium">{loc.itemCount} Artikel</span>
+                      <span className="text-sm text-foreground font-medium">{t('inventar.lagerort.itemCount', { count: loc.itemCount })}</span>
                     </div>
                   </div>
                 )
@@ -1072,21 +1085,21 @@ export default function InventarPage() {
           {filteredMovements.length === 0 ? (
             <EmptyState
               icon={ArrowRightLeft}
-              title="Keine Bewegungen gefunden"
-              description={search ? 'Passe deine Suche an' : 'Es gibt noch keine Lagerbewegungen'}
+              title={t('inventar.empty.bewegungen.title')}
+              description={search ? t('inventar.empty.bewegungen.descFilter') : t('inventar.empty.bewegungen.descEmpty')}
             />
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-card">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Datum</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Artikel</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Typ</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Menge</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Von / Nach</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Referenz</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Erstellt von</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.datum')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.artikel')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.typ')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('inventar.bewegungen.table.menge')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.vonNach')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.referenz')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('inventar.bewegungen.table.createdBy')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1102,7 +1115,7 @@ export default function InventarPage() {
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${movementTypeColors[mov.type] ?? 'bg-secondary text-muted-foreground'}`}>
                             {MIcon && <MIcon className="h-3 w-3" />}
-                            {movementTypeLabels[mov.type] ?? mov.type}
+                            {movementTypeKeys[mov.type] ? t(movementTypeKeys[mov.type]) : mov.type}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right text-foreground tabular-nums">
@@ -1132,22 +1145,24 @@ export default function InventarPage() {
         <>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-muted-foreground">
-              {inventurSessions.length} Inventur-Sitzung{inventurSessions.length !== 1 ? 'en' : ''}
+              {inventurSessions.length !== 1
+                ? t('inventar.inventur.sessionCountPlural', { count: inventurSessions.length })
+                : t('inventar.inventur.sessionCount', { count: inventurSessions.length })}
             </p>
             <button
-              onClick={() => toast.success('Neue Inventur-Sitzung wurde erstellt')}
+              onClick={() => toast.success(t('inventar.inventur.newSessionSuccess'))}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neue Inventur starten
+              {t('inventar.inventur.newSession')}
             </button>
           </div>
 
           {inventurSessions.length === 0 ? (
             <EmptyState
               icon={ClipboardCheck}
-              title="Keine Inventur-Sitzungen"
-              description="Starte deine erste Inventur, um Bestaende abzugleichen"
+              title={t('inventar.empty.inventur.title')}
+              description={t('inventar.empty.inventur.desc')}
             />
           ) : (
             <div className="space-y-3">
@@ -1174,7 +1189,7 @@ export default function InventarPage() {
                   ? 'bg-warning-light text-warning'
                   : 'bg-success-light text-success'
             }`}>
-              {getStockStatusDisplay(selectedItem).label}
+              {t(getStockStatusDisplay(selectedItem).labelKey)}
             </span>
           ) : undefined
         }
@@ -1188,7 +1203,7 @@ export default function InventarPage() {
                 }}
                 className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Bearbeiten
+                {t('common.edit')}
               </button>
               <button
                 onClick={() => {
@@ -1196,7 +1211,7 @@ export default function InventarPage() {
                 }}
                 className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
-                Bestandsbewegung
+                {t('inventar.detail.buttonMovement')}
               </button>
             </div>
           ) : undefined
@@ -1211,29 +1226,29 @@ export default function InventarPage() {
                   <AlertTriangle className="h-4 w-4 text-error mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-error">
-                      Bestand kritisch — Nachbestellung empfohlen
+                      {t('inventar.detail.criticalBanner.title')}
                     </p>
                     <p className="text-xs text-error/80 mt-0.5">
-                      Aktueller Bestand ({selectedItem.currentStock}) liegt bei oder unter dem Mindestbestand ({selectedItem.minStock}).
+                      {t('inventar.detail.criticalBanner.desc', { current: selectedItem.currentStock, min: selectedItem.minStock })}
                     </p>
                   </div>
                 </div>
                 <button
-                  onClick={() => toast.success(`Bestellvorschlag für "${selectedItem.name}" an Einkauf gesendet`)}
+                  onClick={() => toast.success(t('inventar.detail.criticalBanner.orderSuccess', { name: selectedItem.name }))}
                   className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-error px-3 py-2 text-sm text-white hover:bg-error/90 transition-colors"
                 >
                   <ShoppingCart className="h-4 w-4" />
-                  Nachbestellung erstellen
+                  {t('inventar.detail.criticalBanner.button')}
                 </button>
               </div>
             )}
 
             {/* Basic info */}
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Details</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.details')}</h4>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">Artikel-Name</p>
+                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldName')}</p>
                   <p className="text-sm text-foreground font-medium">{selectedItem.name}</p>
                 </div>
                 <div>
@@ -1241,25 +1256,25 @@ export default function InventarPage() {
                   <p className="text-sm text-foreground font-mono">{selectedItem.sku}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Kategorie</p>
+                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldCategory')}</p>
                   <p className="text-sm text-foreground">{selectedItem.category}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Einheit</p>
+                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldUnit')}</p>
                   <p className="text-sm text-foreground">{selectedItem.unit}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Preis</p>
+                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldPrice')}</p>
                   <p className="text-sm text-foreground">{formatCurrency(selectedItem.price, selectedItem.currency || 'EUR')}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Letzte Bewegung</p>
+                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldLastMovement')}</p>
                   <p className="text-sm text-foreground">{formatDate(selectedItem.lastMovement)}</p>
                 </div>
               </div>
               {selectedItem.barcode && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Barcode</p>
+                  <p className="text-xs text-muted-foreground">{t('inventar.detail.fieldBarcode')}</p>
                   <p className="text-sm text-foreground font-mono">{selectedItem.barcode}</p>
                 </div>
               )}
@@ -1267,7 +1282,7 @@ export default function InventarPage() {
 
             {/* Stock visual bar */}
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Bestand vs Mindestbestand</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.stockBar.title')}</h4>
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="text-2xl font-semibold text-foreground tabular-nums">
@@ -1284,12 +1299,12 @@ export default function InventarPage() {
             {/* Chargen & Seriennummern */}
             {(selectedItem.batchNumber || (selectedItem.serialNumbers && selectedItem.serialNumbers.length > 0)) && (
               <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Chargen & Seriennummern</h4>
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.chargenTitle')}</h4>
                 <div className="rounded-lg border border-border p-3 space-y-2">
                   {selectedItem.batchNumber && (
                     <div className="flex items-center gap-2">
                       <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Charge:</span>
+                      <span className="text-xs text-muted-foreground">{t('inventar.detail.chargeLabel')}</span>
                       <span className="text-sm text-foreground font-mono">{selectedItem.batchNumber}</span>
                     </div>
                   )}
@@ -1297,7 +1312,7 @@ export default function InventarPage() {
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
                         <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Seriennummern:</span>
+                        <span className="text-xs text-muted-foreground">{t('inventar.detail.serialLabel')}</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {selectedItem.serialNumbers.map((sn) => (
@@ -1318,12 +1333,12 @@ export default function InventarPage() {
             {/* Belegkette / Einkauf-Anbindung */}
             {selectedItem.linkedPurchaseOrder && (
               <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Einkauf</h4>
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.einkaufTitle')}</h4>
                 <div className="rounded-lg border border-border p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <Link2 className="h-4 w-4 text-primary" />
                     <span className="text-sm text-foreground">
-                      Verknüpft mit Bestellung: <span className="font-mono font-medium">{selectedItem.linkedPurchaseOrder}</span>
+                      {t('inventar.detail.linkedOrder')} <span className="font-mono font-medium">{selectedItem.linkedPurchaseOrder}</span>
                     </span>
                   </div>
                   <button
@@ -1331,7 +1346,7 @@ export default function InventarPage() {
                     className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                   >
                     <Link2 className="h-3.5 w-3.5" />
-                    Zur Bestellung
+                    {t('inventar.detail.toOrder')}
                   </button>
                 </div>
               </div>
@@ -1339,7 +1354,7 @@ export default function InventarPage() {
 
             {/* Lagerorte */}
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Lagerort</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.lagerortTitle')}</h4>
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2">
                   {(() => {
@@ -1364,12 +1379,12 @@ export default function InventarPage() {
 
             {/* Letzte Bewegungen */}
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Letzte Bewegungen</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('inventar.detail.lastMovements')}</h4>
               {(() => {
                 const itemMovements = getItemMovements(selectedItem.id)
                 if (itemMovements.length === 0) {
                   return (
-                    <p className="text-xs text-muted-foreground py-2">Keine Bewegungen vorhanden</p>
+                    <p className="text-xs text-muted-foreground py-2">{t('inventar.detail.noMovements')}</p>
                   )
                 }
                 return (
@@ -1383,7 +1398,7 @@ export default function InventarPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-foreground">
-                              {movementTypeLabels[mov.type]}
+                              {movementTypeKeys[mov.type] ? t(movementTypeKeys[mov.type]) : mov.type}
                               {mov.quantity > 0 ? ` +${mov.quantity}` : ` ${mov.quantity}`}
                             </p>
                             <p className="text-[10px] text-muted-foreground truncate">
@@ -1434,9 +1449,9 @@ export default function InventarPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Artikel löschen?"
-        description={`"${confirmDelete?.name}" wird unwiderruflich gelöscht. Alle zugehoerigen Bewegungen bleiben erhalten.`}
-        confirmLabel="Löschen"
+        title={t('inventar.confirm.deleteTitle')}
+        description={t('inventar.confirm.deleteDesc', { name: confirmDelete?.name ?? '' })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />

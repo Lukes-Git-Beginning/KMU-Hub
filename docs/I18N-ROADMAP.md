@@ -3,7 +3,7 @@
 ## Context
 i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.ts-Dateien instrumentieren, damit die App vollständig DE/EN/FR/IT übersetzbar ist. Agents dürfen max ~5-7 Dateien pro Task bearbeiten, um unter 80k Tokens zu bleiben.
 
-## Aktueller Stand (2026-04-06)
+## Aktueller Stand (2026-04-06, Update 2)
 
 ### Committed (13 Commits auf main):
 - `1b7ee22` — i18next Infrastruktur + react-intl entfernt (20 Dateien)
@@ -48,11 +48,21 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 | ✅ | rapporte | rapporte.json | 130 |
 | ✅ | notifications | notifications.json | 30 |
 | ✅ | Components | 9 JSONs | 412 |
+| ✅ | fuhrpark | fuhrpark.json | 169 |
+| ✅ | einkauf | einkauf.json | 139 |
+| ✅ | inventar | inventar.json | — |
+| ✅ | vermietung | vermietung.json | — |
+| ✅ | vertraege | vertraege.json | — |
+| ✅ | produktion | produktion.json | — |
+| ✅ | formulare | formulare.json | — |
+| ✅ | schichten | schichten.json | — |
+| ✅ | berichte | berichte.json | — |
+| ✅ | video | video.json | — |
 
 ### i18n.ts Loader
-Alle 31 additions-JSONs (22 Module + 9 Components) importiert und in mergedDE gemergt.
+Alle 41 additions-JSONs (32 Module + 9 Components) importiert und in mergedDE gemergt.
 
-### Additions-Keys gesamt: ~4.000+
+### Additions-Keys gesamt: ~4.500+
 
 ---
 
@@ -77,13 +87,36 @@ Alle 31 additions-JSONs (22 Module + 9 Components) importiert und in mergedDE ge
 
 ---
 
-## Schritt 4: Merge & Loader (1 Session-Task, kein Agent) ← NÄCHSTER SCHRITT
+## ~~Schritt 3.5: Straggler-Module (Wave 1)~~ ✅ ERLEDIGT
 
-1. Alle additions/*.json Keys in de.json mergen
-2. i18n.ts Loader: ALLE additions importieren
-3. `npx tsc --noEmit` — muss sauber sein
-4. `grep -r` nach verbleibenden hardcoded deutschen Strings
-5. Commit: `feat(i18n): complete Phase 3 instrumentation`
+3 Agents parallel, 14 Dateien instrumentiert, 10 neue JSONs:
+- `fuhrpark.json` (169 Keys) — FuhrparkPage, SchadensmeldungDialog
+- `einkauf.json` (139 Keys) — EinkaufPage
+- `inventar.json` — InventarPage
+- `vermietung.json` — VermietungPage, ZustandsprotokollDialog
+- `vertraege.json` — VertraegePage, ESignaturDialog
+- `produktion.json` — ProduktionPage, MaschinenbelegungChart
+- `formulare.json` — FormularePage
+- `schichten.json` — SchichtenPage
+- `berichte.json` — BerichtePage
+- `video.json` — VideoPage
+
+### Verbleibend (Schritt 3.5 Wave 2+3, ~47 Dateien):
+- Settings Tabs (13 Dateien) → erweitern settings.json
+- Integration Panels (11 Dateien) → erweitern settings.json
+- Sub-Pages & Dialoge (18 Dateien) → erweitern bestehende JSONs
+- Borderline/Kleinkram (~7 Dateien)
+
+---
+
+## Schritt 4: Straggler Wave 2+3 + Merge ← NÄCHSTER SCHRITT
+
+1. Wave 2: Settings + Integrations instrumentieren (3 Agents parallel)
+2. Wave 3: Sub-Pages + Kleinkram instrumentieren (3 Agents parallel)
+3. Alle additions/*.json Keys in de.json mergen
+4. i18n.ts Loader vereinfachen
+5. `npx tsc --noEmit` — muss sauber sein
+6. Commit: `feat(i18n): complete instrumentation and merge`
 
 ---
 
@@ -159,10 +192,12 @@ status, actions, required, optional, ok, copy, copied, resetFilters
 | ~~Schritt 2: Module Batch A-F~~ | ~18 | ~86 | ✅ DONE |
 | ~~Schritt 2.5: Loader Update~~ | 1 | 1 | ✅ DONE |
 | ~~Schritt 3: Components Batch G-J~~ | 9 | 46 | ✅ DONE (412 Keys) |
+| ~~Schritt 3.5 Wave 1: Straggler-Module~~ | 3 | 14 | ✅ DONE (10 neue JSONs) |
+| Schritt 3.5 Wave 2+3: Settings/Integrations/Rest | ~7 | ~47 | TODO |
 | Schritt 4: Merge & Loader | 1 (manuell) | — | TODO |
-| Schritt 5: Übersetzungen | 1-3 | 3 JSON | TODO |
+| Schritt 5: Übersetzungen | 3 | 3 JSON | TODO |
 | Schritt 6: Cleanup | 1 (manuell) | — | TODO |
-| **Total verbleibend** | **~3** | **~3 Dateien** | |
+| **Total verbleibend** | **~12** | **~50 Dateien** | |
 
 ## Lesson Learned
 - Agents verbrauchen bis zu 250k Tokens bei >10 Dateien. Max 5-7 Dateien pro Agent!

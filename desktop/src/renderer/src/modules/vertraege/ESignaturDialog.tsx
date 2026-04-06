@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Send,
   UserPlus,
@@ -25,12 +26,12 @@ import type { Contract, ContractSigner } from '@/stores/vertraege'
 
 // ─── Status Config ─────────────────────────────────────────────
 
-const signerStatusConfig: Record<ContractSigner['status'], { label: string; colorClass: string; icon: typeof Check }> = {
-  pending: { label: 'Ausstehend', colorClass: 'bg-secondary text-muted-foreground', icon: Clock },
-  sent: { label: 'Gesendet', colorClass: 'bg-info-light text-info', icon: Send },
-  viewed: { label: 'Angesehen', colorClass: 'bg-warning-light text-warning', icon: Eye },
-  signed: { label: 'Unterschrieben', colorClass: 'bg-success-light text-success', icon: Check },
-  declined: { label: 'Abgelehnt', colorClass: 'bg-error-light text-error', icon: AlertTriangle },
+const signerStatusConfig: Record<ContractSigner['status'], { labelKey: string; colorClass: string; icon: typeof Check }> = {
+  pending: { labelKey: 'vertraege.esignatur.status.pending', colorClass: 'bg-secondary text-muted-foreground', icon: Clock },
+  sent: { labelKey: 'vertraege.esignatur.status.sent', colorClass: 'bg-info-light text-info', icon: Send },
+  viewed: { labelKey: 'vertraege.esignatur.status.viewed', colorClass: 'bg-warning-light text-warning', icon: Eye },
+  signed: { labelKey: 'vertraege.esignatur.status.signed', colorClass: 'bg-success-light text-success', icon: Check },
+  declined: { labelKey: 'vertraege.esignatur.status.declined', colorClass: 'bg-error-light text-error', icon: AlertTriangle },
 }
 
 // ─── Timeline Builder ──────────────────────────────────────────
@@ -42,14 +43,14 @@ interface TimelineEvent {
   iconColor: string
 }
 
-function buildTimeline(contract: Contract, signers: ContractSigner[]): TimelineEvent[] {
+function buildTimeline(contract: Contract, signers: ContractSigner[], t: (key: string, opts?: Record<string, unknown>) => string): TimelineEvent[] {
   const events: TimelineEvent[] = []
 
   // Contract created
   const createdEntry = contract.history.find((h) => h.action.includes('angelegt') || h.action.includes('unterzeichnet') || h.action.includes('erstellt'))
   events.push({
     date: createdEntry?.date ?? contract.startDate,
-    label: 'Vertrag erstellt',
+    label: t('vertraege.esignatur.timeline.created'),
     icon: FileSignature,
     iconColor: 'text-primary',
   })
@@ -59,7 +60,7 @@ function buildTimeline(contract: Contract, signers: ContractSigner[]): TimelineE
   if (hasSent) {
     events.push({
       date: new Date().toISOString().split('T')[0],
-      label: 'Zur Unterschrift gesendet',
+      label: t('vertraege.esignatur.timeline.sent'),
       icon: Send,
       iconColor: 'text-info',
     })
@@ -70,7 +71,7 @@ function buildTimeline(contract: Contract, signers: ContractSigner[]): TimelineE
     if (signer.status === 'viewed') {
       events.push({
         date: new Date().toISOString().split('T')[0],
-        label: `Von ${signer.name} angesehen`,
+        label: t('vertraege.esignatur.timeline.viewed', { name: signer.name }),
         icon: Eye,
         iconColor: 'text-warning',
       })
@@ -78,7 +79,7 @@ function buildTimeline(contract: Contract, signers: ContractSigner[]): TimelineE
     if (signer.status === 'signed') {
       events.push({
         date: signer.signedAt?.split('T')[0] ?? new Date().toISOString().split('T')[0],
-        label: `Von ${signer.name} unterschrieben`,
+        label: t('vertraege.esignatur.timeline.signed', { name: signer.name }),
         icon: Check,
         iconColor: 'text-success',
       })
@@ -86,7 +87,7 @@ function buildTimeline(contract: Contract, signers: ContractSigner[]): TimelineE
     if (signer.status === 'declined') {
       events.push({
         date: new Date().toISOString().split('T')[0],
-        label: `Von ${signer.name} abgelehnt`,
+        label: t('vertraege.esignatur.timeline.declined', { name: signer.name }),
         icon: AlertTriangle,
         iconColor: 'text-error',
       })
@@ -109,6 +110,7 @@ export default function ESignaturDialog({
   contract: Contract
   onUpdateSigners: (signers: ContractSigner[]) => void
 }) {
+  const { t } = useTranslation()
   const [signers, setSigners] = useState<ContractSigner[]>(contract.signers ?? [])
   const [sequential, setSequential] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -116,15 +118,15 @@ export default function ESignaturDialog({
   const [newEmail, setNewEmail] = useState('')
   const [newOrder, setNewOrder] = useState(signers.length + 1)
 
-  const timeline = useMemo(() => buildTimeline(contract, signers), [contract, signers])
+  const timeline = useMemo(() => buildTimeline(contract, signers, t), [contract, signers, t])
 
   const handleAddSigner = () => {
     if (!newName.trim()) {
-      toast.error('Bitte einen Namen eingeben')
+      toast.error(t('vertraege.esignatur.errorName'))
       return
     }
     if (!newEmail.trim() || !newEmail.includes('@')) {
-      toast.error('Bitte eine gültige E-Mail eingeben')
+      toast.error(t('vertraege.esignatur.errorEmail'))
       return
     }
     const signer: ContractSigner = {
@@ -146,11 +148,11 @@ export default function ESignaturDialog({
 
   const handleSend = () => {
     if (signers.length === 0) {
-      toast.error('Bitte mindestens einen Unterzeichner hinzufügen')
+      toast.error(t('vertraege.esignatur.errorNoSigners'))
       return
     }
     onUpdateSigners(signers.map((s) => ({ ...s, status: s.status === 'pending' ? 'sent' : s.status })))
-    toast.success(`Vertrag wurde an ${signers.length} Unterzeichner gesendet`)
+    toast.success(t('vertraege.esignatur.sendSuccess', { count: signers.length }))
     onClose()
   }
 
@@ -162,7 +164,7 @@ export default function ESignaturDialog({
         <DialogHeader className="mb-5">
           <DialogTitle className="text-lg font-semibold text-foreground flex items-center gap-2">
             <FileSignature className="h-5 w-5 text-primary" />
-            Digitale Unterschrift — Skribble
+            {t('vertraege.esignatur.title')}
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground mt-0.5">{contract.title}</DialogDescription>
         </DialogHeader>
@@ -172,15 +174,14 @@ export default function ESignaturDialog({
           <div className="flex items-start gap-2">
             <Info className="h-4 w-4 text-info mt-0.5 shrink-0" />
             <p className="text-xs text-info">
-              Digitale Signaturen werden über Skribble (eIDAS-konform) abgewickelt.
-              Die Unterschriften sind rechtlich bindend.
+              {t('vertraege.esignatur.infoBanner')}
             </p>
           </div>
         </div>
 
         {/* Signing Order Toggle */}
         <div className="space-y-3 mb-5">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Reihenfolge</h4>
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vertraege.esignatur.labelReihenfolge')}</h4>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSequential(true)}
@@ -191,7 +192,7 @@ export default function ESignaturDialog({
               }`}
             >
               <ToggleRight className="h-4 w-4" />
-              Sequentiell
+              {t('vertraege.esignatur.sequentiell')}
             </button>
             <button
               onClick={() => setSequential(false)}
@@ -202,10 +203,10 @@ export default function ESignaturDialog({
               }`}
             >
               <ToggleLeft className="h-4 w-4" />
-              Parallel
+              {t('vertraege.esignatur.parallel')}
             </button>
             <span className="text-xs text-muted-foreground">
-              {sequential ? 'Unterzeichner werden nacheinander aufgefordert' : 'Alle Unterzeichner gleichzeitig'}
+              {sequential ? t('vertraege.esignatur.sequentiellDesc') : t('vertraege.esignatur.parallelDesc')}
             </span>
           </div>
         </div>
@@ -214,20 +215,20 @@ export default function ESignaturDialog({
         <div className="space-y-3 mb-5">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Unterzeichner ({signers.length})
+              {t('vertraege.esignatur.signers', { count: signers.length })}
             </h4>
             <button
               onClick={() => { setShowAddForm(true); setNewOrder(signers.length + 1) }}
               className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
             >
               <UserPlus className="h-3 w-3" />
-              Unterzeichner hinzufügen
+              {t('vertraege.esignatur.buttonAddSigner')}
             </button>
           </div>
 
           {signers.length === 0 && !showAddForm && (
             <p className="text-sm text-muted-foreground py-4 text-center border border-dashed border-border rounded-lg">
-              Noch keine Unterzeichner hinzugefügt
+              {t('vertraege.esignatur.noSigners')}
             </p>
           )}
 
@@ -237,9 +238,9 @@ export default function ESignaturDialog({
                 <thead>
                   <tr className="border-b border-border bg-secondary/30">
                     {sequential && <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs w-12">#</th>}
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Name</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">E-Mail</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">Status</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">{t('vertraege.esignatur.table.name')}</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">{t('vertraege.esignatur.table.email')}</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground text-xs">{t('vertraege.esignatur.table.status')}</th>
                     <th className="px-3 py-2 text-right font-medium text-muted-foreground text-xs w-10"></th>
                   </tr>
                 </thead>
@@ -257,7 +258,7 @@ export default function ESignaturDialog({
                         <td className="px-3 py-2">
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusConf.colorClass}`}>
                             <StatusIcon className="h-3 w-3" />
-                            {statusConf.label}
+                            {t(statusConf.labelKey)}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-right">
@@ -281,18 +282,18 @@ export default function ESignaturDialog({
             <div className="rounded-lg border border-border bg-secondary/20 p-3 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground">Name</label>
+                  <label className="text-xs font-medium text-foreground">{t('vertraege.esignatur.labelName')}</label>
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="z.B. Max Mustermann"
+                    placeholder={t('vertraege.esignatur.placeholderName')}
                     className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                     autoFocus
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground">E-Mail</label>
+                  <label className="text-xs font-medium text-foreground">{t('vertraege.esignatur.labelEmail')}</label>
                   <input
                     type="email"
                     value={newEmail}
@@ -304,7 +305,7 @@ export default function ESignaturDialog({
               </div>
               {sequential && (
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground">Reihenfolge</label>
+                  <label className="text-xs font-medium text-foreground">{t('vertraege.esignatur.labelOrder')}</label>
                   <input
                     type="number"
                     min={1}
@@ -319,13 +320,13 @@ export default function ESignaturDialog({
                   onClick={handleAddSigner}
                   className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                 >
-                  Hinzufügen
+                  {t('vertraege.esignatur.buttonAdd')}
                 </button>
                 <button
                   onClick={() => { setShowAddForm(false); setNewName(''); setNewEmail('') }}
                   className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
                 >
-                  Abbrechen
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>
@@ -335,10 +336,10 @@ export default function ESignaturDialog({
         {/* Status Timeline */}
         <div className="space-y-3 mb-6">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Status-Verlauf
+            {t('vertraege.esignatur.statusVerlauf')}
           </h4>
           {timeline.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">Keine Einträge</p>
+            <p className="text-xs text-muted-foreground py-2">{t('vertraege.esignatur.noEntries')}</p>
           ) : (
             <div className="space-y-0 pl-1">
               {timeline.map((event, idx) => {
@@ -374,14 +375,14 @@ export default function ESignaturDialog({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSend}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Send className="h-4 w-4" />
-            Zur Unterschrift senden
+            {t('vertraege.esignatur.buttonSend')}
           </button>
         </DialogFooter>
         </div>

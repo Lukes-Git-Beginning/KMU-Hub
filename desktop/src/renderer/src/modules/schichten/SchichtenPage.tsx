@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -91,10 +92,10 @@ interface ArbZGViolation {
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
-const swapStatusLabels: Record<string, string> = {
-  pending: 'Ausstehend',
-  approved: 'Genehmigt',
-  rejected: 'Abgelehnt',
+const swapStatusLabelKeys: Record<string, string> = {
+  pending: 'schichten.anfragen.status.pending',
+  approved: 'schichten.anfragen.status.approved',
+  rejected: 'schichten.anfragen.status.rejected',
 }
 
 const swapStatusColors: Record<string, string> = {
@@ -156,16 +157,16 @@ const availabilityDot: Record<string, string> = {
   unavailable: 'bg-error',
 }
 
-const availabilityLabel: Record<string, string> = {
-  available: 'Verfügbar',
-  limited: 'Eingeschränkt',
-  unavailable: 'Nicht verfügbar',
+const availabilityLabelKeys: Record<string, string> = {
+  available: 'schichten.availability.available',
+  limited: 'schichten.availability.limited',
+  unavailable: 'schichten.availability.unavailable',
 }
 
-const availabilityLevelColors: Record<AvailabilityLevel, { bg: string; text: string; label: string }> = {
-  green: { bg: 'bg-success/20', text: 'text-success', label: 'Verfügbar' },
-  yellow: { bg: 'bg-warning/20', text: 'text-warning', label: 'Eingeschränkt' },
-  red: { bg: 'bg-error/20', text: 'text-error', label: 'Nicht verfügbar' },
+const availabilityLevelColorKeys: Record<AvailabilityLevel, { bg: string; text: string; labelKey: string }> = {
+  green: { bg: 'bg-success/20', text: 'text-success', labelKey: 'schichten.availability.available' },
+  yellow: { bg: 'bg-warning/20', text: 'text-warning', labelKey: 'schichten.availability.limited' },
+  red: { bg: 'bg-error/20', text: 'text-error', labelKey: 'schichten.availability.unavailable' },
 }
 
 function buildMockAssignments(weekDates: string[]): ShiftAssignment[] {
@@ -374,7 +375,25 @@ function computeViolations(employees: Employee[], assignments: ShiftAssignment[]
 // ============================================================
 
 export default function SchichtenPage() {
+  const { t } = useTranslation()
   const { templates } = useSchichtenStore()
+
+  const swapStatusLabels = useMemo(
+    () => Object.fromEntries(Object.entries(swapStatusLabelKeys).map(([k, v]) => [k, t(v)])),
+    [t],
+  )
+
+  const availabilityLabel = useMemo(
+    () => Object.fromEntries(Object.entries(availabilityLabelKeys).map(([k, v]) => [k, t(v)])),
+    [t],
+  )
+
+  const availabilityLevelColors = useMemo(
+    () => Object.fromEntries(
+      Object.entries(availabilityLevelColorKeys).map(([k, v]) => [k, { bg: v.bg, text: v.text, label: t(v.labelKey) }])
+    ) as Record<AvailabilityLevel, { bg: string; text: string; label: string }>,
+    [t],
+  )
 
   // State
   const [tab, setTab] = useState<TabKey>('wochenplan')
@@ -510,7 +529,7 @@ export default function SchichtenPage() {
   const handleDrop = useCallback((empId: string, date: string) => {
     if (!dragState) return
     const emp = EMPLOYEES.find((e) => e.id === empId)
-    toast.success('Schicht verschoben', {
+    toast.success(t('schichten.toast.verschoben'), {
       description: `${dragState.templateName} → ${emp?.name} am ${new Date(date + 'T00:00:00').toLocaleDateString('de-DE')}`,
     })
     setDragState(null)
@@ -524,12 +543,12 @@ export default function SchichtenPage() {
 
   const handleAssignSubmit = () => {
     if (!assignEmployee || !assignTemplate || !assignDate) {
-      toast.error('Bitte alle Pflichtfelder ausfüllen')
+      toast.error(t('schichten.dialog.assign.errorRequired'))
       return
     }
     const emp = EMPLOYEES.find((e) => e.id === assignEmployee)
-    const tpl = templates.find((t) => t.id === assignTemplate)
-    toast.success('Schicht zugewiesen', {
+    const tpl = templates.find((tplItem) => tplItem.id === assignTemplate)
+    toast.success(t('schichten.dialog.assign.successToast'), {
       description: `${tpl?.name} an ${emp?.name} am ${new Date(assignDate + 'T00:00:00').toLocaleDateString('de-DE')}`,
     })
     setAssignDialog({ open: false, employeeId: '', date: '' })
@@ -537,27 +556,27 @@ export default function SchichtenPage() {
 
   const handleTemplateSubmit = () => {
     if (!newTplName || !newTplStart || !newTplEnd) {
-      toast.error('Bitte Name und Zeiten angeben')
+      toast.error(t('schichten.dialog.template.errorRequired'))
       return
     }
-    toast.success(`Vorlage "${newTplName}" erstellt`, {
-      description: `${newTplStart} – ${newTplEnd}, ${newTplBreak} Min. Pause`,
+    toast.success(t('schichten.dialog.template.successToast', { name: newTplName }), {
+      description: t('schichten.dialog.template.successPause', { start: newTplStart, end: newTplEnd, break: newTplBreak }),
     })
     setTemplateDialog({ open: false })
     setNewTplName(''); setNewTplStart('06:00'); setNewTplEnd('14:00'); setNewTplBreak('30'); setNewTplColor('#3b82f6')
   }
 
   const handleApproveSwap = (swap: ShiftSwapRequest) => {
-    toast.success('Tausch genehmigt', { description: `${swap.requestedBy} <> ${swap.swapWithUser}` })
+    toast.success(t('schichten.toast.tauschGenehmigt'), { description: `${swap.requestedBy} <> ${swap.swapWithUser}` })
   }
 
   const handleRejectSwap = (swap: ShiftSwapRequest) => {
-    toast.info('Tausch abgelehnt', { description: `Anfrage von ${swap.requestedBy}` })
+    toast.info(t('schichten.toast.tauschAbgelehnt'), { description: `Anfrage von ${swap.requestedBy}` })
   }
 
   const handleDeleteTemplate = (template: ShiftTemplate) => {
     setConfirmDelete(null)
-    toast.success(`Vorlage "${template.name}" wurde gelöscht`)
+    toast.success(t('schichten.delete.successToast', { name: template.name }))
   }
 
   const handleOpenAssignDialog = () => {
@@ -567,8 +586,8 @@ export default function SchichtenPage() {
 
   // 7.13: PDF export
   const handlePDFExport = () => {
-    toast.success('PDF-Export gestartet', {
-      description: `Wochenplan KW ${kw} wird generiert...`,
+    toast.success(t('schichten.toast.pdfExport'), {
+      description: t('schichten.toast.pdfGeneriert', { kw }),
     })
   }
 
@@ -588,16 +607,20 @@ export default function SchichtenPage() {
   }
 
   const getTemplateActions = (template: ShiftTemplate) => [
-    { label: 'Bearbeiten', onClick: () => toast.info(`Vorlage "${template.name}" bearbeiten`) },
+    { label: t('schichten.vorlagen.actions.bearbeiten'), onClick: () => toast.info(`Vorlage "${template.name}" bearbeiten`) },
     { separator: true as const, label: '', onClick: () => {} },
-    { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete(template) },
+    { label: t('schichten.vorlagen.actions.loeschen'), variant: 'destructive' as const, onClick: () => setConfirmDelete(template) },
   ]
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
-        title="Schichtplanung"
-        description={`${EMPLOYEES.length} Mitarbeiter · KW ${kw} · ${pendingSwapCount > 0 ? `${pendingSwapCount} offene Tausch-Anfragen` : 'Keine offenen Anfragen'}`}
+        title={t('schichten.page.title')}
+        description={t('schichten.page.description', {
+          employees: EMPLOYEES.length,
+          kw,
+          swapInfo: pendingSwapCount > 0 ? t('schichten.page.offeneAnfragen', { count: pendingSwapCount }) : t('schichten.page.keineAnfragen'),
+        })}
         icon={CalendarClock}
         moduleId="schichten"
         className="mb-6"
@@ -608,14 +631,14 @@ export default function SchichtenPage() {
               className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <FileDown className="h-4 w-4" />
-              PDF-Export
+              {t('schichten.actions.pdfExport')}
             </button>
             <button
               onClick={handleOpenAssignDialog}
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Schicht zuweisen
+              {t('schichten.actions.schichtZuweisen')}
             </button>
           </div>
         }
@@ -625,26 +648,26 @@ export default function SchichtenPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         {[
           {
-            label: 'Besetzungsgrad', value: `${occupancyRate}%`, icon: BarChart3,
+            label: t('schichten.kpi.besetzungsgrad'), value: `${occupancyRate}%`, icon: BarChart3,
             color: occupancyRate >= 80 ? 'text-success' : occupancyRate >= 60 ? 'text-warning' : 'text-error',
             bg: occupancyRate >= 80 ? 'bg-success-light' : occupancyRate >= 60 ? 'bg-warning-light' : 'bg-error-light',
           },
           {
-            label: 'Offene Schichten', value: `${openShifts}`, icon: AlertTriangle,
+            label: t('schichten.kpi.offeneSchichten'), value: `${openShifts}`, icon: AlertTriangle,
             color: openShifts <= 3 ? 'text-success' : 'text-warning',
             bg: openShifts <= 3 ? 'bg-success-light' : 'bg-warning-light',
           },
           {
-            label: 'Tausch-Anfragen', value: `${pendingSwapCount}`, icon: ArrowLeftRight,
+            label: t('schichten.kpi.tauschAnfragen'), value: `${pendingSwapCount}`, icon: ArrowLeftRight,
             color: pendingSwapCount === 0 ? 'text-muted-foreground' : 'text-info',
             bg: pendingSwapCount === 0 ? 'bg-secondary' : 'bg-info-light',
           },
           {
-            label: 'Stunden / Woche', value: `${totalHoursThisWeek.toFixed(1)}h`, icon: Timer,
+            label: t('schichten.kpi.stundenWoche'), value: `${totalHoursThisWeek.toFixed(1)}h`, icon: Timer,
             color: 'text-primary', bg: 'bg-primary-light',
           },
           {
-            label: 'ArbZG-Warnungen', value: `${errorCount + warningCount}`, icon: ShieldAlert,
+            label: t('schichten.kpi.arbzgWarnungen'), value: `${errorCount + warningCount}`, icon: ShieldAlert,
             color: errorCount > 0 ? 'text-error' : warningCount > 0 ? 'text-warning' : 'text-success',
             bg: errorCount > 0 ? 'bg-error-light' : warningCount > 0 ? 'bg-warning-light' : 'bg-success-light',
           },
@@ -671,7 +694,7 @@ export default function SchichtenPage() {
             <ShieldAlert className={`h-4 w-4 mt-0.5 flex-shrink-0 ${errorCount > 0 ? 'text-error' : 'text-warning'}`} />
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-medium ${errorCount > 0 ? 'text-error' : 'text-warning'}`}>
-                {errorCount > 0 ? `${errorCount} Verstöße` : ''}{errorCount > 0 && warningCount > 0 ? ' + ' : ''}{warningCount > 0 ? `${warningCount} Warnungen` : ''} — Arbeitszeitgesetz
+                {errorCount > 0 ? t('schichten.arbzg.verstoss', { count: errorCount }) : ''}{errorCount > 0 && warningCount > 0 ? ' + ' : ''}{warningCount > 0 ? t('schichten.arbzg.warnungen', { count: warningCount }) : ''} — {t('schichten.arbzg.label')}
               </p>
               <div className="mt-1 space-y-0.5">
                 {violations.slice(0, 3).map((v, i) => (
@@ -681,7 +704,7 @@ export default function SchichtenPage() {
                   </p>
                 ))}
                 {violations.length > 3 && (
-                  <p className="text-xs text-muted-foreground">+{violations.length - 3} weitere</p>
+                  <p className="text-xs text-muted-foreground">{t('schichten.arbzg.weitere', { count: violations.length - 3 })}</p>
                 )}
               </div>
             </div>
@@ -692,24 +715,24 @@ export default function SchichtenPage() {
       {/* ── Tabs ── */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'wochenplan' as const, label: 'Wochenplan', icon: CalendarDays },
-          { key: 'vorlagen' as const, label: `Vorlagen (${templates.length})`, icon: Palette },
-          { key: 'anfragen' as const, label: `Tausch-Anfragen (${pendingSwapCount})`, icon: ArrowLeftRight },
-          { key: 'verfügbarkeit' as const, label: 'Verfügbarkeit', icon: UserCheck },
-        ]).map((t) => {
-          const Icon = t.icon
+          { key: 'wochenplan' as const, label: t('schichten.tabs.wochenplan'), icon: CalendarDays },
+          { key: 'vorlagen' as const, label: t('schichten.tabs.vorlagen', { count: templates.length }), icon: Palette },
+          { key: 'anfragen' as const, label: t('schichten.tabs.anfragen', { count: pendingSwapCount }), icon: ArrowLeftRight },
+          { key: 'verfügbarkeit' as const, label: t('schichten.tabs.verfuegbarkeit'), icon: UserCheck },
+        ]).map((tabItem) => {
+          const Icon = tabItem.icon
           return (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+              key={tabItem.key}
+              onClick={() => setTab(tabItem.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
-                tab === t.key
+                tab === tabItem.key
                   ? 'border-primary text-primary font-medium tab-accent-active'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
-              {t.label}
+              {tabItem.label}
             </button>
           )
         })}
@@ -745,7 +768,7 @@ export default function SchichtenPage() {
                   onClick={() => setWeekOffset(0)}
                   className="ml-1 rounded-lg border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                 >
-                  Heute
+                  {t('schichten.wochenplan.heute')}
                 </button>
               )}
             </div>
@@ -753,7 +776,7 @@ export default function SchichtenPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Mitarbeiter suchen..."
+                placeholder={t('schichten.wochenplan.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -765,8 +788,8 @@ export default function SchichtenPage() {
           {filteredEmployees.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
-              title="Keine Mitarbeiter gefunden"
-              description={search ? 'Passe deine Suche an' : 'Weise Schichten zu, um den Wochenplan zu füllen'}
+              title={t('schichten.wochenplan.empty.title')}
+              description={search ? t('schichten.wochenplan.empty.hint') : t('schichten.wochenplan.empty.planHint')}
             />
           ) : (
             <div className="rounded-lg border border-border overflow-hidden">
@@ -774,7 +797,7 @@ export default function SchichtenPage() {
               <div className="grid border-b border-border bg-card" style={{ gridTemplateColumns: '220px repeat(7, 1fr)' }}>
                 <div className="flex items-center gap-2 px-4 py-3 border-r border-border">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Mitarbeiter</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('schichten.wochenplan.mitarbeiter')}</span>
                 </div>
                 {weekDates.map((date, i) => {
                   const today = isToday(date)
@@ -924,7 +947,7 @@ export default function SchichtenPage() {
 
               {/* Legend */}
               <div className="flex items-center gap-5 px-4 py-2.5 border-t border-border bg-card/30 flex-wrap">
-                <span className="text-[11px] text-muted-foreground font-medium mr-1">Legende:</span>
+                <span className="text-[11px] text-muted-foreground font-medium mr-1">{t('schichten.legend.legende')}</span>
                 {templates.map((tpl) => {
                   const style = SHIFT_STYLE_MAP[tpl.id]
                   if (!style) return null
@@ -942,19 +965,19 @@ export default function SchichtenPage() {
                 })}
                 <div className="flex items-center gap-1.5">
                   <Percent className="h-3 w-3 text-warning" />
-                  <span className="text-[11px] text-muted-foreground">Zuschlag</span>
+                  <span className="text-[11px] text-muted-foreground">{t('schichten.legend.zuschlag')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <PartyPopper className="h-3 w-3 text-error" />
-                  <span className="text-[11px] text-muted-foreground">Feiertag</span>
+                  <span className="text-[11px] text-muted-foreground">{t('schichten.legend.feiertag')}</span>
                 </div>
                 <div className="flex items-center gap-1.5 ml-auto">
                   <div className="h-2.5 w-2.5 rounded-full bg-success" />
-                  <span className="text-[11px] text-muted-foreground">Verfügbar</span>
+                  <span className="text-[11px] text-muted-foreground">{t('schichten.legend.verfuegbar')}</span>
                   <div className="h-2.5 w-2.5 rounded-full bg-warning ml-2" />
-                  <span className="text-[11px] text-muted-foreground">Eingeschränkt</span>
+                  <span className="text-[11px] text-muted-foreground">{t('schichten.legend.eingeschraenkt')}</span>
                   <div className="h-2.5 w-2.5 rounded-full bg-error ml-2" />
-                  <span className="text-[11px] text-muted-foreground">Abwesend</span>
+                  <span className="text-[11px] text-muted-foreground">{t('schichten.legend.abwesend')}</span>
                 </div>
               </div>
             </div>
@@ -972,7 +995,7 @@ export default function SchichtenPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Vorlage suchen..."
+                placeholder={t('schichten.vorlagen.suchenPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -983,15 +1006,15 @@ export default function SchichtenPage() {
               className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neue Vorlage
+              {t('schichten.vorlagen.neue')}
             </button>
           </div>
 
           {templates.length === 0 ? (
             <EmptyState
               icon={Palette}
-              title="Keine Vorlagen"
-              description="Erstelle Schichtvorlagen, um Schichten schneller zuzuweisen"
+              title={t('schichten.vorlagen.empty.title')}
+              description={t('schichten.vorlagen.empty.hint')}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1034,11 +1057,11 @@ export default function SchichtenPage() {
                       <div className="flex items-center gap-4 border-t border-border-muted pt-3 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1.5">
                           <Timer className="h-3 w-3" />
-                          <span>{durationHours}h{durationRemainder > 0 ? ` ${durationRemainder}min` : ''} netto</span>
+                          <span>{t('schichten.vorlagen.netto', { h: durationHours, min: durationRemainder > 0 ? ` ${durationRemainder}min` : '' })}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Coffee className="h-3 w-3" />
-                          <span>{template.breakMinutes} Min. Pause</span>
+                          <span>{t('schichten.vorlagen.pause', { min: template.breakMinutes })}</span>
                         </div>
                         {surcharge && (
                           <div className="flex items-center gap-1.5 text-warning">
@@ -1048,7 +1071,7 @@ export default function SchichtenPage() {
                         )}
                         <div className="flex items-center gap-1.5 ml-auto">
                           <div className="h-3 w-3 rounded-full" style={{ backgroundColor: template.color }} />
-                          <span>Farbe</span>
+                          <span>{t('schichten.vorlagen.farbe')}</span>
                         </div>
                       </div>
                     </div>
@@ -1069,7 +1092,7 @@ export default function SchichtenPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Anfrage suchen..."
+                placeholder={t('schichten.anfragen.suchenPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -1080,8 +1103,8 @@ export default function SchichtenPage() {
           {localSwapRequests.length === 0 ? (
             <EmptyState
               icon={ArrowLeftRight}
-              title="Keine Anfragen"
-              description="Es gibt aktuell keine Tauschanfragen"
+              title={t('schichten.anfragen.empty.title')}
+              description={t('schichten.anfragen.empty.hint')}
             />
           ) : (
             <div className="space-y-3">
@@ -1119,7 +1142,7 @@ export default function SchichtenPage() {
                               {swapStatusLabels[swap.status]}
                             </span>
                             <span className="text-[11px] text-muted-foreground">
-                              Erstellt am {new Date(swap.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}
+                              {t('schichten.anfragen.erstellt', { date: new Date(swap.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' }) })}
                             </span>
                           </div>
 
@@ -1136,14 +1159,14 @@ export default function SchichtenPage() {
                               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                             >
                               <Check className="h-3.5 w-3.5" />
-                              Genehmigen
+                              {t('schichten.anfragen.genehmigen')}
                             </button>
                             <button
                               onClick={() => handleRejectSwap(swap)}
                               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
                             >
                               <XCircle className="h-3.5 w-3.5" />
-                              Ablehnen
+                              {t('schichten.anfragen.ablehnen')}
                             </button>
                           </div>
                         )}
@@ -1164,14 +1187,13 @@ export default function SchichtenPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm text-muted-foreground">
-                Mitarbeiter können ihre Verfügbarkeit pro Wochentag angeben.
-                Klicke auf eine Zelle, um den Status zu ändern.
+                {t('schichten.verfuegbarkeit.hinweis')}
               </p>
             </div>
             <button
               onClick={() => {
                 setEditingAvailability(!editingAvailability)
-                if (editingAvailability) toast.success('Verfügbarkeit gespeichert')
+                if (editingAvailability) toast.success(t('schichten.verfuegbarkeit.gespeichert'))
               }}
               className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${
                 editingAvailability
@@ -1180,7 +1202,7 @@ export default function SchichtenPage() {
               }`}
             >
               {editingAvailability ? <Check className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-              {editingAvailability ? 'Speichern' : 'Bearbeiten'}
+              {editingAvailability ? t('schichten.verfuegbarkeit.speichern') : t('schichten.verfuegbarkeit.bearbeiten')}
             </button>
           </div>
 
@@ -1189,7 +1211,7 @@ export default function SchichtenPage() {
             <div className="grid border-b border-border bg-card" style={{ gridTemplateColumns: '220px repeat(7, 1fr)' }}>
               <div className="flex items-center gap-2 px-4 py-3 border-r border-border">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Mitarbeiter</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('schichten.wochenplan.mitarbeiter')}</span>
               </div>
               {WEEKDAYS.map((day, i) => (
                 <div key={i} className={`flex items-center justify-center py-3 text-xs font-semibold text-foreground ${i < 6 ? 'border-r border-border' : ''}`}>
@@ -1242,7 +1264,7 @@ export default function SchichtenPage() {
 
             {/* Legend */}
             <div className="flex items-center gap-5 px-4 py-2.5 border-t border-border bg-card/30">
-              <span className="text-[11px] text-muted-foreground font-medium">Legende:</span>
+              <span className="text-[11px] text-muted-foreground font-medium">{t('schichten.legend.legende')}</span>
               {Object.entries(availabilityLevelColors).map(([level, config]) => (
                 <div key={level} className="flex items-center gap-1.5">
                   <div className={`h-3 w-3 rounded-full ${
@@ -1252,7 +1274,7 @@ export default function SchichtenPage() {
                 </div>
               ))}
               {editingAvailability && (
-                <span className="text-[11px] text-primary font-medium ml-auto">Klicke auf Zellen zum Ändern</span>
+                <span className="text-[11px] text-primary font-medium ml-auto">{t('schichten.verfuegbarkeit.aendernHint')}</span>
               )}
             </div>
           </div>
@@ -1266,41 +1288,41 @@ export default function SchichtenPage() {
         <DialogContent className="gap-0 p-0 max-w-md">
           <div className="p-6">
             <DialogHeader className="mb-5">
-              <DialogTitle className="text-base font-semibold text-foreground">Schicht zuweisen</DialogTitle>
-              <DialogDescription className="sr-only">Schicht einem Mitarbeiter zuweisen</DialogDescription>
+              <DialogTitle className="text-base font-semibold text-foreground">{t('schichten.dialog.assign.title')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('schichten.dialog.assign.title')}</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mitarbeiter *</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.assign.mitarbeiter')}</label>
                 <select value={assignEmployee} onChange={(e) => setAssignEmployee(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring">
-                  <option value="">Mitarbeiter wählen...</option>
+                  <option value="">{t('schichten.dialog.assign.mitarbeiterSelect')}</option>
                   {EMPLOYEES.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.role})</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Schichtvorlage *</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.assign.vorlage')}</label>
                 <select value={assignTemplate} onChange={(e) => setAssignTemplate(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring">
-                  <option value="">Vorlage wählen...</option>
-                  {templates.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.startTime} – {t.endTime})</option>)}
+                  <option value="">{t('schichten.dialog.assign.vorlageSelect')}</option>
+                  {templates.map((tplItem) => <option key={tplItem.id} value={tplItem.id}>{tplItem.name} ({tplItem.startTime} – {tplItem.endTime})</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Datum *</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.assign.datum')}</label>
                 <input type="date" value={assignDate} onChange={(e) => setAssignDate(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Notizen</label>
-                <textarea value={assignNotes} onChange={(e) => setAssignNotes(e.target.value)} placeholder="Optionale Anmerkungen..." rows={2} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.assign.notizen')}</label>
+                <textarea value={assignNotes} onChange={(e) => setAssignNotes(e.target.value)} placeholder={t('schichten.dialog.assign.notizenPlaceholder')} rows={2} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none" />
               </div>
             </div>
 
             <DialogFooter className="mt-6">
               <button onClick={() => setAssignDialog({ open: false, employeeId: '', date: '' })} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button onClick={handleAssignSubmit} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
-                Zuweisen
+                {t('schichten.dialog.assign.zuweisen')}
               </button>
             </DialogFooter>
           </div>
@@ -1314,32 +1336,32 @@ export default function SchichtenPage() {
         <DialogContent className="gap-0 p-0 max-w-md">
           <div className="p-6">
             <DialogHeader className="mb-5">
-              <DialogTitle className="text-base font-semibold text-foreground">Neue Schichtvorlage</DialogTitle>
-              <DialogDescription className="sr-only">Neue Schichtvorlage anlegen</DialogDescription>
+              <DialogTitle className="text-base font-semibold text-foreground">{t('schichten.dialog.template.title')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('schichten.dialog.template.title')}</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Name *</label>
-                <input type="text" value={newTplName} onChange={(e) => setNewTplName(e.target.value)} placeholder="z.B. Mittelschicht" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.template.name')}</label>
+                <input type="text" value={newTplName} onChange={(e) => setNewTplName(e.target.value)} placeholder={t('schichten.dialog.template.namePlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Startzeit *</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.template.startzeit')}</label>
                   <input type="time" value={newTplStart} onChange={(e) => setNewTplStart(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Endzeit *</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.template.endzeit')}</label>
                   <input type="time" value={newTplEnd} onChange={(e) => setNewTplEnd(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Pause (Minuten)</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.template.pause')}</label>
                   <input type="number" min="0" max="120" value={newTplBreak} onChange={(e) => setNewTplBreak(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Farbe</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">{t('schichten.dialog.template.farbe')}</label>
                   <div className="flex items-center gap-2">
                     <input type="color" value={newTplColor} onChange={(e) => setNewTplColor(e.target.value)} className="h-9 w-9 rounded-lg border border-border cursor-pointer" />
                     <div className="flex gap-1.5">
@@ -1359,10 +1381,10 @@ export default function SchichtenPage() {
 
             <DialogFooter className="mt-6">
               <button onClick={() => setTemplateDialog({ open: false })} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button onClick={handleTemplateSubmit} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
-                Erstellen
+                {t('schichten.dialog.template.erstellen')}
               </button>
             </DialogFooter>
           </div>
@@ -1373,9 +1395,9 @@ export default function SchichtenPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Vorlage löschen?"
-        description={`Die Vorlage "${confirmDelete?.name}" wird gelöscht. Bestehende Zuweisungen bleiben erhalten.`}
-        confirmLabel="Löschen"
+        title={t('schichten.delete.title')}
+        description={t('schichten.delete.description', { name: confirmDelete?.name ?? '' })}
+        confirmLabel={t('schichten.vorlagen.actions.loeschen')}
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteTemplate(confirmDelete)}
       />

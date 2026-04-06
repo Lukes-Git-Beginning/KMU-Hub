@@ -39,6 +39,18 @@ import additionsKalender from '@/i18n/additions/kalender.json'
 import additionsRapporte from '@/i18n/additions/rapporte.json'
 import additionsNotifications from '@/i18n/additions/notifications.json'
 
+// Step 3.5: Straggler modules (Wave 1)
+import additionsFuhrpark from '@/i18n/additions/fuhrpark.json'
+import additionsEinkauf from '@/i18n/additions/einkauf.json'
+import additionsInventar from '@/i18n/additions/inventar.json'
+import additionsVermietung from '@/i18n/additions/vermietung.json'
+import additionsVertraege from '@/i18n/additions/vertraege.json'
+import additionsProduktion from '@/i18n/additions/produktion.json'
+import additionsFormulare from '@/i18n/additions/formulare.json'
+import additionsSchichten from '@/i18n/additions/schichten.json'
+import additionsBerichte from '@/i18n/additions/berichte.json'
+import additionsVideo from '@/i18n/additions/video.json'
+
 // Component-scoped addition bundles (Step 3: components/ directories)
 import additionsLayoutCore from '@/i18n/additions/components-layout-core.json'
 import additionsLayoutNav from '@/i18n/additions/components-layout-nav.json'
@@ -77,6 +89,17 @@ const mergedDE = {
   ...additionsKalender,
   ...additionsRapporte,
   ...additionsNotifications,
+  // Step 3.5: Straggler modules (Wave 1)
+  ...additionsFuhrpark,
+  ...additionsEinkauf,
+  ...additionsInventar,
+  ...additionsVermietung,
+  ...additionsVertraege,
+  ...additionsProduktion,
+  ...additionsFormulare,
+  ...additionsSchichten,
+  ...additionsBerichte,
+  ...additionsVideo,
   // Component additions (Step 3)
   ...additionsLayoutCore,
   ...additionsLayoutNav,

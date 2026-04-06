@@ -6,6 +6,7 @@
 // See: docs/PLUGIN_DEVELOPMENT.md (Fuhrpark Walkthrough)
 
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -43,9 +44,9 @@ type TabKey = 'fahrzeuge' | 'wartung' | 'tankprotokoll' | 'tracking' | 'fahrtenb
 type DialogKey = 'addVehicle' | 'addMaintenance' | 'addFuel' | 'addDamage' | null
 
 const vehicleTypeLabels: Record<string, string> = {
-  car: 'PKW',
-  van: 'Lieferwagen',
-  truck: 'LKW',
+  car: 'fuhrpark.vehicleType.car',
+  van: 'fuhrpark.vehicleType.van',
+  truck: 'fuhrpark.vehicleType.truck',
 }
 
 const vehicleTypeColors: Record<string, string> = {
@@ -55,10 +56,10 @@ const vehicleTypeColors: Record<string, string> = {
 }
 
 const maintenanceTypeLabels: Record<string, string> = {
-  service: 'Service',
-  repair: 'Reparatur',
-  inspection: 'Prüfung',
-  tires: 'Reifen',
+  service: 'fuhrpark.maintenanceType.service',
+  repair: 'fuhrpark.maintenanceType.repair',
+  inspection: 'fuhrpark.maintenanceType.inspection',
+  tires: 'fuhrpark.maintenanceType.tires',
 }
 
 const maintenanceTypeColors: Record<string, string> = {
@@ -69,10 +70,10 @@ const maintenanceTypeColors: Record<string, string> = {
 }
 
 const documentTypeLabels: Record<string, string> = {
-  registration: 'Fahrzeugausweis',
-  insurance: 'Versicherung',
-  tuev: 'TUeV/MFK',
-  other: 'Sonstige',
+  registration: 'fuhrpark.documentType.registration',
+  insurance: 'fuhrpark.documentType.insurance',
+  tuev: 'fuhrpark.documentType.tuev',
+  other: 'fuhrpark.documentType.other',
 }
 
 const documentTypeColors: Record<string, string> = {
@@ -83,9 +84,9 @@ const documentTypeColors: Record<string, string> = {
 }
 
 const severityLabels: Record<string, string> = {
-  minor: 'Gering',
-  moderate: 'Mittel',
-  major: 'Schwer',
+  minor: 'fuhrpark.severity.minor',
+  moderate: 'fuhrpark.severity.moderate',
+  major: 'fuhrpark.severity.major',
 }
 
 const severityColors: Record<string, string> = {
@@ -95,9 +96,9 @@ const severityColors: Record<string, string> = {
 }
 
 const damageStatusLabels: Record<string, string> = {
-  open: 'Offen',
-  in_progress: 'In Bearbeitung',
-  resolved: 'Behoben',
+  open: 'fuhrpark.damageStatus.open',
+  in_progress: 'fuhrpark.damageStatus.in_progress',
+  resolved: 'fuhrpark.damageStatus.resolved',
 }
 
 const damageStatusColors: Record<string, string> = {
@@ -151,9 +152,9 @@ const trackingStatusDot: Record<string, string> = {
 }
 
 const trackingStatusLabel: Record<string, string> = {
-  driving: 'Unterwegs',
-  parked: 'Geparkt',
-  unknown: 'Unbekannt',
+  driving: 'fuhrpark.trackingStatus.driving',
+  parked: 'fuhrpark.trackingStatus.parked',
+  unknown: 'fuhrpark.trackingStatus.unknown',
 }
 
 const trackingStatusTextColor: Record<string, string> = {
@@ -162,18 +163,21 @@ const trackingStatusTextColor: Record<string, string> = {
   unknown: 'text-warning',
 }
 
-function formatRelativeTime(timestamp: string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function formatRelativeTime(timestamp: string, t: (key: string, opts?: any) => string): string {
   const now = new Date()
   const then = new Date(timestamp)
   const diffMs = now.getTime() - then.getTime()
   const diffMin = Math.floor(diffMs / 60000)
 
-  if (diffMin < 1) return 'gerade eben'
-  if (diffMin < 60) return `vor ${diffMin} Min`
+  if (diffMin < 1) return t('fuhrpark.relativeTime.justNow')
+  if (diffMin < 60) return t('fuhrpark.relativeTime.minutesAgo', { min: diffMin })
   const diffHrs = Math.floor(diffMin / 60)
-  if (diffHrs < 24) return `vor ${diffHrs} Std`
+  if (diffHrs < 24) return t('fuhrpark.relativeTime.hoursAgo', { hrs: diffHrs })
   const diffDays = Math.floor(diffHrs / 24)
-  return `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`
+  return diffDays > 1
+    ? t('fuhrpark.relativeTime.daysAgoPlural', { days: diffDays })
+    : t('fuhrpark.relativeTime.daysAgo', { days: diffDays })
 }
 
 function formatTime(timestamp: string): string {
@@ -190,6 +194,7 @@ interface AddVehicleDialogProps {
 }
 
 function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
+  const { t } = useTranslation()
   const [plate, setPlate] = useState('')
   const [make, setMake] = useState('')
   const [model, setModel] = useState('')
@@ -224,32 +229,32 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="gap-0 p-0 max-w-lg glass-elevated">
         <DialogHeader className="px-6 pt-6 pb-0">
-          <DialogTitle className="text-base font-semibold text-foreground">Fahrzeug hinzufügen</DialogTitle>
+          <DialogTitle className="text-base font-semibold text-foreground">{t('fuhrpark.addVehicle.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 px-6 pt-5">
           {/* Row: Kennzeichen + Typ */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Kennzeichen *</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.plate')}</label>
               <input
                 type="text"
                 value={plate}
                 onChange={(e) => setPlate(e.target.value)}
-                placeholder="ZH 123 456"
+                placeholder={t('fuhrpark.addVehicle.platePlaceholder')}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Typ</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.type')}</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as 'car' | 'van' | 'truck')}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               >
-                <option value="car">PKW</option>
-                <option value="van">Lieferwagen</option>
-                <option value="truck">LKW</option>
+                <option value="car">{t('fuhrpark.vehicleType.car')}</option>
+                <option value="van">{t('fuhrpark.vehicleType.van')}</option>
+                <option value="truck">{t('fuhrpark.vehicleType.truck')}</option>
               </select>
             </div>
           </div>
@@ -257,22 +262,22 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
           {/* Row: Marke + Modell */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Marke *</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.make')}</label>
               <input
                 type="text"
                 value={make}
                 onChange={(e) => setMake(e.target.value)}
-                placeholder="VW"
+                placeholder={t('fuhrpark.addVehicle.makePlaceholder')}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Modell *</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.model')}</label>
               <input
                 type="text"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder="Caddy Cargo"
+                placeholder={t('fuhrpark.addVehicle.modelPlaceholder')}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
@@ -281,7 +286,7 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
           {/* Row: Jahrgang + km-Stand */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Jahrgang</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.year')}</label>
               <input
                 type="number"
                 value={year}
@@ -292,7 +297,7 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">km-Stand</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.mileage')}</label>
               <input
                 type="number"
                 value={mileage}
@@ -305,12 +310,12 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
 
           {/* Fahrer */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Fahrer zuweisen</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.driver')}</label>
             <input
               type="text"
               value={driver}
               onChange={(e) => setDriver(e.target.value)}
-              placeholder="Name des Fahrers"
+              placeholder={t('fuhrpark.addVehicle.driverPlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -318,7 +323,7 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
           {/* Row: Prüfung + Versicherung */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Nächste Prüfung</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.nextInspection')}</label>
               <input
                 type="date"
                 value={nextInspection}
@@ -327,7 +332,7 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Versicherungsablauf</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addVehicle.insuranceExpiry')}</label>
               <input
                 type="date"
                 value={insuranceExpiry}
@@ -344,14 +349,14 @@ function AddVehicleDialog({ onClose, onSave }: AddVehicleDialogProps) {
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={!canSave}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
-            Speichern
+            {t('common.save')}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -371,6 +376,7 @@ interface AddMaintenanceDialogProps {
 }
 
 function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddMaintenanceDialogProps) {
+  const { t } = useTranslation()
   const [vehicleId, setVehicleId] = useState(preselectedVehicleId || vehicles[0]?.id || '')
   const [type, setType] = useState<'service' | 'repair' | 'inspection' | 'tires'>('service')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
@@ -396,23 +402,23 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
   }
 
   const typeOptions: { value: MaintenanceRecord['type']; label: string }[] = [
-    { value: 'service', label: 'Service' },
-    { value: 'repair', label: 'Reparatur' },
-    { value: 'inspection', label: 'Prüfung' },
-    { value: 'tires', label: 'Reifen' },
+    { value: 'service', label: t('fuhrpark.maintenanceType.service') },
+    { value: 'repair', label: t('fuhrpark.maintenanceType.repair') },
+    { value: 'inspection', label: t('fuhrpark.maintenanceType.inspection') },
+    { value: 'tires', label: t('fuhrpark.maintenanceType.tires') },
   ]
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="gap-0 p-0 max-w-lg glass-elevated">
         <DialogHeader className="px-6 pt-6 pb-0">
-          <DialogTitle className="text-base font-semibold text-foreground">Wartung eintragen</DialogTitle>
+          <DialogTitle className="text-base font-semibold text-foreground">{t('fuhrpark.addMaintenance.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 px-6 pt-5">
           {/* Fahrzeug */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Fahrzeug</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addMaintenance.vehicle')}</label>
             <select
               value={vehicleId}
               onChange={(e) => setVehicleId(e.target.value)}
@@ -428,7 +434,7 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
 
           {/* Typ (radio) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Typ</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addMaintenance.type')}</label>
             <div className="flex gap-2">
               {typeOptions.map((opt) => (
                 <button
@@ -449,7 +455,7 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
           {/* Row: Datum + km-Stand */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Datum</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addMaintenance.date')}</label>
               <input
                 type="date"
                 value={date}
@@ -458,7 +464,7 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">km-Stand</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addMaintenance.mileage')}</label>
               <input
                 type="number"
                 value={mileage}
@@ -471,7 +477,7 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
 
           {/* Kosten */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Kosten (CHF)</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addMaintenance.cost')}</label>
             <input
               type="number"
               value={cost}
@@ -484,12 +490,12 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
 
           {/* Notizen */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Notizen</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addMaintenance.notes')}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              placeholder="Beschreibung der Wartung..."
+              placeholder={t('fuhrpark.addMaintenance.notesPlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
           </div>
@@ -500,14 +506,14 @@ function AddMaintenanceDialog({ vehicles, preselectedVehicleId, onClose, onSave 
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={!vehicleId}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
-            Speichern
+            {t('common.save')}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -527,6 +533,7 @@ interface AddFuelDialogProps {
 }
 
 function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddFuelDialogProps) {
+  const { t } = useTranslation()
   const [vehicleId, setVehicleId] = useState(preselectedVehicleId || vehicles[0]?.id || '')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [liters, setLiters] = useState(0)
@@ -553,13 +560,13 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="gap-0 p-0 max-w-md glass-elevated">
         <DialogHeader className="px-6 pt-6 pb-0">
-          <DialogTitle className="text-base font-semibold text-foreground">Tanken eintragen</DialogTitle>
+          <DialogTitle className="text-base font-semibold text-foreground">{t('fuhrpark.addFuel.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 px-6 pt-5">
           {/* Fahrzeug */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Fahrzeug</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addFuel.vehicle')}</label>
             <select
               value={vehicleId}
               onChange={(e) => setVehicleId(e.target.value)}
@@ -575,7 +582,7 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
 
           {/* Datum */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Datum</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addFuel.date')}</label>
             <input
               type="date"
               value={date}
@@ -587,7 +594,7 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
           {/* Row: Liter + Kosten */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Liter</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addFuel.liters')}</label>
               <input
                 type="number"
                 value={liters}
@@ -598,7 +605,7 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Kosten (CHF)</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addFuel.cost')}</label>
               <input
                 type="number"
                 value={cost}
@@ -612,7 +619,7 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
 
           {/* km-Stand */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">km-Stand</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.addFuel.mileage')}</label>
             <input
               type="number"
               value={mileage}
@@ -628,14 +635,14 @@ function AddFuelDialog({ vehicles, preselectedVehicleId, onClose, onSave }: AddF
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={!vehicleId || liters <= 0}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
-            Speichern
+            {t('common.save')}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -670,6 +677,7 @@ function VehicleDetailContent({
   onAddFuel,
   onAddDamage,
 }: VehicleDetailContentProps) {
+  const { t } = useTranslation()
   const inspectionStatus = getDateStatus(vehicle.nextInspection)
   const insuranceStatus = getDateStatus(vehicle.insuranceExpiry)
 
@@ -715,10 +723,10 @@ function VehicleDetailContent({
   const tcoFuel = fuelRecords.filter((r) => r.vehicleId === vehicle.id).reduce((s, r) => s + r.cost, 0)
   const tcoTotal = tcoMaintenance + tcoFuel + mockInsuranceCost + mockDepreciation
   const tcoCats = [
-    { label: 'Wartung', value: tcoMaintenance, color: 'bg-warning' },
-    { label: 'Treibstoff', value: tcoFuel, color: 'bg-info' },
-    { label: 'Versicherung', value: mockInsuranceCost, color: 'bg-primary' },
-    { label: 'Abschreibung', value: mockDepreciation, color: 'bg-muted-foreground' },
+    { label: t('fuhrpark.tco.maintenance'), value: tcoMaintenance, color: 'bg-warning' },
+    { label: t('fuhrpark.tco.fuel'), value: tcoFuel, color: 'bg-info' },
+    { label: t('fuhrpark.tco.insurance'), value: mockInsuranceCost, color: 'bg-primary' },
+    { label: t('fuhrpark.tco.depreciation'), value: mockDepreciation, color: 'bg-muted-foreground' },
   ]
 
   return (
@@ -738,7 +746,7 @@ function VehicleDetailContent({
           <h3 className="text-sm font-medium text-foreground">
             {vehicle.make} {vehicle.model}
           </h3>
-          <p className="text-xs text-muted-foreground">Jahrgang {vehicle.year}</p>
+          <p className="text-xs text-muted-foreground">{t('fuhrpark.detail.modelYear', { year: vehicle.year })}</p>
         </div>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${vehicleTypeColors[vehicle.type] ?? 'bg-secondary text-muted-foreground'}`}>
           {vehicleTypeLabels[vehicle.type] ?? vehicle.type}
@@ -747,11 +755,11 @@ function VehicleDetailContent({
 
       {/* Driver + Mileage */}
       <section className="space-y-2">
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fahrzeugdaten</h4>
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('fuhrpark.detail.vehicleData')}</h4>
         <div className="space-y-1.5 text-xs">
           <div className="flex items-center gap-2 text-muted-foreground">
             <User className="h-3.5 w-3.5 shrink-0" />
-            <span className="text-foreground">{vehicle.currentDriver || 'Kein Fahrer zugewiesen'}</span>
+            <span className="text-foreground">{vehicle.currentDriver || t('fuhrpark.detail.noDriverAssigned')}</span>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Gauge className="h-3.5 w-3.5 shrink-0" />
@@ -760,7 +768,7 @@ function VehicleDetailContent({
           <div className="flex items-center gap-2 text-muted-foreground">
             <TrendingUp className="h-3.5 w-3.5 shrink-0" />
             <span className="text-foreground">
-              Gesamtkosten: EUR {formatAmount(totalMaintenanceCost + totalFuelCost)}
+              {t('fuhrpark.detail.totalCost', { amount: formatAmount(totalMaintenanceCost + totalFuelCost) })}
             </span>
           </div>
         </div>
@@ -770,7 +778,7 @@ function VehicleDetailContent({
       <section className="space-y-2">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <CircleDollarSign className="h-3 w-3" />
-          TCO (Total Cost of Ownership)
+          {t('fuhrpark.detail.tco')}
         </h4>
         <div className="grid grid-cols-2 gap-2">
           {tcoCats.map((cat) => (
@@ -782,7 +790,7 @@ function VehicleDetailContent({
         </div>
         <div className="rounded-md bg-secondary/50 px-3 py-2">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-muted-foreground">Kostenverteilung</span>
+            <span className="text-[10px] text-muted-foreground">{t('fuhrpark.detail.costDistribution')}</span>
             <span className="text-xs font-semibold text-foreground">EUR {formatAmount(tcoTotal)}</span>
           </div>
           <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5">
@@ -811,12 +819,12 @@ function VehicleDetailContent({
 
       {/* Inspection + Insurance with traffic light */}
       <section className="space-y-2">
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</h4>
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('fuhrpark.detail.status')}</h4>
         <div className="space-y-2">
           <div className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${statusDotColor(inspectionStatus)}`} />
-              <span className="text-xs text-muted-foreground">Nächste Prüfung</span>
+              <span className="text-xs text-muted-foreground">{t('fuhrpark.detail.nextInspection')}</span>
             </div>
             <span className={`text-xs ${statusTextColor(inspectionStatus)}`}>
               {inspectionStatus === 'overdue' && <AlertTriangle className="inline h-3 w-3 mr-1" />}
@@ -826,7 +834,7 @@ function VehicleDetailContent({
           <div className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2">
             <div className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${statusDotColor(insuranceStatus)}`} />
-              <span className="text-xs text-muted-foreground">Versicherungsablauf</span>
+              <span className="text-xs text-muted-foreground">{t('fuhrpark.detail.insuranceExpiry')}</span>
             </div>
             <span className={`text-xs ${statusTextColor(insuranceStatus)}`}>
               {insuranceStatus === 'overdue' && <AlertTriangle className="inline h-3 w-3 mr-1" />}
@@ -839,17 +847,17 @@ function VehicleDetailContent({
       {/* Recent Maintenance */}
       <section className="space-y-2">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Letzte Wartungen
+          {t('fuhrpark.detail.recentMaintenance')}
         </h4>
         {vehicleMaintenance.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">Keine Einträge vorhanden</p>
+          <p className="text-xs text-muted-foreground italic">{t('fuhrpark.detail.noEntries')}</p>
         ) : (
           <div className="space-y-1.5">
             {vehicleMaintenance.map((r) => (
               <div key={r.id} className="flex items-center justify-between rounded-md border border-border-muted px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium ${maintenanceTypeColors[r.type] ?? 'bg-secondary text-muted-foreground'}`}>
-                    {maintenanceTypeLabels[r.type] ?? r.type}
+                    {maintenanceTypeLabels[r.type] ? t(maintenanceTypeLabels[r.type]) : r.type}
                   </span>
                   <span className="text-xs text-muted-foreground truncate">{r.notes || '—'}</span>
                 </div>
@@ -866,10 +874,10 @@ function VehicleDetailContent({
       {/* Recent Fuel */}
       <section className="space-y-2">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Letzte Tankungen
+          {t('fuhrpark.detail.recentFuel')}
         </h4>
         {vehicleFuel.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">Keine Einträge vorhanden</p>
+          <p className="text-xs text-muted-foreground italic">{t('fuhrpark.detail.noFuelEntries')}</p>
         ) : (
           <div className="space-y-1.5">
             {vehicleFuel.map((r) => (
@@ -892,10 +900,10 @@ function VehicleDetailContent({
       <section className="space-y-2">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <BookOpen className="h-3 w-3" />
-          Letzte Fahrten
+          {t('fuhrpark.detail.recentTrips')}
         </h4>
         {vehicleLogbook.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">Keine Fahrten eingetragen</p>
+          <p className="text-xs text-muted-foreground italic">{t('fuhrpark.detail.noTrips')}</p>
         ) : (
           <div className="space-y-1.5">
             {vehicleLogbook.map((entry) => (
@@ -905,7 +913,7 @@ function VehicleDetailContent({
                   <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${
                     entry.isPrivate ? 'bg-warning-light text-warning' : 'bg-info-light text-info'
                   }`}>
-                    {entry.isPrivate ? 'Privat' : 'Geschaeftlich'}
+                    {entry.isPrivate ? t('fuhrpark.logbook.private') : t('fuhrpark.logbook.business')}
                   </span>
                 </div>
                 <p className="text-xs text-foreground truncate">
@@ -922,10 +930,10 @@ function VehicleDetailContent({
       <section className="space-y-2">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <FileText className="h-3 w-3" />
-          Dokumente
+          {t('fuhrpark.detail.documents')}
         </h4>
         {vehicleDocs.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">Keine Dokumente vorhanden</p>
+          <p className="text-xs text-muted-foreground italic">{t('fuhrpark.detail.noDocs')}</p>
         ) : (
           <div className="space-y-1.5">
             {vehicleDocs.map((doc) => {
@@ -937,7 +945,7 @@ function VehicleDetailContent({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium ${documentTypeColors[doc.type] ?? 'bg-secondary text-muted-foreground'}`}>
-                          {documentTypeLabels[doc.type] ?? doc.type}
+                          {documentTypeLabels[doc.type] ? t(documentTypeLabels[doc.type]) : doc.type}
                         </span>
                       </div>
                       <p className="text-xs text-foreground truncate mt-0.5">{doc.name}</p>
@@ -948,7 +956,7 @@ function VehicleDetailContent({
                     {doc.expiryDate && expiryStatus && (
                       <p className={`text-[10px] ${statusTextColor(expiryStatus)}`}>
                         {expiryStatus === 'overdue' && <AlertTriangle className="inline h-2.5 w-2.5 mr-0.5" />}
-                        Ablauf: {formatDate(doc.expiryDate)}
+                        {t('fuhrpark.detail.docExpiry')} {formatDate(doc.expiryDate)}
                       </p>
                     )}
                   </div>
@@ -963,10 +971,10 @@ function VehicleDetailContent({
       <section className="space-y-2">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Camera className="h-3 w-3" />
-          Schadensmeldungen
+          {t('fuhrpark.detail.damageReports')}
         </h4>
         {vehicleDamage.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">Keine Schaeden gemeldet</p>
+          <p className="text-xs text-muted-foreground italic">{t('fuhrpark.detail.noDamage')}</p>
         ) : (
           <div className="space-y-1.5">
             {vehicleDamage.map((dmg) => (
@@ -974,10 +982,10 @@ function VehicleDetailContent({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5">
                     <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${severityColors[dmg.severity] ?? 'bg-secondary text-muted-foreground'}`}>
-                      {severityLabels[dmg.severity] ?? dmg.severity}
+                      {severityLabels[dmg.severity] ? t(severityLabels[dmg.severity]) : dmg.severity}
                     </span>
                     <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${damageStatusColors[dmg.status] ?? 'bg-secondary text-muted-foreground'}`}>
-                      {damageStatusLabels[dmg.status] ?? dmg.status}
+                      {damageStatusLabels[dmg.status] ? t(damageStatusLabels[dmg.status]) : dmg.status}
                     </span>
                   </div>
                   <span className="text-[10px] text-muted-foreground">{formatDate(dmg.date)}</span>
@@ -1004,21 +1012,21 @@ function VehicleDetailContent({
           className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
         >
           <Wrench className="h-3.5 w-3.5" />
-          Wartung eintragen
+          {t('fuhrpark.action.addMaintenance')}
         </button>
         <button
           onClick={onAddFuel}
           className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
         >
           <Fuel className="h-3.5 w-3.5" />
-          Tanken eintragen
+          {t('fuhrpark.action.addFuel')}
         </button>
         <button
           onClick={onAddDamage}
           className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
         >
           <Camera className="h-3.5 w-3.5" />
-          Schaden melden
+          {t('fuhrpark.action.reportDamage')}
         </button>
       </div>
     </div>
@@ -1030,6 +1038,7 @@ function VehicleDetailContent({
 // ---------------------------------------------------------------------------
 
 export default function FuhrparkPage() {
+  const { t } = useTranslation()
   const { vehicles, maintenanceRecords, fuelRecords, vehicleRoutes, logbookEntries, vehicleDocuments, damageReports, refreshTracking } = useFuhrparkStore()
 
   const [tab, setTab] = useState<TabKey>('fahrzeuge')
@@ -1175,7 +1184,7 @@ export default function FuhrparkPage() {
         vehicles: [...state.vehicles, vehicle],
       }))
       setDialog(null)
-      toast.success(`Fahrzeug ${vehicle.licensePlate} wurde hinzugefügt`)
+      toast.success(t('fuhrpark.toast.vehicleAdded', { plate: vehicle.licensePlate }))
     },
     []
   )
@@ -1186,7 +1195,7 @@ export default function FuhrparkPage() {
         maintenanceRecords: [...state.maintenanceRecords, record],
       }))
       setDialog(null)
-      toast.success(`Wartung für ${record.vehiclePlate} eingetragen`)
+      toast.success(t('fuhrpark.toast.maintenanceAdded', { plate: record.vehiclePlate }))
     },
     []
   )
@@ -1197,7 +1206,7 @@ export default function FuhrparkPage() {
         fuelRecords: [...state.fuelRecords, record],
       }))
       setDialog(null)
-      toast.success(`Tankung für ${record.vehiclePlate} eingetragen`)
+      toast.success(t('fuhrpark.toast.fuelAdded', { plate: record.vehiclePlate }))
     },
     []
   )
@@ -1232,20 +1241,23 @@ export default function FuhrparkPage() {
   // Search placeholder based on tab
   const searchPlaceholder =
     tab === 'fahrzeuge'
-      ? 'Fahrzeug, Fahrer suchen...'
+      ? t('fuhrpark.search.vehicles')
       : tab === 'wartung'
-        ? 'Wartung suchen...'
+        ? t('fuhrpark.search.maintenance')
         : tab === 'tracking'
-          ? 'Fahrzeug, Fahrer, Ort suchen...'
+          ? t('fuhrpark.search.tracking')
           : tab === 'fahrtenbuch'
-            ? 'Fahrt, Fahrer, Ort suchen...'
-            : 'Tankprotokoll suchen...'
+            ? t('fuhrpark.search.logbook')
+            : t('fuhrpark.search.fuel')
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
-        title="Fuhrpark"
-        description={`${activeVehicleCount} aktive Fahrzeuge${urgentCount > 0 ? ` · ${urgentCount} mit fälliger Prüfung/Versicherung` : ''}`}
+        title={t('fuhrpark.page.title')}
+        description={urgentCount > 0
+          ? t('fuhrpark.page.descriptionWithWarning', { count: activeVehicleCount, urgent: urgentCount })
+          : t('fuhrpark.page.description', { count: activeVehicleCount })
+        }
         icon={Truck}
         moduleId="fuhrpark"
         className="mb-6"
@@ -1257,7 +1269,7 @@ export default function FuhrparkPage() {
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Wrench className="h-4 w-4" />
-                Wartung eintragen
+                {t('fuhrpark.action.addMaintenance')}
               </button>
             )}
             {tab === 'tankprotokoll' && (
@@ -1266,16 +1278,16 @@ export default function FuhrparkPage() {
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Fuel className="h-4 w-4" />
-                Tanken eintragen
+                {t('fuhrpark.action.addFuel')}
               </button>
             )}
             {tab === 'fahrtenbuch' && (
               <button
-                onClick={() => toast.info('Fahrt-Erfassung kommt in einer kuenftigen Version')}
+                onClick={() => toast.info(t('fuhrpark.toast.tripComingSoon'))}
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <BookOpen className="h-4 w-4" />
-                Fahrt eintragen
+                {t('fuhrpark.action.addTrip')}
               </button>
             )}
             {tab === 'tracking' && (
@@ -1285,7 +1297,7 @@ export default function FuhrparkPage() {
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`h-4 w-4 ${trackingRefreshing ? 'animate-spin' : ''}`} />
-                Aktualisieren
+                {t('fuhrpark.action.refresh')}
               </button>
             )}
             <button
@@ -1293,7 +1305,7 @@ export default function FuhrparkPage() {
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Fahrzeug hinzufügen
+              {t('fuhrpark.action.addVehicle')}
             </button>
           </div>
         }
@@ -1302,23 +1314,23 @@ export default function FuhrparkPage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'fahrzeuge' as const, label: `Fahrzeuge (${vehicles.length})`, icon: null },
-          { key: 'wartung' as const, label: `Wartung (${maintenanceRecords.length})`, icon: null },
-          { key: 'tankprotokoll' as const, label: `Tankprotokoll (${fuelRecords.length})`, icon: null },
-          { key: 'fahrtenbuch' as const, label: `Fahrtenbuch (${logbookEntries.length})`, icon: BookOpen },
-          { key: 'tracking' as const, label: 'Tracking', icon: MapPin },
-        ]).map((t) => (
+          { key: 'fahrzeuge' as const, label: t('fuhrpark.tab.fahrzeuge', { count: vehicles.length }), icon: null },
+          { key: 'wartung' as const, label: t('fuhrpark.tab.wartung', { count: maintenanceRecords.length }), icon: null },
+          { key: 'tankprotokoll' as const, label: t('fuhrpark.tab.tankprotokoll', { count: fuelRecords.length }), icon: null },
+          { key: 'fahrtenbuch' as const, label: t('fuhrpark.tab.fahrtenbuch', { count: logbookEntries.length }), icon: BookOpen },
+          { key: 'tracking' as const, label: t('fuhrpark.tab.tracking'), icon: MapPin },
+        ]).map((tabItem) => (
           <button
-            key={t.key}
-            onClick={() => { setTab(t.key); setSearch(''); setExpandedRouteId(null) }}
+            key={tabItem.key}
+            onClick={() => { setTab(tabItem.key); setSearch(''); setExpandedRouteId(null) }}
             className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key
+              tab === tabItem.key
                 ? 'border-primary text-primary font-medium tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t.icon && <t.icon className="h-3.5 w-3.5" />}
-            {t.label}
+            {tabItem.icon && <tabItem.icon className="h-3.5 w-3.5" />}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -1344,10 +1356,10 @@ export default function FuhrparkPage() {
               onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
               className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             >
-              <option value="all">Alle Typen</option>
-              <option value="car">PKW</option>
-              <option value="van">Lieferwagen</option>
-              <option value="truck">LKW</option>
+              <option value="all">{t('fuhrpark.filter.allTypes')}</option>
+              <option value="car">{t('fuhrpark.vehicleType.car')}</option>
+              <option value="van">{t('fuhrpark.vehicleType.van')}</option>
+              <option value="truck">{t('fuhrpark.vehicleType.truck')}</option>
             </select>
 
             {/* Status filter */}
@@ -1356,9 +1368,9 @@ export default function FuhrparkPage() {
               onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
               className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             >
-              <option value="all">Alle Status</option>
-              <option value="active">Aktiv</option>
-              <option value="inactive">Stillgelegt</option>
+              <option value="all">{t('fuhrpark.filter.allStatus')}</option>
+              <option value="active">{t('fuhrpark.filter.active')}</option>
+              <option value="inactive">{t('fuhrpark.filter.inactive')}</option>
             </select>
           </>
         )}
@@ -1375,16 +1387,19 @@ export default function FuhrparkPage() {
               <RefreshCw className="h-4 w-4 text-warning" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Nächster Reifenwechsel: April 2026 — Sommerreifen</p>
-              <p className="text-xs text-muted-foreground">Rechtzeitig Termine für {vehicles.filter((v) => v.isActive).length} aktive Fahrzeuge planen</p>
+              <p className="text-sm font-medium text-foreground">{t('fuhrpark.tireReminder.title')}</p>
+              <p className="text-xs text-muted-foreground">{t('fuhrpark.tireReminder.description', { count: vehicles.filter((v) => v.isActive).length })}</p>
             </div>
           </div>
 
           {filteredVehicles.length === 0 ? (
             <EmptyState
               icon={Car}
-              title="Keine Fahrzeuge gefunden"
-              description={search || typeFilter !== 'all' || statusFilter !== 'all' ? 'Passe deine Filter an' : 'Fuege ein Fahrzeug hinzu'}
+              title={t('fuhrpark.empty.noVehicles.title')}
+              description={search || typeFilter !== 'all' || statusFilter !== 'all'
+                ? t('fuhrpark.empty.noVehicles.descriptionFilter')
+                : t('fuhrpark.empty.noVehicles.descriptionEmpty')
+              }
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1409,11 +1424,11 @@ export default function FuhrparkPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${vehicleTypeColors[vehicle.type] ?? 'bg-secondary text-muted-foreground'}`}>
-                          {vehicleTypeLabels[vehicle.type] ?? vehicle.type}
+                          {vehicleTypeLabels[vehicle.type] ? t(vehicleTypeLabels[vehicle.type]) : vehicle.type}
                         </span>
                         {!vehicle.isActive && (
                           <span className="rounded-full bg-error-light px-2 py-0.5 text-[10px] font-medium text-error">
-                            Stillgelegt
+                            {t('fuhrpark.filter.inactive')}
                           </span>
                         )}
                       </div>
@@ -1422,7 +1437,7 @@ export default function FuhrparkPage() {
                     <div className="space-y-1.5 text-xs text-muted-foreground mb-3">
                       <div className="flex items-center gap-2">
                         <User className="h-3 w-3" />
-                        <span>{vehicle.currentDriver || 'Nicht zugewiesen'}</span>
+                        <span>{vehicle.currentDriver || t('fuhrpark.vehicle.noDriver')}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Gauge className="h-3 w-3" />
@@ -1435,13 +1450,13 @@ export default function FuhrparkPage() {
                       <div className="flex items-center gap-1.5">
                         <span className={`h-2 w-2 rounded-full ${statusDotColor(inspectionStatus)}`} />
                         <span className={`text-[11px] ${statusTextColor(inspectionStatus) || 'text-muted-foreground'}`}>
-                          Prüfung {formatDate(vehicle.nextInspection)}
+                          {t('fuhrpark.vehicle.inspection')} {formatDate(vehicle.nextInspection)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className={`h-2 w-2 rounded-full ${statusDotColor(insuranceStatus)}`} />
                         <span className={`text-[11px] ${statusTextColor(insuranceStatus) || 'text-muted-foreground'}`}>
-                          Vers. {formatDate(vehicle.insuranceExpiry)}
+                          {t('fuhrpark.vehicle.insurance')} {formatDate(vehicle.insuranceExpiry)}
                         </span>
                       </div>
                     </div>
@@ -1460,16 +1475,16 @@ export default function FuhrparkPage() {
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            {(['service', 'repair', 'inspection', 'tires'] as const).map((t) => {
-              const count = maintenanceRecords.filter((r) => r.type === t).length
+            {(['service', 'repair', 'inspection', 'tires'] as const).map((mType) => {
+              const count = maintenanceRecords.filter((r) => r.type === mType).length
               const totalCost = maintenanceRecords
-                .filter((r) => r.type === t)
+                .filter((r) => r.type === mType)
                 .reduce((sum, r) => sum + r.cost, 0)
               return (
-                <div key={t} className="rounded-lg border border-border bg-card p-3">
+                <div key={mType} className="rounded-lg border border-border bg-card p-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${maintenanceTypeColors[t]}`}>
-                      {maintenanceTypeLabels[t]}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${maintenanceTypeColors[mType]}`}>
+                      {maintenanceTypeLabels[mType] ? t(maintenanceTypeLabels[mType]) : mType}
                     </span>
                   </div>
                   <p className="text-lg font-semibold text-foreground">{count}</p>
@@ -1482,8 +1497,11 @@ export default function FuhrparkPage() {
           {filteredMaintenance.length === 0 ? (
             <EmptyState
               icon={Wrench}
-              title="Keine Wartungseinträge"
-              description={search ? 'Passe deine Suche an' : 'Wartungen werden hier aufgelistet'}
+              title={t('fuhrpark.empty.noMaintenance.title')}
+              description={search
+                ? t('fuhrpark.empty.noMaintenance.descriptionFilter')
+                : t('fuhrpark.empty.noMaintenance.descriptionEmpty')
+              }
             />
           ) : (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -1491,12 +1509,12 @@ export default function FuhrparkPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Datum</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fahrzeug</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Typ</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">km-Stand</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Kosten (CHF)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Notizen</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.date')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.vehicle')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.type')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.mileage')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.costChf')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.notes')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1513,7 +1531,7 @@ export default function FuhrparkPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${maintenanceTypeColors[record.type] ?? 'bg-secondary text-muted-foreground'}`}>
-                            {maintenanceTypeLabels[record.type] ?? record.type}
+                            {maintenanceTypeLabels[record.type] ? t(maintenanceTypeLabels[record.type]) : record.type}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground text-right tabular-nums">
@@ -1548,7 +1566,7 @@ export default function FuhrparkPage() {
                   <Fuel className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Kosten diesen Monat</p>
+                  <p className="text-xs text-muted-foreground">{t('fuhrpark.fuel.costThisMonth')}</p>
                   <p className="text-xl font-semibold text-foreground">CHF {formatAmount(monthlyFuelCost)}</p>
                 </div>
               </div>
@@ -1559,7 +1577,7 @@ export default function FuhrparkPage() {
                   <Droplets className="h-5 w-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Liter diesen Monat</p>
+                  <p className="text-xs text-muted-foreground">{t('fuhrpark.fuel.litersThisMonth')}</p>
                   <p className="text-xl font-semibold text-foreground">
                     {fuelRecords
                       .filter((r) => {
@@ -1578,7 +1596,7 @@ export default function FuhrparkPage() {
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Tankungen gesamt</p>
+                  <p className="text-xs text-muted-foreground">{t('fuhrpark.fuel.totalRefuels')}</p>
                   <p className="text-xl font-semibold text-foreground">{fuelRecords.length}</p>
                 </div>
               </div>
@@ -1588,8 +1606,11 @@ export default function FuhrparkPage() {
           {filteredFuel.length === 0 ? (
             <EmptyState
               icon={Fuel}
-              title="Kein Tankprotokoll vorhanden"
-              description={search ? 'Passe deine Suche an' : 'Tankungen werden hier aufgelistet'}
+              title={t('fuhrpark.empty.noFuel.title')}
+              description={search
+                ? t('fuhrpark.empty.noFuel.descriptionFilter')
+                : t('fuhrpark.empty.noFuel.descriptionEmpty')
+              }
             />
           ) : (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -1597,12 +1618,12 @@ export default function FuhrparkPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Datum</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fahrzeug</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Liter</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Kosten (CHF)</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">CHF/L</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">km-Stand</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.date')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.vehicle')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.liters')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.costChf')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.chfPerLiter')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.mileage')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1652,7 +1673,7 @@ export default function FuhrparkPage() {
                   <BookOpen className="h-5 w-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Geschaeftliche km</p>
+                  <p className="text-xs text-muted-foreground">{t('fuhrpark.logbook.businessKm')}</p>
                   <p className="text-xl font-semibold text-foreground">{formatKm(logbookBusinessKm)} km</p>
                 </div>
               </div>
@@ -1663,7 +1684,7 @@ export default function FuhrparkPage() {
                   <Car className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Private km</p>
+                  <p className="text-xs text-muted-foreground">{t('fuhrpark.logbook.privateKm')}</p>
                   <p className="text-xl font-semibold text-foreground">{formatKm(logbookPrivateKm)} km</p>
                 </div>
               </div>
@@ -1674,7 +1695,7 @@ export default function FuhrparkPage() {
                   <TrendingUp className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Privatanteil</p>
+                  <p className="text-xs text-muted-foreground">{t('fuhrpark.logbook.privateShare')}</p>
                   <p className="text-xl font-semibold text-foreground">{logbookPrivatePct}%</p>
                 </div>
               </div>
@@ -1684,8 +1705,11 @@ export default function FuhrparkPage() {
           {filteredLogbook.length === 0 ? (
             <EmptyState
               icon={BookOpen}
-              title="Keine Fahrten erfasst"
-              description={search ? 'Passe deine Suche an' : 'Fahrtenbucheinträge werden hier angezeigt'}
+              title={t('fuhrpark.empty.noLogbook.title')}
+              description={search
+                ? t('fuhrpark.empty.noLogbook.descriptionFilter')
+                : t('fuhrpark.empty.noLogbook.descriptionEmpty')
+              }
             />
           ) : (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -1693,12 +1717,12 @@ export default function FuhrparkPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Datum</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fahrzeug</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Strecke</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Zweck</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">km</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Art</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.date')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.vehicle')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.route')}</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('fuhrpark.table.purpose')}</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">{t('fuhrpark.table.km')}</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">{t('fuhrpark.table.tripType')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1726,7 +1750,7 @@ export default function FuhrparkPage() {
                           <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
                             entry.isPrivate ? 'bg-warning-light text-warning' : 'bg-info-light text-info'
                           }`}>
-                            {entry.isPrivate ? 'Privat' : 'Geschaeftlich'}
+                            {entry.isPrivate ? t('fuhrpark.logbook.private') : t('fuhrpark.logbook.business')}
                           </span>
                         </td>
                       </tr>
@@ -1749,28 +1773,28 @@ export default function FuhrparkPage() {
             <div className="rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-success" />
-                <span className="text-xs text-muted-foreground">Unterwegs</span>
+                <span className="text-xs text-muted-foreground">{t('fuhrpark.trackingStatus.driving')}</span>
               </div>
               <p className="text-lg font-semibold text-foreground">{trackingDrivingCount}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
-                <span className="text-xs text-muted-foreground">Geparkt</span>
+                <span className="text-xs text-muted-foreground">{t('fuhrpark.trackingStatus.parked')}</span>
               </div>
               <p className="text-lg font-semibold text-foreground">{trackingParkedCount}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-warning" />
-                <span className="text-xs text-muted-foreground">Unbekannt</span>
+                <span className="text-xs text-muted-foreground">{t('fuhrpark.trackingStatus.unknown')}</span>
               </div>
               <p className="text-lg font-semibold text-foreground">{trackingUnknownCount}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Navigation className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs text-muted-foreground">Gesamt-km heute</span>
+                <span className="text-xs text-muted-foreground">{t('fuhrpark.tracking.totalKmToday')}</span>
               </div>
               <p className="text-lg font-semibold text-foreground">{formatKm(trackingTotalKm)}</p>
             </div>
@@ -1780,8 +1804,11 @@ export default function FuhrparkPage() {
           {filteredRoutes.length === 0 ? (
             <EmptyState
               icon={MapPin}
-              title="Keine Tracking-Daten"
-              description={search ? 'Passe deine Suche an' : 'Keine Fahrzeuge mit GPS-Daten'}
+              title={t('fuhrpark.empty.noTracking.title')}
+              description={search
+                ? t('fuhrpark.empty.noTracking.descriptionFilter')
+                : t('fuhrpark.empty.noTracking.descriptionEmpty')
+              }
             />
           ) : (
             <div className="space-y-3">
@@ -1822,7 +1849,7 @@ export default function FuhrparkPage() {
                                 {route.driver}
                               </span>
                               <span className={`font-medium ${trackingStatusTextColor[route.status]}`}>
-                                {trackingStatusLabel[route.status]}
+                                {trackingStatusLabel[route.status] ? t(trackingStatusLabel[route.status]) : route.status}
                               </span>
                             </div>
                           </div>
@@ -1835,7 +1862,7 @@ export default function FuhrparkPage() {
                               {formatKm(route.dailyKm)} km
                             </p>
                             <p className="text-[11px] text-muted-foreground">
-                              {formatRelativeTime(lastPos.timestamp)}
+                              {formatRelativeTime(lastPos.timestamp, t)}
                             </p>
                           </div>
                           {isExpanded ? (
@@ -1857,7 +1884,7 @@ export default function FuhrparkPage() {
                     {isExpanded && (
                       <div className="border-t border-border px-4 py-4">
                         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                          Routenverlauf — {formatDate(route.date)}
+                          {t('fuhrpark.tracking.routeHistory', { date: formatDate(route.date) })}
                         </h4>
                         <div className="relative ml-1.5">
                           {route.positions.map((pos, idx) => {
@@ -1907,12 +1934,12 @@ export default function FuhrparkPage() {
                                     </span>
                                     {isFirst && (
                                       <span className="rounded-full bg-success-light px-1.5 py-0.5 text-[9px] font-medium text-success">
-                                        Start
+                                        {t('fuhrpark.tracking.start')}
                                       </span>
                                     )}
                                     {isCurrent && (
                                       <span className="rounded-full bg-primary-light px-1.5 py-0.5 text-[9px] font-medium text-primary">
-                                        Aktuell
+                                        {t('fuhrpark.tracking.current')}
                                       </span>
                                     )}
                                   </div>
@@ -1932,7 +1959,7 @@ export default function FuhrparkPage() {
 
                         {/* Total distance */}
                         <div className="mt-3 pt-3 border-t border-border-muted flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Gesamtstrecke</span>
+                          <span className="text-xs text-muted-foreground">{t('fuhrpark.tracking.totalDistance')}</span>
                           <span className="text-sm font-semibold text-foreground tabular-nums">
                             {formatKm(route.dailyKm)} km
                           </span>
@@ -1953,12 +1980,12 @@ export default function FuhrparkPage() {
       <DetailPanel
         open={!!selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
-        title="Fahrzeug-Details"
+        title={t('fuhrpark.detail.title')}
         subtitle={selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : undefined}
         badge={
           selectedVehicle ? (
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${vehicleTypeColors[selectedVehicle.type] ?? 'bg-secondary text-muted-foreground'}`}>
-              {vehicleTypeLabels[selectedVehicle.type] ?? selectedVehicle.type}
+              {vehicleTypeLabels[selectedVehicle.type] ? t(vehicleTypeLabels[selectedVehicle.type]) : selectedVehicle.type}
             </span>
           ) : undefined
         }
@@ -2014,7 +2041,7 @@ export default function FuhrparkPage() {
               damageReports: [...state.damageReports, report],
             }))
             setDialog(null)
-            toast.success(`Schaden für ${report.vehiclePlate} gemeldet`)
+            toast.success(t('fuhrpark.toast.damageReported', { plate: report.vehiclePlate }))
           }}
         />
       )}

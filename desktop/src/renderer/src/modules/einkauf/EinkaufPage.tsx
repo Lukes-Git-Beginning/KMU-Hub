@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -53,12 +54,12 @@ type TabKey = 'bestellungen' | 'lieferanten' | 'katalog' | 'rahmenverträge'
 type StatusFilter = PurchaseOrder['status'] | 'all'
 
 const orderStatusLabels: Record<string, string> = {
-  draft: 'Entwurf',
-  sent: 'Bestellt',
-  confirmed: 'Bestätigt',
-  partial: 'Teillieferung',
-  received: 'Geliefert',
-  cancelled: 'Storniert',
+  draft: 'einkauf.orderStatus.draft',
+  sent: 'einkauf.orderStatus.sent',
+  confirmed: 'einkauf.orderStatus.confirmed',
+  partial: 'einkauf.orderStatus.partial',
+  received: 'einkauf.orderStatus.received',
+  cancelled: 'einkauf.orderStatus.cancelled',
 }
 
 const orderStatusColors: Record<string, string> = {
@@ -87,22 +88,15 @@ const PAYMENT_TERMS_OPTIONS = [
   'Rechnung',
 ]
 
-const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'Alle' },
-  { value: 'draft', label: 'Entwurf' },
-  { value: 'sent', label: 'Bestellt' },
-  { value: 'confirmed', label: 'Bestätigt' },
-  { value: 'partial', label: 'Teillieferung' },
-  { value: 'received', label: 'Geliefert' },
-  { value: 'cancelled', label: 'Storniert' },
-]
+// STATUS_FILTER_OPTIONS labels are resolved with t() inside the component
+const STATUS_FILTER_KEYS: StatusFilter[] = ['all', 'draft', 'sent', 'confirmed', 'partial', 'received', 'cancelled']
 
 const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD']
 
 const ratingCategoryLabels: Record<SupplierRating['category'], string> = {
-  quality: 'Qualitaet',
-  delivery: 'Liefertreue',
-  price: 'Preis',
+  quality: 'einkauf.ratingCategory.quality',
+  delivery: 'einkauf.ratingCategory.delivery',
+  price: 'einkauf.ratingCategory.price',
 }
 
 const contractStatusColors: Record<FrameworkContract['status'], string> = {
@@ -112,9 +106,9 @@ const contractStatusColors: Record<FrameworkContract['status'], string> = {
 }
 
 const contractStatusLabels: Record<FrameworkContract['status'], string> = {
-  active: 'Aktiv',
-  expired: 'Abgelaufen',
-  draft: 'Entwurf',
+  active: 'einkauf.contractStatus.active',
+  expired: 'einkauf.contractStatus.expired',
+  draft: 'einkauf.contractStatus.draft',
 }
 
 interface NewOrderItem {
@@ -146,6 +140,13 @@ function StarRating({ rating, max = 5 }: { rating: number; max?: number }) {
 // ---------------------------------------------------------------------------
 
 export default function EinkaufPage() {
+  const { t } = useTranslation()
+
+  const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = STATUS_FILTER_KEYS.map((key) => ({
+    value: key,
+    label: key === 'all' ? t('einkauf.statusFilter.all') : t(orderStatusLabels[key] ?? key),
+  }))
+
   const {
     purchaseOrders,
     suppliers,
@@ -301,7 +302,7 @@ export default function EinkaufPage() {
 
   const getOrderActions = (order: PurchaseOrder) => [
     {
-      label: 'Details anzeigen',
+      label: t('einkauf.action.showDetails'),
       icon: Eye,
       onClick: () => {
         setSelectedSupplier(null)
@@ -309,18 +310,18 @@ export default function EinkaufPage() {
       },
     },
     {
-      label: 'Wareneingang buchen',
+      label: t('einkauf.action.bookReceipt'),
       icon: PackageCheck,
       onClick: () => openWareneingang(order),
     },
-    { label: 'Bearbeiten', icon: Edit, onClick: () => toast.info(`Bestellung ${order.orderNumber} bearbeiten`) },
+    { label: t('einkauf.action.edit'), icon: Edit, onClick: () => toast.info(t('einkauf.toast.editOrder', { orderNumber: order.orderNumber })) },
     { separator: true as const, label: '', onClick: () => {} },
-    { label: 'Stornieren', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(order) },
+    { label: t('einkauf.action.cancel'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(order) },
   ]
 
   const handleCancelOrder = (order: PurchaseOrder) => {
     setConfirmDelete(null)
-    toast.success(`Bestellung ${order.orderNumber} wurde storniert`)
+    toast.success(t('einkauf.toast.orderCancelled', { orderNumber: order.orderNumber }))
   }
 
   // -- New order dialog helpers --
@@ -348,16 +349,16 @@ export default function EinkaufPage() {
 
   const handleSaveOrder = () => {
     if (!newOrderSupplierId) {
-      toast.error('Bitte Lieferant auswählen')
+      toast.error(t('einkauf.validation.selectSupplier'))
       return
     }
     if (newOrderItems.some((i) => !i.name.trim())) {
-      toast.error('Alle Positionen müssen einen Namen haben')
+      toast.error(t('einkauf.validation.itemsNeedName'))
       return
     }
     const sup = suppliers.find((s) => s.id === newOrderSupplierId)
     const nr = `PO-2026-${String(purchaseOrders.length + 1).padStart(3, '0')}`
-    toast.success(`Bestellung ${nr} bei ${sup?.name ?? 'Lieferant'} erstellt (${newOrderCurrency} ${newOrderTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 })})`)
+    toast.success(t('einkauf.toast.orderCreated', { nr, supplier: sup?.name ?? t('einkauf.detail.supplierSection'), currency: newOrderCurrency, total: newOrderTotal.toLocaleString('de-DE', { minimumFractionDigits: 2 }) }))
     resetNewOrderForm()
     setShowNewOrderDialog(false)
   }
@@ -373,10 +374,10 @@ export default function EinkaufPage() {
 
   const handleSaveSupplier = () => {
     if (!newSupName.trim()) {
-      toast.error('Bitte Name eingeben')
+      toast.error(t('einkauf.validation.supplierNameRequired'))
       return
     }
-    toast.success(`Lieferant "${newSupName}" wurde angelegt`)
+    toast.success(t('einkauf.toast.supplierCreated', { name: newSupName }))
     resetNewSupplierForm()
     setShowNewSupplierDialog(false)
   }
@@ -397,16 +398,16 @@ export default function EinkaufPage() {
   const handleSaveWareneingang = () => {
     if (!showWareneingangDialog) return
     if (bookToInventory) {
-      toast.success(`Wareneingang für Bestellung ${showWareneingangDialog.orderNumber} gebucht und im Inventar verbucht`)
+      toast.success(t('einkauf.toast.wareneingangWithInventory', { orderNumber: showWareneingangDialog.orderNumber }))
     } else {
-      toast.success(`Wareneingang für Bestellung ${showWareneingangDialog.orderNumber} gebucht`)
+      toast.success(t('einkauf.toast.wareneingang', { orderNumber: showWareneingangDialog.orderNumber }))
     }
     setShowWareneingangDialog(null)
   }
 
   // -- Approval --
   const handleApproveOrder = (order: PurchaseOrder) => {
-    toast.success(`Bestellung ${order.orderNumber} wurde genehmigt`)
+    toast.success(t('einkauf.toast.orderApproved', { orderNumber: order.orderNumber }))
   }
 
   // ---------------------------------------------------------------------------
@@ -423,7 +424,7 @@ export default function EinkaufPage() {
       return (
         <div className="flex items-center gap-2 text-xs text-error">
           <X className="h-3.5 w-3.5" />
-          <span>Bestellung storniert</span>
+          <span>{t('einkauf.detail.cancelled')}</span>
         </div>
       )
     }
@@ -447,7 +448,7 @@ export default function EinkaufPage() {
                     reached ? 'font-medium text-foreground' : 'text-muted-foreground'
                   }`}
                 >
-                  {orderStatusLabels[s]}
+                  {orderStatusLabels[s] ? t(orderStatusLabels[s]) : s}
                 </span>
               </div>
               {idx < STATUS_TIMELINE.length - 1 && (
@@ -471,8 +472,8 @@ export default function EinkaufPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
-        title="Einkauf"
-        description={`${activeOrderCount} offene Bestellungen · EUR ${formatAmount(totalOpen)}`}
+        title={t('einkauf.page.title')}
+        description={t('einkauf.page.description', { count: activeOrderCount, amount: formatAmount(totalOpen) })}
         icon={ShoppingCart}
         moduleId="einkauf"
         className="mb-6"
@@ -487,7 +488,7 @@ export default function EinkaufPage() {
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                Lieferant anlegen
+                {t('einkauf.action.addSupplier')}
               </button>
             )}
             <button
@@ -498,7 +499,7 @@ export default function EinkaufPage() {
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neue Bestellung
+              {t('einkauf.action.newOrder')}
             </button>
           </div>
         }
@@ -507,27 +508,27 @@ export default function EinkaufPage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'bestellungen' as const, label: `Bestellungen (${purchaseOrders.length})` },
-          { key: 'lieferanten' as const, label: `Lieferanten (${activeSupplierCount})` },
-          { key: 'katalog' as const, label: `Katalog (${catalogItems.length})` },
-          { key: 'rahmenverträge' as const, label: `Rahmenverträge (${frameworkContracts.length})` },
-        ]).map((t) => (
+          { key: 'bestellungen' as const, label: t('einkauf.tab.bestellungen', { count: purchaseOrders.length }) },
+          { key: 'lieferanten' as const, label: t('einkauf.tab.lieferanten', { count: activeSupplierCount }) },
+          { key: 'katalog' as const, label: t('einkauf.tab.katalog', { count: catalogItems.length }) },
+          { key: 'rahmenverträge' as const, label: t('einkauf.tab.rahmenvertraege', { count: frameworkContracts.length }) },
+        ]).map((tabItem) => (
           <button
-            key={t.key}
+            key={tabItem.key}
             onClick={() => {
-              setTab(t.key)
+              setTab(tabItem.key)
               setSearch('')
               setStatusFilter('all')
               setCatalogSearch('')
               setCatalogCategory('all')
             }}
             className={`border-b-2 px-1 pb-2 text-sm transition-colors ${
-              tab === t.key
+              tab === tabItem.key
                 ? 'border-primary text-primary font-medium tab-accent-active'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t.label}
+            {tabItem.label}
           </button>
         ))}
       </div>
@@ -540,7 +541,7 @@ export default function EinkaufPage() {
             <input
               type="text"
               placeholder={
-                tab === 'bestellungen' ? 'Bestellung suchen...' : 'Lieferant suchen...'
+                tab === 'bestellungen' ? t('einkauf.search.orders') : t('einkauf.search.suppliers')
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -573,11 +574,11 @@ export default function EinkaufPage() {
           {filteredOrders.length === 0 ? (
             <EmptyState
               icon={ShoppingCart}
-              title="Keine Bestellungen gefunden"
+              title={t('einkauf.empty.noOrders.title')}
               description={
                 search || statusFilter !== 'all'
-                  ? 'Passe deine Suche oder den Filter an'
-                  : 'Erstelle deine erste Bestellung'
+                  ? t('einkauf.empty.noOrders.descriptionFilter')
+                  : t('einkauf.empty.noOrders.descriptionEmpty')
               }
             />
           ) : (
@@ -585,12 +586,12 @@ export default function EinkaufPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-card">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Bestellnr.</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Lieferant</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Betrag</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Lieferdatum</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Erstellt am</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('einkauf.detail.orderNumber')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('einkauf.detail.supplier')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('einkauf.detail.status')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('einkauf.detail.amount')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('einkauf.detail.deliveryDate')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('einkauf.detail.createdAt')}</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground"></th>
                   </tr>
                 </thead>
@@ -614,7 +615,7 @@ export default function EinkaufPage() {
                             orderStatusColors[order.status] ?? 'bg-secondary text-muted-foreground'
                           }`}
                         >
-                          {orderStatusLabels[order.status] ?? order.status}
+                          {orderStatusLabels[order.status] ? t(orderStatusLabels[order.status]) : order.status}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right text-foreground tabular-nums">
@@ -644,8 +645,8 @@ export default function EinkaufPage() {
           {filteredSuppliers.length === 0 ? (
             <EmptyState
               icon={Truck}
-              title="Keine Lieferanten gefunden"
-              description={search ? 'Passe deine Suche an' : 'Fuege deinen ersten Lieferanten hinzu'}
+              title={t('einkauf.empty.noSuppliers.title')}
+              description={search ? t('einkauf.empty.noSuppliers.descriptionFilter') : t('einkauf.empty.noSuppliers.descriptionEmpty')}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -674,19 +675,19 @@ export default function EinkaufPage() {
                         <ItemActions
                           items={[
                             {
-                              label: 'Details anzeigen',
+                              label: t('einkauf.action.showDetails'),
                               icon: Eye,
                               onClick: () => {
                                 setSelectedOrder(null)
                                 setSelectedSupplier(supplier)
                               },
                             },
-                            { label: 'Bearbeiten', icon: Edit, onClick: () => toast.info(`${supplier.name} bearbeiten`) },
+                            { label: t('einkauf.action.edit'), icon: Edit, onClick: () => toast.info(t('einkauf.toast.editSupplier', { name: supplier.name })) },
                             { separator: true as const, label: '', onClick: () => {} },
                             {
-                              label: 'Deaktivieren',
+                              label: t('einkauf.action.deactivate'),
                               variant: 'destructive' as const,
-                              onClick: () => toast.info(`${supplier.name} deaktiviert`),
+                              onClick: () => toast.info(t('einkauf.toast.supplierDeactivated', { name: supplier.name })),
                             },
                           ]}
                         />
@@ -707,7 +708,10 @@ export default function EinkaufPage() {
                         {supplier.paymentTerms}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {supOrders.length} Bestellung{supOrders.length !== 1 ? 'en' : ''}
+                        {supOrders.length !== 1
+                        ? t('einkauf.supplier.orderCountPlural', { count: supOrders.length })
+                        : t('einkauf.supplier.orderCount', { count: supOrders.length })
+                      }
                       </span>
                     </div>
                   </div>
@@ -727,7 +731,7 @@ export default function EinkaufPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Artikel suchen (Name, SKU, Lieferant)..."
+                placeholder={t('einkauf.search.catalog')}
                 value={catalogSearch}
                 onChange={(e) => setCatalogSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -738,7 +742,7 @@ export default function EinkaufPage() {
               onChange={(e) => setCatalogCategory(e.target.value)}
               className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             >
-              <option value="all">Alle Kategorien</option>
+              <option value="all">{t('einkauf.catalog.allCategories')}</option>
               {catalogCategories.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
@@ -750,8 +754,8 @@ export default function EinkaufPage() {
           {filteredCatalog.length === 0 ? (
             <EmptyState
               icon={BookOpen}
-              title="Keine Artikel gefunden"
-              description="Passe deine Suche oder den Kategoriefilter an"
+              title={t('einkauf.empty.noCatalog.title')}
+              description={t('einkauf.empty.noCatalog.description')}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -772,7 +776,7 @@ export default function EinkaufPage() {
                           : 'bg-error-light text-error'
                       }`}
                     >
-                      {item.available ? 'Verfügbar' : 'Nicht verfügbar'}
+                      {item.available ? t('einkauf.catalog.available') : t('einkauf.catalog.unavailable')}
                     </span>
                   </div>
 
@@ -783,11 +787,11 @@ export default function EinkaufPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <ScanBarcode className="h-3 w-3" />
-                      <span>Kategorie: {item.category}</span>
+                      <span>{t('einkauf.catalog.category', { category: item.category })}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <PackageCheck className="h-3 w-3" />
-                      <span>Mindestbestellung: {item.minOrder} {item.unit}</span>
+                      <span>{t('einkauf.catalog.minOrder', { qty: item.minOrder, unit: item.unit })}</span>
                     </div>
                   </div>
 
@@ -796,16 +800,16 @@ export default function EinkaufPage() {
                       <p className="text-base font-semibold text-foreground tabular-nums">
                         {formatCurrency(item.price, item.currency)}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">pro {item.unit}</p>
+                      <p className="text-[10px] text-muted-foreground">{t('einkauf.catalog.perUnit', { unit: item.unit })}</p>
                     </div>
                     <button
                       onClick={() =>
-                        toast.success(`"${item.name}" zum Warenkorb hinzugefügt`)
+                        toast.success(t('einkauf.toast.addedToCart', { name: item.name }))
                       }
                       className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                     >
                       <ShoppingCart className="h-3.5 w-3.5" />
-                      In den Warenkorb
+                      {t('einkauf.action.addToCart')}
                     </button>
                   </div>
                 </div>
@@ -821,8 +825,8 @@ export default function EinkaufPage() {
           {frameworkContracts.length === 0 ? (
             <EmptyState
               icon={ScrollText}
-              title="Keine Rahmenverträge"
-              description="Erstelle deinen ersten Rahmenvertrag mit einem Lieferanten"
+              title={t('einkauf.empty.noContracts.title')}
+              description={t('einkauf.empty.noContracts.description')}
             />
           ) : (
             <div className="space-y-4">
@@ -854,7 +858,7 @@ export default function EinkaufPage() {
                                 contractStatusColors[contract.status]
                               }`}
                             >
-                              {contractStatusLabels[contract.status]}
+                              {contractStatusLabels[contract.status] ? t(contractStatusLabels[contract.status]) : contract.status}
                             </span>
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
@@ -869,7 +873,7 @@ export default function EinkaufPage() {
                         {/* Usage bar */}
                         <div className="w-32 hidden sm:block">
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-                            <span>Ausschoepfung</span>
+                            <span>{t('einkauf.contract.usage')}</span>
                             <span>{usagePct}%</span>
                           </div>
                           <div className="h-2 rounded-full bg-secondary overflow-hidden">
@@ -900,11 +904,11 @@ export default function EinkaufPage() {
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="border-b border-border bg-secondary/30">
-                                <th className="px-4 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Artikel</th>
-                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Stückpreis</th>
-                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Vereinbart</th>
-                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Abgerufen</th>
-                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">Offen</th>
+                                <th className="px-4 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">{t('einkauf.contract.article')}</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">{t('einkauf.contract.unitPrice')}</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">{t('einkauf.contract.agreed')}</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">{t('einkauf.contract.called')}</th>
+                                <th className="px-4 py-2 text-right text-[10px] font-medium text-muted-foreground uppercase">{t('einkauf.contract.remaining')}</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -918,7 +922,7 @@ export default function EinkaufPage() {
                                     <td className="px-4 py-2.5 text-foreground">
                                       <div>
                                         <p className="text-sm">{item.name}</p>
-                                        <p className="text-[10px] text-muted-foreground">{item.unit} · {callPct}% abgerufen</p>
+                                        <p className="text-[10px] text-muted-foreground">{item.unit} · {t('einkauf.contract.callPct', { pct: callPct })}</p>
                                       </div>
                                     </td>
                                     <td className="px-4 py-2.5 text-right text-foreground tabular-nums">
@@ -944,11 +948,11 @@ export default function EinkaufPage() {
 
                         <div className="flex items-center justify-end px-4 py-3 border-t border-border-muted">
                           <button
-                            onClick={() => toast.success(`Neuer Abruf für "${contract.title}" erstellt`)}
+                            onClick={() => toast.success(t('einkauf.toast.newCall', { title: contract.title }))}
                             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
                           >
                             <Plus className="h-3.5 w-3.5" />
-                            Neuen Abruf erstellen
+                            {t('einkauf.action.newCall')}
                           </button>
                         </div>
                       </div>
@@ -974,7 +978,7 @@ export default function EinkaufPage() {
                 orderStatusColors[selectedOrder.status] ?? 'bg-secondary text-muted-foreground'
               }`}
             >
-              {orderStatusLabels[selectedOrder.status]}
+              {orderStatusLabels[selectedOrder.status] ? t(orderStatusLabels[selectedOrder.status]) : selectedOrder.status}
             </span>
           ) : undefined
         }
@@ -989,13 +993,13 @@ export default function EinkaufPage() {
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <PackageCheck className="h-4 w-4" />
-                Wareneingang buchen
+                {t('einkauf.action.bookReceipt')}
               </button>
               <button
-                onClick={() => toast.info(`Bestellung ${selectedOrder.orderNumber} bearbeiten`)}
+                onClick={() => toast.info(t('einkauf.toast.editOrder', { orderNumber: selectedOrder.orderNumber }))}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Bearbeiten
+                {t('einkauf.action.edit')}
               </button>
             </div>
           ) : undefined
@@ -1018,11 +1022,11 @@ export default function EinkaufPage() {
                 <div className="flex-1 min-w-0">
                   {selectedOrder.approvedBy ? (
                     <p className="text-sm text-success font-medium">
-                      Genehmigt von: {selectedOrder.approvedBy}
+                      {t('einkauf.detail.approvedBy', { name: selectedOrder.approvedBy })}
                     </p>
                   ) : (
                     <p className="text-sm text-warning font-medium">
-                      Genehmigung erforderlich (ab {formatCurrency(approvalThreshold, selectedOrder.currency || 'EUR')})
+                      {t('einkauf.detail.approvalRequired', { threshold: formatCurrency(approvalThreshold, selectedOrder.currency || 'EUR') })}
                     </p>
                   )}
                 </div>
@@ -1031,7 +1035,7 @@ export default function EinkaufPage() {
                     onClick={() => handleApproveOrder(selectedOrder)}
                     className="shrink-0 rounded-lg bg-warning px-3 py-1.5 text-xs font-medium text-warning-foreground hover:opacity-90 transition-opacity"
                   >
-                    Genehmigen
+                    {t('einkauf.action.approve')}
                   </button>
                 )}
               </div>
@@ -1040,13 +1044,13 @@ export default function EinkaufPage() {
             {/* Summary */}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Betrag</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('einkauf.detail.amount')}</p>
                 <p className="text-lg font-semibold text-foreground tabular-nums">
                   {formatCurrency(selectedOrder.total, selectedOrder.currency || 'EUR')}
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Positionen</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('einkauf.detail.positions')}</p>
                 <p className="text-lg font-semibold text-foreground">{selectedOrder.itemCount}</p>
               </div>
             </div>
@@ -1055,14 +1059,14 @@ export default function EinkaufPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Lieferdatum:</span>
+                <span className="text-muted-foreground">{t('einkauf.detail.deliveryDateLabel')}</span>
                 <span className="text-foreground">
                   {selectedOrder.expectedDelivery ? formatDate(selectedOrder.expectedDelivery) : '--'}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Erstellt:</span>
+                <span className="text-muted-foreground">{t('einkauf.detail.createdLabel')}</span>
                 <span className="text-foreground">{formatDate(selectedOrder.createdAt)}</span>
               </div>
             </div>
@@ -1070,7 +1074,7 @@ export default function EinkaufPage() {
             {/* Status timeline */}
             <div>
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Status-Verlauf
+                {t('einkauf.detail.statusHistory')}
               </h4>
               {renderTimeline(selectedOrder.status)}
             </div>
@@ -1078,12 +1082,12 @@ export default function EinkaufPage() {
             {/* Order items */}
             <div>
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Bestellte Positionen
+                {t('einkauf.detail.orderedPositions')}
               </h4>
               <div className="rounded-lg border border-border divide-y divide-border-muted">
                 {getOrderItems(selectedOrder?.id ?? '').length === 0 ? (
                   <p className="px-3 py-4 text-xs text-muted-foreground text-center">
-                    Keine Positionen vorhanden
+                    {t('einkauf.detail.noPositions')}
                   </p>
                 ) : (
                   getOrderItems(selectedOrder?.id ?? '').map((item) => (
@@ -1091,7 +1095,7 @@ export default function EinkaufPage() {
                       <div>
                         <p className="text-sm text-foreground">{item.itemName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {item.quantity} Stk. x {formatCurrency(item.unitPrice, selectedOrder.currency || 'EUR')}
+                          {t('einkauf.detail.qty', { qty: item.quantity, price: formatCurrency(item.unitPrice, selectedOrder.currency || 'EUR') })}
                         </p>
                       </div>
                       <div className="text-right">
@@ -1100,7 +1104,7 @@ export default function EinkaufPage() {
                         </p>
                         {item.receivedQuantity > 0 && (
                           <p className="text-[10px] text-success">
-                            {item.receivedQuantity}/{item.quantity} erhalten
+                            {t('einkauf.detail.receivedQty', { received: item.receivedQuantity, total: item.quantity })}
                           </p>
                         )}
                       </div>
@@ -1113,7 +1117,7 @@ export default function EinkaufPage() {
             {/* Supplier link */}
             <div>
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Lieferant
+                {t('einkauf.detail.supplierSection')}
               </h4>
               <button
                 onClick={() => {
@@ -1137,14 +1141,14 @@ export default function EinkaufPage() {
             {selectedOrder.status !== 'draft' && selectedOrder.status !== 'cancelled' && (
               <div>
                 <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                  Belegkette
+                  {t('einkauf.detail.documentChain')}
                 </h4>
                 <div className="rounded-lg border border-border p-3 space-y-3">
                   <div className="flex items-center gap-2">
                     {/* Bestellung */}
                     <div className="flex items-center gap-1.5 rounded-lg bg-primary-light px-2.5 py-1.5">
                       <FileText className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-xs font-medium text-primary">Bestellung</span>
+                      <span className="text-xs font-medium text-primary">{t('einkauf.detail.order')}</span>
                     </div>
                     <div className="h-px w-4 bg-border" />
                     {/* Lieferschein */}
@@ -1162,21 +1166,21 @@ export default function EinkaufPage() {
                         selectedOrder.status === 'partial' || selectedOrder.status === 'received'
                           ? 'text-success'
                           : 'text-muted-foreground'
-                      }`}>Lieferschein</span>
+                      }`}>{t('einkauf.detail.deliveryNote')}</span>
                     </div>
                     <div className="h-px w-4 bg-border" />
                     {/* Eingangsrechnung */}
                     <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5">
                       <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground">Eingangsrechnung</span>
+                      <span className="text-xs font-medium text-muted-foreground">{t('einkauf.detail.incomingInvoice')}</span>
                     </div>
                   </div>
                   <button
-                    onClick={() => toast.info(`Rechnung zu ${selectedOrder.orderNumber} zuordnen`)}
+                    onClick={() => toast.info(t('einkauf.toast.assignInvoice', { orderNumber: selectedOrder.orderNumber }))}
                     className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
                   >
                     <Link2 className="h-3 w-3" />
-                    Rechnung zuordnen
+                    {t('einkauf.action.assignInvoice')}
                   </button>
                 </div>
               </div>
@@ -1196,10 +1200,10 @@ export default function EinkaufPage() {
           selectedSupplier ? (
             <div className="flex items-center gap-2">
               <button
-                onClick={() => toast.info(`${selectedSupplier.name} bearbeiten`)}
+                onClick={() => toast.info(t('einkauf.toast.editSupplier', { name: selectedSupplier.name }))}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Bearbeiten
+                {t('einkauf.action.edit')}
               </button>
             </div>
           ) : undefined
@@ -1215,7 +1219,7 @@ export default function EinkaufPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">{selectedSupplier.contactName}</p>
-                  <p className="text-xs text-muted-foreground">Kontaktperson</p>
+                  <p className="text-xs text-muted-foreground">{t('einkauf.supplier.contactPerson')}</p>
                 </div>
               </div>
 
@@ -1243,7 +1247,7 @@ export default function EinkaufPage() {
               return (
                 <div>
                   <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                    Bewertung
+                    {t('einkauf.detail.ratings')}
                   </h4>
                   <div className="rounded-lg border border-border p-3 space-y-3">
                     {/* Average */}
@@ -1255,7 +1259,7 @@ export default function EinkaufPage() {
                         <p className="text-lg font-semibold text-foreground tabular-nums">
                           {avg.toFixed(1)}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">Durchschnitt</p>
+                        <p className="text-[10px] text-muted-foreground">{t('einkauf.detail.average')}</p>
                       </div>
                       <div className="ml-auto">
                         <StarRating rating={Math.round(avg)} />
@@ -1270,7 +1274,7 @@ export default function EinkaufPage() {
                         return (
                           <div key={cat} className="flex items-center justify-between">
                             <span className="text-xs text-muted-foreground">
-                              {ratingCategoryLabels[cat]}
+                              {ratingCategoryLabels[cat] ? t(ratingCategoryLabels[cat]) : cat}
                             </span>
                             <div className="flex items-center gap-2">
                               <StarRating rating={catRating.rating} />
@@ -1296,19 +1300,19 @@ export default function EinkaufPage() {
                     : 'bg-error-light text-error'
                 }`}
               >
-                {selectedSupplier.isActive ? 'Aktiv' : 'Inaktiv'}
+                {selectedSupplier.isActive ? t('einkauf.supplier.active') : t('einkauf.supplier.inactive')}
               </span>
             </div>
 
             {/* Recent orders */}
             <div>
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Bestellungen ({getSupplierOrders(selectedSupplier.id).length})
+                {t('einkauf.detail.orders', { count: getSupplierOrders(selectedSupplier.id).length })}
               </h4>
               <div className="rounded-lg border border-border divide-y divide-border-muted">
                 {getSupplierOrders(selectedSupplier.id).length === 0 ? (
                   <p className="px-3 py-4 text-xs text-muted-foreground text-center">
-                    Keine Bestellungen vorhanden
+                    {t('einkauf.detail.noOrders')}
                   </p>
                 ) : (
                   getSupplierOrders(selectedSupplier.id).map((order) => (
@@ -1331,7 +1335,7 @@ export default function EinkaufPage() {
                           orderStatusColors[order.status] ?? 'bg-secondary text-muted-foreground'
                         }`}
                       >
-                        {orderStatusLabels[order.status]}
+                        {orderStatusLabels[order.status] ? t(orderStatusLabels[order.status]) : order.status}
                       </span>
                     </button>
                   ))
@@ -1349,9 +1353,9 @@ export default function EinkaufPage() {
             <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5 text-primary" />
-                <DialogTitle className="text-base font-semibold text-foreground">Neue Bestellung</DialogTitle>
+                <DialogTitle className="text-base font-semibold text-foreground">{t('einkauf.newOrder.title')}</DialogTitle>
               </div>
-              <DialogDescription className="sr-only">Neue Bestellung anlegen</DialogDescription>
+              <DialogDescription className="sr-only">{t('einkauf.newOrder.title')}</DialogDescription>
             </DialogHeader>
 
             {/* Body */}
@@ -1359,14 +1363,14 @@ export default function EinkaufPage() {
               {/* Supplier */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Lieferant <span className="text-destructive">*</span>
+                  {t('einkauf.newOrder.supplierLabel')} <span className="text-destructive">*</span>
                 </label>
                 <select
                   value={newOrderSupplierId}
                   onChange={(e) => setNewOrderSupplierId(e.target.value)}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 >
-                  <option value="">Lieferant auswählen...</option>
+                  <option value="">{t('einkauf.newOrder.supplierPlaceholder')}</option>
                   {suppliers
                     .filter((s) => s.isActive)
                     .map((s) => (
@@ -1380,13 +1384,13 @@ export default function EinkaufPage() {
               {/* Positionen */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-foreground">Positionen</label>
+                  <label className="text-sm font-medium text-foreground">{t('einkauf.newOrder.positions')}</label>
                   <button
                     onClick={addOrderItemRow}
                     className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary transition-colors"
                   >
                     <Plus className="h-3 w-3" />
-                    Position
+                    {t('einkauf.newOrder.addPosition')}
                   </button>
                 </div>
                 <div className="space-y-2">
@@ -1398,14 +1402,14 @@ export default function EinkaufPage() {
                       <div className="flex-1 space-y-2">
                         <input
                           type="text"
-                          placeholder="Artikelname"
+                          placeholder={t('einkauf.newOrder.itemNamePlaceholder')}
                           value={item.name}
                           onChange={(e) => updateOrderItem(idx, 'name', e.target.value)}
                           className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                         />
                         <div className="flex gap-2">
                           <div className="flex-1">
-                            <label className="text-[10px] text-muted-foreground">Menge</label>
+                            <label className="text-[10px] text-muted-foreground">{t('einkauf.newOrder.qty')}</label>
                             <input
                               type="number"
                               min={1}
@@ -1417,7 +1421,7 @@ export default function EinkaufPage() {
                             />
                           </div>
                           <div className="flex-1">
-                            <label className="text-[10px] text-muted-foreground">Einzelpreis ({newOrderCurrency})</label>
+                            <label className="text-[10px] text-muted-foreground">{t('einkauf.newOrder.unitPrice', { currency: newOrderCurrency })}</label>
                             <input
                               type="number"
                               min={0}
@@ -1447,7 +1451,7 @@ export default function EinkaufPage() {
               {/* Total + Currency selector */}
               <div className="flex items-center justify-between rounded-lg bg-secondary/50 px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-muted-foreground">Total</span>
+                  <span className="text-sm font-medium text-muted-foreground">{t('einkauf.newOrder.total')}</span>
                   <select
                     value={newOrderCurrency}
                     onChange={(e) => setNewOrderCurrency(e.target.value)}
@@ -1468,14 +1472,14 @@ export default function EinkaufPage() {
                 <div className="flex items-center gap-2 rounded-lg bg-warning-light border border-warning/20 px-3 py-2">
                   <ShieldCheck className="h-4 w-4 text-warning shrink-0" />
                   <p className="text-xs text-warning font-medium">
-                    Bestellung erfordert Genehmigung (ab {formatCurrency(approvalThreshold, newOrderCurrency)})
+                    {t('einkauf.newOrder.approvalRequired', { threshold: formatCurrency(approvalThreshold, newOrderCurrency) })}
                   </p>
                 </div>
               )}
 
               {/* Expected delivery */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Erwartetes Lieferdatum</label>
+                <label className="text-sm font-medium text-foreground">{t('einkauf.newOrder.deliveryDate')}</label>
                 <input
                   type="date"
                   value={newOrderDate}
@@ -1486,12 +1490,12 @@ export default function EinkaufPage() {
 
               {/* Notes */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Notizen</label>
+                <label className="text-sm font-medium text-foreground">{t('einkauf.newOrder.notes')}</label>
                 <textarea
                   value={newOrderNotes}
                   onChange={(e) => setNewOrderNotes(e.target.value)}
                   rows={3}
-                  placeholder="Optionale Anmerkungen..."
+                  placeholder={t('einkauf.newOrder.notesPlaceholder')}
                   className="w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
@@ -1503,13 +1507,13 @@ export default function EinkaufPage() {
                 onClick={() => setShowNewOrderDialog(false)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleSaveOrder}
                 className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
-                Bestellung erstellen
+                {t('einkauf.newOrder.create')}
               </button>
             </DialogFooter>
         </DialogContent>
@@ -1522,59 +1526,59 @@ export default function EinkaufPage() {
             <DialogHeader className="border-b border-border px-5 py-4">
               <div className="flex items-center gap-2">
                 <Truck className="h-5 w-5 text-primary" />
-                <DialogTitle className="text-base font-semibold text-foreground">Lieferant anlegen</DialogTitle>
+                <DialogTitle className="text-base font-semibold text-foreground">{t('einkauf.newSupplier.title')}</DialogTitle>
               </div>
-              <DialogDescription className="sr-only">Neuen Lieferanten anlegen</DialogDescription>
+              <DialogDescription className="sr-only">{t('einkauf.newSupplier.title')}</DialogDescription>
             </DialogHeader>
 
             {/* Body */}
             <div className="p-5 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">
-                  Name <span className="text-destructive">*</span>
+                  {t('einkauf.newSupplier.name')} <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
                   value={newSupName}
                   onChange={(e) => setNewSupName(e.target.value)}
-                  placeholder="Firmenname"
+                  placeholder={t('einkauf.newSupplier.namePlaceholder')}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Kontaktperson</label>
+                <label className="text-sm font-medium text-foreground">{t('einkauf.newSupplier.contact')}</label>
                 <input
                   type="text"
                   value={newSupContact}
                   onChange={(e) => setNewSupContact(e.target.value)}
-                  placeholder="Vor- und Nachname"
+                  placeholder={t('einkauf.newSupplier.contactPlaceholder')}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Email</label>
+                  <label className="text-sm font-medium text-foreground">{t('einkauf.newSupplier.email')}</label>
                   <input
                     type="email"
                     value={newSupEmail}
                     onChange={(e) => setNewSupEmail(e.target.value)}
-                    placeholder="email@firma.de"
+                    placeholder={t('einkauf.newSupplier.emailPlaceholder')}
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Telefon</label>
+                  <label className="text-sm font-medium text-foreground">{t('einkauf.newSupplier.phone')}</label>
                   <input
                     type="tel"
                     value={newSupPhone}
                     onChange={(e) => setNewSupPhone(e.target.value)}
-                    placeholder="+49 ..."
+                    placeholder={t('einkauf.newSupplier.phonePlaceholder')}
                     className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Zahlungsbedingungen</label>
+                <label className="text-sm font-medium text-foreground">{t('einkauf.newSupplier.paymentTerms')}</label>
                 <select
                   value={newSupPayment}
                   onChange={(e) => setNewSupPayment(e.target.value)}
@@ -1595,13 +1599,13 @@ export default function EinkaufPage() {
                 onClick={() => setShowNewSupplierDialog(false)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleSaveSupplier}
                 className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
-                Lieferant speichern
+                {t('einkauf.newSupplier.save')}
               </button>
             </DialogFooter>
         </DialogContent>
@@ -1615,7 +1619,7 @@ export default function EinkaufPage() {
               <div className="flex items-center gap-2">
                 <PackageCheck className="h-5 w-5 text-primary" />
                 <div>
-                  <DialogTitle className="text-base font-semibold text-foreground">Wareneingang buchen</DialogTitle>
+                  <DialogTitle className="text-base font-semibold text-foreground">{t('einkauf.wareneingang.title')}</DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground">
                     {showWareneingangDialog?.orderNumber} — {showWareneingangDialog?.supplierName}
                   </DialogDescription>
@@ -1627,16 +1631,16 @@ export default function EinkaufPage() {
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               <div className="rounded-lg border border-border divide-y divide-border-muted">
                 <div className="grid grid-cols-[1fr_80px_80px] gap-2 px-3 py-2 bg-secondary/30">
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase">Artikel</span>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase text-right">Bestellt</span>
-                  <span className="text-[10px] font-medium text-muted-foreground uppercase text-right">Erhalten</span>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase">{t('einkauf.wareneingang.article')}</span>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase text-right">{t('einkauf.wareneingang.ordered')}</span>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase text-right">{t('einkauf.wareneingang.received')}</span>
                 </div>
                 {getOrderItems(showWareneingangDialog?.id ?? '').map((item) => (
                   <div key={item.id} className="grid grid-cols-[1fr_80px_80px] gap-2 items-center px-3 py-2.5">
                     <div>
                       <p className="text-sm text-foreground">{item.itemName}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        Bereits erhalten: {item.receivedQuantity}
+                        {t('einkauf.wareneingang.alreadyReceived', { qty: item.receivedQuantity })}
                       </p>
                     </div>
                     <p className="text-sm text-muted-foreground text-right tabular-nums">{item.quantity}</p>
@@ -1665,7 +1669,7 @@ export default function EinkaufPage() {
                   onChange={(e) => setPartialDelivery(e.target.checked)}
                   className="h-4 w-4 rounded border-border text-primary focus:ring-focus-ring"
                 />
-                <span className="text-sm text-foreground">Teillieferung (Bestellung bleibt offen)</span>
+                <span className="text-sm text-foreground">{t('einkauf.wareneingang.partialDelivery')}</span>
               </label>
 
               {/* 8.6 Inventar-Integration */}
@@ -1677,10 +1681,10 @@ export default function EinkaufPage() {
                   className="h-4 w-4 mt-0.5 rounded border-border text-primary focus:ring-focus-ring"
                 />
                 <div>
-                  <span className="text-sm text-foreground">Zum Inventar buchen</span>
+                  <span className="text-sm text-foreground">{t('einkauf.wareneingang.bookToInventory')}</span>
                   {bookToInventory && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Wareneingang wird automatisch im Inventar verbucht
+                      {t('einkauf.wareneingang.bookToInventoryHint')}
                     </p>
                   )}
                 </div>
@@ -1693,13 +1697,13 @@ export default function EinkaufPage() {
                 onClick={() => setShowWareneingangDialog(null)}
                 className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleSaveWareneingang}
                 className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
-                Wareneingang buchen
+                {t('einkauf.wareneingang.book')}
               </button>
             </DialogFooter>
         </DialogContent>
@@ -1709,9 +1713,9 @@ export default function EinkaufPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Bestellung stornieren?"
-        description={`Bestellung ${confirmDelete?.orderNumber} bei ${confirmDelete?.supplierName} wird storniert. Diese Aktion kann nicht rückgängig gemacht werden.`}
-        confirmLabel="Stornieren"
+        title={t('einkauf.confirmCancel.title')}
+        description={t('einkauf.confirmCancel.description', { orderNumber: confirmDelete?.orderNumber, supplierName: confirmDelete?.supplierName })}
+        confirmLabel={t('einkauf.confirmCancel.confirm')}
         variant="destructive"
         onConfirm={() => confirmDelete && handleCancelOrder(confirmDelete)}
       />

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -51,40 +52,40 @@ const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
 const OBJECT_TYPE_CONFIG: Record<
   RentalObjectType,
-  { label: string; icon: typeof Wrench; color: string; bg: string; badgeBg: string }
+  { labelKey: string; icon: typeof Wrench; color: string; bg: string; badgeBg: string }
 > = {
-  gerät: { label: 'Gerät', icon: Wrench, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30', badgeBg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' },
-  raum: { label: 'Raum', icon: DoorOpen, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30', badgeBg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-  fahrzeug: { label: 'Fahrzeug', icon: Car, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30', badgeBg: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
-  werkzeug: { label: 'Werkzeug', icon: Hammer, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30', badgeBg: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
+  gerät: { labelKey: 'vermietung.objectType.gerät', icon: Wrench, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30', badgeBg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' },
+  raum: { labelKey: 'vermietung.objectType.raum', icon: DoorOpen, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30', badgeBg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+  fahrzeug: { labelKey: 'vermietung.objectType.fahrzeug', icon: Car, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30', badgeBg: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+  werkzeug: { labelKey: 'vermietung.objectType.werkzeug', icon: Hammer, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/30', badgeBg: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' },
 }
 
 const STATUS_CONFIG: Record<
   RentalObject['status'],
-  { label: string; dot: string; text: string }
+  { labelKey: string; dot: string; text: string }
 > = {
-  available: { label: 'Verfügbar', dot: 'bg-success', text: 'text-success' },
-  reserved: { label: 'Reserviert', dot: 'bg-info', text: 'text-info' },
-  maintenance: { label: 'Wartung', dot: 'bg-warning', text: 'text-warning' },
+  available: { labelKey: 'vermietung.status.available', dot: 'bg-success', text: 'text-success' },
+  reserved: { labelKey: 'vermietung.status.reserved', dot: 'bg-info', text: 'text-info' },
+  maintenance: { labelKey: 'vermietung.status.maintenance', dot: 'bg-warning', text: 'text-warning' },
 }
 
 const RESERVATION_STATUS_CONFIG: Record<
   Reservation['status'],
-  { label: string; bg: string }
+  { labelKey: string; bg: string }
 > = {
-  active: { label: 'Aktiv', bg: 'bg-success-light text-success' },
-  upcoming: { label: 'Bevorstehend', bg: 'bg-info-light text-info' },
-  completed: { label: 'Abgeschlossen', bg: 'bg-secondary text-muted-foreground' },
-  cancelled: { label: 'Storniert', bg: 'bg-error-light text-error' },
+  active: { labelKey: 'vermietung.reservationStatus.active', bg: 'bg-success-light text-success' },
+  upcoming: { labelKey: 'vermietung.reservationStatus.upcoming', bg: 'bg-info-light text-info' },
+  completed: { labelKey: 'vermietung.reservationStatus.completed', bg: 'bg-secondary text-muted-foreground' },
+  cancelled: { labelKey: 'vermietung.reservationStatus.cancelled', bg: 'bg-error-light text-error' },
 }
 
 const DEPOSIT_STATUS_CONFIG: Record<
   NonNullable<Reservation['depositStatus']>,
-  { label: string; bg: string }
+  { labelKey: string; bg: string }
 > = {
-  none: { label: 'Offen', bg: 'bg-secondary text-muted-foreground' },
-  collected: { label: 'Eingezogen', bg: 'bg-success-light text-success' },
-  returned: { label: 'Zurückgegeben', bg: 'bg-info-light text-info' },
+  none: { labelKey: 'vermietung.depositStatus.none', bg: 'bg-secondary text-muted-foreground' },
+  collected: { labelKey: 'vermietung.depositStatus.collected', bg: 'bg-success-light text-success' },
+  returned: { labelKey: 'vermietung.depositStatus.returned', bg: 'bg-info-light text-info' },
 }
 
 const CURRENCY_OPTIONS = ['EUR', 'CHF', 'USD'] as const
@@ -183,6 +184,7 @@ function ObjectDialog({
   onClose: () => void
   initial?: RentalObject | null
 }) {
+  const { t } = useTranslation()
   const { addObject, updateObject } = useVermietungStore()
   const isEdit = !!initial
 
@@ -197,9 +199,9 @@ function ObjectDialog({
   const [serialNumber, setSerialNumber] = useState(initial?.serialNumber ?? '')
 
   const handleSave = () => {
-    if (!name.trim()) { toast.error('Bitte einen Namen eingeben'); return }
-    if (!location.trim()) { toast.error('Bitte einen Standort eingeben'); return }
-    if (!dailyRate || Number(dailyRate) <= 0) { toast.error('Bitte einen gültigen Tagessatz eingeben'); return }
+    if (!name.trim()) { toast.error(t('vermietung.objectDialog.errorName')); return }
+    if (!location.trim()) { toast.error(t('vermietung.objectDialog.errorStandort')); return }
+    if (!dailyRate || Number(dailyRate) <= 0) { toast.error(t('vermietung.objectDialog.errorDailyRate')); return }
 
     const obj: RentalObject = {
       id: initial?.id ?? `obj-${Date.now()}`,
@@ -217,10 +219,10 @@ function ObjectDialog({
 
     if (isEdit) {
       updateObject(obj.id, obj)
-      toast.success(`"${obj.name}" wurde aktualisiert`)
+      toast.success(t('vermietung.objectDialog.updateSuccess', { name: obj.name }))
     } else {
       addObject(obj)
-      toast.success(`"${obj.name}" wurde angelegt`)
+      toast.success(t('vermietung.objectDialog.createSuccess', { name: obj.name }))
     }
     onClose()
   }
@@ -233,7 +235,7 @@ function ObjectDialog({
       <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">
-            {isEdit ? 'Objekt bearbeiten' : 'Neues Mietobjekt'}
+            {isEdit ? t('vermietung.objectDialog.titleEdit') : t('vermietung.objectDialog.titleNew')}
           </h2>
           <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
             <X className="h-4 w-4" />
@@ -243,19 +245,19 @@ function ObjectDialog({
         <div className="space-y-4">
           {/* Name */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Name <span className="text-destructive">*</span></label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelName')} <span className="text-destructive">*</span></label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="z.B. Beamer Epson EB-W49"
+              placeholder={t('vermietung.objectDialog.placeholderName')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
 
           {/* Typ */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Typ <span className="text-destructive">*</span></label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelTyp')} <span className="text-destructive">*</span></label>
             <div className="grid grid-cols-2 gap-2">
               {(Object.entries(OBJECT_TYPE_CONFIG) as [RentalObjectType, typeof OBJECT_TYPE_CONFIG['gerät']][]).map(([key, cfg]) => {
                 const Icon = cfg.icon
@@ -271,7 +273,7 @@ function ObjectDialog({
                     }`}
                   >
                     <Icon className="h-4 w-4" />
-                    {cfg.label}
+                    {t(cfg.labelKey)}
                   </button>
                 )
               })}
@@ -280,19 +282,19 @@ function ObjectDialog({
 
           {/* Standort */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Standort <span className="text-destructive">*</span></label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelStandort')} <span className="text-destructive">*</span></label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="z.B. Büro Zürich"
+              placeholder={t('vermietung.objectDialog.placeholderStandort')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
 
           {/* Currency */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Waehrung</label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelCurrency')}</label>
             <div className="flex gap-2">
               {CURRENCY_OPTIONS.map((cur) => (
                 <button
@@ -313,7 +315,7 @@ function ObjectDialog({
           {/* Rates */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Tagessatz ({currency}) <span className="text-destructive">*</span></label>
+              <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelDailyRate', { currency })} <span className="text-destructive">*</span></label>
               <input
                 type="number"
                 min={0}
@@ -325,7 +327,7 @@ function ObjectDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Wochensatz ({currency}) <span className="text-xs text-muted-foreground font-normal">optional</span></label>
+              <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelWeeklyRate', { currency })} <span className="text-xs text-muted-foreground font-normal">{t('common.optional')}</span></label>
               <input
                 type="number"
                 min={0}
@@ -340,7 +342,7 @@ function ObjectDialog({
 
           {/* Kaution */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Kaution ({currency}) <span className="text-xs text-muted-foreground font-normal">optional</span></label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelDeposit', { currency })} <span className="text-xs text-muted-foreground font-normal">{t('common.optional')}</span></label>
             <input
               type="number"
               min={0}
@@ -354,11 +356,11 @@ function ObjectDialog({
 
           {/* Beschreibung */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Beschreibung</label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelDescription')}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Details zum Mietobjekt..."
+              placeholder={t('vermietung.objectDialog.placeholderDescription')}
               rows={2}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
@@ -366,12 +368,12 @@ function ObjectDialog({
 
           {/* Seriennummer */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Seriennummer <span className="text-xs text-muted-foreground font-normal">optional</span></label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.objectDialog.labelSerial')} <span className="text-xs text-muted-foreground font-normal">{t('common.optional')}</span></label>
             <input
               type="text"
               value={serialNumber}
               onChange={(e) => setSerialNumber(e.target.value)}
-              placeholder="z.B. EP-W49-2024-0871"
+              placeholder={t('vermietung.objectDialog.placeholderSerial')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring font-mono"
             />
           </div>
@@ -379,10 +381,10 @@ function ObjectDialog({
 
         <div className="flex justify-end gap-2 mt-6">
           <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors">
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button onClick={handleSave} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
-            {isEdit ? 'Speichern' : 'Anlegen'}
+            {isEdit ? t('common.save') : t('vermietung.objectDialog.buttonCreate')}
           </button>
         </div>
       </div>
@@ -403,6 +405,7 @@ function ReservationDialog({
   preSelectedObjectId?: string
   preSelectedDate?: string
 }) {
+  const { t } = useTranslation()
   const { addReservation } = useVermietungStore()
 
   const [objectId, setObjectId] = useState(preSelectedObjectId ?? '')
@@ -427,10 +430,10 @@ function ReservationDialog({
   }
 
   const handleSave = () => {
-    if (!objectId) { toast.error('Bitte ein Objekt wählen'); return }
-    if (!startDate || !endDate) { toast.error('Bitte Zeitraum angeben'); return }
-    if (startDate > endDate) { toast.error('Enddatum muss nach Startdatum liegen'); return }
-    if (!renter.trim()) { toast.error('Bitte einen Mieter angeben'); return }
+    if (!objectId) { toast.error(t('vermietung.reservationDialog.errorObjekt')); return }
+    if (!startDate || !endDate) { toast.error(t('vermietung.reservationDialog.errorDates')); return }
+    if (startDate > endDate) { toast.error(t('vermietung.reservationDialog.errorDateOrder')); return }
+    if (!renter.trim()) { toast.error(t('vermietung.reservationDialog.errorMieter')); return }
 
     const days = daysBetween(startDate, endDate)
     const pricing = selectedObj ? computeRentalPrice(days, selectedObj.dailyRate, selectedObj.weeklyRate) : null
@@ -456,7 +459,7 @@ function ReservationDialog({
     }
 
     addReservation(res)
-    toast.success(`Reservierung für "${res.objectName}" erstellt`, {
+    toast.success(t('vermietung.reservationDialog.createSuccess', { name: res.objectName }), {
       description: `${formatDate(startDate)} – ${formatDate(endDate)} (${renter.trim()})`,
     })
     onClose()
@@ -469,7 +472,7 @@ function ReservationDialog({
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl glass-elevated">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-foreground">Reservierung erstellen</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('vermietung.reservationDialog.title')}</h2>
           <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
             <X className="h-4 w-4" />
           </button>
@@ -478,16 +481,16 @@ function ReservationDialog({
         <div className="space-y-4">
           {/* Object */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Objekt <span className="text-destructive">*</span></label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.reservationDialog.labelObjekt')} <span className="text-destructive">*</span></label>
             <select
               value={objectId}
               onChange={(e) => handleObjectChange(e.target.value)}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             >
-              <option value="">Objekt wählen...</option>
+              <option value="">{t('vermietung.reservationDialog.selectObjekt')}</option>
               {objects.map((obj) => (
                 <option key={obj.id} value={obj.id}>
-                  {obj.name} ({OBJECT_TYPE_CONFIG[obj.type].label})
+                  {obj.name} ({t(OBJECT_TYPE_CONFIG[obj.type].labelKey)})
                 </option>
               ))}
             </select>
@@ -496,7 +499,7 @@ function ReservationDialog({
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Von <span className="text-destructive">*</span></label>
+              <label className="text-sm font-medium text-foreground">{t('vermietung.reservationDialog.labelVon')} <span className="text-destructive">*</span></label>
               <input
                 type="date"
                 value={startDate}
@@ -505,7 +508,7 @@ function ReservationDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Bis <span className="text-destructive">*</span></label>
+              <label className="text-sm font-medium text-foreground">{t('vermietung.reservationDialog.labelBis')} <span className="text-destructive">*</span></label>
               <input
                 type="date"
                 value={endDate}
@@ -517,19 +520,19 @@ function ReservationDialog({
 
           {/* Renter */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Mieter <span className="text-destructive">*</span></label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.reservationDialog.labelMieter')} <span className="text-destructive">*</span></label>
             <input
               type="text"
               value={renter}
               onChange={(e) => setRenter(e.target.value)}
-              placeholder="Name des Mieters"
+              placeholder={t('vermietung.reservationDialog.placeholderMieter')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
 
           {/* Renter Type */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Mieter-Typ</label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.reservationDialog.labelMieterTyp')}</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setRenterType('employee')}
@@ -539,7 +542,7 @@ function ReservationDialog({
                     : 'border-border text-muted-foreground hover:bg-secondary'
                 }`}
               >
-                Mitarbeiter
+                {t('vermietung.reservationDialog.mieterEmployee')}
               </button>
               <button
                 onClick={() => setRenterType('customer')}
@@ -549,7 +552,7 @@ function ReservationDialog({
                     : 'border-border text-muted-foreground hover:bg-secondary'
                 }`}
               >
-                Kunde
+                {t('vermietung.reservationDialog.mieterCustomer')}
               </button>
             </div>
           </div>
@@ -557,22 +560,22 @@ function ReservationDialog({
           {/* Locations */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Abholung Ort</label>
+              <label className="text-sm font-medium text-foreground">{t('vermietung.reservationDialog.labelAbholung')}</label>
               <input
                 type="text"
                 value={pickupLocation}
                 onChange={(e) => setPickupLocation(e.target.value)}
-                placeholder="Abholort"
+                placeholder={t('vermietung.reservationDialog.placeholderAbholung')}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Rückgabe Ort</label>
+              <label className="text-sm font-medium text-foreground">{t('vermietung.reservationDialog.labelRueckgabe')}</label>
               <input
                 type="text"
                 value={returnLocation}
                 onChange={(e) => setReturnLocation(e.target.value)}
-                placeholder="Rückgabeort"
+                placeholder={t('vermietung.reservationDialog.placeholderRueckgabe')}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
@@ -580,11 +583,11 @@ function ReservationDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Notizen</label>
+            <label className="text-sm font-medium text-foreground">{t('vermietung.reservationDialog.labelNotizen')}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Zusätzliche Informationen..."
+              placeholder={t('vermietung.reservationDialog.placeholderNotizen')}
               rows={2}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
@@ -593,7 +596,7 @@ function ReservationDialog({
           {/* Price Calculation (9.12) */}
           {selectedObj && startDate && endDate && startDate <= endDate && (
             <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Preisberechnung</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.reservationDialog.priceCalc')}</h4>
               {(() => {
                 const days = daysBetween(startDate, endDate)
                 const objCurrency = selectedObj.currency ?? 'EUR'
@@ -622,7 +625,7 @@ function ReservationDialog({
                     )}
                     <div className="border-t border-border-muted pt-1.5 mt-1.5">
                       <p className="text-sm font-semibold text-foreground tabular-nums">
-                        Gesamt: {formatCurrency(pricing.total, objCurrency)}
+                        {t('vermietung.reservationDialog.total', { amount: formatCurrency(pricing.total, objCurrency) })}
                       </p>
                     </div>
                   </div>
@@ -635,7 +638,7 @@ function ReservationDialog({
           {selectedObj?.deposit && (
             <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-3">
               <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                Kaution: {formatCurrency(selectedObj.deposit, selectedObj.currency ?? 'EUR')} (wird bei Abholung eingezogen)
+                {t('vermietung.reservationDialog.depositNotice', { amount: formatCurrency(selectedObj.deposit, selectedObj.currency ?? 'EUR') })}
               </p>
             </div>
           )}
@@ -643,10 +646,10 @@ function ReservationDialog({
 
         <div className="flex justify-end gap-2 mt-6">
           <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors">
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button onClick={handleSave} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
-            Reservierung erstellen
+            {t('vermietung.reservationDialog.buttonCreate')}
           </button>
         </div>
       </div>
@@ -659,6 +662,7 @@ function ReservationDialog({
 // ============================================================
 
 export default function VermietungPage() {
+  const { t } = useTranslation()
   const { objects, reservations, zustandsprotokolle, deleteObject, cancelReservation } = useVermietungStore()
 
   // State
@@ -793,13 +797,13 @@ export default function VermietungPage() {
     deleteObject(obj.id)
     setConfirmDelete(null)
     if (selectedObject?.id === obj.id) setSelectedObject(null)
-    toast.success(`"${obj.name}" wurde gelöscht`)
+    toast.success(t('vermietung.delete.success', { name: obj.name }))
   }
 
   const handleCancelReservation = (res: Reservation) => {
     cancelReservation(res.id)
     setConfirmCancel(null)
-    toast.success(`Reservierung für "${res.objectName}" storniert`)
+    toast.success(t('vermietung.cancel.success', { name: res.objectName }))
   }
 
   const handleCalendarCellClick = useCallback(
@@ -818,18 +822,18 @@ export default function VermietungPage() {
   )
 
   const getObjectActions = (obj: RentalObject) => [
-    { label: 'Details anzeigen', icon: Eye, onClick: () => setSelectedObject(obj) },
-    { label: 'Bearbeiten', icon: EditIcon, onClick: () => openObjectDialog(obj) },
-    { label: 'Reservieren', icon: CalendarPlus, onClick: () => openReservationDialog(obj.id) },
+    { label: t('vermietung.actions.showDetails'), icon: Eye, onClick: () => setSelectedObject(obj) },
+    { label: t('common.edit'), icon: EditIcon, onClick: () => openObjectDialog(obj) },
+    { label: t('vermietung.actions.reservieren'), icon: CalendarPlus, onClick: () => openReservationDialog(obj.id) },
     { separator: true as const, label: '', onClick: () => {} },
-    { label: 'Löschen', icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(obj) },
+    { label: t('common.delete'), icon: Trash2, variant: 'destructive' as const, onClick: () => setConfirmDelete(obj) },
   ]
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <PageHeader
-        title="Vermietung"
-        description={`${objects.length} Objekte · ${activeReservations} aktive Reservierungen`}
+        title={t('vermietung.page.title')}
+        description={t('vermietung.page.description', { count: objects.length, reservations: activeReservations })}
         icon={Building2}
         moduleId="vermietung"
         className="mb-6"
@@ -840,14 +844,14 @@ export default function VermietungPage() {
               className="flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <CalendarPlus className="h-4 w-4" />
-              Reservierung
+              {t('vermietung.page.buttonReservierung')}
             </button>
             <button
               onClick={() => openObjectDialog()}
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Objekt anlegen
+              {t('vermietung.page.buttonObjektAnlegen')}
             </button>
           </div>
         }
@@ -857,28 +861,28 @@ export default function VermietungPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           {
-            label: 'Verfügbar',
+            label: t('vermietung.kpi.available'),
             value: `${availableCount}`,
             icon: CheckCircle2,
             color: 'text-success',
             bg: 'bg-success-light',
           },
           {
-            label: 'Reserviert',
+            label: t('vermietung.kpi.reserved'),
             value: `${reservedCount}`,
             icon: Clock,
             color: 'text-info',
             bg: 'bg-info-light',
           },
           {
-            label: 'In Wartung',
+            label: t('vermietung.kpi.maintenance'),
             value: `${maintenanceCount}`,
             icon: AlertTriangle,
             color: 'text-warning',
             bg: 'bg-warning-light',
           },
           {
-            label: 'Auslastung',
+            label: t('vermietung.kpi.utilization'),
             value: `${utilization}%`,
             icon: BarChart3,
             color: utilization >= 70 ? 'text-success' : utilization >= 40 ? 'text-warning' : 'text-muted-foreground',
@@ -903,23 +907,23 @@ export default function VermietungPage() {
       {/* ---- Tabs ---- */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'objekte' as const, label: `Objekte (${objects.length})`, icon: Package },
-          { key: 'reservierungen' as const, label: `Reservierungen (${reservations.length})`, icon: CalendarDays },
-          { key: 'kalender' as const, label: 'Kalender', icon: CalendarDays },
-        ]).map((t) => {
-          const Icon = t.icon
+          { key: 'objekte' as const, label: t('vermietung.tab.objekte', { count: objects.length }), icon: Package },
+          { key: 'reservierungen' as const, label: t('vermietung.tab.reservierungen', { count: reservations.length }), icon: CalendarDays },
+          { key: 'kalender' as const, label: t('vermietung.tab.kalender'), icon: CalendarDays },
+        ]).map((tabItem) => {
+          const Icon = tabItem.icon
           return (
             <button
-              key={t.key}
-              onClick={() => { setTab(t.key); setSearch('') }}
+              key={tabItem.key}
+              onClick={() => { setTab(tabItem.key); setSearch('') }}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors ${
-                tab === t.key
+                tab === tabItem.key
                   ? 'border-primary text-primary font-medium tab-accent-active'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
-              {t.label}
+              {tabItem.label}
             </button>
           )
         })}
@@ -936,7 +940,7 @@ export default function VermietungPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Objekt suchen..."
+                placeholder={t('vermietung.objekte.search')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -947,8 +951,8 @@ export default function VermietungPage() {
           {filteredObjects.length === 0 ? (
             <EmptyState
               icon={Package}
-              title="Keine Objekte gefunden"
-              description={search ? 'Passe deine Suche an' : 'Lege dein erstes Mietobjekt an'}
+              title={t('vermietung.objekte.empty.title')}
+              description={search ? t('vermietung.objekte.empty.descFilter') : t('vermietung.objekte.empty.descEmpty')}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -984,7 +988,7 @@ export default function VermietungPage() {
                       </div>
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeCfg.badgeBg}`}>
-                          {typeCfg.label}
+                          {t(typeCfg.labelKey)}
                         </span>
                         <ItemActions items={getObjectActions(obj)} />
                       </div>
@@ -993,7 +997,7 @@ export default function VermietungPage() {
                     {/* Status */}
                     <div className="flex items-center gap-2 mb-3">
                       <span className={`h-2 w-2 rounded-full ${statusCfg.dot}`} />
-                      <span className={`text-xs font-medium ${statusCfg.text}`}>{statusCfg.label}</span>
+                      <span className={`text-xs font-medium ${statusCfg.text}`}>{t(statusCfg.labelKey)}</span>
                       {obj.status === 'reserved' && activeRes && (
                         <span className="text-xs text-muted-foreground">
                           &middot; {activeRes.renter} bis {formatDate(activeRes.endDate)}
@@ -1003,12 +1007,12 @@ export default function VermietungPage() {
 
                     {/* Pricing */}
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-sm font-medium text-foreground tabular-nums">{formatCurrency(obj.dailyRate, obj.currency)}/Tag</span>
+                      <span className="text-sm font-medium text-foreground tabular-nums">{formatCurrency(obj.dailyRate, obj.currency)}{t('vermietung.objekte.dailyRate')}</span>
                       {obj.weeklyRate && (
-                        <span className="text-xs text-muted-foreground tabular-nums">{formatCurrency(obj.weeklyRate, obj.currency)}/Woche</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{formatCurrency(obj.weeklyRate, obj.currency)}{t('vermietung.objekte.weeklyRate')}</span>
                       )}
                       {obj.deposit && (
-                        <span className="text-[10px] text-muted-foreground tabular-nums">Kaution: {formatCurrency(obj.deposit, obj.currency)}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">{t('vermietung.objekte.deposit', { amount: formatCurrency(obj.deposit, obj.currency) })}</span>
                       )}
                     </div>
 
@@ -1023,13 +1027,13 @@ export default function VermietungPage() {
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <CalendarDays className="h-3 w-3 flex-shrink-0" />
                           <span>
-                            Nächste: {formatDate(nextRes.startDate)} – {formatDate(nextRes.endDate)} ({nextRes.renter})
+                            {t('vermietung.objekte.nextReservation', { start: formatDate(nextRes.startDate), end: formatDate(nextRes.endDate), renter: nextRes.renter })}
                           </span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 text-xs text-success">
                           <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                          <span>Keine Reservierungen</span>
+                          <span>{t('vermietung.objekte.noReservations')}</span>
                         </div>
                       )}
                     </div>
@@ -1052,7 +1056,7 @@ export default function VermietungPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Reservierung suchen..."
+                placeholder={t('vermietung.reservierungen.search')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -1064,10 +1068,10 @@ export default function VermietungPage() {
                 onChange={(e) => setReservationFilter(e.target.value as ReservationFilter)}
                 className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               >
-                <option value="all">Alle Status</option>
-                <option value="active">Aktiv</option>
-                <option value="upcoming">Bevorstehend</option>
-                <option value="completed">Abgeschlossen</option>
+                <option value="all">{t('vermietung.reservierungen.allStatus')}</option>
+                <option value="active">{t('vermietung.reservationStatus.active')}</option>
+                <option value="upcoming">{t('vermietung.reservationStatus.upcoming')}</option>
+                <option value="completed">{t('vermietung.reservationStatus.completed')}</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             </div>
@@ -1077,7 +1081,7 @@ export default function VermietungPage() {
                 className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
                 <Filter className="h-3.5 w-3.5" />
-                Filter zurücksetzen
+                {t('common.resetFilters')}
               </button>
             )}
           </div>
@@ -1085,22 +1089,22 @@ export default function VermietungPage() {
           {filteredReservations.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
-              title="Keine Reservierungen gefunden"
-              description={search || reservationFilter !== 'all' ? 'Passe deine Suche oder Filter an' : 'Erstelle deine erste Reservierung'}
+              title={t('vermietung.reservierungen.empty.title')}
+              description={search || reservationFilter !== 'all' ? t('vermietung.reservierungen.empty.descFilter') : t('vermietung.reservierungen.empty.descEmpty')}
             />
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-card">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Objekt</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Mieter</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Zeitraum</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Dauer</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Kaution</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Abholung</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rückgabe</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vermietung.reservierungen.table.objekt')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vermietung.reservierungen.table.mieter')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vermietung.reservierungen.table.zeitraum')}</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">{t('vermietung.reservierungen.table.dauer')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vermietung.reservierungen.table.status')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vermietung.reservierungen.table.kaution')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vermietung.reservierungen.table.abholung')}</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">{t('vermietung.reservierungen.table.rueckgabe')}</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground w-12"></th>
                   </tr>
                 </thead>
@@ -1118,7 +1122,7 @@ export default function VermietungPage() {
                           <div className="flex flex-col">
                             <span className="text-foreground">{res.renter}</span>
                             <span className="text-[11px] text-muted-foreground">
-                              {res.renterType === 'employee' ? 'Mitarbeiter' : 'Kunde'}
+                              {res.renterType === 'employee' ? t('vermietung.reservierungen.mieterEmployee') : t('vermietung.reservierungen.mieterCustomer')}
                             </span>
                           </div>
                         </td>
@@ -1126,17 +1130,17 @@ export default function VermietungPage() {
                           {formatDate(res.startDate)} – {formatDate(res.endDate)}
                         </td>
                         <td className="px-4 py-3 text-right text-foreground tabular-nums">
-                          {days} {days === 1 ? 'Tag' : 'Tage'}
+                          {days} {days === 1 ? t('vermietung.reservierungen.duration.day') : t('vermietung.reservierungen.duration.days')}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusCfg.bg}`}>
-                            {statusCfg.label}
+                            {t(statusCfg.labelKey)}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           {res.depositStatus ? (
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${DEPOSIT_STATUS_CONFIG[res.depositStatus].bg}`}>
-                              {DEPOSIT_STATUS_CONFIG[res.depositStatus].label}
+                              {t(DEPOSIT_STATUS_CONFIG[res.depositStatus].labelKey)}
                               {res.depositAmount ? ` (${formatCurrency(res.depositAmount, res.currency)})` : ''}
                             </span>
                           ) : (
@@ -1150,12 +1154,12 @@ export default function VermietungPage() {
                             <ItemActions
                               items={[
                                 {
-                                  label: 'Zustandsprotokoll',
+                                  label: t('vermietung.reservierungen.actions.zustandsprotokoll'),
                                   icon: ClipboardCheck,
                                   onClick: () => setZustandsprotokollReservation(res),
                                 },
                                 {
-                                  label: 'Stornieren',
+                                  label: t('vermietung.reservierungen.actions.stornieren'),
                                   icon: X,
                                   variant: 'destructive' as const,
                                   onClick: () => setConfirmCancel(res),
@@ -1189,7 +1193,7 @@ export default function VermietungPage() {
                 <ChevronLeft className="h-4 w-4 text-foreground" />
               </button>
               <div className="text-center min-w-[200px]">
-                <span className="text-sm font-semibold text-foreground">KW {kw}</span>
+                <span className="text-sm font-semibold text-foreground">{t('vermietung.kalender.kw', { kw })}</span>
                 <span className="mx-2 text-muted-foreground">|</span>
                 <span className="text-sm text-muted-foreground">{dateRange}</span>
               </div>
@@ -1204,7 +1208,7 @@ export default function VermietungPage() {
                   onClick={() => setWeekOffset(0)}
                   className="ml-1 rounded-lg border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                 >
-                  Heute
+                  {t('vermietung.kalender.today')}
                 </button>
               )}
             </div>
@@ -1214,8 +1218,8 @@ export default function VermietungPage() {
           {objects.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
-              title="Keine Objekte vorhanden"
-              description="Lege Mietobjekte an, um den Kalender zu nutzen"
+              title={t('vermietung.kalender.empty.title')}
+              description={t('vermietung.kalender.empty.desc')}
             />
           ) : (
             <div className="rounded-lg border border-border overflow-hidden">
@@ -1223,7 +1227,7 @@ export default function VermietungPage() {
               <div className="grid border-b border-border bg-card" style={{ gridTemplateColumns: '200px repeat(7, 1fr)' }}>
                 <div className="flex items-center gap-2 px-4 py-3 border-r border-border">
                   <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Objekt</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.kalender.objectColumn')}</span>
                 </div>
                 {weekDates.map((date, i) => {
                   const today = isToday(date)
@@ -1343,20 +1347,20 @@ export default function VermietungPage() {
 
               {/* Legend */}
               <div className="flex items-center gap-5 px-4 py-2.5 border-t border-border bg-card/30">
-                <span className="text-[11px] text-muted-foreground font-medium mr-1">Legende:</span>
+                <span className="text-[11px] text-muted-foreground font-medium mr-1">{t('vermietung.kalender.legend.title')}</span>
                 <div className="flex items-center gap-1.5">
                   <div className="h-4 w-8 rounded bg-info/10 border border-info/20" />
-                  <span className="text-[11px] text-muted-foreground">Reserviert</span>
+                  <span className="text-[11px] text-muted-foreground">{t('vermietung.kalender.legend.reserved')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="h-4 w-8 rounded bg-warning/10 border border-warning/20 flex items-center justify-center">
                     <AlertTriangle className="h-2.5 w-2.5 text-warning" />
                   </div>
-                  <span className="text-[11px] text-muted-foreground">Wartung</span>
+                  <span className="text-[11px] text-muted-foreground">{t('vermietung.kalender.legend.maintenance')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="h-4 w-8 rounded border border-dashed border-border-muted" />
-                  <span className="text-[11px] text-muted-foreground">Frei</span>
+                  <span className="text-[11px] text-muted-foreground">{t('vermietung.kalender.legend.free')}</span>
                 </div>
               </div>
             </div>
@@ -1381,7 +1385,7 @@ export default function VermietungPage() {
                   ? 'bg-info-light text-info'
                   : 'bg-warning-light text-warning'
             }`}>
-              {STATUS_CONFIG[selectedObject.status].label}
+              {t(STATUS_CONFIG[selectedObject.status].labelKey)}
             </span>
           ) : undefined
         }
@@ -1393,7 +1397,7 @@ export default function VermietungPage() {
                 onClick={() => openObjectDialog(selectedObject)}
                 className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Bearbeiten
+                {t('common.edit')}
               </button>
               <button
                 onClick={() => {
@@ -1402,7 +1406,7 @@ export default function VermietungPage() {
                 }}
                 className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
-                Reservierung erstellen
+                {t('vermietung.detail.buttonReservieren')}
               </button>
             </div>
           ) : undefined
@@ -1412,30 +1416,30 @@ export default function VermietungPage() {
           <div className="space-y-5">
             {/* Basic info */}
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Details</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.details')}</h4>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">Name</p>
+                  <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldName')}</p>
                   <p className="text-sm text-foreground font-medium">{selectedObject.name}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Typ</p>
-                  <p className="text-sm text-foreground">{OBJECT_TYPE_CONFIG[selectedObject.type].label}</p>
+                  <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldTyp')}</p>
+                  <p className="text-sm text-foreground">{t(OBJECT_TYPE_CONFIG[selectedObject.type].labelKey)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Standort</p>
+                  <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldStandort')}</p>
                   <p className="text-sm text-foreground">{selectedObject.location}</p>
                 </div>
                 {selectedObject.serialNumber && (
                   <div>
-                    <p className="text-xs text-muted-foreground">Seriennummer</p>
+                    <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldSerial')}</p>
                     <p className="text-sm text-foreground font-mono">{selectedObject.serialNumber}</p>
                   </div>
                 )}
               </div>
               {selectedObject.description && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Beschreibung</p>
+                  <p className="text-xs text-muted-foreground">{t('vermietung.detail.fieldDescription')}</p>
                   <p className="text-sm text-foreground">{selectedObject.description}</p>
                 </div>
               )}
@@ -1443,23 +1447,23 @@ export default function VermietungPage() {
 
             {/* Pricing */}
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Preise</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.preise')}</h4>
               <div className="rounded-lg border border-border bg-secondary/30 p-3">
                 <div className="flex items-baseline justify-between">
                   <div>
                     <span className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(selectedObject.dailyRate, selectedObject.currency)}</span>
-                    <span className="text-xs text-muted-foreground ml-1">/ Tag</span>
+                    <span className="text-xs text-muted-foreground ml-1">{t('vermietung.detail.perDay')}</span>
                   </div>
                   {selectedObject.weeklyRate && (
                     <div>
                       <span className="text-sm font-medium text-muted-foreground tabular-nums">{formatCurrency(selectedObject.weeklyRate, selectedObject.currency)}</span>
-                      <span className="text-xs text-muted-foreground ml-1">/ Woche</span>
+                      <span className="text-xs text-muted-foreground ml-1">{t('vermietung.detail.perWeek')}</span>
                     </div>
                   )}
                 </div>
                 {selectedObject.deposit && (
                   <div className="mt-2 pt-2 border-t border-border-muted flex items-baseline justify-between">
-                    <span className="text-xs text-muted-foreground">Kaution</span>
+                    <span className="text-xs text-muted-foreground">{t('vermietung.detail.kaution')}</span>
                     <span className="text-sm font-medium text-foreground tabular-nums">
                       {formatCurrency(selectedObject.deposit, selectedObject.currency)}
                     </span>
@@ -1470,12 +1474,12 @@ export default function VermietungPage() {
 
             {/* Current status */}
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Aktueller Status</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.currentStatus')}</h4>
               <div className="rounded-lg border border-border p-3">
                 <div className="flex items-center gap-2">
                   <span className={`h-2.5 w-2.5 rounded-full ${STATUS_CONFIG[selectedObject.status].dot}`} />
                   <span className={`text-sm font-medium ${STATUS_CONFIG[selectedObject.status].text}`}>
-                    {STATUS_CONFIG[selectedObject.status].label}
+                    {t(STATUS_CONFIG[selectedObject.status].labelKey)}
                   </span>
                 </div>
                 {(() => {
@@ -1483,7 +1487,7 @@ export default function VermietungPage() {
                   if (activeRes) {
                     return (
                       <div className="mt-2 pt-2 border-t border-border-muted">
-                        <p className="text-xs text-muted-foreground">Aktuelle Reservierung</p>
+                        <p className="text-xs text-muted-foreground">{t('vermietung.detail.activeReservation')}</p>
                         <p className="text-sm text-foreground font-medium">{activeRes.renter}</p>
                         <p className="text-xs text-muted-foreground">
                           {formatDate(activeRes.startDate)} – {formatDate(activeRes.endDate)}
@@ -1498,11 +1502,11 @@ export default function VermietungPage() {
 
             {/* Last 5 reservations */}
             <div className="space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Letzte Reservierungen</h4>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('vermietung.detail.lastReservations')}</h4>
               {(() => {
                 const objectReservations = getObjectReservations(selectedObject.id)
                 if (objectReservations.length === 0) {
-                  return <p className="text-xs text-muted-foreground py-2">Keine Reservierungen vorhanden</p>
+                  return <p className="text-xs text-muted-foreground py-2">{t('vermietung.detail.noReservations')}</p>
                 }
                 return (
                   <div className="space-y-1">
@@ -1525,7 +1529,7 @@ export default function VermietungPage() {
                             </p>
                           </div>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap ${statusCfg.bg}`}>
-                            {statusCfg.label}
+                            {t(statusCfg.labelKey)}
                           </span>
                         </div>
                       )
@@ -1566,9 +1570,9 @@ export default function VermietungPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Objekt löschen?"
-        description={`"${confirmDelete?.name}" wird unwiderruflich gelöscht. Bestehende Reservierungen bleiben erhalten.`}
-        confirmLabel="Löschen"
+        title={t('vermietung.confirm.deleteTitle')}
+        description={t('vermietung.confirm.deleteDesc', { name: confirmDelete?.name ?? '' })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={() => confirmDelete && handleDeleteObject(confirmDelete)}
       />
@@ -1577,9 +1581,9 @@ export default function VermietungPage() {
       <ConfirmDialog
         open={!!confirmCancel}
         onOpenChange={() => setConfirmCancel(null)}
-        title="Reservierung stornieren?"
-        description={`Die Reservierung von "${confirmCancel?.renter}" für "${confirmCancel?.objectName}" wird storniert.`}
-        confirmLabel="Stornieren"
+        title={t('vermietung.confirm.cancelTitle')}
+        description={t('vermietung.confirm.cancelDesc', { renter: confirmCancel?.renter ?? '', object: confirmCancel?.objectName ?? '' })}
+        confirmLabel={t('vermietung.confirm.cancelLabel')}
         variant="destructive"
         onConfirm={() => confirmCancel && handleCancelReservation(confirmCancel)}
       />

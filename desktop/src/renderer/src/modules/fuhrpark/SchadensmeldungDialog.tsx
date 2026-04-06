@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Camera, Plus, AlertTriangle, AlertCircle, AlertOctagon } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import type { Vehicle, DamageReport } from '@/stores/fuhrpark'
 import {
   Dialog,
@@ -24,10 +25,10 @@ interface SchadensmeldungDialogProps {
 
 type Severity = 'minor' | 'moderate' | 'major'
 
-const severityOptions: { value: Severity; label: string; icon: typeof AlertTriangle }[] = [
-  { value: 'minor', label: 'Gering', icon: AlertCircle },
-  { value: 'moderate', label: 'Mittel', icon: AlertTriangle },
-  { value: 'major', label: 'Schwer', icon: AlertOctagon },
+const severityOptionDefs: { value: Severity; icon: typeof AlertTriangle }[] = [
+  { value: 'minor', icon: AlertCircle },
+  { value: 'moderate', icon: AlertTriangle },
+  { value: 'major', icon: AlertOctagon },
 ]
 
 const severityStyles: Record<Severity, { active: string; inactive: string }> = {
@@ -55,6 +56,7 @@ export default function SchadensmeldungDialog({
   onClose,
   onSave,
 }: SchadensmeldungDialogProps) {
+  const { t } = useTranslation()
   const [vehicleId, setVehicleId] = useState(preselectedVehicleId || vehicles[0]?.id || '')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [severity, setSeverity] = useState<Severity>('minor')
@@ -66,9 +68,14 @@ export default function SchadensmeldungDialog({
   const selectedVehicle = vehicles.find((v) => v.id === vehicleId)
   const canSave = vehicleId && description.trim() && location.trim()
 
+  const severityOptions = severityOptionDefs.map((opt) => ({
+    ...opt,
+    label: t(`fuhrpark.severity.${opt.value}`),
+  }))
+
   const handleSave = () => {
     if (!canSave || !selectedVehicle) {
-      toast.error('Bitte alle Pflichtfelder ausfüllen')
+      toast.error(t('fuhrpark.damage.errorRequired'))
       return
     }
 
@@ -95,14 +102,14 @@ export default function SchadensmeldungDialog({
         <div className="p-6">
         {/* Header */}
         <DialogHeader className="mb-5">
-          <DialogTitle className="text-base font-semibold text-foreground">Schadensmeldung erstellen</DialogTitle>
-          <DialogDescription className="sr-only">Formular für eine neue Schadensmeldung</DialogDescription>
+          <DialogTitle className="text-base font-semibold text-foreground">{t('fuhrpark.damage.title')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('fuhrpark.damage.title')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Fahrzeug */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Fahrzeug *</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.damage.vehicle')}</label>
             <select
               value={vehicleId}
               onChange={(e) => setVehicleId(e.target.value)}
@@ -120,7 +127,7 @@ export default function SchadensmeldungDialog({
 
           {/* Row: Datum */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Datum</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.damage.date')}</label>
             <input
               type="date"
               value={date}
@@ -131,7 +138,7 @@ export default function SchadensmeldungDialog({
 
           {/* Schweregrad */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Schweregrad</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.damage.severity')}</label>
             <div className="flex gap-2">
               {severityOptions.map((opt) => {
                 const isActive = severity === opt.value
@@ -156,31 +163,31 @@ export default function SchadensmeldungDialog({
 
           {/* Schadensort */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Schadensort *</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.damage.location')}</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="z.B. Rechte Seite hinten, Windschutzscheibe"
+              placeholder={t('fuhrpark.damage.locationPlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
 
           {/* Beschreibung */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Beschreibung *</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.damage.description')}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Detaillierte Beschreibung des Schadens..."
+              placeholder={t('fuhrpark.damage.descriptionPlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
             />
           </div>
 
           {/* Fotos (mock) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Fotos</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.damage.photos')}</label>
             <div className="flex items-center gap-3 rounded-lg border-2 border-dashed border-border bg-secondary/30 p-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
                 <Camera className="h-5 w-5 text-muted-foreground" />
@@ -188,10 +195,12 @@ export default function SchadensmeldungDialog({
               <div className="flex-1 min-w-0">
                 {photoCount > 0 ? (
                   <p className="text-sm text-foreground font-medium">
-                    {photoCount} Foto{photoCount !== 1 ? 's' : ''} ausgewaehlt
+                    {photoCount !== 1
+                      ? t('fuhrpark.damage.photosSelectedPlural', { count: photoCount })
+                      : t('fuhrpark.damage.photosSelected', { count: photoCount })}
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Noch keine Fotos hinzugefügt</p>
+                  <p className="text-xs text-muted-foreground">{t('fuhrpark.damage.noPhotos')}</p>
                 )}
               </div>
               <button
@@ -199,19 +208,19 @@ export default function SchadensmeldungDialog({
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Fotos hinzufügen
+                {t('fuhrpark.damage.addPhotos')}
               </button>
             </div>
           </div>
 
           {/* Gemeldet von */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Gemeldet von</label>
+            <label className="text-xs font-medium text-muted-foreground">{t('fuhrpark.damage.reportedBy')}</label>
             <input
               type="text"
               value={reportedBy}
               onChange={(e) => setReportedBy(e.target.value)}
-              placeholder="Name des Meldenden"
+              placeholder={t('fuhrpark.damage.reportedByPlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -223,14 +232,14 @@ export default function SchadensmeldungDialog({
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={!canSave}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:pointer-events-none"
           >
-            Schadensmeldung speichern
+            {t('fuhrpark.damage.save')}
           </button>
         </DialogFooter>
         </div>
