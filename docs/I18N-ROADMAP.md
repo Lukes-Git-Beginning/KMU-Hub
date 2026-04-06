@@ -5,147 +5,75 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 
 ## Aktueller Stand (2026-04-06)
 
-### Committed (4 Commits auf main):
+### Committed (8 Commits auf main):
 - `1b7ee22` — i18next Infrastruktur + react-intl entfernt (20 Dateien)
 - `cf825a7` — Dashboard, CRM instrumentiert (78 Dateien)
 - `10cffa5` — Work, Profil, Settings, Kommunikation, Finanzen, Team (107 Dateien)
 - `88d9f1f` — Schritt 1B: 4 additions JSONs extrahiert + Loader aktualisiert
-
-### Uncommitted (Batch A teilweise):
-- **kontakte-2** ✅ — 6 Dateien instrumentiert, kontakte-2.json erstellt (64 Keys)
-- **chat-1** ✅ — 7 Dateien instrumentiert, chat.json erstellt (37 Keys)
-- **kontakte-1** ⚠️ FEHLER — Agent abgebrochen (Escape). 6/7 .tsx-Dateien modifiziert, ABER:
-  - `kontakte.json` wurde NICHT erstellt (Keys fehlen!)
-  - `DuplicateMatchCard.tsx` wurde NICHT bearbeitet
-  - Fix nötig: kontakte.json aus den t()-Calls in den 6 modifizierten Dateien extrahieren + DuplicateMatchCard.tsx instrumentieren
+- `549fb82` — Kontakte (partial) + Chat (partial)
+- `304ccbe` — kontakte.json Extraktion (148 Keys)
+- `e517ec2` — Chat (complete) + Wiki (66 Keys)
+- `60119f8` — Automatisierung (156 Keys) + Dokumente partial (78 Keys)
+- `99a97bd` — Dokumente complete (163 Keys) + Admin (270 Keys)
+- `fafc4a8` — Meetings (201 Keys) + Mails (115 Keys)
+- `99b36e0` — Helpdesk (120), Buchhaltung (158), Kalender (33), Rapporte (130), Notifications (30)
 
 ### Modul-Status Phase 3
 
-| Status | Modul | Dateien | JSON | Keys |
-|--------|-------|---------|------|------|
-| ✅ | auth | 2/4 | — | in de.json |
-| ✅ | security | 8/11 | — | in de.json |
-| ✅ | dashboard | 20/21 | dashboard.json ✅ | 187 |
-| ✅ | crm | 17/20 | crm.json ✅ | 302 |
-| ✅ | work | 37/37 | work.json ✅ | 323 |
-| ✅ | profil | 15/16 | profil.json ✅ | 275 |
-| ✅ | settings | 33/34 | settings.json ✅ | 233 |
-| ✅ | kommunikation | 22/22 | kommunikation.json ✅ | 167 |
-| ✅ | finanzen | 15/16 | finanzen.json ✅ | 244 |
-| ✅ | team | 14/14 | team.json ✅ | 233 |
-| ⚠️ | kontakte | 14/15 | kontakte-2.json ✅, kontakte.json ❌ | 64 (Teil) |
-| ✅ | chat | 7/13 | chat.json ✅ | 37 (Teil) |
-| ❌ | 11 Module | 0 | ❌ | Nicht begonnen |
-| ❌ | Components | 0 | ❌ | Nicht begonnen |
+| Status | Modul | JSON | Keys |
+|--------|-------|------|------|
+| ✅ | auth | — (in de.json) | — |
+| ✅ | security | — (in de.json) | — |
+| ✅ | dashboard | dashboard.json | 187 |
+| ✅ | crm | crm.json | 302 |
+| ✅ | work | work.json | 323 |
+| ✅ | profil | profil.json | 275 |
+| ✅ | settings | settings.json | 233 |
+| ✅ | kommunikation | kommunikation.json | 167 |
+| ✅ | finanzen | finanzen.json | 244 |
+| ✅ | team | team.json | 233 |
+| ✅ | kontakte | kontakte.json + kontakte-2.json | 148 + 64 |
+| ✅ | chat | chat.json | ~46 |
+| ✅ | wiki | wiki.json | 66 |
+| ✅ | automatisierung | automatisierung.json | 156 |
+| ✅ | dokumente | dokumente.json | 163 |
+| ✅ | admin | admin.json | 270 |
+| ✅ | meetings | meetings.json | 201 |
+| ✅ | mails | mails.json | 115 |
+| ✅ | helpdesk | helpdesk.json | 120 |
+| ✅ | buchhaltung | buchhaltung.json | 158 |
+| ✅ | kalender | kalender.json | 33 |
+| ✅ | rapporte | rapporte.json | 130 |
+| ✅ | notifications | notifications.json | 30 |
+| ❌ | Components | — | ~85 Dateien offen |
 
 ### i18n.ts Loader
-Importiert: crm, dashboard, finanzen, kommunikation, profil, settings, team, work (8/8 fertig).
-Noch NICHT importiert: kontakte, chat (+ 11 weitere Module aus Schritt 2).
+Importiert: crm, dashboard, finanzen, kommunikation, profil, settings, team, work (8/8).
+Noch NICHT importiert: kontakte, kontakte-2, chat, wiki, automatisierung, dokumente, admin, meetings, mails, helpdesk, buchhaltung, kalender, rapporte, notifications (14 JSONs).
 
-### Additions-Keys gesamt: ~2.065 (1.964 + 64 kontakte-2 + 37 chat)
+### Additions-Keys gesamt: ~3.600+
 
 ---
 
 ## ~~Schritt 1: JSON-Extraktion + Lücken füllen~~ ✅ ERLEDIGT
 
-4 Agents haben JSONs extrahiert für settings (233), kommunikation (167), finanzen (244), team (233). Loader aktualisiert. TypeScript kompiliert sauber.
+## ~~Schritt 2: Verbleibende Module (13 Module)~~ ✅ ERLEDIGT
+
+Alle 13 Module vollständig instrumentiert in Session vom 2026-04-06:
+- Batch A (vorherige Session): kontakte (partial), chat (partial)
+- Batch B: chat complete, wiki
+- Batch C: automatisierung, dokumente (partial)
+- Batch D: dokumente complete, admin
+- Batch E: meetings, mails
+- Batch F: helpdesk, buchhaltung, kalender, rapporte, notifications
 
 ---
 
-## Schritt 2: Verbleibende Module (13 Module, ~95 Dateien) ← IN PROGRESS
+## Schritt 2.5: Loader Update ← NÄCHSTER SCHRITT
 
-Jeder Agent bekommt max 7 Dateien + erstellt/erweitert die JSON.
-Basispfad: `desktop/src/renderer/src/modules/`
-
-### ~~Batch A~~ (teilweise erledigt)
-
-**Agent: kontakte-1** ⚠️ ABGEBROCHEN — 6/7 Dateien instrumentiert, JSON NICHT erstellt
-- ✅ KontaktePage.tsx, ContactFormDialog.tsx, ContactDetailPanel.tsx, FirmaDetailPanel.tsx, ConsentPanel.tsx, DuplicateDetectionDialog.tsx
-- ❌ DuplicateMatchCard.tsx — nicht bearbeitet
-- ❌ kontakte.json — nicht erstellt
-- **FIX NÖTIG:** kontakte.json aus t()-Calls extrahieren + DuplicateMatchCard.tsx instrumentieren
-
-**Agent: kontakte-2** ✅ (6/8 Dateien instrumentiert, 2 übersprungen)
-- ✅ CustomFieldRow, CustomFieldsConfig, GroupManagerDialog, ImportContactsDialog, MergeFieldSelector, NewsletterPanel
-- ⏭️ CustomFieldPreview (bereits instrumentiert), adapters.ts (keine UI-Strings)
-- Erstellt: additions/kontakte-2.json (64 Keys)
-
-**Agent: chat-1** ✅ (7 Dateien instrumentiert)
-- ✅ ChatLayout, ChannelHeader, ChannelList, CreateChannelDialog, MessageBubble, MessageInput, MessageList
-- Erstellt: additions/chat.json (37 Keys)
-
-### Batch B (3 parallel)
-
-**Agent: chat-2** (6 Dateien)
-- messages/FileAttachmentCard.tsx, FileDropZone.tsx, MentionAutocomplete.tsx, ReactionBar.tsx, ReactionPicker.tsx, threads/ThreadPanel.tsx
-- Prefix: `chat.` → ERWEITERE additions/chat.json
-
-**Agent: wiki-1** (6 Dateien)
-- WikiPage.tsx, WikiArticle.tsx, WikiArticleHeader.tsx, WikiEditor.tsx, WikiSidebar.tsx, WikiSearch.tsx
-- Prefix: `wiki.` → Erstelle additions/wiki.json
-
-**Agent: wiki-2** (6 Dateien)
-- WikiCategoryDialog.tsx, WikiShareDialog.tsx, WikiTemplateDialog.tsx, WikiTreeNode.tsx, WikiVersionHistory.tsx, WikiVersionItem.tsx
-- Prefix: `wiki.` → ERWEITERE additions/wiki.json
-
-### Batch C (3 parallel)
-
-**Agent: automatisierung-1** (6 Dateien)
-- AutomatisierungPage.tsx, AutomationEditor.tsx, AutomationWizard.tsx, ActionConfigurator.tsx, ConditionBuilder.tsx, TriggerSelector.tsx
-- Prefix: `automatisierung.` → Erstelle additions/automatisierung.json
-
-**Agent: automatisierung-2** (6 Dateien)
-- ExecutionLogViewer.tsx, TemplateGallery.tsx, nodes/ActionNode.tsx, nodes/ConditionNode.tsx, nodes/TriggerNode.tsx, nodes/nodeTypes.ts
-- Prefix: `automatisierung.` → ERWEITERE additions/automatisierung.json
-
-**Agent: dokumente-1** (6 Dateien)
-- DokumentePage.tsx, FileContextMenu.tsx, FileDetailPanel.tsx, FilePreviewModal.tsx, FolderCreateDialog.tsx, OnlyOfficeEditor.tsx
-- Prefix: `dokumente.` → Erstelle additions/dokumente.json
-
-### Batch D (3 parallel)
-
-**Agent: dokumente-2** (5 Dateien)
-- RenameDialog.tsx, ShareDialog.tsx, ShareLinkDialog.tsx, TemplateGalleryDialog.tsx, VersionHistoryPanel.tsx
-- Prefix: `dokumente.` → ERWEITERE additions/dokumente.json
-
-**Agent: admin-1** (5 Dateien)
-- CalDAVAdminPage.tsx, InfrastrukturPage.tsx, plugins/ExecutionLogViewer.tsx, plugins/IndustryTemplateGallery.tsx, plugins/PermissionApprovalDialog.tsx
-- Prefix: `admin.` → Erstelle additions/admin.json
-
-**Agent: admin-2** (5 Dateien)
-- plugins/PluginDetailDialog.tsx, plugins/PluginListPage.tsx, plugins/PluginSettingsEditor.tsx, plugins/ValidationRulesEditor.tsx, plugins/WorkflowRulesEditor.tsx
-- Prefix: `admin.` → ERWEITERE additions/admin.json
-
-### Batch E (3 parallel)
-
-**Agent: meetings-1** (7 Dateien, skip index.ts)
-- MeetingsPage.tsx, MeetingFormDialog.tsx, MeetingDetailPanel.tsx, MeetingLobby.tsx, MeetingRoomView.tsx, CallOverlay.tsx, MeetingActionItems.tsx
-- Prefix: `meetings.` → Erstelle additions/meetings.json
-
-**Agent: meetings-2** (2 Dateien)
-- MeetingNotesPanel.tsx, MeetingSummaryView.tsx
-- Prefix: `meetings.` → ERWEITERE additions/meetings.json
-
-**Agent: mails** (7 Dateien, skip compose-shared.tsx wenn nur Types)
-- MailsPage.tsx, ComposeInline.tsx, ComposeModal.tsx, compose-shared.tsx, ComposeWindowPage.tsx, EmailTemplateDialog.tsx, ExportDialog.tsx, ImportWizard.tsx
-- Prefix: `mails.` → Erstelle additions/mails.json
-
-### Batch F (3 parallel)
-
-**Agent: helpdesk** (7 Dateien)
-- HelpdeskPage.tsx, BusinessHoursDialog.tsx, CannedResponsePicker.tsx, CannedResponsesPanel.tsx, CSATWidget.tsx, SLABadge.tsx, TicketRoutingConfig.tsx
-- Prefix: `helpdesk.` → Erstelle additions/helpdesk.json
-
-**Agent: buchhaltung** (6 Dateien)
-- BuchhaltungPage.tsx, ExpenseFormDialog.tsx, ExportDialog.tsx, InvoiceDetailPanel.tsx, InvoiceFormDialog.tsx, PaymentRecordDialog.tsx
-- Prefix: `buchhaltung.` → Erstelle additions/buchhaltung.json
-
-**Agent: kalender+rapporte+notifications** (11 Dateien kombiniert)
-- kalender/: KalenderPage.tsx, CalendarBrowseDialog.tsx, CategoryManagerDialog.tsx, RoomBookingView.tsx, adapters.ts
-- rapporte/: RapportePage.tsx, SignatureCanvas.tsx, SketchCanvas.tsx
-- notifications/: NotificationBell.tsx, NotificationCenter.tsx, NotificationToast.tsx
-- Prefixes: `kalender.`, `rapporte.`, `notifications.`
-- Erstelle additions/kalender.json, rapporte.json, notifications.json
+1. Alle 14 fehlenden additions/*.json in i18n.ts importieren
+2. `npx tsc --noEmit` — muss sauber sein
+3. Commit: `feat(i18n): update i18n loader with all module additions`
 
 ---
 
@@ -287,12 +215,16 @@ status, actions, required, optional, ok, copy, copied, resetFilters
 | Phase | Agents | Dateien | Status |
 |-------|--------|---------|--------|
 | ~~Schritt 1B: JSON-Extraktion~~ | ~~4~~ | ~~scan only~~ | ✅ DONE |
-| Schritt 2: Module Batch A-F | ~18 | ~86 | TODO |
+| ~~Schritt 2: Module Batch A-F~~ | ~18 | ~86 | ✅ DONE |
+| Schritt 2.5: Loader Update | 1 (manuell) | 1 | TODO |
 | Schritt 3: Components Batch G-J | ~10 | ~85 | TODO |
 | Schritt 4: Merge & Loader | 1 (manuell) | — | TODO |
 | Schritt 5: Übersetzungen | 1-3 | 3 JSON | TODO |
 | Schritt 6: Cleanup | 1 (manuell) | — | TODO |
-| **Total verbleibend** | **~30 Agents** | **~171 Dateien** | |
+| **Total verbleibend** | **~12 Agents** | **~85 Dateien** | |
 
-Pro Session (3 parallel, ~40k tokens/Agent): ~4-5 Batches = ~12-15 Agents pro Session.
-Geschätzt 2-3 Sessions für Schritt 2+3, dann 1 Session für Schritt 4-6.
+## Lesson Learned
+- Agents verbrauchen bis zu 250k Tokens bei >10 Dateien. Max 5-7 Dateien pro Agent!
+- JSON-Extraktion separat von Instrumentierung machen — sauberer und verifizierbar
+- Paired Agents (z.B. wiki-1/wiki-2) besser in separate JSONs schreiben lassen und danach mergen
+- Einige Module waren bereits instrumentiert aber hatten keine JSONs — Extraktion-only Agents funktionieren gut
