@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ interface ExpenseFormDialogProps {
 }
 
 export function ExpenseFormDialog({ open, onOpenChange }: ExpenseFormDialogProps) {
+  const { t } = useTranslation()
   const { addExpense } = useFinanceStore()
 
   const [description, setDescription] = useState('')
@@ -60,7 +62,7 @@ export function ExpenseFormDialog({ open, onOpenChange }: ExpenseFormDialogProps
       receipt: false,
       status: 'pending',
     })
-    toast.success('Ausgabe erfasst')
+    toast.success(t('buchhaltung.toast.expenseRecorded'))
     reset()
     onOpenChange(false)
   }
@@ -69,51 +71,51 @@ export function ExpenseFormDialog({ open, onOpenChange }: ExpenseFormDialogProps
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v) }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Neue Ausgabe</DialogTitle>
+          <DialogTitle>{t('buchhaltung.newExpense')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label>Beschreibung *</Label>
-            <Input autoFocus placeholder="Was wurde gekauft?" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Label>{t('buchhaltung.form.description')} *</Label>
+            <Input autoFocus placeholder={t('buchhaltung.form.descriptionPlaceholder')} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Betrag (CHF) *</Label>
+              <Label>{t('buchhaltung.form.amount')} *</Label>
               <Input type="number" min={0.01} step={0.01} placeholder="0.00" value={amount || ''} onChange={(e) => setAmount(Number(e.target.value))} />
             </div>
             <div className="space-y-1.5">
-              <Label>Datum</Label>
+              <Label>{t('buchhaltung.form.date')}</Label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Kategorie</Label>
+              <Label>{t('buchhaltung.table.category')}</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{t(`buchhaltung.categories.${c}`)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Lieferant</Label>
-              <Input placeholder="Firma / Shop" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+              <Label>{t('buchhaltung.table.supplier')}</Label>
+              <Input placeholder={t('buchhaltung.form.supplierPlaceholder')} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Projekt (optional)</Label>
-            <Input placeholder="Zuordnung zu Projekt" value={project} onChange={(e) => setProject(e.target.value)} />
+            <Label>{t('buchhaltung.form.project')}</Label>
+            <Input placeholder={t('buchhaltung.form.projectPlaceholder')} value={project} onChange={(e) => setProject(e.target.value)} />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => { reset(); onOpenChange(false) }}>Abbrechen</Button>
-          <Button onClick={handleSave} disabled={!description.trim() || amount <= 0}>Erfassen</Button>
+          <Button variant="outline" onClick={() => { reset(); onOpenChange(false) }}>{t('common.cancel')}</Button>
+          <Button onClick={handleSave} disabled={!description.trim() || amount <= 0}>{t('buchhaltung.form.record')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -5,6 +5,7 @@
  * holidays, and timezone.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Clock,
   Plus,
@@ -49,6 +50,7 @@ interface BusinessHoursDialogProps {
 }
 
 export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps) {
+  const { t } = useTranslation()
   const { businessHours, holidays } = useHelpdeskStore()
 
   // Local editable state (clone from store/mock)
@@ -78,7 +80,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
 
   const addHoliday = () => {
     if (!newHolidayDate || !newHolidayName.trim()) {
-      toast.error('Bitte Datum und Name eingeben')
+      toast.error(t('helpdesk.businessHours.dateNameRequired'))
       return
     }
     const id = `h-${Date.now()}`
@@ -92,7 +94,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
   }
 
   const handleSave = () => {
-    toast.success('Geschäftszeiten gespeichert')
+    toast.success(t('helpdesk.businessHours.saved'))
     onClose()
   }
 
@@ -103,16 +105,16 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
         <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" />
-            <DialogTitle className="text-base font-semibold text-foreground">Geschäftszeiten konfigurieren</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-foreground">{t('helpdesk.businessHours.title')}</DialogTitle>
           </div>
-          <DialogDescription className="sr-only">Öffnungszeiten und Feiertage konfigurieren</DialogDescription>
+          <DialogDescription className="sr-only">{t('helpdesk.businessHours.description')}</DialogDescription>
         </DialogHeader>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {/* Timezone */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-foreground">Zeitzone</label>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.businessHours.timezone')}</label>
             <div className="relative w-64">
               <select
                 value={timezone}
@@ -129,15 +131,15 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
 
           {/* Business hours table */}
           <div>
-            <h3 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Öffnungszeiten</h3>
+            <h3 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('helpdesk.businessHours.openingHours')}</h3>
             <div className="rounded-lg border border-border overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/30">
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground w-36">Tag</th>
-                    <th className="px-4 py-2 text-center text-xs font-medium text-muted-foreground w-20">Aktiv</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Von</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Bis</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground w-36">{t('helpdesk.businessHours.day')}</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-muted-foreground w-20">{t('helpdesk.businessHours.active')}</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.businessHours.from')}</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.businessHours.to')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -185,10 +187,10 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
 
           {/* Holidays section */}
           <div>
-            <h3 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Feiertage</h3>
+            <h3 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t('helpdesk.businessHours.holidays')}</h3>
             <div className="space-y-2 mb-3">
               {holidayList.length === 0 && (
-                <p className="text-xs text-muted-foreground">Keine Feiertage konfiguriert.</p>
+                <p className="text-xs text-muted-foreground">{t('helpdesk.businessHours.noHolidays')}</p>
               )}
               {holidayList
                 .sort((a, b) => a.date.localeCompare(b.date))
@@ -217,7 +219,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
             {/* Add holiday */}
             <div className="flex items-end gap-2">
               <div className="flex-1">
-                <label className="mb-1 block text-[10px] text-muted-foreground">Datum</label>
+                <label className="mb-1 block text-[10px] text-muted-foreground">{t('helpdesk.businessHours.date')}</label>
                 <input
                   type="date"
                   value={newHolidayDate}
@@ -226,12 +228,12 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
                 />
               </div>
               <div className="flex-1">
-                <label className="mb-1 block text-[10px] text-muted-foreground">Bezeichnung</label>
+                <label className="mb-1 block text-[10px] text-muted-foreground">{t('helpdesk.businessHours.label')}</label>
                 <input
                   type="text"
                   value={newHolidayName}
                   onChange={(e) => setNewHolidayName(e.target.value)}
-                  placeholder="z.B. Auffahrt"
+                  placeholder={t('helpdesk.businessHours.labelPlaceholder')}
                   className="w-full rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
                 />
               </div>
@@ -240,7 +242,7 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
                 className="flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Hinzufügen
+                {t('helpdesk.businessHours.add')}
               </button>
             </div>
           </div>
@@ -252,13 +254,13 @@ export function BusinessHoursDialog({ open, onClose }: BusinessHoursDialogProps)
             onClick={onClose}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Speichern
+            {t('common.save')}
           </button>
         </DialogFooter>
       </DialogContent>

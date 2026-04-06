@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -20,13 +21,13 @@ import { toast } from 'sonner'
 import { useFinanceStore, type Invoice, calcRemainingAmount } from '@/stores/finance'
 import { formatCurrency } from '@/lib/format'
 
-const PAYMENT_METHODS = [
-  'Banküberweisung',
-  'Kreditkarte',
-  'Twint',
-  'PayPal',
-  'Bar',
-  'Lastschrift',
+const PAYMENT_METHOD_KEYS = [
+  'buchhaltung.paymentMethod.bankTransfer',
+  'buchhaltung.paymentMethod.creditCard',
+  'buchhaltung.paymentMethod.twint',
+  'buchhaltung.paymentMethod.paypal',
+  'buchhaltung.paymentMethod.cash',
+  'buchhaltung.paymentMethod.directDebit',
 ]
 
 interface PaymentRecordDialogProps {
@@ -36,12 +37,13 @@ interface PaymentRecordDialogProps {
 }
 
 export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentRecordDialogProps) {
+  const { t } = useTranslation()
   const { recordPayment } = useFinanceStore()
 
   const remaining = invoice ? calcRemainingAmount(invoice) : 0
   const [amount, setAmount] = useState(remaining)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [method, setMethod] = useState('Banküberweisung')
+  const [method, setMethod] = useState(PAYMENT_METHOD_KEYS[0])
   const [reference, setReference] = useState('')
 
   // Reset when opening
@@ -62,7 +64,7 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
       method,
       reference: reference.trim() || undefined,
     })
-    toast.success(`Zahlung von ${formatCurrency(amount)} erfasst`)
+    toast.success(t('buchhaltung.toast.paymentRecorded', { amount: formatCurrency(amount) }))
     onOpenChange(false)
   }
 
@@ -70,27 +72,27 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Zahlung erfassen</DialogTitle>
+          <DialogTitle>{t('buchhaltung.actions.recordPayment')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="rounded-md bg-secondary/50 p-3 text-xs space-y-1">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Rechnung</span>
+              <span className="text-muted-foreground">{t('buchhaltung.table.invoice')}</span>
               <span className="font-medium text-foreground">{invoice.number}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Kunde</span>
+              <span className="text-muted-foreground">{t('buchhaltung.table.client')}</span>
               <span className="text-foreground">{invoice.client}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Offener Betrag</span>
+              <span className="text-muted-foreground">{t('buchhaltung.payment.openAmount')}</span>
               <span className="font-medium text-primary">{formatCurrency(remaining)}</span>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Betrag (CHF)</Label>
+            <Label>{t('buchhaltung.form.amount')}</Label>
             <Input
               autoFocus
               type="number"
@@ -102,29 +104,29 @@ export function PaymentRecordDialog({ open, onOpenChange, invoice }: PaymentReco
           </div>
 
           <div className="space-y-1.5">
-            <Label>Datum</Label>
+            <Label>{t('buchhaltung.form.date')}</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Zahlungsart</Label>
+            <Label>{t('buchhaltung.payment.method')}</Label>
             <Select value={method} onValueChange={setMethod}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                {PAYMENT_METHOD_KEYS.map((key) => <SelectItem key={key} value={key}>{t(key)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Referenz / Beleg-Nr. (optional)</Label>
-            <Input placeholder="z.B. BELEG-043" value={reference} onChange={(e) => setReference(e.target.value)} />
+            <Label>{t('buchhaltung.payment.reference')}</Label>
+            <Input placeholder={t('buchhaltung.payment.referencePlaceholder')} value={reference} onChange={(e) => setReference(e.target.value)} />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleRecord} disabled={amount <= 0}>Zahlung erfassen</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleRecord} disabled={amount <= 0}>{t('buchhaltung.actions.recordPayment')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

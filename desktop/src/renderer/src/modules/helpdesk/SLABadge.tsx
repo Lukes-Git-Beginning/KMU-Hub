@@ -3,6 +3,7 @@
  *
  * Green (>4h remaining), Yellow (<4h), Red (overdue with pulse).
  */
+import { useTranslation } from 'react-i18next'
 import { Clock, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
@@ -14,6 +15,7 @@ interface SLABadgeProps {
 }
 
 export function SLABadge({ overdue, remaining, dueAt, compact }: SLABadgeProps) {
+  const { t } = useTranslation()
   const isWarning = !overdue && remaining.includes('h') && !remaining.includes('d')
   const hours = parseInt(remaining, 10)
   const isYellow = isWarning && !isNaN(hours) && hours < 4
@@ -48,7 +50,7 @@ export function SLABadge({ overdue, remaining, dueAt, compact }: SLABadgeProps) 
         colorClass,
         overdue && 'animate-pulse'
       )}
-      title={dueAt ? `Fällig: ${new Date(dueAt).toLocaleString('de-DE')}` : undefined}
+      title={dueAt ? t('helpdesk.sla.dueAt', { date: new Date(dueAt).toLocaleString('de-DE') }) : undefined}
     >
       <Icon className="h-3.5 w-3.5" />
       <span>{remaining}</span>
@@ -57,10 +59,11 @@ export function SLABadge({ overdue, remaining, dueAt, compact }: SLABadgeProps) 
 }
 
 export function SLABreachBanner({ remaining }: { remaining: string }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-error-light px-3 py-2 text-xs font-medium text-destructive">
       <AlertTriangle className="h-4 w-4 animate-pulse shrink-0" />
-      <span>SLA-Verletzung: {remaining} — Bitte umgehend bearbeiten!</span>
+      <span>{t('helpdesk.sla.breach', { remaining })}</span>
     </div>
   )
 }

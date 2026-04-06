@@ -5,6 +5,7 @@
  * that differ from the backend API types (ExpandedEvent, Calendar, etc.).
  * These adapters handle the transformation in both directions.
  */
+import i18next from 'i18next'
 import type {
   ExpandedEvent,
   CalendarWithMemberInfo,
@@ -119,11 +120,11 @@ function getInitials(firstName: string, lastName: string): string {
 function rruleToDisplay(rrule: string | null): string | undefined {
   if (!rrule) return undefined
   const upper = rrule.toUpperCase()
-  if (upper.includes('FREQ=DAILY')) return 'Täglich'
-  if (upper.includes('FREQ=WEEKLY')) return 'Wöchentlich'
-  if (upper.includes('FREQ=MONTHLY')) return 'Monatlich'
-  if (upper.includes('FREQ=YEARLY')) return 'Jaehrlich'
-  return 'Benutzerdefiniert...'
+  if (upper.includes('FREQ=DAILY')) return i18next.t('kalender.recurrence.daily')
+  if (upper.includes('FREQ=WEEKLY')) return i18next.t('kalender.recurrence.weekly')
+  if (upper.includes('FREQ=MONTHLY')) return i18next.t('kalender.recurrence.monthly')
+  if (upper.includes('FREQ=YEARLY')) return i18next.t('kalender.recurrence.yearly')
+  return i18next.t('kalender.recurrence.custom')
 }
 
 /**
@@ -264,14 +265,12 @@ export function deadlineToUI(deadline: TaskDeadlineStub): CalendarEvent {
  * Convert German recurrence label back to RRULE.
  */
 function displayToRrule(display: string | undefined): string | undefined {
-  if (!display || display === 'Keine') return undefined
-  switch (display) {
-    case 'Täglich': return 'FREQ=DAILY'
-    case 'Wöchentlich': return 'FREQ=WEEKLY'
-    case 'Monatlich': return 'FREQ=MONTHLY'
-    case 'Jaehrlich': return 'FREQ=YEARLY'
-    default: return undefined
-  }
+  if (!display || display === i18next.t('kalender.recurrence.none')) return undefined
+  if (display === i18next.t('kalender.recurrence.daily')) return 'FREQ=DAILY'
+  if (display === i18next.t('kalender.recurrence.weekly')) return 'FREQ=WEEKLY'
+  if (display === i18next.t('kalender.recurrence.monthly')) return 'FREQ=MONTHLY'
+  if (display === i18next.t('kalender.recurrence.yearly')) return 'FREQ=YEARLY'
+  return undefined
 }
 
 /**
@@ -287,7 +286,7 @@ export function uiEventToCreateRequest(
 
   return {
     calendar_id: calendarId,
-    title: event.title || 'Neuer Termin',
+    title: event.title || i18next.t('kalender.event.newAppointment'),
     description: event.description,
     location: event.location,
     start_time: new Date(startIso).toISOString(),
@@ -330,14 +329,36 @@ export function uiEventToUpdateRequest(
 // Synthetic calendar sources for holidays and task deadlines
 // ---------------------------------------------------------------------------
 
+export function getHolidayCalendar(): CalendarSource {
+  return {
+    id: 'holidays',
+    name: i18next.t('kalender.adapter.holidayCalendar'),
+    group: 'other',
+    color: '#9d8f85',
+    visible: true,
+  }
+}
+
+export function getDeadlineCalendar(): CalendarSource {
+  return {
+    id: 'deadlines',
+    name: i18next.t('kalender.adapter.deadlineCalendar'),
+    group: 'other',
+    color: '#a13f3f',
+    visible: true,
+  }
+}
+
+/** @deprecated Use getHolidayCalendar() for i18n support */
 export const HOLIDAY_CALENDAR: CalendarSource = {
   id: 'holidays',
-  name: 'Feiertage CH',
+  name: 'Feiertage DE',
   group: 'other',
   color: '#9d8f85',
   visible: true,
 }
 
+/** @deprecated Use getDeadlineCalendar() for i18n support */
 export const DEADLINE_CALENDAR: CalendarSource = {
   id: 'deadlines',
   name: 'Task-Deadlines',

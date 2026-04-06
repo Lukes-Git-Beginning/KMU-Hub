@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -64,12 +65,7 @@ const priorityColors: Record<string, string> = {
   critical: 'bg-error-light text-error',
 }
 
-const priorityLabels: Record<string, string> = {
-  low: 'Niedrig',
-  medium: 'Mittel',
-  high: 'Hoch',
-  critical: 'Kritisch',
-}
+// priorityLabels moved inside components as usePriorityLabels()
 
 const statusColors: Record<string, string> = {
   open: 'bg-warning-light text-warning',
@@ -79,13 +75,7 @@ const statusColors: Record<string, string> = {
   closed: 'bg-secondary text-muted-foreground',
 }
 
-const statusLabels: Record<string, string> = {
-  open: 'Offen',
-  in_progress: 'In Bearbeitung',
-  waiting: 'Wartend',
-  resolved: 'Geloest',
-  closed: 'Geschlossen',
-}
+// statusLabels moved inside components as useStatusLabels()
 
 const kbCategoryColors: Record<string, string> = {
   Netzwerk: 'bg-info-light text-info',
@@ -159,7 +149,18 @@ const KB_BODIES: Record<string, string> = {
 // ============================================================
 
 export default function HelpdeskPage() {
+  const { t } = useTranslation()
   const { tickets, kbArticles, stats } = useHelpdeskStore()
+
+  const priorityLabels: Record<string, string> = {
+    low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
+    high: t('helpdesk.priority.high'), critical: t('helpdesk.priority.critical'),
+  }
+  const statusLabels: Record<string, string> = {
+    open: t('helpdesk.status.open'), in_progress: t('helpdesk.status.inProgress'),
+    waiting: t('helpdesk.status.waiting'), resolved: t('helpdesk.status.resolved'),
+    closed: t('helpdesk.status.closed'),
+  }
 
   // Tab & filters
   const [tab, setTab] = useState<TabKey>('tickets')
@@ -222,19 +223,19 @@ export default function HelpdeskPage() {
   }
 
   const handleSaveNewTicket = () => {
-    if (!ntSubject.trim()) { toast.error('Bitte Betreff eingeben'); return }
-    toast.success(`Ticket erstellt: ${ntSubject}`)
+    if (!ntSubject.trim()) { toast.error(t('helpdesk.newTicket.subjectRequired')); return }
+    toast.success(t('helpdesk.newTicket.created', { subject: ntSubject }))
     setNewTicketOpen(false)
   }
 
   const handleSendReply = () => {
     if (!replyText.trim()) return
-    toast.success(showInternalNotes ? 'Interne Notiz gespeichert' : 'Antwort gesendet')
+    toast.success(showInternalNotes ? t('helpdesk.ticket.internalNoteSaved') : t('helpdesk.ticket.replySent'))
     setReplyText('')
   }
 
   const handleStatusChange = (newStatus: TicketType['status']) => {
-    if (selectedTicket) toast.info(`Status geändert: ${statusLabels[newStatus]}`)
+    if (selectedTicket) toast.info(t('helpdesk.ticket.statusChanged', { status: statusLabels[newStatus] }))
   }
 
   const handleTicketRowClick = (id: string) => {
@@ -252,7 +253,7 @@ export default function HelpdeskPage() {
       {/* Header */}
       <PageHeader
         title="Helpdesk"
-        description={`${openTickets.length} offene Tickets · ${kbArticles.length} Wissensartikel`}
+        description={t('helpdesk.header.description', { openCount: openTickets.length, articleCount: kbArticles.length })}
         icon={LifeBuoy}
         moduleId="helpdesk"
         actions={
@@ -262,7 +263,7 @@ export default function HelpdeskPage() {
               className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
             >
               <Clock className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Geschäftszeiten</span>
+              <span className="hidden sm:inline">{t('helpdesk.header.businessHours')}</span>
             </button>
             <button
               onClick={() => setRoutingConfigOpen(true)}
@@ -276,14 +277,14 @@ export default function HelpdeskPage() {
               className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary transition-colors"
             >
               <Zap className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Textbausteine</span>
+              <span className="hidden sm:inline">{t('helpdesk.header.cannedResponses')}</span>
             </button>
             <button
               onClick={handleOpenNewTicket}
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neues Ticket
+              {t('helpdesk.header.newTicket')}
             </button>
           </div>
         }
@@ -293,9 +294,9 @@ export default function HelpdeskPage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'tickets' as const, label: `Tickets (${openTickets.length} offen)` },
-          { key: 'wissensdatenbank' as const, label: 'Wissensdatenbank' },
-          { key: 'statistik' as const, label: 'Statistik' },
+          { key: 'tickets' as const, label: t('helpdesk.tabs.tickets', { count: openTickets.length }) },
+          { key: 'wissensdatenbank' as const, label: t('helpdesk.tabs.knowledgeBase') },
+          { key: 'statistik' as const, label: t('helpdesk.tabs.statistics') },
         ]).map((t) => (
           <button
             key={t.key}
@@ -320,7 +321,7 @@ export default function HelpdeskPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Ticket suchen..."
+                placeholder={t('helpdesk.filter.searchTicket')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -330,12 +331,12 @@ export default function HelpdeskPage() {
             {/* Status */}
             <div className="relative">
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
-                <option value="all">Alle Status</option>
-                <option value="open">Offen</option>
-                <option value="in_progress">In Bearbeitung</option>
-                <option value="waiting">Wartend</option>
-                <option value="resolved">Geloest</option>
-                <option value="closed">Geschlossen</option>
+                <option value="all">{t('helpdesk.filter.allStatuses')}</option>
+                <option value="open">{t('helpdesk.status.open')}</option>
+                <option value="in_progress">{t('helpdesk.status.inProgress')}</option>
+                <option value="waiting">{t('helpdesk.status.waiting')}</option>
+                <option value="resolved">{t('helpdesk.status.resolved')}</option>
+                <option value="closed">{t('helpdesk.status.closed')}</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
@@ -343,11 +344,11 @@ export default function HelpdeskPage() {
             {/* Priority */}
             <div className="relative">
               <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)} className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
-                <option value="all">Alle Prioritaeten</option>
-                <option value="critical">Kritisch</option>
-                <option value="high">Hoch</option>
-                <option value="medium">Mittel</option>
-                <option value="low">Niedrig</option>
+                <option value="all">{t('helpdesk.filter.allPriorities')}</option>
+                <option value="critical">{t('helpdesk.priority.critical')}</option>
+                <option value="high">{t('helpdesk.priority.high')}</option>
+                <option value="medium">{t('helpdesk.priority.medium')}</option>
+                <option value="low">{t('helpdesk.priority.low')}</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
@@ -355,7 +356,7 @@ export default function HelpdeskPage() {
             {/* Category (5.10) */}
             <div className="relative">
               <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
-                <option value="all">Alle Kategorien</option>
+                <option value="all">{t('helpdesk.filter.allCategories')}</option>
                 {MOCK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -366,7 +367,7 @@ export default function HelpdeskPage() {
                 onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setCategoryFilter('all') }}
                 className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
               >
-                Filter zurücksetzen
+                {t('common.resetFilters')}
               </button>
             )}
           </div>
@@ -377,14 +378,14 @@ export default function HelpdeskPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Ticket-Nr</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Betreff</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Kategorie</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Prioritaet</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Zugewiesen an</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.ticketNr')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.subject')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.category')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.priority')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('common.status')}</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.assignedTo')}</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">SLA</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Erstellt am</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.table.createdAt')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -433,9 +434,9 @@ export default function HelpdeskPage() {
             {filteredTickets.length === 0 && (
               <EmptyState
                 illustration={<EmptyHelpdesk />}
-                title="Keine Tickets gefunden"
-                description={hasActiveFilters || search ? 'Passe deine Filter an' : 'Erstelle ein neues Ticket'}
-                action={!hasActiveFilters && !search ? { label: 'Erstes Ticket anlegen', onClick: handleOpenNewTicket } : undefined}
+                title={t('helpdesk.empty.noTickets')}
+                description={hasActiveFilters || search ? t('helpdesk.empty.adjustFilters') : t('helpdesk.empty.createTicket')}
+                action={!hasActiveFilters && !search ? { label: t('helpdesk.empty.createFirstTicket'), onClick: handleOpenNewTicket } : undefined}
               />
             )}
           </div>
@@ -455,7 +456,7 @@ export default function HelpdeskPage() {
                 <div className="col-span-full">
                   <EmptyState
                     illustration={<EmptyHelpdesk />}
-                    title="Keine Artikel vorhanden"
+                    title={t('helpdesk.kb.noArticles')}
                   />
                 </div>
               ) : (
@@ -464,9 +465,9 @@ export default function HelpdeskPage() {
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="text-sm font-medium text-foreground line-clamp-2">{article.title}</h4>
                       {article.published ? (
-                        <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">Veröffentlicht</span>
+                        <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">{t('helpdesk.kb.published')}</span>
                       ) : (
-                        <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">Entwurf</span>
+                        <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium shrink-0 ml-2">{t('helpdesk.kb.draft')}</span>
                       )}
                     </div>
                     <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium mb-2 ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
@@ -489,16 +490,16 @@ export default function HelpdeskPage() {
       {tab === 'statistik' && (
         <div className="animate-fade-up">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={AlertCircle} label="Offene Tickets" value={stats.openTickets} iconColor="text-warning" iconBg="bg-warning-light" />
-            <StatCard icon={Clock} label="Durchschnittl. Antwortzeit" value={stats.avgResponseTime} iconColor="text-info" iconBg="bg-info-light" />
-            <StatCard icon={CheckCircle2} label="Geloest diese Woche" value={stats.resolvedThisWeek} iconColor="text-success" iconBg="bg-success-light" />
-            <StatCard icon={BarChart3} label="Kundenzufriedenheit" value={stats.customerSatisfaction} iconColor="text-primary" iconBg="bg-primary-light" />
+            <StatCard icon={AlertCircle} label={t('helpdesk.stats.openTickets')} value={stats.openTickets} iconColor="text-warning" iconBg="bg-warning-light" />
+            <StatCard icon={Clock} label={t('helpdesk.stats.avgResponseTime')} value={stats.avgResponseTime} iconColor="text-info" iconBg="bg-info-light" />
+            <StatCard icon={CheckCircle2} label={t('helpdesk.stats.resolvedThisWeek')} value={stats.resolvedThisWeek} iconColor="text-success" iconBg="bg-success-light" />
+            <StatCard icon={BarChart3} label={t('helpdesk.stats.customerSatisfaction')} value={stats.customerSatisfaction} iconColor="text-primary" iconBg="bg-primary-light" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Bar Chart */}
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-sm font-medium text-foreground mb-4">Tickets pro Wochentag</h3>
+              <h3 className="text-sm font-medium text-foreground mb-4">{t('helpdesk.stats.ticketsPerDay')}</h3>
               <div className="flex items-end gap-3 h-40">
                 {stats.weeklyBreakdown.map((day) => {
                   const maxCount = Math.max(...stats.weeklyBreakdown.map((d) => d.count), 1)
@@ -519,7 +520,7 @@ export default function HelpdeskPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">Nach Status</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.stats.byStatus')}</h3>
               <div className="space-y-2">
                 {(['open', 'in_progress', 'waiting', 'resolved', 'closed'] as const).map((s) => {
                   const count = tickets.filter((t) => t.status === s).length
@@ -537,7 +538,7 @@ export default function HelpdeskPage() {
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-medium text-foreground mb-3">Nach Prioritaet</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.stats.byPriority')}</h3>
               <div className="space-y-2">
                 {(['critical', 'high', 'medium', 'low'] as const).map((p) => {
                   const count = tickets.filter((t) => t.priority === p).length
@@ -580,20 +581,20 @@ export default function HelpdeskPage() {
       <Dialog open={newTicketOpen} onOpenChange={setNewTicketOpen}>
         <DialogContent className="max-w-lg gap-0 p-0">
           <DialogHeader className="px-6 py-4 border-b border-border">
-            <DialogTitle>Neues Ticket erstellen</DialogTitle>
+            <DialogTitle>{t('helpdesk.newTicket.title')}</DialogTitle>
           </DialogHeader>
             <div className="space-y-4 px-6 py-5">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">Betreff</label>
-                <input type="text" value={ntSubject} onChange={(e) => setNtSubject(e.target.value)} placeholder="Kurze Beschreibung des Problems" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
+                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.subject')}</label>
+                <input type="text" value={ntSubject} onChange={(e) => setNtSubject(e.target.value)} placeholder={t('helpdesk.newTicket.subjectPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">Beschreibung</label>
-                <textarea value={ntDescription} onChange={(e) => setNtDescription(e.target.value)} placeholder="Detaillierte Problembeschreibung..." rows={4} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none" />
+                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.description')}</label>
+                <textarea value={ntDescription} onChange={(e) => setNtDescription(e.target.value)} placeholder={t('helpdesk.newTicket.descriptionPlaceholder')} rows={4} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none" />
               </div>
               {/* Category (5.10) */}
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">Kategorie</label>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.category')}</label>
                 <div className="relative">
                   <select value={ntCategory} onChange={(e) => setNtCategory(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
                     {MOCK_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -602,7 +603,7 @@ export default function HelpdeskPage() {
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">Prioritaet</label>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.priorityLabel')}</label>
                 <div className="flex gap-2">
                   {(['low', 'medium', 'high', 'critical'] as const).map((p) => (
                     <label key={p} className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs cursor-pointer transition-colors ${ntPriority === p ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-secondary'}`}>
@@ -613,7 +614,7 @@ export default function HelpdeskPage() {
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">Zuweisen an</label>
+                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.assignTo')}</label>
                 <div className="relative">
                   <select value={ntAssignee} onChange={(e) => setNtAssignee(e.target.value)} className="w-full appearance-none rounded-lg border border-border bg-card px-3 pr-8 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer">
                     <option value="Marco Hartmann">Marco Hartmann</option>
@@ -623,13 +624,13 @@ export default function HelpdeskPage() {
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-foreground">Kontakt</label>
-                <input type="text" value={ntContact} onChange={(e) => setNtContact(e.target.value)} placeholder="Name des Kontakts" className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
+                <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.newTicket.contact')}</label>
+                <input type="text" value={ntContact} onChange={(e) => setNtContact(e.target.value)} placeholder={t('helpdesk.newTicket.contactPlaceholder')} className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring" />
               </div>
             </div>
             <DialogFooter className="px-6 py-4 border-t border-border">
-              <button onClick={() => setNewTicketOpen(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">Abbrechen</button>
-              <button onClick={handleSaveNewTicket} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">Ticket erstellen</button>
+              <button onClick={() => setNewTicketOpen(false)} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
+              <button onClick={handleSaveNewTicket} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('helpdesk.newTicket.createButton')}</button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -666,9 +667,20 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
   ticket: TicketType; replyText: string; onReplyChange: (v: string) => void; showInternalNotes: boolean
   onToggleInternal: (v: boolean) => void; onSendReply: () => void; onStatusChange: (s: TicketType['status']) => void; onClose: () => void
 }) {
+  const { t } = useTranslation()
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [aiSuggestionLoading, setAISuggestionLoading] = useState(false)
   const aiHelpdeskEnabled = useAIStore((s) => s.isModuleEnabled('helpdesk'))
+
+  const priorityLabels: Record<string, string> = {
+    low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'),
+    high: t('helpdesk.priority.high'), critical: t('helpdesk.priority.critical'),
+  }
+  const statusLabels: Record<string, string> = {
+    open: t('helpdesk.status.open'), in_progress: t('helpdesk.status.inProgress'),
+    waiting: t('helpdesk.status.waiting'), resolved: t('helpdesk.status.resolved'),
+    closed: t('helpdesk.status.closed'),
+  }
 
   const handleAISuggestion = () => {
     setAISuggestionLoading(true)
@@ -687,7 +699,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
         inputPreview: `${ticket.id}: ${ticket.subject.slice(0, 40)}`,
         outputPreview: suggestion.slice(0, 50) + '...',
       })
-      toast.success('KI-Vorschlag eingefuegt')
+      toast.success(t('helpdesk.ticket.aiSuggestionInserted'))
     }, 1800)
   }
   const [showCannedPicker, setShowCannedPicker] = useState(false)
@@ -743,7 +755,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
 
         {/* Description */}
         <div>
-          <h4 className="text-xs font-medium text-muted-foreground mb-1">Beschreibung</h4>
+          <h4 className="text-xs font-medium text-muted-foreground mb-1">{t('helpdesk.ticket.description')}</h4>
           <p className="text-sm text-foreground leading-relaxed">{ticket.description}</p>
         </div>
 
@@ -751,7 +763,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
         {ticket.customFields && Object.keys(ticket.customFields).length > 0 && (
           <div>
             <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-              <Settings2 className="h-3 w-3" /> Zusatzfelder
+              <Settings2 className="h-3 w-3" /> {t('helpdesk.ticket.customFields')}
             </h4>
             <div className="grid grid-cols-2 gap-2">
               {MOCK_CUSTOM_FIELD_DEFS.map((def) => {
@@ -761,7 +773,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
                   <div key={def.id} className="rounded-lg border border-border bg-secondary/30 px-2.5 py-1.5">
                     <p className="text-[10px] text-muted-foreground">{def.name}</p>
                     <p className="text-xs font-medium text-foreground">
-                      {def.type === 'checkbox' ? (val ? 'Ja' : 'Nein') : String(val)}
+                      {def.type === 'checkbox' ? (val ? t('common.yes') : t('common.no')) : String(val)}
                     </p>
                   </div>
                 )
@@ -773,26 +785,26 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
         {/* Meta info */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Kontakt</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.contact')}</p>
             <div className="flex items-center gap-1.5 text-sm text-foreground"><User className="h-3.5 w-3.5 text-muted-foreground" />{ticket.contactName}</div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Zugewiesen an</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.assignedTo')}</p>
             <div className="flex items-center gap-1.5 text-sm text-foreground"><User className="h-3.5 w-3.5 text-muted-foreground" />{ticket.assignedTo}</div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Erstellt</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.created')}</p>
             <p className="text-sm text-foreground">{new Date(ticket.createdAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Aktualisiert</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('helpdesk.ticket.updated')}</p>
             <p className="text-sm text-foreground">{new Date(ticket.updatedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
         </div>
 
         {/* Status change */}
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Status ändern</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('helpdesk.ticket.changeStatus')}</p>
           <div className="relative">
             <button onClick={() => setStatusDropdownOpen(!statusDropdownOpen)} className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors">
               <span className="flex items-center gap-2">
@@ -822,10 +834,10 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
         <div>
           <h4 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />
-            Nachrichtenverlauf ({thread.length})
+            {t('helpdesk.ticket.messageThread', { count: thread.length })}
             {internalNoteCount > 0 && (
               <span className="rounded-full bg-warning-light text-warning px-1.5 py-0.5 text-[9px] font-medium ml-1">
-                {internalNoteCount} intern
+                {t('helpdesk.ticket.internalCount', { count: internalNoteCount })}
               </span>
             )}
           </h4>
@@ -838,7 +850,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-[10px] font-medium text-muted-foreground">{msg.author}</span>
                     {msg.isInternal && (
-                      <span className="flex items-center gap-0.5 text-[9px] text-warning font-medium"><Lock className="h-2.5 w-2.5" />Intern</span>
+                      <span className="flex items-center gap-0.5 text-[9px] text-warning font-medium"><Lock className="h-2.5 w-2.5" />{t('helpdesk.ticket.internal')}</span>
                     )}
                   </div>
                   <p className="text-xs leading-relaxed">{msg.text}</p>
@@ -855,14 +867,14 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
         {/* Internal note banner (5.7) */}
         {showInternalNotes && (
           <div className="flex items-center gap-1.5 rounded-lg bg-warning-light/30 border border-warning/20 px-2.5 py-1.5 text-[10px] text-warning font-medium mb-2">
-            <Lock className="h-3 w-3" /> Nur intern sichtbar — Kunde sieht diese Notiz nicht
+            <Lock className="h-3 w-3" /> {t('helpdesk.ticket.internalOnlyBanner')}
           </div>
         )}
 
         <div className="flex items-center gap-2 mb-2">
-          <button onClick={() => onToggleInternal(false)} className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${!showInternalNotes ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>Antworten</button>
+          <button onClick={() => onToggleInternal(false)} className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${!showInternalNotes ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>{t('helpdesk.ticket.reply')}</button>
           <button onClick={() => onToggleInternal(true)} className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs transition-colors ${showInternalNotes ? 'bg-warning-light text-warning font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
-            <Lock className="h-3 w-3" />Interne Notiz{internalNoteCount > 0 && ` (${internalNoteCount})`}
+            <Lock className="h-3 w-3" />{t('helpdesk.ticket.internalNote')}{internalNoteCount > 0 && ` (${internalNoteCount})`}
           </button>
           <div className="flex-1" />
           {aiHelpdeskEnabled && (
@@ -876,12 +888,12 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
               ) : (
                 <Sparkles className="h-3 w-3" />
               )}
-              KI-Vorschlag
+              {t('helpdesk.ticket.aiSuggestion')}
             </button>
           )}
           <div className="relative">
             <button onClick={() => setShowCannedPicker(!showCannedPicker)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-secondary transition-colors">
-              <Zap className="h-3 w-3" />Textbaustein
+              <Zap className="h-3 w-3" />{t('helpdesk.ticket.cannedResponse')}
             </button>
             {showCannedPicker && (
               <CannedResponsePicker
@@ -895,7 +907,7 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
           <textarea
             value={replyText}
             onChange={(e) => onReplyChange(e.target.value)}
-            placeholder={showInternalNotes ? 'Interne Notiz schreiben...' : 'Antwort schreiben...'}
+            placeholder={showInternalNotes ? t('helpdesk.ticket.internalNotePlaceholder') : t('helpdesk.ticket.replyPlaceholder')}
             rows={2}
             className={`flex-1 rounded-lg border px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 resize-none ${
               showInternalNotes ? 'border-warning/40 bg-warning-light/20 focus:ring-warning/30' : 'border-border bg-card focus:ring-focus-ring'
@@ -911,14 +923,15 @@ function TicketDetailPanel({ ticket, replyText, onReplyChange, showInternalNotes
 }
 
 function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () => void }) {
-  const body = KB_BODIES[article.id] ?? 'Dieser Artikel hat noch keinen Inhalt.'
+  const { t } = useTranslation()
+  const body = KB_BODIES[article.id] ?? t('helpdesk.kb.noContent')
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(() => body.split('\n\n').map((p) => `<p>${p}</p>`).join(''))
 
   return (
     <div className="max-w-3xl mx-auto">
       <button onClick={onBack} className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors mb-5">
-        <ArrowLeft className="h-3.5 w-3.5" />Zurück zur Übersicht
+        <ArrowLeft className="h-3.5 w-3.5" />{t('helpdesk.kb.backToOverview')}
       </button>
 
       <div className="rounded-lg border border-border bg-card p-6">
@@ -928,9 +941,9 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
             <div className="flex items-center gap-3">
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${kbCategoryColors[article.category] ?? 'bg-secondary text-muted-foreground'}`}>{article.category}</span>
               {article.published ? (
-                <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">Veröffentlicht</span>
+                <span className="rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">{t('helpdesk.kb.published')}</span>
               ) : (
-                <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">Entwurf</span>
+                <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-medium">{t('helpdesk.kb.draft')}</span>
               )}
             </div>
           </div>
@@ -938,12 +951,12 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
             <span className="flex items-center gap-1 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" />{article.views}</span>
             {!editing ? (
               <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">
-                <Pencil className="h-3 w-3" />Bearbeiten
+                <Pencil className="h-3 w-3" />{t('common.edit')}
               </button>
             ) : (
               <div className="flex items-center gap-1.5">
-                <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">Abbrechen</button>
-                <button onClick={() => { setEditing(false); toast.success('Artikel gespeichert') }} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">Speichern</button>
+                <button onClick={() => setEditing(false)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
+                <button onClick={() => { setEditing(false); toast.success(t('helpdesk.kb.articleSaved')) }} className="rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
               </div>
             )}
           </div>
@@ -956,7 +969,7 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
           <RichTextEditor
             content={editContent}
             onChange={setEditContent}
-            placeholder="Artikelinhalt..."
+            placeholder={t('helpdesk.kb.articleContentPlaceholder')}
             showToolbar
             minHeight="200px"
           />
@@ -970,10 +983,10 @@ function KBArticleDetail({ article, onBack }: { article: KBArticle; onBack: () =
 
         <div className="border-t border-border mt-6 pt-4 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            Zuletzt aktualisiert: {new Date(article.updatedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}
+            {t('helpdesk.kb.lastUpdated')}: {new Date(article.updatedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}
           </p>
-          <button onClick={() => toast.info('Artikel-Feedback gesendet')} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
-            War dieser Artikel hilfreich?
+          <button onClick={() => toast.info(t('helpdesk.kb.feedbackSent'))} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">
+            {t('helpdesk.kb.wasHelpful')}
           </button>
         </div>
       </div>

@@ -4,6 +4,7 @@
  * Auto-assigns tickets to agents based on category.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Route, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -42,14 +43,17 @@ const INITIAL_RULES: RoutingRule[] = [
   { id: 'rr-8', category: 'Sonstiges', assignTo: 'Marco Hartmann', active: false },
 ]
 
-const PRIORITY_LABELS: Record<string, string> = {
-  '': 'Keine Änderung', low: 'Niedrig', medium: 'Mittel', high: 'Hoch', critical: 'Kritisch',
-}
+// Priority labels are now fetched via t() inside the component
 
 interface TicketRoutingConfigProps { open: boolean; onClose: () => void }
 
 export function TicketRoutingConfig({ open, onClose }: TicketRoutingConfigProps) {
+  const { t } = useTranslation()
   const [rules, setRules] = useState<RoutingRule[]>(INITIAL_RULES)
+
+  const PRIORITY_LABELS: Record<string, string> = {
+    '': t('helpdesk.routing.noChange'), low: t('helpdesk.priority.low'), medium: t('helpdesk.priority.medium'), high: t('helpdesk.priority.high'), critical: t('helpdesk.priority.critical'),
+  }
 
   const toggleActive = (id: string) => setRules((p) => p.map((r) => r.id === id ? { ...r, active: !r.active } : r))
   const updateRule = (id: string, field: string, value: string) => setRules((p) => p.map((r) => r.id === id ? { ...r, [field]: value } : r))
@@ -63,24 +67,24 @@ export function TicketRoutingConfig({ open, onClose }: TicketRoutingConfigProps)
         <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
           <div className="flex items-center gap-2">
             <Route className="h-4 w-4 text-primary" />
-            <DialogTitle className="text-base font-semibold text-foreground">Ticket-Routing konfigurieren</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-foreground">{t('helpdesk.routing.title')}</DialogTitle>
           </div>
-          <DialogDescription className="sr-only">Routing-Regeln für Ticket-Zuweisung konfigurieren</DialogDescription>
+          <DialogDescription className="sr-only">{t('helpdesk.routing.description')}</DialogDescription>
         </DialogHeader>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <p className="text-sm text-muted-foreground mb-4">
-            Tickets werden basierend auf der Kategorie automatisch dem zustaendigen Agenten zugewiesen.
+            {t('helpdesk.routing.info')}
           </p>
           <div className="rounded-lg border border-border overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Aktiv</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Kategorie</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Zuweisen an</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">Prioritaet</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.routing.active')}</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.routing.category')}</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.routing.assignTo')}</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">{t('helpdesk.routing.priority')}</th>
                   <th className="px-4 py-2.5 w-12"></th>
                 </tr>
               </thead>
@@ -127,14 +131,14 @@ export function TicketRoutingConfig({ open, onClose }: TicketRoutingConfigProps)
             </table>
           </div>
           <button onClick={addRule} className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
-            <Plus className="h-4 w-4" /> Neue Regel
+            <Plus className="h-4 w-4" /> {t('helpdesk.routing.newRule')}
           </button>
         </div>
 
         {/* Footer */}
         <DialogFooter className="border-t border-border px-6 py-4 shrink-0">
-          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">Abbrechen</button>
-          <button onClick={() => { toast.success('Routing-Regeln gespeichert'); onClose() }} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">Speichern</button>
+          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors">{t('common.cancel')}</button>
+          <button onClick={() => { toast.success(t('helpdesk.routing.saved')); onClose() }} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">{t('common.save')}</button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

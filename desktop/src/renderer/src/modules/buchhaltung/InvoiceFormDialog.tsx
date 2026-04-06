@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -29,20 +30,21 @@ interface InvoiceFormDialogProps {
 }
 
 const VAT_RATES = [
-  { value: '0', label: '0%' },
-  { value: '7', label: '7% (Ermäßigt)' },
-  { value: '19', label: '19% (Standard)' },
+  { value: '0', labelKey: 'buchhaltung.vatRate.zero' },
+  { value: '7', labelKey: 'buchhaltung.vatRate.reduced' },
+  { value: '19', labelKey: 'buchhaltung.vatRate.standard' },
 ]
 
-const PAYMENT_TERMS = [
-  '10 Tage netto',
-  '30 Tage netto',
-  '60 Tage netto',
-  '50% Anzahlung, 50% bei Abnahme',
-  'Sofort fällig',
+const PAYMENT_TERM_KEYS = [
+  'buchhaltung.paymentTerms.net10',
+  'buchhaltung.paymentTerms.net30',
+  'buchhaltung.paymentTerms.net60',
+  'buchhaltung.paymentTerms.deposit50',
+  'buchhaltung.paymentTerms.immediate',
 ]
 
 export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType = 'invoice' }: InvoiceFormDialogProps) {
+  const { t } = useTranslation()
   const { addInvoice, updateInvoice, nextInvoiceNum } = useFinanceStore()
 
   const [type, setType] = useState<'invoice' | 'quote'>(defaultType)
@@ -108,13 +110,13 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
         type, client: client.trim(), clientEmail: clientEmail.trim() || undefined,
         date, dueDate, paymentTerms, notes: notes.trim() || undefined, items: validItems,
       })
-      toast.success(`${type === 'quote' ? 'Angebot' : 'Rechnung'} aktualisiert`)
+      toast.success(t(type === 'quote' ? 'buchhaltung.toast.quoteUpdated' : 'buchhaltung.toast.invoiceUpdated'))
     } else {
       addInvoice({
         number: num, type, client: client.trim(), clientEmail: clientEmail.trim() || undefined,
         date, dueDate, status: 'draft', paymentTerms, notes: notes.trim() || undefined, items: validItems,
       })
-      toast.success(`${type === 'quote' ? 'Angebot' : 'Rechnung'} ${num} erstellt`)
+      toast.success(t(type === 'quote' ? 'buchhaltung.toast.quoteCreated' : 'buchhaltung.toast.invoiceCreated', { number: num }))
     }
     onOpenChange(false)
   }
@@ -128,7 +130,9 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {editInvoice ? `${type === 'quote' ? 'Angebot' : 'Rechnung'} bearbeiten` : `${type === 'quote' ? 'Neues Angebot' : 'Neue Rechnung'}`}
+            {editInvoice
+              ? t(type === 'quote' ? 'buchhaltung.dialog.editQuote' : 'buchhaltung.dialog.editInvoice')
+              : t(type === 'quote' ? 'buchhaltung.newQuote' : 'buchhaltung.newInvoice')}
           </DialogTitle>
         </DialogHeader>
 
@@ -136,21 +140,21 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
           {/* Type & Client */}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label>Typ</Label>
+              <Label>{t('buchhaltung.form.type')}</Label>
               <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="invoice">Rechnung</SelectItem>
-                  <SelectItem value="quote">Angebot</SelectItem>
+                  <SelectItem value="invoice">{t('buchhaltung.typeInvoice')}</SelectItem>
+                  <SelectItem value="quote">{t('buchhaltung.typeQuote')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Kunde *</Label>
-              <Input placeholder="Firma / Person" value={client} onChange={(e) => setClient(e.target.value)} />
+              <Label>{t('buchhaltung.table.client')} *</Label>
+              <Input placeholder={t('buchhaltung.form.clientPlaceholder')} value={client} onChange={(e) => setClient(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>E-Mail</Label>
+              <Label>{t('buchhaltung.form.email')}</Label>
               <Input type="email" placeholder="email@firma.de" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
             </div>
           </div>
@@ -158,19 +162,19 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
           {/* Dates & Terms */}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label>Datum</Label>
+              <Label>{t('buchhaltung.form.date')}</Label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Fällig am</Label>
+              <Label>{t('buchhaltung.form.dueDate')}</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Zahlungsbedingungen</Label>
+              <Label>{t('buchhaltung.form.paymentTerms')}</Label>
               <Select value={paymentTerms} onValueChange={setPaymentTerms}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {PAYMENT_TERMS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {PAYMENT_TERM_KEYS.map((key) => <SelectItem key={key} value={t(key)}>{t(key)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -178,15 +182,15 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
 
           {/* Line Items */}
           <div className="space-y-2">
-            <Label>Positionen</Label>
+            <Label>{t('buchhaltung.form.positions')}</Label>
             <div className="rounded-lg border border-border overflow-hidden">
               {/* Header */}
               <div className="grid grid-cols-[1fr_60px_80px_70px_50px_80px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
-                <span>Beschreibung</span>
-                <span>Menge</span>
-                <span>Preis</span>
-                <span>MwSt</span>
-                <span>Rabatt</span>
+                <span>{t('buchhaltung.table.description')}</span>
+                <span>{t('buchhaltung.form.quantity')}</span>
+                <span>{t('buchhaltung.form.price')}</span>
+                <span>{t('buchhaltung.form.vat')}</span>
+                <span>{t('buchhaltung.form.discount')}</span>
                 <span className="text-right">Total</span>
                 <span />
               </div>
@@ -194,7 +198,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
               {items.map((item, idx) => (
                 <div key={item.id} className="grid grid-cols-[1fr_60px_80px_70px_50px_80px_32px] gap-2 px-3 py-1.5 border-t border-border-muted items-center">
                   <Input
-                    placeholder="Beschreibung..."
+                    placeholder={t('buchhaltung.form.descriptionDots')}
                     value={item.description}
                     onChange={(e) => updateItem(idx, { description: e.target.value })}
                     className="h-7 text-xs"
@@ -220,7 +224,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
                     onChange={(e) => updateItem(idx, { vatRate: Number(e.target.value) })}
                     className="h-7 rounded border border-input-border bg-input-background px-1 text-[10px] text-foreground outline-none"
                   >
-                    {VAT_RATES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    {VAT_RATES.map((r) => <option key={r.value} value={r.value}>{t(r.labelKey)}</option>)}
                   </select>
                   <Input
                     type="number"
@@ -248,7 +252,7 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
                 className="flex items-center gap-1.5 w-full px-3 py-2 text-xs text-primary hover:bg-primary/5 transition-colors border-t border-border-muted"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Position hinzufügen
+                {t('buchhaltung.form.addPosition')}
               </button>
             </div>
           </div>
@@ -257,15 +261,15 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
           <div className="flex justify-end">
             <div className="w-60 space-y-1.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
-                <span>Zwischensumme</span>
+                <span>{t('buchhaltung.totals.subtotal')}</span>
                 <span>{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>MwSt</span>
+                <span>{t('buchhaltung.form.vat')}</span>
                 <span>{formatCurrency(tax)}</span>
               </div>
               <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
-                <span>Gesamt</span>
+                <span>{t('buchhaltung.totals.total')}</span>
                 <span>{formatCurrency(total)}</span>
               </div>
             </div>
@@ -273,16 +277,16 @@ export function InvoiceFormDialog({ open, onOpenChange, editInvoice, defaultType
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label>Notizen</Label>
-            <Textarea placeholder="Zusätzliche Informationen..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            <Label>{t('buchhaltung.form.notes')}</Label>
+            <Textarea placeholder={t('buchhaltung.form.notesPlaceholder')} value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleSave} disabled={!client.trim()}>
-            {editInvoice ? 'Speichern' : 'Erstellen'}
+            {editInvoice ? t('common.save') : t('common.create')}
           </Button>
         </div>
       </DialogContent>

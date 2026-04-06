@@ -1,14 +1,15 @@
+import { useTranslation } from 'react-i18next'
 import { FileText, Calendar, CreditCard, Clock, CheckCircle2, AlertCircle, XCircle, User } from 'lucide-react'
 import { DetailPanel } from '@/components/shared'
 import { type Invoice, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal, calcPaidAmount, calcRemainingAmount } from '@/stores/finance'
 import { formatCurrency } from '@/lib/format'
 
-const statusConfig: Record<string, { label: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
-  draft: { label: 'Entwurf', color: 'text-muted-foreground', bg: 'bg-secondary', icon: FileText },
-  sent: { label: 'Gesendet', color: 'text-info', bg: 'bg-info-light', icon: Clock },
-  paid: { label: 'Bezahlt', color: 'text-success', bg: 'bg-success-light', icon: CheckCircle2 },
-  overdue: { label: 'Überfällig', color: 'text-error', bg: 'bg-error-light', icon: AlertCircle },
-  cancelled: { label: 'Storniert', color: 'text-muted-foreground', bg: 'bg-secondary', icon: XCircle },
+const statusKeys: Record<string, { labelKey: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
+  draft: { labelKey: 'buchhaltung.status.draft', color: 'text-muted-foreground', bg: 'bg-secondary', icon: FileText },
+  sent: { labelKey: 'buchhaltung.status.sent', color: 'text-info', bg: 'bg-info-light', icon: Clock },
+  paid: { labelKey: 'buchhaltung.status.paid', color: 'text-success', bg: 'bg-success-light', icon: CheckCircle2 },
+  overdue: { labelKey: 'buchhaltung.status.overdue', color: 'text-error', bg: 'bg-error-light', icon: AlertCircle },
+  cancelled: { labelKey: 'buchhaltung.status.cancelled', color: 'text-muted-foreground', bg: 'bg-secondary', icon: XCircle },
 }
 
 interface InvoiceDetailPanelProps {
@@ -19,7 +20,8 @@ interface InvoiceDetailPanelProps {
 }
 
 export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }: InvoiceDetailPanelProps) {
-  const status = statusConfig[invoice.status]
+  const { t } = useTranslation()
+  const status = statusKeys[invoice.status]
   const StatusIcon = status.icon
   const subtotal = calcInvoiceSubtotal(invoice.items)
   const tax = calcInvoiceTax(invoice.items)
@@ -29,7 +31,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
   const isQuote = invoice.type === 'quote'
 
   return (
-    <DetailPanel open={true} title={isQuote ? 'Angebots-Details' : 'Rechnungs-Details'} onClose={onClose}>
+    <DetailPanel open={true} title={isQuote ? t('buchhaltung.detail.quoteDetails') : t('buchhaltung.detail.invoiceDetails')} onClose={onClose}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -39,7 +41,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
           </div>
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${status.bg} ${status.color}`}>
             <StatusIcon className="h-3 w-3" />
-            {status.label}
+            {t(status.labelKey)}
           </span>
         </div>
 
@@ -48,28 +50,28 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
           <div className="flex items-center gap-2 text-muted-foreground">
             <Calendar className="h-3.5 w-3.5" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Datum</p>
+              <p className="text-[10px] text-muted-foreground">{t('buchhaltung.form.date')}</p>
               <p className="text-foreground">{new Date(invoice.date).toLocaleDateString('de-DE')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Fällig</p>
+              <p className="text-[10px] text-muted-foreground">{t('buchhaltung.table.due')}</p>
               <p className="text-foreground">{new Date(invoice.dueDate).toLocaleDateString('de-DE')}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <User className="h-3.5 w-3.5" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Kunde</p>
+              <p className="text-[10px] text-muted-foreground">{t('buchhaltung.table.client')}</p>
               <p className="text-foreground">{invoice.client}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <CreditCard className="h-3.5 w-3.5" />
             <div>
-              <p className="text-[10px] text-muted-foreground">Bedingungen</p>
+              <p className="text-[10px] text-muted-foreground">{t('buchhaltung.detail.terms')}</p>
               <p className="text-foreground">{invoice.paymentTerms}</p>
             </div>
           </div>
@@ -77,7 +79,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
 
         {/* Line items */}
         <section>
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Positionen</h4>
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('buchhaltung.form.positions')}</h4>
           <div className="rounded-md border border-border overflow-hidden">
             {invoice.items.map((item, idx) => (
               <div key={item.id} className={`flex items-center justify-between px-3 py-2 text-xs ${idx > 0 ? 'border-t border-border-muted' : ''}`}>
@@ -85,8 +87,8 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
                   <p className="text-foreground truncate">{item.description}</p>
                   <p className="text-[10px] text-muted-foreground">
                     {item.quantity} × {formatCurrency(item.unitPrice)}
-                    {item.discount > 0 && ` · ${item.discount}% Rabatt`}
-                    {item.vatRate > 0 && ` · ${item.vatRate}% MwSt`}
+                    {item.discount > 0 && ` · ${item.discount}% ${t('buchhaltung.form.discount')}`}
+                    {item.vatRate > 0 && ` · ${item.vatRate}% ${t('buchhaltung.form.vat')}`}
                   </p>
                 </div>
                 <span className="text-foreground font-medium ml-3">{formatCurrency(calcLineTotal(item))}</span>
@@ -98,26 +100,26 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
         {/* Totals */}
         <div className="space-y-1.5 text-xs">
           <div className="flex justify-between text-muted-foreground">
-            <span>Zwischensumme</span>
+            <span>{t('buchhaltung.totals.subtotal')}</span>
             <span>{formatCurrency(subtotal)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
-            <span>MwSt</span>
+            <span>{t('buchhaltung.form.vat')}</span>
             <span>{formatCurrency(tax)}</span>
           </div>
           <div className="flex justify-between font-medium text-sm text-foreground border-t border-border pt-1.5">
-            <span>Gesamt</span>
+            <span>{t('buchhaltung.totals.total')}</span>
             <span>{formatCurrency(total)}</span>
           </div>
           {!isQuote && paid > 0 && (
             <>
               <div className="flex justify-between text-success">
-                <span>Bezahlt</span>
+                <span>{t('buchhaltung.status.paid')}</span>
                 <span>{formatCurrency(paid)}</span>
               </div>
               {remaining > 0 && (
                 <div className="flex justify-between font-medium text-warning">
-                  <span>Offen</span>
+                  <span>{t('buchhaltung.table.open')}</span>
                   <span>{formatCurrency(remaining)}</span>
                 </div>
               )}
@@ -128,7 +130,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
         {/* Payment history */}
         {invoice.payments.length > 0 && (
           <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Zahlungshistorie</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{t('buchhaltung.detail.paymentHistory')}</h4>
             <div className="space-y-1.5">
               {invoice.payments.map((p, idx) => (
                 <div key={idx} className="flex items-center justify-between rounded-md bg-success/5 px-3 py-2 text-xs">
@@ -149,7 +151,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
         {/* Notes */}
         {invoice.notes && (
           <section>
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Notizen</h4>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{t('buchhaltung.form.notes')}</h4>
             <p className="text-xs text-muted-foreground">{invoice.notes}</p>
           </section>
         )}
@@ -161,7 +163,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
               onClick={onEdit}
               className="flex-1 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
             >
-              Bearbeiten
+              {t('common.edit')}
             </button>
           )}
           {!isQuote && invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
@@ -169,7 +171,7 @@ export function InvoiceDetailPanel({ invoice, onClose, onEdit, onRecordPayment }
               onClick={onRecordPayment}
               className="flex-1 rounded-lg bg-primary py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              Zahlung erfassen
+              {t('buchhaltung.actions.recordPayment')}
             </button>
           )}
         </div>

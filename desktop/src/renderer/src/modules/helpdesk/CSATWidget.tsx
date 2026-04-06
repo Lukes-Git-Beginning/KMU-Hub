@@ -5,6 +5,7 @@
  * Aggregate display for statistics tab.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Star, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -53,6 +54,7 @@ interface CSATWidgetProps {
 }
 
 export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
+  const { t } = useTranslation()
   const existing = MOCK_CSAT_RATINGS.find((r) => r.ticketId === ticketId)
   const [rating, setRating] = useState(existing?.rating ?? 0)
   const [comment, setComment] = useState(existing?.comment ?? '')
@@ -61,16 +63,16 @@ export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
   if (ticketStatus !== 'resolved' && ticketStatus !== 'closed') return null
 
   const handleSubmit = () => {
-    if (rating === 0) { toast.error('Bitte Bewertung auswählen'); return }
+    if (rating === 0) { toast.error(t('helpdesk.csat.selectRating')); return }
     setSubmitted(true)
-    toast.success('Kundenfeedback gespeichert')
+    toast.success(t('helpdesk.csat.saved'))
   }
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <h4 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
         <Star className="h-3.5 w-3.5" />
-        Kundenfeedback
+        {t('helpdesk.csat.customerFeedback')}
       </h4>
       {submitted ? (
         <div>
@@ -91,12 +93,12 @@ export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Optionaler Kommentar..."
+            placeholder={t('helpdesk.csat.commentPlaceholder')}
             rows={2}
             className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
           />
           <button onClick={handleSubmit} className="rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors">
-            Bewertung senden
+            {t('helpdesk.csat.submit')}
           </button>
         </div>
       )}
@@ -105,6 +107,7 @@ export function CSATWidget({ ticketId, ticketStatus }: CSATWidgetProps) {
 }
 
 export function CSATAggregate() {
+  const { t } = useTranslation()
   const ratings = MOCK_CSAT_RATINGS
   if (ratings.length === 0) return null
   const avg = ratings.reduce((s, r) => s + r.rating, 0) / ratings.length
@@ -112,12 +115,12 @@ export function CSATAggregate() {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <h3 className="text-sm font-medium text-foreground mb-3">Kundenzufriedenheit (CSAT)</h3>
+      <h3 className="text-sm font-medium text-foreground mb-3">{t('helpdesk.csat.satisfaction')}</h3>
       <div className="flex items-center gap-3 mb-4">
         <span className="text-3xl font-semibold text-foreground">{avg.toFixed(1)}</span>
         <div>
           <StarRating value={Math.round(avg)} readOnly size="sm" />
-          <p className="text-xs text-muted-foreground mt-0.5">{ratings.length} Bewertungen</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t('helpdesk.csat.ratingsCount', { count: ratings.length })}</p>
         </div>
       </div>
       <div className="space-y-1.5">

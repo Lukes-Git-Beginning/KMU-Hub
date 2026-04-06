@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -23,10 +24,10 @@ interface CalendarBrowseDialogProps {
   onToggleCalendar: (id: string) => void
 }
 
-const GROUP_META: Record<string, { label: string; icon: typeof User; description: string }> = {
-  mine: { label: 'Meine Kalender', icon: User, description: 'Persönliche und Arbeitskalender' },
-  shared: { label: 'Geteilte Kalender', icon: Users, description: 'Team- und Projektkalender' },
-  other: { label: 'Andere', icon: Globe, description: 'Feiertage, Deadlines und externe Kalender' },
+const GROUP_ICONS: Record<string, typeof User> = {
+  mine: User,
+  shared: Users,
+  other: Globe,
 }
 
 export function CalendarBrowseDialog({
@@ -35,6 +36,7 @@ export function CalendarBrowseDialog({
   calendars,
   onToggleCalendar,
 }: CalendarBrowseDialogProps) {
+  const { t } = useTranslation()
   const groups = [
     { key: 'mine', items: calendars.filter((c) => c.group === 'mine') },
     { key: 'shared', items: calendars.filter((c) => c.group === 'shared') },
@@ -47,24 +49,23 @@ export function CalendarBrowseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Kalender verwalten</DialogTitle>
+          <DialogTitle>{t('kalender.browse.title')}</DialogTitle>
         </DialogHeader>
 
         <p className="text-xs text-muted-foreground">
-          {visibleCount} von {calendars.length} Kalendern sichtbar
+          {t('kalender.browse.visibleCount', { visible: visibleCount, total: calendars.length })}
         </p>
 
         <div className="space-y-4 py-2">
           {groups.map(({ key, items }) => {
-            const meta = GROUP_META[key]
-            const Icon = meta.icon
+            const Icon = GROUP_ICONS[key]
             return (
               <div key={key}>
                 <div className="flex items-center gap-2 mb-2">
                   <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                   <div>
-                    <h4 className="text-xs font-medium text-foreground">{meta.label}</h4>
-                    <p className="text-[10px] text-muted-foreground">{meta.description}</p>
+                    <h4 className="text-xs font-medium text-foreground">{t(`kalender.browse.group.${key}.label`)}</h4>
+                    <p className="text-[10px] text-muted-foreground">{t(`kalender.browse.group.${key}.description`)}</p>
                   </div>
                 </div>
                 <div className="space-y-0.5">
@@ -108,7 +109,7 @@ export function CalendarBrowseDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Schließen
+            {t('common.close')}
           </Button>
         </DialogFooter>
       </DialogContent>

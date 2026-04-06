@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useCalendars, useEventCategories, useCreateEventCategory, useDeleteEventCategory } from '@/api/hooks/useCalendars'
 import { useEventsInRange, useCreateEvent, useUpdateEvent, useDeleteEvent, useTaskDeadlines } from '@/api/hooks/useEvents'
 import { useAuthStore } from '@/stores/auth'
 import {
   expandedEventToUI, calendarToUI, categoryToUI, deadlineToUI,
   uiEventToCreateRequest, uiEventToUpdateRequest,
-  HOLIDAY_CALENDAR, DEADLINE_CALENDAR,
+  getHolidayCalendar, getDeadlineCalendar,
   type CalendarEvent as AdapterCalendarEvent,
   type CalendarSource as AdapterCalendarSource,
   type UIEventCategory,
@@ -310,6 +311,7 @@ function minutesToTime(totalMinutes: number): string {
 // ============================================================
 
 export default function KalenderPage() {
+  const { t } = useTranslation()
   const [topTab, setTopTab] = useState<TopTab>('kalender')
   const [view, setView] = useState<ViewMode>('week')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -335,8 +337,8 @@ export default function KalenderPage() {
     const apiCals = (calendarsData?.calendars ?? []).map((c) =>
       calendarToUI(c, currentUserId, visibleCalendarIds),
     )
-    const holidayCal: CalendarSource = { ...HOLIDAY_CALENDAR, visible: visibleCalendarIds.has('holidays') }
-    const deadlineCal: CalendarSource = { ...DEADLINE_CALENDAR, visible: visibleCalendarIds.has('deadlines') }
+    const holidayCal: CalendarSource = { ...getHolidayCalendar(), visible: visibleCalendarIds.has('holidays') }
+    const deadlineCal: CalendarSource = { ...getDeadlineCalendar(), visible: visibleCalendarIds.has('deadlines') }
     return [...apiCals, holidayCal, deadlineCal]
   }, [calendarsData, currentUserId, visibleCalendarIds])
 
@@ -424,10 +426,10 @@ export default function KalenderPage() {
           const diff = eventMinutes - nowMinutes
           if (diff > 0 && diff <= 15) {
             notifiedEventsRef.current.add(e.id)
-            toast(`Termin in ${diff} Minuten: ${e.title}`, {
+            toast(t('kalender.reminder.upcoming', { minutes: diff, title: e.title }), {
               description: `${e.startTime} – ${e.endTime}`,
               action: {
-                label: 'Öffnen',
+                label: t('kalender.reminder.open'),
                 onClick: () => setSelectedEvent(e),
               },
               duration: 10000,
@@ -458,11 +460,11 @@ export default function KalenderPage() {
     createEventMutation.mutate(
       uiEventToCreateRequest(eventData, calId),
       {
-        onSuccess: () => toast.success('Event erstellt'),
-        onError: () => toast.error('Event konnte nicht erstellt werden'),
+        onSuccess: () => toast.success(t('kalender.event.created')),
+        onError: () => toast.error(t('kalender.event.createError')),
       },
     )
-  }, [createEventMutation, calendars])
+  }, [createEventMutation, calendars, t])
 
   // Save event (create or update)
   const handleSaveEvent = useCallback((eventData: Partial<CalendarEvent>) => {
@@ -470,8 +472,8 @@ export default function KalenderPage() {
       updateEventMutation.mutate(
         { id: eventData.id, ...uiEventToUpdateRequest(eventData) },
         {
-          onSuccess: () => toast.success('Event aktualisiert'),
-          onError: () => toast.error('Event konnte nicht aktualisiert werden'),
+          onSuccess: () => toast.success(t('kalender.event.updated')),
+          onError: () => toast.error(t('kalender.event.updateError')),
         },
       )
     } else {
@@ -480,8 +482,8 @@ export default function KalenderPage() {
       createEventMutation.mutate(
         uiEventToCreateRequest(eventData, calId),
         {
-          onSuccess: () => toast.success('Event erstellt'),
-          onError: () => toast.error('Event konnte nicht erstellt werden'),
+          onSuccess: () => toast.success(t('kalender.event.created')),
+          onError: () => toast.error(t('kalender.event.createError')),
         },
       )
     }
@@ -492,10 +494,10 @@ export default function KalenderPage() {
     if (eventId.startsWith('deadline-') || eventId.startsWith('holiday-')) return
     deleteEventMutation.mutate(eventId, {
       onSuccess: () => {
-        toast.success('Event gelöscht')
+        toast.success(t('kalender.event.deleted'))
         setSelectedEvent(null)
       },
-      onError: () => toast.error('Event konnte nicht gelöscht werden'),
+      onError: () => toast.error(t('kalender.event.deleteError')),
     })
   }, [deleteEventMutation])
 
@@ -558,7 +560,7 @@ export default function KalenderPage() {
           style={topTab === 'kalender' ? { borderColor: moduleHsl('calendar'), color: moduleHsl('calendar') } : undefined}
         >
           <Calendar className="mr-1.5 inline h-4 w-4" />
-          Kalender
+          {t('kalender.tabs.calendar')}
         </button>
         <button
           onClick={() => setTopTab('terminbuchung')}
@@ -566,7 +568,7 @@ export default function KalenderPage() {
           style={topTab === 'terminbuchung' ? { borderColor: moduleHsl('calendar'), color: moduleHsl('calendar') } : undefined}
         >
           <CalendarCheck className="mr-1.5 inline h-4 w-4" />
-          Terminbuchung
+          {t('kalender.tabs.booking')}
         </button>
       </div>
 
@@ -601,7 +603,7 @@ export default function KalenderPage() {
                 <div className="flex items-center justify-center h-full">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    <span className="text-xs">Kalender wird geladen...</span>
+                    <span className="text-xs">{t('kalender.loading')}</span>
                   </div>
                 </div>
               ) : (
@@ -726,6 +728,7 @@ export default function KalenderPage() {
 // ============================================================
 
 function TerminbuchungTab() {
+  const { t } = useTranslation()
   const [showNewBooking, setShowNewBooking] = useState(false)
   const [bookingDate, setBookingDate] = useState('2026-02-09')
   const [bookings, setBookings] = useState(MOCK_BOOKINGS)
@@ -742,9 +745,9 @@ function TerminbuchungTab() {
 
   const statusLabel = (status: BookingAppointment['status']) => {
     switch (status) {
-      case 'bestätigt': return { text: 'Bestätigt', cls: 'bg-success/15 text-success' }
-      case 'ausstehend': return { text: 'Ausstehend', cls: 'bg-warning/15 text-warning' }
-      case 'abgesagt': return { text: 'Abgesagt', cls: 'bg-error/15 text-error' }
+      case 'bestätigt': return { text: t('kalender.booking.confirmed'), cls: 'bg-success/15 text-success' }
+      case 'ausstehend': return { text: t('kalender.booking.pending'), cls: 'bg-warning/15 text-warning' }
+      case 'abgesagt': return { text: t('kalender.booking.cancelled'), cls: 'bg-error/15 text-error' }
     }
   }
 
@@ -752,7 +755,7 @@ function TerminbuchungTab() {
     const id = `bk${Date.now()}`
     setBookings((prev) => [...prev, { ...newBooking, id }])
     setShowNewBooking(false)
-    toast.success('Termin erfolgreich erstellt')
+    toast.success(t('kalender.booking.createdSuccess'))
   }
 
   const todayBookingCount = bookings.filter((b) => b.datum === '2026-02-09' && b.status !== 'abgesagt').length
@@ -769,14 +772,14 @@ function TerminbuchungTab() {
             onClick={() => setBuchungSubTab('übersicht')}
             className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'übersicht' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           >
-            Übersicht
+            {t('kalender.booking.overview')}
           </button>
           <button
             onClick={() => setBuchungSubTab('vorschau')}
             className={`border-b-2 px-1 pb-2 text-xs transition-colors ${buchungSubTab === 'vorschau' ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
           >
             <ExternalLink className="mr-1 inline h-3 w-3" />
-            Buchungslink-Vorschau
+            {t('kalender.booking.linkPreview')}
           </button>
         </div>
 
@@ -787,9 +790,9 @@ function TerminbuchungTab() {
         {/* Header row with stats and action */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Terminbuchung</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t('kalender.tabs.booking')}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Heute: {todayBookingCount} Termine &middot; CHF {todayRevenue.toFixed(0)} Umsatz
+              {t('kalender.booking.todayStats', { count: todayBookingCount, revenue: todayRevenue.toFixed(0) })}
             </p>
           </div>
           <button
@@ -797,13 +800,13 @@ function TerminbuchungTab() {
             className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Neuer Termin
+            {t('kalender.booking.newAppointment')}
           </button>
         </div>
 
         {/* Service Catalog */}
         <div>
-          <h3 className="text-sm font-medium text-foreground mb-3">Service-Katalog</h3>
+          <h3 className="text-sm font-medium text-foreground mb-3">{t('kalender.booking.serviceCatalog')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {BOOKING_SERVICES.map((service) => (
               <div key={service.id} className="rounded-lg border border-border bg-card p-4 hover:shadow-sm transition-shadow">
@@ -835,7 +838,7 @@ function TerminbuchungTab() {
         {/* Day Overview (Timeline) */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-foreground">Tagesübersicht</h3>
+            <h3 className="text-sm font-medium text-foreground">{t('kalender.booking.dayOverview')}</h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -869,17 +872,17 @@ function TerminbuchungTab() {
           {bookingsForDate.length === 0 ? (
             <div className="rounded-lg border border-border bg-card p-8 text-center">
               <CalendarCheck className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Keine Termine an diesem Tag</p>
+              <p className="text-sm text-muted-foreground">{t('kalender.booking.noAppointments')}</p>
             </div>
           ) : (
             <div className="rounded-lg border border-border bg-card overflow-hidden">
               {/* Timeline header */}
               <div className="grid grid-cols-[80px_1fr_120px_120px_100px] gap-3 border-b border-border bg-secondary/30 px-4 py-2">
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Zeit</span>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Termin</span>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Personal</span>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Kunde</span>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Status</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{t('kalender.booking.time')}</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{t('kalender.booking.appointment')}</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{t('kalender.booking.staff')}</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{t('kalender.booking.client')}</span>
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{t('common.status')}</span>
               </div>
 
               {/* Timeline rows */}
@@ -928,7 +931,7 @@ function TerminbuchungTab() {
         {/* Visual timeline blocks */}
         {bookingsForDate.length > 0 && (
           <div>
-            <h3 className="text-sm font-medium text-foreground mb-3">Zeitleiste</h3>
+            <h3 className="text-sm font-medium text-foreground mb-3">{t('kalender.booking.timeline')}</h3>
             <div className="rounded-lg border border-border bg-card p-4">
               {/* Staff rows */}
               {BOOKING_STAFF.map((staff) => {
@@ -1002,6 +1005,7 @@ function TerminbuchungTab() {
 // ============================================================
 
 function ExternalBookingPreview() {
+  const { t } = useTranslation()
   const [selectedService, setSelectedService] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
@@ -1041,10 +1045,10 @@ function ExternalBookingPreview() {
 
   const handleBook = () => {
     if (!bookingForm.name.trim() || !bookingForm.email.trim()) {
-      toast.error('Bitte Name und E-Mail ausfüllen')
+      toast.error(t('kalender.external.fillRequired'))
       return
     }
-    toast.success('Termin gebucht!')
+    toast.success(t('kalender.external.booked'))
     setStep(1)
     setSelectedService(null)
     setSelectedDate(null)
@@ -1060,17 +1064,17 @@ function ExternalBookingPreview() {
       <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary-subtle px-4 py-3">
         <div className="flex items-center gap-2">
           <ExternalLink className="h-4 w-4 text-primary" />
-          <p className="text-xs text-primary font-medium">So sieht die Buchungsseite für Ihre Kunden aus</p>
+          <p className="text-xs text-primary font-medium">{t('kalender.external.previewBanner')}</p>
         </div>
         <button
           onClick={() => {
             navigator.clipboard?.writeText('https://booking.zentria.tech/firma/cosmi-demo')
-            toast.success('Buchungslink kopiert')
+            toast.success(t('kalender.external.linkCopied'))
           }}
           className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
         >
           <Copy className="h-3 w-3" />
-          Link kopieren
+          {t('kalender.external.copyLink')}
         </button>
       </div>
 
@@ -1082,7 +1086,7 @@ function ExternalBookingPreview() {
             <Calendar className="h-6 w-6 text-white" />
           </div>
           <h3 className="text-base font-semibold text-white">Cosmi GmbH</h3>
-          <p className="text-xs text-white/70 mt-0.5">Online Terminbuchung</p>
+          <p className="text-xs text-white/70 mt-0.5">{t('kalender.external.onlineBooking')}</p>
         </div>
 
         <div className="p-6 space-y-5">
@@ -1105,7 +1109,7 @@ function ExternalBookingPreview() {
           {/* Step 1: Service selection */}
           {step === 1 && (
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-foreground text-center">Service wählen</h4>
+              <h4 className="text-sm font-medium text-foreground text-center">{t('kalender.external.selectService')}</h4>
               <div className="space-y-2">
                 {MOCK_EXTERNAL_SERVICES.map((svc) => (
                   <button
@@ -1130,7 +1134,7 @@ function ExternalBookingPreview() {
                           <span className="text-[10px] text-muted-foreground">EUR {svc.price}</span>
                         )}
                         {svc.price === 0 && (
-                          <span className="text-[10px] text-success font-medium">Kostenlos</span>
+                          <span className="text-[10px] text-success font-medium">{t('kalender.external.free')}</span>
                         )}
                       </div>
                     </div>
@@ -1145,8 +1149,8 @@ function ExternalBookingPreview() {
           {step === 2 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <button onClick={() => setStep(1)} className="text-xs text-primary hover:underline">Zurück</button>
-                <h4 className="text-sm font-medium text-foreground">Datum wählen</h4>
+                <button onClick={() => setStep(1)} className="text-xs text-primary hover:underline">{t('common.back')}</button>
+                <h4 className="text-sm font-medium text-foreground">{t('kalender.external.selectDate')}</h4>
                 <div className="w-10" />
               </div>
               {selectedServiceObj && (
@@ -1185,8 +1189,8 @@ function ExternalBookingPreview() {
           {step === 3 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <button onClick={() => setStep(2)} className="text-xs text-primary hover:underline">Zurück</button>
-                <h4 className="text-sm font-medium text-foreground">Uhrzeit wählen</h4>
+                <button onClick={() => setStep(2)} className="text-xs text-primary hover:underline">{t('common.back')}</button>
+                <h4 className="text-sm font-medium text-foreground">{t('kalender.external.selectTime')}</h4>
                 <div className="w-10" />
               </div>
               <p className="text-center text-xs text-muted-foreground">
@@ -1196,7 +1200,7 @@ function ExternalBookingPreview() {
                 })()}
               </p>
               {availableSlots.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground py-4">Keine freien Termine an diesem Tag</p>
+                <p className="text-center text-sm text-muted-foreground py-4">{t('kalender.external.noSlots')}</p>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {availableSlots.map((slot) => (
@@ -1224,8 +1228,8 @@ function ExternalBookingPreview() {
           {step === 4 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <button onClick={() => setStep(3)} className="text-xs text-primary hover:underline">Zurück</button>
-                <h4 className="text-sm font-medium text-foreground">Ihre Daten</h4>
+                <button onClick={() => setStep(3)} className="text-xs text-primary hover:underline">{t('common.back')}</button>
+                <h4 className="text-sm font-medium text-foreground">{t('kalender.external.yourData')}</h4>
                 <div className="w-10" />
               </div>
 
@@ -1254,7 +1258,7 @@ function ExternalBookingPreview() {
                 </label>
                 <input
                   type="text"
-                  placeholder="Vor- und Nachname"
+                  placeholder={t('kalender.external.namePlaceholder')}
                   value={bookingForm.name}
                   onChange={(e) => setBookingForm({ ...bookingForm, name: e.target.value })}
                   className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
@@ -1295,11 +1299,11 @@ function ExternalBookingPreview() {
               <div>
                 <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
                   <FileText className="h-3 w-3 inline mr-1" />
-                  Notizen
+                  {t('kalender.external.notes')}
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Optionale Anmerkungen..."
+                  placeholder={t('kalender.external.notesPlaceholder')}
                   value={bookingForm.notes}
                   onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
                   className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none resize-none focus:border-primary"
@@ -1311,11 +1315,11 @@ function ExternalBookingPreview() {
                 onClick={handleBook}
                 className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
-                Termin buchen
+                {t('kalender.external.bookAppointment')}
               </button>
 
               <p className="text-center text-[10px] text-muted-foreground">
-                Mit der Buchung stimmen Sie unseren Nutzungsbedingungen zu.
+                {t('kalender.external.termsNote')}
               </p>
             </div>
           )}
@@ -1343,6 +1347,7 @@ function NewBookingDialog({
   onClose: () => void
   onSave: (booking: Omit<BookingAppointment, 'id'>) => void
 }) {
+  const { t } = useTranslation()
   const [serviceId, setServiceId] = useState(BOOKING_SERVICES[0].id)
   const [kunde, setKunde] = useState('')
   const [datum, setDatum] = useState('2026-02-09')
@@ -1365,7 +1370,7 @@ function NewBookingDialog({
 
   const handleSubmit = () => {
     if (!kunde.trim()) {
-      toast.error('Bitte Kundenname eingeben')
+      toast.error(t('kalender.newBooking.clientRequired'))
       return
     }
     onSave({
@@ -1384,7 +1389,7 @@ function NewBookingDialog({
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent className="gap-0 p-0 max-w-md max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader className="border-b border-border px-5 py-3">
-          <DialogTitle className="text-sm font-medium text-foreground">Neuer Termin</DialogTitle>
+          <DialogTitle className="text-sm font-medium text-foreground">{t('kalender.booking.newAppointment')}</DialogTitle>
         </DialogHeader>
 
         {/* Form */}
@@ -1422,7 +1427,7 @@ function NewBookingDialog({
             </label>
             <input
               type="text"
-              placeholder="Name des Kunden..."
+              placeholder={t('kalender.newBooking.clientPlaceholder')}
               value={kunde}
               onChange={(e) => setKunde(e.target.value)}
               className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
@@ -1432,7 +1437,7 @@ function NewBookingDialog({
           {/* Date & Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Datum</label>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">{t('kalender.form.date')}</label>
               <input
                 type="date"
                 value={datum}
@@ -1441,7 +1446,7 @@ function NewBookingDialog({
               />
             </div>
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Zeitslot</label>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">{t('kalender.newBooking.timeSlot')}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="time"
@@ -1449,7 +1454,7 @@ function NewBookingDialog({
                   onChange={(e) => setStartTime(e.target.value)}
                   className="flex-1 rounded-lg border border-input-border bg-input-background px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
                 />
-                <span className="text-xs text-muted-foreground">bis</span>
+                <span className="text-xs text-muted-foreground">{t('kalender.room.until')}</span>
                 <span className="text-xs text-foreground font-medium">{endTime}</span>
               </div>
               <p className="text-[10px] text-muted-foreground mt-0.5">Dauer: {selectedService.dauer} Min.</p>
@@ -1481,7 +1486,7 @@ function NewBookingDialog({
             </label>
             <textarea
               rows={3}
-              placeholder="Optionale Notizen zum Termin..."
+              placeholder={t('kalender.newBooking.notesPlaceholder')}
               value={notizen}
               onChange={(e) => setNotizen(e.target.value)}
               className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-xs text-foreground placeholder:text-input-placeholder outline-none resize-none focus:border-primary"
@@ -1490,7 +1495,7 @@ function NewBookingDialog({
 
           {/* Price preview */}
           <div className="rounded-lg bg-secondary/50 px-4 py-3 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Preis</span>
+            <span className="text-xs text-muted-foreground">{t('kalender.newBooking.price')}</span>
             <span className="text-sm font-semibold text-foreground">CHF {selectedService.preis.toFixed(2)}</span>
           </div>
         </div>
@@ -1501,13 +1506,13 @@ function NewBookingDialog({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             className="rounded-lg bg-primary px-4 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
-            Termin erstellen
+            {t('kalender.newBooking.create')}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -1532,6 +1537,7 @@ function CalendarSidebar({
   onToggleCalendar: (id: string) => void
   onSelectEvent: (e: CalendarEvent) => void
 }) {
+  const { t } = useTranslation()
   const dayEvents = events
     .filter((e) => e.date === formatDateKey(selectedDate) && !e.isAllDay)
     .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime))
@@ -1541,9 +1547,9 @@ function CalendarSidebar({
   )
 
   const groups = [
-    { label: 'Meine Kalender', items: calendars.filter((c) => c.group === 'mine') },
-    { label: 'Geteilte Kalender', items: calendars.filter((c) => c.group === 'shared') },
-    { label: 'Andere', items: calendars.filter((c) => c.group === 'other') },
+    { label: t('kalender.sidebar.myCalendars'), items: calendars.filter((c) => c.group === 'mine') },
+    { label: t('kalender.sidebar.sharedCalendars'), items: calendars.filter((c) => c.group === 'shared') },
+    { label: t('kalender.sidebar.other'), items: calendars.filter((c) => c.group === 'other') },
   ]
 
   const dayLabel = `${DAYS_SHORT[(selectedDate.getDay() + 6) % 7]}, ${selectedDate.getDate()}. ${MONTHS_DE[selectedDate.getMonth()]}`
@@ -1552,7 +1558,7 @@ function CalendarSidebar({
     <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-border bg-card overflow-y-auto">
       {/* Day agenda */}
       <div className="p-4 border-b border-border">
-        <h3 className="text-sm font-medium text-foreground mb-1">Tages-Agenda</h3>
+        <h3 className="text-sm font-medium text-foreground mb-1">{t('kalender.sidebar.dayAgenda')}</h3>
         <p className="text-xs text-muted-foreground mb-3">{dayLabel}</p>
 
         {allDayEvents.length > 0 && (
@@ -1564,7 +1570,7 @@ function CalendarSidebar({
                 className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-secondary transition-colors"
               >
                 <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: getCategoryColor(e, calendars) }} />
-                <span className="truncate text-foreground">Ganztaegig: {e.title}</span>
+                <span className="truncate text-foreground">{t('kalender.sidebar.allDay')}: {e.title}</span>
               </button>
             ))}
           </div>
@@ -1593,7 +1599,7 @@ function CalendarSidebar({
             ))}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground italic">Keine Termine</p>
+          <p className="text-xs text-muted-foreground italic">{t('kalender.sidebar.noEvents')}</p>
         )}
       </div>
 
@@ -1661,6 +1667,7 @@ function CalendarToolbar({
   onOpenCategories: () => void
   onOpenCalendarBrowse: () => void
 }) {
+  const { t } = useTranslation()
   const label =
     view === 'day'
       ? `${currentDate.getDate()}. ${MONTHS_DE[currentDate.getMonth()]} ${currentDate.getFullYear()}`
@@ -1680,7 +1687,7 @@ function CalendarToolbar({
           onClick={onToday}
           className="rounded-md border border-primary bg-primary-subtle px-3 py-1 text-xs font-medium text-primary hover:bg-primary-light transition-colors"
         >
-          Heute
+          {t('kalender.toolbar.today')}
         </button>
       </div>
       <div className="flex items-center gap-2">
@@ -1693,7 +1700,7 @@ function CalendarToolbar({
                 view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {v === 'day' ? 'Tag' : v === 'week' ? 'Woche' : 'Monat'}
+              {v === 'day' ? t('kalender.toolbar.day') : v === 'week' ? t('kalender.toolbar.week') : t('kalender.toolbar.month')}
             </button>
           ))}
         </div>
@@ -1725,7 +1732,7 @@ function CalendarToolbar({
           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
-          Neues Event
+          {t('kalender.toolbar.newEvent')}
         </button>
       </div>
     </div>
@@ -1753,6 +1760,7 @@ function WeekView({
   onDateClick: (d: Date) => void
   onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }) {
+  const { t } = useTranslation()
   const weekDays = getWeekDays(currentDate, true) // Mo-Fr
   const [dragState, setDragState] = useState<DragState | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -1804,7 +1812,7 @@ function WeekView({
         const newStartTime = minutesToTime(newStartMin)
         const newEndTime = minutesToTime(newEndMin)
         onUpdateEvent(dragState.eventId, { startTime: newStartTime, endTime: newEndTime })
-        toast.success(`Event verschoben auf ${newStartTime}`)
+        toast.success(t('kalender.event.moved', { time: newStartTime }))
       } else {
         // resize — change end time
         const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
@@ -1813,7 +1821,7 @@ function WeekView({
         newEndMin = Math.max(origStartMin + 15, Math.min(END_HOUR * 60, newEndMin))
         const newEndTime = minutesToTime(newEndMin)
         onUpdateEvent(dragState.eventId, { endTime: newEndTime })
-        toast.success(`Dauer geändert bis ${newEndTime}`)
+        toast.success(t('kalender.event.resized', { time: newEndTime }))
       }
       setDragState(null)
     }
@@ -1884,7 +1892,7 @@ function WeekView({
       {weekDays.some((d) => getEventsForDate(d).some((e) => e.isAllDay)) && (
         <div className="grid grid-cols-[56px_repeat(5,1fr)] border-b border-border bg-secondary/30">
           <div className="px-1 py-1 text-right">
-            <span className="text-[9px] text-muted-foreground">Ganztag</span>
+            <span className="text-[9px] text-muted-foreground">{t('kalender.view.allDay')}</span>
           </div>
           {weekDays.map((d, i) => {
             const allDay = getEventsForDate(d).filter((e) => e.isAllDay)
@@ -2083,6 +2091,7 @@ function DayView({
   onSlotClick: (date: string, hour: number, minute: number, e: React.MouseEvent) => void
   onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }) {
+  const { t } = useTranslation()
   const allDay = events.filter((e) => e.isAllDay)
   const timed = events.filter((e) => !e.isAllDay)
   const layouts = layoutOverlappingEvents(timed)
@@ -2132,7 +2141,7 @@ function DayView({
         const newStartTime = minutesToTime(newStartMin)
         const newEndTime = minutesToTime(newEndMin)
         onUpdateEvent(dragState.eventId, { startTime: newStartTime, endTime: newEndTime })
-        toast.success(`Event verschoben auf ${newStartTime}`)
+        toast.success(t('kalender.event.moved', { time: newStartTime }))
       } else {
         const deltaMinutes = Math.round((deltaY / HOUR_HEIGHT) * 60)
         const snappedDelta = Math.round(deltaMinutes / 15) * 15
@@ -2140,7 +2149,7 @@ function DayView({
         newEndMin = Math.max(origStartMin + 15, Math.min(END_HOUR * 60, newEndMin))
         const newEndTime = minutesToTime(newEndMin)
         onUpdateEvent(dragState.eventId, { endTime: newEndTime })
-        toast.success(`Dauer geändert bis ${newEndTime}`)
+        toast.success(t('kalender.event.resized', { time: newEndTime }))
       }
       setDragState(null)
     }
@@ -2184,7 +2193,7 @@ function DayView({
       {/* All-day events */}
       {allDay.length > 0 && (
         <div className="border-b border-border px-4 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Ganztaegig</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('kalender.view.allDay')}</p>
           <div className="flex flex-wrap gap-1">
             {allDay.map((e) => (
               <button
@@ -2421,7 +2430,7 @@ function MonthView({
                 })}
                 {events.length > 3 && (
                   <p className="text-[10px] text-primary font-medium px-1 cursor-pointer hover:underline">
-                    +{events.length - 3} weitere
+                    {t('kalender.view.moreEvents', { count: events.length - 3 })}
                   </p>
                 )}
               </div>
@@ -2450,6 +2459,7 @@ function QuickCreatePopover({
   onSave: (event: Partial<CalendarEvent>) => void
   onMoreOptions: () => void
 }) {
+  const { t } = useTranslation()
   const [title, setTitle] = useState('')
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '')
   const startTime = `${String(state.hour).padStart(2, '0')}:${String(state.minute).padStart(2, '0')}`
@@ -2483,7 +2493,7 @@ function QuickCreatePopover({
           <input
             autoFocus
             type="text"
-            placeholder="Titel hinzufügen..."
+            placeholder={t('kalender.quickCreate.titlePlaceholder')}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
@@ -2496,7 +2506,7 @@ function QuickCreatePopover({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground">Kategorie:</span>
+            <span className="text-[10px] text-muted-foreground">{t('kalender.quickCreate.category')}</span>
             <div className="flex gap-1">
               {categories.map((cat) => (
                 <button
@@ -2520,13 +2530,13 @@ function QuickCreatePopover({
               disabled={!title.trim()}
               className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
             >
-              Speichern
+              {t('kalender.quickCreate.save')}
             </button>
             <button
               onClick={onMoreOptions}
               className="flex-1 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
             >
-              Mehr Optionen
+              {t('kalender.quickCreate.moreOptions')}
             </button>
           </div>
         </div>
@@ -2554,6 +2564,7 @@ function EventFormModal({
   onSave: (event: Partial<CalendarEvent>) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const defaultCalendar = defaults.calendarId || calendars.find((c) => c.group === 'mine')?.id || ''
   const [title, setTitle] = useState(defaults.title ?? '')
   const [date, setDate] = useState(defaults.date ?? formatDateKey(new Date()))
@@ -2581,7 +2592,7 @@ function EventFormModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h3 className="text-sm font-medium text-foreground">
-            {defaults.title ? 'Event bearbeiten' : 'Neues Event'}
+            {defaults.title ? t('kalender.form.editEvent') : t('kalender.form.newEvent')}
           </h3>
           <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-secondary">
             <X className="h-4 w-4" />
@@ -2595,7 +2606,7 @@ function EventFormModal({
             <input
               autoFocus
               type="text"
-              placeholder="Titel"
+              placeholder={t('kalender.form.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder outline-none focus:border-primary"
@@ -2605,7 +2616,7 @@ function EventFormModal({
           {/* Date & Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Datum</label>
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">{t('kalender.form.date')}</label>
               <input
                 type="date"
                 value={date}
@@ -2617,7 +2628,7 @@ function EventFormModal({
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Von</label>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">{t('kalender.form.from')}</label>
                     <input
                       type="time"
                       value={startTime}
@@ -2626,7 +2637,7 @@ function EventFormModal({
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Bis</label>
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">{t('kalender.form.to')}</label>
                     <input
                       type="time"
                       value={endTime}
@@ -2651,12 +2662,12 @@ function EventFormModal({
                 style={{ left: isAllDay ? 18 : 2 }}
               />
             </div>
-            <span className="text-xs text-foreground">Ganztaegig</span>
+            <span className="text-xs text-foreground">{t('kalender.form.allDay')}</span>
           </label>
 
           {/* Category */}
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">Kategorie</label>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 block">{t('kalender.form.category')}</label>
             <div className="flex flex-wrap gap-1.5">
               {categories.map((cat) => (
                 <button
@@ -2681,12 +2692,12 @@ function EventFormModal({
 
           {/* Location */}
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Ort</label>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">{t('kalender.form.location')}</label>
             <div className="flex items-center gap-2 rounded-lg border border-input-border bg-input-background px-3 py-1.5">
               <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input
                 type="text"
-                placeholder="z.B. Büro Zürich, externe Adresse..."
+                placeholder={t('kalender.form.locationPlaceholder')}
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="flex-1 bg-transparent text-xs text-foreground placeholder:text-input-placeholder outline-none"
@@ -2696,13 +2707,13 @@ function EventFormModal({
 
           {/* Room */}
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Raum</label>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">{t('kalender.form.room')}</label>
             <select
               value={room}
               onChange={(e) => setRoom(e.target.value)}
               className="w-full rounded-lg border border-input-border bg-input-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary"
             >
-              <option value="">Kein Raum</option>
+              <option value="">{t('kalender.form.noRoom')}</option>
               {ROOMS.map((r) => (
                 <option key={r.id} value={r.name}>
                   {r.name} ({r.capacity} Pl.)
@@ -2713,10 +2724,10 @@ function EventFormModal({
 
           {/* Description */}
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">Beschreibung</label>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">{t('kalender.form.description')}</label>
             <textarea
               rows={3}
-              placeholder="Beschreibung..."
+              placeholder={t('kalender.form.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full rounded-lg border border-input-border bg-input-background px-3 py-2 text-xs text-foreground placeholder:text-input-placeholder outline-none resize-none focus:border-primary"
@@ -2728,7 +2739,7 @@ function EventFormModal({
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
                 <Repeat className="h-3 w-3 inline mr-1" />
-                Wiederholung
+                {t('kalender.form.recurrence')}
               </label>
               <select
                 value={recurrence}
@@ -2743,7 +2754,7 @@ function EventFormModal({
             <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
                 <Bell className="h-3 w-3 inline mr-1" />
-                Erinnerung
+                {t('kalender.form.reminderLabel')}
               </label>
               <select
                 value={reminder}
@@ -2761,7 +2772,7 @@ function EventFormModal({
           <div>
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
               <Calendar className="h-3 w-3 inline mr-1" />
-              Kalender
+              {t('kalender.form.calendarLabel')}
             </label>
             <select
               value={calendarId}
@@ -2778,14 +2789,14 @@ function EventFormModal({
           <div>
             <label className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 block">
               <Users className="h-3 w-3 inline mr-1" />
-              Teilnehmer einladen
+              {t('kalender.form.inviteParticipants')}
             </label>
             <div className="relative">
               <div className="flex items-center gap-2 rounded-lg border border-input-border bg-input-background px-3 py-1.5">
                 <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <input
                   type="text"
-                  placeholder="Name eingeben..."
+                  placeholder={t('kalender.form.participantPlaceholder')}
                   value={participantSearch}
                   onChange={(e) => setParticipantSearch(e.target.value)}
                   className="flex-1 bg-transparent text-xs text-foreground placeholder:text-input-placeholder outline-none"
@@ -2826,7 +2837,7 @@ function EventFormModal({
               />
             </div>
             <Video className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs text-foreground">Video-Call erstellen</span>
+            <span className="text-xs text-foreground">{t('kalender.form.videoCall')}</span>
           </label>
         </div>
 
@@ -2836,7 +2847,7 @@ function EventFormModal({
             onClick={onClose}
             className="rounded-lg border border-border px-4 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
           >
-            Abbrechen
+            {t('common.cancel')}
           </button>
           <button
             disabled={isSaving || !title.trim()}
@@ -2858,7 +2869,7 @@ function EventFormModal({
             })}
             className="rounded-lg bg-primary px-4 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
           >
-            {isSaving ? 'Wird gespeichert...' : 'Speichern'}
+            {isSaving ? t('kalender.form.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -2885,6 +2896,7 @@ function EventDetailPanel({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const { t } = useTranslation()
   const color = getCategoryColor(event, calendars)
   const category = categories.find((c) => c.id === event.categoryId)
   const calendar = calendars.find((c) => c.id === event.calendarId)
@@ -2920,10 +2932,10 @@ function EventDetailPanel({
               {!event.isHoliday && !event.isTaskDeadline && (
                 <>
                   <button onClick={onEdit} className="rounded-md p-1 text-muted-foreground hover:bg-secondary text-xs">
-                    Bearbeiten
+                    {t('kalender.detail.edit')}
                   </button>
                   <button onClick={onDelete} className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-error text-xs">
-                    Löschen
+                    {t('common.delete')}
                   </button>
                 </>
               )}
@@ -2939,7 +2951,7 @@ function EventDetailPanel({
             <div className="flex items-center gap-2 text-muted-foreground">
               <Clock className="h-3.5 w-3.5 shrink-0" />
               {event.isAllDay ? (
-                <span>Ganztaegig</span>
+                <span>{t('kalender.detail.allDay')}</span>
               ) : (
                 <span>{event.startTime} – {event.endTime}</span>
               )}
@@ -2972,14 +2984,14 @@ function EventDetailPanel({
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Video className="h-3.5 w-3.5 shrink-0" />
-                  <button className="text-primary hover:underline">Video-Call beitreten</button>
+                  <button className="text-primary hover:underline">{t('kalender.detail.joinVideoCall')}</button>
                 </div>
                 <button
-                  onClick={() => toast.success('Video-Meeting wird gestartet...')}
+                  onClick={() => toast.success(t('kalender.detail.startMeetingToast'))}
                   className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors w-full justify-center"
                 >
                   <Video className="h-3.5 w-3.5" />
-                  Meeting starten
+                  {t('kalender.detail.startMeeting')}
                 </button>
               </div>
             )}
@@ -2993,7 +3005,7 @@ function EventDetailPanel({
             {event.isTaskDeadline && (
               <div className="flex items-center gap-2 rounded-md bg-error-light px-2 py-1.5 text-error">
                 <Clock className="h-3.5 w-3.5" />
-                <span className="text-[10px] font-medium">Task-Deadline</span>
+                <span className="text-[10px] font-medium">{t('kalender.detail.taskDeadline')}</span>
               </div>
             )}
 
@@ -3002,7 +3014,7 @@ function EventDetailPanel({
               <div>
                 <div className="flex items-center gap-2 text-muted-foreground mb-2">
                   <Users className="h-3.5 w-3.5 shrink-0" />
-                  <span>{event.participants.length} Teilnehmer</span>
+                  <span>{t('kalender.detail.participants', { count: event.participants.length })}</span>
                 </div>
                 <div className="space-y-1 pl-5">
                   {event.participants.map((p) => (

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   TrendingUp,
   TrendingDown,
@@ -43,15 +44,16 @@ import { BankingWidget } from '@/modules/finanzen/BankingWidget'
 
 type TabKey = 'transactions' | 'invoices' | 'quotes' | 'expenses' | 'mahnungen' | 'reports' | 'belegkette' | 'banking'
 
-const invoiceStatusConfig: Record<string, { label: string; colors: string; icon: typeof CheckCircle2 }> = {
-  draft: { label: 'Entwurf', colors: 'bg-secondary text-muted-foreground', icon: FileText },
-  sent: { label: 'Gesendet', colors: 'bg-info-light text-info', icon: Clock },
-  paid: { label: 'Bezahlt', colors: 'bg-success-light text-success', icon: CheckCircle2 },
-  overdue: { label: 'Überfällig', colors: 'bg-error-light text-error', icon: AlertCircle },
-  cancelled: { label: 'Storniert', colors: 'bg-secondary text-muted-foreground', icon: XCircle },
+const invoiceStatusKeys: Record<string, { labelKey: string; colors: string; icon: typeof CheckCircle2 }> = {
+  draft: { labelKey: 'buchhaltung.status.draft', colors: 'bg-secondary text-muted-foreground', icon: FileText },
+  sent: { labelKey: 'buchhaltung.status.sent', colors: 'bg-info-light text-info', icon: Clock },
+  paid: { labelKey: 'buchhaltung.status.paid', colors: 'bg-success-light text-success', icon: CheckCircle2 },
+  overdue: { labelKey: 'buchhaltung.status.overdue', colors: 'bg-error-light text-error', icon: AlertCircle },
+  cancelled: { labelKey: 'buchhaltung.status.cancelled', colors: 'bg-secondary text-muted-foreground', icon: XCircle },
 }
 
 export default function BuchhaltungPage() {
+  const { t } = useTranslation()
   const {
     invoices, transactions, expenses, dunnings,
     deleteInvoice, duplicateInvoice, sendInvoice, cancelInvoice,
@@ -85,11 +87,11 @@ export default function BuchhaltungPage() {
   const openDunningCount = dunnings.filter((d) => d.status !== 'paid').length
 
   const stats = [
-    { label: 'Einnahmen', value: formatCurrency(totalIncome), icon: TrendingUp, color: 'text-success', bg: 'bg-success-light' },
-    { label: 'Ausgaben', value: formatCurrency(totalExpense), icon: TrendingDown, color: 'text-error', bg: 'bg-error-light' },
-    { label: 'Saldo', value: formatCurrency(balance), icon: DollarSign, color: 'text-primary', bg: 'bg-primary-light' },
-    { label: 'Offene Rechnungen', value: formatCurrency(openInvoiceAmount), icon: CreditCard, color: 'text-warning', bg: 'bg-warning-light' },
-    { label: 'Offene Mahnungen', value: String(openDunningCount), icon: AlertTriangle, color: 'text-error', bg: 'bg-error-light' },
+    { label: t('buchhaltung.stats.income'), value: formatCurrency(totalIncome), icon: TrendingUp, color: 'text-success', bg: 'bg-success-light' },
+    { label: t('buchhaltung.stats.expenses'), value: formatCurrency(totalExpense), icon: TrendingDown, color: 'text-error', bg: 'bg-error-light' },
+    { label: t('buchhaltung.stats.balance'), value: formatCurrency(balance), icon: DollarSign, color: 'text-primary', bg: 'bg-primary-light' },
+    { label: t('buchhaltung.stats.openInvoices'), value: formatCurrency(openInvoiceAmount), icon: CreditCard, color: 'text-warning', bg: 'bg-warning-light' },
+    { label: t('buchhaltung.stats.openDunnings'), value: String(openDunningCount), icon: AlertTriangle, color: 'text-error', bg: 'bg-error-light' },
   ]
 
   // Filtered data
@@ -142,28 +144,28 @@ export default function BuchhaltungPage() {
     } else if (confirmDelete.type === 'expense') {
       deleteExpense(confirmDelete.id)
     }
-    toast.success(`${confirmDelete.label} gelöscht`)
+    toast.success(t('buchhaltung.toast.deleted', { label: confirmDelete.label }))
     setConfirmDelete(null)
   }
 
   const getInvoiceActions = (inv: Invoice) => {
     const actions: { label: string; onClick: () => void; variant?: 'destructive'; separator?: true }[] = [
-      { label: 'Details ansehen', onClick: () => setSelectedInvoice(inv) },
+      { label: t('buchhaltung.actions.viewDetails'), onClick: () => setSelectedInvoice(inv) },
     ]
     if (inv.status === 'draft') {
-      actions.push({ label: 'Bearbeiten', onClick: () => handleEditInvoice(inv) })
-      actions.push({ label: 'Senden', onClick: () => { sendInvoice(inv.id); toast.success(`${inv.number} gesendet`) } })
+      actions.push({ label: t('common.edit'), onClick: () => handleEditInvoice(inv) })
+      actions.push({ label: t('buchhaltung.actions.send'), onClick: () => { sendInvoice(inv.id); toast.success(t('buchhaltung.toast.sent', { number: inv.number })) } })
     }
-    actions.push({ label: 'Duplizieren', onClick: () => { duplicateInvoice(inv.id); toast.success('Kopie erstellt') } })
+    actions.push({ label: t('buchhaltung.actions.duplicate'), onClick: () => { duplicateInvoice(inv.id); toast.success(t('buchhaltung.toast.copyCreated')) } })
     if (inv.type === 'invoice' && inv.status !== 'paid' && inv.status !== 'cancelled') {
-      actions.push({ label: 'Zahlung erfassen', onClick: () => setPaymentInvoice(inv) })
+      actions.push({ label: t('buchhaltung.actions.recordPayment'), onClick: () => setPaymentInvoice(inv) })
     }
     if (inv.status !== 'cancelled' && inv.status !== 'paid') {
       actions.push({ separator: true as const, label: '', onClick: () => {} })
-      actions.push({ label: 'Stornieren', variant: 'destructive' as const, onClick: () => { cancelInvoice(inv.id); toast.success(`${inv.number} storniert`) } })
+      actions.push({ label: t('buchhaltung.actions.cancel'), variant: 'destructive' as const, onClick: () => { cancelInvoice(inv.id); toast.success(t('buchhaltung.toast.cancelled', { number: inv.number })) } })
     }
     if (inv.status === 'draft') {
-      actions.push({ label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'invoice', id: inv.id, label: inv.number }) })
+      actions.push({ label: t('common.delete'), variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'invoice', id: inv.id, label: inv.number }) })
     }
     return actions
   }
@@ -171,8 +173,8 @@ export default function BuchhaltungPage() {
   return (
     <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
       <PageHeader
-        title="Buchhaltung"
-        description="Rechnungen, Transaktionen und Ausgaben"
+        title={t('buchhaltung.title')}
+        description={t('buchhaltung.description')}
         icon={Receipt}
         moduleId="finance"
         className="mb-6"
@@ -183,14 +185,14 @@ export default function BuchhaltungPage() {
               className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <Download className="h-4 w-4" />
-              Export
+              {t('buchhaltung.export')}
             </button>
             <button
               onClick={handleNewInvoice}
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neue Rechnung
+              {t('buchhaltung.newInvoice')}
             </button>
           </div>
         }
@@ -217,26 +219,26 @@ export default function BuchhaltungPage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6 overflow-x-auto">
         {([
-          { key: 'invoices' as const, label: `Rechnungen (${invoices.filter((i) => i.type === 'invoice').length})`, icon: FileText },
-          { key: 'quotes' as const, label: `Angebote (${invoices.filter((i) => i.type === 'quote').length})`, icon: FileText },
-          { key: 'expenses' as const, label: `Ausgaben (${expenses.length})`, icon: Receipt },
-          { key: 'mahnungen' as const, label: `Mahnungen (${dunnings.length})`, icon: Gavel },
-          { key: 'transactions' as const, label: `Transaktionen (${transactions.length})`, icon: Receipt },
-          { key: 'reports' as const, label: 'Berichte', icon: BarChart3 },
-          { key: 'belegkette' as const, label: 'Belegkette', icon: Link2 },
-          { key: 'banking' as const, label: 'Banking', icon: Landmark },
-        ]).map((t) => {
-          const Icon = t.icon
+          { key: 'invoices' as const, label: `${t('buchhaltung.tabs.invoices')} (${invoices.filter((i) => i.type === 'invoice').length})`, icon: FileText },
+          { key: 'quotes' as const, label: `${t('buchhaltung.tabs.quotes')} (${invoices.filter((i) => i.type === 'quote').length})`, icon: FileText },
+          { key: 'expenses' as const, label: `${t('buchhaltung.tabs.expenses')} (${expenses.length})`, icon: Receipt },
+          { key: 'mahnungen' as const, label: `${t('buchhaltung.tabs.dunnings')} (${dunnings.length})`, icon: Gavel },
+          { key: 'transactions' as const, label: `${t('buchhaltung.tabs.transactions')} (${transactions.length})`, icon: Receipt },
+          { key: 'reports' as const, label: t('buchhaltung.tabs.reports'), icon: BarChart3 },
+          { key: 'belegkette' as const, label: t('buchhaltung.tabs.belegkette'), icon: Link2 },
+          { key: 'banking' as const, label: t('buchhaltung.tabs.banking'), icon: Landmark },
+        ]).map((tb) => {
+          const Icon = tb.icon
           return (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+              key={tb.key}
+              onClick={() => setTab(tb.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm whitespace-nowrap transition-colors ${
-                tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
+                tab === tb.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="h-4 w-4" />
-              {t.label}
+              {tb.label}
             </button>
           )
         })}
@@ -249,7 +251,7 @@ export default function BuchhaltungPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Suchen..."
+              placeholder={t('common.search') + '...'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -258,13 +260,13 @@ export default function BuchhaltungPage() {
           {tab === 'expenses' && (
             <button onClick={() => setShowExpenseForm(true)} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">
               <Plus className="h-3.5 w-3.5" />
-              Neue Ausgabe
+              {t('buchhaltung.newExpense')}
             </button>
           )}
           {tab === 'quotes' && (
             <button onClick={handleNewQuote} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors">
               <Plus className="h-3.5 w-3.5" />
-              Neues Angebot
+              {t('buchhaltung.newQuote')}
             </button>
           )}
         </div>
@@ -273,14 +275,14 @@ export default function BuchhaltungPage() {
       {/* Invoices Tab */}
       {tab === 'invoices' && (
         filteredInvoices.length === 0 ? (
-          <EmptyState icon={FileText} title="Keine Rechnungen" description="Erstelle deine erste Rechnung" action={{ label: 'Neue Rechnung', onClick: handleNewInvoice }} />
+          <EmptyState icon={FileText} title={t('buchhaltung.empty.invoicesTitle')} description={t('buchhaltung.empty.invoicesDesc')} action={{ label: t('buchhaltung.newInvoice'), onClick: handleNewInvoice }} />
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Fällig</span><span>Offen</span><span>Status</span><span />
+              <span>{t('buchhaltung.table.number')}</span><span>{t('buchhaltung.table.client')}</span><span>{t('buchhaltung.table.amount')}</span><span>{t('buchhaltung.table.due')}</span><span>{t('buchhaltung.table.open')}</span><span>{t('common.status')}</span><span />
             </div>
             {filteredInvoices.map((inv) => {
-              const sc = invoiceStatusConfig[inv.status]
+              const sc = invoiceStatusKeys[inv.status]
               const StatusIcon = sc.icon
               const total = calcInvoiceTotal(inv.items)
               const remaining = calcRemainingAmount(inv)
@@ -295,7 +297,7 @@ export default function BuchhaltungPage() {
                   </span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
                     <StatusIcon className="h-3 w-3" />
-                    {sc.label}
+                    {t(sc.labelKey)}
                   </span>
                   <ItemActions items={getInvoiceActions(inv)} />
                 </div>
@@ -308,14 +310,14 @@ export default function BuchhaltungPage() {
       {/* Quotes Tab */}
       {tab === 'quotes' && (
         filteredQuotes.length === 0 ? (
-          <EmptyState icon={FileText} title="Keine Angebote" description="Erstelle dein erstes Angebot" action={{ label: 'Neues Angebot', onClick: handleNewQuote }} />
+          <EmptyState icon={FileText} title={t('buchhaltung.empty.quotesTitle')} description={t('buchhaltung.empty.quotesDesc')} action={{ label: t('buchhaltung.newQuote'), onClick: handleNewQuote }} />
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="grid grid-cols-[80px_1fr_100px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span><span>Kunde</span><span>Betrag</span><span>Gültig bis</span><span>Status</span><span />
+              <span>{t('buchhaltung.table.number')}</span><span>{t('buchhaltung.table.client')}</span><span>{t('buchhaltung.table.amount')}</span><span>{t('buchhaltung.table.validUntil')}</span><span>{t('common.status')}</span><span />
             </div>
             {filteredQuotes.map((inv) => {
-              const sc = invoiceStatusConfig[inv.status]
+              const sc = invoiceStatusKeys[inv.status]
               const StatusIcon = sc.icon
               const total = calcInvoiceTotal(inv.items)
               return (
@@ -326,7 +328,7 @@ export default function BuchhaltungPage() {
                   <span className="text-xs text-muted-foreground">{new Date(inv.dueDate).toLocaleDateString('de-DE')}</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}>
                     <StatusIcon className="h-3 w-3" />
-                    {sc.label}
+                    {t(sc.labelKey)}
                   </span>
                   <ItemActions items={getInvoiceActions(inv)} />
                 </div>
@@ -339,15 +341,15 @@ export default function BuchhaltungPage() {
       {/* Expenses Tab */}
       {tab === 'expenses' && (
         filteredExpenses.length === 0 ? (
-          <EmptyState icon={Receipt} title="Keine Ausgaben" description="Erfasse Ausgaben und Belege" action={{ label: 'Neue Ausgabe', onClick: () => setShowExpenseForm(true) }} />
+          <EmptyState icon={Receipt} title={t('buchhaltung.empty.expensesTitle')} description={t('buchhaltung.empty.expensesDesc')} action={{ label: t('buchhaltung.newExpense'), onClick: () => setShowExpenseForm(true) }} />
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Beschreibung</span><span>Kategorie</span><span>Betrag</span><span>Lieferant</span><span>Status</span><span />
+              <span>{t('buchhaltung.table.description')}</span><span>{t('buchhaltung.table.category')}</span><span>{t('buchhaltung.table.amount')}</span><span>{t('buchhaltung.table.supplier')}</span><span>{t('common.status')}</span><span />
             </div>
             {filteredExpenses.map((exp) => {
               const statusColors = { pending: 'bg-warning-light text-warning', approved: 'bg-success-light text-success', rejected: 'bg-error-light text-error' }
-              const statusLabels = { pending: 'Offen', approved: 'OK', rejected: 'Abgelehnt' }
+              const statusLabels = { pending: t('buchhaltung.expenseStatus.pending'), approved: t('buchhaltung.expenseStatus.approved'), rejected: t('buchhaltung.expenseStatus.rejected') }
               return (
                 <div key={exp.id} className="grid grid-cols-[1fr_100px_80px_100px_80px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
                   <div className="min-w-0">
@@ -362,10 +364,10 @@ export default function BuchhaltungPage() {
                   </span>
                   <ItemActions items={[
                     ...(exp.status === 'pending' ? [
-                      { label: 'Genehmigen', onClick: () => { approveExpense(exp.id); toast.success('Genehmigt') } },
-                      { label: 'Ablehnen', onClick: () => { rejectExpense(exp.id); toast.success('Abgelehnt') } },
+                      { label: t('buchhaltung.actions.approve'), onClick: () => { approveExpense(exp.id); toast.success(t('buchhaltung.toast.approved')) } },
+                      { label: t('buchhaltung.actions.reject'), onClick: () => { rejectExpense(exp.id); toast.success(t('buchhaltung.toast.rejected')) } },
                     ] : []),
-                    { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'expense', id: exp.id, label: exp.description }) },
+                    { label: t('common.delete'), variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'expense', id: exp.id, label: exp.description }) },
                   ]} />
                 </div>
               )
@@ -378,7 +380,7 @@ export default function BuchhaltungPage() {
       {tab === 'transactions' && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="grid grid-cols-[1fr_120px_120px_100px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-            <span>Beschreibung</span><span>Kategorie</span><span className="text-right">Betrag</span><span className="text-right">Datum</span><span />
+            <span>{t('buchhaltung.table.description')}</span><span>{t('buchhaltung.table.category')}</span><span className="text-right">{t('buchhaltung.table.amount')}</span><span className="text-right">{t('buchhaltung.table.date')}</span><span />
           </div>
           {filteredTransactions.map((tx) => (
             <div key={tx.id} className="grid grid-cols-[1fr_120px_120px_100px_40px] gap-3 items-center px-4 py-3 border-b border-border-muted hover:bg-secondary/30 transition-colors">
@@ -397,7 +399,7 @@ export default function BuchhaltungPage() {
               </span>
               <span className="text-xs text-muted-foreground text-right">{new Date(tx.date).toLocaleDateString('de-DE')}</span>
               <ItemActions items={[
-                { label: 'Löschen', variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
+                { label: t('common.delete'), variant: 'destructive' as const, onClick: () => setConfirmDelete({ type: 'transaction', id: tx.id, label: tx.description }) },
               ]} />
             </div>
           ))}
@@ -426,10 +428,10 @@ export default function BuchhaltungPage() {
         )
 
         const dunningStats = [
-          { label: 'Offene Mahnungen', value: String(openDunningCount) },
-          { label: 'Mahnbetrag gesamt', value: formatCurrency(totalDueAmount) },
-          { label: 'Inkasso-Fälle', value: String(inkassoCount) },
-          { label: 'Ø Verzugstage', value: `${avgOverdueDays} Tage` },
+          { label: t('buchhaltung.stats.openDunnings'), value: String(openDunningCount) },
+          { label: t('buchhaltung.dunning.totalAmount'), value: formatCurrency(totalDueAmount) },
+          { label: t('buchhaltung.dunning.inkassoCases'), value: String(inkassoCount) },
+          { label: t('buchhaltung.dunning.avgOverdueDays'), value: `${avgOverdueDays} ${t('buchhaltung.dunning.days')}` },
         ]
 
         const levelColors: Record<number, string> = {
@@ -439,11 +441,11 @@ export default function BuchhaltungPage() {
         }
 
         const statusConfig: Record<string, { label: string; colors: string }> = {
-          pending: { label: 'Ausstehend', colors: 'bg-warning-light text-warning' },
-          sent: { label: 'Gesendet', colors: 'bg-info-light text-info' },
-          reminded: { label: 'Erinnert', colors: 'bg-primary-light text-primary' },
-          paid: { label: 'Bezahlt', colors: 'bg-success-light text-success' },
-          inkasso: { label: 'Inkasso', colors: 'bg-error-light text-error' },
+          pending: { label: t('buchhaltung.dunningStatus.pending'), colors: 'bg-warning-light text-warning' },
+          sent: { label: t('buchhaltung.status.sent'), colors: 'bg-info-light text-info' },
+          reminded: { label: t('buchhaltung.dunningStatus.reminded'), colors: 'bg-primary-light text-primary' },
+          paid: { label: t('buchhaltung.status.paid'), colors: 'bg-success-light text-success' },
+          inkasso: { label: t('buchhaltung.dunningStatus.inkasso'), colors: 'bg-error-light text-error' },
         }
 
         return (
@@ -461,7 +463,7 @@ export default function BuchhaltungPage() {
             {/* Filter bar */}
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">Mahnstufe:</span>
+                <span className="text-xs text-muted-foreground">{t('buchhaltung.dunning.level')}:</span>
                 {(['all', 1, 2, 3] as const).map((lvl) => (
                   <button
                     key={String(lvl)}
@@ -472,15 +474,15 @@ export default function BuchhaltungPage() {
                         : 'bg-secondary text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    {lvl === 'all' ? 'Alle' : `Stufe ${lvl}`}
+                    {lvl === 'all' ? t('buchhaltung.filter.all') : t('buchhaltung.dunning.levelN', { n: lvl })}
                   </button>
                 ))}
               </div>
               <div className="h-4 w-px bg-border" />
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-muted-foreground">Status:</span>
+                <span className="text-xs text-muted-foreground">{t('common.status')}:</span>
                 {(['all', 'pending', 'sent', 'inkasso'] as const).map((st) => {
-                  const labels: Record<string, string> = { all: 'Alle', pending: 'Ausstehend', sent: 'Gesendet', inkasso: 'Inkasso' }
+                  const labels: Record<string, string> = { all: t('buchhaltung.filter.all'), pending: t('buchhaltung.dunningStatus.pending'), sent: t('buchhaltung.status.sent'), inkasso: t('buchhaltung.dunningStatus.inkasso') }
                   return (
                     <button
                       key={st}
@@ -500,11 +502,11 @@ export default function BuchhaltungPage() {
 
             {/* Dunning table */}
             {filtered.length === 0 ? (
-              <EmptyState icon={Gavel} title="Keine Mahnungen" description="Keine Mahnungen mit diesen Filtern gefunden" />
+              <EmptyState icon={Gavel} title={t('buchhaltung.empty.dunningsTitle')} description={t('buchhaltung.empty.dunningsDesc')} />
             ) : (
               <div className="rounded-lg border border-border bg-card overflow-hidden">
                 <div className="grid grid-cols-[80px_1fr_100px_100px_100px_80px_160px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-                  <span>Rechnung</span><span>Kunde</span><span>Betrag</span><span>Mahnstufe</span><span>Gesendet</span><span>Status</span><span className="text-right">Aktionen</span>
+                  <span>{t('buchhaltung.table.invoice')}</span><span>{t('buchhaltung.table.client')}</span><span>{t('buchhaltung.table.amount')}</span><span>{t('buchhaltung.dunning.level')}</span><span>{t('buchhaltung.status.sent')}</span><span>{t('common.status')}</span><span className="text-right">{t('common.actions')}</span>
                 </div>
                 {filtered.map((d) => {
                   const sc = statusConfig[d.status]
@@ -516,7 +518,7 @@ export default function BuchhaltungPage() {
                       {/* Mahnstufe visualization */}
                       <div className="flex flex-col gap-1">
                         <span className={`inline-flex items-center self-start rounded-full px-2 py-0.5 text-[10px] font-medium ${levelColors[d.level]}`}>
-                          Stufe {d.level}
+                          {t('buchhaltung.dunning.levelN', { n: d.level })}
                         </span>
                         <div className="flex items-center gap-0.5">
                           {[1, 2, 3].map((step) => (
@@ -542,24 +544,24 @@ export default function BuchhaltungPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         {d.status === 'pending' && (
                           <button
-                            onClick={() => { sendDunning(d.id); toast.success(`Mahnung ${d.invoiceNumber} gesendet`) }}
+                            onClick={() => { sendDunning(d.id); toast.success(t('buchhaltung.toast.dunningSent', { number: d.invoiceNumber })) }}
                             className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[10px] text-primary-foreground hover:bg-button-primary-hover transition-colors"
                           >
                             <Send className="h-3 w-3" />
-                            Senden
+                            {t('buchhaltung.actions.send')}
                           </button>
                         )}
                         {d.level < 3 && d.status !== 'paid' && (
                           <button
-                            onClick={() => { escalateDunning(d.id); toast.success(`${d.invoiceNumber} eskaliert auf Stufe ${Math.min(d.level + 1, 3)}`) }}
+                            onClick={() => { escalateDunning(d.id); toast.success(t('buchhaltung.toast.escalated', { number: d.invoiceNumber, level: Math.min(d.level + 1, 3) })) }}
                             className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-foreground hover:bg-secondary transition-colors"
                           >
                             <AlertTriangle className="h-3 w-3" />
-                            Eskalieren
+                            {t('buchhaltung.actions.escalate')}
                           </button>
                         )}
                         {d.status === 'inkasso' && (
-                          <span className="text-[10px] text-error font-medium">Inkasso aktiv</span>
+                          <span className="text-[10px] text-error font-medium">{t('buchhaltung.dunning.inkassoActive')}</span>
                         )}
                       </div>
                     </div>
@@ -577,10 +579,10 @@ export default function BuchhaltungPage() {
           <div className="rounded-lg border border-border bg-card p-6">
             <div className="flex items-center gap-2 mb-4">
               <BarChart3 className="h-5 w-5 text-primary" />
-              <h3 className="text-sm font-medium text-foreground">Einnahmen vs. Ausgaben</h3>
+              <h3 className="text-sm font-medium text-foreground">{t('buchhaltung.reports.incomeVsExpenses')}</h3>
             </div>
             <div className="flex items-end gap-3 h-40">
-              {['Okt', 'Nov', 'Dez', 'Jan', 'Feb'].map((month, i) => {
+              {[t('buchhaltung.months.oct'), t('buchhaltung.months.nov'), t('buchhaltung.months.dec'), t('buchhaltung.months.jan'), t('buchhaltung.months.feb')].map((month, i) => {
                 const incomeHeight = [55, 70, 80, 65, 90][i]
                 const expenseHeight = [35, 40, 45, 30, 25][i]
                 return (
@@ -595,15 +597,15 @@ export default function BuchhaltungPage() {
               })}
             </div>
             <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> Einnahmen</span>
-              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-error/60" /> Ausgaben</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> {t('buchhaltung.stats.income')}</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-error/60" /> {t('buchhaltung.stats.expenses')}</span>
             </div>
           </div>
 
           <div className="rounded-lg border border-border bg-card p-6">
             <div className="flex items-center gap-2 mb-4">
               <PieChart className="h-5 w-5 text-primary" />
-              <h3 className="text-sm font-medium text-foreground">Ausgaben nach Kategorie</h3>
+              <h3 className="text-sm font-medium text-foreground">{t('buchhaltung.reports.expensesByCategory')}</h3>
             </div>
             <div className="space-y-3">
               {(() => {
@@ -674,9 +676,9 @@ export default function BuchhaltungPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Eintrag löschen?"
-        description={`"${confirmDelete?.label}" wird dauerhaft gelöscht.`}
-        confirmLabel="Löschen"
+        title={t('buchhaltung.confirmDelete.title')}
+        description={t('buchhaltung.confirmDelete.description', { label: confirmDelete?.label })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDeleteConfirm}
       />

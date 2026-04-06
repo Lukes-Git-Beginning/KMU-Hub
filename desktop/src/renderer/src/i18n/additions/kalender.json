@@ -1,0 +1,38 @@
+{
+  "kalender.quickCreate.category": "Kategorie:",
+  "kalender.quickCreate.save": "Speichern",
+  "kalender.quickCreate.moreOptions": "Mehr Optionen",
+
+  "kalender.form.editEvent": "Event bearbeiten",
+  "kalender.form.newEvent": "Neues Event",
+  "kalender.form.titlePlaceholder": "Titel",
+  "kalender.form.from": "Von",
+  "kalender.form.to": "Bis",
+  "kalender.form.allDay": "Ganztaegig",
+  "kalender.form.category": "Kategorie",
+  "kalender.form.location": "Ort",
+  "kalender.form.locationPlaceholder": "z.B. Büro Zürich, externe Adresse...",
+  "kalender.form.room": "Raum",
+  "kalender.form.noRoom": "Kein Raum",
+  "kalender.form.seats": "Pl.",
+  "kalender.form.description": "Beschreibung",
+  "kalender.form.descriptionPlaceholder": "Beschreibung...",
+  "kalender.form.recurrence": "Wiederholung",
+  "kalender.form.reminderLabel": "Erinnerung",
+  "kalender.form.calendarLabel": "Kalender",
+  "kalender.form.inviteParticipants": "Teilnehmer einladen",
+  "kalender.form.participantPlaceholder": "Name eingeben...",
+  "kalender.form.videoCall": "Video-Call erstellen",
+  "kalender.form.saving": "Wird gespeichert...",
+
+  "kalender.detail.edit": "Bearbeiten",
+  "kalender.detail.allDay": "Ganztaegig",
+  "kalender.detail.joinVideoCall": "Video-Call beitreten",
+  "kalender.detail.startMeeting": "Meeting starten",
+  "kalender.detail.startMeetingToast": "Video-Meeting wird gestartet...",
+  "kalender.detail.taskDeadline": "Task-Deadline",
+  "kalender.detail.participants": "{{count}} Teilnehmer",
+
+  "kalender.adapter.holidayCalendar": "Feiertage DE",
+  "kalender.adapter.deadlineCalendar": "Task-Deadlines"
+}

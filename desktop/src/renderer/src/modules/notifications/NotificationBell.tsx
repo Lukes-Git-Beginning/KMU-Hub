@@ -6,6 +6,7 @@
  * by clicking it. Links to the full notification center at /notifications.
  */
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Bell, MessageSquare, TrendingUp, Users, Megaphone } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -32,6 +33,7 @@ import {
 } from '@/components/ui/tooltip'
 
 export function NotificationBell() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: unreadCount = 0 } = useUnreadNotificationCount()
   const { data: notificationsData } = useNotifications({ pageSize: 10 })
@@ -61,7 +63,7 @@ export function NotificationBell() {
               variant="ghost"
               size="icon"
               className="relative h-9 w-9"
-              aria-label={unreadCount > 0 ? `Benachrichtigungen — ${unreadCount} ungelesen` : 'Benachrichtigungen'}
+              aria-label={unreadCount > 0 ? t('notifications.bell.ariaLabelUnread', { count: unreadCount }) : t('notifications.bell.ariaLabel')}
             >
               <Bell className="h-4 w-4" aria-hidden="true" />
               {unreadCount > 0 && (
@@ -75,20 +77,20 @@ export function NotificationBell() {
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent>Benachrichtigungen</TooltipContent>
+        <TooltipContent>{t('notifications.bell.tooltip')}</TooltipContent>
       </Tooltip>
 
       <PopoverContent className="w-80 p-0" align="end">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3">
-          <h3 className="text-sm font-semibold text-foreground">Benachrichtigungen</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('notifications.bell.title')}</h3>
           {unreadCount > 0 && (
             <button
               className="text-xs text-primary hover:underline"
               onClick={() => markAllRead.mutate(undefined)}
               disabled={markAllRead.isPending}
             >
-              Alle als gelesen markieren
+              {t('notifications.bell.markAllRead')}
             </button>
           )}
         </div>
@@ -99,7 +101,7 @@ export function NotificationBell() {
         <ScrollArea className="max-h-[360px]">
           {notifications.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">Keine Benachrichtigungen</p>
+              <p className="text-sm text-muted-foreground">{t('notifications.bell.empty')}</p>
             </div>
           ) : (
             <div>
@@ -122,7 +124,7 @@ export function NotificationBell() {
             className="w-full text-center text-xs text-primary hover:underline"
             onClick={() => navigate('/notifications')}
           >
-            Alle anzeigen
+            {t('notifications.bell.showAll')}
           </button>
         </div>
       </PopoverContent>

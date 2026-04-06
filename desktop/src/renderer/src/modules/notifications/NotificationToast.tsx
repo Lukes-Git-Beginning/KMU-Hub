@@ -6,6 +6,7 @@
  * Supports action buttons, snooze dropdown, and sound toggle.
  */
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
   MessageSquare,
@@ -51,9 +52,9 @@ function getIcon(iconName: string) {
 // ---------------------------------------------------------------------------
 
 const snoozeOptions = [
-  { label: '30 Min', minutes: 30 },
-  { label: '1 Std', minutes: 60 },
-  { label: 'Morgen', minutes: 24 * 60 },
+  { labelKey: 'notifications.toast.snooze30', minutes: 30 },
+  { labelKey: 'notifications.toast.snooze1h', minutes: 60 },
+  { labelKey: 'notifications.toast.snoozeTomorrow', minutes: 24 * 60 },
 ]
 
 // ---------------------------------------------------------------------------
@@ -67,6 +68,7 @@ function ToastContent({
   notification: Notification
   toastId: string | number
 }) {
+  const { t } = useTranslation()
   const [showSnooze, setShowSnooze] = useState(false)
   const { snoozeNotification, handleNotificationAction, markAsRead } = useNotificationsStore()
 
@@ -136,7 +138,7 @@ function ToastContent({
               <button
                 onClick={() => setShowSnooze(!showSnooze)}
                 className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title="Erinnerung später"
+                title={t('notifications.toast.snooze')}
               >
                 <AlarmClock className="h-3.5 w-3.5" />
               </button>
@@ -153,7 +155,7 @@ function ToastContent({
                       }}
                       className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted transition-colors"
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -172,13 +174,13 @@ function ToastContent({
               }}
               className="text-xs text-primary hover:underline"
             >
-              Als gelesen markieren
+              {t('notifications.toast.markRead')}
             </button>
             <div className="relative ml-auto">
               <button
                 onClick={() => setShowSnooze(!showSnooze)}
                 className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                title="Erinnerung später"
+                title={t('notifications.toast.snooze')}
               >
                 <AlarmClock className="h-3.5 w-3.5" />
               </button>
@@ -195,7 +197,7 @@ function ToastContent({
                       }}
                       className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-muted transition-colors"
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   ))}
                 </div>

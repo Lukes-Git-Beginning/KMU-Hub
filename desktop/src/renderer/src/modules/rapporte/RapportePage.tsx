@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -73,11 +74,11 @@ const weatherIcons: Record<WeatherType, typeof Sun> = {
   snowy: Snowflake,
 }
 
-const weatherLabels: Record<WeatherType, string> = {
-  sunny: 'Sonnig',
-  cloudy: 'Bewölkt',
-  rainy: 'Regen',
-  snowy: 'Schnee',
+const weatherLabelKeys: Record<WeatherType, string> = {
+  sunny: 'rapporte.weather.sunny',
+  cloudy: 'rapporte.weather.cloudy',
+  rainy: 'rapporte.weather.rainy',
+  snowy: 'rapporte.weather.snowy',
 }
 
 const projectColors: Record<string, string> = {
@@ -152,11 +153,11 @@ const approvalBadgeStyles: Record<FieldReport['approvalStatus'], string> = {
   rejected: 'bg-error-light text-error',
 }
 
-const approvalLabels: Record<FieldReport['approvalStatus'], string> = {
-  draft: 'Entwurf',
-  submitted: 'Eingereicht',
-  approved: 'Genehmigt',
-  rejected: 'Abgelehnt',
+const approvalLabelKeys: Record<FieldReport['approvalStatus'], string> = {
+  draft: 'rapporte.approval.draft',
+  submitted: 'rapporte.approval.submitted',
+  approved: 'rapporte.approval.approved',
+  rejected: 'rapporte.approval.rejected',
 }
 
 // ============================================================
@@ -164,6 +165,7 @@ const approvalLabels: Record<FieldReport['approvalStatus'], string> = {
 // ============================================================
 
 export default function RapportePage() {
+  const { t } = useTranslation()
   const { reports, measurements, templates, deleteReport, deleteMeasurement, updateReport } = useRapporteStore()
 
   const [tab, setTab] = useState<TabKey>('tagesberichte')
@@ -230,12 +232,12 @@ export default function RapportePage() {
   const handleDeleteReport = (id: string) => {
     deleteReport(id)
     setSelectedReport(null)
-    toast.success('Tagesbericht gelöscht')
+    toast.success(t('rapporte.report.deleted'))
   }
 
   const handleDeleteMeasurement = (id: string) => {
     deleteMeasurement(id)
-    toast.success('Aufmass gelöscht')
+    toast.success(t('rapporte.measurement.deleted'))
   }
 
   const handleUseTemplate = (template: ReportTemplate) => {
@@ -254,8 +256,8 @@ export default function RapportePage() {
   return (
     <div className="flex-1 overflow-y-auto p-6 animate-fade-up">
       <PageHeader
-        title="Rapporte"
-        description="Tagesberichte, Aufmass und Vorlagen für Bauprojekte"
+        title={t('rapporte.title')}
+        description={t('rapporte.description')}
         icon={ClipboardCheck}
         moduleId="rapporte"
         className="mb-6"
@@ -267,7 +269,7 @@ export default function RapportePage() {
                 className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                Neues Aufmass
+                {t('rapporte.newMeasurement')}
               </button>
             )}
             <button
@@ -278,7 +280,7 @@ export default function RapportePage() {
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neuer Tagesbericht
+              {t('rapporte.newReport')}
             </button>
           </div>
         }
@@ -287,21 +289,21 @@ export default function RapportePage() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Berichte diese Woche</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('rapporte.stats.reportsThisWeek')}</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">{reportsThisWeek}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Arbeitsstunden gesamt</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('rapporte.stats.totalHours')}</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">{totalHoursFormatted}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Material-Kosten</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('rapporte.stats.materialCost')}</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">
             CHF {materialCostMock.toLocaleString('de-DE')}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Projekte aktiv</p>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('rapporte.stats.activeProjects')}</p>
           <p className="text-2xl font-semibold text-foreground tabular-nums">{activeProjects}</p>
         </div>
       </div>
@@ -309,9 +311,9 @@ export default function RapportePage() {
       {/* Tabs */}
       <div className="flex items-center gap-4 border-b border-border mb-6">
         {([
-          { key: 'tagesberichte' as const, label: `Tagesberichte (${reports.length})` },
-          { key: 'aufmass' as const, label: `Aufmass (${measurements.length})` },
-          { key: 'vorlagen' as const, label: `Vorlagen (${templates.length})` },
+          { key: 'tagesberichte' as const, label: t('rapporte.tabs.reports', { count: reports.length }) },
+          { key: 'aufmass' as const, label: t('rapporte.tabs.measurements', { count: measurements.length }) },
+          { key: 'vorlagen' as const, label: t('rapporte.tabs.templates', { count: templates.length }) },
         ]).map((t) => (
           <button
             key={t.key}
@@ -336,7 +338,7 @@ export default function RapportePage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Bericht suchen..."
+                placeholder={t('rapporte.filter.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -344,10 +346,10 @@ export default function RapportePage() {
             </div>
             <Select value={projectFilter} onValueChange={setProjectFilter}>
               <SelectTrigger className="w-[220px]">
-                <SelectValue placeholder="Alle Projekte" />
+                <SelectValue placeholder={t('rapporte.filter.allProjects')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Alle Projekte</SelectItem>
+                <SelectItem value="all">{t('rapporte.filter.allProjects')}</SelectItem>
                 {uniqueProjects.map((p) => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
@@ -355,9 +357,9 @@ export default function RapportePage() {
             </Select>
             <div className="flex items-center gap-1.5">
               {([
-                { value: 'week' as const, label: 'Diese Woche' },
-                { value: 'month' as const, label: 'Dieser Monat' },
-                { value: 'all' as const, label: 'Alle' },
+                { value: 'week' as const, label: t('rapporte.filter.thisWeek') },
+                { value: 'month' as const, label: t('rapporte.filter.thisMonth') },
+                { value: 'all' as const, label: t('rapporte.filter.all') },
               ]).map((opt) => (
                 <button
                   key={opt.value}
@@ -378,8 +380,8 @@ export default function RapportePage() {
           {filteredReports.length === 0 ? (
             <EmptyState
               icon={ClipboardList}
-              title="Keine Tagesberichte gefunden"
-              description={search || projectFilter !== 'all' || dateFilter !== 'all' ? 'Passe deine Filter an' : 'Erstelle deinen ersten Tagesbericht'}
+              title={t('rapporte.empty.noReports')}
+              description={search || projectFilter !== 'all' || dateFilter !== 'all' ? t('rapporte.empty.adjustFilters') : t('rapporte.empty.createFirst')}
             />
           ) : (
             <div className="space-y-3">
@@ -415,7 +417,7 @@ export default function RapportePage() {
                           {report.approvalStatus === 'approved' && <CheckCircle2 className="h-3 w-3" />}
                           {report.approvalStatus === 'rejected' && <XCircle className="h-3 w-3" />}
                           {report.approvalStatus === 'submitted' && <Send className="h-3 w-3" />}
-                          {approvalLabels[report.approvalStatus]}
+                          {t(approvalLabelKeys[report.approvalStatus])}
                         </span>
                         {/* Weather */}
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -434,18 +436,18 @@ export default function RapportePage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />
-                        <span>{report.workers.length} Mitarbeiter</span>
+                        <span>{t('rapporte.report.workers', { count: report.workers.length })}</span>
                       </div>
                       {report.photos.length > 0 && (
                         <div className="flex items-center gap-1">
                           <Camera className="h-3.5 w-3.5" />
-                          <span>{report.photos.length} Fotos</span>
+                          <span>{t('rapporte.report.photos', { count: report.photos.length })}</span>
                         </div>
                       )}
                       {report.signatureStatus === 'pending' && (
                         <span className="flex items-center gap-1 rounded-full bg-warning-light text-warning px-2 py-0.5 text-[10px] font-medium">
                           <AlertTriangle className="h-3 w-3" />
-                          Unterschrift ausstehend
+                          {t('rapporte.report.signaturePending')}
                         </span>
                       )}
                     </div>
@@ -453,7 +455,7 @@ export default function RapportePage() {
                     {/* Activities preview */}
                     <div className="mt-2 text-xs text-muted-foreground line-clamp-2">
                       {report.activities.slice(0, 2).map((a) => a.description).join(' / ')}
-                      {report.activities.length > 2 && ` (+${report.activities.length - 2} weitere)`}
+                      {report.activities.length > 2 && ` ${t('rapporte.report.more', { count: report.activities.length - 2 })}`}
                     </div>
                   </div>
                 )
@@ -471,8 +473,8 @@ export default function RapportePage() {
           {measurements.length === 0 ? (
             <EmptyState
               icon={Ruler}
-              title="Keine Aufmasse vorhanden"
-              description="Erstelle ein neues Aufmass"
+              title={t('rapporte.empty.noMeasurements')}
+              description={t('rapporte.empty.createMeasurement')}
             />
           ) : (
             <div className="space-y-3">
@@ -523,12 +525,12 @@ export default function RapportePage() {
                         <table className="w-full text-sm mt-3">
                           <thead>
                             <tr>
-                              <th className="pb-2 text-left text-xs font-medium text-muted-foreground">Position</th>
-                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">L (m)</th>
-                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">B (m)</th>
-                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">H (m)</th>
-                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Fläche (m²)</th>
-                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Volumen (m³)</th>
+                              <th className="pb-2 text-left text-xs font-medium text-muted-foreground">{t('rapporte.table.position')}</th>
+                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">{t('rapporte.table.length')}</th>
+                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">{t('rapporte.table.width')}</th>
+                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">{t('rapporte.table.height')}</th>
+                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">{t('rapporte.table.area')}</th>
+                              <th className="pb-2 text-right text-xs font-medium text-muted-foreground">{t('rapporte.table.volume')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -544,7 +546,7 @@ export default function RapportePage() {
                             ))}
                             {/* Sum row */}
                             <tr className="border-t-2 border-border">
-                              <td className="py-2 text-xs font-semibold text-foreground">Summe</td>
+                              <td className="py-2 text-xs font-semibold text-foreground">{t('rapporte.table.sum')}</td>
                               <td className="py-2" />
                               <td className="py-2" />
                               <td className="py-2" />
@@ -569,7 +571,7 @@ export default function RapportePage() {
                             className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            Löschen
+                            {t('common.delete')}
                           </button>
                         </div>
                       </div>
@@ -604,7 +606,7 @@ export default function RapportePage() {
 
               {/* Default activities */}
               <div className="mb-3">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Tätigkeiten</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('rapporte.template.activities')}</p>
                 <div className="flex flex-wrap gap-1">
                   {tpl.defaultActivities.map((a) => (
                     <span key={a} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -616,7 +618,7 @@ export default function RapportePage() {
 
               {/* Default materials */}
               <div className="mb-4">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Materialien</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">{t('rapporte.template.materials')}</p>
                 <div className="flex flex-wrap gap-1">
                   {tpl.defaultMaterials.map((m) => (
                     <span key={m} className="rounded-full bg-primary-light px-2 py-0.5 text-[10px] text-primary">
@@ -632,7 +634,7 @@ export default function RapportePage() {
                   className="w-full flex items-center justify-center gap-2 rounded-lg border border-border py-2 text-xs text-foreground hover:bg-secondary transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Vorlage verwenden
+                  {t('rapporte.template.use')}
                 </button>
               </div>
             </div>
@@ -692,6 +694,7 @@ function ReportDetailPanel({
   onDelete: (id: string) => void
   onUpdate: (id: string, updates: Partial<FieldReport>) => void
 }) {
+  const { t } = useTranslation()
   const WeatherIcon = weatherIcons[report.weather]
   const netHours = calcNetHours(report.workStart, report.workEnd, report.breakMinutes)
   const [showSignaturePad, setShowSignaturePad] = useState(false)
@@ -710,14 +713,14 @@ function ReportDetailPanel({
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-error hover:bg-error-light transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            Löschen
+            {t('common.delete')}
           </button>
           <button
-            onClick={() => toast.success('PDF-Export wird generiert...', { description: 'Der Tagesbericht wird als PDF heruntergeladen' })}
+            onClick={() => toast.success(t('rapporte.detail.pdfExportToast'), { description: t('rapporte.detail.pdfExportDescription') })}
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
           >
             <FileDown className="h-3.5 w-3.5" />
-            PDF exportieren
+            {t('rapporte.detail.pdfExport')}
           </button>
         </div>
       }
@@ -729,17 +732,17 @@ function ReportDetailPanel({
             <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-medium mb-1 ${projectColors[report.projectId] ?? 'bg-secondary text-muted-foreground'}`}>
               {report.projectName}
             </span>
-            <p className="text-xs text-muted-foreground">Verfasser: {report.author}</p>
+            <p className="text-xs text-muted-foreground">{t('rapporte.detail.author', { name: report.author })}</p>
           </div>
           {report.signatureStatus === 'pending' && (
             <span className="flex items-center gap-1 rounded-full bg-warning-light text-warning px-2 py-0.5 text-[10px] font-medium">
               <AlertTriangle className="h-3 w-3" />
-              Ausstehend
+              {t('rapporte.detail.pending')}
             </span>
           )}
           {report.signatureStatus === 'signed' && (
             <span className="flex items-center gap-1 rounded-full bg-success-light text-success px-2 py-0.5 text-[10px] font-medium">
-              Unterschrieben
+              {t('rapporte.detail.signed')}
             </span>
           )}
         </div>
@@ -750,7 +753,7 @@ function ReportDetailPanel({
             <WeatherIcon className="h-5 w-5 text-foreground" />
           </div>
           <div>
-            <p className="text-sm font-medium text-foreground">{weatherLabels[report.weather]}</p>
+            <p className="text-sm font-medium text-foreground">{t(weatherLabelKeys[report.weather])}</p>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Thermometer className="h-3 w-3" />
               {report.temperature}°C
@@ -761,19 +764,19 @@ function ReportDetailPanel({
         {/* Work time block */}
         <div className="grid grid-cols-4 gap-2">
           <div className="rounded-lg border border-border bg-secondary/30 p-2.5 text-center">
-            <p className="text-[10px] text-muted-foreground mb-0.5">Start</p>
+            <p className="text-[10px] text-muted-foreground mb-0.5">{t('rapporte.detail.start')}</p>
             <p className="text-sm font-medium text-foreground">{report.workStart}</p>
           </div>
           <div className="rounded-lg border border-border bg-secondary/30 p-2.5 text-center">
-            <p className="text-[10px] text-muted-foreground mb-0.5">Ende</p>
+            <p className="text-[10px] text-muted-foreground mb-0.5">{t('rapporte.detail.end')}</p>
             <p className="text-sm font-medium text-foreground">{report.workEnd}</p>
           </div>
           <div className="rounded-lg border border-border bg-secondary/30 p-2.5 text-center">
-            <p className="text-[10px] text-muted-foreground mb-0.5">Pause</p>
+            <p className="text-[10px] text-muted-foreground mb-0.5">{t('rapporte.detail.break')}</p>
             <p className="text-sm font-medium text-foreground">{report.breakMinutes} min</p>
           </div>
           <div className="rounded-lg border border-border bg-primary-light p-2.5 text-center">
-            <p className="text-[10px] text-primary mb-0.5">Netto</p>
+            <p className="text-[10px] text-primary mb-0.5">{t('rapporte.detail.net')}</p>
             <p className="text-sm font-semibold text-primary">{netHours}</p>
           </div>
         </div>
@@ -782,15 +785,15 @@ function ReportDetailPanel({
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
             <HardHat className="h-3 w-3" />
-            Mitarbeiter ({report.workers.length})
+            {t('rapporte.detail.workersTitle', { count: report.workers.length })}
           </h4>
           <div className="rounded-lg border border-border overflow-hidden">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-secondary/30">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Name</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Funktion</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Stunden</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('rapporte.detail.tableName')}</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('rapporte.detail.tableRole')}</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">{t('rapporte.detail.tableHours')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -809,7 +812,7 @@ function ReportDetailPanel({
         {/* Activities */}
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            Tätigkeiten ({report.activities.length})
+            {t('rapporte.detail.activitiesTitle', { count: report.activities.length })}
           </h4>
           <div className="space-y-1.5">
             {report.activities.map((a, i) => (
@@ -830,15 +833,15 @@ function ReportDetailPanel({
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
               <Package className="h-3 w-3" />
-              Material ({report.materials.length})
+              {t('rapporte.detail.materialTitle', { count: report.materials.length })}
             </h4>
             <div className="rounded-lg border border-border overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-secondary/30">
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Artikel</th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">Menge</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground pl-3">Einheit</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('rapporte.detail.tableArticle')}</th>
+                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">{t('rapporte.detail.tableQuantity')}</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground pl-3">{t('rapporte.detail.tableUnit')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -860,7 +863,7 @@ function ReportDetailPanel({
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
               <Camera className="h-3 w-3" />
-              Fotos ({report.photos.length})
+              {t('rapporte.detail.photosTitle', { count: report.photos.length })}
             </h4>
             <div className="grid grid-cols-2 gap-2">
               {report.photos.map((photo, idx) => (
@@ -872,7 +875,7 @@ function ReportDetailPanel({
                     </div>
                   </div>
                   <div className="px-2 py-1.5">
-                    <p className="text-[10px] text-muted-foreground line-clamp-2">{photo.caption || 'Kein Titel'}</p>
+                    <p className="text-[10px] text-muted-foreground line-clamp-2">{photo.caption || t('rapporte.detail.noCaption')}</p>
                   </div>
                 </div>
               ))}
@@ -883,20 +886,20 @@ function ReportDetailPanel({
         {/* Signature section (9.6) */}
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-            Unterschrift
+            {t('rapporte.detail.signatureTitle')}
           </h4>
           {report.signatureDataUrl ? (
             <div className="rounded-lg border border-border bg-white p-3">
               <img
                 src={report.signatureDataUrl}
-                alt="Unterschrift"
+                alt={t('rapporte.detail.signatureAlt')}
                 loading="lazy"
                 decoding="async"
                 className="max-h-24 mx-auto"
               />
               <p className="text-[10px] text-success text-center mt-1 flex items-center justify-center gap-1">
                 <CheckCircle2 className="h-3 w-3" />
-                Unterschrieben
+                {t('rapporte.detail.signatureSigned')}
               </p>
             </div>
           ) : showSignaturePad ? (
@@ -908,7 +911,7 @@ function ReportDetailPanel({
                     signatureStatus: 'signed',
                   })
                   setShowSignaturePad(false)
-                  toast.success('Unterschrift gespeichert')
+                  toast.success(t('rapporte.detail.signatureSaved'))
                 }}
                 onCancel={() => setShowSignaturePad(false)}
               />
@@ -919,7 +922,7 @@ function ReportDetailPanel({
               className="w-full rounded-lg border-2 border-dashed border-border p-4 flex items-center justify-center gap-2 text-muted-foreground hover:bg-secondary/50 hover:border-primary/30 transition-colors"
             >
               <Pencil className="h-4 w-4" />
-              <span className="text-xs font-medium">Unterschrift aufnehmen</span>
+              <span className="text-xs font-medium">{t('rapporte.detail.signatureCapture')}</span>
             </button>
           )}
         </section>
@@ -928,26 +931,26 @@ function ReportDetailPanel({
         <section>
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
             <ShieldCheck className="h-3 w-3" />
-            Genehmigung
+            {t('rapporte.detail.approvalTitle')}
           </h4>
           {report.approvalStatus === 'draft' && (
             <button
               onClick={() => {
                 onUpdate(report.id, { approvalStatus: 'submitted' })
-                toast.success('Tagesbericht zur Genehmigung eingereicht')
+                toast.success(t('rapporte.detail.submitted'))
               }}
               className="w-full flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary-light px-3 py-2.5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
             >
               <Send className="h-3.5 w-3.5" />
-              Zur Genehmigung einreichen
+              {t('rapporte.detail.submitApproval')}
             </button>
           )}
           {report.approvalStatus === 'submitted' && (
             <div className="rounded-lg border border-info bg-info-light p-3 flex items-center gap-2">
               <Clock className="h-4 w-4 text-info shrink-0" />
               <div>
-                <p className="text-xs font-medium text-info">Warte auf Genehmigung</p>
-                <p className="text-[10px] text-info/70 mt-0.5">Der Bericht wurde eingereicht und wartet auf Freigabe.</p>
+                <p className="text-xs font-medium text-info">{t('rapporte.detail.waitingApproval')}</p>
+                <p className="text-[10px] text-info/70 mt-0.5">{t('rapporte.detail.waitingDescription')}</p>
               </div>
             </div>
           )}
@@ -955,9 +958,9 @@ function ReportDetailPanel({
             <div className="rounded-lg border border-success bg-success-light p-3 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
               <div>
-                <p className="text-xs font-medium text-success">Genehmigt</p>
+                <p className="text-xs font-medium text-success">{t('rapporte.detail.approved')}</p>
                 {report.approvedBy && (
-                  <p className="text-[10px] text-success/70 mt-0.5">Freigegeben von {report.approvedBy}</p>
+                  <p className="text-[10px] text-success/70 mt-0.5">{t('rapporte.detail.approvedBy', { name: report.approvedBy })}</p>
                 )}
               </div>
             </div>
@@ -967,24 +970,24 @@ function ReportDetailPanel({
               <div className="rounded-lg border border-error bg-error-light p-3 flex items-start gap-2">
                 <XCircle className="h-4 w-4 text-error shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-medium text-error">Abgelehnt</p>
+                  <p className="text-xs font-medium text-error">{t('rapporte.detail.rejected')}</p>
                   {report.approvalComment && (
-                    <p className="text-[10px] text-error/80 mt-0.5">Grund: {report.approvalComment}</p>
+                    <p className="text-[10px] text-error/80 mt-0.5">{t('rapporte.detail.rejectedReason', { reason: report.approvalComment })}</p>
                   )}
                   {report.approvedBy && (
-                    <p className="text-[10px] text-error/60 mt-0.5">Von {report.approvedBy}</p>
+                    <p className="text-[10px] text-error/60 mt-0.5">{t('rapporte.detail.rejectedBy', { name: report.approvedBy })}</p>
                   )}
                 </div>
               </div>
               <button
                 onClick={() => {
                   onUpdate(report.id, { approvalStatus: 'submitted', approvalComment: undefined })
-                  toast.success('Tagesbericht erneut eingereicht')
+                  toast.success(t('rapporte.detail.resubmitted'))
                 }}
                 className="w-full flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors"
               >
                 <Send className="h-3.5 w-3.5" />
-                Erneut einreichen
+                {t('rapporte.detail.resubmit')}
               </button>
             </div>
           )}
@@ -994,7 +997,7 @@ function ReportDetailPanel({
         {report.notes && (
           <section>
             <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Notizen
+              {t('rapporte.detail.notesTitle')}
             </h4>
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
               <p className="text-xs text-foreground leading-relaxed">{report.notes}</p>
@@ -1021,6 +1024,7 @@ function NewReportDialog({
   projects: { id: string; name: string }[]
   templatePrefill: ReportTemplate | null
 }) {
+  const { t } = useTranslation()
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [projectId, setProjectId] = useState('')
   const [weather, setWeather] = useState<WeatherType>('sunny')
@@ -1086,22 +1090,22 @@ function NewReportDialog({
 
   const handleSave = () => {
     if (!projectId) {
-      toast.error('Bitte Projekt auswählen')
+      toast.error(t('rapporte.dialog.selectProject'))
       return
     }
     const validWorkers = workers.filter((w) => w.name.trim())
     if (validWorkers.length === 0) {
-      toast.error('Mindestens ein Mitarbeiter erforderlich')
+      toast.error(t('rapporte.dialog.workerRequired'))
       return
     }
     const validActivities = activities.filter((a) => a.description.trim())
     if (validActivities.length === 0) {
-      toast.error('Mindestens eine Tätigkeit erforderlich')
+      toast.error(t('rapporte.dialog.activityRequired'))
       return
     }
 
     const project = projects.find((p) => p.id === projectId)
-    toast.success(`Tagesbericht für "${project?.name ?? 'Projekt'}" erstellt`)
+    toast.success(t('rapporte.dialog.reportCreated', { name: project?.name ?? 'Projekt' }))
 
     // Reset
     setDate(new Date().toISOString().split('T')[0])
@@ -1125,14 +1129,14 @@ function NewReportDialog({
       <DialogContent className="sm:max-w-[620px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {templatePrefill ? `Neuer Bericht — ${templatePrefill.name}` : 'Neuer Tagesbericht'}
+            {templatePrefill ? t('rapporte.dialog.newReportTemplate', { name: templatePrefill.name }) : t('rapporte.dialog.newReportTitle')}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           {/* Date + Project */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Datum</Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.date')}</Label>
               <Input
                 type="date"
                 value={date}
@@ -1140,10 +1144,10 @@ function NewReportDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Projekt <span className="text-destructive">*</span></Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.project')} <span className="text-destructive">*</span></Label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Projekt auswählen..." />
+                  <SelectValue placeholder={t('rapporte.dialog.projectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => (
@@ -1156,7 +1160,7 @@ function NewReportDialog({
 
           {/* Weather */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Wetter</Label>
+            <Label className="text-sm font-medium">{t('rapporte.dialog.weather')}</Label>
             <div className="flex items-center gap-2">
               {weatherTypes.map((w) => {
                 const Icon = weatherIcons[w]
@@ -1172,7 +1176,7 @@ function NewReportDialog({
                     }`}
                   >
                     <Icon className="h-4 w-4" />
-                    {weatherLabels[w]}
+                    {t(weatherLabelKeys[w])}
                   </button>
                 )
               })}
@@ -1181,7 +1185,7 @@ function NewReportDialog({
 
           {/* Temperature */}
           <div className="space-y-1.5 max-w-[160px]">
-            <Label className="text-sm font-medium">Temperatur (°C)</Label>
+            <Label className="text-sm font-medium">{t('rapporte.dialog.temperature')}</Label>
             <Input
               type="number"
               value={temperature}
@@ -1206,14 +1210,14 @@ function NewReportDialog({
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground/60 mt-1">
-              Wetterdaten für {date || 'heute'} (Mock)
+              {t('rapporte.weather.dataFor', { date: date || 'heute' })}
             </p>
           </div>
 
           {/* Work time */}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Arbeitsbeginn</Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.workStart')}</Label>
               <Input
                 type="time"
                 value={workStart}
@@ -1221,7 +1225,7 @@ function NewReportDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Arbeitsende</Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.workEnd')}</Label>
               <Input
                 type="time"
                 value={workEnd}
@@ -1229,7 +1233,7 @@ function NewReportDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Pause (min)</Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.breakMin')}</Label>
               <Input
                 type="number"
                 min="0"
@@ -1242,13 +1246,13 @@ function NewReportDialog({
           {/* Workers */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Mitarbeiter <span className="text-destructive">*</span></Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.workers')} <span className="text-destructive">*</span></Label>
               <button
                 onClick={addWorker}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                Mitarbeiter hinzufügen
+                {t('rapporte.dialog.addWorker')}
               </button>
             </div>
             <div className="space-y-2 max-h-[200px] overflow-y-auto">
@@ -1291,13 +1295,13 @@ function NewReportDialog({
           {/* Activities */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Tätigkeiten <span className="text-destructive">*</span></Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.activities')} <span className="text-destructive">*</span></Label>
               <button
                 onClick={addActivity}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                Tätigkeit hinzufügen
+                {t('rapporte.dialog.addActivity')}
               </button>
             </div>
             <div className="space-y-2 max-h-[200px] overflow-y-auto">
@@ -1331,13 +1335,13 @@ function NewReportDialog({
           {/* Materials */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Material</Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.material')}</Label>
               <button
                 onClick={addMaterial}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                Material hinzufügen
+                {t('rapporte.dialog.addMaterial')}
               </button>
             </div>
             <div className="space-y-2 max-h-[200px] overflow-y-auto">
@@ -1393,9 +1397,9 @@ function NewReportDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Notizen</Label>
+            <Label className="text-sm font-medium">{t('rapporte.dialog.notes')}</Label>
             <Textarea
-              placeholder="Bemerkungen, Besonderheiten, Planung für morgen..."
+              placeholder={t('rapporte.dialog.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
@@ -1405,14 +1409,14 @@ function NewReportDialog({
           {/* Photos (9.7) */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Fotos</Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.photos')}</Label>
               <button
                 type="button"
                 onClick={addPhoto}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Camera className="h-3 w-3" />
-                Fotos hinzufügen
+                {t('rapporte.dialog.addPhotos')}
               </button>
             </div>
             {photos.length > 0 && (
@@ -1424,7 +1428,7 @@ function NewReportDialog({
                     </div>
                     <div className="p-2 space-y-1">
                       <Input
-                        placeholder="Bildunterschrift..."
+                        placeholder={t('rapporte.dialog.captionPlaceholder')}
                         value={photo.caption}
                         onChange={(e) => updatePhotoCaption(photo.id, e.target.value)}
                         className="text-xs h-7"
@@ -1435,7 +1439,7 @@ function NewReportDialog({
                         className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-error transition-colors"
                       >
                         <Trash2 className="h-3 w-3" />
-                        Entfernen
+                        {t('rapporte.dialog.removePhoto')}
                       </button>
                     </div>
                   </div>
@@ -1443,27 +1447,27 @@ function NewReportDialog({
               </div>
             )}
             {photos.length === 0 && (
-              <p className="text-xs text-muted-foreground">Keine Fotos hinzugefügt</p>
+              <p className="text-xs text-muted-foreground">{t('rapporte.dialog.noPhotos')}</p>
             )}
           </div>
 
           {/* Signature (9.6) */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Digitale Unterschrift</Label>
+            <Label className="text-sm font-medium">{t('rapporte.dialog.signature')}</Label>
             {signatureDataUrl ? (
               <div className="rounded-lg border border-border bg-white p-3">
                 <img src={signatureDataUrl} alt="Unterschrift" loading="lazy" decoding="async" className="max-h-20 mx-auto" />
                 <div className="flex items-center justify-center gap-2 mt-2">
                   <p className="text-[10px] text-success flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />
-                    Unterschrift erfasst
+                    {t('rapporte.dialog.signatureCaptured')}
                   </p>
                   <button
                     type="button"
                     onClick={() => setSignatureDataUrl(null)}
                     className="text-[10px] text-muted-foreground hover:text-error transition-colors"
                   >
-                    Entfernen
+                    {t('rapporte.dialog.removeSignature')}
                   </button>
                 </div>
               </div>
@@ -1472,7 +1476,7 @@ function NewReportDialog({
                 <SignatureCanvas
                   onSave={(dataUrl) => {
                     setSignatureDataUrl(dataUrl)
-                    toast.success('Unterschrift erfasst')
+                    toast.success(t('rapporte.dialog.signatureCapturedToast'))
                   }}
                   onCancel={() => {}}
                 />
@@ -1486,13 +1490,13 @@ function NewReportDialog({
               onClick={() => onOpenChange(false)}
               className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="flex-1 rounded-lg bg-primary py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              Bericht erstellen
+              {t('rapporte.dialog.createReport')}
             </button>
           </div>
         </div>
@@ -1521,6 +1525,7 @@ function NewMeasurementDialog({
   onOpenChange: (open: boolean) => void
   projects: { id: string; name: string }[]
 }) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [projectId, setProjectId] = useState('')
   const [positions, setPositions] = useState<PositionDraft[]>([
@@ -1557,21 +1562,21 @@ function NewMeasurementDialog({
 
   const handleSave = () => {
     if (!name.trim()) {
-      toast.error('Bitte Raum/Objekt-Name eingeben')
+      toast.error(t('rapporte.measurement.dialog.nameRequired'))
       return
     }
     if (!projectId) {
-      toast.error('Bitte Projekt auswählen')
+      toast.error(t('rapporte.measurement.dialog.projectRequired'))
       return
     }
     const validPositions = positions.filter((p) => p.label.trim())
     if (validPositions.length === 0) {
-      toast.error('Mindestens eine Position mit Label erforderlich')
+      toast.error(t('rapporte.measurement.dialog.positionRequired'))
       return
     }
 
     const project = projects.find((p) => p.id === projectId)
-    toast.success(`Aufmass "${name}" für "${project?.name ?? 'Projekt'}" erstellt`)
+    toast.success(t('rapporte.measurement.dialog.created', { name, project: project?.name ?? 'Projekt' }))
 
     // Reset
     setName('')
@@ -1584,24 +1589,24 @@ function NewMeasurementDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[620px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Neues Aufmass</DialogTitle>
+          <DialogTitle>{t('rapporte.measurement.dialog.title')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           {/* Name + Project */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Raum/Objekt-Name <span className="text-destructive">*</span></Label>
+              <Label className="text-sm font-medium">{t('rapporte.measurement.dialog.roomName')} <span className="text-destructive">*</span></Label>
               <Input
-                placeholder="z.B. Wohnzimmer EG"
+                placeholder={t('rapporte.measurement.dialog.roomPlaceholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-medium">Projekt <span className="text-destructive">*</span></Label>
+              <Label className="text-sm font-medium">{t('rapporte.dialog.project')} <span className="text-destructive">*</span></Label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Projekt auswählen..." />
+                  <SelectValue placeholder={t('rapporte.dialog.projectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => (
@@ -1615,13 +1620,13 @@ function NewMeasurementDialog({
           {/* Positions */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Positionen <span className="text-destructive">*</span></Label>
+              <Label className="text-sm font-medium">{t('rapporte.measurement.dialog.positions')} <span className="text-destructive">*</span></Label>
               <button
                 onClick={addPosition}
                 className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                Position hinzufügen
+                {t('rapporte.measurement.dialog.addPosition')}
               </button>
             </div>
             <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -1633,7 +1638,7 @@ function NewMeasurementDialog({
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground w-5 shrink-0 text-right font-medium">{idx + 1}.</span>
                       <Input
-                        placeholder="Bezeichnung (z.B. Hauptfläche)"
+                        placeholder={t('rapporte.measurement.dialog.labelPlaceholder')}
                         value={pos.label}
                         onChange={(e) => updatePosition(idx, 'label', e.target.value)}
                         className="flex-1"
@@ -1648,7 +1653,7 @@ function NewMeasurementDialog({
                     </div>
                     <div className="grid grid-cols-5 gap-2 pl-7">
                       <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">Länge (m)</label>
+                        <label className="text-[10px] text-muted-foreground">{t('rapporte.measurement.dialog.lengthLabel')}</label>
                         <Input
                           type="number"
                           min="0"
@@ -1659,7 +1664,7 @@ function NewMeasurementDialog({
                         />
                       </div>
                       <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">Breite (m)</label>
+                        <label className="text-[10px] text-muted-foreground">{t('rapporte.measurement.dialog.widthLabel')}</label>
                         <Input
                           type="number"
                           min="0"
@@ -1670,7 +1675,7 @@ function NewMeasurementDialog({
                         />
                       </div>
                       <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">Höhe (m)</label>
+                        <label className="text-[10px] text-muted-foreground">{t('rapporte.measurement.dialog.heightLabel')}</label>
                         <Input
                           type="number"
                           min="0"
@@ -1681,13 +1686,13 @@ function NewMeasurementDialog({
                         />
                       </div>
                       <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">Fläche (m²)</label>
+                        <label className="text-[10px] text-muted-foreground">{t('rapporte.measurement.dialog.areaLabel')}</label>
                         <div className="rounded-lg border border-border bg-secondary/30 px-3 py-[7px] text-sm text-foreground tabular-nums">
                           {area.toFixed(2)}
                         </div>
                       </div>
                       <div className="space-y-0.5">
-                        <label className="text-[10px] text-muted-foreground">Volumen (m³)</label>
+                        <label className="text-[10px] text-muted-foreground">{t('rapporte.measurement.dialog.volumeLabel')}</label>
                         <div className="rounded-lg border border-border bg-secondary/30 px-3 py-[7px] text-sm text-foreground tabular-nums">
                           {volume.toFixed(2)}
                         </div>
@@ -1701,17 +1706,17 @@ function NewMeasurementDialog({
             {/* Live totals */}
             <div className="flex items-center justify-end gap-4 mt-3 text-xs">
               <span className="text-muted-foreground">
-                Gesamtfläche: <span className="text-foreground font-semibold tabular-nums">{totalArea.toFixed(2)} m²</span>
+                {t('rapporte.measurement.dialog.totalArea')} <span className="text-foreground font-semibold tabular-nums">{totalArea.toFixed(2)} m²</span>
               </span>
               <span className="text-muted-foreground">
-                Gesamtvolumen: <span className="text-foreground font-semibold tabular-nums">{totalVolume.toFixed(2)} m³</span>
+                {t('rapporte.measurement.dialog.totalVolume')} <span className="text-foreground font-semibold tabular-nums">{totalVolume.toFixed(2)} m³</span>
               </span>
             </div>
           </div>
 
           {/* Sketch canvas (9.8) */}
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Zeichnung/Skizze</Label>
+            <Label className="text-sm font-medium">{t('rapporte.measurement.dialog.sketch')}</Label>
             <div className="rounded-lg border border-border overflow-hidden" style={{ height: 400 }}>
               <SketchCanvas />
             </div>
@@ -1723,13 +1728,13 @@ function NewMeasurementDialog({
               onClick={() => onOpenChange(false)}
               className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="flex-1 rounded-lg bg-primary py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              Aufmass erstellen
+              {t('rapporte.measurement.dialog.create')}
             </button>
           </div>
         </div>

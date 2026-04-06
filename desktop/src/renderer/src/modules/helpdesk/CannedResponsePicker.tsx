@@ -5,6 +5,7 @@
  * a canned response. Shows title + shortcut + category.
  */
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Zap, Search } from 'lucide-react'
 import { useHelpdeskStore, type CannedResponse } from '@/stores/helpdesk'
 
@@ -13,6 +14,7 @@ interface CannedResponsePickerProps {
 }
 
 export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
+  const { t } = useTranslation()
   const { cannedResponses } = useHelpdeskStore()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -51,10 +53,10 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-secondary transition-colors"
-        title="Textbaustein einfügen"
+        title={t('helpdesk.cannedResponses.insertTemplate')}
       >
         <Zap className="h-3.5 w-3.5" />
-        Vorlagen
+        {t('helpdesk.cannedResponses.templates')}
       </button>
 
       {open && (
@@ -67,7 +69,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Suchen..."
+                placeholder={t('common.search')}
                 autoFocus
                 className="w-full rounded-md border border-border bg-card pl-8 pr-2 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
               />
@@ -77,7 +79,7 @@ export function CannedResponsePicker({ onSelect }: CannedResponsePickerProps) {
           {/* List */}
           <div className="max-h-48 overflow-y-auto py-1">
             {filtered.length === 0 && (
-              <p className="px-3 py-2 text-xs text-muted-foreground text-center">Keine Vorlagen gefunden</p>
+              <p className="px-3 py-2 text-xs text-muted-foreground text-center">{t('helpdesk.cannedResponses.noTemplatesFound')}</p>
             )}
             {filtered.map((r) => (
               <button

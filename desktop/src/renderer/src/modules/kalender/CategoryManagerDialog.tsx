@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ export function CategoryManagerDialog({
   onCreateCategory,
   onDeleteCategory,
 }: CategoryManagerDialogProps) {
+  const { t } = useTranslation()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
@@ -57,7 +59,7 @@ export function CategoryManagerDialog({
     if (!editingId || !editName.trim()) return
     // Edit stays local-only (no useUpdateEventCategory hook available)
     setEditingId(null)
-    toast.success('Kategorie aktualisiert (lokal)')
+    toast.success(t('kalender.category.updated'))
   }
 
   const handleAdd = () => {
@@ -66,13 +68,13 @@ export function CategoryManagerDialog({
     setNewName('')
     setNewColor(COLOR_PALETTE[0])
     setShowNewForm(false)
-    toast.success('Kategorie erstellt')
+    toast.success(t('kalender.category.created'))
   }
 
   const handleDelete = (cat: EventCategory) => {
     onDeleteCategory(cat.id)
     setConfirmDelete(null)
-    toast.success(`"${cat.name}" gelöscht`)
+    toast.success(t('kalender.category.deleted', { name: cat.name }))
   }
 
   return (
@@ -80,7 +82,7 @@ export function CategoryManagerDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Kategorien verwalten</DialogTitle>
+            <DialogTitle>{t('kalender.category.manageTitle')}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-1 py-2">
@@ -172,7 +174,7 @@ export function CategoryManagerDialog({
                 </div>
                 <Input
                   autoFocus
-                  placeholder="Kategorie-Name..."
+                  placeholder={t('kalender.category.namePlaceholder')}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
@@ -191,14 +193,14 @@ export function CategoryManagerDialog({
                 className="flex items-center gap-2 w-full rounded-lg px-3 py-2 text-xs text-primary hover:bg-primary/5 transition-colors mt-1"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Neue Kategorie
+                {t('kalender.category.new')}
               </button>
             )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Schließen
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -207,9 +209,9 @@ export function CategoryManagerDialog({
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Kategorie löschen?"
-        description={`"${confirmDelete?.name}" wird dauerhaft gelöscht. Bestehende Events behalten ihre Farbe.`}
-        confirmLabel="Löschen"
+        title={t('kalender.category.deleteTitle')}
+        description={t('kalender.category.deleteDescription', { name: confirmDelete?.name })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
       />

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -18,21 +19,22 @@ interface ExportDialogProps {
 }
 
 const FORMATS = [
-  { id: 'csv', label: 'CSV', icon: Table2, description: 'Komma-getrennte Werte für Excel/Google Sheets' },
-  { id: 'pdf', label: 'PDF', icon: FileText, description: 'Druckfertiger Bericht' },
-  { id: 'datev', label: 'DATEV', icon: FileSpreadsheet, description: 'Export für Steuerberater (DATEV-Format)' },
+  { id: 'csv', label: 'CSV', icon: Table2, descKey: 'buchhaltung.exportFormat.csvDesc' },
+  { id: 'pdf', label: 'PDF', icon: FileText, descKey: 'buchhaltung.exportFormat.pdfDesc' },
+  { id: 'datev', label: 'DATEV', icon: FileSpreadsheet, descKey: 'buchhaltung.exportFormat.datevDesc' },
 ]
 
 export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
+  const { t } = useTranslation()
   const [format, setFormat] = useState('csv')
   const [startDate, setStartDate] = useState('2026-01-01')
   const [endDate, setEndDate] = useState('2026-02-28')
 
   const handleExport = () => {
     const formatLabel = FORMATS.find((f) => f.id === format)?.label ?? format
-    toast.success(`${formatLabel}-Export wird erstellt...`)
+    toast.success(t('buchhaltung.toast.exportCreating', { format: formatLabel }))
     setTimeout(() => {
-      toast.success(`Export "${formatLabel}_${startDate}_${endDate}" heruntergeladen`)
+      toast.success(t('buchhaltung.toast.exportDownloaded', { name: `${formatLabel}_${startDate}_${endDate}` }))
     }, 1500)
     onOpenChange(false)
   }
@@ -43,7 +45,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Download className="h-5 w-5" />
-            Daten exportieren
+            {t('buchhaltung.exportDialog.title')}
           </DialogTitle>
         </DialogHeader>
 
@@ -51,18 +53,18 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
           {/* Date range */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Von</Label>
+              <Label>{t('buchhaltung.exportDialog.from')}</Label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Bis</Label>
+              <Label>{t('buchhaltung.exportDialog.to')}</Label>
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
 
           {/* Format selection */}
           <div className="space-y-1.5">
-            <Label>Format</Label>
+            <Label>{t('buchhaltung.exportDialog.format')}</Label>
             <div className="space-y-2">
               {FORMATS.map((f) => {
                 const Icon = f.icon
@@ -80,7 +82,7 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
                     </div>
                     <div>
                       <p className={`text-sm font-medium ${active ? 'text-primary' : 'text-foreground'}`}>{f.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{f.description}</p>
+                      <p className="text-[10px] text-muted-foreground">{t(f.descKey)}</p>
                     </div>
                   </button>
                 )
@@ -90,10 +92,10 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleExport}>
             <Download className="mr-1.5 h-4 w-4" />
-            Exportieren
+            {t('buchhaltung.exportDialog.exportBtn')}
           </Button>
         </DialogFooter>
       </DialogContent>

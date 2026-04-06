@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Eraser, Check } from 'lucide-react'
 
 interface SignatureCanvasProps {
@@ -16,6 +17,7 @@ export default function SignatureCanvas({
   initialData,
   className = '',
 }: SignatureCanvasProps) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasStrokes, setHasStrokes] = useState(false)
@@ -164,7 +166,7 @@ export default function SignatureCanvas({
         {!hasStrokes && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <span className="text-sm text-muted-foreground/50 select-none">
-              Hier unterschreiben
+              {t('rapporte.signature.hint')}
             </span>
           </div>
         )}
@@ -191,7 +193,7 @@ export default function SignatureCanvas({
           className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary"
         >
           <Eraser className="h-3.5 w-3.5" />
-          Löschen
+          {t('rapporte.signature.clear')}
         </button>
         <button
           type="button"
@@ -200,7 +202,7 @@ export default function SignatureCanvas({
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-button-primary-hover disabled:opacity-50 disabled:pointer-events-none"
         >
           <Check className="h-3.5 w-3.5" />
-          Speichern
+          {t('common.save')}
         </button>
       </div>
     </div>

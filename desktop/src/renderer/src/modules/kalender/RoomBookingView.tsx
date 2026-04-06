@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, Users, Monitor, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -112,6 +113,7 @@ function QuickBookDialog({
   onClose: () => void
   onBook: (booking: Omit<Booking, 'id'>) => void
 }) {
+  const { t } = useTranslation()
   const [title, setTitle] = useState('')
   const [endHour, setEndHour] = useState(startHour + 1)
 
@@ -133,8 +135,8 @@ function QuickBookDialog({
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="gap-0 p-0 max-w-sm overflow-hidden">
           <DialogHeader className="border-b border-border px-4 py-3">
-            <DialogTitle className="text-sm font-medium text-foreground">Raum buchen</DialogTitle>
-            <DialogDescription className="sr-only">Schnellbuchung für einen Raum</DialogDescription>
+            <DialogTitle className="text-sm font-medium text-foreground">{t('kalender.room.bookTitle')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('kalender.room.bookDescription')}</DialogDescription>
           </DialogHeader>
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -146,7 +148,7 @@ function QuickBookDialog({
             <input
               autoFocus
               type="text"
-              placeholder="Titel des Meetings..."
+              placeholder={t('kalender.room.meetingTitlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleBook() }}
@@ -156,7 +158,7 @@ function QuickBookDialog({
             <div className="flex items-center gap-2">
               <Clock className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs text-foreground">{String(startHour).padStart(2, '0')}:00</span>
-              <span className="text-xs text-muted-foreground">bis</span>
+              <span className="text-xs text-muted-foreground">{t('kalender.room.until')}</span>
               <select
                 value={endHour}
                 onChange={(e) => setEndHour(Number(e.target.value))}
@@ -174,14 +176,14 @@ function QuickBookDialog({
                 onClick={onClose}
                 className="flex-1 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
               >
-                Abbrechen
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleBook}
                 disabled={!title.trim()}
                 className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
               >
-                Buchen
+                {t('kalender.room.book')}
               </button>
             </DialogFooter>
           </div>
@@ -199,6 +201,7 @@ interface RoomBookingViewProps {
 }
 
 export function RoomBookingView({ onClose }: RoomBookingViewProps) {
+  const { t } = useTranslation()
   const [currentDate, setCurrentDate] = useState(new Date(2026, 1, 9))
   const [bookings, setBookings] = useState(MOCK_BOOKINGS)
   const [quickBook, setQuickBook] = useState<{ room: Room; date: string; hour: number } | null>(null)
@@ -232,13 +235,13 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
 
   const handleBook = (booking: Omit<Booking, 'id'>) => {
     setBookings((prev) => [...prev, { ...booking, id: `b${Date.now()}` }])
-    toast.success(`${booking.room} gebucht: ${booking.title}`)
+    toast.success(t('kalender.room.booked', { room: booking.room, title: booking.title }))
   }
 
   const handleDeleteBooking = (id: string) => {
     setBookings((prev) => prev.filter((b) => b.id !== id))
     setSelectedBooking(null)
-    toast.success('Buchung gelöscht')
+    toast.success(t('kalender.room.bookingDeleted'))
   }
 
   const slotWidth = 80
@@ -254,8 +257,8 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
           <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors" aria-label="Schließen">
             <X className="h-4 w-4" />
           </button>
-          <DialogTitle className="text-sm font-medium text-foreground">Raumplanung</DialogTitle>
-          <DialogDescription className="sr-only">Wochenansicht der Raumbuchungen</DialogDescription>
+          <DialogTitle className="text-sm font-medium text-foreground">{t('kalender.room.planning')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('kalender.room.weekView')}</DialogDescription>
         </div>
 
         <div className="flex items-center gap-2">
@@ -310,7 +313,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
           {/* Hour headers */}
           <div className="flex sticky top-0 bg-card border-b border-border z-10">
             <div className="shrink-0 border-r border-border px-3 py-2" style={{ width: roomLabelWidth }}>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Raum</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('kalender.room.room')}</span>
             </div>
             {HOURS.map((hour) => (
               <div
@@ -398,9 +401,9 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
 
       {/* Legend */}
       <div className="flex items-center gap-4 border-t border-border bg-card px-4 py-2">
-        <span className="text-[10px] text-muted-foreground">Klicke auf einen freien Slot um zu buchen</span>
+        <span className="text-[10px] text-muted-foreground">{t('kalender.room.clickToBook')}</span>
         <span className="text-[10px] text-muted-foreground ml-auto">
-          {dayBookings.length} Buchung{dayBookings.length !== 1 ? 'en' : ''} heute
+          {t('kalender.room.bookingsToday', { count: dayBookings.length })}
         </span>
       </div>
 
@@ -421,7 +424,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
             <div className="p-4 space-y-2.5">
               <div className="flex items-start justify-between">
                 <DialogTitle className="text-sm font-medium text-foreground">{selectedBooking?.title}</DialogTitle>
-                <DialogDescription className="sr-only">Buchungsdetails</DialogDescription>
+                <DialogDescription className="sr-only">{t('kalender.room.bookingDetails')}</DialogDescription>
               </div>
               {selectedBooking && (
               <div className="space-y-1.5 text-xs text-muted-foreground">
@@ -444,13 +447,13 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
                   onClick={() => selectedBooking && handleDeleteBooking(selectedBooking.id)}
                   className="flex-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                 >
-                  Stornieren
+                  {t('kalender.room.cancel')}
                 </button>
                 <button
                   onClick={() => setSelectedBooking(null)}
                   className="flex-1 rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
                 >
-                  Schließen
+                  {t('common.close')}
                 </button>
               </div>
             </div>

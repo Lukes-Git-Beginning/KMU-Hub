@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Pencil, Minus, Square, Type, Ruler, Undo2, Trash2, Save } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
@@ -55,24 +56,24 @@ type Stroke = FreehandStroke | LineStroke | RectangleStroke | TextStroke | MassS
 // ---------------------------------------------------------------------------
 
 const PRESET_COLORS = [
-  { value: '#000000', label: 'Schwarz' },
-  { value: '#dc2626', label: 'Rot' },
-  { value: '#2563eb', label: 'Blau' },
-  { value: '#16a34a', label: 'Gruen' },
+  { value: '#000000', labelKey: 'rapporte.sketch.colorBlack' },
+  { value: '#dc2626', labelKey: 'rapporte.sketch.colorRed' },
+  { value: '#2563eb', labelKey: 'rapporte.sketch.colorBlue' },
+  { value: '#16a34a', labelKey: 'rapporte.sketch.colorGreen' },
 ]
 
 const LINE_WIDTHS = [
-  { value: 1, label: 'Duenn' },
-  { value: 2, label: 'Mittel' },
-  { value: 4, label: 'Dick' },
+  { value: 1, labelKey: 'rapporte.sketch.widthThin' },
+  { value: 2, labelKey: 'rapporte.sketch.widthMedium' },
+  { value: 4, labelKey: 'rapporte.sketch.widthThick' },
 ]
 
-const TOOLS: { type: ToolType; label: string; icon: typeof Pencil }[] = [
-  { type: 'freehand', label: 'Freihand', icon: Pencil },
-  { type: 'line', label: 'Linie', icon: Minus },
-  { type: 'rectangle', label: 'Rechteck', icon: Square },
-  { type: 'text', label: 'Text', icon: Type },
-  { type: 'mass', label: 'Mass', icon: Ruler },
+const TOOLS: { type: ToolType; labelKey: string; icon: typeof Pencil }[] = [
+  { type: 'freehand', labelKey: 'rapporte.sketch.freehand', icon: Pencil },
+  { type: 'line', labelKey: 'rapporte.sketch.line', icon: Minus },
+  { type: 'rectangle', labelKey: 'rapporte.sketch.rectangle', icon: Square },
+  { type: 'text', labelKey: 'rapporte.sketch.text', icon: Type },
+  { type: 'mass', labelKey: 'rapporte.sketch.measure', icon: Ruler },
 ]
 
 const TEXT_FONT_SIZE = 16
@@ -223,6 +224,7 @@ export default function SketchCanvas({
   className = '',
   onSave,
 }: SketchCanvasProps) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -584,11 +586,11 @@ export default function SketchCanvas({
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 mb-2">
         {/* Tool buttons */}
         <div className="flex items-center gap-1">
-          {TOOLS.map(({ type, label, icon: Icon }) => (
+          {TOOLS.map(({ type, labelKey, icon: Icon }) => (
             <button
               key={type}
               type="button"
-              title={label}
+              title={t(labelKey)}
               onClick={() => {
                 setActiveTool(type)
                 if (textInput.visible) commitText()
@@ -600,7 +602,7 @@ export default function SketchCanvas({
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{label}</span>
+              <span className="hidden sm:inline">{t(labelKey)}</span>
             </button>
           ))}
         </div>
@@ -610,11 +612,11 @@ export default function SketchCanvas({
 
         {/* Color picker */}
         <div className="flex items-center gap-1.5">
-          {PRESET_COLORS.map(({ value, label }) => (
+          {PRESET_COLORS.map(({ value, labelKey }) => (
             <button
               key={value}
               type="button"
-              title={label}
+              title={t(labelKey)}
               onClick={() => setActiveColor(value)}
               className={`h-5 w-5 rounded-full border-2 transition-shadow ${
                 activeColor === value
@@ -631,11 +633,11 @@ export default function SketchCanvas({
 
         {/* Line width */}
         <div className="flex items-center gap-1">
-          {LINE_WIDTHS.map(({ value, label }) => (
+          {LINE_WIDTHS.map(({ value, labelKey }) => (
             <button
               key={value}
               type="button"
-              title={label}
+              title={t(labelKey)}
               onClick={() => setActiveWidth(value)}
               className={`rounded-lg px-2 py-1.5 text-xs transition-colors ${
                 activeWidth === value
@@ -643,7 +645,7 @@ export default function SketchCanvas({
                   : 'hover:bg-muted'
               }`}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -655,33 +657,33 @@ export default function SketchCanvas({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            title="Rückgängig"
+            title={t('rapporte.sketch.undo')}
             onClick={handleUndo}
             disabled={strokes.length === 0}
             className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs hover:bg-muted disabled:opacity-40 disabled:pointer-events-none"
           >
             <Undo2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Rückgängig</span>
+            <span className="hidden sm:inline">{t('rapporte.sketch.undo')}</span>
           </button>
           <button
             type="button"
-            title="Alles löschen"
+            title={t('rapporte.sketch.clearAll')}
             onClick={handleClear}
             disabled={strokes.length === 0}
             className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-40 disabled:pointer-events-none"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Löschen</span>
+            <span className="hidden sm:inline">{t('common.delete')}</span>
           </button>
           {onSave && (
             <button
               type="button"
-              title="Speichern"
+              title={t('common.save')}
               onClick={handleSave}
               className="flex items-center gap-1 rounded-lg bg-primary px-2 py-1.5 text-xs text-primary-foreground hover:bg-primary/90"
             >
               <Save className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Speichern</span>
+              <span className="hidden sm:inline">{t('common.save')}</span>
             </button>
           )}
         </div>
@@ -713,7 +715,7 @@ export default function SketchCanvas({
             }
             onKeyDown={onTextKeyDown}
             onBlur={commitText}
-            placeholder="Text eingeben..."
+            placeholder={t('rapporte.sketch.textPlaceholder')}
             className="absolute rounded border border-primary bg-white px-1 py-0.5 text-sm text-black shadow-sm outline-none dark:bg-gray-800 dark:text-white"
             style={{
               left: textInput.position.x,

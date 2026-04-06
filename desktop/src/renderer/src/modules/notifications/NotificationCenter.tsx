@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { BellOff, Check, MessageSquare, TrendingUp, Users, Megaphone } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -27,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 
 export default function NotificationCenter() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all')
   const [page, setPage] = useState(1)
@@ -60,11 +62,11 @@ export default function NotificationCenter() {
         {/* Page header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Benachrichtigungen</h1>
+            <h1 className="text-2xl font-semibold text-foreground">{t('notifications.center.title')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {unreadCount > 0
-                ? `${unreadCount} ungelesene Benachrichtigung${unreadCount !== 1 ? 'en' : ''}`
-                : 'Alle gelesen'}
+                ? t('notifications.center.unread', { count: unreadCount })
+                : t('notifications.center.allRead')}
             </p>
           </div>
 
@@ -77,7 +79,7 @@ export default function NotificationCenter() {
                 disabled={markAllRead.isPending}
               >
                 <Check className="mr-2 h-4 w-4" />
-                Alle als gelesen markieren
+                {t('notifications.center.markAllRead')}
               </Button>
             )}
             <Button
@@ -85,7 +87,7 @@ export default function NotificationCenter() {
               size="sm"
               onClick={() => setShowPreferences(!showPreferences)}
             >
-              Einstellungen
+              {t('notifications.center.settings')}
             </Button>
           </div>
         </div>
@@ -100,9 +102,9 @@ export default function NotificationCenter() {
         {/* Filter tabs */}
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'all' | 'unread'); setPage(1) }}>
           <TabsList>
-            <TabsTrigger value="all">Alle</TabsTrigger>
+            <TabsTrigger value="all">{t('notifications.center.tabAll')}</TabsTrigger>
             <TabsTrigger value="unread">
-              Ungelesen
+              {t('notifications.center.tabUnread')}
               {unreadCount > 0 && (
                 <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1.5 text-xs">
                   {unreadCount}
@@ -134,7 +136,7 @@ export default function NotificationCenter() {
                 {/* Pagination */}
                 <div className="flex items-center justify-between pt-4">
                   <p className="text-sm text-muted-foreground">
-                    Seite {page} ({total} gesamt)
+                    {t('notifications.center.page', { page, total })}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -143,7 +145,7 @@ export default function NotificationCenter() {
                       disabled={page <= 1}
                       onClick={() => setPage(page - 1)}
                     >
-                      Zurück
+                      {t('notifications.center.back')}
                     </Button>
                     <Button
                       variant="outline"
@@ -151,7 +153,7 @@ export default function NotificationCenter() {
                       disabled={!hasMore}
                       onClick={() => setPage(page + 1)}
                     >
-                      Weiter
+                      {t('notifications.center.forward')}
                     </Button>
                   </div>
                 </div>
@@ -240,7 +242,7 @@ function NotificationCard({
             )}
             {notification.group_count && notification.group_count > 1 && (
               <Badge variant="outline" className="text-xs">
-                +{notification.group_count - 1} weitere
+                {t('notifications.center.more', { count: notification.group_count - 1 })}
               </Badge>
             )}
           </div>
@@ -251,6 +253,7 @@ function NotificationCard({
 }
 
 function PreferencesPanel() {
+  const { t } = useTranslation()
   const { data: eventTypes = [] } = useEventTypes()
   const { data: preferences = [] } = useNotificationPreferences()
   const updatePreference = useUpdateNotificationPreference()
@@ -270,14 +273,14 @@ function PreferencesPanel() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Benachrichtigungseinstellungen</CardTitle>
+        <CardTitle className="text-lg">{t('notifications.preferences.title')}</CardTitle>
         <CardDescription>
-          Konfiguriere, welche Benachrichtigungen du erhalten möchtest.
+          {t('notifications.preferences.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {Object.keys(moduleGroups).length === 0 ? (
-          <p className="text-sm text-muted-foreground">Keine Ereignistypen konfiguriert.</p>
+          <p className="text-sm text-muted-foreground">{t('notifications.preferences.noEventTypes')}</p>
         ) : (
           <div className="space-y-6">
             {Object.entries(moduleGroups).map(([moduleId, types]) => (
@@ -316,7 +319,7 @@ function PreferencesPanel() {
                               }}
                               className="h-3.5 w-3.5 rounded border-border"
                             />
-                            In-App
+                            {t('notifications.preferences.inApp')}
                           </label>
                           <label className="flex items-center gap-2 text-xs">
                             <input
@@ -331,7 +334,7 @@ function PreferencesPanel() {
                               }}
                               className="h-3.5 w-3.5 rounded border-border"
                             />
-                            Desktop
+                            {t('notifications.preferences.desktop')}
                           </label>
                         </div>
                       </div>
@@ -348,16 +351,17 @@ function PreferencesPanel() {
 }
 
 function EmptyState({ isUnreadFilter }: { isUnreadFilter: boolean }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col items-center justify-center py-16">
       <BellOff className="h-12 w-12 text-muted-foreground/50" />
       <h3 className="mt-4 text-lg font-semibold text-foreground">
-        {isUnreadFilter ? 'Alle gelesen' : 'Keine Benachrichtigungen'}
+        {isUnreadFilter ? t('notifications.center.emptyUnread') : t('notifications.center.emptyAll')}
       </h3>
       <p className="mt-1 text-sm text-muted-foreground">
         {isUnreadFilter
-          ? 'Du hast alle Benachrichtigungen gelesen.'
-          : 'Du hast noch keine Benachrichtigungen erhalten.'}
+          ? t('notifications.center.emptyUnreadDescription')
+          : t('notifications.center.emptyAllDescription')}
       </p>
     </div>
   )

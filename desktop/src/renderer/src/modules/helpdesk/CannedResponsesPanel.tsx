@@ -5,6 +5,7 @@
  * CRUD operations, TipTap editor for content, search & category filtering.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   X,
   Search,
@@ -33,6 +34,7 @@ interface CannedResponsesPanelProps {
 }
 
 export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponsesPanelProps) {
+  const { t } = useTranslation()
   const { cannedResponses } = useHelpdeskStore()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -80,25 +82,25 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
 
   const handleSave = () => {
     if (!formTitle.trim()) {
-      toast.error('Bitte Titel eingeben')
+      toast.error(t('helpdesk.cannedResponses.titleRequired'))
       return
     }
     if (editing) {
-      toast.success(`Textbaustein "${formTitle}" aktualisiert`)
+      toast.success(t('helpdesk.cannedResponses.updated', { title: formTitle }))
     } else {
-      toast.success(`Textbaustein "${formTitle}" erstellt`)
+      toast.success(t('helpdesk.cannedResponses.created', { title: formTitle }))
     }
     setEditing(null)
     setCreating(false)
   }
 
   const handleDelete = (r: CannedResponse) => {
-    toast.success(`Textbaustein "${r.title}" gelöscht`)
+    toast.success(t('helpdesk.cannedResponses.deleted', { title: r.title }))
   }
 
   const handleInsert = (r: CannedResponse) => {
     onInsert?.(r.content)
-    toast.success(`"${r.title}" eingefuegt`)
+    toast.success(t('helpdesk.cannedResponses.inserted', { title: r.title }))
     onClose()
   }
 
@@ -123,10 +125,10 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
           )}
           <div>
             <h3 className="text-sm font-semibold text-foreground">
-              {creating ? 'Neuer Textbaustein' : editing ? 'Textbaustein bearbeiten' : 'Textbausteine'}
+              {creating ? t('helpdesk.cannedResponses.new') : editing ? t('helpdesk.cannedResponses.edit') : t('helpdesk.cannedResponses.title')}
             </h3>
             {!isFormMode && (
-              <p className="text-xs text-muted-foreground">{cannedResponses.length} Vorlagen verfügbar</p>
+              <p className="text-xs text-muted-foreground">{t('helpdesk.cannedResponses.available', { count: cannedResponses.length })}</p>
             )}
           </div>
         </div>
@@ -140,19 +142,19 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {/* Title */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-foreground">Titel</label>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.cannedResponses.formTitle')}</label>
             <input
               type="text"
               value={formTitle}
               onChange={(e) => setFormTitle(e.target.value)}
-              placeholder="z.B. Begrüßung"
+              placeholder={t('helpdesk.cannedResponses.formTitlePlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
 
           {/* Category */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-foreground">Kategorie</label>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.cannedResponses.category')}</label>
             <div className="relative">
               <select
                 value={formCategory}
@@ -169,7 +171,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
 
           {/* Shortcut */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-foreground">Kuerzel</label>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.cannedResponses.shortcut')}</label>
             <input
               type="text"
               value={formShortcut}
@@ -177,16 +179,16 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
               placeholder="/gruss"
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground font-mono placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
-            <p className="text-[10px] text-muted-foreground mt-1">Tipp: Mit "/" beginnen, z.B. /gruss, /vpn</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{t('helpdesk.cannedResponses.shortcutHint')}</p>
           </div>
 
           {/* Content (TipTap) */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-foreground">Inhalt</label>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">{t('helpdesk.cannedResponses.content')}</label>
             <RichTextEditor
               content={formContent}
               onChange={(html) => setFormContent(html)}
-              placeholder="Vorlagentext schreiben..."
+              placeholder={t('helpdesk.cannedResponses.contentPlaceholder')}
               showFooter={false}
               compact
               minHeight="120px"
@@ -200,13 +202,13 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
               onClick={handleCancelForm}
               className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              {editing ? 'Aktualisieren' : 'Erstellen'}
+              {editing ? t('helpdesk.cannedResponses.update') : t('common.create')}
             </button>
           </div>
         </div>
@@ -224,7 +226,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Suchen oder Kuerzel eingeben..."
+                  placeholder={t('helpdesk.cannedResponses.searchPlaceholder')}
                   className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
@@ -233,7 +235,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
                 className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors shrink-0"
               >
                 <Plus className="h-4 w-4" />
-                Neu
+                {t('helpdesk.cannedResponses.newButton')}
               </button>
             </div>
             <div className="relative">
@@ -242,7 +244,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="w-full appearance-none rounded-lg border border-border bg-card pl-3 pr-8 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring cursor-pointer"
               >
-                <option value="all">Alle Kategorien</option>
+                <option value="all">{t('helpdesk.filter.allCategories')}</option>
                 {CANNED_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -256,7 +258,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
             {filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <Zap className="h-8 w-8 mb-2 opacity-40" />
-                <p className="text-sm font-medium">Keine Textbausteine gefunden</p>
+                <p className="text-sm font-medium">{t('helpdesk.cannedResponses.noTemplatesFound')}</p>
               </div>
             )}
             {filtered.map((r) => (
@@ -278,14 +280,14 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
                     <button
                       onClick={() => handleStartEdit(r)}
                       className="rounded p-1 text-muted-foreground hover:bg-secondary transition-colors"
-                      title="Bearbeiten"
+                      title={t('common.edit')}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(r)}
                       className="rounded p-1 text-muted-foreground hover:bg-error-light hover:text-error transition-colors"
-                      title="Löschen"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -301,7 +303,7 @@ export function CannedResponsesPanel({ open, onClose, onInsert }: CannedResponse
                     className="flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-xs text-primary font-medium hover:bg-primary/20 transition-colors"
                   >
                     <Copy className="h-3 w-3" />
-                    Einfügen
+                    {t('helpdesk.cannedResponses.insert')}
                   </button>
                 </div>
               </div>
