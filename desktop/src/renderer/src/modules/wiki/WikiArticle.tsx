@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { WikiArticle as WikiArticleType } from '@/types/wiki'
 import { useWikiStore } from '@/stores/wiki'
@@ -17,6 +18,7 @@ interface WikiArticleProps {
 }
 
 export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
+  const { t } = useTranslation()
   const updateArticle = useWikiStore((s) => s.updateArticle)
   const isEditing = useWikiStore((s) => s.isEditing)
   const setEditing = useWikiStore((s) => s.setEditing)
@@ -26,10 +28,10 @@ export function WikiArticle({ article, onDelete, onShare }: WikiArticleProps) {
   const handleSave = () => {
     updateArticle(article.id, {
       content: editContent,
-      lastEditedBy: 'Du',
+      lastEditedBy: t('wiki.article.you'),
     })
     setEditing(false)
-    toast.success('Artikel gespeichert')
+    toast.success(t('wiki.article.saved'))
   }
 
   const handleCancel = () => {

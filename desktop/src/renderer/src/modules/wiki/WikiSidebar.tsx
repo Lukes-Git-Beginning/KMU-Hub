@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { BookOpen, Plus, FolderPlus } from 'lucide-react'
 import { moduleHsl } from '@/components/layout/sidebar/nav-items'
 import { useWikiStore } from '@/stores/wiki'
@@ -15,6 +16,7 @@ interface WikiSidebarProps {
 }
 
 export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
+  const { t } = useTranslation()
   const categories = useWikiStore((s) => s.categories)
   const articles = useWikiStore((s) => s.articles)
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
@@ -57,21 +59,21 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
           </div>
           <div>
             <h2 className="text-sm font-semibold" style={{ color: moduleHsl('wiki') }}>Wiki</h2>
-            <p className="text-[10px] text-muted-foreground">{totalArticles} Artikel · {totalViews} Aufrufe</p>
+            <p className="text-[10px] text-muted-foreground">{t('wiki.sidebar.stats', { articles: totalArticles, views: totalViews })}</p>
           </div>
         </div>
         <div className="flex items-center gap-0.5">
           <button
             onClick={onNewCategory}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title="Neue Kategorie"
+            title={t('wiki.sidebar.newCategory')}
           >
             <FolderPlus className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onNewArticle}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title="Neuer Artikel"
+            title={t('wiki.sidebar.newArticle')}
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -91,7 +93,7 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
           }`}
         >
           <BookOpen className="h-4 w-4 shrink-0" />
-          <span className="flex-1 text-left">Alle Artikel</span>
+          <span className="flex-1 text-left">{t('wiki.sidebar.allArticles')}</span>
           <span className="text-[10px] text-muted-foreground">{totalArticles}</span>
         </button>
 
@@ -116,11 +118,11 @@ export function WikiSidebar({ onNewArticle, onNewCategory }: WikiSidebarProps) {
       {/* Stats footer */}
       <div className="border-t border-border px-3 py-2.5 text-xs text-muted-foreground">
         <div className="flex justify-between">
-          <span>Veröffentlicht</span>
+          <span>{t('wiki.status.published')}</span>
           <span>{publishedCount}</span>
         </div>
         <div className="flex justify-between">
-          <span>Entwürfe</span>
+          <span>{t('wiki.sidebar.drafts')}</span>
           <span>{totalArticles - publishedCount}</span>
         </div>
       </div>

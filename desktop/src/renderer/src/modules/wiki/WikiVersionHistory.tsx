@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { X, History } from 'lucide-react'
 import type { WikiVersion } from '@/types/wiki'
 import { WikiVersionItem } from './WikiVersionItem'
@@ -13,6 +14,7 @@ interface WikiVersionHistoryProps {
 }
 
 export function WikiVersionHistory({ versions, open, onClose }: WikiVersionHistoryProps) {
+  const { t } = useTranslation()
   if (!open) return null
 
   return (
@@ -22,7 +24,7 @@ export function WikiVersionHistory({ versions, open, onClose }: WikiVersionHisto
         <div className="flex items-center gap-1.5">
           <History className="h-3.5 w-3.5 text-muted-foreground" />
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Versionen
+            {t('wiki.version.title')}
           </h3>
           <span className="text-[10px] text-muted-foreground">({(versions ?? []).length})</span>
         </div>

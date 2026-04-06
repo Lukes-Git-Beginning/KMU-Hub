@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Clock } from 'lucide-react'
 import type { WikiVersion } from '@/types/wiki'
 
@@ -27,6 +28,7 @@ interface WikiVersionItemProps {
 }
 
 export function WikiVersionItem({ version, isCurrent }: WikiVersionItemProps) {
+  const { t } = useTranslation()
   return (
     <div className={`flex items-start gap-2.5 rounded-md px-2.5 py-2 ${
       isCurrent ? 'bg-primary/5' : 'hover:bg-accent/50'
@@ -43,7 +45,7 @@ export function WikiVersionItem({ version, isCurrent }: WikiVersionItemProps) {
         <p className="text-xs font-medium text-foreground">
           {version.editorName}
           {isCurrent && (
-            <span className="ml-1.5 text-[10px] text-primary font-normal">Aktuell</span>
+            <span className="ml-1.5 text-[10px] text-primary font-normal">{t('wiki.version.current')}</span>
           )}
         </p>
         <p className="text-[11px] text-muted-foreground italic mt-0.5">{version.changeNote}</p>

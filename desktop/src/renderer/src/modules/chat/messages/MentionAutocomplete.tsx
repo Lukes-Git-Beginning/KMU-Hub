@@ -6,6 +6,7 @@
  * Supports keyboard navigation (ArrowUp/Down, Enter, Escape).
  */
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useEmployees } from '@/api/hooks/hr-hooks'
 import { usePresenceStore } from '@/stores/presence'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -24,6 +25,7 @@ const PRESENCE_COLORS: Record<string, string> = {
 }
 
 export function MentionAutocomplete({ query, onSelect, onClose }: MentionAutocompleteProps) {
+  const { t } = useTranslation()
   const { data: employeesData } = useEmployees()
   const employees = useMemo(() => employeesData?.employees ?? [], [employeesData?.employees])
   const presenceMap = usePresenceStore((s) => s.presenceMap)
@@ -56,7 +58,7 @@ export function MentionAutocomplete({ query, onSelect, onClose }: MentionAutocom
       } else if (e.key === 'Enter' && filtered.length > 0) {
         e.preventDefault()
         const emp = filtered[selectedIndex]
-        if (emp) onSelect((emp.userName ?? '').split(' ')[0] || 'Unbekannt')
+        if (emp) onSelect((emp.userName ?? '').split(' ')[0] || t('chat.unknown'))
       } else if (e.key === 'Escape') {
         onClose()
       }
@@ -77,7 +79,7 @@ export function MentionAutocomplete({ query, onSelect, onClose }: MentionAutocom
   if (filtered.length === 0) {
     return (
       <div className="absolute bottom-full left-0 z-50 mb-1 w-64 rounded-lg border border-border bg-card p-3 shadow-lg">
-        <p className="text-xs text-muted-foreground">Keine Mitarbeiter gefunden</p>
+        <p className="text-xs text-muted-foreground">{t('chat.mention.noResults')}</p>
       </div>
     )
   }
@@ -85,13 +87,13 @@ export function MentionAutocomplete({ query, onSelect, onClose }: MentionAutocom
   return (
     <div className="absolute bottom-full left-0 z-50 mb-1 w-72 rounded-lg border border-border bg-card py-1 shadow-lg">
       <p className="mb-1 px-3 pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        Mitarbeiter
+        {t('chat.mention.title')}
       </p>
       <div ref={listRef} className="max-h-48 overflow-y-auto">
         {filtered.map((emp, i) => {
-          const name = emp.userName ?? 'Unbekannt'
+          const name = emp.userName ?? t('chat.unknown')
           const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-          const firstName = name.split(' ')[0] || 'Unbekannt'
+          const firstName = name.split(' ')[0] || t('chat.unknown')
           const presence = presenceMap[emp.userId] ?? 'offline'
           return (
             <button

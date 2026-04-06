@@ -1,7 +1,9 @@
 import { Search, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useWikiStore } from '@/stores/wiki'
 
 export function WikiSearch() {
+  const { t } = useTranslation()
   const searchQuery = useWikiStore((s) => s.searchQuery)
   const setSearchQuery = useWikiStore((s) => s.setSearchQuery)
 
@@ -13,7 +15,7 @@ export function WikiSearch() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Wiki durchsuchen..."
+          placeholder={t('wiki.search.placeholder')}
           className="h-8 w-full rounded-md border border-border bg-transparent pl-7 pr-7 text-xs outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
         />
         {searchQuery && (

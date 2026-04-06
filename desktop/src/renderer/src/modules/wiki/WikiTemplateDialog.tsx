@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileText, AlertTriangle, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWikiStore } from '@/stores/wiki'
@@ -30,6 +31,7 @@ interface WikiTemplateDialogProps {
 }
 
 export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogProps) {
+  const { t } = useTranslation()
   const templates = useWikiStore((s) => s.templates)
   const addArticle = useWikiStore((s) => s.addArticle)
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
@@ -42,7 +44,7 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
     const template = selectedTemplate ? templates.find((t) => t.id === selectedTemplate) : null
     addArticle({
       title: title.trim(),
-      content: template?.content ?? '<p>Neuer Artikel — hier Inhalt hinzufügen.</p>',
+      content: template?.content ?? `<p>${t('wiki.article.defaultContent')}</p>`,
       categoryId: selectedCategoryId ?? 'wc1',
       status: 'draft',
       authorId: 'c1',
@@ -52,7 +54,7 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
       lastEditedBy: 'Anna Müller',
       lastEditedAt: new Date().toISOString().split('T')[0],
     })
-    toast.success('Artikel erstellt')
+    toast.success(t('wiki.article.created'))
     onOpenChange(false)
     setTitle('')
     setSelectedTemplate(null)
@@ -62,21 +64,21 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Neuer Wiki-Artikel</DialogTitle>
+          <DialogTitle>{t('wiki.article.newTitle')}</DialogTitle>
           <DialogDescription>
-            Erstelle einen neuen Artikel aus einer Vorlage oder von Grund auf.
+            {t('wiki.article.newDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
           {/* Title */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">Titel</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">{t('wiki.article.titleLabel')}</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="z.B. Einrichtung Arbeitsplatz"
+              placeholder={t('wiki.article.titlePlaceholder')}
               className="h-9 w-full rounded-md border border-border bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
@@ -86,7 +88,7 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
           {/* Template selection */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">
-              Vorlage <span className="text-muted-foreground font-normal">(optional)</span>
+              {t('wiki.article.templateLabel')} <span className="text-muted-foreground font-normal">({t('common.optional')})</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               {(templates ?? []).map((t) => {
@@ -117,14 +119,14 @@ export function WikiTemplateDialog({ open, onOpenChange }: WikiTemplateDialogPro
               onClick={() => { onOpenChange(false); setTitle(''); setSelectedTemplate(null) }}
               className="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-accent transition-colors"
             >
-              Abbrechen
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleCreate}
               disabled={!title.trim()}
               className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              Erstellen
+              {t('common.create')}
             </button>
           </div>
         </div>

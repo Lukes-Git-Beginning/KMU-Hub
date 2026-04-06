@@ -5,6 +5,7 @@
  * On drop, creates file attachment objects for preview.
  */
 import { useState, useCallback, type DragEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Upload } from 'lucide-react'
 
 export interface AttachedFile {
@@ -37,6 +38,7 @@ function fileToAttachment(file: File): AttachedFile {
 }
 
 export function FileDropZone({ children, onFilesAdded, disabled }: FileDropZoneProps) {
+  const { t } = useTranslation()
   const [isDragging, setIsDragging] = useState(false)
 
   const handleDragEnter = useCallback(
@@ -88,7 +90,7 @@ export function FileDropZone({ children, onFilesAdded, disabled }: FileDropZoneP
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-[1px]">
           <div className="flex flex-col items-center gap-2 text-primary">
             <Upload className="h-8 w-8" />
-            <p className="text-sm font-medium">Dateien hier ablegen</p>
+            <p className="text-sm font-medium">{t('chat.dropZone.label')}</p>
           </div>
         </div>
       )}

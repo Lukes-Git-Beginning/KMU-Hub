@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, Copy, Check, Globe, Lock, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import type { WikiArticle } from '@/types/wiki'
@@ -14,10 +15,10 @@ import {
 // Access level options
 // ---------------------------------------------------------------------------
 
-const accessOptions = [
-  { id: 'private', icon: Lock, label: 'Privat', description: 'Nur du kannst sehen und bearbeiten' },
-  { id: 'team', icon: Users, label: 'Team', description: 'Alle Teammitglieder können sehen' },
-  { id: 'public', icon: Globe, label: 'Öffentlich', description: 'Jeder im Unternehmen kann sehen' },
+const accessOptionKeys = [
+  { id: 'private', icon: Lock, labelKey: 'wiki.share.accessPrivate', descKey: 'wiki.share.accessPrivateDesc' },
+  { id: 'team', icon: Users, labelKey: 'wiki.share.accessTeam', descKey: 'wiki.share.accessTeamDesc' },
+  { id: 'public', icon: Globe, labelKey: 'wiki.share.accessPublic', descKey: 'wiki.share.accessPublicDesc' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,7 @@ interface WikiShareDialogProps {
 }
 
 export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialogProps) {
+  const { t } = useTranslation()
   const [access, setAccess] = useState('team')
   const [copied, setCopied] = useState(false)
 
@@ -41,7 +43,7 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
   const handleCopy = () => {
     navigator.clipboard.writeText(shareLink).catch(() => {})
     setCopied(true)
-    toast.success('Link kopiert')
+    toast.success(t('wiki.share.linkCopied'))
     setTimeout(() => setCopied(false), 2000)
   }
 
@@ -49,16 +51,16 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Artikel teilen</DialogTitle>
+          <DialogTitle>{t('wiki.share.title')}</DialogTitle>
           <DialogDescription>
-            Lege fest, wer "{article.title}" sehen kann.
+            {t('wiki.share.description', { title: article.title })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
           {/* Access levels */}
           <div className="space-y-1.5">
-            {accessOptions.map((opt) => {
+            {accessOptionKeys.map((opt) => {
               const Icon = opt.icon
               const isActive = access === opt.id
               return (
@@ -73,8 +75,8 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
                 >
                   <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                   <div className="min-w-0">
-                    <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>{opt.label}</p>
-                    <p className="text-[11px] text-muted-foreground">{opt.description}</p>
+                    <p className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>{t(opt.labelKey)}</p>
+                    <p className="text-[11px] text-muted-foreground">{t(opt.descKey)}</p>
                   </div>
                 </button>
               )
@@ -83,7 +85,7 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
 
           {/* Share link */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Direktlink</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">{t('wiki.share.directLink')}</label>
             <div className="flex gap-1.5">
               <div className="flex flex-1 items-center gap-2 rounded-md border border-border bg-secondary/50 px-3 py-1.5">
                 <Link className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -108,7 +110,7 @@ export function WikiShareDialog({ open, onOpenChange, article }: WikiShareDialog
               onClick={() => onOpenChange(false)}
               className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Fertig
+              {t('wiki.share.done')}
             </button>
           </div>
         </div>

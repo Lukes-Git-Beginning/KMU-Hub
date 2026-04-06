@@ -10,6 +10,7 @@
  * with TanStack Query hooks, keep components identical.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   BookOpen,
   Pin,
@@ -31,10 +32,10 @@ import { WikiShareDialog } from './WikiShareDialog'
 // Status config
 // ---------------------------------------------------------------------------
 
-const statusConfig: Record<string, { label: string; bg: string }> = {
-  draft: { label: 'Entwurf', bg: 'bg-secondary text-muted-foreground' },
-  published: { label: 'Veröffentlicht', bg: 'bg-success-light text-success' },
-  archived: { label: 'Archiviert', bg: 'bg-warning-light text-warning' },
+const statusConfig: Record<string, { key: string; bg: string }> = {
+  draft: { key: 'wiki.status.draft', bg: 'bg-secondary text-muted-foreground' },
+  published: { key: 'wiki.status.published', bg: 'bg-success-light text-success' },
+  archived: { key: 'wiki.status.archived', bg: 'bg-warning-light text-warning' },
 }
 
 function formatDate(dateStr: string): string {
@@ -50,6 +51,7 @@ function formatDate(dateStr: string): string {
 // ---------------------------------------------------------------------------
 
 export default function WikiPage() {
+  const { t } = useTranslation()
   const articles = useWikiStore((s) => s.articles)
   const selectedArticleId = useWikiStore((s) => s.selectedArticleId)
   const selectedCategoryId = useWikiStore((s) => s.selectedCategoryId)
@@ -117,7 +119,7 @@ export default function WikiPage() {
             {/* List header */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
               <span className="text-xs font-medium text-muted-foreground">
-                {filteredArticles.length} Artikel
+                {t('wiki.list.articleCount', { count: filteredArticles.length })}
               </span>
             </div>
 
@@ -126,8 +128,8 @@ export default function WikiPage() {
               {filteredArticles.length === 0 ? (
                 <EmptyState
                   icon={BookOpen}
-                  title="Keine Artikel"
-                  description={searchQuery ? 'Keine Treffer für diese Suche.' : 'Erstelle deinen ersten Wiki-Artikel.'}
+                  title={t('wiki.list.noArticles')}
+                  description={searchQuery ? t('wiki.list.noSearchResults') : t('wiki.list.createFirst')}
                 />
               ) : (
                 <div className="divide-y divide-border/50">
@@ -159,7 +161,7 @@ export default function WikiPage() {
                         {/* Status + tags row */}
                         <div className="mt-1 flex items-center gap-1.5">
                           <span className={`rounded-full px-2 py-0.5 text-[9px] font-medium ${st?.bg ?? ''}`}>
-                            {st?.label ?? article.status}
+                            {st ? t(st.key) : article.status}
                           </span>
                           {(article.tags ?? []).slice(0, 2).map((tag) => (
                             <span key={tag} className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-1.5 py-0.5 text-[9px] text-muted-foreground">
@@ -210,9 +212,9 @@ export default function WikiPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}
-        title="Artikel löschen"
-        description={`"${deleteTarget?.title}" wird unwiderruflich gelöscht.`}
-        confirmLabel="Löschen"
+        title={t('wiki.dialog.deleteTitle')}
+        description={t('wiki.dialog.deleteDescription', { title: deleteTarget?.title })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />

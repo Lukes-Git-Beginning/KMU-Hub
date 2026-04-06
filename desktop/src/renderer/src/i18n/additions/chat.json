@@ -42,5 +42,20 @@
   "chat.input.dragDropHint": "Dateien per Drag & Drop in den Chat ziehen",
   "chat.input.attachFile": "Datei anhängen",
   "chat.input.placeholder": "Nachricht schreiben... (@Erwähnung)",
-  "chat.input.send": "Senden (Enter)"
+  "chat.input.send": "Senden (Enter)",
+
+  "chat.dropZone.label": "Dateien hier ablegen",
+
+  "chat.mention.noResults": "Keine Mitarbeiter gefunden",
+  "chat.mention.title": "Mitarbeiter",
+
+  "chat.reactions.frequent": "Häufig",
+  "chat.reactions.smileys": "Smileys",
+  "chat.reactions.gestures": "Gesten",
+
+  "chat.thread.title": "Thread",
+  "chat.thread.replyCount_one": "{{count}} Antwort",
+  "chat.thread.replyCount_other": "{{count}} Antworten",
+  "chat.thread.empty": "Noch keine Antworten. Schreibe die erste!",
+  "chat.thread.replyPlaceholder": "Antwort schreiben..."
 }

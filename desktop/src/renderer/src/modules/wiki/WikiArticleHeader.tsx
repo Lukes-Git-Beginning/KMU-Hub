@@ -10,6 +10,7 @@ import {
   Clock,
   Tag,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { WikiArticle } from '@/types/wiki'
 import { useWikiStore } from '@/stores/wiki'
@@ -19,10 +20,10 @@ import { ItemActions } from '@/components/shared'
 // Status config
 // ---------------------------------------------------------------------------
 
-const statusConfig: Record<string, { label: string; bg: string }> = {
-  draft: { label: 'Entwurf', bg: 'bg-secondary text-muted-foreground' },
-  published: { label: 'Veröffentlicht', bg: 'bg-success-light text-success' },
-  archived: { label: 'Archiviert', bg: 'bg-warning-light text-warning' },
+const statusConfig: Record<string, { key: string; bg: string }> = {
+  draft: { key: 'wiki.status.draft', bg: 'bg-secondary text-muted-foreground' },
+  published: { key: 'wiki.status.published', bg: 'bg-success-light text-success' },
+  archived: { key: 'wiki.status.archived', bg: 'bg-warning-light text-warning' },
 }
 
 function formatDate(dateStr: string): string {
@@ -56,6 +57,7 @@ export function WikiArticleHeader({
   onToggleVersions,
   onShare,
 }: WikiArticleHeaderProps) {
+  const { t } = useTranslation()
   const togglePin = useWikiStore((s) => s.togglePin)
   const publishArticle = useWikiStore((s) => s.publishArticle)
   const archiveArticle = useWikiStore((s) => s.archiveArticle)
@@ -71,7 +73,7 @@ export function WikiArticleHeader({
             {article.isPinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
             <h2 className="text-lg font-semibold text-foreground truncate">{article.title}</h2>
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${st?.bg ?? ''}`}>
-              {st?.label ?? article.status}
+              {st ? t(st.key) : article.status}
             </span>
           </div>
 
@@ -83,7 +85,7 @@ export function WikiArticleHeader({
             <span>{formatDate(article.lastEditedAt)}</span>
             <span>·</span>
             <Eye className="h-3 w-3" />
-            <span>{article.viewCount} Aufrufe</span>
+            <span>{t('wiki.header.views', { count: article.viewCount })}</span>
             <span>·</span>
             <History className="h-3 w-3" />
             <span>v{(article.versions ?? []).length}</span>
@@ -95,34 +97,34 @@ export function WikiArticleHeader({
           <button
             onClick={onEdit}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title="Bearbeiten"
+            title={t('common.edit')}
           >
             <Edit3 className="h-4 w-4" />
           </button>
           <button
             onClick={onToggleVersions}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title="Versionshistorie"
+            title={t('wiki.header.versionHistory')}
           >
             <History className="h-4 w-4" />
           </button>
           <button
             onClick={onShare}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title="Teilen"
+            title={t('wiki.header.share')}
           >
             <Share2 className="h-4 w-4" />
           </button>
           <ItemActions
             actions={[
-              { label: article.isPinned ? 'Unpin' : 'Anpinnen', icon: Pin, onClick: () => togglePin(article.id) },
+              { label: article.isPinned ? t('wiki.actions.unpin') : t('wiki.actions.pin'), icon: Pin, onClick: () => togglePin(article.id) },
               ...(article.status === 'draft'
-                ? [{ label: 'Veröffentlichen', icon: Send, onClick: () => { publishArticle(article.id); toast.success('Veröffentlicht') } }]
+                ? [{ label: t('wiki.actions.publish'), icon: Send, onClick: () => { publishArticle(article.id); toast.success(t('wiki.actions.published')) } }]
                 : []),
               ...(article.status === 'published'
-                ? [{ label: 'Archivieren', icon: Archive, onClick: () => { archiveArticle(article.id); toast.success('Archiviert') } }]
+                ? [{ label: t('wiki.actions.archive'), icon: Archive, onClick: () => { archiveArticle(article.id); toast.success(t('wiki.actions.archived')) } }]
                 : []),
-              { label: 'Löschen', icon: Trash2, onClick: onDelete, variant: 'destructive' as const },
+              { label: t('common.delete'), icon: Trash2, onClick: onDelete, variant: 'destructive' as const },
             ]}
           />
         </div>
