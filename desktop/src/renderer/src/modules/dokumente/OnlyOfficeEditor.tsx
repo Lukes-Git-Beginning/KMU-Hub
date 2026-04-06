@@ -7,6 +7,7 @@
  * natively by OnlyOffice through WOPI CheckFileInfo UserId/UserFriendlyName.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, FileText, AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -118,6 +119,7 @@ export function OnlyOfficeEditor({
   onClose,
   onVersionCreated,
 }: OnlyOfficeEditorProps) {
+  const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(true)
   const [showTokenWarning, setShowTokenWarning] = useState(false)
   const tokenWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -209,10 +211,10 @@ export function OnlyOfficeEditor({
             {fileName}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            OnlyOffice Editor für {fileName}
+            {t('dokumente.editor.description', { name: fileName })}
           </DialogDescription>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary shrink-0">
-            Bearbeitung aktiv
+            {t('dokumente.editor.editingActive')}
           </span>
         </div>
 
@@ -221,7 +223,7 @@ export function OnlyOfficeEditor({
           {showTokenWarning && (
             <div className="flex items-center gap-1.5 rounded-md bg-warning/10 px-3 py-1.5 text-xs text-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
-              <span>Sitzung läuft bald ab. Änderungen speichern.</span>
+              <span>{t('dokumente.editor.sessionExpiring')}</span>
             </div>
           )}
 
@@ -231,7 +233,7 @@ export function OnlyOfficeEditor({
             onClick={handleClose}
           >
             <X className="mr-1.5 h-4 w-4" />
-            Schließen
+            {t('common.close')}
           </Button>
         </div>
       </div>
@@ -244,7 +246,7 @@ export function OnlyOfficeEditor({
             <div className="text-center">
               <Loader2 className="h-8 w-8 mx-auto mb-3 text-primary animate-spin" />
               <p className="text-sm text-muted-foreground">
-                Editor wird geladen...
+                {t('dokumente.editor.loading')}
               </p>
             </div>
           </div>

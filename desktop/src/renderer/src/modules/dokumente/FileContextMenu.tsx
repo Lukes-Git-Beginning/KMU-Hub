@@ -6,6 +6,7 @@
  * menu at the right-click coordinates and closes on outside click.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import {
   ExternalLink,
@@ -175,6 +176,7 @@ export function FileContextMenu({
   onShareLink,
   onOpenInOffice,
 }: FileContextMenuProps) {
+  const { t } = useTranslation()
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
 
   const handleContextMenu = useCallback(
@@ -187,31 +189,31 @@ export function FileContextMenu({
   )
 
   const items: MenuItem[] = [
-    { label: 'Öffnen', icon: ExternalLink, onClick: onOpen },
+    { label: t('dokumente.context.open'), icon: ExternalLink, onClick: onOpen },
     ...(onEditInOnlyOffice
-      ? [{ label: 'In OnlyOffice bearbeiten', icon: FileEdit, onClick: onEditInOnlyOffice }]
+      ? [{ label: t('dokumente.context.editInOnlyOffice'), icon: FileEdit, onClick: onEditInOnlyOffice }]
       : []),
     ...(onOpenInOffice
-      ? [{ label: 'In Office öffnen', icon: AppWindow, onClick: onOpenInOffice }]
+      ? [{ label: t('dokumente.context.openInOffice'), icon: AppWindow, onClick: onOpenInOffice }]
       : []),
-    { label: 'Herunterladen', icon: Download, onClick: onDownload },
-    { label: 'Umbenennen', icon: Pencil, onClick: onRename, separator: true },
-    { label: 'Verschieben...', icon: FolderInput, onClick: onMove },
-    { label: 'Kopieren...', icon: Copy, onClick: onCopy },
-    { label: 'Teilen', icon: Share2, onClick: onShare, separator: true },
+    { label: t('common.download'), icon: Download, onClick: onDownload },
+    { label: t('dokumente.context.rename'), icon: Pencil, onClick: onRename, separator: true },
+    { label: t('dokumente.context.move'), icon: FolderInput, onClick: onMove },
+    { label: t('dokumente.context.copy'), icon: Copy, onClick: onCopy },
+    { label: t('dokumente.context.share'), icon: Share2, onClick: onShare, separator: true },
     ...(onShareLink
-      ? [{ label: 'Link teilen', icon: Link2, onClick: onShareLink }]
+      ? [{ label: t('dokumente.context.shareLink'), icon: Link2, onClick: onShareLink }]
       : []),
-    { label: 'Versionsverlauf', icon: History, onClick: onVersionHistory },
+    { label: t('dokumente.context.versionHistory'), icon: History, onClick: onVersionHistory },
     {
-      label: 'Löschen',
+      label: t('common.delete'),
       icon: Trash2,
       onClick: onDelete,
       variant: 'destructive',
       separator: true,
     },
     {
-      label: 'Eigenschaften',
+      label: t('dokumente.context.properties'),
       icon: Info,
       onClick: onProperties,
       separator: true,
@@ -245,6 +247,7 @@ export function FolderContextMenu({
   onRename,
   onDelete,
 }: FolderContextMenuProps) {
+  const { t } = useTranslation()
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
 
   const handleContextMenu = useCallback(
@@ -257,21 +260,21 @@ export function FolderContextMenu({
   )
 
   const items: MenuItem[] = [
-    { label: 'Öffnen', icon: ExternalLink, onClick: onOpen },
+    { label: t('dokumente.context.open'), icon: ExternalLink, onClick: onOpen },
     {
-      label: 'Neuer Unterordner',
+      label: t('dokumente.context.newSubfolder'),
       icon: FolderPlus,
       onClick: onNewSubfolder,
     },
-    { label: 'Hochladen hierhin', icon: Upload, onClick: onUploadHere },
+    { label: t('dokumente.context.uploadHere'), icon: Upload, onClick: onUploadHere },
     {
-      label: 'Umbenennen',
+      label: t('dokumente.context.rename'),
       icon: Pencil,
       onClick: onRename,
       separator: true,
     },
     {
-      label: 'Löschen',
+      label: t('common.delete'),
       icon: Trash2,
       onClick: onDelete,
       variant: 'destructive',

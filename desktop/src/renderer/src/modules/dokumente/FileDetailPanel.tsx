@@ -4,6 +4,7 @@
  * Shows: file metadata, tags (with add/remove), entity links,
  * sharing status, version count. Uses hooks from useDocuments.ts.
  */
+import { useTranslation } from 'react-i18next'
 import {
   FileText,
   FileSpreadsheet,
@@ -68,16 +69,16 @@ function getMimeIcon(mimeType: string) {
   return File
 }
 
-function getMimeLabel(mimeType: string): string {
-  if (mimeType.startsWith('image/')) return 'Bilddatei'
-  if (mimeType === 'application/pdf') return 'PDF-Dokument'
-  if (mimeType.startsWith('video/')) return 'Videodatei'
+function getMimeLabelKey(mimeType: string): string {
+  if (mimeType.startsWith('image/')) return 'dokumente.mimeLabel.image'
+  if (mimeType === 'application/pdf') return 'dokumente.mimeLabel.pdf'
+  if (mimeType.startsWith('video/')) return 'dokumente.mimeLabel.video'
   if (mimeType.includes('word') || mimeType.includes('document'))
-    return 'Word-Dokument'
+    return 'dokumente.mimeLabel.word'
   if (mimeType.includes('spreadsheet') || mimeType.includes('excel'))
-    return 'Excel-Tabelle'
-  if (mimeType.includes('zip') || mimeType.includes('archive')) return 'Archiv'
-  return 'Datei'
+    return 'dokumente.mimeLabel.excel'
+  if (mimeType.includes('zip') || mimeType.includes('archive')) return 'dokumente.mimeLabel.archive'
+  return 'dokumente.mimeLabel.file'
 }
 
 export function FileDetailPanel({
@@ -91,6 +92,8 @@ export function FileDetailPanel({
   onToggleFavorite,
   onVersionHistory,
 }: FileDetailPanelProps) {
+  const { t } = useTranslation()
+
   // API data
   const { data: sharesData } = useShares('file', file?.id ?? '')
   const { data: versionsData } = useFileVersions(file?.id ?? '')
@@ -115,7 +118,7 @@ export function FileDetailPanel({
       open={open}
       onClose={onClose}
       title={file.filename}
-      subtitle={getMimeLabel(file.mime_type)}
+      subtitle={t(getMimeLabelKey(file.mime_type))}
       badge={
         <div className="flex items-center gap-1.5 ml-2">
           {file.is_favorite && (
@@ -131,7 +134,7 @@ export function FileDetailPanel({
             onClick={() => onPreview(file)}
           >
             <FileText className="mr-1.5 h-4 w-4" />
-            Vorschau
+            {t('dokumente.detail.preview')}
           </Button>
           <Button
             variant="outline"
@@ -163,7 +166,7 @@ export function FileDetailPanel({
           {/* eslint-disable-next-line react-hooks/static-components -- Icon is a dynamic component variable */}
           <Icon className="h-4 w-4 text-muted-foreground" />
           <span className="text-foreground">
-            {getMimeLabel(file.mime_type)} &middot;{' '}
+            {t(getMimeLabelKey(file.mime_type))} &middot;{' '}
             {formatBytes(file.file_size)}
           </span>
         </div>
@@ -190,11 +193,11 @@ export function FileDetailPanel({
       <div className="flex flex-wrap gap-2 mt-4">
         <Button variant="outline" size="sm" onClick={() => onRename(file)}>
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
-          Umbenennen
+          {t('dokumente.context.rename')}
         </Button>
         <Button variant="outline" size="sm" onClick={() => onShare(file)}>
           <Share2 className="mr-1.5 h-3.5 w-3.5" />
-          Teilen
+          {t('dokumente.context.share')}
         </Button>
         <Button
           variant="outline"
@@ -202,11 +205,11 @@ export function FileDetailPanel({
           onClick={() => onVersionHistory(file.id)}
         >
           <History className="mr-1.5 h-3.5 w-3.5" />
-          Versionen ({versions.length})
+          {t('dokumente.detail.versions', { count: versions.length })}
         </Button>
         <Button variant="outline" size="sm">
           <Download className="mr-1.5 h-3.5 w-3.5" />
-          Herunterladen
+          {t('common.download')}
         </Button>
       </div>
 
@@ -255,7 +258,7 @@ export function FileDetailPanel({
           <div>
             <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center gap-1">
               <Users className="h-3.5 w-3.5" />
-              Geteilt mit ({shares.length})
+              {t('dokumente.detail.sharedWith', { count: shares.length })}
             </h4>
             <div className="space-y-1.5">
               {shares.map((s) => (
@@ -267,7 +270,7 @@ export function FileDetailPanel({
                     {s.shared_with_user_name}
                   </span>
                   <Badge variant="outline" className="text-xs">
-                    {s.permission === 'write' ? 'Bearbeiten' : 'Ansehen'}
+                    {s.permission === 'write' ? t('dokumente.detail.permissionWrite') : t('dokumente.detail.permissionRead')}
                   </Badge>
                 </div>
               ))}
@@ -283,7 +286,7 @@ export function FileDetailPanel({
           <div>
             <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground flex items-center gap-1">
               <Link2 className="h-3.5 w-3.5" />
-              Verknüpfungen ({links.length})
+              {t('dokumente.detail.links', { count: links.length })}
             </h4>
             <div className="space-y-1.5">
               {links.map((link) => (

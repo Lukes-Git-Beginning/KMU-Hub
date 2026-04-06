@@ -7,6 +7,7 @@
  * - Protokoll: execution log viewer across all automations
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as Tabs from '@radix-ui/react-tabs'
 import * as Switch from '@radix-ui/react-switch'
 import {
@@ -39,27 +40,28 @@ import { ExecutionLogViewer } from './ExecutionLogViewer'
 // ---------------------------------------------------------------------------
 
 function StatsBar() {
+  const { t } = useTranslation()
   const { data: stats } = useAutomationStats()
 
   return (
     <div className="flex items-center gap-6 border-b border-border px-6 py-3">
       <div className="flex items-center gap-2">
         <Zap className="h-4 w-4 text-primary" />
-        <span className="text-sm text-muted-foreground">Aktive Automatisierungen</span>
+        <span className="text-sm text-muted-foreground">{t('automatisierung.stats.active')}</span>
         <span className="text-sm font-semibold text-foreground">
           {stats?.active ?? 0}
         </span>
       </div>
       <div className="flex items-center gap-2">
         <CheckCircle className="h-4 w-4 text-green-500" />
-        <span className="text-sm text-muted-foreground">Ausführungen heute</span>
+        <span className="text-sm text-muted-foreground">{t('automatisierung.stats.executionsToday')}</span>
         <span className="text-sm font-semibold text-foreground">
           {stats?.total_executions ?? 0}
         </span>
       </div>
       <div className="flex items-center gap-2">
         <XCircle className="h-4 w-4 text-destructive" />
-        <span className="text-sm text-muted-foreground">Erfolgsrate</span>
+        <span className="text-sm text-muted-foreground">{t('automatisierung.stats.successRate')}</span>
         <span className="text-sm font-semibold text-foreground">
           {stats?.success_rate !== undefined
             ? `${Math.round(stats.success_rate * 100)}%`
@@ -81,6 +83,7 @@ function AutomationRow({
   automation: Automation
   onEdit: (a: Automation) => void
 }) {
+  const { t } = useTranslation()
   const enableMutation = useEnableAutomation()
   const disableMutation = useDisableAutomation()
 
@@ -134,15 +137,15 @@ function AutomationRow({
             })}
           </span>
         ) : (
-          <span className="text-muted-foreground/50">Nie</span>
+          <span className="text-muted-foreground/50">{t('automatisierung.list.never')}</span>
         )}
       </td>
       <td className="px-4 py-3 text-xs text-muted-foreground">
         {automation.scope === 'personal'
-          ? 'Persönlich'
+          ? t('automatisierung.scope.personal')
           : automation.scope === 'team'
-            ? 'Team'
-            : 'Organisation'}
+            ? t('automatisierung.scope.team')
+            : t('automatisierung.scope.organization')}
       </td>
     </tr>
   )
@@ -159,6 +162,7 @@ function AutomationList({
   onNew: () => void
   onEdit: (a: Automation) => void
 }) {
+  const { t } = useTranslation()
   const { data, isLoading } = useAutomations()
   const automations = data?.automations ?? []
 
@@ -174,9 +178,9 @@ function AutomationList({
     return (
       <EmptyState
         illustration={<EmptyAutomation />}
-        title="Keine Automatisierungen"
-        description="Erstelle deine erste Automation um wiederkehrende Aufgaben zu vereinfachen."
-        action={{ label: 'Erste Automation erstellen', onClick: onNew }}
+        title={t('automatisierung.empty.title')}
+        description={t('automatisierung.empty.description')}
+        action={{ label: t('automatisierung.empty.action'), onClick: onNew }}
       />
     )
   }
@@ -187,19 +191,19 @@ function AutomationList({
         <thead>
           <tr className="border-b border-border">
             <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
-              Name
+              {t('automatisierung.list.name')}
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
-              Trigger
+              {t('automatisierung.list.trigger')}
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
-              Status
+              {t('common.status')}
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
-              Letzter Lauf
+              {t('automatisierung.list.lastRun')}
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
-              Bereich
+              {t('automatisierung.list.scope')}
             </th>
           </tr>
         </thead>
@@ -218,6 +222,7 @@ function AutomationList({
 // ---------------------------------------------------------------------------
 
 export default function AutomatisierungPage() {
+  const { t } = useTranslation()
   const [wizardOpen, setWizardOpen] = useState(false)
   const { resetDraft, loadAutomationIntoDraft, setEditorMode } =
     useAutomatisierungStore()
@@ -250,21 +255,21 @@ export default function AutomatisierungPage() {
                 className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
               >
                 <Zap className="h-4 w-4" />
-                Meine Automatisierungen
+                {t('automatisierung.tabs.myAutomations')}
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="templates"
                 className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
               >
                 <LayoutTemplate className="h-4 w-4" />
-                Vorlagen
+                {t('automatisierung.tabs.templates')}
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="log"
                 className="flex items-center gap-1.5 border-b-2 border-transparent px-1 py-3 text-sm text-muted-foreground transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:text-foreground"
               >
                 <ScrollText className="h-4 w-4" />
-                Protokoll
+                {t('automatisierung.tabs.log')}
               </Tabs.Trigger>
             </Tabs.List>
             <button
@@ -272,7 +277,7 @@ export default function AutomatisierungPage() {
               className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
-              Neue Automatisierung
+              {t('automatisierung.newAutomation')}
             </button>
           </div>
 

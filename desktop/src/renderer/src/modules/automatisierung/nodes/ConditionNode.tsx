@@ -5,6 +5,7 @@
  * Input handle at top, two output handles at bottom (Ja/Nein) for branching.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Filter } from 'lucide-react'
 import type { ConditionConfig } from '@/api/automation-types'
@@ -15,6 +16,7 @@ interface ConditionNodeData {
 }
 
 function ConditionNodeComponent({ data, selected }: NodeProps) {
+  const { t } = useTranslation()
   const nodeData = data as ConditionNodeData
   const conditions = nodeData.conditions
 
@@ -22,10 +24,10 @@ function ConditionNodeComponent({ data, selected }: NodeProps) {
     conditions?.mode === 'expression'
       ? conditions.expression
         ? conditions.expression.substring(0, 40) + (conditions.expression.length > 40 ? '...' : '')
-        : 'Kein Ausdruck'
+        : t('automatisierung.node.noExpression')
       : conditions?.simple
-        ? 'Einfache Bedingung'
-        : 'Keine Bedingung'
+        ? t('automatisierung.node.simpleCondition')
+        : t('automatisierung.node.noCondition')
 
   return (
     <div
@@ -45,7 +47,7 @@ function ConditionNodeComponent({ data, selected }: NodeProps) {
       {/* Header */}
       <div className="flex items-center gap-2 rounded-t-md bg-warning px-3 py-2">
         <Filter className="h-4 w-4 text-white" />
-        <span className="text-xs font-semibold text-white">Bedingung</span>
+        <span className="text-xs font-semibold text-white">{t('automatisierung.node.condition')}</span>
       </div>
 
       {/* Body */}
@@ -71,8 +73,8 @@ function ConditionNodeComponent({ data, selected }: NodeProps) {
 
       {/* Labels for handles */}
       <div className="flex justify-between px-3 pb-1 -mt-1">
-        <span className="text-[9px] text-green-600 font-medium">Ja</span>
-        <span className="text-[9px] text-destructive font-medium">Nein</span>
+        <span className="text-[9px] text-green-600 font-medium">{t('automatisierung.node.yes')}</span>
+        <span className="text-[9px] text-destructive font-medium">{t('automatisierung.node.no')}</span>
       </div>
     </div>
   )

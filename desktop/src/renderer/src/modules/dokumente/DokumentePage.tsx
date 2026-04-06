@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileText,
   FolderOpen,
@@ -130,6 +131,7 @@ const SIDEBAR_VIRTUAL_TASK = '__virtual_task__'
 // ---------------------------------------------------------------------------
 
 export default function DokumentePage() {
+  const { t } = useTranslation()
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
   const [activeSpecialView, setActiveSpecialView] = useState<string | null>(null)
   const [view, setView] = useState<'grid' | 'list'>(() => getViewPref('default'))
@@ -320,7 +322,7 @@ export default function DokumentePage() {
               ? {
                   ...u,
                   status: 'error',
-                  error: err instanceof Error ? err.message : 'Upload fehlgeschlagen',
+                  error: err instanceof Error ? err.message : t('dokumente.upload.failed'),
                 }
               : u,
           ),
@@ -348,8 +350,8 @@ export default function DokumentePage() {
       moveFile.mutate(
         { id: draggedFileId, targetFolderId: activeFolderId },
         {
-          onSuccess: () => toast.success('Datei verschoben'),
-          onError: (err) => toast.error(`Fehler: ${err.message}`),
+          onSuccess: () => toast.success(t('dokumente.fileMoved')),
+          onError: (err) => toast.error(`${t('common.error')}: ${err.message}`),
         },
       )
       return
@@ -396,7 +398,7 @@ export default function DokumentePage() {
               : u,
           ),
         )
-        toast.success(`"${uploadItem.file.name}" hochgeladen`)
+        toast.success(t('dokumente.upload.fileUploaded', { name: uploadItem.file.name }))
       } catch (err) {
         setUploadFiles((prev) =>
           prev.map((u) =>
@@ -407,7 +409,7 @@ export default function DokumentePage() {
                   error:
                     err instanceof Error
                       ? err.message
-                      : 'Upload fehlgeschlagen',
+                      : t('dokumente.upload.failed'),
                 }
               : u,
           ),
@@ -432,13 +434,13 @@ export default function DokumentePage() {
         moveFile.mutate(
           { id: draggedFileId, targetFolderId: folderId },
           {
-            onSuccess: () => toast.success('Datei verschoben'),
-            onError: (err) => toast.error(`Fehler: ${err.message}`),
+            onSuccess: () => toast.success(t('dokumente.fileMoved')),
+            onError: (err) => toast.error(`${t('common.error')}: ${err.message}`),
           },
         )
       }
     },
-    [moveFile],
+    [moveFile, t],
   )
 
   // Delete handlers
@@ -446,12 +448,12 @@ export default function DokumentePage() {
     if (deleteConfirmId) {
       deleteFile.mutate(deleteConfirmId, {
         onSuccess: () => {
-          toast.success('Datei gelöscht')
+          toast.success(t('dokumente.fileDeleted'))
           if (detailFile?.id === deleteConfirmId) setDetailFile(null)
           setDeleteConfirmId(null)
         },
         onError: (err) => {
-          toast.error(`Fehler: ${err.message}`)
+          toast.error(`${t('common.error')}: ${err.message}`)
           setDeleteConfirmId(null)
         },
       })
@@ -462,14 +464,14 @@ export default function DokumentePage() {
     if (deleteFolderConfirmId) {
       deleteFolder.mutate(deleteFolderConfirmId, {
         onSuccess: () => {
-          toast.success('Ordner gelöscht')
+          toast.success(t('dokumente.folderDeleted'))
           if (activeFolderId === deleteFolderConfirmId) {
             navigateToFolder(null)
           }
           setDeleteFolderConfirmId(null)
         },
         onError: (err) => {
-          toast.error(`Fehler: ${err.message}`)
+          toast.error(`${t('common.error')}: ${err.message}`)
           setDeleteFolderConfirmId(null)
         },
       })
@@ -484,7 +486,7 @@ export default function DokumentePage() {
       {
         onSuccess: () =>
           toast.success(
-            file.is_favorite ? 'Aus Favoriten entfernt' : 'Zu Favoriten hinzugefügt',
+            file.is_favorite ? t('dokumente.favorites.removed') : t('dokumente.favorites.added'),
           ),
       },
     )
@@ -530,22 +532,22 @@ export default function DokumentePage() {
 
   // Get active section label
   const getActiveSectionName = (): string => {
-    if (activeSpecialView === SIDEBAR_FAVORITES) return 'Favoriten'
-    if (activeSpecialView === SIDEBAR_SHARED) return 'Geteilt mit mir'
-    if (activeSpecialView === SIDEBAR_VIRTUAL_CHAT) return 'Chat-Anhänge'
-    if (activeSpecialView === SIDEBAR_VIRTUAL_EMAIL) return 'E-Mail-Anhänge'
-    if (activeSpecialView === SIDEBAR_VIRTUAL_TASK) return 'Aufgaben-Anhänge'
+    if (activeSpecialView === SIDEBAR_FAVORITES) return t('dokumente.sidebar.favorites')
+    if (activeSpecialView === SIDEBAR_SHARED) return t('dokumente.sidebar.sharedWithMe')
+    if (activeSpecialView === SIDEBAR_VIRTUAL_CHAT) return t('dokumente.sidebar.chatAttachments')
+    if (activeSpecialView === SIDEBAR_VIRTUAL_EMAIL) return t('dokumente.sidebar.emailAttachments')
+    if (activeSpecialView === SIDEBAR_VIRTUAL_TASK) return t('dokumente.sidebar.taskAttachments')
     if (breadcrumbs.length > 0) return breadcrumbs[breadcrumbs.length - 1].name
-    return 'Alle Dateien'
+    return t('dokumente.allFiles')
   }
 
   // "In Office öffnen" handler (Electron only)
   const isElectron = !!window.electronAPI
   const handleOpenInOffice = (file: DocumentFile) => {
     if (isElectron) {
-      toast.success(`"${file.filename}" wird in Office geöffnet...`)
+      toast.success(t('dokumente.openInOffice.opening', { name: file.filename }))
     } else {
-      toast.info('Nur in der Desktop-App verfügbar')
+      toast.info(t('dokumente.openInOffice.desktopOnly'))
     }
   }
 
@@ -572,7 +574,7 @@ export default function DokumentePage() {
       })
     } catch (err) {
       toast.error(
-        `Editor konnte nicht geöffnet werden: ${err instanceof Error ? err.message : 'Unbekannter Fehler'}`,
+        `${t('dokumente.editor.openError')}: ${err instanceof Error ? err.message : t('dokumente.unknownError')}`,
       )
     }
   }
@@ -597,7 +599,7 @@ export default function DokumentePage() {
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Meine Dateien
+                    {t('dokumente.sidebar.myFiles')}
                   </h3>
                   <button
                     onClick={() => {
@@ -605,7 +607,7 @@ export default function DokumentePage() {
                       setFolderCreateOpen(true)
                     }}
                     className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                    title="Neuer Ordner"
+                    title={t('dokumente.folder.new')}
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -643,7 +645,7 @@ export default function DokumentePage() {
               {(teamFolders?.folders ?? []).length > 0 && (
                 <div className="mb-4">
                   <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
-                    Team
+                    {t('dokumente.sidebar.team')}
                   </h3>
                   <nav className="space-y-0.5">
                     {(teamFolders?.folders ?? [])
@@ -679,7 +681,7 @@ export default function DokumentePage() {
               {(projectFolders?.folders ?? []).length > 0 && (
                 <div className="mb-4">
                   <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
-                    Projekte
+                    {t('dokumente.sidebar.projects')}
                   </h3>
                   <nav className="space-y-0.5">
                     {(projectFolders?.folders ?? [])
@@ -714,7 +716,7 @@ export default function DokumentePage() {
               {/* Quick access */}
               <div className="mb-4 border-t border-border pt-4">
                 <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
-                  Schnellzugriff
+                  {t('dokumente.sidebar.quickAccess')}
                 </h3>
                 <nav className="space-y-0.5">
                   <button
@@ -726,7 +728,7 @@ export default function DokumentePage() {
                     }`}
                   >
                     <Star className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Favoriten</span>
+                    <span className="truncate">{t('dokumente.sidebar.favorites')}</span>
                   </button>
                   <button
                     onClick={() => navigateToSpecial(SIDEBAR_SHARED)}
@@ -737,7 +739,7 @@ export default function DokumentePage() {
                     }`}
                   >
                     <Share2 className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Geteilt mit mir</span>
+                    <span className="truncate">{t('dokumente.sidebar.sharedWithMe')}</span>
                   </button>
                 </nav>
               </div>
@@ -745,7 +747,7 @@ export default function DokumentePage() {
               {/* Virtual folders */}
               <div className="border-t border-border pt-4">
                 <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
-                  Anhänge
+                  {t('dokumente.sidebar.attachments')}
                 </h3>
                 <nav className="space-y-0.5">
                   <button
@@ -757,7 +759,7 @@ export default function DokumentePage() {
                     }`}
                   >
                     <MessageSquare className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Chat-Anhänge</span>
+                    <span className="truncate">{t('dokumente.sidebar.chatAttachments')}</span>
                   </button>
                   <button
                     onClick={() => navigateToSpecial(SIDEBAR_VIRTUAL_EMAIL)}
@@ -768,7 +770,7 @@ export default function DokumentePage() {
                     }`}
                   >
                     <Mail className="h-4 w-4 shrink-0" />
-                    <span className="truncate">E-Mail-Anhänge</span>
+                    <span className="truncate">{t('dokumente.sidebar.emailAttachments')}</span>
                   </button>
                   <button
                     onClick={() => navigateToSpecial(SIDEBAR_VIRTUAL_TASK)}
@@ -779,7 +781,7 @@ export default function DokumentePage() {
                     }`}
                   >
                     <CheckSquare className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Aufgaben-Anhänge</span>
+                    <span className="truncate">{t('dokumente.sidebar.taskAttachments')}</span>
                   </button>
                 </nav>
               </div>
@@ -800,14 +802,14 @@ export default function DokumentePage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Dateien suchen..."
+                  placeholder={t('dokumente.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
                 />
               </div>
               <span className="text-xs text-muted-foreground hidden sm:block">
-                {filtered.length} Dateien
+                {t('dokumente.fileCount', { count: filtered.length })}
               </span>
               <div className="flex items-center gap-1 ml-auto">
                 <button
@@ -836,14 +838,14 @@ export default function DokumentePage() {
                 className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                Aus Vorlage
+                {t('dokumente.fromTemplate')}
               </button>
               <button
                 onClick={handleUpload}
                 className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
               >
                 <Upload className="h-4 w-4" />
-                Hochladen
+                {t('common.upload')}
               </button>
             </div>
 
@@ -854,7 +856,7 @@ export default function DokumentePage() {
                   onClick={() => navigateToFolder(null)}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Alle Dateien
+                  {t('dokumente.allFiles')}
                 </button>
                 {breadcrumbs.map((seg) => (
                   <div key={seg.id} className="flex items-center gap-1">
@@ -897,10 +899,10 @@ export default function DokumentePage() {
                   <div className="text-center">
                     <Upload className="h-12 w-12 mx-auto mb-3 text-primary opacity-60" />
                     <p className="text-sm font-medium text-primary">
-                      Dateien hierhin ziehen
+                      {t('dokumente.dragOverlay.title')}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      in &quot;{getActiveSectionName()}&quot; hochladen
+                      {t('dokumente.dragOverlay.subtitle', { folder: getActiveSectionName() })}
                     </p>
                   </div>
                 </div>
@@ -972,7 +974,7 @@ export default function DokumentePage() {
                               {folder.name}
                             </span>
                             <span className="text-xs text-muted-foreground ml-auto">
-                              {folder.file_count} Dateien
+                              {t('dokumente.fileCount', { count: folder.file_count })}
                             </span>
                           </div>
                         </div>
@@ -992,7 +994,7 @@ export default function DokumentePage() {
                       onOpen={() => setPreviewFile(file)}
                       onDownload={() =>
                         toast.success(
-                          `"${file.filename}" wird heruntergeladen`,
+                          t('dokumente.downloading', { name: file.filename }),
                         )
                       }
                       onRename={() =>
@@ -1003,10 +1005,10 @@ export default function DokumentePage() {
                         })
                       }
                       onMove={() =>
-                        toast.info('Verschieben-Dialog kommt in Kuerze')
+                        toast.info(t('dokumente.moveComingSoon'))
                       }
                       onCopy={() =>
-                        toast.info('Kopieren-Dialog kommt in Kuerze')
+                        toast.info(t('dokumente.copyComingSoon'))
                       }
                       onShare={() =>
                         setShareTarget({
@@ -1052,10 +1054,10 @@ export default function DokumentePage() {
               ) : (
                 <div className="space-y-1">
                   <div className="grid grid-cols-[1fr_100px_100px_120px] gap-3 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
-                    <span>Name</span>
-                    <span>Größe</span>
-                    <span>Typ</span>
-                    <span>Datum</span>
+                    <span>{t('dokumente.list.name')}</span>
+                    <span>{t('dokumente.list.size')}</span>
+                    <span>{t('dokumente.list.type')}</span>
+                    <span>{t('dokumente.list.date')}</span>
                   </div>
                   {filtered.map((file) => (
                     <FileContextMenu
@@ -1064,7 +1066,7 @@ export default function DokumentePage() {
                       onOpen={() => setPreviewFile(file)}
                       onDownload={() =>
                         toast.success(
-                          `"${file.filename}" wird heruntergeladen`,
+                          t('dokumente.downloading', { name: file.filename }),
                         )
                       }
                       onRename={() =>
@@ -1075,10 +1077,10 @@ export default function DokumentePage() {
                         })
                       }
                       onMove={() =>
-                        toast.info('Verschieben-Dialog kommt in Kuerze')
+                        toast.info(t('dokumente.moveComingSoon'))
                       }
                       onCopy={() =>
-                        toast.info('Kopieren-Dialog kommt in Kuerze')
+                        toast.info(t('dokumente.copyComingSoon'))
                       }
                       onShare={() =>
                         setShareTarget({
@@ -1126,15 +1128,15 @@ export default function DokumentePage() {
               {filtered.length === 0 && !filesLoading && (
                 <EmptyState
                   icon={FolderOpen}
-                  title="Keine Dateien gefunden"
+                  title={t('dokumente.empty.title')}
                   description={
                     search
-                      ? 'Versuche einen anderen Suchbegriff'
-                      : 'Lade deine erste Datei hoch'
+                      ? t('dokumente.empty.searchHint')
+                      : t('dokumente.empty.uploadHint')
                   }
                   action={
                     !search
-                      ? { label: 'Datei hochladen', onClick: handleUpload }
+                      ? { label: t('dokumente.empty.uploadAction'), onClick: handleUpload }
                       : undefined
                   }
                 />
@@ -1155,9 +1157,9 @@ export default function DokumentePage() {
                       </span>
                       <span className="text-[10px] text-muted-foreground">
                         {u.status === 'complete'
-                          ? 'Fertig'
+                          ? t('dokumente.upload.complete')
                           : u.status === 'error'
-                            ? 'Fehler'
+                            ? t('common.error')
                             : `${u.progress}%`}
                       </span>
                     </div>
@@ -1263,9 +1265,9 @@ export default function DokumentePage() {
           <ConfirmDialog
             open={!!deleteConfirmId}
             onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-            title="Datei löschen?"
-            description={`"${deleteTarget?.filename}" wird unwiderruflich gelöscht.`}
-            confirmLabel="Löschen"
+            title={t('dokumente.deleteFile.title')}
+            description={t('dokumente.deleteFile.description', { name: deleteTarget?.filename })}
+            confirmLabel={t('common.delete')}
             variant="destructive"
             onConfirm={handleDeleteFile}
           />
@@ -1276,9 +1278,9 @@ export default function DokumentePage() {
             onOpenChange={(open) =>
               !open && setDeleteFolderConfirmId(null)
             }
-            title="Ordner löschen?"
-            description={`"${deleteFolderTarget?.name}" und alle enthaltenen Dateien werden gelöscht.`}
-            confirmLabel="Löschen"
+            title={t('dokumente.deleteFolder.title')}
+            description={t('dokumente.deleteFolder.description', { name: deleteFolderTarget?.name })}
+            confirmLabel={t('common.delete')}
             variant="destructive"
             onConfirm={handleDeleteFolder}
           />
@@ -1438,10 +1440,11 @@ const CLASSIFICATION_COLORS: Record<ClassificationLevel, string> = {
   vertraulich: 'bg-error-light text-error',
 }
 
-const CLASSIFICATION_LABELS: Record<ClassificationLevel, string> = {
-  öffentlich: 'Öffentlich',
-  intern: 'Intern',
-  vertraulich: 'Vertraulich',
+// Classification labels are resolved via t() in the component below
+const CLASSIFICATION_LABEL_KEYS: Record<ClassificationLevel, string> = {
+  öffentlich: 'dokumente.classification.public',
+  intern: 'dokumente.classification.internal',
+  vertraulich: 'dokumente.classification.confidential',
 }
 
 function classifyByFilename(filename: string): ClassificationLevel {
@@ -1452,6 +1455,7 @@ function classifyByFilename(filename: string): ClassificationLevel {
 }
 
 function ClassificationBadge({ fileId, filename }: { fileId: string; filename: string }) {
+  const { t } = useTranslation()
   const aiDocsEnabled = useAIStore((s) => s.isModuleEnabled('docs'))
   const classifications = useAIStore((s) => s.fileClassifications)
   const setClassification = useAIStore((s) => s.setFileClassification)
@@ -1467,7 +1471,7 @@ function ClassificationBadge({ fileId, filename }: { fileId: string; filename: s
 
   return (
     <span className={`rounded-full px-1.5 py-0 text-[9px] font-medium ${CLASSIFICATION_COLORS[level]}`}>
-      {CLASSIFICATION_LABELS[level]}
+      {t(CLASSIFICATION_LABEL_KEYS[level])}
     </span>
   )
 }
@@ -1566,6 +1570,7 @@ function FileListRow({
   onClick: (e: React.MouseEvent) => void
   onDragStart: (e: React.DragEvent) => void
 }) {
+  const { t } = useTranslation()
   const cat = getMimeCategory(file.mime_type)
   const Icon = fileTypeIcons[cat] || File
   const colorClass = fileTypeColors[cat] || fileTypeColors.other
@@ -1574,10 +1579,10 @@ function FileListRow({
     pdf: 'PDF',
     word: 'Word',
     excel: 'Excel',
-    image: 'Bild',
+    image: t('dokumente.fileType.image'),
     video: 'Video',
-    archive: 'Archiv',
-    other: 'Datei',
+    archive: t('dokumente.fileType.archive'),
+    other: t('dokumente.fileType.file'),
   }
 
   return (

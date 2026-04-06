@@ -5,6 +5,7 @@
  * Uses useTriggerDefinitions() hook to load catalog from backend.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Users,
@@ -25,21 +26,21 @@ import type { TriggerDefinition } from '@/api/automation-types'
 
 const MODULE_CONFIG: Record<
   string,
-  { icon: React.ElementType; label: string; color: string }
+  { icon: React.ElementType; labelKey: string; color: string }
 > = {
-  crm: { icon: Users, label: 'CRM', color: 'text-blue-500' },
-  work: { icon: Briefcase, label: 'Projekte', color: 'text-purple-500' },
-  email: { icon: Mail, label: 'E-Mail', color: 'text-green-500' },
-  finance: { icon: Receipt, label: 'Finanzen', color: 'text-warning-foreground' },
-  hr: { icon: UserCheck, label: 'Personal', color: 'text-rose-500' },
-  calendar: { icon: Calendar, label: 'Kalender', color: 'text-cyan-500' },
+  crm: { icon: Users, labelKey: 'automatisierung.modules.crm', color: 'text-blue-500' },
+  work: { icon: Briefcase, labelKey: 'automatisierung.modules.work', color: 'text-purple-500' },
+  email: { icon: Mail, labelKey: 'automatisierung.modules.email', color: 'text-green-500' },
+  finance: { icon: Receipt, labelKey: 'automatisierung.modules.finance', color: 'text-warning-foreground' },
+  hr: { icon: UserCheck, labelKey: 'automatisierung.modules.hr', color: 'text-rose-500' },
+  calendar: { icon: Calendar, labelKey: 'automatisierung.modules.calendar', color: 'text-cyan-500' },
 }
 
 function getModuleConfig(module: string) {
   return (
     MODULE_CONFIG[module] ?? {
       icon: Zap,
-      label: module,
+      labelKey: module,
       color: 'text-muted-foreground',
     }
   )
@@ -50,6 +51,7 @@ function getModuleConfig(module: string) {
 // ---------------------------------------------------------------------------
 
 export function TriggerSelector() {
+  const { t } = useTranslation()
   const { data, isLoading } = useTriggerDefinitions()
   const { draftWorkflow, updateDraftTrigger } = useAutomatisierungStore()
   const [search, setSearch] = useState('')
@@ -98,7 +100,7 @@ export function TriggerSelector() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Trigger suchen..."
+          placeholder={t('automatisierung.trigger.searchPlaceholder')}
           className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
         />
       </div>
@@ -111,7 +113,7 @@ export function TriggerSelector() {
           <div key={module}>
             <h3 className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               <Icon className={`h-4 w-4 ${config.color}`} />
-              {config.label}
+              {t(config.labelKey)}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {moduleTriggers.map((trigger) => {
@@ -147,7 +149,7 @@ export function TriggerSelector() {
 
       {Object.keys(grouped).length === 0 && (
         <div className="py-8 text-center text-sm text-muted-foreground">
-          Keine Trigger gefunden
+          {t('automatisierung.trigger.noResults')}
         </div>
       )}
     </div>

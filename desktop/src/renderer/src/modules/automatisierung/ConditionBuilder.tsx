@@ -7,6 +7,7 @@
  *
  * Both modes write to the same draft.conditions in the Zustand store.
  */
+import { useTranslation } from 'react-i18next'
 import {
   Plus,
   Trash2,
@@ -43,6 +44,7 @@ function ConditionGroup({
   fields,
   depth,
 }: ConditionGroupProps) {
+  const { t } = useTranslation()
   const isAnd = !!condition.and
   const isOr = !!condition.or
   const isGroup = isAnd || isOr
@@ -105,7 +107,7 @@ function ConditionGroup({
           onClick={toggleGroupType}
           className="rounded-md bg-secondary px-2.5 py-1 text-xs font-bold text-foreground hover:bg-secondary/80 transition-colors uppercase"
         >
-          {isAnd ? 'UND' : 'ODER'}
+          {isAnd ? t('automatisierung.condition.and') : t('automatisierung.condition.or')}
         </button>
         <div className="flex items-center gap-1">
           <button
@@ -113,14 +115,14 @@ function ConditionGroup({
             className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-foreground hover:bg-secondary transition-colors"
           >
             <Plus className="h-3 w-3" />
-            Bedingung
+            {t('automatisierung.condition.condition')}
           </button>
           <button
             onClick={addGroup}
             className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-foreground hover:bg-secondary transition-colors"
           >
             <FolderPlus className="h-3 w-3" />
-            Gruppe
+            {t('automatisierung.condition.group')}
           </button>
           {onRemove && (
             <button
@@ -146,7 +148,7 @@ function ConditionGroup({
 
       {children.length === 0 && (
         <p className="text-xs text-muted-foreground py-2 text-center">
-          Keine Bedingungen. Klicken Sie auf "Bedingung hinzufügen".
+          {t('automatisierung.condition.emptyGroup')}
         </p>
       )}
     </div>
@@ -168,6 +170,7 @@ function LeafCondition({
   onRemove?: () => void
   fields: TriggerField[]
 }) {
+  const { t } = useTranslation()
   const selectedField = fields.find((f) => f.key === condition.field)
   const operators = selectedField?.operators ?? []
 
@@ -179,7 +182,7 @@ function LeafCondition({
         onChange={(e) => onChange({ ...condition, field: e.target.value, operator: '', value: '' })}
         className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-focus-ring"
       >
-        <option value="">Feld wählen...</option>
+        <option value="">{t('automatisierung.condition.selectField')}</option>
         {fields.map((f) => (
           <option key={f.key} value={f.key}>
             {f.label}
@@ -193,7 +196,7 @@ function LeafCondition({
         onChange={(e) => onChange({ ...condition, operator: e.target.value })}
         className="w-32 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-focus-ring"
       >
-        <option value="">Operator...</option>
+        <option value="">{t('automatisierung.condition.selectOperator')}</option>
         {operators.map((op) => (
           <option key={op} value={op}>
             {op}
@@ -206,7 +209,7 @@ function LeafCondition({
         type={selectedField?.type === 'number' ? 'number' : 'text'}
         value={String(condition.value ?? '')}
         onChange={(e) => onChange({ ...condition, value: e.target.value })}
-        placeholder="Wert"
+        placeholder={t('automatisierung.condition.value')}
         className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
       />
 
@@ -228,6 +231,7 @@ function LeafCondition({
 // ---------------------------------------------------------------------------
 
 function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
+  const { t } = useTranslation()
   const { draftWorkflow, updateDraftConditions } = useAutomatisierungStore()
   const conditions = draftWorkflow?.conditions as ConditionConfig | undefined
   const testMutation = useTestCondition()
@@ -244,7 +248,7 @@ function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
     <div className="space-y-3">
       {/* Expression textarea */}
       <div>
-        <label className="text-xs font-medium text-foreground">Ausdruck</label>
+        <label className="text-xs font-medium text-foreground">{t('automatisierung.expression.label')}</label>
         <textarea
           value={conditions?.expression ?? ''}
           onChange={(e) =>
@@ -263,7 +267,7 @@ function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
       {/* Available variables */}
       <div>
         <h4 className="text-xs font-medium text-muted-foreground mb-1">
-          Verfügbare Variablen
+          {t('automatisierung.expression.availableVariables')}
         </h4>
         <div className="flex flex-wrap gap-1">
           {fields.map((f) => (
@@ -286,7 +290,7 @@ function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
           className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
         >
           <Play className="h-3 w-3" />
-          {testMutation.isPending ? 'Teste...' : 'Ausdruck testen'}
+          {testMutation.isPending ? t('automatisierung.expression.testing') : t('automatisierung.expression.test')}
         </button>
 
         {testMutation.data && (
@@ -294,13 +298,13 @@ function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
             {testMutation.data.matches ? (
               <>
                 <CheckCircle className="h-4 w-4 text-green-500" />
-                <span className="text-green-600">Erfolgreich</span>
+                <span className="text-green-600">{t('automatisierung.expression.success')}</span>
               </>
             ) : (
               <>
                 <XCircle className="h-4 w-4 text-destructive" />
                 <span className="text-destructive">
-                  Fehlgeschlagen
+                  {t('automatisierung.expression.failed')}
                   {testMutation.data.error
                     ? `: ${testMutation.data.error}`
                     : ''}
@@ -319,6 +323,7 @@ function ExpressionEditor({ fields }: { fields: TriggerField[] }) {
 // ---------------------------------------------------------------------------
 
 export function ConditionBuilder() {
+  const { t } = useTranslation()
   const { draftWorkflow, updateDraftConditions } = useAutomatisierungStore()
   const { data: triggerData } = useTriggerDefinitions()
   const testMutation = useTestCondition()
@@ -371,7 +376,7 @@ export function ConditionBuilder() {
         <span
           className={`text-xs font-medium ${!isExpression ? 'text-foreground' : 'text-muted-foreground'}`}
         >
-          Einfach
+          {t('automatisierung.condition.simple')}
         </span>
         <Switch.Root
           checked={isExpression}
@@ -383,7 +388,7 @@ export function ConditionBuilder() {
         <span
           className={`text-xs font-medium ${isExpression ? 'text-foreground' : 'text-muted-foreground'}`}
         >
-          Ausdruck
+          {t('automatisierung.condition.expression')}
         </span>
       </div>
 
@@ -409,7 +414,7 @@ export function ConditionBuilder() {
                   className="flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
                 >
                   <Play className="h-3 w-3" />
-                  {testMutation.isPending ? 'Teste...' : 'Bedingung testen'}
+                  {testMutation.isPending ? t('automatisierung.condition.testing') : t('automatisierung.condition.test')}
                 </button>
 
                 {testMutation.data && (
@@ -417,13 +422,13 @@ export function ConditionBuilder() {
                     {testMutation.data.matches ? (
                       <>
                         <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span className="text-green-600">Bedingung trifft zu</span>
+                        <span className="text-green-600">{t('automatisierung.condition.matches')}</span>
                       </>
                     ) : (
                       <>
                         <XCircle className="h-4 w-4 text-destructive" />
                         <span className="text-destructive">
-                          Bedingung trifft nicht zu
+                          {t('automatisierung.condition.noMatch')}
                           {testMutation.data.error
                             ? `: ${testMutation.data.error}`
                             : ''}
@@ -437,7 +442,7 @@ export function ConditionBuilder() {
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Keine Bedingung konfiguriert. Die Automatisierung wird immer ausgefuehrt.
+                {t('automatisierung.condition.noConditionConfigured')}
               </p>
               <button
                 onClick={() =>
@@ -448,7 +453,7 @@ export function ConditionBuilder() {
                 className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                Bedingung hinzufügen
+                {t('automatisierung.condition.add')}
               </button>
             </div>
           )}

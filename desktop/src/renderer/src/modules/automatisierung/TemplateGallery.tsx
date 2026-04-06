@@ -6,6 +6,7 @@
  * "Vorlage verwenden" creates an automation from template and opens wizard.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Users,
@@ -36,29 +37,29 @@ import type {
 
 const CATEGORY_CONFIG: Record<
   TemplateCategory,
-  { icon: React.ElementType; label: string; color: string; band: string }
+  { icon: React.ElementType; labelKey: string; color: string; band: string }
 > = {
   vertrieb: {
     icon: Users,
-    label: 'Vertrieb',
+    labelKey: 'automatisierung.template.category.vertrieb',
     color: 'text-blue-500',
     band: 'bg-blue-500',
   },
   finanzen: {
     icon: Receipt,
-    label: 'Finanzen',
+    labelKey: 'automatisierung.template.category.finanzen',
     color: 'text-warning-foreground',
     band: 'bg-warning',
   },
   personal: {
     icon: UserCheck,
-    label: 'Personal',
+    labelKey: 'automatisierung.template.category.personal',
     color: 'text-rose-500',
     band: 'bg-rose-500',
   },
   kommunikation: {
     icon: MessageSquare,
-    label: 'Kommunikation',
+    labelKey: 'automatisierung.template.category.kommunikation',
     color: 'text-green-500',
     band: 'bg-green-500',
   },
@@ -66,19 +67,19 @@ const CATEGORY_CONFIG: Record<
 
 const COMPLEXITY_CONFIG: Record<
   TemplateComplexity,
-  { label: string; className: string }
+  { labelKey: string; className: string }
 > = {
   einfach: {
-    label: 'Einfach',
+    labelKey: 'automatisierung.template.complexity.einfach',
     className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   },
   mittel: {
-    label: 'Mittel',
+    labelKey: 'automatisierung.template.complexity.mittel',
     className:
       'bg-warning-light text-warning-foreground',
   },
   fortgeschritten: {
-    label: 'Fortgeschritten',
+    labelKey: 'automatisierung.template.complexity.fortgeschritten',
     className:
       'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   },
@@ -95,6 +96,7 @@ function TemplateCard({
   template: AutomationTemplate
   onPreview: (t: AutomationTemplate) => void
 }) {
+  const { t } = useTranslation()
   const catConfig =
     CATEGORY_CONFIG[template.category] ?? CATEGORY_CONFIG.vertrieb
   const cxConfig =
@@ -114,7 +116,7 @@ function TemplateCard({
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cxConfig.className}`}
           >
-            {cxConfig.label}
+            {t(cxConfig.labelKey)}
           </span>
         </div>
 
@@ -127,7 +129,7 @@ function TemplateCard({
           className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] text-foreground hover:bg-secondary transition-colors"
         >
           <Eye className="h-3 w-3" />
-          Vorschau
+          {t('automatisierung.template.preview')}
         </button>
       </div>
     </div>
@@ -149,6 +151,7 @@ function TemplatePreviewDialog({
   onOpenChange: (open: boolean) => void
   onUse: (t: AutomationTemplate) => void
 }) {
+  const { t } = useTranslation()
   if (!template) return null
 
   const catConfig =
@@ -173,10 +176,10 @@ function TemplatePreviewDialog({
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cxConfig.className}`}
             >
-              {cxConfig.label}
+              {t(cxConfig.labelKey)}
             </span>
             <span className="text-xs text-muted-foreground">
-              {catConfig.label}
+              {t(catConfig.labelKey)}
             </span>
           </div>
 
@@ -191,24 +194,24 @@ function TemplatePreviewDialog({
           {/* Conditions */}
           <div className="rounded-lg border border-border p-3">
             <h4 className="text-xs font-medium text-muted-foreground mb-1">
-              Bedingung
+              {t('automatisierung.template.condition')}
             </h4>
             <p className="text-sm text-foreground">
               {template.conditions?.mode === 'expression'
-                ? template.conditions.expression || 'Keine Bedingung'
+                ? template.conditions.expression || t('automatisierung.template.noCondition')
                 : template.conditions?.simple
-                  ? 'Einfache Bedingung konfiguriert'
-                  : 'Keine Bedingung'}
+                  ? t('automatisierung.template.simpleConditionConfigured')
+                  : t('automatisierung.template.noCondition')}
             </p>
           </div>
 
           {/* Actions */}
           <div className="rounded-lg border border-border p-3">
             <h4 className="text-xs font-medium text-muted-foreground mb-1">
-              Aktionen ({template.actions?.length ?? 0})
+              {t('automatisierung.template.actions')} ({template.actions?.length ?? 0})
             </h4>
             {(template.actions ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">Keine Aktionen</p>
+              <p className="text-sm text-muted-foreground">{t('automatisierung.template.noActions')}</p>
             ) : (
               <ul className="space-y-1">
                 {(template.actions ?? []).map((action, idx) => (
@@ -232,7 +235,7 @@ function TemplatePreviewDialog({
               onClick={() => onUse(template)}
               className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              Vorlage verwenden
+              {t('automatisierung.template.useTemplate')}
             </button>
           </div>
         </div>
@@ -246,6 +249,7 @@ function TemplatePreviewDialog({
 // ---------------------------------------------------------------------------
 
 export function TemplateGallery() {
+  const { t } = useTranslation()
   const { data, isLoading } = useAutomationTemplates()
   const { templateGrouping, setTemplateGrouping } = useAutomatisierungStore()
   const createFromTemplate = useCreateFromTemplate()
@@ -283,15 +287,17 @@ export function TemplateGallery() {
     setPreviewTemplate(null)
     createFromTemplate.mutate({
       templateId: template.id,
-      name: `${template.name} (Kopie)`,
+      name: `${template.name} (${t('automatisierung.template.copy')})`,
     })
   }
 
   const groupLabel = (key: string): string => {
     if (templateGrouping === 'module') {
-      return CATEGORY_CONFIG[key as TemplateCategory]?.label ?? key
+      const labelKey = CATEGORY_CONFIG[key as TemplateCategory]?.labelKey
+      return labelKey ? t(labelKey) : key
     }
-    return COMPLEXITY_CONFIG[key as TemplateComplexity]?.label ?? key
+    const labelKey = COMPLEXITY_CONFIG[key as TemplateComplexity]?.labelKey
+    return labelKey ? t(labelKey) : key
   }
 
   if (isLoading) {
@@ -312,13 +318,13 @@ export function TemplateGallery() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Vorlagen suchen..."
+            placeholder={t('automatisierung.template.searchPlaceholder')}
             className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
           />
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Nach Modul</span>
+          <span>{t('automatisierung.template.byModule')}</span>
           <Switch.Root
             checked={templateGrouping === 'complexity'}
             onCheckedChange={(checked) =>
@@ -328,7 +334,7 @@ export function TemplateGallery() {
           >
             <Switch.Thumb className="block h-4 w-4 rounded-full bg-white transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5 shadow-sm" />
           </Switch.Root>
-          <span>Nach Komplexitaet</span>
+          <span>{t('automatisierung.template.byComplexity')}</span>
         </div>
       </div>
 
@@ -352,7 +358,7 @@ export function TemplateGallery() {
 
       {Object.keys(grouped).length === 0 && (
         <div className="py-8 text-center text-sm text-muted-foreground">
-          Keine Vorlagen gefunden
+          {t('automatisierung.template.noTemplates')}
         </div>
       )}
 

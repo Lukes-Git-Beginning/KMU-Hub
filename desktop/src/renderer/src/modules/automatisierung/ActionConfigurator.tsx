@@ -5,6 +5,7 @@
  * insertion, and error handling toggle. Uses useActionDefinitions() hook.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus,
   Trash2,
@@ -27,13 +28,13 @@ import type {
 // Module grouping for action selector
 // ---------------------------------------------------------------------------
 
-const MODULE_LABELS: Record<string, string> = {
-  crm: 'CRM',
-  work: 'Projekte',
-  email: 'E-Mail',
-  notification: 'Benachrichtigungen',
-  calendar: 'Kalender',
-  finance: 'Finanzen',
+const MODULE_LABEL_KEYS: Record<string, string> = {
+  crm: 'automatisierung.modules.crm',
+  work: 'automatisierung.modules.work',
+  email: 'automatisierung.modules.email',
+  notification: 'automatisierung.modules.notification',
+  calendar: 'automatisierung.modules.calendar',
+  finance: 'automatisierung.modules.finance',
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,7 @@ function ActionSlot({
   onMoveUp: () => void
   onMoveDown: () => void
 }) {
+  const { t } = useTranslation()
   const [showVars, setShowVars] = useState(false)
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
 
@@ -110,7 +112,7 @@ function ActionSlot({
             {index + 1}
           </span>
           <span className="text-xs font-medium text-foreground">
-            {actionDef?.name ?? (action.type || 'Aktion wählen')}
+            {actionDef?.name ?? (action.type || t('automatisierung.action.choose'))}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -141,16 +143,16 @@ function ActionSlot({
         {/* Action type selector */}
         <div>
           <label className="text-[11px] font-medium text-muted-foreground">
-            Aktionstyp
+            {t('automatisierung.action.type')}
           </label>
           <select
             value={action.type}
             onChange={(e) => handleTypeChange(e.target.value)}
             className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-focus-ring"
           >
-            <option value="">Aktion wählen...</option>
+            <option value="">{t('automatisierung.action.choosePlaceholder')}</option>
             {Object.entries(grouped).map(([mod, defs]) => (
-              <optgroup key={mod} label={MODULE_LABELS[mod] ?? mod}>
+              <optgroup key={mod} label={MODULE_LABEL_KEYS[mod] ? t(MODULE_LABEL_KEYS[mod]) : mod}>
                 {defs.map((def) => (
                   <option key={def.type} value={def.type}>
                     {def.name}
@@ -184,7 +186,7 @@ function ActionSlot({
               className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <Variable className="h-3 w-3" />
-              {showVars ? 'Variablen ausblenden' : 'Verfügbare Variablen'}
+              {showVars ? t('automatisierung.action.hideVariables') : t('automatisierung.action.availableVariables')}
             </button>
             {showVars && (
               <div className="mt-1 flex flex-wrap gap-1">
@@ -193,7 +195,7 @@ function ActionSlot({
                     key={v}
                     onClick={() => insertVariable(v)}
                     className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
-                    title={`{{${v}}} einfügen`}
+                    title={t('automatisierung.action.insertVariable', { variable: `{{${v}}}` })}
                   >
                     {`{{${v}}}`}
                   </button>
@@ -207,7 +209,7 @@ function ActionSlot({
         <div className="flex items-center justify-between pt-1 border-t border-border">
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <AlertTriangle className="h-3 w-3" />
-            Bei Fehler fortfahren
+            {t('automatisierung.action.continueOnError')}
           </span>
           <Switch.Root
             checked={action.on_error === 'continue'}
@@ -283,6 +285,7 @@ function ParamInput({
 // ---------------------------------------------------------------------------
 
 export function ActionConfigurator() {
+  const { t } = useTranslation()
   const {
     draftWorkflow,
     addDraftAction,
@@ -352,7 +355,7 @@ export function ActionConfigurator() {
       {/* Step count */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
-          {actions.length} von {maxSteps} Aktionen
+          {t('automatisierung.action.countOf', { count: actions.length, max: maxSteps })}
         </span>
       </div>
 
@@ -388,12 +391,12 @@ export function ActionConfigurator() {
         className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-4 py-2 text-xs text-muted-foreground hover:text-foreground hover:border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
       >
         <Plus className="h-3.5 w-3.5" />
-        Aktion hinzufügen
+        {t('automatisierung.action.add')}
       </button>
 
       {actions.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-4">
-          Fuegen Sie mindestens eine Aktion hinzu, die ausgefuehrt werden soll.
+          {t('automatisierung.action.emptyHint')}
         </p>
       )}
     </div>

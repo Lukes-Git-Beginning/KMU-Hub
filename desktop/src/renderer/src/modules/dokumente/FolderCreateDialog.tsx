@@ -5,6 +5,7 @@
  * uses API mutation instead of Zustand store action.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export function FolderCreateDialog({
   spaceType,
   spaceId,
 }: FolderCreateDialogProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const createFolder = useCreateFolder()
 
@@ -56,11 +58,11 @@ export function FolderCreateDialog({
       },
       {
         onSuccess: () => {
-          toast.success(`Ordner "${name.trim()}" erstellt`)
+          toast.success(t('dokumente.folder.created', { name: name.trim() }))
           onOpenChange(false)
         },
         onError: (err) => {
-          toast.error(`Fehler: ${err.message}`)
+          toast.error(`${t('common.error')}: ${err.message}`)
         },
       },
     )
@@ -70,15 +72,15 @@ export function FolderCreateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Neuer Ordner</DialogTitle>
+          <DialogTitle>{t('dokumente.folder.new')}</DialogTitle>
         </DialogHeader>
         {parentName && (
-          <p className="text-xs text-muted-foreground">In: {parentName}</p>
+          <p className="text-xs text-muted-foreground">{t('dokumente.folder.in')}: {parentName}</p>
         )}
         <div className="space-y-1.5 py-2">
-          <Label>Ordnername</Label>
+          <Label>{t('dokumente.folder.nameLabel')}</Label>
           <Input
-            placeholder="z.B. Kundenprojekte"
+            placeholder={t('dokumente.folder.namePlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
@@ -87,14 +89,14 @@ export function FolderCreateDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!name.trim() || createFolder.isPending}
           >
             <FolderPlus className="mr-1.5 h-4 w-4" />
-            {createFolder.isPending ? 'Erstelle...' : 'Erstellen'}
+            {createFolder.isPending ? t('dokumente.folder.creating') : t('common.create')}
           </Button>
         </DialogFooter>
       </DialogContent>

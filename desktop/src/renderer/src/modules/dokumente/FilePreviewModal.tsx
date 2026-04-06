@@ -8,6 +8,7 @@
  * - Unsupported: File info with download button
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,7 @@ function getFileIcon(mimeType: string) {
 }
 
 function TextPreview({ url }: { url: string }) {
+  const { t } = useTranslation()
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState(false)
 
@@ -90,7 +92,7 @@ function TextPreview({ url }: { url: string }) {
     return (
       <div className="flex items-center justify-center p-8">
         <p className="text-sm text-muted-foreground">
-          Textvorschau konnte nicht geladen werden.
+          {t('dokumente.preview.textLoadError')}
         </p>
       </div>
     )
@@ -116,6 +118,7 @@ export function FilePreviewModal({
   open,
   onOpenChange,
 }: FilePreviewModalProps) {
+  const { t } = useTranslation()
   const { data: downloadData, isLoading: urlLoading } = useFileDownloadURL(
     file?.id ?? '',
   )
@@ -172,7 +175,7 @@ export function FilePreviewModal({
                 controls
                 className="max-w-full max-h-[60vh] rounded"
               >
-                Video wird nicht unterstuetzt
+                {t('dokumente.preview.videoNotSupported')}
               </video>
             </div>
           ) : (
@@ -187,7 +190,7 @@ export function FilePreviewModal({
                   {file.mime_type} &middot; {formatBytes(file.file_size)}
                 </p>
                 <p className="text-xs text-muted-foreground italic">
-                  Vorschau für diesen Dateityp nicht verfügbar
+                  {t('dokumente.preview.notAvailable')}
                 </p>
               </div>
             </div>
@@ -208,7 +211,7 @@ export function FilePreviewModal({
             disabled={!presignedURL}
           >
             <Download className="mr-1.5 h-3.5 w-3.5" />
-            Herunterladen
+            {t('common.download')}
           </Button>
         </div>
       </DialogContent>

@@ -5,6 +5,7 @@
  * Single output handle at the bottom.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Zap } from 'lucide-react'
 
@@ -15,6 +16,7 @@ interface TriggerNodeData {
 }
 
 function TriggerNodeComponent({ data, selected }: NodeProps) {
+  const { t } = useTranslation()
   const nodeData = data as TriggerNodeData
 
   return (
@@ -34,7 +36,7 @@ function TriggerNodeComponent({ data, selected }: NodeProps) {
       {/* Body */}
       <div className="bg-background rounded-b-md px-3 py-2">
         <p className="text-xs text-foreground font-medium truncate">
-          {nodeData.triggerType || 'Nicht konfiguriert'}
+          {nodeData.triggerType || t('automatisierung.node.notConfigured')}
         </p>
       </div>
 

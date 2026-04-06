@@ -7,6 +7,7 @@
  * On submit calls useCreateAutomation() mutation.
  */
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   X,
   ChevronLeft,
@@ -34,11 +35,11 @@ import { ActionConfigurator } from './ActionConfigurator'
 // Step labels
 // ---------------------------------------------------------------------------
 
-const STEPS = [
-  { label: 'Trigger', description: 'Wann soll die Automatisierung ausgeloest werden?' },
-  { label: 'Bedingung', description: 'Unter welchen Bedingungen soll sie laufen?' },
-  { label: 'Aktion(en)', description: 'Was soll passieren?' },
-  { label: 'Übersicht', description: 'Zusammenfassung prüfen und speichern' },
+const STEP_KEYS = [
+  { labelKey: 'automatisierung.wizard.steps.trigger', descKey: 'automatisierung.wizard.steps.triggerDesc' },
+  { labelKey: 'automatisierung.wizard.steps.condition', descKey: 'automatisierung.wizard.steps.conditionDesc' },
+  { labelKey: 'automatisierung.wizard.steps.actions', descKey: 'automatisierung.wizard.steps.actionsDesc' },
+  { labelKey: 'automatisierung.wizard.steps.review', descKey: 'automatisierung.wizard.steps.reviewDesc' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -52,9 +53,10 @@ function StepIndicator({
   currentStep: number
   onStepClick: (step: number) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-2 px-6 py-4 border-b border-border">
-      {STEPS.map((step, idx) => (
+      {STEP_KEYS.map((step, idx) => (
         <div key={idx} className="flex items-center gap-2">
           <button
             onClick={() => idx < currentStep && onStepClick(idx)}
@@ -70,9 +72,9 @@ function StepIndicator({
             <span className="flex items-center justify-center h-5 w-5 rounded-full bg-background/20 text-[10px] font-bold">
               {idx + 1}
             </span>
-            {step.label}
+            {t(step.labelKey)}
           </button>
-          {idx < STEPS.length - 1 && (
+          {idx < STEP_KEYS.length - 1 && (
             <div className="h-px w-8 bg-border" />
           )}
         </div>
@@ -86,6 +88,7 @@ function StepIndicator({
 // ---------------------------------------------------------------------------
 
 function ReviewStep() {
+  const { t } = useTranslation()
   const { draftWorkflow } = useAutomatisierungStore()
   const dryRunMutation = useDryRunAutomation()
 
@@ -109,15 +112,15 @@ function ReviewStep() {
       {/* Name & Description */}
       <div className="space-y-3">
         <div>
-          <label className="text-xs font-medium text-foreground">Name</label>
+          <label className="text-xs font-medium text-foreground">{t('automatisierung.review.name')}</label>
           <NameInput />
         </div>
         <div>
-          <label className="text-xs font-medium text-foreground">Beschreibung</label>
+          <label className="text-xs font-medium text-foreground">{t('automatisierung.review.description')}</label>
           <DescriptionInput />
         </div>
         <div>
-          <label className="text-xs font-medium text-foreground">Bereich</label>
+          <label className="text-xs font-medium text-foreground">{t('automatisierung.review.scope')}</label>
           <ScopeSelector />
         </div>
       </div>
@@ -125,29 +128,29 @@ function ReviewStep() {
       {/* Summary cards */}
       <div className="space-y-3">
         <div className="rounded-lg border border-border p-4">
-          <h4 className="text-xs font-medium text-muted-foreground mb-1">Trigger</h4>
+          <h4 className="text-xs font-medium text-muted-foreground mb-1">{t('automatisierung.review.trigger')}</h4>
           <p className="text-sm text-foreground">
-            {draftWorkflow.trigger_type || 'Kein Trigger ausgewaehlt'}
+            {draftWorkflow.trigger_type || t('automatisierung.review.noTrigger')}
           </p>
         </div>
 
         <div className="rounded-lg border border-border p-4">
-          <h4 className="text-xs font-medium text-muted-foreground mb-1">Bedingung</h4>
+          <h4 className="text-xs font-medium text-muted-foreground mb-1">{t('automatisierung.review.condition')}</h4>
           <p className="text-sm text-foreground">
             {conditions?.mode === 'expression'
-              ? conditions.expression || 'Kein Ausdruck'
+              ? conditions.expression || t('automatisierung.review.noExpression')
               : conditions?.simple
-                ? 'Einfache Bedingung konfiguriert'
-                : 'Keine Bedingung (immer ausführen)'}
+                ? t('automatisierung.review.simpleConfigured')
+                : t('automatisierung.review.noCondition')}
           </p>
         </div>
 
         <div className="rounded-lg border border-border p-4">
           <h4 className="text-xs font-medium text-muted-foreground mb-1">
-            Aktionen ({actions.length})
+            {t('automatisierung.review.actionsCount', { count: actions.length })}
           </h4>
           {actions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine Aktionen konfiguriert</p>
+            <p className="text-sm text-muted-foreground">{t('automatisierung.review.noActions')}</p>
           ) : (
             <ul className="space-y-1">
               {actions.map((action, idx) => (
@@ -157,7 +160,7 @@ function ReviewStep() {
                   </span>
                   {action.type}
                   <span className="text-xs text-muted-foreground">
-                    ({action.on_error === 'continue' ? 'Fortfahren bei Fehler' : 'Abbrechen bei Fehler'})
+                    ({action.on_error === 'continue' ? t('automatisierung.review.continueOnError') : t('automatisierung.review.abortOnError')})
                   </span>
                 </li>
               ))}
@@ -170,9 +173,9 @@ function ReviewStep() {
       <div className="rounded-lg border border-border p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-xs font-medium text-foreground">Simulation</h4>
+            <h4 className="text-xs font-medium text-foreground">{t('automatisierung.simulation.title')}</h4>
             <p className="text-[11px] text-muted-foreground">
-              Testen Sie die Automatisierung mit Beispieldaten
+              {t('automatisierung.simulation.description')}
             </p>
           </div>
           <button
@@ -185,13 +188,13 @@ function ReviewStep() {
             ) : (
               <Play className="h-3 w-3" />
             )}
-            {dryRunMutation.isPending ? 'Simuliere...' : 'Simulation starten'}
+            {dryRunMutation.isPending ? t('automatisierung.simulation.running') : t('automatisierung.simulation.start')}
           </button>
         </div>
 
         {!draftWorkflow.id && (
           <p className="text-[11px] text-muted-foreground italic">
-            Speichern Sie die Automatisierung zuerst, um eine Simulation auszuführen.
+            {t('automatisierung.simulation.saveFirst')}
           </p>
         )}
 
@@ -199,27 +202,27 @@ function ReviewStep() {
           <div className="space-y-2 pt-1">
             {/* Condition result */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Bedingung:</span>
+              <span className="text-muted-foreground">{t('automatisierung.simulation.condition')}:</span>
               {dryResult.condition_result ? (
                 <span className="flex items-center gap-1 text-green-600">
                   <CheckCircle className="h-3.5 w-3.5" />
-                  Trifft zu
+                  {t('automatisierung.simulation.matches')}
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-destructive">
                   <XCircle className="h-3.5 w-3.5" />
-                  Trifft nicht zu
+                  {t('automatisierung.simulation.noMatch')}
                 </span>
               )}
             </div>
 
             {/* Would execute */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">Ausführung:</span>
+              <span className="text-muted-foreground">{t('automatisierung.simulation.execution')}:</span>
               <span className={dryResult.would_execute ? 'text-green-600' : 'text-muted-foreground'}>
                 {dryResult.would_execute
-                  ? 'Wuerde ausgefuehrt werden'
-                  : 'Wuerde nicht ausgefuehrt werden'}
+                  ? t('automatisierung.simulation.wouldExecute')
+                  : t('automatisierung.simulation.wouldNotExecute')}
               </span>
             </div>
 
@@ -227,7 +230,7 @@ function ReviewStep() {
             {dryResult.steps.length > 0 && (
               <div className="mt-2">
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">
-                  Simulierte Schritte ({dryResult.steps.length})
+                  {t('automatisierung.simulation.simulatedSteps', { count: dryResult.steps.length })}
                 </p>
                 <div className="space-y-1.5">
                   {dryResult.steps.map((step, idx) => (
@@ -264,7 +267,7 @@ function ReviewStep() {
         {dryRunMutation.isError && (
           <div className="flex items-center gap-2 text-xs text-destructive">
             <XCircle className="h-3.5 w-3.5" />
-            Simulation fehlgeschlagen: {(dryRunMutation.error as Error)?.message ?? 'Unbekannter Fehler'}
+            {t('automatisierung.simulation.failed')}: {(dryRunMutation.error as Error)?.message ?? t('automatisierung.simulation.unknownError')}
           </div>
         )}
       </div>
@@ -273,6 +276,7 @@ function ReviewStep() {
 }
 
 function NameInput() {
+  const { t } = useTranslation()
   const { draftWorkflow, setDraftWorkflow } = useAutomatisierungStore()
   return (
     <input
@@ -281,13 +285,14 @@ function NameInput() {
       onChange={(e) =>
         setDraftWorkflow({ ...draftWorkflow, name: e.target.value })
       }
-      placeholder="z.B. Deal gewonnen -> Rechnung erstellen"
+      placeholder={t('automatisierung.wizard.namePlaceholder')}
       className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
     />
   )
 }
 
 function DescriptionInput() {
+  const { t } = useTranslation()
   const { draftWorkflow, setDraftWorkflow } = useAutomatisierungStore()
   return (
     <textarea
@@ -295,7 +300,7 @@ function DescriptionInput() {
       onChange={(e) =>
         setDraftWorkflow({ ...draftWorkflow, description: e.target.value })
       }
-      placeholder="Optionale Beschreibung..."
+      placeholder={t('automatisierung.wizard.descriptionPlaceholder')}
       rows={2}
       className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring resize-none"
     />
@@ -303,6 +308,7 @@ function DescriptionInput() {
 }
 
 function ScopeSelector() {
+  const { t } = useTranslation()
   const { draftWorkflow, setDraftWorkflow } = useAutomatisierungStore()
   const scope = draftWorkflow?.scope ?? 'personal'
 
@@ -319,10 +325,10 @@ function ScopeSelector() {
           }`}
         >
           {s === 'personal'
-            ? 'Persönlich'
+            ? t('automatisierung.scope.personal')
             : s === 'team'
-              ? 'Team'
-              : 'Organisation'}
+              ? t('automatisierung.scope.team')
+              : t('automatisierung.scope.organization')}
         </button>
       ))}
     </div>
@@ -334,6 +340,7 @@ function ScopeSelector() {
 // ---------------------------------------------------------------------------
 
 export function AutomationWizard({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const {
     wizardStep,
     setWizardStep,
@@ -392,10 +399,10 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-3">
         <DialogTitle className="text-lg font-semibold text-foreground">
-          {isEditing ? 'Automatisierung bearbeiten' : 'Neue Automatisierung'}
+          {isEditing ? t('automatisierung.wizard.editTitle') : t('automatisierung.wizard.newTitle')}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          Wizard zum Erstellen und Bearbeiten von Automatisierungen
+          {t('automatisierung.wizard.description')}
         </DialogDescription>
         <div className="flex items-center gap-3">
           <button
@@ -403,12 +410,12 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
             className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
           >
             <Workflow className="h-3.5 w-3.5" />
-            Zum Editor wechseln
+            {t('automatisierung.wizard.switchToEditor')}
           </button>
           <button
             onClick={onClose}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            aria-label="Schließen"
+            aria-label={t('common.close')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -420,7 +427,7 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
 
       {/* Step description */}
       <div className="px-6 py-3 border-b border-border">
-        <p className="text-sm text-muted-foreground">{STEPS[wizardStep].description}</p>
+        <p className="text-sm text-muted-foreground">{t(STEP_KEYS[wizardStep].descKey)}</p>
       </div>
 
       {/* Content */}
@@ -439,7 +446,7 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
           className="flex items-center gap-1 rounded-md border border-border px-4 py-2 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
-          Zurück
+          {t('common.back')}
         </button>
 
         {wizardStep < 3 ? (
@@ -448,7 +455,7 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
             disabled={!canAdvance()}
             className="flex items-center gap-1 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Weiter
+            {t('common.next')}
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         ) : (
@@ -460,10 +467,10 @@ export function AutomationWizard({ onClose }: { onClose: () => void }) {
             className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending
-              ? 'Speichern...'
+              ? t('automatisierung.saving')
               : isEditing
-                ? 'Automatisierung aktualisieren'
-                : 'Automatisierung erstellen'}
+                ? t('automatisierung.wizard.update')
+                : t('automatisierung.wizard.create')}
           </button>
         )}
       </div>

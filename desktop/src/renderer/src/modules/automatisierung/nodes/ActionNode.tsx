@@ -5,6 +5,7 @@
  * Input handle at top, output handle at bottom for chaining.
  */
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Play } from 'lucide-react'
 
@@ -16,6 +17,7 @@ interface ActionNodeData {
 }
 
 function ActionNodeComponent({ data, selected }: NodeProps) {
+  const { t } = useTranslation()
   const nodeData = data as ActionNodeData
 
   return (
@@ -36,17 +38,17 @@ function ActionNodeComponent({ data, selected }: NodeProps) {
       {/* Header */}
       <div className="flex items-center gap-2 rounded-t-md bg-green-500 px-3 py-2">
         <Play className="h-4 w-4 text-white" />
-        <span className="text-xs font-semibold text-white">Aktion</span>
+        <span className="text-xs font-semibold text-white">{t('automatisierung.node.action')}</span>
       </div>
 
       {/* Body */}
       <div className="bg-background rounded-b-md px-3 py-2">
         <p className="text-xs text-foreground font-medium truncate">
-          {nodeData.actionType || 'Nicht konfiguriert'}
+          {nodeData.actionType || t('automatisierung.node.notConfigured')}
         </p>
         {nodeData.onError === 'continue' && (
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            Fortfahren bei Fehler
+            {t('automatisierung.node.continueOnError')}
           </p>
         )}
       </div>
