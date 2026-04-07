@@ -52,17 +52,17 @@ export function ITAdminTab() {
   const [subTab, setSubTab] = useState<SubTab>('email')
 
   const subTabs: { key: SubTab; label: string; icon: typeof Server }[] = [
-    { key: 'email', label: 'E-Mail-Config', icon: Server },
-    { key: 'security', label: 'Sicherheit', icon: Shield },
-    { key: 'permissions', label: 'Berechtigungen', icon: Users },
-    { key: 'signature', label: 'E-Mail-Signatur', icon: Mail },
+    { key: 'email', label: t('settings.itadmin.subTab.email'), icon: Server },
+    { key: 'security', label: t('settings.itadmin.subTab.security'), icon: Shield },
+    { key: 'permissions', label: t('settings.itadmin.subTab.permissions'), icon: Users },
+    { key: 'signature', label: t('settings.itadmin.subTab.signature'), icon: Mail },
   ]
 
   return (
     <div className="max-w-3xl">
-      <h2 className="text-foreground mb-1">IT-Administration</h2>
+      <h2 className="text-foreground mb-1">{t('settings.itadmin.title')}</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        E-Mail-Konfiguration, Sicherheitsrichtlinien und Berechtigungen verwalten
+        {t('settings.itadmin.subtitle')}
       </p>
 
       {/* Sub-tabs */}
@@ -98,12 +98,13 @@ export function ITAdminTab() {
 // E-Mail Config — per-employee IMAP/SMTP settings
 // ============================================================
 function EmailConfigSection() {
+  const { t } = useTranslation()
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-4">
-        E-Mail-Server-Konfiguration pro Mitarbeiter. Zugangsdaten werden verschlüsselt gespeichert.
+        {t('settings.itadmin.email.desc')}
       </p>
       <div className="space-y-2">
         {employees.map((emp) => {
@@ -122,7 +123,7 @@ function EmailConfigSection() {
                   <p className="text-xs text-muted-foreground">{emp.email}</p>
                 </div>
                 <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] text-success font-medium">
-                  Konfiguriert
+                  {t('settings.itadmin.email.configured')}
                 </span>
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -135,41 +136,41 @@ function EmailConfigSection() {
                 <div className="border-t border-border p-4 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">IMAP Server</Label>
+                      <Label className="text-xs">{t('settings.itadmin.email.imapServer')}</Label>
                       <Input defaultValue="imap.techvision.de" className="h-8 text-xs" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">IMAP Port</Label>
+                      <Label className="text-xs">{t('settings.itadmin.email.imapPort')}</Label>
                       <Input defaultValue="993" className="h-8 text-xs" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">SMTP Server</Label>
+                      <Label className="text-xs">{t('settings.itadmin.email.smtpServer')}</Label>
                       <Input defaultValue="smtp.techvision.de" className="h-8 text-xs" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">SMTP Port</Label>
+                      <Label className="text-xs">{t('settings.itadmin.email.smtpPort')}</Label>
                       <Input defaultValue="587" className="h-8 text-xs" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Benutzername</Label>
+                      <Label className="text-xs">{t('settings.itadmin.email.username')}</Label>
                       <Input defaultValue={emp.email} className="h-8 text-xs" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Passwort</Label>
+                      <Label className="text-xs">{t('settings.itadmin.email.password')}</Label>
                       <Input type="password" defaultValue="••••••••" className="h-8 text-xs" />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch defaultChecked />
-                    <span className="text-xs text-foreground">SSL/TLS verwenden</span>
+                    <span className="text-xs text-foreground">{t('settings.itadmin.email.useSsl')}</span>
                   </div>
-                  <Button size="sm" className="text-xs" onClick={() => toast.success(`E-Mail-Config für ${emp.name} gespeichert`)}>
+                  <Button size="sm" className="text-xs" onClick={() => toast.success(t('settings.itadmin.email.savedFor', { name: emp.name }))}>
                     <Save className="mr-1 h-3 w-3" />
-                    Speichern
+                    {t('common.save')}
                   </Button>
                 </div>
               )}
@@ -185,6 +186,7 @@ function EmailConfigSection() {
 // Security Policy — password policy, 2FA requirements
 // ============================================================
 function SecurityPolicySection() {
+  const { t } = useTranslation()
   const [pwExpiryDays, setPwExpiryDays] = useState(90)
   const [pwMinLength, setPwMinLength] = useState(8)
   const [requireUppercase, setRequireUppercase] = useState(true)
@@ -196,16 +198,16 @@ function SecurityPolicySection() {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-4">
-        Sicherheitsrichtlinien für alle Mitarbeiter. Änderungen werden beim nächsten Login wirksam.
+        {t('settings.itadmin.security.desc')}
       </p>
 
       {/* Password Policy */}
       <section className="mb-6">
-        <h3 className="text-sm font-medium text-foreground mb-3">Passwort-Richtlinie</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.itadmin.security.passwordPolicy')}</h3>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Ablauf nach (Tagen)</Label>
+              <Label>{t('settings.itadmin.security.expiryDays')}</Label>
               <Input
                 type="number"
                 min={0}
@@ -213,10 +215,10 @@ function SecurityPolicySection() {
                 value={pwExpiryDays}
                 onChange={(e) => setPwExpiryDays(Number(e.target.value))}
               />
-              <p className="text-[10px] text-muted-foreground">0 = kein Ablauf</p>
+              <p className="text-[10px] text-muted-foreground">{t('settings.itadmin.security.noExpiry')}</p>
             </div>
             <div className="space-y-1.5">
-              <Label>Mindestlaenge</Label>
+              <Label>{t('settings.itadmin.security.minLength')}</Label>
               <Input
                 type="number"
                 min={6}
@@ -229,15 +231,15 @@ function SecurityPolicySection() {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between rounded-md border border-border p-2.5">
-              <span className="text-xs text-foreground">Grossbuchstaben erforderlich</span>
+              <span className="text-xs text-foreground">{t('settings.itadmin.security.requireUppercase')}</span>
               <Switch checked={requireUppercase} onCheckedChange={setRequireUppercase} />
             </div>
             <div className="flex items-center justify-between rounded-md border border-border p-2.5">
-              <span className="text-xs text-foreground">Zahl erforderlich</span>
+              <span className="text-xs text-foreground">{t('settings.itadmin.security.requireNumber')}</span>
               <Switch checked={requireNumber} onCheckedChange={setRequireNumber} />
             </div>
             <div className="flex items-center justify-between rounded-md border border-border p-2.5">
-              <span className="text-xs text-foreground">Sonderzeichen erforderlich</span>
+              <span className="text-xs text-foreground">{t('settings.itadmin.security.requireSpecial')}</span>
               <Switch checked={requireSpecial} onCheckedChange={setRequireSpecial} />
             </div>
           </div>
@@ -248,17 +250,17 @@ function SecurityPolicySection() {
 
       {/* 2FA & Session */}
       <section className="mb-6">
-        <h3 className="text-sm font-medium text-foreground mb-3">Authentifizierung</h3>
+        <h3 className="text-sm font-medium text-foreground mb-3">{t('settings.itadmin.security.authSection')}</h3>
         <div className="space-y-2">
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
             <div>
-              <p className="text-sm text-foreground">2FA für alle erzwingen</p>
-              <p className="text-xs text-muted-foreground">Alle Mitarbeiter müssen 2FA aktivieren</p>
+              <p className="text-sm text-foreground">{t('settings.itadmin.security.enforce2FA')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.itadmin.security.enforce2FADesc')}</p>
             </div>
             <Switch checked={enforce2FA} onCheckedChange={setEnforce2FA} />
           </div>
           <div className="space-y-1.5">
-            <Label>Sitzungs-Timeout (Minuten)</Label>
+            <Label>{t('settings.itadmin.security.sessionTimeout')}</Label>
             <Input
               type="number"
               min={15}
@@ -266,14 +268,14 @@ function SecurityPolicySection() {
               value={sessionTimeoutMinutes}
               onChange={(e) => setSessionTimeoutMinutes(Number(e.target.value))}
             />
-            <p className="text-[10px] text-muted-foreground">Automatische Abmeldung nach Inaktivitaet</p>
+            <p className="text-[10px] text-muted-foreground">{t('settings.itadmin.security.sessionTimeoutDesc')}</p>
           </div>
         </div>
       </section>
 
-      <Button size="sm" onClick={() => toast.success('Sicherheitsrichtlinien gespeichert')}>
+      <Button size="sm" onClick={() => toast.success(t('settings.itadmin.security.saved'))}>
         <Save className="mr-1.5 h-4 w-4" />
-        Richtlinien speichern
+        {t('settings.itadmin.security.saveButton')}
       </Button>
     </div>
   )
@@ -283,6 +285,7 @@ function SecurityPolicySection() {
 // Permissions — module access per role
 // ============================================================
 function PermissionsSection() {
+  const { t } = useTranslation()
   const roles = ['Admin', 'Manager', 'Mitarbeiter', 'Extern']
   const modules = [
     'Dashboard', 'CRM', 'Projekte', 'Aufgaben', 'Kalender',
@@ -313,7 +316,7 @@ function PermissionsSection() {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-4">
-        Modul-Zugriff pro Rolle verwalten. Admins haben immer vollen Zugriff.
+        {t('settings.itadmin.permissions.desc')}
       </p>
 
       <div className="rounded-lg border border-border overflow-hidden">
@@ -321,7 +324,7 @@ function PermissionsSection() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
-                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground w-28">Modul</th>
+                <th className="px-3 py-2.5 text-left font-medium text-muted-foreground w-28">{t('settings.itadmin.permissions.moduleCol')}</th>
                 {roles.map((role) => (
                   <th key={role} className="px-3 py-2.5 text-center font-medium text-muted-foreground">{role}</th>
                 ))}
@@ -357,9 +360,9 @@ function PermissionsSection() {
         </div>
       </div>
 
-      <Button size="sm" className="mt-4" onClick={() => toast.success('Berechtigungen gespeichert')}>
+      <Button size="sm" className="mt-4" onClick={() => toast.success(t('settings.itadmin.permissions.saved'))}>
         <Save className="mr-1.5 h-4 w-4" />
-        Berechtigungen speichern
+        {t('settings.itadmin.permissions.saveButton')}
       </Button>
     </div>
   )
@@ -369,6 +372,7 @@ function PermissionsSection() {
 // Email Signature Editor
 // ============================================================
 function SignatureSection() {
+  const { t } = useTranslation()
   const [mode, setMode] = useState<'template' | 'preview'>('template')
   const [template, setTemplate] = useState(DEFAULT_SIGNATURE_TEMPLATE)
   const [personalName, setPersonalName] = useState('Max Mustermann')
@@ -392,7 +396,7 @@ function SignatureSection() {
   return (
     <div>
       <p className="text-xs text-muted-foreground mb-4">
-        IT erstellt eine Firmen-Signaturvorlage mit Platzhaltern. Mitarbeiter passen ihre persönlichen Felder an.
+        {t('settings.itadmin.signature.desc')}
       </p>
 
       {/* Mode toggle */}
@@ -404,7 +408,7 @@ function SignatureSection() {
           }`}
         >
           <Pencil className="h-3 w-3" />
-          Template bearbeiten
+          {t('settings.itadmin.signature.editTemplate')}
         </button>
         <button
           onClick={() => setMode('preview')}
@@ -413,7 +417,7 @@ function SignatureSection() {
           }`}
         >
           <Eye className="h-3 w-3" />
-          Vorschau
+          {t('settings.itadmin.signature.preview')}
         </button>
       </div>
 
@@ -423,7 +427,7 @@ function SignatureSection() {
           {mode === 'template' ? (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label>HTML-Signaturvorlage</Label>
+                <Label>{t('settings.itadmin.signature.htmlTemplate')}</Label>
                 <textarea
                   value={template}
                   onChange={(e) => setTemplate(e.target.value)}
@@ -437,29 +441,29 @@ function SignatureSection() {
             </div>
           ) : (
             <div className="space-y-3">
-              <h4 className="text-xs font-medium text-foreground">Persönliche Felder</h4>
+              <h4 className="text-xs font-medium text-foreground">{t('settings.itadmin.signature.personalFields')}</h4>
               <div className="space-y-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Name</Label>
+                  <Label className="text-xs">{t('settings.itadmin.signature.fieldName')}</Label>
                   <Input value={personalName} onChange={(e) => setPersonalName(e.target.value)} className="h-8 text-xs" />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Position</Label>
+                    <Label className="text-xs">{t('settings.itadmin.signature.fieldPosition')}</Label>
                     <Input value={personalPosition} onChange={(e) => setPersonalPosition(e.target.value)} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Abteilung</Label>
+                    <Label className="text-xs">{t('settings.itadmin.signature.fieldDept')}</Label>
                     <Input value={personalDept} onChange={(e) => setPersonalDept(e.target.value)} className="h-8 text-xs" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Telefon</Label>
+                    <Label className="text-xs">{t('settings.itadmin.signature.fieldPhone')}</Label>
                     <Input value={personalPhone} onChange={(e) => setPersonalPhone(e.target.value)} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">E-Mail</Label>
+                    <Label className="text-xs">{t('settings.itadmin.signature.fieldEmail')}</Label>
                     <Input value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} className="h-8 text-xs" />
                   </div>
                 </div>
@@ -470,7 +474,7 @@ function SignatureSection() {
 
         {/* Preview */}
         <div>
-          <h4 className="text-xs font-medium text-foreground mb-2">Vorschau</h4>
+          <h4 className="text-xs font-medium text-foreground mb-2">{t('settings.itadmin.signature.preview')}</h4>
           <div className="rounded-lg border border-border bg-white p-4 min-h-[120px]">
             <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
           </div>
@@ -478,12 +482,12 @@ function SignatureSection() {
       </div>
 
       <div className="flex gap-2 mt-4">
-        <Button size="sm" onClick={() => toast.success('Signatur-Vorlage gespeichert')}>
+        <Button size="sm" onClick={() => toast.success(t('settings.itadmin.signature.saved'))}>
           <Save className="mr-1.5 h-4 w-4" />
-          Vorlage speichern
+          {t('settings.itadmin.signature.saveButton')}
         </Button>
         <Button size="sm" variant="outline" onClick={() => setTemplate(DEFAULT_SIGNATURE_TEMPLATE)}>
-          Zurücksetzen
+          {t('settings.itadmin.signature.reset')}
         </Button>
       </div>
     </div>

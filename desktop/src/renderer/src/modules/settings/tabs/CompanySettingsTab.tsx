@@ -70,7 +70,7 @@ export function CompanySettingsTab() {
   const handleSaveCompany = () => {
     updateMutation.mutate(
       { name, street, plz, city, country },
-      { onSuccess: () => toast.success('Firmendaten gespeichert') },
+      { onSuccess: () => toast.success(t('settings.company.savedCompany')) },
     )
   }
 
@@ -82,14 +82,14 @@ export function CompanySettingsTab() {
         handelsregister,
         is_kleinunternehmer: isKleinunternehmer,
       },
-      { onSuccess: () => toast.success('Steuer & Recht gespeichert') },
+      { onSuccess: () => toast.success(t('settings.company.savedTax')) },
     )
   }
 
   const handleSaveBank = () => {
     updateMutation.mutate(
       { bank_name: bankName, iban, bic },
-      { onSuccess: () => toast.success('Bankdaten gespeichert') },
+      { onSuccess: () => toast.success(t('settings.company.savedBank')) },
     )
   }
 
@@ -101,7 +101,7 @@ export function CompanySettingsTab() {
         default_payment_terms_days: paymentTermsDays,
         default_quote_validity_days: quoteValidityDays,
       },
-      { onSuccess: () => toast.success('Standardwerte gespeichert') },
+      { onSuccess: () => toast.success(t('settings.company.savedDefaults')) },
     )
   }
 
@@ -109,51 +109,51 @@ export function CompanySettingsTab() {
     return (
       <div className="flex items-center gap-2 text-muted-foreground py-12">
         <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-sm">Firmendaten werden geladen...</span>
+        <span className="text-sm">{t('settings.company.loading')}</span>
       </div>
     )
   }
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">Firma</h2>
+      <h2 className="text-foreground mb-1">{t('settings.company.title')}</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Stammdaten, Steuerinformationen und Bankverbindung verwalten
+        {t('settings.company.subtitle')}
       </p>
 
       {/* ── Firmendaten ──────────────────────────────── */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Building2 className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Firmendaten</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.company.sectionCompany')}</h3>
         </div>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Firmenname</Label>
+            <Label>{t('settings.company.companyName')}</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Muster GmbH" />
           </div>
           <div className="space-y-1.5">
-            <Label>Strasse</Label>
+            <Label>{t('settings.company.street')}</Label>
             <Input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Musterstraße 42" />
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-3">
             <div className="space-y-1.5">
-              <Label>PLZ</Label>
+              <Label>{t('settings.company.plz')}</Label>
               <Input value={plz} onChange={(e) => setPlz(e.target.value)} placeholder="10115" />
             </div>
             <div className="space-y-1.5">
-              <Label>Ort</Label>
+              <Label>{t('settings.company.city')}</Label>
               <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Berlin" />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Land</Label>
+            <Label>{t('settings.company.country')}</Label>
             <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="DE" />
           </div>
         </div>
         <Button onClick={handleSaveCompany} className="mt-4" size="sm" disabled={updateMutation.isPending}>
           <Save className="mr-1.5 h-4 w-4" />
-          Firmendaten speichern
+          {t('settings.company.saveCompany')}
         </Button>
       </section>
 
@@ -163,11 +163,11 @@ export function CompanySettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Scale className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Steuer & Recht</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.company.sectionTax')}</h3>
         </div>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Steuernummer</Label>
+            <Label>{t('settings.company.steuernummer')}</Label>
             <Input
               value={steuernummer}
               onChange={(e) => setSteuernummer(e.target.value)}
@@ -176,7 +176,7 @@ export function CompanySettingsTab() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>USt-IdNr.</Label>
+            <Label>{t('settings.company.ustIdNr')}</Label>
             <Input
               value={ustIdNr}
               onChange={(e) => setUstIdNr(e.target.value)}
@@ -185,7 +185,7 @@ export function CompanySettingsTab() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Handelsregister</Label>
+            <Label>{t('settings.company.handelsregister')}</Label>
             <Input
               value={handelsregister}
               onChange={(e) => setHandelsregister(e.target.value)}
@@ -194,15 +194,15 @@ export function CompanySettingsTab() {
           </div>
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
             <div>
-              <p className="text-sm text-foreground">Kleinunternehmer-Regelung</p>
-              <p className="text-xs text-muted-foreground">Keine MwSt-Ausweisung auf Rechnungen</p>
+              <p className="text-sm text-foreground">{t('settings.company.kleinunternehmer')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.company.kleinunternehmerDesc')}</p>
             </div>
             <Switch checked={isKleinunternehmer} onCheckedChange={setIsKleinunternehmer} />
           </div>
         </div>
         <Button onClick={handleSaveTax} className="mt-4" size="sm" disabled={updateMutation.isPending}>
           <Save className="mr-1.5 h-4 w-4" />
-          Steuer & Recht speichern
+          {t('settings.company.saveTax')}
         </Button>
       </section>
 
@@ -212,11 +212,11 @@ export function CompanySettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Landmark className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Bankverbindung</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.company.sectionBank')}</h3>
         </div>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Bank</Label>
+            <Label>{t('settings.company.bankName')}</Label>
             <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Deutsche Bank" />
           </div>
           <div className="grid grid-cols-[1fr_150px] gap-3">
@@ -232,7 +232,7 @@ export function CompanySettingsTab() {
         </div>
         <Button onClick={handleSaveBank} className="mt-4" size="sm" disabled={updateMutation.isPending}>
           <Save className="mr-1.5 h-4 w-4" />
-          Bankdaten speichern
+          {t('settings.company.saveBank')}
         </Button>
       </section>
 
@@ -242,15 +242,15 @@ export function CompanySettingsTab() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Palette className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Standardwerte</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.company.sectionDefaults')}</h3>
         </div>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Logo-URL</Label>
+            <Label>{t('settings.company.logoUrl')}</Label>
             <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://firma.de/logo.png" />
           </div>
           <div className="space-y-1.5">
-            <Label>Akzentfarbe</Label>
+            <Label>{t('settings.company.accentColor')}</Label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -263,7 +263,7 @@ export function CompanySettingsTab() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Standard-Zahlungsziel (Tage)</Label>
+              <Label>{t('settings.company.paymentTermsDays')}</Label>
               <Input
                 type="number"
                 min={0}
@@ -272,7 +272,7 @@ export function CompanySettingsTab() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Angebots-Gültigkeit (Tage)</Label>
+              <Label>{t('settings.company.quoteValidityDays')}</Label>
               <Input
                 type="number"
                 min={0}
@@ -284,7 +284,7 @@ export function CompanySettingsTab() {
         </div>
         <Button onClick={handleSaveDefaults} className="mt-4" size="sm" disabled={updateMutation.isPending}>
           <Save className="mr-1.5 h-4 w-4" />
-          Standardwerte speichern
+          {t('settings.company.saveDefaults')}
         </Button>
       </section>
     </div>

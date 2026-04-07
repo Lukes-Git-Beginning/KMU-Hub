@@ -191,7 +191,7 @@ function ExistingIntegrationWrapper({
       { platform: platformKey, name: newName.trim(), webhook_url: newWebhookUrl.trim() || undefined },
       {
         onSuccess: () => {
-          toast.success('Integration erstellt')
+          toast.success(t('settings.integration.created'))
           setShowAddDialog(false)
           setNewName('')
           setNewWebhookUrl('')
@@ -203,8 +203,8 @@ function ExistingIntegrationWrapper({
   const handleTest = (id: string) => {
     testMutation.mutate(id, {
       onSuccess: (result) => {
-        if (result.success) toast.success('Verbindung erfolgreich')
-        else toast.error(result.message ?? 'Test fehlgeschlagen')
+        if (result.success) toast.success(t('settings.integration.testSuccess'))
+        else toast.error(result.message ?? t('settings.integration.testFailed'))
       },
       onError: (err: Error) => toast.error(err.message),
     })
@@ -214,7 +214,7 @@ function ExistingIntegrationWrapper({
     if (!deleteTarget) return
     deleteMutation.mutate(deleteTarget, {
       onSuccess: () => {
-        toast.success('Integration gelöscht')
+        toast.success(t('settings.integration.deleted'))
         setDeleteTarget(null)
       },
     })
@@ -226,7 +226,7 @@ function ExistingIntegrationWrapper({
       { platform: platformKey, token: linkToken.trim() },
       {
         onSuccess: () => {
-          toast.success('Account verknüpft')
+          toast.success(t('settings.integration.accountLinked'))
           setLinkToken('')
           setShowLinkInput(false)
         },
@@ -245,7 +245,7 @@ function ExistingIntegrationWrapper({
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zurück zu Integrationen
+        {t('settings.integrations.backToIntegrations')}
       </button>
 
       {/* Header */}
@@ -259,13 +259,13 @@ function ExistingIntegrationWrapper({
         </div>
         <Button size="sm" onClick={() => setShowAddDialog(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
-          Hinzufügen
+          {t('settings.integration.add')}
         </Button>
       </div>
 
       {/* Existing configs */}
       {platformConfigs.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic mb-6">Noch keine Konfigurationen vorhanden</p>
+        <p className="text-sm text-muted-foreground italic mb-6">{t('settings.integration.noConfigs')}</p>
       ) : (
         <div className="space-y-3 mb-6">
           {platformConfigs.map((cfg: IntegrationConfig) => {
@@ -278,7 +278,7 @@ function ExistingIntegrationWrapper({
                     <p className="text-xs text-muted-foreground">{meta.label}</p>
                     {cfg.last_tested_at && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Zuletzt getestet: {new Date(cfg.last_tested_at).toLocaleString('de-DE')}
+                        {t('settings.integration.lastTested')}: {new Date(cfg.last_tested_at).toLocaleString('de-DE')}
                       </p>
                     )}
                   </div>
@@ -324,10 +324,10 @@ function ExistingIntegrationWrapper({
       {/* Account Linking */}
       {platformKey && platformKey !== 'custom_webhook' && (
         <div className="border-t border-border pt-6 mb-6">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Account-Verknüpfung</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integration.accountLinkSection')}</h3>
           <div className="flex items-center gap-3 rounded-lg border border-border p-3">
             <div className="flex-1">
-              <p className="text-sm text-foreground">{isLinked ? 'Account verknüpft' : 'Nicht verknüpft'}</p>
+              <p className="text-sm text-foreground">{isLinked ? t('settings.integration.linked') : t('settings.integration.notLinked')}</p>
             </div>
             {isLinked ? (
               <Button
@@ -336,13 +336,13 @@ function ExistingIntegrationWrapper({
                 className="text-xs"
                 onClick={() =>
                   unlinkMutation.mutate(platformKey, {
-                    onSuccess: () => toast.success('Verknüpfung aufgehoben'),
+                    onSuccess: () => toast.success(t('settings.integration.unlinked')),
                   })
                 }
                 disabled={unlinkMutation.isPending}
               >
                 <Unlink className="mr-1 h-3 w-3" />
-                Trennen
+                {t('settings.integrations.disconnect')}
               </Button>
             ) : showLinkInput ? (
               <div className="flex items-center gap-2">
@@ -367,7 +367,7 @@ function ExistingIntegrationWrapper({
                 onClick={() => setShowLinkInput(true)}
               >
                 <Link className="mr-1 h-3 w-3" />
-                Verknüpfen
+                {t('settings.integrations.accountLink.link')}
               </Button>
             )}
           </div>
@@ -378,11 +378,11 @@ function ExistingIntegrationWrapper({
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{definition.name} hinzufügen</DialogTitle>
+            <DialogTitle>{t('settings.integration.addTitle', { name: definition.name })}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Name</Label>
+              <Label>{t('settings.integration.nameLabel')}</Label>
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -390,7 +390,7 @@ function ExistingIntegrationWrapper({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Webhook-URL</Label>
+              <Label>{t('settings.integration.webhookUrl')}</Label>
               <Input
                 value={newWebhookUrl}
                 onChange={(e) => setNewWebhookUrl(e.target.value)}
@@ -400,10 +400,10 @@ function ExistingIntegrationWrapper({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Abbrechen</Button>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleCreate} disabled={createMutation.isPending || !newName.trim()}>
               {createMutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              Erstellen
+              {t('common.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -413,9 +413,9 @@ function ExistingIntegrationWrapper({
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
-        title="Integration löschen?"
-        description="Alle Channel-Zuordnungen werden ebenfalls entfernt."
-        confirmLabel="Löschen"
+        title={t('settings.integration.deleteTitle')}
+        description={t('settings.integration.deleteDesc')}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />
@@ -428,6 +428,7 @@ function ExistingIntegrationWrapper({
 // ---------------------------------------------------------------------------
 
 function ChannelMappingSection({ integrationId }: { integrationId: string }) {
+  const { t } = useTranslation()
   const { data: mappings, isLoading } = useChannelMappings(integrationId)
   const createMapping = useCreateChannelMapping()
   const deleteMapping = useDeleteChannelMapping()
@@ -445,7 +446,7 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
 
   const handleCreate = () => {
     if (!channelId.trim() || !channelName.trim() || selectedModules.length === 0) {
-      toast.error('Bitte alle Felder ausfüllen')
+      toast.error(t('settings.integration.channelMapping.fillAll'))
       return
     }
     createMapping.mutate(
@@ -455,7 +456,7 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
       },
       {
         onSuccess: () => {
-          toast.success('Channel-Zuordnung erstellt')
+          toast.success(t('settings.integration.channelMapping.created'))
           setShowAdd(false)
           setChannelId('')
           setChannelName('')
@@ -471,10 +472,10 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium text-muted-foreground">Channel-Zuordnungen</p>
+      <p className="text-xs font-medium text-muted-foreground">{t('settings.integration.channelMapping.title')}</p>
 
       {(!mappings || mappings.length === 0) ? (
-        <p className="text-xs text-muted-foreground italic">Keine Zuordnungen</p>
+        <p className="text-xs text-muted-foreground italic">{t('settings.integration.channelMapping.empty')}</p>
       ) : (
         <div className="space-y-1.5">
           {mappings.map((m) => (
@@ -486,7 +487,7 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
                 onClick={() =>
                   deleteMapping.mutate(
                     { integrationId, mappingId: m.id },
-                    { onSuccess: () => toast.success('Zuordnung entfernt') },
+                    { onSuccess: () => toast.success(t('settings.integration.channelMapping.removed')) },
                   )
                 }
                 className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
@@ -501,7 +502,7 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
       {!showAdd ? (
         <Button variant="outline" size="sm" className="text-xs" onClick={() => setShowAdd(true)}>
           <Plus className="mr-1 h-3 w-3" />
-          Zuordnung
+          {t('settings.integration.channelMapping.add')}
         </Button>
       ) : (
         <div className="rounded border border-border bg-secondary/30 p-2 space-y-2">
@@ -509,13 +510,13 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
             <Input
               value={channelId}
               onChange={(e) => setChannelId(e.target.value)}
-              placeholder="Channel-ID"
+              placeholder={t('settings.integration.channelMapping.idPlaceholder')}
               className="text-xs h-7 font-mono"
             />
             <Input
               value={channelName}
               onChange={(e) => setChannelName(e.target.value)}
-              placeholder="Channel-Name"
+              placeholder={t('settings.integration.channelMapping.namePlaceholder')}
               className="text-xs h-7"
             />
           </div>
@@ -536,10 +537,10 @@ function ChannelMappingSection({ integrationId }: { integrationId: string }) {
           </div>
           <div className="flex gap-1.5">
             <Button size="sm" className="text-xs h-7" onClick={handleCreate} disabled={createMapping.isPending}>
-              Erstellen
+              {t('common.create')}
             </Button>
             <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setShowAdd(false)}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
           </div>
         </div>

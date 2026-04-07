@@ -131,29 +131,28 @@ export function IntegrationsSettingsTab() {
 
   return (
     <div className="max-w-3xl p-6">
-      <h2 className="text-foreground mb-1">Integrationen</h2>
+      <h2 className="text-foreground mb-1">{t('settings.integrations.title')}</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Teams, Slack & externe Dienste verwalten
+        {t('settings.integrations.subtitle')}
       </p>
 
       {/* Admin notice */}
       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 mb-6">
         <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
         <p className="text-xs text-muted-foreground">
-          Nur Administratoren können Integrationen konfigurieren. Alle
-          Benutzer können ihr eigenes Konto verknüpfen.
+          {t('settings.integrations.adminNotice')}
         </p>
       </div>
 
       {/* Platform cards */}
       <section className="mb-8">
         <h3 className="text-sm font-medium text-foreground mb-3">
-          Plattformen
+          {t('settings.integrations.platforms')}
         </h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <IntegrationCard
             name="Microsoft Teams"
-            description="Bot Framework Benachrichtigungen und Aktionen"
+            description={t('settings.integrations.teams.description')}
             icon={<TeamsIcon />}
             status={getConnectionStatus(teamsConfig)}
             isActive={teamsConfig?.is_active ?? false}
@@ -165,7 +164,7 @@ export function IntegrationsSettingsTab() {
           />
           <IntegrationCard
             name="Slack"
-            description="Block Kit Benachrichtigungen und Slash-Commands"
+            description={t('settings.integrations.slack.description')}
             icon={<SlackIcon />}
             status={getConnectionStatus(slackConfig)}
             isActive={slackConfig?.is_active ?? false}
@@ -179,7 +178,7 @@ export function IntegrationsSettingsTab() {
           {/* Bexio integration */}
           <IntegrationCard
             name="Bexio"
-            description="Buchhaltung & Rechnungen synchronisieren"
+            description={t('settings.integrations.bexio.description')}
             icon={
               <span className="text-sm font-bold text-foreground">
                 Bx
@@ -198,7 +197,7 @@ export function IntegrationsSettingsTab() {
             }
             onToggle={() => {
               if (bexioConnection?.connected) {
-                if (confirm('Bexio-Verbindung trennen?')) {
+                if (confirm(t('settings.integrations.bexio.disconnectConfirm'))) {
                   bexioDisconnect.mutate()
                 }
               }
@@ -208,7 +207,7 @@ export function IntegrationsSettingsTab() {
           {/* Lexware Office integration */}
           <IntegrationCard
             name="Lexware Office"
-            description="Kontakte, Rechnungen & Angebote synchronisieren"
+            description={t('settings.integrations.lexware.description')}
             icon={
               <span className="text-sm font-bold text-foreground">
                 Lx
@@ -227,7 +226,7 @@ export function IntegrationsSettingsTab() {
             }
             onToggle={() => {
               if (lexwareConnection?.connected) {
-                if (confirm('Lexware-Verbindung trennen?')) {
+                if (confirm(t('settings.integrations.lexware.disconnectConfirm'))) {
                   lexwareDisconnect.mutate()
                 }
               }
@@ -238,7 +237,7 @@ export function IntegrationsSettingsTab() {
           {/* DATEV API integration */}
           <IntegrationCard
             name="DATEV"
-            description="Buchungsdaten & Belege hochladen"
+            description={t('settings.integrations.datev.description')}
             icon={
               <span className="text-sm font-bold text-foreground">
                 Dv
@@ -262,11 +261,10 @@ export function IntegrationsSettingsTab() {
       {/* Account linking section (visible to all users) */}
       <section>
         <h3 className="text-sm font-medium text-foreground mb-1">
-          Kontoverknüpfung
+          {t('settings.integrations.accountLinkSection')}
         </h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Verknüpfen Sie Ihr externes Konto, um Benachrichtigungen direkt in
-          Teams oder Slack zu erhalten.
+          {t('settings.integrations.accountLinkDesc')}
         </p>
 
         <div className="space-y-2">
@@ -352,6 +350,7 @@ function AccountLinkRow({
   platformLabel: string
   onLink: () => void
 }) {
+  const { t } = useTranslation()
   const { data: linkStatus, isLoading } = useAccountLinkStatus(platform)
   const unlinkAccount = useUnlinkAccount(platform)
 
@@ -363,15 +362,15 @@ function AccountLinkRow({
           <div className="animate-pulse h-3 bg-muted rounded w-32 mt-1" />
         ) : linkStatus?.linked ? (
           <p className="text-xs text-muted-foreground">
-            Verknüpft als{' '}
+            {t('settings.integrations.linkedAs')}{' '}
             <span className="font-medium">
               {linkStatus.external_display_name}
             </span>
             {linkStatus.linked_at &&
-              ` seit ${new Date(linkStatus.linked_at).toLocaleDateString('de-DE')}`}
+              ` ${t('settings.integrations.since')} ${new Date(linkStatus.linked_at).toLocaleDateString('de-DE')}`}
           </p>
         ) : (
-          <p className="text-xs text-muted-foreground">Nicht verknüpft</p>
+          <p className="text-xs text-muted-foreground">{t('settings.integrations.notLinked')}</p>
         )}
       </div>
       <div>
@@ -388,12 +387,12 @@ function AccountLinkRow({
             ) : (
               <Unlink className="h-3.5 w-3.5 mr-1" />
             )}
-            Verknüpfung aufheben
+            {t('settings.integrations.unlinkButton')}
           </Button>
         ) : (
           <Button variant="outline" size="sm" onClick={onLink}>
             <Link2 className="h-3.5 w-3.5 mr-1" />
-            Verknüpfen
+            {t('settings.integrations.accountLink.link')}
           </Button>
         )}
       </div>

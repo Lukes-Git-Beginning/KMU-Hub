@@ -52,12 +52,12 @@ export function FinanceSettingsTab() {
 
   const handleSaveInvoice = () => {
     updateFinance({ defaultVatRate, invoicePrefix, nextInvoiceNumber, defaultPaymentTerms })
-    toast.success('Rechnungseinstellungen gespeichert')
+    toast.success(t('settings.finance.savedInvoice'))
   }
 
   const handleSaveDatev = () => {
     updateFinance({ datevClientNumber: datevClient, datevConsultantNumber: datevConsultant })
-    toast.success('DATEV-Einstellungen gespeichert')
+    toast.success(t('settings.finance.savedDatev'))
   }
 
   const handleSaveDunning = () => {
@@ -70,58 +70,58 @@ export function FinanceSettingsTab() {
         level3_days_after_level2: l3Days,
         level3_fee: l3Fee,
       },
-      { onSuccess: () => toast.success('Mahnwesen-Konfiguration gespeichert') },
+      { onSuccess: () => toast.success(t('settings.finance.savedDunning')) },
     )
   }
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">Buchhaltung</h2>
+      <h2 className="text-foreground mb-1">{t('settings.finance.title')}</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Rechnungsnummern, DATEV-Export und Mahnwesen konfigurieren
+        {t('settings.finance.subtitle')}
       </p>
 
       {/* ── Invoice settings ─────────────────────────── */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Receipt className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Rechnungseinstellungen</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.finance.sectionInvoice')}</h3>
         </div>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Rechnungs-Praefix</Label>
+              <Label>{t('settings.finance.invoicePrefix')}</Label>
               <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value)} placeholder="RE-" />
             </div>
             <div className="space-y-1.5">
-              <Label>Nächste Nummer</Label>
+              <Label>{t('settings.finance.nextNumber')}</Label>
               <Input type="number" value={nextInvoiceNumber} onChange={(e) => setNextInvoiceNumber(Number(e.target.value))} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Standard MwSt-Satz</Label>
+              <Label>{t('settings.finance.vatRate')}</Label>
               <Select value={String(defaultVatRate)} onValueChange={(v) => setDefaultVatRate(Number(v))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">0% (Befreit)</SelectItem>
-                  <SelectItem value="2.6">2.6% (Reduziert)</SelectItem>
-                  <SelectItem value="3.8">3.8% (Sondersatz)</SelectItem>
-                  <SelectItem value="7.7">7.7% (Reduziert alt)</SelectItem>
-                  <SelectItem value="8.1">8.1% (Normal)</SelectItem>
+                  <SelectItem value="0">{t('settings.finance.vat.exempt')}</SelectItem>
+                  <SelectItem value="2.6">{t('settings.finance.vat.reduced1')}</SelectItem>
+                  <SelectItem value="3.8">{t('settings.finance.vat.special')}</SelectItem>
+                  <SelectItem value="7.7">{t('settings.finance.vat.reducedOld')}</SelectItem>
+                  <SelectItem value="8.1">{t('settings.finance.vat.normal')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Zahlungsbedingungen</Label>
+              <Label>{t('settings.finance.paymentTerms')}</Label>
               <Select value={defaultPaymentTerms} onValueChange={setDefaultPaymentTerms}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Sofort fällig">Sofort fällig</SelectItem>
-                  <SelectItem value="10 Tage netto">10 Tage netto</SelectItem>
-                  <SelectItem value="30 Tage netto">30 Tage netto</SelectItem>
-                  <SelectItem value="60 Tage netto">60 Tage netto</SelectItem>
-                  <SelectItem value="10 Tage 2% Skonto, 30 Tage netto">10/2%, 30 netto</SelectItem>
+                  <SelectItem value="Sofort fällig">{t('settings.finance.terms.immediate')}</SelectItem>
+                  <SelectItem value="10 Tage netto">{t('settings.finance.terms.10days')}</SelectItem>
+                  <SelectItem value="30 Tage netto">{t('settings.finance.terms.30days')}</SelectItem>
+                  <SelectItem value="60 Tage netto">{t('settings.finance.terms.60days')}</SelectItem>
+                  <SelectItem value="10 Tage 2% Skonto, 30 Tage netto">{t('settings.finance.terms.skonto')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -129,13 +129,13 @@ export function FinanceSettingsTab() {
 
           <div className="rounded-lg border border-border bg-secondary/30 p-3">
             <p className="text-xs text-muted-foreground">
-              Vorschau nächste Rechnung: <span className="font-mono font-medium text-foreground">{invoicePrefix}{nextInvoiceNumber}</span>
+              {t('settings.finance.invoicePreview')}: <span className="font-mono font-medium text-foreground">{invoicePrefix}{nextInvoiceNumber}</span>
             </p>
           </div>
         </div>
         <Button onClick={handleSaveInvoice} className="mt-4" size="sm">
           <Save className="mr-1.5 h-4 w-4" />
-          Rechnungseinstellungen speichern
+          {t('settings.finance.saveInvoice')}
         </Button>
       </section>
 
@@ -145,22 +145,22 @@ export function FinanceSettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">DATEV-Export</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.finance.sectionDatev')}</h3>
         </div>
-        <p className="text-xs text-muted-foreground mb-3">Für den automatischen Export an deinen Steuerberater</p>
+        <p className="text-xs text-muted-foreground mb-3">{t('settings.finance.datevDesc')}</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>Mandanten-Nummer</Label>
+            <Label>{t('settings.finance.datevClientNr')}</Label>
             <Input value={datevClient} onChange={(e) => setDatevClient(e.target.value)} placeholder="z.B. 12345" className="font-mono" />
           </div>
           <div className="space-y-1.5">
-            <Label>Berater-Nummer</Label>
+            <Label>{t('settings.finance.datevConsultantNr')}</Label>
             <Input value={datevConsultant} onChange={(e) => setDatevConsultant(e.target.value)} placeholder="z.B. 67890" className="font-mono" />
           </div>
         </div>
         <Button onClick={handleSaveDatev} className="mt-4" size="sm">
           <Save className="mr-1.5 h-4 w-4" />
-          DATEV speichern
+          {t('settings.finance.saveDatev')}
         </Button>
       </section>
 
@@ -170,16 +170,16 @@ export function FinanceSettingsTab() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Gavel className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Mahnwesen</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.finance.sectionDunning')}</h3>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          Konfiguriere die drei Mahnstufen für überfällige Rechnungen
+          {t('settings.finance.dunningDesc')}
         </p>
 
         {dunningLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground py-4">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Mahnkonfiguration wird geladen...</span>
+            <span className="text-sm">{t('settings.finance.dunningLoading')}</span>
           </div>
         ) : (
           <>
@@ -188,15 +188,15 @@ export function FinanceSettingsTab() {
               <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning-light text-warning text-xs font-bold">1</span>
-                  <span className="text-sm font-medium text-foreground">Zahlungserinnerung</span>
+                  <span className="text-sm font-medium text-foreground">{t('settings.finance.dunning.level1Name')}</span>
                 </div>
                 <div className="space-y-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Tage nach Fälligkeit</Label>
+                    <Label className="text-xs">{t('settings.finance.dunning.daysAfterDue')}</Label>
                     <Input type="number" min={1} value={l1Days} onChange={(e) => setL1Days(Number(e.target.value))} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Mahngebühr (CHF)</Label>
+                    <Label className="text-xs">{t('settings.finance.dunning.fee')}</Label>
                     <Input value={l1Fee} onChange={(e) => setL1Fee(e.target.value)} className="font-mono" />
                   </div>
                 </div>
@@ -206,15 +206,15 @@ export function FinanceSettingsTab() {
               <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning-light text-warning text-xs font-bold">2</span>
-                  <span className="text-sm font-medium text-foreground">2. Mahnung</span>
+                  <span className="text-sm font-medium text-foreground">{t('settings.finance.dunning.level2Name')}</span>
                 </div>
                 <div className="space-y-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Tage nach Stufe 1</Label>
+                    <Label className="text-xs">{t('settings.finance.dunning.daysAfterLevel1')}</Label>
                     <Input type="number" min={1} value={l2Days} onChange={(e) => setL2Days(Number(e.target.value))} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Mahngebühr (CHF)</Label>
+                    <Label className="text-xs">{t('settings.finance.dunning.fee')}</Label>
                     <Input value={l2Fee} onChange={(e) => setL2Fee(e.target.value)} className="font-mono" />
                   </div>
                 </div>
@@ -224,15 +224,15 @@ export function FinanceSettingsTab() {
               <div className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-error-light text-destructive text-xs font-bold">3</span>
-                  <span className="text-sm font-medium text-foreground">Letzte Mahnung</span>
+                  <span className="text-sm font-medium text-foreground">{t('settings.finance.dunning.level3Name')}</span>
                 </div>
                 <div className="space-y-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Tage nach Stufe 2</Label>
+                    <Label className="text-xs">{t('settings.finance.dunning.daysAfterLevel2')}</Label>
                     <Input type="number" min={1} value={l3Days} onChange={(e) => setL3Days(Number(e.target.value))} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Mahngebühr (CHF)</Label>
+                    <Label className="text-xs">{t('settings.finance.dunning.fee')}</Label>
                     <Input value={l3Fee} onChange={(e) => setL3Fee(e.target.value)} className="font-mono" />
                   </div>
                 </div>
@@ -241,7 +241,7 @@ export function FinanceSettingsTab() {
 
             <Button onClick={handleSaveDunning} className="mt-4" size="sm" disabled={dunningMutation.isPending}>
               <Save className="mr-1.5 h-4 w-4" />
-              Mahnwesen speichern
+              {t('settings.finance.saveDunning')}
             </Button>
           </>
         )}

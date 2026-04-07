@@ -61,18 +61,18 @@ export function CalDAVSettingsTab() {
 
   const handleCreatePassword = async () => {
     if (!newLabel.trim()) {
-      toast.error('Bitte geben Sie eine Bezeichnung ein')
+      toast.error(t('settings.caldav.labelRequired'))
       return
     }
     const result = await createPassword.mutateAsync(newLabel.trim())
     setShowNewPassword(result.password)
     setNewLabel('')
-    toast.success('App-Passwort erstellt')
+    toast.success(t('settings.caldav.passwordCreated'))
   }
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
-    toast.success(`${label} kopiert`)
+    toast.success(t('settings.caldav.copied', { label }))
   }
 
   const handleToggle = () => {
@@ -102,7 +102,7 @@ export function CalDAVSettingsTab() {
     <div className="max-w-2xl p-6">
       <h2 className="text-foreground mb-1">CalDAV / CardDAV</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Kalender und Kontakte mit externen Anwendungen synchronisieren
+        {t('settings.caldav.subtitle')}
       </p>
 
       {/* Status section */}
@@ -115,11 +115,11 @@ export function CalDAVSettingsTab() {
         <div className="space-y-3">
           <div className="flex items-center justify-between rounded-md border border-border p-3">
             <div>
-              <p className="text-sm font-medium">Organisation</p>
+              <p className="text-sm font-medium">{t('settings.caldav.orgLabel')}</p>
               <p className="text-xs text-muted-foreground">
                 {status?.org_enabled
-                  ? 'CalDAV/CardDAV ist organisationsweit aktiviert'
-                  : 'CalDAV/CardDAV ist organisationsweit deaktiviert (Admin-Einstellung)'}
+                  ? t('settings.caldav.orgEnabled')
+                  : t('settings.caldav.orgDisabled')}
               </p>
             </div>
             {status?.org_enabled ? (
@@ -131,9 +131,9 @@ export function CalDAVSettingsTab() {
 
           <div className="flex items-center justify-between rounded-md border border-border p-3">
             <div>
-              <p className="text-sm font-medium">Persönlicher Zugang</p>
+              <p className="text-sm font-medium">{t('settings.caldav.personalLabel')}</p>
               <p className="text-xs text-muted-foreground">
-                CalDAV/CardDAV für Ihren Account aktivieren
+                {t('settings.caldav.personalDesc')}
               </p>
             </div>
             <Switch
@@ -152,13 +152,12 @@ export function CalDAVSettingsTab() {
         <div className="flex items-center gap-2 mb-4">
           <Key className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-medium text-foreground">
-            App-spezifische Passwörter
+            {t('settings.caldav.appPasswordsTitle')}
           </h3>
         </div>
 
         <p className="text-xs text-muted-foreground mb-4">
-          Erstellen Sie separate Passwörter für jede Anwendung. Ihr
-          Haupt-Passwort wird nicht verwendet.
+          {t('settings.caldav.appPasswordsDesc')}
         </p>
 
         {/* Password list */}
@@ -174,16 +173,16 @@ export function CalDAVSettingsTab() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{pw.label}</p>
                   <p className="text-xs text-muted-foreground">
-                    {pw.password_prefix}... | Erstellt:{' '}
+                    {pw.password_prefix}... | {t('settings.caldav.created')}:{' '}
                     {new Date(pw.created_at).toLocaleDateString('de-DE')}
                     {pw.last_used_at &&
-                      ` | Zuletzt: ${new Date(pw.last_used_at).toLocaleDateString('de-DE')}`}
+                      ` | ${t('settings.caldav.lastUsed')}: ${new Date(pw.last_used_at).toLocaleDateString('de-DE')}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-2">
                   {pw.revoked_at ? (
                     <span className="text-xs text-destructive font-medium">
-                      Widerrufen
+                      {t('settings.caldav.revoked')}
                     </span>
                   ) : (
                     <Button
@@ -201,7 +200,7 @@ export function CalDAVSettingsTab() {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground mb-4">
-            Noch keine App-Passwörter erstellt.
+            {t('settings.caldav.noPasswords')}
           </p>
         )}
 
@@ -209,7 +208,7 @@ export function CalDAVSettingsTab() {
         {showNewPassword && (
           <div className="border border-warning/30 bg-warning-light rounded-md p-4 mb-4">
             <p className="text-sm font-medium text-warning mb-2">
-              Dieses Passwort wird nur einmal angezeigt!
+              {t('settings.caldav.passwordOnce')}
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-sm bg-background border border-border rounded px-3 py-2 font-mono select-all break-all">
@@ -219,7 +218,7 @@ export function CalDAVSettingsTab() {
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  handleCopy(showNewPassword, 'Passwort')
+                  handleCopy(showNewPassword, t('settings.caldav.passwordLabel'))
                 }
               >
                 <Copy className="h-3.5 w-3.5" />
@@ -231,7 +230,7 @@ export function CalDAVSettingsTab() {
               className="mt-2"
               onClick={() => setShowNewPassword(null)}
             >
-              Schließen
+              {t('common.close')}
             </Button>
           </div>
         )}
@@ -240,11 +239,11 @@ export function CalDAVSettingsTab() {
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <Label htmlFor="pw-label" className="text-xs">
-              Bezeichnung
+              {t('settings.caldav.labelField')}
             </Label>
             <Input
               id="pw-label"
-              placeholder="z.B. Thunderbird, macOS Kalender"
+              placeholder={t('settings.caldav.labelPlaceholder')}
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreatePassword()}
@@ -256,7 +255,7 @@ export function CalDAVSettingsTab() {
             size="sm"
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
-            Neues Passwort erstellen
+            {t('settings.caldav.createPassword')}
           </Button>
         </div>
       </section>
@@ -268,7 +267,7 @@ export function CalDAVSettingsTab() {
         <div className="flex items-center gap-2 mb-4">
           <Shield className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-medium text-foreground">
-            Einrichtungsanleitung
+            {t('settings.caldav.setupGuideTitle')}
           </h3>
         </div>
 
@@ -282,31 +281,26 @@ export function CalDAVSettingsTab() {
           >
             <div className="space-y-3 text-sm">
               <div>
-                <p className="font-medium mb-1">Kalender hinzufügen:</p>
+                <p className="font-medium mb-1">{t('settings.caldav.guide.addCalendar')}</p>
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li>{t('settings.caldav.guide.thunderbird.calStep1')}</li>
                   <li>
-                    Einstellungen &gt; Kalender &gt; Neues Netzwerk-Kalender
-                    &gt; CalDAV
-                  </li>
-                  <li>
-                    URL eingeben:
+                    {t('settings.caldav.guide.enterUrl')}
                     <URLField
                       url={caldavURL}
                       onCopy={() => handleCopy(caldavURL, 'CalDAV-URL')}
                     />
                   </li>
-                  <li>Benutzername: Ihre Benutzer-ID (siehe unten)</li>
-                  <li>Passwort: App-spezifisches Passwort (oben erstellen)</li>
+                  <li>{t('settings.caldav.guide.usernameHint')}</li>
+                  <li>{t('settings.caldav.guide.passwordHint')}</li>
                 </ol>
               </div>
               <div>
-                <p className="font-medium mb-1">Adressbuch hinzufügen:</p>
+                <p className="font-medium mb-1">{t('settings.caldav.guide.addAddressbook')}</p>
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li>{t('settings.caldav.guide.thunderbird.abStep1')}</li>
                   <li>
-                    Adressbuch &gt; Neues CardDAV-Adressbuch
-                  </li>
-                  <li>
-                    URL eingeben:
+                    {t('settings.caldav.guide.enterUrl')}
                     <URLField
                       url={carddavURL}
                       onCopy={() => handleCopy(carddavURL, 'CardDAV-URL')}
@@ -326,24 +320,20 @@ export function CalDAVSettingsTab() {
           >
             <div className="space-y-3 text-sm">
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                <li>{t('settings.caldav.guide.macos.step1')}</li>
+                <li>{t('settings.caldav.guide.macos.step2')}</li>
                 <li>
-                  Systemeinstellungen &gt; Internetaccounts &gt; Anderen Account
-                  hinzufügen &gt; CalDAV-Account
-                </li>
-                <li>Account-Typ: Manuell</li>
-                <li>
-                  Server:
+                  {t('settings.caldav.guide.macos.step3')}
                   <URLField
                     url={serverURL}
                     onCopy={() => handleCopy(serverURL, 'Server-URL')}
                   />
                 </li>
-                <li>Benutzername: Ihre Benutzer-ID (siehe unten)</li>
-                <li>Passwort: App-spezifisches Passwort (oben erstellen)</li>
+                <li>{t('settings.caldav.guide.usernameHint')}</li>
+                <li>{t('settings.caldav.guide.passwordHint')}</li>
               </ol>
               <p className="text-xs text-muted-foreground">
-                macOS unterstuetzt Push-Benachrichtigungen. Änderungen werden
-                automatisch synchronisiert.
+                {t('settings.caldav.guide.macos.pushNote')}
               </p>
             </div>
           </ClientGuide>
@@ -357,25 +347,23 @@ export function CalDAVSettingsTab() {
           >
             <div className="space-y-3 text-sm">
               <div className="rounded-md bg-warning-light border border-warning/30 p-2 text-xs text-warning">
-                Hinweis: Microsoft Outlook unterstuetzt CalDAV nicht nativ.
-                Installieren Sie das kostenlose Plugin &quot;CalDav
-                Synchronizer&quot; von{' '}
+                {t('settings.caldav.guide.outlook.note')}{' '}
                 <span className="font-medium">
                   caldavsynchronizer.org
                 </span>
               </div>
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>CalDav Synchronizer installieren und Outlook neustarten</li>
-                <li>CalDav Synchronizer &gt; Neues Profil &gt; CalDAV</li>
+                <li>{t('settings.caldav.guide.outlook.step1')}</li>
+                <li>{t('settings.caldav.guide.outlook.step2')}</li>
                 <li>
-                  DAV-URL:
+                  {t('settings.caldav.guide.outlook.step3')}
                   <URLField
                     url={caldavURL}
                     onCopy={() => handleCopy(caldavURL, 'CalDAV-URL')}
                   />
                 </li>
-                <li>Benutzername: Ihre Benutzer-ID (siehe unten)</li>
-                <li>Passwort: App-spezifisches Passwort (oben erstellen)</li>
+                <li>{t('settings.caldav.guide.usernameHint')}</li>
+                <li>{t('settings.caldav.guide.passwordHint')}</li>
               </ol>
             </div>
           </ClientGuide>
@@ -384,7 +372,7 @@ export function CalDAVSettingsTab() {
         {/* User ID display */}
         <div className="mt-4 rounded-md border border-border p-3">
           <p className="text-xs text-muted-foreground mb-1">
-            Ihre Benutzer-ID (als Benutzername verwenden):
+            {t('settings.caldav.userIdHint')}
           </p>
           <div className="flex items-center gap-2">
             <code className="text-sm font-mono bg-muted px-2 py-1 rounded select-all flex-1">
@@ -393,7 +381,7 @@ export function CalDAVSettingsTab() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleCopy(userId, 'Benutzer-ID')}
+              onClick={() => handleCopy(userId, t('settings.caldav.userIdLabel'))}
               disabled={!userId}
             >
               <Copy className="h-3.5 w-3.5" />
@@ -424,6 +412,7 @@ function ConnectionTestSection({
   orgEnabled: boolean
   userEnabled: boolean
 }) {
+  const { t } = useTranslation()
   const testMutation = useTestCalDAVConnection()
 
   const handleTest = () => {
@@ -435,7 +424,7 @@ function ConnectionTestSection({
       <div className="flex items-center gap-2 mb-4">
         <RefreshCw className="h-4 w-4 text-muted-foreground" />
         <h3 className="text-sm font-medium text-foreground">
-          Verbindungstest
+          {t('settings.caldav.connectionTestTitle')}
         </h3>
       </div>
 
@@ -451,18 +440,18 @@ function ConnectionTestSection({
           ) : (
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
           )}
-          {testMutation.isPending ? 'Teste...' : 'Verbindung testen'}
+          {testMutation.isPending ? t('settings.caldav.testing') : t('settings.caldav.testConnection')}
         </Button>
         <p className="text-xs text-muted-foreground">
-          Prüft ob CalDAV/CardDAV korrekt eingerichtet ist
+          {t('settings.caldav.testDesc')}
         </p>
       </div>
 
       {(!orgEnabled || !userEnabled) && (
         <div className="rounded-md border border-warning/30 bg-warning-light px-3 py-2 text-xs text-warning">
           {!orgEnabled
-            ? 'CalDAV/CardDAV ist organisationsweit deaktiviert. Bitte wenden Sie sich an Ihren Administrator.'
-            : 'Aktivieren Sie zuerst Ihren persönlichen Zugang (oben), um den Verbindungstest ausführen zu können.'}
+            ? t('settings.caldav.orgDisabledAdmin')
+            : t('settings.caldav.enablePersonalFirst')}
         </div>
       )}
 
@@ -482,8 +471,8 @@ function ConnectionTestSection({
             )}
             <span className="font-medium">
               {testMutation.data.success
-                ? 'Verbindung erfolgreich'
-                : 'Verbindung fehlgeschlagen'}
+                ? t('settings.caldav.connectionSuccess')
+                : t('settings.caldav.connectionFailed')}
             </span>
           </div>
           <div className="space-y-0.5 ml-6">
@@ -493,7 +482,7 @@ function ConnectionTestSection({
               ) : (
                 <XCircle className="h-3 w-3" />
               )}
-              CalDAV {testMutation.data.caldav_reachable ? 'erreichbar' : 'nicht erreichbar'}
+              CalDAV {testMutation.data.caldav_reachable ? t('settings.caldav.reachable') : t('settings.caldav.notReachable')}
             </p>
             <p className="flex items-center gap-1.5">
               {testMutation.data.carddav_reachable ? (
@@ -501,7 +490,7 @@ function ConnectionTestSection({
               ) : (
                 <XCircle className="h-3 w-3" />
               )}
-              CardDAV {testMutation.data.carddav_reachable ? 'erreichbar' : 'nicht erreichbar'}
+              CardDAV {testMutation.data.carddav_reachable ? t('settings.caldav.reachable') : t('settings.caldav.notReachable')}
             </p>
             {testMutation.data.message && (
               <p className="mt-1 text-muted-foreground">{testMutation.data.message}</p>
@@ -513,7 +502,7 @@ function ConnectionTestSection({
       {testMutation.isError && (
         <div className="rounded-md border border-destructive/30 bg-error-light px-3 py-2 text-xs text-destructive flex items-center gap-2">
           <XCircle className="h-4 w-4" />
-          Fehler: {(testMutation.error as Error)?.message ?? 'Verbindungstest fehlgeschlagen'}
+          {t('settings.caldav.error')}: {(testMutation.error as Error)?.message ?? t('settings.caldav.testFailed')}
         </div>
       )}
     </section>
@@ -563,6 +552,7 @@ function URLField({
   url: string
   onCopy: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <span className="inline-flex items-center gap-1 ml-1">
       <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono break-all">
@@ -574,7 +564,7 @@ function URLField({
           onCopy()
         }}
         className="text-muted-foreground hover:text-foreground"
-        title="URL kopieren"
+        title={t('settings.caldav.copyUrl')}
       >
         <Copy className="h-3 w-3" />
       </button>

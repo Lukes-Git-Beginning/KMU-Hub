@@ -30,23 +30,31 @@ import {
 // Module matrix (same as before, but in a dedicated component)
 // ---------------------------------------------------------------------------
 
-const NOTIFICATION_MODULES: { key: NotificationModule; label: string; desc: string }[] = [
-  { key: 'messages', label: 'Nachrichten', desc: 'Chat-Nachrichten und DMs' },
-  { key: 'tasks', label: 'Aufgaben', desc: 'Zuweisung, Status-Änderungen' },
-  { key: 'meetings', label: 'Meetings', desc: 'Erinnerungen und Einladungen' },
-  { key: 'mails', label: 'E-Mails', desc: 'Neue E-Mails und Antworten' },
-  { key: 'calendar', label: 'Kalender', desc: 'Termine und Änderungen' },
-  { key: 'team', label: 'Team', desc: 'HR-Antraege und Mitglieder-Updates' },
-  { key: 'finance', label: 'Buchhaltung', desc: 'Zahlungen und Fälligkeiten' },
+const NOTIFICATION_MODULE_KEYS: { key: NotificationModule; labelKey: string; descKey: string }[] = [
+  { key: 'messages', labelKey: 'settings.notifications.module.messages.label', descKey: 'settings.notifications.module.messages.desc' },
+  { key: 'tasks', labelKey: 'settings.notifications.module.tasks.label', descKey: 'settings.notifications.module.tasks.desc' },
+  { key: 'meetings', labelKey: 'settings.notifications.module.meetings.label', descKey: 'settings.notifications.module.meetings.desc' },
+  { key: 'mails', labelKey: 'settings.notifications.module.mails.label', descKey: 'settings.notifications.module.mails.desc' },
+  { key: 'calendar', labelKey: 'settings.notifications.module.calendar.label', descKey: 'settings.notifications.module.calendar.desc' },
+  { key: 'team', labelKey: 'settings.notifications.module.team.label', descKey: 'settings.notifications.module.team.desc' },
+  { key: 'finance', labelKey: 'settings.notifications.module.finance.label', descKey: 'settings.notifications.module.finance.desc' },
 ]
 
-const CHANNELS: { key: keyof NotificationPrefs; label: string }[] = [
-  { key: 'email', label: 'E-Mail' },
-  { key: 'push', label: 'Push' },
-  { key: 'inApp', label: 'In-App' },
+const CHANNEL_KEYS: { key: keyof NotificationPrefs; labelKey: string }[] = [
+  { key: 'email', labelKey: 'settings.notifications.channel.email' },
+  { key: 'push', labelKey: 'settings.notifications.channel.push' },
+  { key: 'inApp', labelKey: 'settings.notifications.channel.inApp' },
 ]
 
-const DAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+const DAY_LABEL_KEYS = [
+  'settings.notifications.day.sun',
+  'settings.notifications.day.mon',
+  'settings.notifications.day.tue',
+  'settings.notifications.day.wed',
+  'settings.notifications.day.thu',
+  'settings.notifications.day.fri',
+  'settings.notifications.day.sat',
+]
 
 export function NotificationSettingsTab() {
   const { t } = useTranslation()
@@ -80,7 +88,7 @@ export function NotificationSettingsTab() {
   const handleSaveQuietHours = () => {
     qhMutation.mutate(
       { start_time: qhStart, end_time: qhEnd, days: qhDays, is_active: qhActive },
-      { onSuccess: () => toast.success('Ruhezeiten gespeichert') },
+      { onSuccess: () => toast.success(t('settings.notifications.quietHours.saved')) },
     )
   }
 
@@ -92,11 +100,11 @@ export function NotificationSettingsTab() {
   const handleToggleDND = () => {
     if (dndStatus?.is_active) {
       disableDND.mutate(undefined, {
-        onSuccess: () => toast.success('Bitte-nicht-stören deaktiviert'),
+        onSuccess: () => toast.success(t('settings.notifications.dnd.deactivated')),
       })
     } else {
       enableDND.mutate(undefined, {
-        onSuccess: () => toast.success('Bitte-nicht-stören aktiviert'),
+        onSuccess: () => toast.success(t('settings.notifications.dnd.activated')),
       })
     }
   }
@@ -107,35 +115,35 @@ export function NotificationSettingsTab() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">Benachrichtigungen</h2>
+      <h2 className="text-foreground mb-1">{t('settings.notifications.title')}</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Pro Modul einstellen, Ruhezeiten und Stummschaltungen verwalten
+        {t('settings.notifications.subtitle')}
       </p>
 
       {/* ── Module × Channel Matrix ──────────────────── */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Bell className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Benachrichtigungs-Matrix</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.matrix.title')}</h3>
         </div>
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Header */}
           <div className="grid grid-cols-[1fr_70px_70px_70px] gap-2 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-            <span>Modul</span>
-            {CHANNELS.map((ch) => (
-              <span key={ch.key} className="text-center">{ch.label}</span>
+            <span>{t('settings.notifications.matrix.moduleCol')}</span>
+            {CHANNEL_KEYS.map((ch) => (
+              <span key={ch.key} className="text-center">{t(ch.labelKey)}</span>
             ))}
           </div>
 
           {/* Rows */}
-          {NOTIFICATION_MODULES.map((mod) => (
+          {NOTIFICATION_MODULE_KEYS.map((mod) => (
             <div key={mod.key} className="grid grid-cols-[1fr_70px_70px_70px] gap-2 items-center px-4 py-3 border-b border-border-muted last:border-b-0">
               <div>
-                <p className="text-sm text-foreground">{mod.label}</p>
-                <p className="text-xs text-muted-foreground">{mod.desc}</p>
+                <p className="text-sm text-foreground">{t(mod.labelKey)}</p>
+                <p className="text-xs text-muted-foreground">{t(mod.descKey)}</p>
               </div>
-              {CHANNELS.map((ch) => (
+              {CHANNEL_KEYS.map((ch) => (
                 <div key={ch.key} className="flex justify-center">
                   <Switch
                     checked={notifications[mod.key][ch.key]}
@@ -147,7 +155,7 @@ export function NotificationSettingsTab() {
           ))}
         </div>
 
-        <p className="text-xs text-muted-foreground mt-3">Änderungen werden automatisch gespeichert.</p>
+        <p className="text-xs text-muted-foreground mt-3">{t('settings.notifications.matrix.autoSave')}</p>
       </section>
 
       <Separator className="mb-8" />
@@ -156,20 +164,20 @@ export function NotificationSettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <BellOff className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Bitte nicht stören</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.dnd.title')}</h3>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
           <div>
             <p className="text-sm text-foreground">
-              {dndStatus?.is_active ? 'Aktiv' : 'Deaktiviert'}
+              {dndStatus?.is_active ? t('settings.notifications.dnd.statusActive') : t('settings.notifications.dnd.statusInactive')}
             </p>
             <p className="text-xs text-muted-foreground">
               {dndStatus?.is_active
                 ? dndStatus.expires_at
-                  ? `Bis ${new Date(dndStatus.expires_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
-                  : 'Ohne Ablaufzeit'
-                : 'Alle Benachrichtigungen sofort stummschalten'}
+                  ? t('settings.notifications.dnd.expiresAt', { time: new Date(dndStatus.expires_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) })
+                  : t('settings.notifications.dnd.noExpiry')
+                : t('settings.notifications.dnd.hint')}
             </p>
           </div>
           <Button
@@ -178,7 +186,7 @@ export function NotificationSettingsTab() {
             onClick={handleToggleDND}
             disabled={enableDND.isPending || disableDND.isPending}
           >
-            {dndStatus?.is_active ? 'Deaktivieren' : 'Aktivieren'}
+            {dndStatus?.is_active ? t('settings.notifications.dnd.disable') : t('settings.notifications.dnd.enable')}
           </Button>
         </div>
       </section>
@@ -189,39 +197,39 @@ export function NotificationSettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Moon className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Ruhezeiten</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.quietHours.title')}</h3>
         </div>
 
         {qhLoading ? (
           <div className="flex items-center gap-2 text-muted-foreground py-4">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Ruhezeiten werden geladen...</span>
+            <span className="text-sm">{t('settings.notifications.quietHours.loading')}</span>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
               <div>
-                <p className="text-sm text-foreground">Ruhezeiten aktiv</p>
-                <p className="text-xs text-muted-foreground">Keine Benachrichtigungen in dieser Zeitspanne</p>
+                <p className="text-sm text-foreground">{t('settings.notifications.quietHours.activeLabel')}</p>
+                <p className="text-xs text-muted-foreground">{t('settings.notifications.quietHours.activeDesc')}</p>
               </div>
               <Switch checked={qhActive} onCheckedChange={setQhActive} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Von</Label>
+                <Label>{t('settings.notifications.quietHours.from')}</Label>
                 <Input type="time" value={qhStart} onChange={(e) => setQhStart(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>Bis</Label>
+                <Label>{t('settings.notifications.quietHours.to')}</Label>
                 <Input type="time" value={qhEnd} onChange={(e) => setQhEnd(e.target.value)} />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Wochentage</Label>
+              <Label>{t('settings.notifications.quietHours.weekdays')}</Label>
               <div className="flex gap-2">
-                {DAY_LABELS.map((label, idx) => (
+                {DAY_LABEL_KEYS.map((key, idx) => (
                   <button
                     key={idx}
                     onClick={() => toggleDay(idx)}
@@ -231,7 +239,7 @@ export function NotificationSettingsTab() {
                         : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
                     }`}
                   >
-                    {label}
+                    {t(key)}
                   </button>
                 ))}
               </div>
@@ -239,7 +247,7 @@ export function NotificationSettingsTab() {
 
             <Button onClick={handleSaveQuietHours} size="sm" disabled={qhMutation.isPending}>
               <Save className="mr-1.5 h-4 w-4" />
-              Ruhezeiten speichern
+              {t('settings.notifications.quietHours.saveButton')}
             </Button>
           </div>
         )}
@@ -251,11 +259,11 @@ export function NotificationSettingsTab() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <VolumeX className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Stummgeschaltet</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.notifications.muted.title')}</h3>
         </div>
 
         {(!mutedResources || mutedResources.length === 0) ? (
-          <p className="text-xs text-muted-foreground italic">Keine Konversationen stummgeschaltet</p>
+          <p className="text-xs text-muted-foreground italic">{t('settings.notifications.muted.empty')}</p>
         ) : (
           <div className="space-y-1.5">
             {mutedResources.map((mute) => (
@@ -266,12 +274,12 @@ export function NotificationSettingsTab() {
                 <div>
                   <p className="text-sm text-foreground">{mute.resource_label ?? mute.resource_id}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {mute.resource_type} · Seit {new Date(mute.muted_at).toLocaleDateString('de-DE')}
+                    {mute.resource_type} · {t('settings.notifications.muted.since', { date: new Date(mute.muted_at).toLocaleDateString('de-DE') })}
                   </p>
                 </div>
                 <button
                   onClick={() => unmuteMutation.mutate(mute.id, {
-                    onSuccess: () => toast.success('Stummschaltung aufgehoben'),
+                    onSuccess: () => toast.success(t('settings.notifications.muted.unmuteSuccess')),
                   })}
                   className="text-muted-foreground hover:text-error transition-colors"
                   disabled={unmuteMutation.isPending}

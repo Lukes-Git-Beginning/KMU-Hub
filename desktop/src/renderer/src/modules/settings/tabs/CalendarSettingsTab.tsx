@@ -51,14 +51,14 @@ const HOLIDAY_REGIONS = [
   { id: 'CH-GE', label: 'Genf' },
 ]
 
-const REMINDERS = [
-  { value: 0, label: 'Keine' },
-  { value: 5, label: '5 Minuten vorher' },
-  { value: 10, label: '10 Minuten vorher' },
-  { value: 15, label: '15 Minuten vorher' },
-  { value: 30, label: '30 Minuten vorher' },
-  { value: 60, label: '1 Stunde vorher' },
-  { value: 1440, label: '1 Tag vorher' },
+const REMINDER_KEYS = [
+  { value: 0, key: 'settings.calendar.reminder.none' },
+  { value: 5, key: 'settings.calendar.reminder.5min' },
+  { value: 10, key: 'settings.calendar.reminder.10min' },
+  { value: 15, key: 'settings.calendar.reminder.15min' },
+  { value: 30, key: 'settings.calendar.reminder.30min' },
+  { value: 60, key: 'settings.calendar.reminder.1hour' },
+  { value: 1440, key: 'settings.calendar.reminder.1day' },
 ]
 
 export function CalendarSettingsTab() {
@@ -81,21 +81,21 @@ export function CalendarSettingsTab() {
       holidayRegion: region,
       weekStartsOn: weekStart,
     })
-    toast.success('Kalender-Einstellungen gespeichert')
+    toast.success(t('settings.calendar.saved'))
   }
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">Kalender</h2>
-      <p className="text-sm text-muted-foreground mb-6">Standard-Ansicht, Arbeitszeiten und Feiertage konfigurieren</p>
+      <h2 className="text-foreground mb-1">{t('settings.calendar.title')}</h2>
+      <p className="text-sm text-muted-foreground mb-6">{t('settings.calendar.subtitle')}</p>
 
       <div className="space-y-6">
         {/* Default view */}
         <div className="space-y-1.5">
-          <Label>Standard-Ansicht</Label>
+          <Label>{t('settings.calendar.defaultView')}</Label>
           <div className="flex gap-2">
             {(['week', 'day', 'month'] as const).map((v) => {
-              const labels = { week: 'Woche', day: 'Tag', month: 'Monat' }
+              const labels = { week: t('settings.calendar.view.week'), day: t('settings.calendar.view.day'), month: t('settings.calendar.view.month') }
               return (
                 <button
                   key={v}
@@ -115,7 +115,7 @@ export function CalendarSettingsTab() {
 
         {/* Week start */}
         <div className="space-y-1.5">
-          <Label>Woche beginnt am</Label>
+          <Label>{t('settings.calendar.weekStartsOn')}</Label>
           <div className="flex gap-2">
             {(['monday', 'sunday'] as const).map((d) => (
               <button
@@ -127,7 +127,7 @@ export function CalendarSettingsTab() {
                     : 'border-border text-foreground hover:bg-secondary'
                 }`}
               >
-                {d === 'monday' ? 'Montag' : 'Sonntag'}
+                {d === 'monday' ? t('settings.calendar.weekDay.monday') : t('settings.calendar.weekDay.sunday')}
               </button>
             ))}
           </div>
@@ -136,7 +136,7 @@ export function CalendarSettingsTab() {
         {/* Work hours */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <Label>Arbeitsbeginn</Label>
+            <Label>{t('settings.calendar.workStart')}</Label>
             <Select value={String(workStart)} onValueChange={(v) => setWorkStart(Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -147,7 +147,7 @@ export function CalendarSettingsTab() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Arbeitsende</Label>
+            <Label>{t('settings.calendar.workEnd')}</Label>
             <Select value={String(workEnd)} onValueChange={(v) => setWorkEnd(Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -161,12 +161,12 @@ export function CalendarSettingsTab() {
 
         {/* Default reminder */}
         <div className="space-y-1.5">
-          <Label>Standard-Erinnerung</Label>
+          <Label>{t('settings.calendar.defaultReminder')}</Label>
           <Select value={String(reminder)} onValueChange={(v) => setReminder(Number(v))}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {REMINDERS.map((r) => (
-                <SelectItem key={r.value} value={String(r.value)}>{r.label}</SelectItem>
+              {REMINDER_KEYS.map((r) => (
+                <SelectItem key={r.value} value={String(r.value)}>{t(r.key)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -176,7 +176,7 @@ export function CalendarSettingsTab() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Label>Feiertags-Region</Label>
+            <Label>{t('settings.calendar.holidayRegion')}</Label>
           </div>
           <Select value={region} onValueChange={setRegion}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -186,13 +186,13 @@ export function CalendarSettingsTab() {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-[10px] text-muted-foreground">Bestimmt welche Feiertage im Kalender angezeigt werden</p>
+          <p className="text-[10px] text-muted-foreground">{t('settings.calendar.holidayRegionHint')}</p>
         </div>
       </div>
 
       <Button onClick={handleSave} className="mt-6" size="sm">
         <Save className="mr-1.5 h-4 w-4" />
-        Kalender-Einstellungen speichern
+        {t('settings.calendar.saveButton')}
       </Button>
     </div>
   )

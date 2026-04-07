@@ -18,30 +18,28 @@ export function PrivacySettingsTab() {
     setIsExporting(true)
     setTimeout(() => {
       setIsExporting(false)
-      toast.success('Datenexport wird vorbereitet. Du erhältst eine E-Mail mit dem Download-Link.')
+      toast.success(t('settings.privacy.exportPreparing'))
     }, 2000)
   }
 
   const handleDeleteRequest = () => {
-    toast.success('Löschantrag eingereicht. Du erhältst eine Bestätigung per E-Mail innerhalb von 72 Stunden.')
+    toast.success(t('settings.privacy.deleteRequestSubmitted'))
     setShowDeleteConfirm(false)
   }
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">Datenschutz</h2>
-      <p className="text-sm text-muted-foreground mb-6">DSGVO-Einstellungen, Datenexport und Datenlösch-Antraege</p>
+      <h2 className="text-foreground mb-1">{t('settings.privacy.title')}</h2>
+      <p className="text-sm text-muted-foreground mb-6">{t('settings.privacy.subtitle')}</p>
 
       {/* GDPR info */}
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 mb-8">
         <div className="flex items-center gap-2 mb-2">
           <ShieldCheck className="h-5 w-5 text-primary" />
-          <h3 className="text-sm font-medium text-foreground">DSGVO-konform</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.privacy.gdpr.title')}</h3>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Cosmi speichert alle Daten auf EU-Servern (Hetzner, Deutschland). Deine Daten werden nie an Dritte
-          außerhalb der EU übermittelt. Du hast jederzeit das Recht auf Auskunft, Berichtigung und Löschung
-          deiner personenbezogenen Daten.
+          {t('settings.privacy.gdpr.desc')}
         </p>
       </div>
 
@@ -49,30 +47,30 @@ export function PrivacySettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Cookie className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Tracking-Einstellungen</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.privacy.tracking.title')}</h3>
         </div>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
             <div>
-              <p className="text-sm text-foreground">Analytik</p>
-              <p className="text-xs text-muted-foreground">Anonyme Nutzungsstatistiken zur Verbesserung der App</p>
+              <p className="text-sm text-foreground">{t('settings.privacy.tracking.analytics.label')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.privacy.tracking.analytics.desc')}</p>
             </div>
             <Switch checked={analyticsEnabled} onCheckedChange={setAnalyticsEnabled} />
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
             <div>
-              <p className="text-sm text-foreground">Absturz-Berichte</p>
-              <p className="text-xs text-muted-foreground">Automatische Fehlerberichte an unser Team senden</p>
+              <p className="text-sm text-foreground">{t('settings.privacy.tracking.crashReports.label')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.privacy.tracking.crashReports.desc')}</p>
             </div>
             <Switch checked={crashReportsEnabled} onCheckedChange={setCrashReportsEnabled} />
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
             <div>
-              <p className="text-sm text-foreground">Detaillierte Nutzungsdaten</p>
-              <p className="text-xs text-muted-foreground">Erweiterte Feature-Nutzung und Klick-Muster</p>
+              <p className="text-sm text-foreground">{t('settings.privacy.tracking.usageData.label')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.privacy.tracking.usageData.desc')}</p>
             </div>
             <Switch checked={usageDataEnabled} onCheckedChange={setUsageDataEnabled} />
           </div>
@@ -82,9 +80,9 @@ export function PrivacySettingsTab() {
           variant="outline"
           size="sm"
           className="mt-3"
-          onClick={() => toast.success('Tracking-Einstellungen gespeichert')}
+          onClick={() => toast.success(t('settings.privacy.tracking.saved'))}
         >
-          Einstellungen speichern
+          {t('settings.privacy.tracking.saveButton')}
         </Button>
       </section>
 
@@ -92,22 +90,21 @@ export function PrivacySettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <FileDown className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Daten exportieren</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.privacy.export.title')}</h3>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          Fordere eine Kopie aller deiner personenbezogenen Daten an (Art. 20 DSGVO).
-          Der Export umfasst Profil, Kontakte, E-Mails, Dokumente und Aktivitäten.
+          {t('settings.privacy.export.desc')}
         </p>
         <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
             <Download className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Kompletter Datenexport</p>
-            <p className="text-xs text-muted-foreground">Wird als ZIP-Datei per E-Mail zugestellt (kann bis zu 24h dauern)</p>
+            <p className="text-sm font-medium text-foreground">{t('settings.privacy.export.fullExport')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.privacy.export.fullExportHint')}</p>
           </div>
           <Button onClick={handleExportData} disabled={isExporting} size="sm">
-            {isExporting ? 'Wird vorbereitet...' : 'Export anfordern'}
+            {isExporting ? t('settings.privacy.export.preparing') : t('settings.privacy.export.requestButton')}
           </Button>
         </div>
       </section>
@@ -116,18 +113,16 @@ export function PrivacySettingsTab() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Trash2 className="h-4 w-4 text-error" />
-          <h3 className="text-sm font-medium text-error">Konto löschen</h3>
+          <h3 className="text-sm font-medium text-error">{t('settings.privacy.deleteAccount.title')}</h3>
         </div>
         <div className="rounded-lg border border-error/20 bg-error/5 p-4">
-          <p className="text-sm text-foreground mb-2">Löschantrag stellen (Art. 17 DSGVO)</p>
+          <p className="text-sm text-foreground mb-2">{t('settings.privacy.deleteAccount.requestTitle')}</p>
           <p className="text-xs text-muted-foreground mb-4">
-            Alle deine personenbezogenen Daten werden innerhalb von 30 Tagen unwiderruflich gelöscht.
-            Gemeinsam genutzte Daten (Projekte, Team-Dokumente) bleiben für andere Nutzer erhalten,
-            werden aber anonymisiert.
+            {t('settings.privacy.deleteAccount.requestDesc')}
           </p>
           <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)}>
             <Trash2 className="mr-1.5 h-4 w-4" />
-            Konto-Löschung beantragen
+            {t('settings.privacy.deleteAccount.requestButton')}
           </Button>
         </div>
       </section>
@@ -135,9 +130,9 @@ export function PrivacySettingsTab() {
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title="Konto wirklich löschen?"
-        description="Dieser Vorgang kann nicht rückgängig gemacht werden. Alle deine persönlichen Daten werden innerhalb von 30 Tagen unwiderruflich gelöscht. Du erhältst eine Bestätigungs-E-Mail."
-        confirmLabel="Ja, Konto löschen"
+        title={t('settings.privacy.deleteAccount.confirmTitle')}
+        description={t('settings.privacy.deleteAccount.confirmDesc')}
+        confirmLabel={t('settings.privacy.deleteAccount.confirmButton')}
         variant="destructive"
         onConfirm={handleDeleteRequest}
       />

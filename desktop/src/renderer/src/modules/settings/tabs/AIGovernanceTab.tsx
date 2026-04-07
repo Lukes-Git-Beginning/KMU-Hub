@@ -14,12 +14,12 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { useAIStore } from '@/stores/ai'
 
-const MODULE_CONFIG = [
-  { key: 'email', label: 'E-Mail-Entwürfe', description: 'KI-generierte Antwortvorschläge im E-Mail-Composer', icon: Mail },
-  { key: 'meetings', label: 'Meeting-Zusammenfassungen', description: 'Automatische Zusammenfassung von Meeting-Notizen', icon: MessageSquare },
-  { key: 'helpdesk', label: 'Ticket-Antwortvorschläge', description: 'KI-basierte Antwortvorschläge für Helpdesk-Tickets', icon: Headphones },
-  { key: 'search', label: 'Semantische Suche', description: 'Natürlichsprachliche Suche über alle Module', icon: Search },
-  { key: 'docs', label: 'Dokument-Klassifizierung', description: 'Automatische Einstufung als öffentlich/intern/vertraulich', icon: FileText },
+const MODULE_CONFIG_KEYS = [
+  { key: 'email', labelKey: 'settings.ai.module.email.label', descKey: 'settings.ai.module.email.desc', icon: Mail },
+  { key: 'meetings', labelKey: 'settings.ai.module.meetings.label', descKey: 'settings.ai.module.meetings.desc', icon: MessageSquare },
+  { key: 'helpdesk', labelKey: 'settings.ai.module.helpdesk.label', descKey: 'settings.ai.module.helpdesk.desc', icon: Headphones },
+  { key: 'search', labelKey: 'settings.ai.module.search.label', descKey: 'settings.ai.module.search.desc', icon: Search },
+  { key: 'docs', labelKey: 'settings.ai.module.docs.label', descKey: 'settings.ai.module.docs.desc', icon: FileText },
 ] as const
 
 export function AIGovernanceTab() {
@@ -38,13 +38,13 @@ export function AIGovernanceTab() {
   const [showAllLogs, setShowAllLogs] = useState(false)
   const visibleLogs = showAllLogs ? activityLog : activityLog.slice(0, 10)
 
-  const enabledCount = MODULE_CONFIG.filter((m) => !moduleOptOuts[m.key]).length
+  const enabledCount = MODULE_CONFIG_KEYS.filter((m) => !moduleOptOuts[m.key]).length
 
   return (
     <div className="max-w-3xl">
-      <h2 className="text-foreground mb-1">KI-Assistent</h2>
+      <h2 className="text-foreground mb-1">{t('settings.ai.title')}</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        Konfiguriere den KI-Assistenten und steuere, welche Module KI-Funktionen nutzen duerfen.
+        {t('settings.ai.subtitle')}
       </p>
 
       {/* Master toggle */}
@@ -55,9 +55,9 @@ export function AIGovernanceTab() {
               <Sparkles className={`h-5 w-5 ${aiEnabled ? 'text-primary' : 'text-muted-foreground'}`} />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">KI-Assistent aktivieren</p>
+              <p className="text-sm font-medium text-foreground">{t('settings.ai.masterToggle.label')}</p>
               <p className="text-xs text-muted-foreground">
-                {aiEnabled ? `${enabledCount} von ${MODULE_CONFIG.length} Modulen aktiv` : 'Alle KI-Funktionen deaktiviert'}
+                {aiEnabled ? t('settings.ai.masterToggle.activeCount', { count: enabledCount, total: MODULE_CONFIG_KEYS.length }) : t('settings.ai.masterToggle.allDisabled')}
               </p>
             </div>
           </div>
@@ -67,13 +67,13 @@ export function AIGovernanceTab() {
 
       {/* Module opt-outs */}
       <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
-        <h3 className="text-sm font-medium text-foreground mb-1">Modul-Einstellungen</h3>
+        <h3 className="text-sm font-medium text-foreground mb-1">{t('settings.ai.modules.title')}</h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Aktiviere oder deaktiviere KI-Funktionen für einzelne Module.
+          {t('settings.ai.modules.subtitle')}
         </p>
 
         <div className="space-y-3">
-          {MODULE_CONFIG.map((mod) => {
+          {MODULE_CONFIG_KEYS.map((mod) => {
             const Icon = mod.icon
             const enabled = aiEnabled && !moduleOptOuts[mod.key]
             return (
@@ -86,8 +86,8 @@ export function AIGovernanceTab() {
                 <div className="flex items-center gap-3">
                   <Icon className={`h-4 w-4 ${enabled ? 'text-primary' : 'text-muted-foreground'}`} />
                   <div>
-                    <p className="text-sm font-medium text-foreground">{mod.label}</p>
-                    <p className="text-[11px] text-muted-foreground">{mod.description}</p>
+                    <p className="text-sm font-medium text-foreground">{t(mod.labelKey)}</p>
+                    <p className="text-[11px] text-muted-foreground">{t(mod.descKey)}</p>
                   </div>
                 </div>
                 <Switch
@@ -105,18 +105,18 @@ export function AIGovernanceTab() {
       <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-medium text-foreground">Datenschutz</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.ai.privacy.title')}</h3>
         </div>
 
         <div className="space-y-4">
           {/* No training — always on, read-only */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-foreground">Kein Training auf Kundendaten</p>
-              <p className="text-[11px] text-muted-foreground">Ihre Daten werden niemals zum Training von KI-Modellen verwendet</p>
+              <p className="text-sm text-foreground">{t('settings.ai.privacy.noTraining.label')}</p>
+              <p className="text-[11px] text-muted-foreground">{t('settings.ai.privacy.noTraining.desc')}</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">Immer aktiv</span>
+              <span className="rounded-full bg-success-light px-2 py-0.5 text-[10px] font-medium text-success">{t('settings.ai.privacy.alwaysActive')}</span>
               <Switch checked={noTrainingOnData} disabled />
             </div>
           </div>
@@ -124,8 +124,8 @@ export function AIGovernanceTab() {
           <div className="border-t border-border pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-foreground">KI-Aktivitaeten protokollieren</p>
-                <p className="text-[11px] text-muted-foreground">Alle KI-Anfragen und -Antworten werden im Aktivitaetslog festgehalten</p>
+                <p className="text-sm text-foreground">{t('settings.ai.privacy.logActivity.label')}</p>
+                <p className="text-[11px] text-muted-foreground">{t('settings.ai.privacy.logActivity.desc')}</p>
               </div>
               <Switch checked={logAIActivity} onCheckedChange={setLogAIActivity} />
             </div>
@@ -137,15 +137,15 @@ export function AIGovernanceTab() {
       <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Server className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-medium text-foreground">KI-Anbieter</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.ai.provider.title')}</h3>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Modell', value: 'GPT-4o' },
-            { label: 'Hosting', value: 'EU (Frankfurt)' },
-            { label: 'Datenverarbeitung', value: 'Nur in der EU' },
-            { label: 'Datenweitergabe', value: 'Keine an Dritte' },
+            { label: t('settings.ai.provider.model'), value: 'GPT-4o' },
+            { label: t('settings.ai.provider.hosting'), value: 'EU (Frankfurt)' },
+            { label: t('settings.ai.provider.dataProcessing'), value: t('settings.ai.provider.dataProcessingValue') },
+            { label: t('settings.ai.provider.dataSharing'), value: t('settings.ai.provider.dataSharingValue') },
           ].map((item) => (
             <div key={item.label} className="rounded-md bg-secondary/50 px-3 py-2">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{item.label}</p>
@@ -160,9 +160,9 @@ export function AIGovernanceTab() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-medium text-foreground">Aktivitaetslog</h3>
+            <h3 className="text-sm font-medium text-foreground">{t('settings.ai.activityLog.title')}</h3>
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {activityLog.length} Einträge
+              {t('settings.ai.activityLog.entries', { count: activityLog.length })}
             </span>
           </div>
         </div>
@@ -170,7 +170,7 @@ export function AIGovernanceTab() {
         {activityLog.length === 0 ? (
           <div className="py-8 text-center">
             <Sparkles className="mx-auto h-8 w-8 text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">Noch keine KI-Aktivitaeten protokolliert</p>
+            <p className="text-sm text-muted-foreground">{t('settings.ai.activityLog.empty')}</p>
           </div>
         ) : (
           <>
@@ -178,11 +178,11 @@ export function AIGovernanceTab() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/30">
-                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Zeitpunkt</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Modul</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Aktion</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Eingabe</th>
-                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">Ergebnis</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">{t('settings.ai.activityLog.col.timestamp')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">{t('settings.ai.activityLog.col.module')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">{t('settings.ai.activityLog.col.action')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">{t('settings.ai.activityLog.col.input')}</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground uppercase">{t('settings.ai.activityLog.col.output')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -210,7 +210,7 @@ export function AIGovernanceTab() {
                 onClick={() => setShowAllLogs(!showAllLogs)}
                 className="mt-3 text-xs text-primary hover:underline"
               >
-                {showAllLogs ? 'Weniger anzeigen' : `Alle ${activityLog.length} Einträge anzeigen`}
+                {showAllLogs ? t('settings.ai.activityLog.showLess') : t('settings.ai.activityLog.showAll', { count: activityLog.length })}
               </button>
             )}
           </>

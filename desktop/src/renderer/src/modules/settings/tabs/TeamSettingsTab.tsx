@@ -49,7 +49,7 @@ export function TeamSettingsTab() {
   }
 
   const addLeaveType = () => {
-    setLeaveTypes([...leaveTypes, { name: 'Neu', days: 0, color: '#6b7280' }])
+    setLeaveTypes([...leaveTypes, { name: t('settings.team.newLeaveTypeName'), days: 0, color: '#6b7280' }])
   }
 
   const updateLeave = (idx: number, data: Partial<LeaveType>) => {
@@ -63,34 +63,34 @@ export function TeamSettingsTab() {
 
   const handleSaveDepartments = () => {
     updateTeamAdmin({ departments })
-    toast.success('Abteilungen gespeichert')
+    toast.success(t('settings.team.savedDepartments'))
   }
 
   const handleSaveRoles = () => {
     updateTeamAdmin({ roles })
-    toast.success('Rollen gespeichert')
+    toast.success(t('settings.team.savedRoles'))
   }
 
   const handleSaveLeave = () => {
     updateTeamAdmin({ leaveTypes })
-    toast.success('Abwesenheitsarten gespeichert')
+    toast.success(t('settings.team.savedLeave'))
   }
 
   const handleSaveWorktime = () => {
     updateTeamAdmin({ workHoursPerWeek: workHours, overtimeEnabled })
-    toast.success('Arbeitszeitregelung gespeichert')
+    toast.success(t('settings.team.savedWorktime'))
   }
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-foreground mb-1">Team & HR</h2>
-      <p className="text-sm text-muted-foreground mb-6">Abteilungen, Rollen, Abwesenheiten und Arbeitszeit verwalten</p>
+      <h2 className="text-foreground mb-1">{t('settings.team.title')}</h2>
+      <p className="text-sm text-muted-foreground mb-6">{t('settings.team.subtitle')}</p>
 
       {/* Departments */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Abteilungen</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.team.sectionDepartments')}</h3>
         </div>
 
         <div className="space-y-1.5 mb-3">
@@ -109,7 +109,7 @@ export function TeamSettingsTab() {
 
         <div className="flex gap-2">
           <Input
-            placeholder="Neue Abteilung"
+            placeholder={t('settings.team.newDepartment')}
             value={newDept}
             onChange={(e) => setNewDept(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addDepartment()}
@@ -122,7 +122,7 @@ export function TeamSettingsTab() {
 
         <Button onClick={handleSaveDepartments} className="mt-3" size="sm">
           <Save className="mr-1.5 h-4 w-4" />
-          Abteilungen speichern
+          {t('settings.team.saveDepartments')}
         </Button>
       </section>
 
@@ -132,7 +132,7 @@ export function TeamSettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Rollen</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.team.sectionRoles')}</h3>
         </div>
 
         <div className="space-y-1.5 mb-3">
@@ -153,7 +153,7 @@ export function TeamSettingsTab() {
 
         <div className="flex gap-2">
           <Input
-            placeholder="Neue Rolle"
+            placeholder={t('settings.team.newRole')}
             value={newRole}
             onChange={(e) => setNewRole(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addRole()}
@@ -166,7 +166,7 @@ export function TeamSettingsTab() {
 
         <Button onClick={handleSaveRoles} className="mt-3" size="sm">
           <Save className="mr-1.5 h-4 w-4" />
-          Rollen speichern
+          {t('settings.team.saveRoles')}
         </Button>
       </section>
 
@@ -176,7 +176,7 @@ export function TeamSettingsTab() {
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Palmtree className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Abwesenheitsarten</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.team.sectionLeave')}</h3>
         </div>
 
         <div className="space-y-2 mb-3">
@@ -201,7 +201,7 @@ export function TeamSettingsTab() {
                   onChange={(e) => updateLeave(idx, { days: Number(e.target.value) })}
                   className="w-16 h-8 text-sm text-center"
                 />
-                <span className="text-[10px] text-muted-foreground">Tage/Jahr</span>
+                <span className="text-[10px] text-muted-foreground">{t('settings.team.daysPerYear')}</span>
               </div>
               <button
                 onClick={() => setDeleteTarget({ type: 'leave', index: idx })}
@@ -215,7 +215,7 @@ export function TeamSettingsTab() {
 
         <Button variant="outline" size="sm" onClick={addLeaveType}>
           <Plus className="mr-1.5 h-4 w-4" />
-          Abwesenheitsart hinzufügen
+          {t('settings.team.addLeaveType')}
         </Button>
 
         <Button onClick={handleSaveLeave} className="mt-3 ml-2" size="sm">
@@ -230,12 +230,12 @@ export function TeamSettingsTab() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">Arbeitszeitregelung</h3>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.team.sectionWorktime')}</h3>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Wochenstunden</Label>
+            <Label>{t('settings.team.weeklyHours')}</Label>
             <Input
               type="number"
               min={1}
@@ -248,8 +248,8 @@ export function TeamSettingsTab() {
 
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
             <div>
-              <p className="text-sm text-foreground">Überstunden-Erfassung</p>
-              <p className="text-xs text-muted-foreground">Mitarbeiter können Überstunden rapportieren</p>
+              <p className="text-sm text-foreground">{t('settings.team.overtimeTracking')}</p>
+              <p className="text-xs text-muted-foreground">{t('settings.team.overtimeTrackingDesc')}</p>
             </div>
             <Switch checked={overtimeEnabled} onCheckedChange={setOvertimeEnabled} />
           </div>
@@ -257,7 +257,7 @@ export function TeamSettingsTab() {
 
         <Button onClick={handleSaveWorktime} className="mt-4" size="sm">
           <Save className="mr-1.5 h-4 w-4" />
-          Arbeitszeit speichern
+          {t('settings.team.saveWorktime')}
         </Button>
       </section>
 
@@ -270,9 +270,9 @@ export function TeamSettingsTab() {
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
-        title="Eintrag löschen?"
-        description="Dieser Eintrag wird entfernt. Die Änderung wird erst beim Speichern wirksam."
-        confirmLabel="Löschen"
+        title={t('settings.team.deleteTitle')}
+        description={t('settings.team.deleteDesc')}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={() => {
           if (!deleteTarget) return
@@ -289,6 +289,7 @@ export function TeamSettingsTab() {
 // HR Settings Section (API-backed)
 // ============================================================
 function HRSettingsSection() {
+  const { t } = useTranslation()
   const { data: hrSettings, isLoading } = useHRSettings()
   const updateMutation = useUpdateHRSettings()
 
@@ -321,7 +322,7 @@ function HRSettingsSection() {
       <section>
         <div className="flex items-center gap-2 text-muted-foreground py-4">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">HR-Einstellungen werden geladen...</span>
+          <span className="text-sm">{t('settings.team.hrLoading')}</span>
         </div>
       </section>
     )
@@ -331,13 +332,13 @@ function HRSettingsSection() {
     <section>
       <div className="flex items-center gap-2 mb-4">
         <Stethoscope className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-sm font-medium text-foreground">HR-Einstellungen</h3>
+        <h3 className="text-sm font-medium text-foreground">{t('settings.team.sectionHR')}</h3>
       </div>
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>AU-Schwellenwert (Tage)</Label>
+            <Label>{t('settings.team.auThreshold')}</Label>
             <Input
               type="number"
               min={1}
@@ -346,10 +347,10 @@ function HRSettingsSection() {
               onChange={(e) => setAuThreshold(Number(e.target.value))}
               className="w-full"
             />
-            <p className="text-[10px] text-muted-foreground">Ab dieser Anzahl Krankheitstage wird ein Arztzeugnis verlangt</p>
+            <p className="text-[10px] text-muted-foreground">{t('settings.team.auThresholdDesc')}</p>
           </div>
           <div className="space-y-1.5">
-            <Label>Standard-Jahresurlaub (Tage)</Label>
+            <Label>{t('settings.team.defaultLeaveDays')}</Label>
             <Input
               type="number"
               min={0}
@@ -358,20 +359,20 @@ function HRSettingsSection() {
               onChange={(e) => setDefaultLeaveDays(Number(e.target.value))}
               className="w-full"
             />
-            <p className="text-[10px] text-muted-foreground">Wird bei neuen Mitarbeitern als Standardwert gesetzt</p>
+            <p className="text-[10px] text-muted-foreground">{t('settings.team.defaultLeaveDaysDesc')}</p>
           </div>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
           <div>
-            <p className="text-sm text-foreground">Abwesenheitsgrund anzeigen</p>
-            <p className="text-xs text-muted-foreground">Wenn deaktiviert, sehen Kollegen nur "Abwesend" ohne Grund</p>
+            <p className="text-sm text-foreground">{t('settings.team.showAbsenceReason')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.team.showAbsenceReasonDesc')}</p>
           </div>
           <Switch checked={showAbsenceReason} onCheckedChange={setShowAbsenceReason} />
         </div>
 
         <div className="space-y-1.5">
-          <Label>Zeitzone</Label>
+          <Label>{t('settings.team.timezone')}</Label>
           <select
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
@@ -386,7 +387,7 @@ function HRSettingsSection() {
 
       <Button onClick={handleSave} className="mt-4" size="sm" disabled={updateMutation.isPending}>
         <Save className="mr-1.5 h-4 w-4" />
-        HR-Einstellungen speichern
+        {t('settings.team.saveHR')}
       </Button>
     </section>
   )
