@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Clock, Info } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 
@@ -69,6 +70,7 @@ const RETENTION_DATA: Record<Country, RetentionEntry[]> = {
 }
 
 export default function RetentionPolicyPage() {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
   const [country, setCountry] = useState<Country>('de')
@@ -88,9 +90,9 @@ export default function RetentionPolicyPage() {
             <Clock className="h-6 w-6 text-warning" />
           </div>
           <div>
-            <h1 className="text-foreground">Aufbewahrungsfristen</h1>
+            <h1 className="text-foreground">{t('security.retention.title')}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Gesetzliche Aufbewahrungspflichten nach Dokumenttyp und Land.
+              {t('security.retention.subtitle')}
             </p>
           </div>
         </div>
@@ -99,8 +101,7 @@ export default function RetentionPolicyPage() {
         <div className="flex items-start gap-2 rounded-lg bg-info-light/50 px-4 py-3 mb-6">
           <Info className="h-4 w-4 text-info mt-0.5 shrink-0" />
           <p className="text-xs text-info">
-            Diese Übersicht dient als Orientierung. Bitte prüfen Sie die aktuellen Regelungen mit Ihrem
-            Steuerberater oder Rechtsanwalt. Fristen können sich durch Gesetzesänderungen verschieben.
+            {t('security.retention.infoNote')}
           </p>
         </div>
 
@@ -126,10 +127,10 @@ export default function RetentionPolicyPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/30">
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Dokumenttyp</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Aufbewahrungsfrist</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Rechtsgrundlage</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('security.retention.col.documentType')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('security.retention.col.retentionPeriod')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('security.retention.col.legalBasis')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -140,7 +141,7 @@ export default function RetentionPolicyPage() {
                   <td className="px-4 py-3 text-xs text-muted-foreground font-mono">{entry.basis}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${STATUS_BADGE[entry.status]}`}>
-                      {entry.status === 'aktiv' ? 'Aktiv' : entry.status === 'auslaufend' ? 'Auslaufend' : 'Abgelaufen'}
+                      {entry.status === 'aktiv' ? t('security.retention.status.active') : entry.status === 'auslaufend' ? t('security.retention.status.expiring') : t('security.retention.status.expired')}
                     </span>
                   </td>
                 </tr>
@@ -151,11 +152,11 @@ export default function RetentionPolicyPage() {
 
         {/* Summary */}
         <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
-          <span>{entries.length} Dokumenttypen</span>
+          <span>{t('security.retention.summary.documentTypes', { count: entries.length })}</span>
           <span>&middot;</span>
-          <span>Land: {COUNTRY_LABELS[country]}</span>
+          <span>{t('security.retention.summary.country', { country: COUNTRY_LABELS[country] })}</span>
           <span>&middot;</span>
-          <span>Stand: Februar 2026</span>
+          <span>{t('security.retention.summary.asOf')}</span>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@
  * and profile menu.
  */
 import { Menu } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/stores/ui'
 import { useNotificationWebSocket } from '@/api/hooks/useNotifications'
 import { NotificationBell } from '@/modules/notifications/NotificationBell'
@@ -22,6 +23,7 @@ import {
 } from '@/components/header'
 
 export function Header() {
+  const { t } = useTranslation()
   const navLayout = useUIStore((s) => s.navLayout)
   const setSidebarMobileOpen = useUIStore((s) => s.setSidebarMobileOpen)
 
@@ -41,7 +43,7 @@ export function Header() {
           <button
             onClick={() => setSidebarMobileOpen(true)}
             className="shrink-0 rounded-lg p-2 hover:bg-accent lg:hidden"
-            aria-label="Navigation öffnen"
+            aria-label={t('components.layout.openNav')}
           >
             <Menu className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>

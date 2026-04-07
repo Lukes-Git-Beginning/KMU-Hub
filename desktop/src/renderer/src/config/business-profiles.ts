@@ -37,8 +37,8 @@ export const ALWAYS_VISIBLE_MODULES = ['dashboard', 'settings', 'security-admin'
 export const BUSINESS_PROFILES: BusinessProfile[] = [
   {
     id: 'allgemein',
-    name: 'Allgemein (Büro)',
-    description: 'Standard-Büroarbeit mit CRM, Projekten und Administration',
+    name: 'config.businessProfile.allgemein.name',
+    description: 'config.businessProfile.allgemein.description',
     emoji: '\u{1F3E2}',
     color: 'hsl(217 91% 60%)',
     defaultModules: [
@@ -46,12 +46,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'documents', 'mail', 'contacts', 'team', 'finance', 'zeiterfassung',
     ],
     optionalModules: ['berichte', 'helpdesk', 'verträge', 'formulare'],
-    examples: ['Beratungsfirmen', 'Agenturen', 'Kanzleien', 'Treuhänder'],
+    examples: ['config.businessProfile.allgemein.example.0', 'config.businessProfile.allgemein.example.1', 'config.businessProfile.allgemein.example.2', 'config.businessProfile.allgemein.example.3'],
   },
   {
     id: 'handwerk',
-    name: 'Handwerk',
-    description: 'Aussendienst, Projekte, Werkzeuge & Materialverwaltung',
+    name: 'config.businessProfile.handwerk.name',
+    description: 'config.businessProfile.handwerk.description',
     emoji: '\u{1F527}',
     color: 'hsl(25 95% 53%)',
     defaultModules: [
@@ -59,12 +59,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'fuhrpark', 'documents', 'team', 'finance', 'rapporte', 'zeiterfassung',
     ],
     optionalModules: ['schichten', 'chat', 'meetings', 'verträge', 'vermietung', 'formulare'],
-    examples: ['Elektriker', 'Sanitär', 'Schreiner', 'Maler', 'HVAC'],
+    examples: ['config.businessProfile.handwerk.example.0', 'config.businessProfile.handwerk.example.1', 'config.businessProfile.handwerk.example.2', 'config.businessProfile.handwerk.example.3', 'config.businessProfile.handwerk.example.4'],
   },
   {
     id: 'gastronomie',
-    name: 'Gastronomie',
-    description: 'Schichtbetrieb, Inventar mit Ablaufdaten',
+    name: 'config.businessProfile.gastronomie.name',
+    description: 'config.businessProfile.gastronomie.description',
     emoji: '\u{1F373}',
     color: 'hsl(0 72% 51%)',
     defaultModules: [
@@ -72,12 +72,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'team', 'finance', 'calendar', 'zeiterfassung',
     ],
     optionalModules: ['crm', 'chat', 'berichte', 'verträge', 'formulare'],
-    examples: ['Restaurants', 'Cafes', 'Catering', 'Bäckereien', 'Hotels'],
+    examples: ['config.businessProfile.gastronomie.example.0', 'config.businessProfile.gastronomie.example.1', 'config.businessProfile.gastronomie.example.2', 'config.businessProfile.gastronomie.example.3', 'config.businessProfile.gastronomie.example.4'],
   },
   {
     id: 'einzelhandel',
-    name: 'Einzelhandel',
-    description: 'Lagerverwaltung, Kundenbetreuung, Bestellwesen',
+    name: 'config.businessProfile.einzelhandel.name',
+    description: 'config.businessProfile.einzelhandel.description',
     emoji: '\u{1F6D2}',
     color: 'hsl(262 83% 58%)',
     defaultModules: [
@@ -85,12 +85,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'team', 'finance', 'zeiterfassung',
     ],
     optionalModules: ['chat', 'berichte', 'meetings', 'verträge', 'vermietung', 'formulare'],
-    examples: ['Elektronik', 'Boutique', 'Möbel', 'Buchhandlung'],
+    examples: ['config.businessProfile.einzelhandel.example.0', 'config.businessProfile.einzelhandel.example.1', 'config.businessProfile.einzelhandel.example.2', 'config.businessProfile.einzelhandel.example.3'],
   },
   {
     id: 'dienstleistung',
-    name: 'Dienstleistung',
-    description: 'Terminbasiert, kundenorientiert, wenig Inventar',
+    name: 'config.businessProfile.dienstleistung.name',
+    description: 'config.businessProfile.dienstleistung.description',
     emoji: '\u{1F485}',
     color: 'hsl(330 81% 60%)',
     defaultModules: [
@@ -98,12 +98,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'team', 'finance', 'chat', 'zeiterfassung', 'verträge',
     ],
     optionalModules: ['projects', 'meetings', 'helpdesk', 'berichte', 'vermietung', 'formulare', 'rapporte'],
-    examples: ['Friseursalon', 'Kosmetik', 'Reinigung', 'Berater'],
+    examples: ['config.businessProfile.dienstleistung.example.0', 'config.businessProfile.dienstleistung.example.1', 'config.businessProfile.dienstleistung.example.2', 'config.businessProfile.dienstleistung.example.3'],
   },
   {
     id: 'it_tech',
-    name: 'IT / Tech',
-    description: 'Projekte, Helpdesk, Infrastruktur-Management',
+    name: 'config.businessProfile.it_tech.name',
+    description: 'config.businessProfile.it_tech.description',
     emoji: '\u{1F4BB}',
     color: 'hsl(142 71% 45%)',
     defaultModules: [
@@ -111,12 +111,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'documents', 'mail', 'team', 'infrastructure', 'finance', 'zeiterfassung', 'verträge',
     ],
     optionalModules: ['berichte', 'inventar', 'formulare'],
-    examples: ['Softwarefirmen', 'IT-Support', 'SaaS', 'Web-Agenturen'],
+    examples: ['config.businessProfile.it_tech.example.0', 'config.businessProfile.it_tech.example.1', 'config.businessProfile.it_tech.example.2', 'config.businessProfile.it_tech.example.3'],
   },
   {
     id: 'produktion',
-    name: 'Produktion',
-    description: 'Fertigungsplanung, Rohstoffe, Qualitätskontrolle',
+    name: 'config.businessProfile.produktion.name',
+    description: 'config.businessProfile.produktion.description',
     emoji: '\u{1F3ED}',
     color: 'hsl(45 93% 47%)',
     defaultModules: [
@@ -124,12 +124,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'team', 'finance', 'calendar', 'zeiterfassung',
     ],
     optionalModules: ['crm', 'fuhrpark', 'berichte', 'documents', 'rapporte', 'formulare'],
-    examples: ['Lebensmittel', 'Metallbau', 'Textil', 'Elektronik-Montage'],
+    examples: ['config.businessProfile.produktion.example.0', 'config.businessProfile.produktion.example.1', 'config.businessProfile.produktion.example.2', 'config.businessProfile.produktion.example.3'],
   },
   {
     id: 'logistik',
-    name: 'Logistik',
-    description: 'Fuhrpark, Lager, Routenplanung',
+    name: 'config.businessProfile.logistik.name',
+    description: 'config.businessProfile.logistik.description',
     emoji: '\u{1F69A}',
     color: 'hsl(199 89% 48%)',
     defaultModules: [
@@ -137,12 +137,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'team', 'finance', 'calendar', 'zeiterfassung',
     ],
     optionalModules: ['einkauf', 'chat', 'berichte', 'documents', 'rapporte', 'vermietung', 'formulare'],
-    examples: ['Kurierdienste', 'Speditionen', 'Lagerhaltung'],
+    examples: ['config.businessProfile.logistik.example.0', 'config.businessProfile.logistik.example.1', 'config.businessProfile.logistik.example.2'],
   },
   {
     id: 'gesundheit',
-    name: 'Gesundheit',
-    description: 'Terminverwaltung, Patientenakten, Compliance',
+    name: 'config.businessProfile.gesundheit.name',
+    description: 'config.businessProfile.gesundheit.description',
     emoji: '\u{1FA7A}',
     color: 'hsl(174 62% 47%)',
     defaultModules: [
@@ -150,12 +150,12 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'team', 'finance', 'mail', 'zeiterfassung', 'verträge',
     ],
     optionalModules: ['schichten', 'inventar', 'meetings', 'helpdesk', 'berichte', 'formulare'],
-    examples: ['Arztpraxen', 'Zahnärzte', 'Physiotherapie', 'Tierärzte'],
+    examples: ['config.businessProfile.gesundheit.example.0', 'config.businessProfile.gesundheit.example.1', 'config.businessProfile.gesundheit.example.2', 'config.businessProfile.gesundheit.example.3'],
   },
   {
     id: 'bau',
-    name: 'Bau',
-    description: 'Projektbasiert, Material, Fahrzeuge, Feldteams',
+    name: 'config.businessProfile.bau.name',
+    description: 'config.businessProfile.bau.description',
     emoji: '\u{1F3D7}\uFE0F',
     color: 'hsl(32 95% 44%)',
     defaultModules: [
@@ -163,7 +163,7 @@ export const BUSINESS_PROFILES: BusinessProfile[] = [
       'team', 'schichten', 'finance', 'calendar', 'rapporte', 'zeiterfassung',
     ],
     optionalModules: ['crm', 'documents', 'chat', 'berichte', 'vermietung', 'formulare'],
-    examples: ['Bauunternehmen', 'Renovation', 'Landschaftsbau'],
+    examples: ['config.businessProfile.bau.example.0', 'config.businessProfile.bau.example.1', 'config.businessProfile.bau.example.2'],
   },
 ]
 

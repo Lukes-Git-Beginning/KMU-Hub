@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import * as automationClient from '../automation-client'
 import type {
   AutomationListParams,
@@ -119,10 +120,10 @@ export function useCreateAutomation() {
       automationClient.createAutomation(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: automationKeys.all })
-      toast.success('Automatisierung erstellt')
+      toast.success(i18next.t('api.automation.created'))
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen der Automatisierung')
+      toast.error(i18next.t('api.automation.error.create'))
     },
   })
 }
@@ -138,10 +139,10 @@ export function useUpdateAutomation() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: automationKeys.list() })
       qc.invalidateQueries({ queryKey: automationKeys.detail(vars.id) })
-      toast.success('Automatisierung aktualisiert')
+      toast.success(i18next.t('api.automation.updated'))
     },
     onError: () => {
-      toast.error('Fehler beim Aktualisieren der Automatisierung')
+      toast.error(i18next.t('api.automation.error.update'))
     },
   })
 }
@@ -152,10 +153,10 @@ export function useDeleteAutomation() {
     mutationFn: (id: string) => automationClient.deleteAutomation(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: automationKeys.all })
-      toast.success('Automatisierung gelöscht')
+      toast.success(i18next.t('api.automation.deleted'))
     },
     onError: () => {
-      toast.error('Fehler beim Löschen der Automatisierung')
+      toast.error(i18next.t('api.automation.error.delete'))
     },
   })
 }
@@ -185,7 +186,7 @@ export function useEnableAutomation() {
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: automationKeys.all })
-      toast.error('Fehler beim Aktivieren der Automatisierung')
+      toast.error(i18next.t('api.automation.error.enable'))
     },
   })
 }
@@ -215,7 +216,7 @@ export function useDisableAutomation() {
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: automationKeys.all })
-      toast.error('Fehler beim Deaktivieren der Automatisierung')
+      toast.error(i18next.t('api.automation.error.disable'))
     },
   })
 }
@@ -232,10 +233,10 @@ export function useCreateFromTemplate() {
     }) => automationClient.createFromTemplate(templateId, { name }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: automationKeys.all })
-      toast.success('Automatisierung aus Vorlage erstellt')
+      toast.success(i18next.t('api.automation.createdFromTemplate'))
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen aus Vorlage')
+      toast.error(i18next.t('api.automation.error.createFromTemplate'))
     },
   })
 }

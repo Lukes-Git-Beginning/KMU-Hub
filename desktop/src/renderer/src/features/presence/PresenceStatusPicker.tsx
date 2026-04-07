@@ -5,6 +5,7 @@
  * Nicht stören. "Im Anruf" and "Offline" are automatic only and
  * cannot be manually selected. Placed in the header or profile area.
  */
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
 import { usePresenceStore } from '@/stores/presence'
 import { useSetPresenceStatus } from '@/api/hooks/usePresence'
@@ -16,17 +17,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-/** Manually selectable statuses (in_call and offline are automatic only). */
-const selectableStatuses: Array<{
-  value: PresenceLevel
-  label: string
-  color: string
-}> = [
-  { value: 'online', label: 'Online', color: 'bg-green-500' },
-  { value: 'away', label: 'Abwesend', color: 'bg-yellow-500' },
-  { value: 'dnd', label: 'Nicht stören', color: 'bg-destructive' },
-]
-
 /** Color mapping for display (includes automatic statuses). */
 const statusColors: Record<PresenceLevel, string> = {
   online: 'bg-green-500',
@@ -36,19 +26,31 @@ const statusColors: Record<PresenceLevel, string> = {
   offline: 'bg-gray-400',
 }
 
-/** Display labels for current status (includes automatic statuses). */
-const statusLabels: Record<PresenceLevel, string> = {
-  online: 'Online',
-  away: 'Abwesend',
-  dnd: 'Nicht stören',
-  in_call: 'Im Anruf',
-  offline: 'Offline',
-}
-
 export function PresenceStatusPicker() {
+  const { t } = useTranslation()
   const myStatus = usePresenceStore((s) => s.myStatus)
   const setMyStatus = usePresenceStore((s) => s.setMyStatus)
   const setPresenceStatus = useSetPresenceStatus()
+
+  /** Display labels for current status (includes automatic statuses). */
+  const statusLabels: Record<PresenceLevel, string> = {
+    online: t('features.presence.status.online'),
+    away: t('features.presence.status.away'),
+    dnd: t('features.presence.status.dnd'),
+    in_call: t('features.presence.status.inCall'),
+    offline: t('features.presence.status.offline'),
+  }
+
+  /** Manually selectable statuses (in_call and offline are automatic only). */
+  const selectableStatuses: Array<{
+    value: PresenceLevel
+    label: string
+    color: string
+  }> = [
+    { value: 'online', label: statusLabels.online, color: 'bg-green-500' },
+    { value: 'away', label: statusLabels.away, color: 'bg-yellow-500' },
+    { value: 'dnd', label: statusLabels.dnd, color: 'bg-destructive' },
+  ]
 
   const handleSelect = (status: PresenceLevel) => {
     setMyStatus(status)
@@ -60,7 +62,7 @@ export function PresenceStatusPicker() {
       <DropdownMenuTrigger asChild>
         <button
           className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          aria-label={`Status: ${statusLabels[myStatus]}`}
+          aria-label={t('features.presence.statusAriaLabel', { status: statusLabels[myStatus] })}
         >
           <span
             className={cn(

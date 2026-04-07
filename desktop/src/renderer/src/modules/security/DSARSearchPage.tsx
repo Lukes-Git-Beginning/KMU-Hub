@@ -6,6 +6,7 @@
  */
 import { useState, useCallback } from 'react'
 import { Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   User,
@@ -229,6 +230,7 @@ const MOCK_PERSONS: Record<string, PersonResult> = {
 }
 
 export default function DSARSearchPage() {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.roles.includes('admin')
 
@@ -270,8 +272,8 @@ export default function DSARSearchPage() {
     : 0
 
   const handleExport = (format: string) => {
-    toast.success(`Datenpaket als ${format} wird erstellt...`)
-    setTimeout(() => toast.success(`${format}-Export für ${result?.name} bereit zum Download`), 1500)
+    toast.success(t('security.dsar.export.preparing', { format }))
+    setTimeout(() => toast.success(t('security.dsar.export.ready', { format, name: result?.name })), 1500)
   }
 
   if (!isAdmin) {
@@ -287,16 +289,16 @@ export default function DSARSearchPage() {
             <Search className="h-6 w-6 text-info" />
           </div>
           <div>
-            <h1 className="text-foreground">Auskunft (Art. 15 DSGVO)</h1>
+            <h1 className="text-foreground">{t('security.dsar.title')}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Durchsuche alle Module nach personenbezogenen Daten einer betroffenen Person.
+              {t('security.dsar.subtitle')}
             </p>
           </div>
         </div>
 
         {/* Search */}
         <div className="rounded-lg border border-border bg-card p-5 glass-surface mb-6">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Person suchen</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-3">{t('security.dsar.search.heading')}</h3>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -304,7 +306,7 @@ export default function DSARSearchPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Name oder E-Mail-Adresse eingeben..."
+                placeholder={t('security.dsar.search.placeholder')}
                 className="w-full rounded-lg border border-border bg-card pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
@@ -316,15 +318,15 @@ export default function DSARSearchPage() {
               {isSearching ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Suche...
+                  {t('security.dsar.search.searching')}
                 </span>
               ) : (
-                'Suchen'
+                t('common.search')
               )}
             </button>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
-            Testdaten: Max Mustermann, Anna Schmidt, Peter Müller
+            {t('security.dsar.search.hint')}
           </p>
         </div>
 
@@ -333,7 +335,7 @@ export default function DSARSearchPage() {
           <div className="rounded-lg border border-border bg-card p-8 text-center glass-surface mb-6">
             <Search className="mx-auto h-10 w-10 text-muted-foreground/30 mb-2" />
             <p className="text-sm text-muted-foreground">
-              Keine Person gefunden. Bitte überprüfen Sie die Suchkriterien.
+              {t('security.dsar.search.noResult')}
             </p>
           </div>
         )}
@@ -354,8 +356,8 @@ export default function DSARSearchPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>{result.modules.length} Module</span>
-                  <span className="font-medium text-foreground">{totalRecords} Datensaetze</span>
+                  <span>{t('security.dsar.result.moduleCount', { count: result.modules.length })}</span>
+                  <span className="font-medium text-foreground">{t('security.dsar.result.recordCount', { count: totalRecords })}</span>
                 </div>
               </div>
             </div>
@@ -381,7 +383,7 @@ export default function DSARSearchPage() {
                         <span className="text-sm font-medium text-foreground">{mod.module}</span>
                       </div>
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
-                        {mod.records.length} {mod.records.length === 1 ? 'Eintrag' : 'Einträge'}
+                        {t('security.dsar.result.entryCount', { count: mod.records.length })}
                       </span>
                     </button>
 
@@ -423,14 +425,14 @@ export default function DSARSearchPage() {
                 className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
               >
                 <FileJson className="h-4 w-4" />
-                Als JSON exportieren
+                {t('security.dsar.export.json')}
               </button>
               <button
                 onClick={() => handleExport('CSV')}
                 className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
               >
                 <FileSpreadsheet className="h-4 w-4" />
-                Als CSV exportieren
+                {t('security.dsar.export.csv')}
               </button>
             </div>
           </>

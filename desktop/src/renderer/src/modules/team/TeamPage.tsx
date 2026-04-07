@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Search,
   Plus,
@@ -134,6 +135,7 @@ const participationStatusLabels: Record<string, string> = {
 }
 
 export default function TeamPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   // Keep Zustand only for training/payroll mocks (no backend API yet)
   const {
@@ -200,7 +202,7 @@ export default function TeamPage() {
 
   // Training computed values (still from Zustand mock)
    
-  const mandatoryCount = useMemo(() => trainings.filter((t) => t.mandatory).length, [trainings])
+  const mandatoryCount = useMemo(() => trainings.filter((tr) => tr.mandatory).length, [trainings])
   const expiredCount = useMemo(() => trainingParticipations.filter((p) => p.status === 'expired').length, [trainingParticipations])
 
   // Cross-module actions
@@ -222,7 +224,7 @@ export default function TeamPage() {
     // TODO: Backend needs a dedicated deactivation endpoint; for now update via employee API
     updateEmployeeMutation.mutate({ id: emp.id, data: {} })
     setConfirmDeactivate(null)
-    toast.success(`${emp.userName ?? 'Mitarbeiter'} deaktiviert`)
+    toast.success(t('team.page.deactivated', { name: emp.userName ?? t('team.member.employee') }))
   }
 
   const getInitials = (name: string) => {
@@ -238,10 +240,10 @@ export default function TeamPage() {
     const name = emp.userName ?? 'Unbekannt'
     const initials = getInitials(name)
     return [
-      { label: 'Profil ansehen', onClick: () => { setSelectedMemberId(emp.id); setSelectedMemberName(name); setSelectedMemberInitials(initials) } },
-      { label: 'E-Mail senden', icon: Mail, onClick: () => handleEmail(name, emp.userEmail) },
-      { label: 'Anrufen', icon: Phone, onClick: () => handleCall(name, initials) },
-      { label: 'Nachricht senden', icon: MessageSquare, onClick: () => handleMessage(name) },
+      { label: t('team.page.action.viewProfile'), onClick: () => { setSelectedMemberId(emp.id); setSelectedMemberName(name); setSelectedMemberInitials(initials) } },
+      { label: t('team.page.action.sendEmail'), icon: Mail, onClick: () => handleEmail(name, emp.userEmail) },
+      { label: t('team.page.action.call'), icon: Phone, onClick: () => handleCall(name, initials) },
+      { label: t('team.page.action.sendMessage'), icon: MessageSquare, onClick: () => handleMessage(name) },
     ]
   }
 
@@ -250,7 +252,7 @@ export default function TeamPage() {
       {/* Header */}
       <PageHeader
         title="Team"
-        description={`${apiEmployees.length} Mitglieder · ${pendingCount} offene Anfragen`}
+        description={t('team.page.headerDescription', { count: apiEmployees.length, pending: pendingCount })}
         icon={Users}
         moduleId="team"
         actions={
@@ -259,7 +261,7 @@ export default function TeamPage() {
             className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Mitarbeiter erstellen
+            {t('team.wizard.createEmployee')}
           </button>
         }
         className="mb-6"
@@ -274,7 +276,7 @@ export default function TeamPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">{dept.name}</p>
-              <p className="text-xs text-muted-foreground">{dept.count} Mitglieder</p>
+              <p className="text-xs text-muted-foreground">{t('team.page.deptMembers', { count: dept.count })}</p>
             </div>
           </div>
         ))}
@@ -287,27 +289,27 @@ export default function TeamPage() {
           style={{ maskImage: 'linear-gradient(to right, black calc(100% - 40px), transparent)', WebkitMaskImage: 'linear-gradient(to right, black calc(100% - 40px), transparent)' }}
         >
           {([
-            { key: 'members' as const, label: `Mitglieder (${apiEmployees.length})`, icon: undefined },
-            { key: 'requests' as const, label: `Anfragen (${pendingCount} offen)`, icon: undefined },
-            { key: 'absences' as const, label: 'Abwesenheiten', icon: undefined },
-            { key: 'korrekturen' as const, label: 'Korrekturen', icon: Clock },
-            { key: 'personalakte' as const, label: 'Personalakte', icon: FolderOpen },
-            { key: 'onboarding' as const, label: 'Onboarding', icon: ListChecks },
-            { key: 'orgchart' as const, label: 'Organigramm', icon: Network },
-            { key: 'integrationen' as const, label: 'Integrationen', icon: Link2 },
-            { key: 'schulungen' as const, label: 'Schulungen', icon: GraduationCap },
-            { key: 'selfservice' as const, label: 'Self-Service', icon: UserCircle },
-            { key: 'einstellungen' as const, label: 'Einstellungen', icon: Settings },
-          ]).map((t) => (
+            { key: 'members' as const, label: t('team.page.tab.members', { count: apiEmployees.length }), icon: undefined },
+            { key: 'requests' as const, label: t('team.page.tab.requests', { count: pendingCount }), icon: undefined },
+            { key: 'absences' as const, label: t('team.page.tab.absences'), icon: undefined },
+            { key: 'korrekturen' as const, label: t('team.page.tab.corrections'), icon: Clock },
+            { key: 'personalakte' as const, label: t('team.page.tab.personnel'), icon: FolderOpen },
+            { key: 'onboarding' as const, label: t('team.page.tab.onboarding'), icon: ListChecks },
+            { key: 'orgchart' as const, label: t('team.page.tab.orgchart'), icon: Network },
+            { key: 'integrationen' as const, label: t('team.page.tab.integrations'), icon: Link2 },
+            { key: 'schulungen' as const, label: t('team.page.tab.trainings'), icon: GraduationCap },
+            { key: 'selfservice' as const, label: t('team.page.tab.selfservice'), icon: UserCircle },
+            { key: 'einstellungen' as const, label: t('team.page.tab.settings'), icon: Settings },
+          ]).map((tab_item) => (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+              key={tab_item.key}
+              onClick={() => setTab(tab_item.key)}
               className={`flex items-center gap-1.5 border-b-2 px-1 pb-2 text-sm transition-colors whitespace-nowrap ${
-                tab === t.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
+                tab === tab_item.key ? 'border-primary text-primary font-medium tab-accent-active' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              {t.icon && <t.icon className="h-3.5 w-3.5" />}
-              {t.label}
+              {tab_item.icon && <tab_item.icon className="h-3.5 w-3.5" />}
+              {tab_item.label}
             </button>
           ))}
         </div>
@@ -321,7 +323,7 @@ export default function TeamPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Mitglied suchen..."
+                placeholder={t('team.page.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -350,9 +352,9 @@ export default function TeamPage() {
           ) : filteredEmployees.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="Keine Mitglieder gefunden"
-              description={search ? 'Passe deine Suche an' : 'Lade Mitglieder ein, um loszulegen'}
-              action={search ? undefined : { label: 'Mitarbeiter erstellen', onClick: () => setShowCreateWizard(true) }}
+              title={t('team.page.noMembers')}
+              description={search ? t('team.page.adjustSearch') : t('team.page.inviteToStart')}
+              action={search ? undefined : { label: t('team.wizard.createEmployee'), onClick: () => setShowCreateWizard(true) }}
             />
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -405,8 +407,8 @@ export default function TeamPage() {
           {pendingRequests.length === 0 ? (
             <EmptyState
               icon={Calendar}
-              title="Keine Anfragen"
-              description="Es gibt aktuell keine offenen HR-Anfragen"
+              title={t('team.page.noRequests')}
+              description={t('team.page.noRequestsDescription')}
             />
           ) : (
             pendingRequests.map((req) => (
@@ -447,27 +449,27 @@ export default function TeamPage() {
         <div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Schulungen gesamt</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('team.page.training.totalTrainings')}</p>
               <p className="text-lg font-semibold text-foreground">{trainings.length}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Pflichtschulungen</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('team.page.training.mandatory')}</p>
               <p className="text-lg font-semibold text-foreground">{mandatoryCount}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Abgelaufen</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('team.page.training.expired')}</p>
               <div className="flex items-center gap-2">
                 <p className="text-lg font-semibold text-foreground">{expiredCount}</p>
                 {expiredCount > 0 && (
                   <span className="rounded-full bg-error-light px-2 py-0.5 text-[10px] font-medium text-error flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
-                    Achtung
+                    {t('team.page.training.attention')}
                   </span>
                 )}
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
-              <p className="text-xs text-muted-foreground mb-1">Teilnahmen</p>
+              <p className="text-xs text-muted-foreground mb-1">{t('team.page.training.participations')}</p>
               <p className="text-lg font-semibold text-foreground">{trainingParticipations.length}</p>
             </div>
           </div>
@@ -478,20 +480,20 @@ export default function TeamPage() {
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Schulung anlegen
+              {t('team.page.training.addTraining')}
             </button>
             <button
               onClick={() => setShowRecordParticipation(true)}
               className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Teilnahme erfassen
+              {t('team.page.training.recordParticipation')}
             </button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-3">Schulungs-Katalog</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('team.page.training.catalog')}</h3>
               <div className="space-y-3">
                 {trainings.map((training) => {
                   const TypeIcon = trainingTypeIcons[training.type] || GraduationCap
@@ -506,22 +508,22 @@ export default function TeamPage() {
                             <h4 className="text-sm font-medium text-foreground">{training.name}</h4>
                             <div className="flex items-center gap-2 mt-0.5">
                               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${trainingTypeColors[training.type]}`}>
-                                {trainingTypeLabels[training.type]}
+                                {t(`team.page.training.type.${training.type}`, { defaultValue: trainingTypeLabels[training.type] })}
                               </span>
                               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                 training.mandatory ? 'bg-error-light text-error' : 'bg-secondary text-muted-foreground'
                               }`}>
-                                {training.mandatory ? 'Pflicht' : 'Optional'}
+                                {training.mandatory ? t('team.page.training.required') : t('team.page.training.optional')}
                               </span>
                             </div>
                           </div>
                         </div>
                       </div>
                       <div className="space-y-1 text-xs text-muted-foreground">
-                        <p>Dauer: {training.duration}</p>
-                        <p>Anbieter: {training.provider}</p>
+                        <p>{t('team.page.training.duration')}: {training.duration}</p>
+                        <p>{t('team.page.training.provider')}: {training.provider}</p>
                         {training.validityMonths > 0 && (
-                          <p>Gültig: {training.validityMonths} Monate</p>
+                          <p>{t('team.page.training.validMonths', { count: training.validityMonths })}</p>
                         )}
                       </div>
                     </div>
@@ -531,17 +533,17 @@ export default function TeamPage() {
             </div>
 
             <div>
-              <h3 className="text-sm font-medium text-foreground mb-3">Teilnahme-Übersicht</h3>
+              <h3 className="text-sm font-medium text-foreground mb-3">{t('team.page.training.participationOverview')}</h3>
               <div className="rounded-lg border border-border overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border bg-secondary/50">
-                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Mitarbeiter</th>
-                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Schulung</th>
-                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Status</th>
-                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Abgeschlossen</th>
-                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Ablauf</th>
+                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">{t('team.page.training.colEmployee')}</th>
+                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">{t('team.page.training.colTraining')}</th>
+                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">{t('team.page.training.colStatus')}</th>
+                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">{t('team.page.training.colCompleted')}</th>
+                        <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">{t('team.page.training.colExpiry')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -559,7 +561,7 @@ export default function TeamPage() {
                             <td className="px-3 py-2.5">
                               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${participationStatusColors[p.status]}`}>
                                 {p.status === 'expired' && <AlertTriangle className="h-3 w-3" />}
-                                {participationStatusLabels[p.status]}
+                                {t(`team.page.training.status.${p.status}`, { defaultValue: participationStatusLabels[p.status] })}
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
@@ -626,9 +628,9 @@ export default function TeamPage() {
       <ConfirmDialog
         open={!!confirmDeactivate}
         onOpenChange={() => setConfirmDeactivate(null)}
-        title="Mitglied deaktivieren?"
-        description={`${confirmDeactivate?.userName ?? 'Mitarbeiter'} wird deaktiviert. Das Konto kann später reaktiviert werden.`}
-        confirmLabel="Deaktivieren"
+        title={t('team.page.deactivateTitle')}
+        description={t('team.page.deactivateDescription', { name: confirmDeactivate?.userName ?? t('team.member.employee') })}
+        confirmLabel={t('team.page.deactivateConfirm')}
         variant="destructive"
         onConfirm={() => confirmDeactivate && handleDeactivate(confirmDeactivate)}
       />
@@ -669,6 +671,7 @@ interface EmployeeCardProps {
 }
 
 function EmployeeCard({ employee, name, initials, actions, activity, onEmail, onMessage, onCall, onClick }: EmployeeCardProps) {
+  const { t } = useTranslation()
   const statusDot = activity?.status === 'tracking'
     ? 'bg-success'
     : activity?.status === 'absent'
@@ -703,7 +706,7 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
           )}
           <span className="text-[11px] text-foreground/80 truncate">{activity.currentDescription}</span>
           {activity.startedAt && (
-            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 ml-auto">seit {activity.startedAt}</span>
+            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 ml-auto">{t('team.page.since', { time: activity.startedAt })}</span>
           )}
         </div>
       )}
@@ -716,11 +719,11 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
       <div className="space-y-1.5 text-xs text-muted-foreground mb-3">
         <div className="flex items-center gap-2">
           <Briefcase className="h-3 w-3" />
-          <span>{employee.department ?? 'Keine Abteilung'}</span>
+          <span>{employee.department ?? t('team.page.noDepartment')}</span>
         </div>
         <div className="flex items-center gap-2">
           <Clock className="h-3 w-3" />
-          <span>{contractTypeLabels[employee.contractType] ?? employee.contractType}</span>
+          <span>{contractTypeLabels[employee.contractType] ? t(`team.contractType.${employee.contractType === 'full_time' ? 'fullTime' : employee.contractType === 'part_time' ? 'partTime' : employee.contractType === 'praktikum' ? 'internship' : 'freelance'}`, { defaultValue: contractTypeLabels[employee.contractType] }) : employee.contractType}</span>
         </div>
       </div>
 
@@ -730,21 +733,21 @@ function EmployeeCard({ employee, name, initials, actions, activity, onEmail, on
           className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
         >
           <Mail className="h-3 w-3" />
-          E-Mail
+          {t('team.page.action.email')}
         </button>
         <button
           onClick={onMessage}
           className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
         >
           <MessageSquare className="h-3 w-3" />
-          Chat
+          {t('team.page.action.chat')}
         </button>
         <button
           onClick={onCall}
           className="flex-1 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
         >
           <Phone className="h-3 w-3" />
-          Anrufen
+          {t('team.detail.call')}
         </button>
       </div>
     </div>
@@ -763,6 +766,7 @@ interface EmployeeRowProps {
 }
 
 function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onMessage, onClick }: EmployeeRowProps) {
+  const { t } = useTranslation()
   const statusDot = activity?.status === 'tracking'
     ? 'bg-success'
     : activity?.status === 'absent'
@@ -799,10 +803,10 @@ function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onM
         )}
       </button>
       <div className="flex gap-1">
-        <button onClick={onEmail} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title="E-Mail" aria-label="E-Mail">
+        <button onClick={onEmail} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title={t('team.page.action.email')} aria-label={t('team.page.action.email')}>
           <Mail className="h-4 w-4" />
         </button>
-        <button onClick={onMessage} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title="Nachricht" aria-label="Nachricht">
+        <button onClick={onMessage} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary" title={t('team.page.action.sendMessage')} aria-label={t('team.page.action.sendMessage')}>
           <MessageSquare className="h-4 w-4" />
         </button>
         <ItemActions items={actions} />
@@ -812,6 +816,7 @@ function EmployeeRow({ employee, name, initials, actions, activity, onEmail, onM
 }
 
 function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApprove: () => void }) {
+  const { t } = useTranslation()
   const initials = request.employeeName
     ?.split(' ')
     .map((n) => n[0])
@@ -833,7 +838,7 @@ function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApp
                 {request.leaveType?.name ?? 'Abwesenheit'}
               </span>
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${leaveStatusColors[request.status]}`}>
-                {leaveStatusLabels[request.status]}
+                {t(`team.requests.status${request.status.charAt(0).toUpperCase()}${request.status.slice(1)}`, { defaultValue: leaveStatusLabels[request.status] })}
               </span>
             </div>
           </div>
@@ -846,7 +851,7 @@ function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApp
           <span>
             {new Date(request.startDate).toLocaleDateString('de-DE')}
             {request.startDate !== request.endDate && ` – ${new Date(request.endDate).toLocaleDateString('de-DE')}`}
-            {' '}({request.totalDays} {request.totalDays === 1 ? 'Tag' : 'Tage'})
+            {' '}({request.totalDays} {request.totalDays === 1 ? t('team.approval.day') : t('team.approval.days')})
           </span>
         </div>
         {request.reason && <p className="text-sm text-text-body">{request.reason}</p>}
@@ -857,7 +862,7 @@ function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApp
           onClick={onApprove}
           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
         >
-          Bearbeiten
+          {t('team.page.request.process')}
         </button>
       )}
     </div>
@@ -871,8 +876,9 @@ function LeaveRequestCard({ request, onApprove }: { request: LeaveRequest; onApp
 function AddTrainingDialog({ open, onOpenChange, onAdd }: {
   open: boolean
   onOpenChange: (v: boolean) => void
-  onAdd: (t: Omit<Training, 'id'>) => void
+  onAdd: (training: Omit<Training, 'id'>) => void
 }) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [type, setType] = useState<Training['type']>('safety')
   const [duration, setDuration] = useState('')
@@ -887,7 +893,7 @@ function AddTrainingDialog({ open, onOpenChange, onAdd }: {
   const handleAdd = () => {
     if (!name.trim() || !duration.trim() || !provider.trim()) return
     onAdd({ name: name.trim(), type, duration: duration.trim(), mandatory, provider: provider.trim(), validityMonths })
-    toast.success(`Schulung "${name.trim()}" angelegt`)
+    toast.success(t('team.page.training.addedToast', { name: name.trim() }))
     reset()
     onOpenChange(false)
   }
@@ -896,50 +902,50 @@ function AddTrainingDialog({ open, onOpenChange, onAdd }: {
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v) }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Schulung anlegen</DialogTitle>
+          <DialogTitle>{t('team.page.training.addTraining')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label>Name *</Label>
-            <Input autoFocus placeholder="z.B. Erste Hilfe Kurs" value={name} onChange={(e) => setName(e.target.value)} />
+            <Label>{t('team.page.training.fieldName')}</Label>
+            <Input autoFocus placeholder={t('team.page.training.fieldNamePlaceholder')} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Typ</Label>
+              <Label>{t('team.page.training.fieldType')}</Label>
               <Select value={type} onValueChange={(v) => setType(v as Training['type'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="safety">Sicherheit</SelectItem>
-                  <SelectItem value="technical">Technisch</SelectItem>
-                  <SelectItem value="soft_skills">Soft Skills</SelectItem>
-                  <SelectItem value="compliance">Compliance</SelectItem>
-                  <SelectItem value="certification">Zertifizierung</SelectItem>
+                  <SelectItem value="safety">{t('team.page.training.typeSafety')}</SelectItem>
+                  <SelectItem value="technical">{t('team.page.training.typeTechnical')}</SelectItem>
+                  <SelectItem value="soft_skills">{t('team.page.training.typeSoftSkills')}</SelectItem>
+                  <SelectItem value="compliance">{t('team.page.training.typeCompliance')}</SelectItem>
+                  <SelectItem value="certification">{t('team.page.training.typeCertification')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Dauer *</Label>
-              <Input placeholder="z.B. 2 Tage" value={duration} onChange={(e) => setDuration(e.target.value)} />
+              <Label>{t('team.page.training.fieldDuration')}</Label>
+              <Input placeholder={t('team.page.training.fieldDurationPlaceholder')} value={duration} onChange={(e) => setDuration(e.target.value)} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Anbieter *</Label>
-            <Input placeholder="z.B. DRK" value={provider} onChange={(e) => setProvider(e.target.value)} />
+            <Label>{t('team.page.training.fieldProvider')}</Label>
+            <Input placeholder={t('team.page.training.fieldProviderPlaceholder')} value={provider} onChange={(e) => setProvider(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Gültigkeit (Monate)</Label>
-              <Input type="number" min={0} placeholder="0 = unbegrenzt" value={validityMonths} onChange={(e) => setValidityMonths(Number(e.target.value))} />
+              <Label>{t('team.page.training.fieldValidity')}</Label>
+              <Input type="number" min={0} placeholder={t('team.page.training.fieldValidityPlaceholder')} value={validityMonths} onChange={(e) => setValidityMonths(Number(e.target.value))} />
             </div>
             <div className="flex items-center gap-2 pt-6">
               <Checkbox id="mandatory" checked={mandatory} onCheckedChange={(v) => setMandatory(v === true)} />
-              <Label htmlFor="mandatory" className="text-sm font-normal cursor-pointer">Pflichtschulung</Label>
+              <Label htmlFor="mandatory" className="text-sm font-normal cursor-pointer">{t('team.page.training.mandatoryLabel')}</Label>
             </div>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => { reset(); onOpenChange(false) }}>Abbrechen</Button>
-          <Button onClick={handleAdd} disabled={!name.trim() || !duration.trim() || !provider.trim()}>Anlegen</Button>
+          <Button variant="outline" onClick={() => { reset(); onOpenChange(false) }}>{t('common.cancel')}</Button>
+          <Button onClick={handleAdd} disabled={!name.trim() || !duration.trim() || !provider.trim()}>{t('team.page.training.create')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -957,6 +963,7 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
   members: EmployeeProfile[]
   onRecord: (p: Omit<TrainingParticipation, 'id'>) => void
 }) {
+  const { t } = useTranslation()
   const [memberId, setMemberId] = useState('')
   const [trainingId, setTrainingId] = useState('')
   const [status, setStatus] = useState<TrainingParticipation['status']>('completed')
@@ -970,7 +977,7 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
     if (!memberId || !trainingId) return
     const emp = members.find((m) => m.id === memberId)
     if (!emp) return
-    const training = trainings.find((t) => t.id === trainingId)
+    const training = trainings.find((tr) => tr.id === trainingId)
     const memberName = emp.userName ?? 'Unbekannt'
     const participation: Omit<TrainingParticipation, 'id'> = {
       trainingId, memberId, memberName, status,
@@ -982,7 +989,7 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
       participation.expiresAt = date.toISOString().split('T')[0]
     }
     onRecord(participation)
-    toast.success(`Teilnahme für ${memberName} erfasst`)
+    toast.success(t('team.page.training.participationRecordedToast', { name: memberName }))
     reset()
     onOpenChange(false)
   }
@@ -991,13 +998,13 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v) }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Teilnahme erfassen</DialogTitle>
+          <DialogTitle>{t('team.page.training.recordParticipation')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label>Mitarbeiter *</Label>
+            <Label>{t('team.page.training.fieldEmployee')}</Label>
             <Select value={memberId} onValueChange={setMemberId}>
-              <SelectTrigger><SelectValue placeholder="Mitarbeiter wählen..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('team.page.training.fieldEmployeePlaceholder')} /></SelectTrigger>
               <SelectContent>
                 {members.map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.userName ?? 'Unbekannt'}</SelectItem>
@@ -1006,9 +1013,9 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Schulung *</Label>
+            <Label>{t('team.page.training.fieldTraining')}</Label>
             <Select value={trainingId} onValueChange={setTrainingId}>
-              <SelectTrigger><SelectValue placeholder="Schulung wählen..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('team.page.training.fieldTrainingPlaceholder')} /></SelectTrigger>
               <SelectContent>
                 {trainings.map((t) => (
                   <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
@@ -1018,26 +1025,26 @@ function RecordParticipationDialog({ open, onOpenChange, trainings, members, onR
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Status</Label>
+              <Label>{t('team.page.training.colStatus')}</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as TrainingParticipation['status'])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="completed">Abgeschlossen</SelectItem>
-                  <SelectItem value="pending">Ausstehend</SelectItem>
-                  <SelectItem value="scheduled">Geplant</SelectItem>
-                  <SelectItem value="expired">Abgelaufen</SelectItem>
+                  <SelectItem value="completed">{t('team.page.training.statusCompleted')}</SelectItem>
+                  <SelectItem value="pending">{t('team.page.training.statusPending')}</SelectItem>
+                  <SelectItem value="scheduled">{t('team.page.training.statusScheduled')}</SelectItem>
+                  <SelectItem value="expired">{t('team.page.training.statusExpired')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Datum</Label>
+              <Label>{t('team.page.training.fieldDate')}</Label>
               <Input type="date" value={completedAt} onChange={(e) => setCompletedAt(e.target.value)} />
             </div>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => { reset(); onOpenChange(false) }}>Abbrechen</Button>
-          <Button onClick={handleRecord} disabled={!memberId || !trainingId}>Erfassen</Button>
+          <Button variant="outline" onClick={() => { reset(); onOpenChange(false) }}>{t('common.cancel')}</Button>
+          <Button onClick={handleRecord} disabled={!memberId || !trainingId}>{t('team.page.training.record')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

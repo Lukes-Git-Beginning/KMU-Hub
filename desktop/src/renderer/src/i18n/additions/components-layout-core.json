@@ -11,5 +11,6 @@
   "layout.sidebar.pinModule": "Zur Sidebar hinzufügen",
   "layout.sidebar.unpinModule": "Aus Sidebar entfernen",
   "layout.sidebar.userOnline": "Online",
-  "layout.sidebar.logout": "Abmelden"
+  "layout.sidebar.logout": "Abmelden",
+  "components.layout.openNav": "Navigation öffnen"
 }

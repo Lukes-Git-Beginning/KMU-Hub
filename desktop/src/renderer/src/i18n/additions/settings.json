@@ -231,5 +231,89 @@
   "settings.theme.preview.projects": "Projekte",
   "settings.theme.preview.revenue": "Umsatz",
   "settings.theme.vivid": "Lebhaft",
-  "settings.title": "Einstellungen"
+  "settings.title": "Einstellungen",
+
+  "settings.integrations.common.section.azureAd": "Azure AD",
+  "settings.integrations.common.section.botConfig": "Bot-Konfiguration",
+  "settings.integrations.common.section.apiConnection": "API-Verbindung",
+  "settings.integrations.common.section.webhook": "Webhook",
+  "settings.integrations.common.section.authentication": "Authentifizierung",
+  "settings.integrations.common.section.settings": "Einstellungen",
+  "settings.integrations.common.section.serverConfig": "Server-Konfiguration",
+  "settings.integrations.common.section.license": "Lizenz",
+  "settings.integrations.common.section.meetingDefaults": "Meeting-Defaults",
+  "settings.integrations.common.section.server": "Server",
+  "settings.integrations.common.section.credentials": "Zugangsdaten",
+  "settings.integrations.common.section.synchronisation": "Synchronisation",
+
+  "settings.integrations.common.fields.apiKey.label": "API-Schluessel",
+  "settings.integrations.common.fields.serverUrl.label": "Server-URL",
+
+  "settings.integrations.datev-rechnungswesen.description": "Konten-Mapping, BWA/SuSa-Export, DATEV-Connect oder Dateiexport",
+
+  "settings.integrations.slack.description": "Team-Nachrichten, Channel-Mapping und Benachrichtigungen",
+
+  "settings.integrations.teams-webhook.description": "Microsoft Teams Webhook-Benachrichtigungen",
+
+  "settings.integrations.custom-webhook.description": "Benutzerdefinierte Webhook-Integration",
+
+  "settings.integrations.teams-graph.description": "MS Graph API fuer Teams-Channels, Bot-Konfiguration und Praesenz",
+  "settings.integrations.teams-graph.fields.tenantId.label": "Tenant-ID",
+  "settings.integrations.teams-graph.fields.clientId.label": "Client-ID",
+  "settings.integrations.teams-graph.fields.clientSecret.label": "Client-Secret",
+  "settings.integrations.teams-graph.fields.botEnabled.label": "Bot aktiviert",
+  "settings.integrations.teams-graph.fields.botEnabled.helpText": "Automatische Nachrichten in Teams-Channels senden",
+  "settings.integrations.teams-graph.fields.autoCreateChannels.label": "Channels automatisch erstellen",
+  "settings.integrations.teams-graph.fields.autoCreateChannels.helpText": "Channels fuer neue Projekte automatisch anlegen",
+
+  "settings.integrations.whatsapp.description": "Kunden-Kommunikation ueber WhatsApp Business API",
+  "settings.integrations.whatsapp.fields.apiUrl.label": "API-URL",
+  "settings.integrations.whatsapp.fields.phoneNumber.label": "Telefonnummer",
+  "settings.integrations.whatsapp.fields.accessToken.label": "Access-Token",
+  "settings.integrations.whatsapp.fields.webhookUrl.label": "Webhook-URL",
+  "settings.integrations.whatsapp.fields.verifyToken.label": "Verify-Token",
+  "settings.integrations.whatsapp.fields.verifyToken.placeholder": "Bel. Token fuer Webhook-Verifizierung",
+
+  "settings.integrations.skribble.description": "Elektronische Signaturen (SES, AES, QES) fuer Vertraege und Dokumente",
+  "settings.integrations.skribble.fields.signatureLevel.label": "Standard-Signatur-Level",
+  "settings.integrations.skribble.fields.signatureLevel.option.ses": "SES (Einfach)",
+  "settings.integrations.skribble.fields.signatureLevel.option.aes": "AES (Fortgeschritten)",
+  "settings.integrations.skribble.fields.signatureLevel.option.qes": "QES (Qualifiziert)",
+
+  "settings.integrations.collabora.description": "Online-Office-Editor fuer Dokumente direkt im Browser",
+  "settings.integrations.collabora.fields.wopiDiscoveryUrl.label": "WOPI-Discovery-URL",
+  "settings.integrations.collabora.fields.licenseStatus.label": "Lizenz-Status",
+
+  "settings.integrations.zoom.description": "Video-Meetings erstellen und Kalender-Integration",
+  "settings.integrations.zoom.fields.autoRecord.label": "Automatisch aufzeichnen",
+  "settings.integrations.zoom.fields.autoRecord.helpText": "Meetings automatisch in der Cloud aufzeichnen",
+  "settings.integrations.zoom.fields.waitingRoom.label": "Warteraum aktiviert",
+  "settings.integrations.zoom.fields.waitingRoom.helpText": "Teilnehmer muessen vom Host zugelassen werden",
+  "settings.integrations.zoom.fields.defaultDuration.label": "Standard-Dauer",
+  "settings.integrations.zoom.fields.defaultDuration.option.30": "30 Minuten",
+  "settings.integrations.zoom.fields.defaultDuration.option.60": "60 Minuten",
+  "settings.integrations.zoom.fields.defaultDuration.option.90": "90 Minuten",
+
+  "settings.integrations.livekit.description": "Self-Hosted Video/Audio-Infrastruktur fuer Meetings und Anrufe",
+  "settings.integrations.livekit.fields.apiSecret.label": "API-Secret",
+
+  "settings.integrations.brevo.description": "E-Mail-Marketing, Newsletter-Versand und Kontakt-Synchronisation",
+  "settings.integrations.brevo.fields.listMapping.label": "Listen-Zuordnung",
+  "settings.integrations.brevo.fields.listMapping.helpText": "Kontaktgruppen automatisch als Brevo-Listen synchronisieren",
+  "settings.integrations.brevo.fields.syncEnabled.label": "Sync aktiviert",
+  "settings.integrations.brevo.fields.syncEnabled.helpText": "Neue Kontakte automatisch an Brevo uebertragen",
+
+  "settings.integrations.connectedSince": "Verbunden seit {{date}}",
+  "settings.integrations.lastSync": "Letzte Synchronisation: {{date}}",
+
+  "settings.integrations.panel.disconnect": "Trennen",
+  "settings.integrations.panel.sync": "Synchronisieren",
+  "settings.integrations.panel.save": "Speichern",
+  "settings.integrations.panel.connect": "Verbinden",
+  "settings.integrations.panel.testConnection": "Verbindung testen",
+
+  "settings.integrations.panel.status.connected": "Verbunden",
+  "settings.integrations.panel.status.disconnected": "Nicht verbunden",
+  "settings.integrations.panel.status.syncing": "Synchronisiert...",
+  "settings.integrations.panel.status.error": "Fehler"
 }

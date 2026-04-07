@@ -7,6 +7,7 @@
  * toolbar with navigation, view switcher, and today button.
  */
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,20 +22,11 @@ import { Button } from '@/components/ui/button'
 import { useCalendarStore, type CalendarView } from '@/stores/calendar'
 
 // ---------------------------------------------------------------------------
-// View switcher options
-// ---------------------------------------------------------------------------
-
-const viewOptions: { value: CalendarView; label: string }[] = [
-  { value: 'day', label: 'Tag' },
-  { value: 'week', label: 'Woche' },
-  { value: 'month', label: 'Monat' },
-]
-
-// ---------------------------------------------------------------------------
 // Layout
 // ---------------------------------------------------------------------------
 
 export default function CalendarLayout() {
+  const { t } = useTranslation()
   const currentView = useCalendarStore((s) => s.currentView)
   const currentDate = useCalendarStore((s) => s.currentDate)
   const sidebarOpen = useCalendarStore((s) => s.sidebarOpen)
@@ -43,6 +35,12 @@ export default function CalendarLayout() {
   const navigateForward = useCalendarStore((s) => s.navigateForward)
   const navigateBackward = useCalendarStore((s) => s.navigateBackward)
   const toggleSidebar = useCalendarStore((s) => s.toggleSidebar)
+
+  const viewOptions: { value: CalendarView; label: string }[] = [
+    { value: 'day', label: t('kalender.view.day') },
+    { value: 'week', label: t('kalender.view.week') },
+    { value: 'month', label: t('kalender.view.month') },
+  ]
 
   /** Format the header date label based on current view. */
   const dateLabel = (() => {
@@ -66,7 +64,7 @@ export default function CalendarLayout() {
           size="icon"
           className="h-8 w-8"
           onClick={toggleSidebar}
-          title={sidebarOpen ? 'Seitenleiste einklappen' : 'Seitenleiste ausklappen'}
+          title={sidebarOpen ? t('kalender.toolbar.collapseSidebar') : t('kalender.toolbar.expandSidebar')}
         >
           {sidebarOpen ? (
             <PanelLeftClose className="h-4 w-4" />
@@ -77,7 +75,7 @@ export default function CalendarLayout() {
 
         {/* Today button */}
         <Button variant="outline" size="sm" onClick={goToToday}>
-          Heute
+          {t('kalender.toolbar.today')}
         </Button>
 
         {/* Navigation arrows */}
@@ -86,7 +84,7 @@ export default function CalendarLayout() {
           size="icon"
           className="h-8 w-8"
           onClick={navigateBackward}
-          title="Zurück"
+          title={t('kalender.toolbar.back')}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -95,7 +93,7 @@ export default function CalendarLayout() {
           size="icon"
           className="h-8 w-8"
           onClick={navigateForward}
-          title="Vorwärts"
+          title={t('kalender.toolbar.forward')}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -132,7 +130,7 @@ export default function CalendarLayout() {
             {/* Placeholder -- sidebar components added in 07-08 */}
             <div className="flex flex-1 flex-col items-center justify-center p-4 text-muted-foreground">
               <CalendarDays className="mb-2 h-8 w-8" />
-              <p className="text-sm">Kalender-Seitenleiste</p>
+              <p className="text-sm">{t('kalender.toolbar.sidebarTitle')}</p>
               <p className="text-xs">(Wird in Plan 07-08 implementiert)</p>
             </div>
           </aside>
@@ -151,9 +149,9 @@ export default function CalendarLayout() {
                 <div className="flex h-full items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <CalendarDays className="mx-auto mb-3 h-12 w-12" />
-                    <p className="text-lg font-medium">Kalender</p>
+                    <p className="text-lg font-medium">{t('kalender.toolbar.calendarTitle')}</p>
                     <p className="text-sm">
-                      Ansicht: {currentView === 'day' ? 'Tag' : currentView === 'week' ? 'Woche' : 'Monat'}
+                      {t('kalender.toolbar.viewLabel')}: {currentView === 'day' ? t('kalender.view.day') : currentView === 'week' ? t('kalender.view.week') : t('kalender.view.month')}
                     </p>
                     <p className="text-sm">
                       {format(currentDate, 'd. MMMM yyyy', { locale: de })}

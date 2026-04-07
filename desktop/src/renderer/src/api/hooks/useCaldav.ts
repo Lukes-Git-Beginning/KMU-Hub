@@ -6,6 +6,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import * as caldavClient from '../caldav-client'
 
 // ---------------------------------------------------------------------------
@@ -53,7 +54,7 @@ export function useCreateAppPassword() {
       qc.invalidateQueries({ queryKey: caldavKeys.status() })
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen des Passworts')
+      toast.error(i18next.t('api.caldav.error.passwordCreate'))
     },
   })
 }
@@ -66,10 +67,10 @@ export function useRevokeAppPassword() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: caldavKeys.passwords() })
       qc.invalidateQueries({ queryKey: caldavKeys.status() })
-      toast.success('Passwort widerrufen')
+      toast.success(i18next.t('api.caldav.passwordRevoked'))
     },
     onError: () => {
-      toast.error('Fehler beim Widerrufen des Passworts')
+      toast.error(i18next.t('api.caldav.error.passwordRevoke'))
     },
   })
 }
@@ -81,10 +82,10 @@ export function useEnableCalDAV() {
     mutationFn: () => caldavClient.enableCalDAV(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: caldavKeys.status() })
-      toast.success('CalDAV/CardDAV aktiviert')
+      toast.success(i18next.t('api.caldav.enabled'))
     },
     onError: () => {
-      toast.error('Fehler beim Aktivieren')
+      toast.error(i18next.t('api.caldav.error.enable'))
     },
   })
 }
@@ -103,10 +104,10 @@ export function useDisableCalDAV() {
     mutationFn: () => caldavClient.disableCalDAV(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: caldavKeys.status() })
-      toast.success('CalDAV/CardDAV deaktiviert')
+      toast.success(i18next.t('api.caldav.disabled'))
     },
     onError: () => {
-      toast.error('Fehler beim Deaktivieren')
+      toast.error(i18next.t('api.caldav.error.disable'))
     },
   })
 }
@@ -132,10 +133,10 @@ export function useSetAdminCalDAVSettings() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: caldavKeys.admin.settings() })
       qc.invalidateQueries({ queryKey: caldavKeys.status() })
-      toast.success('CalDAV-Einstellungen aktualisiert')
+      toast.success(i18next.t('api.caldav.settingsUpdated'))
     },
     onError: () => {
-      toast.error('Fehler beim Aktualisieren der Einstellungen')
+      toast.error(i18next.t('api.caldav.error.settingsUpdate'))
     },
   })
 }
@@ -157,10 +158,10 @@ export function useAdminRevokeUserPasswords() {
       caldavClient.adminRevokeUserPasswords(userId),
     onSuccess: (_data, _userId) => {
       qc.invalidateQueries({ queryKey: caldavKeys.admin.users() })
-      toast.success('Alle Passwörter des Benutzers widerrufen')
+      toast.success(i18next.t('api.caldav.allPasswordsRevoked'))
     },
     onError: () => {
-      toast.error('Fehler beim Widerrufen der Passwörter')
+      toast.error(i18next.t('api.caldav.error.allPasswordsRevoke'))
     },
   })
 }

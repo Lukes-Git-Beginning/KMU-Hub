@@ -16,11 +16,11 @@ interface GenericIntegrationPanelProps {
   onBack: () => void
 }
 
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  connected: { label: 'Verbunden', cls: 'bg-success-light text-success' },
-  disconnected: { label: 'Nicht verbunden', cls: 'bg-secondary text-muted-foreground' },
-  syncing: { label: 'Synchronisiert...', cls: 'bg-info-light text-info' },
-  error: { label: 'Fehler', cls: 'bg-error-light text-destructive' },
+const STATUS_BADGE: Record<string, { labelKey: string; cls: string }> = {
+  connected: { labelKey: 'settings.integrations.panel.status.connected', cls: 'bg-success-light text-success' },
+  disconnected: { labelKey: 'settings.integrations.panel.status.disconnected', cls: 'bg-secondary text-muted-foreground' },
+  syncing: { labelKey: 'settings.integrations.panel.status.syncing', cls: 'bg-info-light text-info' },
+  error: { labelKey: 'settings.integrations.panel.status.error', cls: 'bg-error-light text-destructive' },
 }
 
 export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrationPanelProps) {
@@ -113,7 +113,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
       case 'url':
         return (
           <div key={field.id} className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">{field.label}</label>
+            <label className="text-sm font-medium text-foreground">{t(field.label)}</label>
             <input
               type={field.type === 'url' ? 'url' : 'text'}
               value={(value as string) ?? ''}
@@ -121,7 +121,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
               placeholder={field.placeholder}
               className={`w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground ${field.monospace ? 'font-mono text-xs' : ''}`}
             />
-            {field.helpText && <p className="text-[11px] text-muted-foreground">{field.helpText}</p>}
+            {field.helpText && <p className="text-[11px] text-muted-foreground">{t(field.helpText)}</p>}
           </div>
         )
 
@@ -129,7 +129,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
         const isVisible = visiblePasswords.has(field.id)
         return (
           <div key={field.id} className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">{field.label}</label>
+            <label className="text-sm font-medium text-foreground">{t(field.label)}</label>
             <div className="relative">
               <input
                 type={isVisible ? 'text' : 'password'}
@@ -146,7 +146,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
                 {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {field.helpText && <p className="text-[11px] text-muted-foreground">{field.helpText}</p>}
+            {field.helpText && <p className="text-[11px] text-muted-foreground">{t(field.helpText)}</p>}
           </div>
         )
       }
@@ -154,17 +154,17 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
       case 'select':
         return (
           <div key={field.id} className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">{field.label}</label>
+            <label className="text-sm font-medium text-foreground">{t(field.label)}</label>
             <select
               value={(value as string) ?? ''}
               onChange={(e) => updateField(field.id, e.target.value)}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
             >
               {field.options?.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>{t(opt.label)}</option>
               ))}
             </select>
-            {field.helpText && <p className="text-[11px] text-muted-foreground">{field.helpText}</p>}
+            {field.helpText && <p className="text-[11px] text-muted-foreground">{t(field.helpText)}</p>}
           </div>
         )
 
@@ -172,8 +172,8 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
         return (
           <div key={field.id} className="flex items-center justify-between py-1">
             <div>
-              <span className="text-sm font-medium text-foreground">{field.label}</span>
-              {field.helpText && <p className="text-[11px] text-muted-foreground">{field.helpText}</p>}
+              <span className="text-sm font-medium text-foreground">{t(field.label)}</span>
+              {field.helpText && <p className="text-[11px] text-muted-foreground">{t(field.helpText)}</p>}
             </div>
             <button
               onClick={() => updateField(field.id, !value)}
@@ -193,7 +193,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
       case 'readonly':
         return (
           <div key={field.id} className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">{field.label}</label>
+            <label className="text-sm font-medium text-foreground">{t(field.label)}</label>
             <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
               {(value as string) || field.defaultValue || '—'}
             </div>
@@ -213,7 +213,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zurück zu Integrationen
+        {t('settings.integrations.backToIntegrations')}
       </button>
 
       {/* Header */}
@@ -225,20 +225,20 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-foreground">{definition.name}</h2>
             <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${badge.cls}`}>
-              {badge.label}
+              {t(badge.labelKey)}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground mt-0.5">{definition.description}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{t(definition.description)}</p>
         </div>
       </div>
 
       {/* Connected info */}
       {status === 'connected' && integration?.connectedAt && (
         <div className="rounded-lg border border-success/30 bg-success-light px-4 py-2.5 mb-6 text-sm text-success">
-          Verbunden seit {new Date(integration.connectedAt).toLocaleDateString('de-DE')}
+          {t('settings.integrations.connectedSince', { date: new Date(integration.connectedAt).toLocaleDateString('de-DE') })}
           {integration.lastSync && (
             <span className="ml-3 text-success/70">
-              Letzte Synchronisation: {new Date(integration.lastSync).toLocaleString('de-DE')}
+              {t('settings.integrations.lastSync', { date: new Date(integration.lastSync).toLocaleString('de-DE') })}
             </span>
           )}
         </div>
@@ -249,7 +249,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
         <div key={sectionName} className="mb-6">
           {sectionName && (
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              {sectionName}
+              {t(sectionName)}
             </h3>
           )}
           <div className="space-y-4">
@@ -267,7 +267,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
               className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
               <Unlink className="h-4 w-4" />
-              Trennen
+              {t('settings.integrations.panel.disconnect')}
             </button>
             <button
               onClick={handleSync}
@@ -275,13 +275,13 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
               className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin' : ''}`} />
-              Synchronisieren
+              {t('settings.integrations.panel.sync')}
             </button>
             <button
               onClick={handleSave}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
-              Speichern
+              {t('settings.integrations.panel.save')}
             </button>
           </>
         ) : (
@@ -291,13 +291,13 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plug className="h-4 w-4" />
-              Verbinden
+              {t('settings.integrations.panel.connect')}
             </button>
             <button
               onClick={handleSave}
               className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
-              Speichern
+              {t('settings.integrations.panel.save')}
             </button>
           </>
         )}
@@ -307,7 +307,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
           className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-50 ml-auto"
         >
           {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-          Verbindung testen
+          {t('settings.integrations.panel.testConnection')}
         </button>
       </div>
     </div>

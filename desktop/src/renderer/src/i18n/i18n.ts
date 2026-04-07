@@ -61,6 +61,13 @@ import additionsSharedSearchEditor from '@/i18n/additions/components-shared-sear
 import additionsSharedMisc from '@/i18n/additions/components-shared-misc.json'
 import additionsWidgets from '@/i18n/additions/components-widgets.json'
 import additionsChatDeskOnboarding from '@/i18n/additions/components-chat-desk-onboarding.json'
+import additionsAuth from '@/i18n/additions/auth.json'
+
+// Wave 2+3: Security, Features, Config, API Hooks
+import additionsSecurity from '@/i18n/additions/security.json'
+import additionsFeatures from '@/i18n/additions/features.json'
+import additionsConfig from '@/i18n/additions/config.json'
+import additionsApiHooks from '@/i18n/additions/api-hooks.json'
 
 import type { SupportedLocale } from '@/stores/locale'
 
@@ -110,6 +117,12 @@ const mergedDE = {
   ...additionsSharedMisc,
   ...additionsWidgets,
   ...additionsChatDeskOnboarding,
+  ...additionsAuth,
+  // Wave 2+3: Security, Features, Config, API Hooks
+  ...additionsSecurity,
+  ...additionsFeatures,
+  ...additionsConfig,
+  ...additionsApiHooks,
 }
 
 export function initI18n(locale: SupportedLocale): typeof i18n {

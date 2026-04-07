@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import * as pluginClient from '../plugin-client'
 import type {
   CreateManifestRequest,
@@ -77,10 +78,10 @@ export function useCreateManifest() {
       pluginClient.createManifest(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pluginKeys.manifests() })
-      toast.success('Plugin-Manifest erstellt')
+      toast.success(i18next.t('api.plugins.manifestCreated'))
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen des Plugin-Manifests')
+      toast.error(i18next.t('api.plugins.error.manifestCreate'))
     },
   })
 }
@@ -91,10 +92,10 @@ export function useDeleteManifest() {
     mutationFn: (id: string) => pluginClient.deleteManifest(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pluginKeys.manifests() })
-      toast.success('Plugin-Manifest gelöscht')
+      toast.success(i18next.t('api.plugins.manifestDeleted'))
     },
     onError: () => {
-      toast.error('Fehler beim Löschen des Plugin-Manifests')
+      toast.error(i18next.t('api.plugins.error.manifestDelete'))
     },
   })
 }
@@ -123,10 +124,10 @@ export function useInstallPlugin() {
       pluginClient.installPlugin(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pluginKeys.installations() })
-      toast.success('Plugin installiert')
+      toast.success(i18next.t('api.plugins.installed'))
     },
     onError: () => {
-      toast.error('Fehler beim Installieren des Plugins')
+      toast.error(i18next.t('api.plugins.error.install'))
     },
   })
 }
@@ -138,10 +139,10 @@ export function useEnablePlugin() {
       pluginClient.enablePlugin(installationId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pluginKeys.installations() })
-      toast.success('Plugin aktiviert')
+      toast.success(i18next.t('api.plugins.enabled'))
     },
     onError: () => {
-      toast.error('Fehler beim Aktivieren des Plugins')
+      toast.error(i18next.t('api.plugins.error.enable'))
     },
   })
 }
@@ -153,10 +154,10 @@ export function useDisablePlugin() {
       pluginClient.disablePlugin(installationId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pluginKeys.installations() })
-      toast.success('Plugin deaktiviert')
+      toast.success(i18next.t('api.plugins.disabled'))
     },
     onError: () => {
-      toast.error('Fehler beim Deaktivieren des Plugins')
+      toast.error(i18next.t('api.plugins.error.disable'))
     },
   })
 }
@@ -168,10 +169,10 @@ export function useUninstallPlugin() {
       pluginClient.uninstallPlugin(installationId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: pluginKeys.installations() })
-      toast.success('Plugin deinstalliert')
+      toast.success(i18next.t('api.plugins.uninstalled'))
     },
     onError: () => {
-      toast.error('Fehler beim Deinstallieren des Plugins')
+      toast.error(i18next.t('api.plugins.error.uninstall'))
     },
   })
 }
@@ -204,10 +205,10 @@ export function useApprovePermissions() {
         queryKey: pluginKeys.permissions(variables.installationId),
       })
       qc.invalidateQueries({ queryKey: pluginKeys.installations() })
-      toast.success('Berechtigungen genehmigt')
+      toast.success(i18next.t('api.plugins.permissionsApproved'))
     },
     onError: () => {
-      toast.error('Fehler beim Genehmigen der Berechtigungen')
+      toast.error(i18next.t('api.plugins.error.permissionsApprove'))
     },
   })
 }
@@ -249,10 +250,10 @@ export function useUpdatePluginSettings() {
       qc.invalidateQueries({
         queryKey: pluginKeys.settings(variables.installationId),
       })
-      toast.success('Plugin-Einstellungen gespeichert')
+      toast.success(i18next.t('api.plugins.settingsSaved'))
     },
     onError: () => {
-      toast.error('Fehler beim Speichern der Plugin-Einstellungen')
+      toast.error(i18next.t('api.plugins.error.settingsSave'))
     },
   })
 }
@@ -279,10 +280,10 @@ export function useCreateValidationRule() {
       qc.invalidateQueries({
         queryKey: ['plugins', 'validation-rules'],
       })
-      toast.success('Validierungsregel erstellt')
+      toast.success(i18next.t('api.plugins.validationRuleCreated'))
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen der Validierungsregel')
+      toast.error(i18next.t('api.plugins.error.validationRuleCreate'))
     },
   })
 }
@@ -301,10 +302,10 @@ export function useUpdateValidationRule() {
       qc.invalidateQueries({
         queryKey: ['plugins', 'validation-rules'],
       })
-      toast.success('Validierungsregel aktualisiert')
+      toast.success(i18next.t('api.plugins.validationRuleUpdated'))
     },
     onError: () => {
-      toast.error('Fehler beim Aktualisieren der Validierungsregel')
+      toast.error(i18next.t('api.plugins.error.validationRuleUpdate'))
     },
   })
 }
@@ -317,10 +318,10 @@ export function useDeleteValidationRule() {
       qc.invalidateQueries({
         queryKey: ['plugins', 'validation-rules'],
       })
-      toast.success('Validierungsregel gelöscht')
+      toast.success(i18next.t('api.plugins.validationRuleDeleted'))
     },
     onError: () => {
-      toast.error('Fehler beim Löschen der Validierungsregel')
+      toast.error(i18next.t('api.plugins.error.validationRuleDelete'))
     },
   })
 }
@@ -347,10 +348,10 @@ export function useCreateWorkflowRule() {
       qc.invalidateQueries({
         queryKey: ['plugins', 'workflow-rules'],
       })
-      toast.success('Workflow-Regel erstellt')
+      toast.success(i18next.t('api.plugins.workflowRuleCreated'))
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen der Workflow-Regel')
+      toast.error(i18next.t('api.plugins.error.workflowRuleCreate'))
     },
   })
 }
@@ -369,10 +370,10 @@ export function useUpdateWorkflowRule() {
       qc.invalidateQueries({
         queryKey: ['plugins', 'workflow-rules'],
       })
-      toast.success('Workflow-Regel aktualisiert')
+      toast.success(i18next.t('api.plugins.workflowRuleUpdated'))
     },
     onError: () => {
-      toast.error('Fehler beim Aktualisieren der Workflow-Regel')
+      toast.error(i18next.t('api.plugins.error.workflowRuleUpdate'))
     },
   })
 }
@@ -385,10 +386,10 @@ export function useDeleteWorkflowRule() {
       qc.invalidateQueries({
         queryKey: ['plugins', 'workflow-rules'],
       })
-      toast.success('Workflow-Regel gelöscht')
+      toast.success(i18next.t('api.plugins.workflowRuleDeleted'))
     },
     onError: () => {
-      toast.error('Fehler beim Löschen der Workflow-Regel')
+      toast.error(i18next.t('api.plugins.error.workflowRuleDelete'))
     },
   })
 }
@@ -415,10 +416,10 @@ export function useApplyTemplate() {
       qc.invalidateQueries({ queryKey: pluginKeys.installations() })
       qc.invalidateQueries({ queryKey: ['plugins', 'validation-rules'] })
       qc.invalidateQueries({ queryKey: ['plugins', 'workflow-rules'] })
-      toast.success('Branchenvorlage angewendet')
+      toast.success(i18next.t('api.plugins.templateApplied'))
     },
     onError: () => {
-      toast.error('Fehler beim Anwenden der Branchenvorlage')
+      toast.error(i18next.t('api.plugins.error.templateApply'))
     },
   })
 }

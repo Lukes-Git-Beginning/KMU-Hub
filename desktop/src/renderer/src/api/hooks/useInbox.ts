@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import * as inboxClient from '../inbox-client'
 import type {
   InboxListFilter,
@@ -122,7 +123,7 @@ export function useMarkRead() {
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.error('Fehler beim Markieren als gelesen')
+      toast.error(i18next.t('api.inbox.error.markRead'))
     },
   })
 }
@@ -151,7 +152,7 @@ export function useMarkUnread() {
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.error('Fehler beim Markieren als ungelesen')
+      toast.error(i18next.t('api.inbox.error.markUnread'))
     },
   })
 }
@@ -177,7 +178,7 @@ export function useToggleStar() {
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.error('Fehler beim Ändern des Sterns')
+      toast.error(i18next.t('api.inbox.error.toggleStar'))
     },
   })
 }
@@ -203,11 +204,11 @@ export function useArchiveMessage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
       qc.invalidateQueries({ queryKey: inboxKeys.unread() })
-      toast.success('Archiviert')
+      toast.success(i18next.t('api.inbox.archived'))
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.error('Fehler beim Archivieren')
+      toast.error(i18next.t('api.inbox.error.archive'))
     },
   })
 }
@@ -238,7 +239,7 @@ export function useSnoozeMessage() {
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.error('Fehler beim Verschieben')
+      toast.error(i18next.t('api.inbox.error.snooze'))
     },
   })
 }
@@ -250,10 +251,10 @@ export function useReplyToMessage() {
       inboxClient.replyToMessage(id, body),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: inboxKeys.message(vars.id) })
-      toast.success('Antwort gesendet')
+      toast.success(i18next.t('api.inbox.replySent'))
     },
     onError: () => {
-      toast.error('Fehler beim Senden der Antwort')
+      toast.error(i18next.t('api.inbox.error.reply'))
     },
   })
 }
@@ -285,11 +286,11 @@ export function useAssignMessage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.success('Zugewiesen')
+      toast.success(i18next.t('api.inbox.assigned'))
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.error('Fehler beim Zuweisen')
+      toast.error(i18next.t('api.inbox.error.assign'))
     },
   })
 }
@@ -300,10 +301,10 @@ export function useClaimMessage() {
     mutationFn: (id: string) => inboxClient.claimMessage(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
-      toast.success('Uebernommen')
+      toast.success(i18next.t('api.inbox.claimed'))
     },
     onError: () => {
-      toast.error('Fehler beim Übernehmen')
+      toast.error(i18next.t('api.inbox.error.claim'))
     },
   })
 }
@@ -315,10 +316,10 @@ export function useBulkMarkRead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
       qc.invalidateQueries({ queryKey: inboxKeys.unread() })
-      toast.success('Als gelesen markiert')
+      toast.success(i18next.t('api.inbox.bulkMarkedRead'))
     },
     onError: () => {
-      toast.error('Fehler beim Markieren')
+      toast.error(i18next.t('api.inbox.error.bulkMark'))
     },
   })
 }
@@ -330,10 +331,10 @@ export function useBulkArchive() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox', 'messages'] })
       qc.invalidateQueries({ queryKey: inboxKeys.unread() })
-      toast.success('Archiviert')
+      toast.success(i18next.t('api.inbox.archived'))
     },
     onError: () => {
-      toast.error('Fehler beim Archivieren')
+      toast.error(i18next.t('api.inbox.error.archive'))
     },
   })
 }
@@ -349,10 +350,10 @@ export function useCreateTeamInbox() {
       inboxClient.createTeamInbox(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inboxKeys.teams() })
-      toast.success('Team-Postfach erstellt')
+      toast.success(i18next.t('api.inbox.teamCreated'))
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen des Team-Postfachs')
+      toast.error(i18next.t('api.inbox.error.teamCreate'))
     },
   })
 }
@@ -364,10 +365,10 @@ export function useUpdateTeamInbox() {
       inboxClient.updateTeamInbox(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inboxKeys.teams() })
-      toast.success('Team-Postfach aktualisiert')
+      toast.success(i18next.t('api.inbox.teamUpdated'))
     },
     onError: () => {
-      toast.error('Fehler beim Aktualisieren')
+      toast.error(i18next.t('api.inbox.error.teamUpdate'))
     },
   })
 }
@@ -378,10 +379,10 @@ export function useDeleteTeamInbox() {
     mutationFn: (id: string) => inboxClient.deleteTeamInbox(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inboxKeys.teams() })
-      toast.success('Team-Postfach gelöscht')
+      toast.success(i18next.t('api.inbox.teamDeleted'))
     },
     onError: () => {
-      toast.error('Fehler beim Löschen')
+      toast.error(i18next.t('api.inbox.error.teamDelete'))
     },
   })
 }
@@ -402,10 +403,10 @@ export function useAddTeamMember() {
       qc.invalidateQueries({
         queryKey: inboxKeys.teamMembers(vars.teamId),
       })
-      toast.success('Mitglied hinzugefügt')
+      toast.success(i18next.t('api.inbox.memberAdded'))
     },
     onError: () => {
-      toast.error('Fehler beim Hinzufügen')
+      toast.error(i18next.t('api.inbox.error.memberAdd'))
     },
   })
 }
@@ -419,10 +420,10 @@ export function useRemoveTeamMember() {
       qc.invalidateQueries({
         queryKey: inboxKeys.teamMembers(vars.teamId),
       })
-      toast.success('Mitglied entfernt')
+      toast.success(i18next.t('api.inbox.memberRemoved'))
     },
     onError: () => {
-      toast.error('Fehler beim Entfernen')
+      toast.error(i18next.t('api.inbox.error.memberRemove'))
     },
   })
 }
@@ -438,10 +439,10 @@ export function useCreateRoutingRule() {
       inboxClient.createRoutingRule(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inboxKeys.rules() })
-      toast.success('Regel erstellt')
+      toast.success(i18next.t('api.inbox.ruleCreated'))
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen der Regel')
+      toast.error(i18next.t('api.inbox.error.ruleCreate'))
     },
   })
 }
@@ -453,10 +454,10 @@ export function useUpdateRoutingRule() {
       inboxClient.updateRoutingRule(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inboxKeys.rules() })
-      toast.success('Regel aktualisiert')
+      toast.success(i18next.t('api.inbox.ruleUpdated'))
     },
     onError: () => {
-      toast.error('Fehler beim Aktualisieren der Regel')
+      toast.error(i18next.t('api.inbox.error.ruleUpdate'))
     },
   })
 }
@@ -467,10 +468,10 @@ export function useDeleteRoutingRule() {
     mutationFn: (id: string) => inboxClient.deleteRoutingRule(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inboxKeys.rules() })
-      toast.success('Regel gelöscht')
+      toast.success(i18next.t('api.inbox.ruleDeleted'))
     },
     onError: () => {
-      toast.error('Fehler beim Löschen der Regel')
+      toast.error(i18next.t('api.inbox.error.ruleDelete'))
     },
   })
 }

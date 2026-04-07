@@ -34,5 +34,18 @@
   "kalender.detail.participants": "{{count}} Teilnehmer",
 
   "kalender.adapter.holidayCalendar": "Feiertage DE",
-  "kalender.adapter.deadlineCalendar": "Task-Deadlines"
+  "kalender.adapter.deadlineCalendar": "Task-Deadlines",
+
+  "kalender.view.day": "Tag",
+  "kalender.view.week": "Woche",
+  "kalender.view.month": "Monat",
+
+  "kalender.toolbar.today": "Heute",
+  "kalender.toolbar.back": "Zurück",
+  "kalender.toolbar.forward": "Vorwärts",
+  "kalender.toolbar.collapseSidebar": "Seitenleiste einklappen",
+  "kalender.toolbar.expandSidebar": "Seitenleiste ausklappen",
+  "kalender.toolbar.viewLabel": "Ansicht",
+  "kalender.toolbar.sidebarTitle": "Kalender-Seitenleiste",
+  "kalender.toolbar.calendarTitle": "Kalender"
 }

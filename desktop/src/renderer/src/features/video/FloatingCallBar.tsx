@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 import { useVideoStore } from '@/stores/video'
 import { useEndCall } from '@/api/hooks/useVideo'
@@ -41,6 +42,7 @@ function formatDuration(seconds: number): string {
 // ---------------------------------------------------------------------------
 
 export function FloatingCallBar({ className }: FloatingCallBarProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const endCallMutation = useEndCall()
 
@@ -109,7 +111,7 @@ export function FloatingCallBar({ className }: FloatingCallBarProps) {
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') handleBarClick()
       }}
-      aria-label="Zurück zum Anruf"
+      aria-label={t('features.video.floatingBar.backToCall')}
     >
       {/* Pulsing green dot -- call active indicator */}
       <span className="relative flex h-2.5 w-2.5">
@@ -129,8 +131,8 @@ export function FloatingCallBar({ className }: FloatingCallBarProps) {
       <button
         className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
         onClick={(e) => e.stopPropagation()}
-        title="Mikrofon"
-        aria-label="Mikrofon umschalten"
+        title={t('features.video.floatingBar.microphone')}
+        aria-label={t('features.video.floatingBar.toggleMicrophone')}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -152,8 +154,8 @@ export function FloatingCallBar({ className }: FloatingCallBarProps) {
       <button
         className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-white"
         onClick={(e) => e.stopPropagation()}
-        title="Kamera"
-        aria-label="Kamera umschalten"
+        title={t('features.video.floatingBar.camera')}
+        aria-label={t('features.video.floatingBar.toggleCamera')}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -174,8 +176,8 @@ export function FloatingCallBar({ className }: FloatingCallBarProps) {
       <button
         className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-white transition-colors hover:bg-destructive/90"
         onClick={handleHangUp}
-        title="Auflegen"
-        aria-label="Anruf beenden"
+        title={t('features.video.floatingBar.hangUp')}
+        aria-label={t('features.video.floatingBar.endCall')}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

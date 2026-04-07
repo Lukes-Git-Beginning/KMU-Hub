@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import * as datevUploadClient from '../datev-upload-client'
 import type { DatevUploadConfig } from '../datev-upload-types'
 
@@ -41,7 +42,7 @@ export function useDatevGetAuthURL() {
   return useMutation({
     mutationFn: (redirectUrl: string) => datevUploadClient.getAuthorizationURL(redirectUrl),
     onError: () => {
-      toast.error('Fehler beim Abrufen der DATEV-Anmelde-URL')
+      toast.error(i18next.t('api.datev.error.authUrl'))
     },
   })
 }
@@ -52,10 +53,10 @@ export function useDatevDisconnect() {
     mutationFn: () => datevUploadClient.disconnect(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: datevUploadKeys.all })
-      toast.success('DATEV-Verbindung getrennt')
+      toast.success(i18next.t('api.datev.disconnected'))
     },
     onError: () => {
-      toast.error('Fehler beim Trennen der DATEV-Verbindung')
+      toast.error(i18next.t('api.datev.error.disconnect'))
     },
   })
 }
@@ -83,10 +84,10 @@ export function useDatevUpdateConfig() {
       datevUploadClient.updateUploadConfig(config),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: datevUploadKeys.config() })
-      toast.success('DATEV-Konfiguration gespeichert')
+      toast.success(i18next.t('api.datev.configSaved'))
     },
     onError: () => {
-      toast.error('Fehler beim Speichern der DATEV-Konfiguration')
+      toast.error(i18next.t('api.datev.error.configSave'))
     },
   })
 }
@@ -102,14 +103,14 @@ export function useDatevUploadBuchungsstapel() {
       datevUploadClient.uploadBuchungsstapel(startDate, endDate),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success('Buchungsstapel an DATEV hochgeladen')
+        toast.success(i18next.t('api.datev.buchungsstapelUploaded'))
       } else {
-        toast.error(data.error_message || 'Upload fehlgeschlagen')
+        toast.error(data.error_message || i18next.t('api.datev.error.uploadFailed'))
       }
       qc.invalidateQueries({ queryKey: datevUploadKeys.logs() })
     },
     onError: () => {
-      toast.error('Fehler beim Hochladen des Buchungsstapels')
+      toast.error(i18next.t('api.datev.error.buchungsstapelUpload'))
     },
   })
 }
@@ -120,14 +121,14 @@ export function useDatevUploadBeleg() {
     mutationFn: (invoiceId: string) => datevUploadClient.uploadBeleg(invoiceId),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success('Beleg an DATEV hochgeladen')
+        toast.success(i18next.t('api.datev.belegUploaded'))
       } else {
-        toast.error(data.error_message || 'Beleg-Upload fehlgeschlagen')
+        toast.error(data.error_message || i18next.t('api.datev.error.belegUploadFailed'))
       }
       qc.invalidateQueries({ queryKey: datevUploadKeys.logs() })
     },
     onError: () => {
-      toast.error('Fehler beim Hochladen des Belegs')
+      toast.error(i18next.t('api.datev.error.belegUpload'))
     },
   })
 }

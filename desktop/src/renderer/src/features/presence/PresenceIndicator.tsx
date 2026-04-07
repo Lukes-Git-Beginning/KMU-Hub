@@ -8,6 +8,7 @@
  * Per user decision: only used in chat participant lists, DMs, and
  * team overview -- NOT in CRM or calendar views.
  */
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/cn'
 import { usePresenceStore } from '@/stores/presence'
 import type { PresenceLevel } from '@/api/video-types'
@@ -33,15 +34,6 @@ const presenceColors: Record<PresenceLevel, string> = {
   offline: 'bg-gray-400',
 }
 
-/** Map presence level to German display label. */
-const presenceLabels: Record<PresenceLevel, string> = {
-  online: 'Online',
-  away: 'Abwesend',
-  dnd: 'Nicht stören',
-  in_call: 'Im Anruf',
-  offline: 'Offline',
-}
-
 /** Size variants: width + height classes. */
 const sizeClasses: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'h-2 w-2',
@@ -54,7 +46,17 @@ export function PresenceIndicator({
   size = 'md',
   className,
 }: PresenceIndicatorProps) {
+  const { t } = useTranslation()
   const status = usePresenceStore((s) => s.presenceMap[userId]) ?? 'offline'
+
+  /** Map presence level to display label. */
+  const presenceLabels: Record<PresenceLevel, string> = {
+    online: t('features.presence.status.online'),
+    away: t('features.presence.status.away'),
+    dnd: t('features.presence.status.dnd'),
+    in_call: t('features.presence.status.inCall'),
+    offline: t('features.presence.status.offline'),
+  }
 
   return (
     <Tooltip>

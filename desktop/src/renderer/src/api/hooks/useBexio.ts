@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import * as bexioClient from '../bexio-client'
 import type {
   BexioFieldMappingEntry,
@@ -46,7 +47,7 @@ export function useBexioGetAuthURL() {
   return useMutation({
     mutationFn: () => bexioClient.getAuthorizationURL(),
     onError: () => {
-      toast.error('Fehler beim Abrufen der Bexio-Anmelde-URL')
+      toast.error(i18next.t('api.bexio.error.authUrl'))
     },
   })
 }
@@ -57,10 +58,10 @@ export function useBexioDisconnect() {
     mutationFn: () => bexioClient.disconnect(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: bexioKeys.connection() })
-      toast.success('Bexio-Verbindung getrennt')
+      toast.success(i18next.t('api.bexio.disconnected'))
     },
     onError: () => {
-      toast.error('Fehler beim Trennen der Bexio-Verbindung')
+      toast.error(i18next.t('api.bexio.error.disconnect'))
     },
   })
 }
@@ -97,10 +98,10 @@ export function useBexioTriggerSync() {
     mutationFn: (syncType?: string) => bexioClient.triggerSync(syncType),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: bexioKeys.syncStatus() })
-      toast.success('Synchronisierung gestartet')
+      toast.success(i18next.t('api.bexio.syncStarted'))
     },
     onError: () => {
-      toast.error('Fehler beim Starten der Synchronisierung')
+      toast.error(i18next.t('api.bexio.error.syncStart'))
     },
   })
 }
@@ -131,10 +132,10 @@ export function useBexioUpdateFieldMappings(entityType: BexioEntityType) {
       qc.invalidateQueries({
         queryKey: bexioKeys.fieldMappings(entityType),
       })
-      toast.success('Feld-Zuordnungen gespeichert')
+      toast.success(i18next.t('api.bexio.fieldMappingsSaved'))
     },
     onError: () => {
-      toast.error('Fehler beim Speichern der Feld-Zuordnungen')
+      toast.error(i18next.t('api.bexio.error.fieldMappingsSave'))
     },
   })
 }
@@ -147,10 +148,10 @@ export function useBexioPushInvoice() {
   return useMutation({
     mutationFn: (invoiceId: string) => bexioClient.pushInvoice(invoiceId),
     onSuccess: (data) => {
-      toast.success(`Rechnung an Bexio gesendet (ID: ${data.bexio_id})`)
+      toast.success(i18next.t('api.bexio.invoicePushed', { bexio_id: data.bexio_id }))
     },
     onError: () => {
-      toast.error('Fehler beim Senden der Rechnung an Bexio')
+      toast.error(i18next.t('api.bexio.error.invoicePush'))
     },
   })
 }
@@ -159,10 +160,10 @@ export function useBexioPushQuote() {
   return useMutation({
     mutationFn: (quoteId: string) => bexioClient.pushQuote(quoteId),
     onSuccess: (data) => {
-      toast.success(`Offerte an Bexio gesendet (ID: ${data.bexio_id})`)
+      toast.success(i18next.t('api.bexio.quotePushed', { bexio_id: data.bexio_id }))
     },
     onError: () => {
-      toast.error('Fehler beim Senden der Offerte an Bexio')
+      toast.error(i18next.t('api.bexio.error.quotePush'))
     },
   })
 }

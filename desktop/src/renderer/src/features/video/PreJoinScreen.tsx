@@ -8,6 +8,7 @@
 import { useCallback } from 'react'
 import { PreJoin, type LocalUserChoices } from '@livekit/components-react'
 import '@livekit/components-styles'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib'
@@ -34,6 +35,8 @@ export function PreJoinScreen({
   onCancel,
   className,
 }: PreJoinScreenProps) {
+  const { t } = useTranslation()
+
   const handleSubmit = useCallback(
     (choices: LocalUserChoices) => {
       onJoin(choices.audioEnabled, choices.videoEnabled)
@@ -49,24 +52,24 @@ export function PreJoinScreen({
       )}
     >
       <h2 className="text-xl font-semibold text-white">
-        Anruf beitreten
+        {t('features.video.preJoin.title')}
       </h2>
       <p className="text-sm text-zinc-400">
-        Überprüfen Sie Ihre Kamera und Ihr Mikrofon bevor Sie beitreten.
+        {t('features.video.preJoin.subtitle')}
       </p>
 
       <div className="w-full max-w-lg rounded-xl bg-zinc-900 p-6">
         <PreJoin
           onSubmit={handleSubmit}
           onError={(err) => {
-             
+
             console.error('PreJoin device error:', err)
           }}
           defaults={{
             audioEnabled: true,
             videoEnabled: true,
           }}
-          joinLabel="Beitreten"
+          joinLabel={t('features.video.preJoin.joinLabel')}
           data-lk-theme="default"
         />
       </div>
@@ -77,7 +80,7 @@ export function PreJoinScreen({
           className="text-zinc-400 hover:text-white"
           onClick={onCancel}
         >
-          Abbrechen
+          {t('common.cancel')}
         </Button>
       )}
     </div>

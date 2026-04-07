@@ -13,6 +13,7 @@
  * which stores it and notifies the recording initiator.
  */
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import {
   AlertDialog,
@@ -48,6 +49,7 @@ export function RecordingConsentDialog({
   open,
   onRespond,
 }: RecordingConsentDialogProps) {
+  const { t } = useTranslation()
   const setConsent = useSetRecordingConsent()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -91,24 +93,24 @@ export function RecordingConsentDialog({
                 <circle cx="12" cy="12" r="4" fill="currentColor" />
               </svg>
             </span>
-            Aufnahme-Zustimmung
+            {t('features.video.recordingConsent.title')}
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-3 pt-2 text-left">
             <p>
-              Dieses Meeting wird aufgenommen.
+              {t('features.video.recordingConsent.intro')}
             </p>
-            <p>
-              Wenn Sie <strong>zustimmen</strong>, werden Ihr Video und Audio
-              aufgezeichnet.
-            </p>
-            <p>
-              Wenn Sie <strong>ablehnen</strong>, werden Sie in der Aufnahme
-              unkenntlich gemacht (verschwommenes Video, stummgeschaltetes Audio).
-              Sie können weiterhin am Meeting teilnehmen.
-            </p>
+            <p
+              dangerouslySetInnerHTML={{
+                __html: t('features.video.recordingConsent.acceptInfo'),
+              }}
+            />
+            <p
+              dangerouslySetInnerHTML={{
+                __html: t('features.video.recordingConsent.declineInfo'),
+              }}
+            />
             <p className="text-xs text-muted-foreground">
-              Gemaess DSGVO Art. 6 Abs. 1 lit. a benötigen wir Ihre
-              ausdrueckliche Einwilligung für die Aufzeichnung.
+              {t('features.video.recordingConsent.legalNote')}
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -123,7 +125,7 @@ export function RecordingConsentDialog({
               'flex-1 sm:flex-none',
             )}
           >
-            Ablehnen
+            {t('features.video.recordingConsent.decline')}
           </Button>
 
           {/* Accept -- green accent */}
@@ -135,7 +137,7 @@ export function RecordingConsentDialog({
               'focus-visible:ring-green-500',
             )}
           >
-            Zustimmen
+            {t('features.video.recordingConsent.accept')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

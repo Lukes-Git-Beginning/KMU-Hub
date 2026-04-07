@@ -1,14 +1,17 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { branding } from '@/config/branding'
 
-const FEATURES = [
-  'Projekte, Aufgaben & Zeiterfassung',
-  'Team, Schichten & HR',
-  'Finanzen, Verträge & Dokumente',
-  'Chat, E-Mail & Meetings',
-]
-
 export function AuthLayout({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
+
+  const FEATURES = [
+    t('auth.feature.projects'),
+    t('auth.feature.team'),
+    t('auth.feature.finance'),
+    t('auth.feature.communication'),
+  ]
+
   return (
     <div className="flex min-h-screen">
       {/* Brand panel — hidden on small viewports */}
@@ -26,11 +29,11 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
         <div className="relative z-10 space-y-6">
           <h1 className="text-3xl font-extrabold leading-tight tracking-tight xl:text-4xl">
-            Alles für dein
+            {t('auth.hero.line1')}
             <br />
-            Unternehmen.
+            {t('auth.hero.line2')}
             <br />
-            <span className="text-white/70">Eine Plattform.</span>
+            <span className="text-white/70">{t('auth.hero.line3')}</span>
           </h1>
 
           <ul className="space-y-3">
@@ -47,7 +50,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
         <div className="relative z-10">
           <p className="text-xs text-white/40 mb-2">
-            EU-Datensouveränität &middot; DSGVO-konform &middot; Self-Hosted oder Cloud
+            {t('auth.footer.badges')}
           </p>
           <p className="text-xs text-white/50">by Zentria</p>
         </div>

@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import * as integrationClient from '../integration-client'
 import type {
   Platform,
@@ -69,10 +70,10 @@ export function useCreateIntegrationConfig() {
       integrationClient.createConfig(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: integrationKeys.configs() })
-      toast.success('Integration konfiguriert')
+      toast.success(i18next.t('api.integration.configured'))
     },
     onError: () => {
-      toast.error('Fehler beim Konfigurieren der Integration')
+      toast.error(i18next.t('api.integration.error.configure'))
     },
   })
 }
@@ -104,11 +105,11 @@ export function useUpdateIntegrationConfig(platform: Platform) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: integrationKeys.configs() })
-      toast.success('Integration aktualisiert')
+      toast.success(i18next.t('api.integration.updated'))
     },
     onError: () => {
       qc.invalidateQueries({ queryKey: integrationKeys.configs() })
-      toast.error('Fehler beim Aktualisieren der Integration')
+      toast.error(i18next.t('api.integration.error.update'))
     },
   })
 }
@@ -120,10 +121,10 @@ export function useDeleteIntegrationConfig(platform: Platform) {
     mutationFn: () => integrationClient.deleteConfig(platform),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: integrationKeys.configs() })
-      toast.success('Integration entfernt')
+      toast.success(i18next.t('api.integration.removed'))
     },
     onError: () => {
-      toast.error('Fehler beim Entfernen der Integration')
+      toast.error(i18next.t('api.integration.error.remove'))
     },
   })
 }
@@ -134,13 +135,13 @@ export function useTestIntegrationConfig(platform: Platform) {
     mutationFn: () => integrationClient.testConfig(platform),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success('Testbenachrichtigung gesendet')
+        toast.success(i18next.t('api.integration.testSent'))
       } else {
-        toast.error(data.message || 'Test fehlgeschlagen')
+        toast.error(data.message || i18next.t('api.integration.error.testFailed'))
       }
     },
     onError: () => {
-      toast.error('Fehler beim Senden der Testbenachrichtigung')
+      toast.error(i18next.t('api.integration.error.testSend'))
     },
   })
 }
@@ -174,10 +175,10 @@ export function useCreateChannelMapping(platform: Platform) {
       qc.invalidateQueries({
         queryKey: integrationKeys.mappings(platform),
       })
-      toast.success('Kanalzuordnung erstellt')
+      toast.success(i18next.t('api.integration.mappingCreated'))
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen der Kanalzuordnung')
+      toast.error(i18next.t('api.integration.error.mappingCreate'))
     },
   })
 }
@@ -213,13 +214,13 @@ export function useUpdateChannelMapping(platform: Platform) {
       qc.invalidateQueries({
         queryKey: integrationKeys.mappings(platform),
       })
-      toast.success('Kanalzuordnung aktualisiert')
+      toast.success(i18next.t('api.integration.mappingUpdated'))
     },
     onError: () => {
       qc.invalidateQueries({
         queryKey: integrationKeys.mappings(platform),
       })
-      toast.error('Fehler beim Aktualisieren der Kanalzuordnung')
+      toast.error(i18next.t('api.integration.error.mappingUpdate'))
     },
   })
 }
@@ -233,10 +234,10 @@ export function useDeleteChannelMapping(platform: Platform) {
       qc.invalidateQueries({
         queryKey: integrationKeys.mappings(platform),
       })
-      toast.success('Kanalzuordnung gelöscht')
+      toast.success(i18next.t('api.integration.mappingDeleted'))
     },
     onError: () => {
-      toast.error('Fehler beim Löschen der Kanalzuordnung')
+      toast.error(i18next.t('api.integration.error.mappingDelete'))
     },
   })
 }
@@ -268,10 +269,10 @@ export function useLinkAccount() {
       qc.invalidateQueries({
         queryKey: ['integration', 'link'],
       })
-      toast.success('Konto verknüpft')
+      toast.success(i18next.t('api.integration.accountLinked'))
     },
     onError: () => {
-      toast.error('Token ungültig oder abgelaufen')
+      toast.error(i18next.t('api.integration.error.tokenInvalid'))
     },
   })
 }
@@ -285,10 +286,10 @@ export function useUnlinkAccount(platform: Platform) {
       qc.invalidateQueries({
         queryKey: integrationKeys.link(platform),
       })
-      toast.success('Kontoverknüpfung aufgehoben')
+      toast.success(i18next.t('api.integration.accountUnlinked'))
     },
     onError: () => {
-      toast.error('Fehler beim Aufheben der Verknüpfung')
+      toast.error(i18next.t('api.integration.error.unlink'))
     },
   })
 }

@@ -71,37 +71,37 @@ const ALL_DECO_THEMES = ['cozy', 'dreamy', 'raumstation', 'clean']
 
 export const DECO_ASSETS: DecoAsset[] = [
   // Shared (all non-minimal themes)
-  { id: 'coffee-cup', name: 'Kaffeetasse', image: decoCoffeeCup, themes: ALL_DECO_THEMES, animation: 'desk-anim-steam' },
-  { id: 'pen-holder', name: 'Stiftebecher', image: decoPenHolder, themes: ALL_DECO_THEMES, animation: null },
-  { id: 'notebook', name: 'Notizbuch', image: decoNotebook, themes: ALL_DECO_THEMES, animation: null },
-  { id: 'book-stack', name: 'Buecherstapel', image: decoBookStack, themes: ALL_DECO_THEMES, animation: null },
-  { id: 'photo-frame', name: 'Bilderrahmen', image: decoPhotoFrame, themes: ALL_DECO_THEMES, animation: null },
-  { id: 'art-print', name: 'Kunstdruck', image: decoArtPrint, themes: ALL_DECO_THEMES, animation: null },
+  { id: 'coffee-cup', name: 'config.decoAsset.coffee-cup.name', image: decoCoffeeCup, themes: ALL_DECO_THEMES, animation: 'desk-anim-steam' },
+  { id: 'pen-holder', name: 'config.decoAsset.pen-holder.name', image: decoPenHolder, themes: ALL_DECO_THEMES, animation: null },
+  { id: 'notebook', name: 'config.decoAsset.notebook.name', image: decoNotebook, themes: ALL_DECO_THEMES, animation: null },
+  { id: 'book-stack', name: 'config.decoAsset.book-stack.name', image: decoBookStack, themes: ALL_DECO_THEMES, animation: null },
+  { id: 'photo-frame', name: 'config.decoAsset.photo-frame.name', image: decoPhotoFrame, themes: ALL_DECO_THEMES, animation: null },
+  { id: 'art-print', name: 'config.decoAsset.art-print.name', image: decoArtPrint, themes: ALL_DECO_THEMES, animation: null },
 
   // Cozy exclusive
-  { id: 'succulent', name: 'Sukkulente', image: decoSucculent, themes: ['cozy'], animation: 'desk-anim-sway' },
-  { id: 'potted-fern', name: 'Topffarn', image: decoPottedFern, themes: ['cozy'], animation: 'desk-anim-sway' },
-  { id: 'tea-cup', name: 'Teetasse', image: decoTeaCup, themes: ['cozy'], animation: 'desk-anim-steam' },
-  { id: 'candle', name: 'Kerze', image: decoCandle, themes: ['cozy'], animation: 'desk-anim-flicker' },
-  { id: 'snow-globe', name: 'Schneekugel', image: decoSnowGlobe, themes: ['cozy'], animation: 'desk-anim-shimmer' },
-  { id: 'postcard', name: 'Postkarte', image: decoPostcard, themes: ['cozy'], animation: null },
-  { id: 'reading-glasses', name: 'Lesebrille', image: decoReadingGlasses, themes: ['cozy'], animation: null },
-  { id: 'open-book', name: 'Offenes Buch', image: decoOpenBook, themes: ['cozy'], animation: null },
-  { id: 'flower-vase', name: 'Blumenvase', image: decoFlowerVase, themes: ['cozy'], animation: null },
-  { id: 'knitted-cozy', name: 'Strick-Untersetzer', image: decoKnittedCozy, themes: ['cozy'], animation: null },
-  { id: 'honey-jar', name: 'Honigglas', image: decoHoneyJar, themes: ['cozy'], animation: null },
+  { id: 'succulent', name: 'config.decoAsset.succulent.name', image: decoSucculent, themes: ['cozy'], animation: 'desk-anim-sway' },
+  { id: 'potted-fern', name: 'config.decoAsset.potted-fern.name', image: decoPottedFern, themes: ['cozy'], animation: 'desk-anim-sway' },
+  { id: 'tea-cup', name: 'config.decoAsset.tea-cup.name', image: decoTeaCup, themes: ['cozy'], animation: 'desk-anim-steam' },
+  { id: 'candle', name: 'config.decoAsset.candle.name', image: decoCandle, themes: ['cozy'], animation: 'desk-anim-flicker' },
+  { id: 'snow-globe', name: 'config.decoAsset.snow-globe.name', image: decoSnowGlobe, themes: ['cozy'], animation: 'desk-anim-shimmer' },
+  { id: 'postcard', name: 'config.decoAsset.postcard.name', image: decoPostcard, themes: ['cozy'], animation: null },
+  { id: 'reading-glasses', name: 'config.decoAsset.reading-glasses.name', image: decoReadingGlasses, themes: ['cozy'], animation: null },
+  { id: 'open-book', name: 'config.decoAsset.open-book.name', image: decoOpenBook, themes: ['cozy'], animation: null },
+  { id: 'flower-vase', name: 'config.decoAsset.flower-vase.name', image: decoFlowerVase, themes: ['cozy'], animation: null },
+  { id: 'knitted-cozy', name: 'config.decoAsset.knitted-cozy.name', image: decoKnittedCozy, themes: ['cozy'], animation: null },
+  { id: 'honey-jar', name: 'config.decoAsset.honey-jar.name', image: decoHoneyJar, themes: ['cozy'], animation: null },
 
   // Dreamy exclusive
-  { id: 'crystal-plant', name: 'Kristall-Pflanze', image: decoCrystalPlant, themes: ['dreamy'], animation: 'desk-anim-shimmer' },
-  { id: 'crystal-orb', name: 'Kristallkugel', image: decoCrystalOrb, themes: ['dreamy'], animation: 'desk-anim-float' },
-  { id: 'moon-lamp', name: 'Mondlampe', image: decoMoonLamp, themes: ['dreamy'], animation: 'desk-anim-glow' },
-  { id: 'enchanted-hourglass', name: 'Magische Sanduhr', image: decoEnchantedHourglass, themes: ['dreamy'], animation: 'desk-anim-shimmer' },
-  { id: 'star-wand', name: 'Kristall-Stab', image: decoStarWand, themes: ['dreamy'], animation: 'desk-anim-shimmer' },
-  { id: 'floating-crystals', name: 'Schwebende Kristalle', image: decoFloatingCrystals, themes: ['dreamy'], animation: 'desk-anim-float' },
+  { id: 'crystal-plant', name: 'config.decoAsset.crystal-plant.name', image: decoCrystalPlant, themes: ['dreamy'], animation: 'desk-anim-shimmer' },
+  { id: 'crystal-orb', name: 'config.decoAsset.crystal-orb.name', image: decoCrystalOrb, themes: ['dreamy'], animation: 'desk-anim-float' },
+  { id: 'moon-lamp', name: 'config.decoAsset.moon-lamp.name', image: decoMoonLamp, themes: ['dreamy'], animation: 'desk-anim-glow' },
+  { id: 'enchanted-hourglass', name: 'config.decoAsset.enchanted-hourglass.name', image: decoEnchantedHourglass, themes: ['dreamy'], animation: 'desk-anim-shimmer' },
+  { id: 'star-wand', name: 'config.decoAsset.star-wand.name', image: decoStarWand, themes: ['dreamy'], animation: 'desk-anim-shimmer' },
+  { id: 'floating-crystals', name: 'config.decoAsset.floating-crystals.name', image: decoFloatingCrystals, themes: ['dreamy'], animation: 'desk-anim-float' },
 
   // Raumstation (tech/sci-fi)
-  { id: 'vintage-compass', name: 'Navigations-Kompass', image: decoVintageCompass, themes: ['raumstation'], animation: 'desk-anim-sparkle' },
-  { id: 'metal-gear', name: 'Deko-Zahnrad', image: decoMetalGear, themes: ['raumstation'], animation: null },
+  { id: 'vintage-compass', name: 'config.decoAsset.vintage-compass.name', image: decoVintageCompass, themes: ['raumstation'], animation: 'desk-anim-sparkle' },
+  { id: 'metal-gear', name: 'config.decoAsset.metal-gear.name', image: decoMetalGear, themes: ['raumstation'], animation: null },
 ]
 
 /** Get decoration assets available for a specific theme */

@@ -110,8 +110,8 @@ const TRANSITION_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
 const cozy: DeskTheme = {
   id: 'cozy',
-  name: 'Gemuetlich',
-  description: 'Warmes Home-Office mit Eichenholz und Sonnenlicht',
+  name: 'config.deskTheme.cozy.name',
+  description: 'config.deskTheme.cozy.description',
   isMinimal: false,
 
   window: {
@@ -162,15 +162,15 @@ const cozy: DeskTheme = {
   },
 
   sidebar: { background: 'solid', integratedWithFrame: true },
-  viewDescription: 'Sonniger Garten mit Blumen und sanften Huegeln',
+  viewDescription: 'config.deskTheme.cozy.viewDescription',
 }
 
 // ── 2. DREAMY ──────────────────────────────────────────────────────────────
 
 const dreamy: DeskTheme = {
   id: 'dreamy',
-  name: 'Verträumt',
-  description: 'Magische Atmosphäre mit Kristallen und Lichtpartikeln',
+  name: 'config.deskTheme.dreamy.name',
+  description: 'config.deskTheme.dreamy.description',
   isMinimal: false,
 
   window: {
@@ -223,7 +223,7 @@ const dreamy: DeskTheme = {
   },
 
   sidebar: { background: 'solid', integratedWithFrame: true },
-  viewDescription: 'Magische Landschaft mit schwebenden Inseln und Kristallen',
+  viewDescription: 'config.deskTheme.dreamy.viewDescription',
 }
 
 // ── 3. RAUMSTATION ─────────────────────────────────────────────────────────
@@ -288,8 +288,8 @@ const RAUMSTATION_MOUNT_POINTS: MountPoint[] = [
 
 const raumstation: DeskTheme = {
   id: 'raumstation',
-  name: 'Raumstation',
-  description: 'Futuristische Station mit Panorama-Aussicht ins All',
+  name: 'config.deskTheme.raumstation.name',
+  description: 'config.deskTheme.raumstation.description',
   isMinimal: false,
 
   window: {
@@ -342,15 +342,15 @@ const raumstation: DeskTheme = {
   },
 
   sidebar: { background: 'solid', integratedWithFrame: true },
-  viewDescription: 'Weltraum-Panorama mit Sternen, Nebeln und fernen Planeten',
+  viewDescription: 'config.deskTheme.raumstation.viewDescription',
 }
 
 // ── 4. CLEAN (Neutral base) ────────────────────────────────────────────────
 
 const clean: DeskTheme = {
   id: 'clean',
-  name: 'Neutral',
-  description: 'Neutrale Clean-Base — weisse Waende, Holz-Desk, Landschaftsblick',
+  name: 'config.deskTheme.clean.name',
+  description: 'config.deskTheme.clean.description',
   isMinimal: false,
 
   window: {
@@ -401,15 +401,15 @@ const clean: DeskTheme = {
   },
 
   sidebar: { background: 'solid', integratedWithFrame: true },
-  viewDescription: 'Huegel-Landschaft mit See und blauem Himmel',
+  viewDescription: 'config.deskTheme.clean.viewDescription',
 }
 
 // ── 5. MINIMAL ─────────────────────────────────────────────────────────────
 
 const minimal: DeskTheme = {
   id: 'minimal',
-  name: 'Minimalistisch',
-  description: 'Ablenkungsfreier Arbeitsplatz ohne Dekoration',
+  name: 'config.deskTheme.minimal.name',
+  description: 'config.deskTheme.minimal.description',
   isMinimal: true,
 
   window: {
