@@ -3,7 +3,11 @@
 ## Context
 i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.ts-Dateien instrumentieren, damit die App vollständig DE/EN/FR/IT übersetzbar ist. Agents dürfen max ~5-7 Dateien pro Task bearbeiten, um unter 80k Tokens zu bleiben.
 
-## Aktueller Stand (2026-04-07, Update 3)
+## ✅ MIGRATION ABGESCHLOSSEN (2026-04-08)
+
+**Ergebnis:** 7.221 Keys × 4 Sprachen (DE/EN/FR/IT), strict TypeScript types, 21 Commits.
+
+## Commit-Historie
 
 ### Committed (18 Commits auf main):
 - `1b7ee22` — i18next Infrastruktur + react-intl entfernt (20 Dateien)
@@ -128,22 +132,21 @@ Mock-Daten in Stores bewusst NICHT instrumentiert (werden durch Backend-Daten er
 
 ---
 
-## Schritt 5: Phase 4 — Übersetzungen (EN/FR/IT) ← NÄCHSTER SCHRITT
+## ~~Schritt 5: Phase 4 — Übersetzungen (EN/FR/IT)~~ ✅ ERLEDIGT
 
-1. de.json ist jetzt komplett
-2. en.json generieren (alle Keys übersetzen)
-3. fr.json generieren
-4. it.json generieren
-5. Commit: `feat(i18n): add EN/FR/IT translations`
+- Alle 7.221 Keys in EN, FR, IT übersetzt (3 Chunks × 3 Sprachen parallel)
+- Volle Key-Parität: DE = EN = FR = IT = 7.221 Keys
+- Production Build verifiziert
+- Commit: `feat(i18n): add EN/FR/IT translations for all 7,221 keys`
 
 ---
 
-## Schritt 6: Phase 5 — Cleanup
+## ~~Schritt 6: Phase 5 — Cleanup~~ ✅ ERLEDIGT
 
-1. i18next.d.ts auf strikte Typen umstellen
-2. Unused Keys entfernen
-3. Final Build + Smoke Test
-4. Commit: `chore(i18n): strict types and final cleanup`
+- i18next.d.ts auf strikte Typen umgestellt (de.json als resources Source of Truth)
+- Unused-Key-Analyse: 119 Kandidaten, alle False Positives (dynamische Keys, ICU Plurals)
+- `tsc --noEmit` + `npm run build` sauber
+- Commit: `chore(i18n): enable strict type-safe translation keys`
 
 ---
 
@@ -204,8 +207,8 @@ status, actions, required, optional, ok, copy, copied, resetFilters
 | ~~Schritt 3.5 Wave 2+3~~ | ~7 | ~36 | ✅ DONE (315 Keys) |
 | ~~Schritt 3.75: Remaining Strings~~ | 11 | 42 | ✅ DONE (+969 Keys) |
 | ~~Schritt 4: Merge & Loader~~ | 1 (Script) | 46→1 JSON | ✅ DONE (7.221 Keys) |
-| Schritt 5: Uebersetzungen | 3 | 3 JSON | TODO |
-| Schritt 6: Cleanup | 1 (manuell) | — | TODO |
+| ~~Schritt 5: Uebersetzungen~~ | 9 (3×3) | 3 JSON | ✅ DONE (7.221×4 Sprachen) |
+| ~~Schritt 6: Cleanup~~ | 1 | 1 (d.ts) | ✅ DONE (strict types) |
 | **Total verbleibend** | **~5** | **~3 Dateien** | |
 
 ## Lesson Learned
