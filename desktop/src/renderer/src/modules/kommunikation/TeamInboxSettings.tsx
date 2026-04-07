@@ -174,7 +174,7 @@ export function TeamInboxSettings({
                     onChange={() => setAssignmentMode('round_robin')}
                     className="accent-primary"
                   />
-                  Round-Robin
+                  {t('kommunikation.inbox.roundRobin')}
                 </label>
               </div>
             </div>
@@ -194,7 +194,7 @@ export function TeamInboxSettings({
                     onChange={() => setVisibility('open')}
                     className="accent-primary"
                   />
-                  Offen
+                  {t('kommunikation.inbox.visibilityOpen')}
                 </label>
                 <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                   <input
@@ -205,7 +205,7 @@ export function TeamInboxSettings({
                     onChange={() => setVisibility('private')}
                     className="accent-primary"
                   />
-                  Privat
+                  {t('kommunikation.inbox.visibilityPrivate')}
                 </label>
               </div>
             </div>
@@ -213,7 +213,7 @@ export function TeamInboxSettings({
             {/* Members */}
             <div>
               <label className="text-xs font-medium text-foreground">
-                Mitglieder
+                {t('kommunikation.inbox.members')}
               </label>
               <div className="mt-1 space-y-1">
                 {members?.map((m) => (
@@ -232,7 +232,7 @@ export function TeamInboxSettings({
                             : 'bg-secondary text-secondary-foreground'
                         }`}
                       >
-                        {m.role === 'admin' ? 'Admin' : 'Mitglied'}
+                        {m.role === 'admin' ? t('kommunikation.inbox.roleAdmin') : t('kommunikation.inbox.roleMember')}
                       </span>
                     </div>
                     <button
@@ -243,7 +243,7 @@ export function TeamInboxSettings({
                         })
                       }
                       className="rounded p-1 text-muted-foreground hover:text-red-500 hover:bg-secondary transition-colors"
-                      title="Entfernen"
+                      title={t('kommunikation.inbox.removeMember')}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -251,7 +251,7 @@ export function TeamInboxSettings({
                 ))}
                 {(!members || members.length === 0) && (
                   <p className="text-xs text-muted-foreground py-2">
-                    Noch keine Mitglieder
+                    {t('kommunikation.inbox.noMembers')}
                   </p>
                 )}
               </div>
@@ -262,7 +262,7 @@ export function TeamInboxSettings({
                   type="text"
                   value={newMemberUserId}
                   onChange={(e) => setNewMemberUserId(e.target.value)}
-                  placeholder="Benutzer-ID"
+                  placeholder={t('kommunikation.inbox.userIdPlaceholder')}
                   className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-1 focus:ring-focus-ring"
                 />
                 <select
@@ -272,8 +272,8 @@ export function TeamInboxSettings({
                   }
                   className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-focus-ring"
                 >
-                  <option value="member">Mitglied</option>
-                  <option value="admin">Admin</option>
+                  <option value="member">{t('kommunikation.inbox.roleMember')}</option>
+                  <option value="admin">{t('kommunikation.inbox.roleAdmin')}</option>
                 </select>
                 <button
                   onClick={handleAddMember}
@@ -292,21 +292,21 @@ export function TeamInboxSettings({
                 className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Löschen
+                {t('common.delete')}
               </button>
               <div className="flex gap-2">
                 <button
                   onClick={() => onOpenChange(false)}
                   className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
                 >
-                  Abbrechen
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={!name.trim() || updateTeam.isPending}
                   className="rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors disabled:opacity-50"
                 >
-                  Speichern
+                  {t('common.save')}
                 </button>
               </div>
             </div>
@@ -317,9 +317,9 @@ export function TeamInboxSettings({
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
-        title="Team-Postfach löschen?"
-        description={`"${team.name}" wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.`}
-        confirmLabel="Löschen"
+        title={t('kommunikation.inbox.deleteTitle')}
+        description={t('kommunikation.inbox.deleteDescription', { name: team.name })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDelete}
       />

@@ -118,16 +118,16 @@ export default function GDPRExportPage() {
             <div className="flex items-center gap-2 mt-1">
               {pendingCount > 0 && (
                 <span className="rounded-full bg-warning-light px-2.5 py-0.5 text-xs font-medium text-warning">
-                  {pendingCount} Pending
+                  {pendingCount} {t('security.export.statusPending')}
                 </span>
               )}
               {readyCount > 0 && (
                 <span className="rounded-full bg-success-light px-2.5 py-0.5 text-xs font-medium text-success">
-                  {readyCount} Ready
+                  {readyCount} {t('security.export.statusReady')}
                 </span>
               )}
               <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                {allExports.length} Total
+                {allExports.length} {t('security.export.statusTotal')}
               </span>
             </div>
           </div>
@@ -138,8 +138,8 @@ export default function GDPRExportPage() {
       <div className="flex items-start gap-2 rounded-lg bg-info-light/50 px-4 py-3 mb-6">
         <Info className="h-4 w-4 text-info mt-0.5 shrink-0" />
         <div className="text-xs text-info">
-          <p className="font-medium mb-1">Enthaltene Module im Export:</p>
-          <p>CRM, E-Mails, Chat, Kalender, Dokumente, Helpdesk, Rechnungen, Projekte, Formulare, Zeiterfassung</p>
+          <p className="font-medium mb-1">{t('security.export.scopeTitle')}</p>
+          <p>{t('security.export.scopeModules')}</p>
         </div>
       </div>
 
@@ -256,7 +256,7 @@ export default function GDPRExportPage() {
                           <div className="flex justify-end items-center gap-2">
                             <span className="flex items-center gap-1 text-[10px] text-warning">
                               <Clock className="h-3 w-3" />
-                              Ablauf in 30 Tagen
+                              {t('security.export.expiresIn30Days')}
                             </span>
                             <a
                               href={`/api/v1/gdpr/exports/${exp.id}/download?token=${exp.download_token}`}
@@ -294,8 +294,8 @@ export default function GDPRExportPage() {
             <input
               value={denyReason}
               onChange={(e) => setDenyReason(e.target.value)}
-              placeholder="Reason for denial..."
-              aria-label="Reason for denial"
+              placeholder={t('security.export.denyReasonPlaceholder')}
+              aria-label={t('security.export.denyReasonPlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
               autoFocus
             />

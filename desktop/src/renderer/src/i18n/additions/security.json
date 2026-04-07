@@ -41,5 +41,19 @@
   "security.admin.tab.gdpr-exports": "Datenexport",
   "security.admin.tab.gdpr-erasure": "Datenlöschung",
   "security.admin.tab.dsar": "Auskunft (Art. 15)",
-  "security.admin.tab.retention": "Aufbewahrungsfristen"
+  "security.admin.tab.retention": "Aufbewahrungsfristen",
+
+  "security.erasure.confirmDialogDescription": "Löschvorgang bestätigen",
+  "security.erasure.downloadReceipt": "Löschprotokoll herunterladen",
+  "security.erasure.receiptDownloading": "Löschprotokoll wird heruntergeladen...",
+  "security.erasure.receiptSaved": "{{filename}} gespeichert",
+  "security.erasure.searchUserPlaceholder": "Benutzer suchen...",
+
+  "security.export.denyReasonPlaceholder": "Begründung der Ablehnung...",
+  "security.export.expiresIn30Days": "Ablauf in 30 Tagen",
+  "security.export.scopeModules": "CRM, E-Mails, Chat, Kalender, Dokumente, Helpdesk, Rechnungen, Projekte, Formulare, Zeiterfassung",
+  "security.export.scopeTitle": "Enthaltene Module im Export:",
+  "security.export.statusPending": "Ausstehend",
+  "security.export.statusReady": "Bereit",
+  "security.export.statusTotal": "Gesamt"
 }

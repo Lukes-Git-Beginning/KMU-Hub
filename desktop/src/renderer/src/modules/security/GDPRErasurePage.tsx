@@ -139,9 +139,9 @@ export default function GDPRErasurePage() {
   }, [adminPassword, previewData, selectedUserId, t])
 
   const handleDownloadReceipt = useCallback(() => {
-    toast.success('Loeschprotokoll wird heruntergeladen...')
-    setTimeout(() => toast.success('Loeschprotokoll_' + selectedUserName?.replace(/\s/g, '_') + '.pdf gespeichert'), 1000)
-  }, [selectedUserName])
+    toast.success(t('security.erasure.receiptDownloading'))
+    setTimeout(() => toast.success(t('security.erasure.receiptSaved', { filename: 'Loeschprotokoll_' + selectedUserName?.replace(/\s/g, '_') + '.pdf' })), 1000)
+  }, [selectedUserName, t])
 
   const totalRecords = previewData
     ? previewData.reduce((sum, m) => sum + m.record_count, 0)
@@ -188,7 +188,7 @@ export default function GDPRErasurePage() {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search user..."
+              placeholder={t('security.erasure.searchUserPlaceholder')}
               className="w-full rounded-lg border border-border bg-card pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
           </div>
@@ -324,7 +324,7 @@ export default function GDPRErasurePage() {
               className="mt-4 inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <Download className="h-4 w-4" />
-              Loeschprotokoll herunterladen
+              {t('security.erasure.downloadReceipt')}
             </button>
           </div>
         )}
@@ -338,7 +338,7 @@ export default function GDPRErasurePage() {
               <DialogTitle className="text-lg font-semibold text-foreground">
                 {t('gdpr.erasure.confirmTitle')}
               </DialogTitle>
-              <DialogDescription className="sr-only">Loeschvorgang bestätigen</DialogDescription>
+              <DialogDescription className="sr-only">{t('security.erasure.confirmDialogDescription')}</DialogDescription>
             </DialogHeader>
 
             <p className="text-sm text-muted-foreground mb-4">

@@ -25,9 +25,11 @@ import type { LucideIcon } from 'lucide-react'
 export interface EmailTemplate {
   id: string
   name: string
+  nameKey: string
   category: 'vertrieb' | 'kommunikation' | 'finanzen'
   icon: LucideIcon
   subject: string
+  subjectKey: string
   /** HTML body with {{placeholder}} variables */
   body: string
   placeholders: string[]
@@ -37,9 +39,11 @@ const templates: EmailTemplate[] = [
   {
     id: 'angebot',
     name: 'Angebot',
+    nameKey: 'mails.templates.name.angebot',
     category: 'vertrieb',
     icon: FileText,
     subject: 'Angebot für {{firma}}',
+    subjectKey: 'mails.templates.subject.angebot',
     placeholders: ['anrede', 'name', 'firma', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
 <p>vielen Dank für Ihr Interesse an unseren Leistungen. Gerne unterbreiten wir Ihnen hiermit unser Angebot.</p>
@@ -54,9 +58,11 @@ const templates: EmailTemplate[] = [
   {
     id: 'auftragsbestaetigung',
     name: 'Auftragsbestaetigung',
+    nameKey: 'mails.templates.name.auftragsbestaetigung',
     category: 'vertrieb',
     icon: CheckCircle2,
     subject: 'Auftragsbestaetigung — {{firma}}',
+    subjectKey: 'mails.templates.subject.auftragsbestaetigung',
     placeholders: ['anrede', 'name', 'firma', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
 <p>herzlichen Dank für Ihren Auftrag! Wir bestätigen hiermit den Eingang und die Annahme.</p>
@@ -71,9 +77,11 @@ const templates: EmailTemplate[] = [
   {
     id: 'follow-up',
     name: 'Follow-Up',
+    nameKey: 'mails.templates.name.followUp',
     category: 'kommunikation',
     icon: MessageSquare,
     subject: 'Nachfassen: Unser Gespräch',
+    subjectKey: 'mails.templates.subject.followUp',
     placeholders: ['anrede', 'name', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
 <p>vielen Dank für unser Gespräch am {{datum}}. Ich möchte kurz die besprochenen Punkte zusammenfassen:</p>
@@ -92,9 +100,11 @@ const templates: EmailTemplate[] = [
   {
     id: 'terminbestaetigung',
     name: 'Terminbestaetigung',
+    nameKey: 'mails.templates.name.terminbestaetigung',
     category: 'kommunikation',
     icon: CalendarCheck,
     subject: 'Terminbestaetigung — {{datum}}',
+    subjectKey: 'mails.templates.subject.terminbestaetigung',
     placeholders: ['anrede', 'name', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
 <p>hiermit bestätigen wir Ihren Termin:</p>
@@ -108,9 +118,11 @@ const templates: EmailTemplate[] = [
   {
     id: 'willkommen',
     name: 'Willkommen',
+    nameKey: 'mails.templates.name.willkommen',
     category: 'kommunikation',
     icon: UserPlus,
     subject: 'Willkommen bei {{firma}}!',
+    subjectKey: 'mails.templates.subject.willkommen',
     placeholders: ['anrede', 'name', 'firma'],
     body: `<p>{{anrede}} {{name}},</p>
 <p>herzlich willkommen bei {{firma}}! Wir freuen uns, Sie als neuen Kunden / Partner begrüßen zu dürfen.</p>
@@ -125,9 +137,11 @@ const templates: EmailTemplate[] = [
   {
     id: 'zahlungserinnerung',
     name: 'Zahlungserinnerung',
+    nameKey: 'mails.templates.name.zahlungserinnerung',
     category: 'finanzen',
     icon: CreditCard,
     subject: 'Freundliche Zahlungserinnerung — Rechnung RE-XXXX',
+    subjectKey: 'mails.templates.subject.zahlungserinnerung',
     placeholders: ['anrede', 'name', 'firma', 'datum'],
     body: `<p>{{anrede}} {{name}},</p>
 <p>bei der Prüfung unserer offenen Posten ist uns aufgefallen, dass die nachfolgende Rechnung noch nicht beglichen wurde:</p>
@@ -170,17 +184,17 @@ export function EmailTemplateDialog({
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const filtered = templates.filter(
-    (t) =>
+    (tpl) =>
       !search ||
-      t.name.toLowerCase().includes(search.toLowerCase()) ||
-      t.category.includes(search.toLowerCase()),
+      t(tpl.nameKey).toLowerCase().includes(search.toLowerCase()) ||
+      tpl.category.includes(search.toLowerCase()),
   )
 
-  const selected = templates.find((t) => t.id === selectedId)
+  const selected = templates.find((tpl) => tpl.id === selectedId)
 
   const handleInsert = () => {
     if (!selected) return
-    onSelect({ subject: selected.subject, body: selected.body })
+    onSelect({ subject: t(selected.subjectKey), body: selected.body })
     onOpenChange(false)
     setSelectedId(null)
     setSearch('')
@@ -188,9 +202,9 @@ export function EmailTemplateDialog({
 
   // Group by category
   const grouped = filtered.reduce(
-    (acc, t) => {
-      if (!acc[t.category]) acc[t.category] = []
-      acc[t.category].push(t)
+    (acc, tpl) => {
+      if (!acc[tpl.category]) acc[tpl.category] = []
+      acc[tpl.category].push(tpl)
       return acc
     },
     {} as Record<string, EmailTemplate[]>,
@@ -223,20 +237,20 @@ export function EmailTemplateDialog({
                     {categoryLabelKeys[category] ? t(categoryLabelKeys[category]) : category}
                   </p>
                   <div className="space-y-0.5">
-                    {items.map((t) => {
-                      const Icon = t.icon
+                    {items.map((tpl) => {
+                      const Icon = tpl.icon
                       return (
                         <button
-                          key={t.id}
-                          onClick={() => setSelectedId(t.id)}
+                          key={tpl.id}
+                          onClick={() => setSelectedId(tpl.id)}
                           className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors ${
-                            selectedId === t.id
+                            selectedId === tpl.id
                               ? 'bg-primary-light text-primary font-medium'
                               : 'text-foreground hover:bg-secondary'
                           }`}
                         >
                           <Icon className="h-4 w-4 shrink-0" />
-                          {t.name}
+                          {t(tpl.nameKey)}
                         </button>
                       )
                     })}
@@ -258,7 +272,7 @@ export function EmailTemplateDialog({
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">{t('mails.compose.subject')}</p>
                   <p className="text-sm font-medium text-foreground">
-                    {selected.subject}
+                    {t(selected.subjectKey)}
                   </p>
                 </div>
                 <div>

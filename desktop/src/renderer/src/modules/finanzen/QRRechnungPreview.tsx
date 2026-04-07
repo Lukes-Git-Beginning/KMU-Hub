@@ -78,21 +78,22 @@ const mockBillData: QRBillData = {
 // ---------------------------------------------------------------------------
 
 function QRBillSlip({ data }: { data: QRBillData }) {
+  const { t } = useTranslation()
   return (
     <div className="border-2 border-foreground/20 rounded bg-white text-black">
       {/* Top dashed separator */}
       <div className="border-b-2 border-dashed border-foreground/20 px-1 py-0.5 flex items-center justify-between">
-        <span className="text-[8px] text-gray-400">Vor dem Einzahlen abzutrennen</span>
+        <span className="text-[8px] text-gray-400">{t('finanzen.qrBill.slip.cutHere')}</span>
         <span className="text-[8px] text-gray-400">&#9986;</span>
       </div>
 
       <div className="flex">
         {/* Left: Empfangsschein */}
         <div className="w-[200px] border-r-2 border-dashed border-foreground/20 p-3 space-y-2">
-          <p className="text-[11px] font-bold">Empfangsschein</p>
+          <p className="text-[11px] font-bold">{t('finanzen.qrBill.slip.receipt')}</p>
 
           <div>
-            <p className="text-[8px] font-bold">Konto / Zahlbar an</p>
+            <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.accountPayableTo')}</p>
             <p className="text-[9px]">{data.creditorIBAN}</p>
             <p className="text-[9px]">{data.creditorName}</p>
             <p className="text-[9px]">{data.creditorStreet}</p>
@@ -100,12 +101,12 @@ function QRBillSlip({ data }: { data: QRBillData }) {
           </div>
 
           <div>
-            <p className="text-[8px] font-bold">Referenz</p>
+            <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.reference')}</p>
             <p className="text-[9px] font-mono">{data.reference}</p>
           </div>
 
           <div>
-            <p className="text-[8px] font-bold">Zahlbar durch</p>
+            <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.payableBy')}</p>
             <p className="text-[9px]">{data.debtorName}</p>
             <p className="text-[9px]">{data.debtorStreet}</p>
             <p className="text-[9px]">{data.debtorZipCity}</p>
@@ -113,23 +114,23 @@ function QRBillSlip({ data }: { data: QRBillData }) {
 
           <div className="flex items-end justify-between pt-1">
             <div>
-              <p className="text-[8px] font-bold">Waehrung</p>
+              <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.currency')}</p>
               <p className="text-[10px]">{data.currency}</p>
             </div>
             <div>
-              <p className="text-[8px] font-bold">Betrag</p>
+              <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.amount')}</p>
               <p className="text-[10px]">{data.amount}</p>
             </div>
           </div>
 
           <div className="pt-1 border-t border-gray-200">
-            <p className="text-[8px] font-bold">Annahmestelle</p>
+            <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.acceptingPoint')}</p>
           </div>
         </div>
 
         {/* Right: Zahlteil */}
         <div className="flex-1 p-3 space-y-2">
-          <p className="text-[11px] font-bold">Zahlteil</p>
+          <p className="text-[11px] font-bold">{t('finanzen.qrBill.slip.paymentPart')}</p>
 
           <div className="flex gap-3">
             {/* QR Code placeholder */}
@@ -144,17 +145,17 @@ function QRBillSlip({ data }: { data: QRBillData }) {
             <div className="flex-1 space-y-2">
               <div className="flex items-end gap-4">
                 <div>
-                  <p className="text-[8px] font-bold">Waehrung</p>
+                  <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.currency')}</p>
                   <p className="text-[11px]">{data.currency}</p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-bold">Betrag</p>
+                  <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.amount')}</p>
                   <p className="text-[11px]">{data.amount}</p>
                 </div>
               </div>
 
               <div>
-                <p className="text-[8px] font-bold">Konto / Zahlbar an</p>
+                <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.accountPayableTo')}</p>
                 <p className="text-[9px]">{data.creditorIBAN}</p>
                 <p className="text-[9px]">{data.creditorName}</p>
                 <p className="text-[9px]">{data.creditorStreet}</p>
@@ -162,17 +163,17 @@ function QRBillSlip({ data }: { data: QRBillData }) {
               </div>
 
               <div>
-                <p className="text-[8px] font-bold">Referenz</p>
+                <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.reference')}</p>
                 <p className="text-[9px] font-mono">{data.reference}</p>
               </div>
 
               <div>
-                <p className="text-[8px] font-bold">Zusätzliche Informationen</p>
+                <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.additionalInfo')}</p>
                 <p className="text-[9px]">{data.additionalInfo}</p>
               </div>
 
               <div>
-                <p className="text-[8px] font-bold">Zahlbar durch</p>
+                <p className="text-[8px] font-bold">{t('finanzen.qrBill.slip.payableBy')}</p>
                 <p className="text-[9px]">{data.debtorName}</p>
                 <p className="text-[9px]">{data.debtorStreet}</p>
                 <p className="text-[9px]">{data.debtorZipCity}</p>
@@ -229,8 +230,7 @@ export function QRRechnungPreview({
           <div className="flex items-start gap-2 rounded-md bg-info-light/50 px-3 py-2">
             <Info className="h-3.5 w-3.5 text-info mt-0.5 shrink-0" />
             <p className="text-[11px] text-info">
-              Swiss QR-bill nach SIX-Standard. Der QR-Code wird vom Backend generiert
-              und enthaelt alle Zahlungsinformationen für E-Banking.
+              {t('finanzen.qrBill.infoBanner')}
             </p>
           </div>
 
@@ -260,7 +260,7 @@ export function QRRechnungPreview({
                 </button>
               </div>
               <div className="grid grid-cols-[110px_1fr_24px] gap-2 items-center">
-                <span className="text-[11px] text-muted-foreground">Referenz</span>
+                <span className="text-[11px] text-muted-foreground">{t('finanzen.qrBill.slip.reference')}</span>
                 <span className="text-sm font-mono text-foreground">{data.reference}</span>
                 <button onClick={handleCopyReference} className="p-0.5 text-muted-foreground hover:text-primary transition-colors">
                   <Copy className="h-3.5 w-3.5" />
@@ -331,6 +331,7 @@ interface QRBillIndicatorProps {
 }
 
 export function QRBillIndicator({ hasQRBill, invoiceNumber: _invoiceNumber, onPreview }: QRBillIndicatorProps) {
+  const { t } = useTranslation()
   if (!hasQRBill) return null
   return (
     <button

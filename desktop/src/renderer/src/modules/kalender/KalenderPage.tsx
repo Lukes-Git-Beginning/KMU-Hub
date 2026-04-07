@@ -1245,7 +1245,7 @@ function ExternalBookingPreview() {
                     {selectedDate && (() => {
                       const d = new Date(selectedDate)
                       return `${d.getDate()}. ${MONTHS_DE[d.getMonth()]} ${d.getFullYear()}`
-                    })()} um {selectedTime} Uhr
+                    })()} {t('kalender.external.atTime', { time: selectedTime })}
                   </span>
                 </div>
               </div>
@@ -1457,7 +1457,7 @@ function NewBookingDialog({
                 <span className="text-xs text-muted-foreground">{t('kalender.room.until')}</span>
                 <span className="text-xs text-foreground font-medium">{endTime}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Dauer: {selectedService.dauer} Min.</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t('kalender.newBooking.duration', { minutes: selectedService.dauer })}</p>
             </div>
           </div>
 
@@ -1708,21 +1708,21 @@ function CalendarToolbar({
         <button
           onClick={onOpenRooms}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          title="Raumplanung"
+          title={t('kalender.toolbar.roomPlanning')}
         >
           <DoorOpen className="h-4 w-4" />
         </button>
         <button
           onClick={onOpenCalendarBrowse}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          title="Kalender verwalten"
+          title={t('kalender.toolbar.manageCalendars')}
         >
           <Layers className="h-4 w-4" />
         </button>
         <button
           onClick={onOpenCategories}
           className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          title="Kategorien"
+          title={t('kalender.toolbar.categories')}
         >
           <Settings2 className="h-4 w-4" />
         </button>
@@ -2369,6 +2369,7 @@ function MonthView({
   onSelectEvent: (e: CalendarEvent) => void
   onDateClick: (d: Date) => void
 }) {
+  const { t } = useTranslation()
   const days = getMonthDays(currentDate.getFullYear(), currentDate.getMonth())
 
   return (
@@ -2747,7 +2748,7 @@ function EventFormModal({
                 className="w-full rounded-lg border border-input-border bg-input-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary"
               >
                 {RECURRENCE_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt}>{t(`kalender.form.recurrence.${opt}`)}</option>
                 ))}
               </select>
             </div>
@@ -2762,7 +2763,7 @@ function EventFormModal({
                 className="w-full rounded-lg border border-input-border bg-input-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-primary"
               >
                 {REMINDER_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt}>{t(`kalender.form.reminder.${opt}`)}</option>
                 ))}
               </select>
             </div>

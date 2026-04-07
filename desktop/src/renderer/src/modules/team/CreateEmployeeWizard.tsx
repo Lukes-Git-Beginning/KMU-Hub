@@ -151,14 +151,14 @@ const CONTRACT_LABEL_KEYS: Record<string, string> = {
   freelance: 'team.contractType.freelance',
 }
 
-const DOC_CATEGORIES = [
-  'Arbeitsvertrag',
-  'Personalausweis',
-  'Zeugnis',
-  'Zertifikat',
-  'Sozialversicherung',
-  'Steuer',
-  'Sonstiges',
+const DOC_CATEGORY_KEYS = [
+  'team.employee.docCategory.contract',
+  'team.employee.docCategory.id',
+  'team.employee.docCategory.certificate',
+  'team.employee.docCategory.qualification',
+  'team.employee.docCategory.socialSecurity',
+  'team.employee.docCategory.tax',
+  'team.employee.docCategory.other',
 ]
 
 // ---------------------------------------------------------------------------
@@ -758,11 +758,12 @@ function EmploymentStep({
 // ---------------------------------------------------------------------------
 
 function PersonalStep({ form, update }: { form: EmployeeFormData; update: UpdateFn }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-5">
-      <SectionCard title="Adresse" icon={Home}>
+      <SectionCard title={t('team.employee.personal.address')} icon={Home}>
         <div className="space-y-4">
-          <FormField label="Strasse">
+          <FormField label={t('team.member.street')}>
             <Input
               placeholder="Musterstrasse 1"
               value={form.addressStreet}
@@ -770,7 +771,7 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
             />
           </FormField>
           <div className="grid grid-cols-3 gap-3">
-            <FormField label="PLZ">
+            <FormField label={t('team.member.postalCode')}>
               <Input
                 placeholder="10115"
                 value={form.addressPostalCode}
@@ -778,7 +779,7 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
               />
             </FormField>
             <div className="col-span-2">
-              <FormField label="Ort">
+              <FormField label={t('team.member.city')}>
                 <Input
                   placeholder="Berlin"
                   value={form.addressCity}
@@ -787,32 +788,32 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
               </FormField>
             </div>
           </div>
-          <FormField label="Land">
+          <FormField label={t('team.employee.personal.country')}>
             <Select value={form.addressCountry} onValueChange={(v) => update('addressCountry', v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="DE">Deutschland</SelectItem>
-                <SelectItem value="AT">Oesterreich</SelectItem>
-                <SelectItem value="CH">Schweiz</SelectItem>
-                <SelectItem value="LI">Liechtenstein</SelectItem>
+                <SelectItem value="DE">{t('team.country.de')}</SelectItem>
+                <SelectItem value="AT">{t('team.country.at')}</SelectItem>
+                <SelectItem value="CH">{t('team.country.ch')}</SelectItem>
+                <SelectItem value="LI">{t('team.country.li')}</SelectItem>
               </SelectContent>
             </Select>
           </FormField>
         </div>
       </SectionCard>
 
-      <SectionCard title="Notfallkontakt" icon={Phone}>
+      <SectionCard title={t('team.detail.emergencyContact')} icon={Phone}>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Name">
+          <FormField label={t('team.member.emergencyContactName')}>
             <Input
               placeholder="Anna Muster"
               value={form.emergencyContactName}
               onChange={(e) => update('emergencyContactName', e.target.value)}
             />
           </FormField>
-          <FormField label="Telefon">
+          <FormField label={t('team.member.emergencyContactPhone')}>
             <Input
               placeholder="+49 170 ..."
               value={form.emergencyContactPhone}
@@ -825,8 +826,7 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
       <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 flex items-start gap-3">
         <AlertTriangle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
-          Persönliche Daten sind optional und können auch später vom Mitarbeiter
-          selbst ergaenzt werden.
+          {t('team.employee.personal.hint')}
         </p>
       </div>
     </div>
@@ -838,25 +838,26 @@ function PersonalStep({ form, update }: { form: EmployeeFormData; update: Update
 // ---------------------------------------------------------------------------
 
 function DocumentsStep({ form, update }: { form: EmployeeFormData; update: UpdateFn }) {
-  const [category, setCategory] = useState('Arbeitsvertrag')
+  const { t } = useTranslation()
+  const [categoryKey, setCategoryKey] = useState(DOC_CATEGORY_KEYS[0])
   const [fileName, setFileName] = useState('')
   const [notes, setNotes] = useState('')
 
   const addDocument = () => {
     if (!fileName.trim()) {
-      toast.error('Bitte wählen Sie eine Datei')
+      toast.error(t('team.employee.documents.selectFileError'))
       return
     }
     const entry: DocumentEntry = {
       id: crypto.randomUUID(),
-      category,
+      category: t(categoryKey),
       fileName: fileName.trim(),
       notes: notes.trim(),
     }
     update('documents', [...form.documents, entry])
     setFileName('')
     setNotes('')
-    toast.success(`"${entry.fileName}" hinzugefügt`)
+    toast.success(t('team.employee.documents.addedToast', { name: entry.fileName }))
   }
 
   const removeDocument = (id: string) => {
@@ -870,7 +871,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
     <div className="space-y-5">
       {/* Uploaded list */}
       {form.documents.length > 0 && (
-        <SectionCard title={`Hinzugefügt (${form.documents.length})`} icon={FileText}>
+        <SectionCard title={t('team.employee.documents.addedCount', { count: form.documents.length })} icon={FileText}>
           <div className="space-y-2">
             {form.documents.map((doc) => (
               <div
@@ -900,23 +901,23 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
       )}
 
       {/* Upload form */}
-      <SectionCard title="Dokument hinzufügen" icon={Upload}>
+      <SectionCard title={t('team.employee.documents.addDocument')} icon={Upload}>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Kategorie">
-            <Select value={category} onValueChange={setCategory}>
+          <FormField label={t('team.documents.category')}>
+            <Select value={categoryKey} onValueChange={setCategoryKey}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue>{t(categoryKey)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {DOC_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {DOC_CATEGORY_KEYS.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {t(key)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Datei" required>
+          <FormField label={t('team.documents.file')} required>
             <Input
               type="file"
               onChange={(e) => {
@@ -928,9 +929,9 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
           </FormField>
         </div>
         <div className="mt-4">
-          <FormField label="Notizen">
+          <FormField label={t('team.employee.documents.notes')}>
             <Input
-              placeholder="Optional — z.B. Befristung, Gültigkeitsdatum"
+              placeholder={t('team.documents.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -939,7 +940,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
         <div className="mt-4">
           <Button variant="outline" size="sm" onClick={addDocument} disabled={!fileName.trim()}>
             <Upload className="h-3.5 w-3.5 mr-1.5" />
-            Hinzufügen
+            {t('team.employee.documents.add')}
           </Button>
         </div>
       </SectionCard>
@@ -947,8 +948,7 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
       <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 flex items-start gap-3">
         <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
-          Dieser Schritt ist optional. Dokumente können auch später im Mitarbeiterprofil
-          hochgeladen werden.
+          {t('team.employee.documents.hint')}
         </p>
       </div>
     </div>
@@ -960,50 +960,54 @@ function DocumentsStep({ form, update }: { form: EmployeeFormData; update: Updat
 // ---------------------------------------------------------------------------
 
 function SummaryStep({ form, update }: { form: EmployeeFormData; update: UpdateFn }) {
+  const { t } = useTranslation()
   const roleLabels = form.roles
-    .map((r) => ROLE_OPTIONS.find((o) => o.id === r)?.label ?? r)
+    .map((r) => {
+      const opt = ROLE_OPTIONS.find((o) => o.id === r)
+      return opt ? t(opt.labelKey) : r
+    })
     .join(', ')
 
   return (
     <div className="space-y-5">
       {/* Account */}
-      <SummaryCard title="Account" icon={User}>
-        <SummaryRow label="Name" value={`${form.firstName} ${form.lastName}`} />
-        <SummaryRow label="E-Mail" value={form.email} />
-        {form.phone && <SummaryRow label="Telefon" value={form.phone} />}
-        <SummaryRow label="Rolle(n)" value={roleLabels} />
+      <SummaryCard title={t('team.wizard.stepAccount')} icon={User}>
+        <SummaryRow label={t('team.employee.summary.name')} value={`${form.firstName} ${form.lastName}`} />
+        <SummaryRow label={t('team.invite.email')} value={form.email} />
+        {form.phone && <SummaryRow label={t('team.invite.phone')} value={form.phone} />}
+        <SummaryRow label={t('team.employee.summary.roles')} value={roleLabels} />
       </SummaryCard>
 
       {/* Employment */}
-      <SummaryCard title="Arbeitsverhaeltnis" icon={Briefcase}>
-        {form.department && <SummaryRow label="Abteilung" value={form.department} />}
-        {form.positionTitle && <SummaryRow label="Position" value={form.positionTitle} />}
+      <SummaryCard title={t('team.wizard.stepEmployment')} icon={Briefcase}>
+        {form.department && <SummaryRow label={t('team.member.department')} value={form.department} />}
+        {form.positionTitle && <SummaryRow label={t('team.member.position')} value={form.positionTitle} />}
         <SummaryRow
-          label="Vertrag"
-          value={CONTRACT_LABELS[form.contractType] ?? form.contractType}
+          label={t('team.member.contractType')}
+          value={t(CONTRACT_LABEL_KEYS[form.contractType] ?? form.contractType)}
         />
-        <SummaryRow label="Pensum" value={`${form.workloadPercent}%`} />
-        <SummaryRow label="Arbeitstage" value={`${form.workDaysPerWeek} Tage/Woche`} />
-        <SummaryRow label="Urlaub" value={`${form.annualLeaveDays} Tage/Jahr`} />
+        <SummaryRow label={t('team.member.workload')} value={`${form.workloadPercent}%`} />
+        <SummaryRow label={t('team.employee.summary.workDays')} value={t('team.employee.summary.workDaysValue', { count: form.workDaysPerWeek })} />
+        <SummaryRow label={t('team.employee.summary.annualLeave')} value={t('team.employee.summary.annualLeaveValue', { count: form.annualLeaveDays })} />
         <SummaryRow
-          label="Startdatum"
+          label={t('team.wizard.startDate')}
           value={new Date(form.startDate).toLocaleDateString('de-DE')}
         />
-        {form.location && <SummaryRow label="Standort" value={form.location} />}
+        {form.location && <SummaryRow label={t('team.member.location')} value={form.location} />}
       </SummaryCard>
 
       {/* Personal */}
       {(form.addressStreet || form.emergencyContactName) && (
-        <SummaryCard title="Persönlich" icon={Home}>
+        <SummaryCard title={t('team.wizard.stepPersonal')} icon={Home}>
           {form.addressStreet && (
             <SummaryRow
-              label="Adresse"
+              label={t('team.employee.personal.address')}
               value={`${form.addressStreet}, ${form.addressPostalCode} ${form.addressCity}, ${form.addressCountry}`}
             />
           )}
           {form.emergencyContactName && (
             <SummaryRow
-              label="Notfallkontakt"
+              label={t('team.detail.emergencyContact')}
               value={`${form.emergencyContactName}${form.emergencyContactPhone ? ` (${form.emergencyContactPhone})` : ''}`}
             />
           )}
@@ -1012,7 +1016,7 @@ function SummaryStep({ form, update }: { form: EmployeeFormData; update: UpdateF
 
       {/* Documents */}
       {form.documents.length > 0 && (
-        <SummaryCard title={`Dokumente (${form.documents.length})`} icon={FileText}>
+        <SummaryCard title={t('team.employee.documents.addedCount', { count: form.documents.length })} icon={FileText}>
           {form.documents.map((doc) => (
             <SummaryRow key={doc.id} label={doc.category} value={doc.fileName} />
           ))}
@@ -1027,9 +1031,9 @@ function SummaryStep({ form, update }: { form: EmployeeFormData; update: UpdateF
             onCheckedChange={(v) => update('sendInviteEmail', v)}
           />
           <div>
-            <p className="text-sm font-medium text-foreground">Einladungs-Email senden</p>
+            <p className="text-sm font-medium text-foreground">{t('team.employee.summary.sendInviteEmail')}</p>
             <p className="text-xs text-muted-foreground">
-              Der Mitarbeiter erhaelt eine E-Mail mit Login-Link und temporaerem Passwort
+              {t('team.employee.summary.sendInviteEmailDesc')}
             </p>
           </div>
         </label>

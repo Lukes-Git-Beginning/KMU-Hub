@@ -142,7 +142,7 @@ function QuickBookDialog({
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Monitor className="h-3.5 w-3.5" />
               <span className="font-medium text-foreground">{room.name}</span>
-              <span>({room.capacity} Pl.)</span>
+              <span>({room.capacity} {t('kalender.form.seats')})</span>
             </div>
 
             <input
@@ -254,7 +254,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2.5">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors" aria-label="Schließen">
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors" aria-label={t('common.close')}>
             <X className="h-4 w-4" />
           </button>
           <DialogTitle className="text-sm font-medium text-foreground">{t('kalender.room.planning')}</DialogTitle>
@@ -266,7 +266,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
             <ChevronLeft className="h-4 w-4" />
           </button>
           <span className="text-sm font-medium text-foreground min-w-[140px] text-center">
-            KW {getISOWeek(weekDays[0])} · {MONTHS_DE[weekDays[0].getMonth()]} {weekDays[0].getFullYear()}
+            {t('kalender.room.weekLabel', { week: getISOWeek(weekDays[0]), month: MONTHS_DE[weekDays[0].getMonth()], year: weekDays[0].getFullYear() })}
           </span>
           <button onClick={() => navigate(1)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary transition-colors">
             <ChevronRight className="h-4 w-4" />
@@ -438,7 +438,7 @@ export function RoomBookingView({ onClose }: RoomBookingViewProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="h-3.5 w-3.5" />
-                  <span>{selectedBooking.organizer} · {selectedBooking.participants} TN</span>
+                  <span>{selectedBooking.organizer} · {t('kalender.room.participants', { count: selectedBooking.participants })}</span>
                 </div>
               </div>
               )}

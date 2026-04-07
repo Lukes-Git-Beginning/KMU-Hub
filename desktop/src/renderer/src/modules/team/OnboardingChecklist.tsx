@@ -54,60 +54,60 @@ interface ActiveOnboarding {
 const TEMPLATES: OnboardingTemplate[] = [
   {
     id: 'tpl-it',
-    name: 'IT-Onboarding',
+    name: 'team.onboarding.tpl.itOnboarding',
     icon: Monitor,
     color: 'bg-info-light text-info',
     items: [
-      { id: 'it-1', label: 'Laptop / Arbeitsgerät bereitstellen', completed: false, assignee: 'IT-Abteilung', dueInDays: -3 },
-      { id: 'it-2', label: 'E-Mail-Konto einrichten', completed: false, assignee: 'IT-Abteilung', dueInDays: -2 },
-      { id: 'it-3', label: 'Cosmi Zugang erstellen', completed: false, assignee: 'IT-Abteilung', dueInDays: -2 },
-      { id: 'it-4', label: 'VPN-Zugang konfigurieren', completed: false, assignee: 'IT-Abteilung', dueInDays: -1 },
-      { id: 'it-5', label: 'Software-Lizenzen zuweisen', completed: false, assignee: 'IT-Abteilung', dueInDays: 0 },
-      { id: 'it-6', label: 'Drucker einrichten', completed: false, assignee: 'IT-Abteilung', dueInDays: 1 },
-      { id: 'it-7', label: 'Passwort-Manager Einweisung', completed: false, assignee: 'IT-Abteilung', dueInDays: 1 },
+      { id: 'it-1', label: 'team.onboarding.item.it.laptop', completed: false, assignee: 'IT-Abteilung', dueInDays: -3 },
+      { id: 'it-2', label: 'team.onboarding.item.it.email', completed: false, assignee: 'IT-Abteilung', dueInDays: -2 },
+      { id: 'it-3', label: 'team.onboarding.item.it.cosmiAccess', completed: false, assignee: 'IT-Abteilung', dueInDays: -2 },
+      { id: 'it-4', label: 'team.onboarding.item.it.vpn', completed: false, assignee: 'IT-Abteilung', dueInDays: -1 },
+      { id: 'it-5', label: 'team.onboarding.item.it.licenses', completed: false, assignee: 'IT-Abteilung', dueInDays: 0 },
+      { id: 'it-6', label: 'team.onboarding.item.it.printer', completed: false, assignee: 'IT-Abteilung', dueInDays: 1 },
+      { id: 'it-7', label: 'team.onboarding.item.it.passwordManager', completed: false, assignee: 'IT-Abteilung', dueInDays: 1 },
     ],
   },
   {
     id: 'tpl-hr',
-    name: 'HR-Onboarding',
+    name: 'team.onboarding.tpl.hrOnboarding',
     icon: Users,
     color: 'bg-primary-light text-primary',
     items: [
-      { id: 'hr-1', label: 'Personalfragebogen ausgefüllt', completed: false, assignee: 'HR', dueInDays: -5 },
-      { id: 'hr-2', label: 'Arbeitsvertrag unterschrieben', completed: false, assignee: 'HR', dueInDays: -3 },
-      { id: 'hr-3', label: 'Steuer-ID und SV-Nummer erfasst', completed: false, assignee: 'HR', dueInDays: -1 },
-      { id: 'hr-4', label: 'Bankverbindung erfasst', completed: false, assignee: 'HR', dueInDays: 0 },
-      { id: 'hr-5', label: 'Betriebsarzt-Termin vereinbart', completed: false, assignee: 'HR', dueInDays: 3 },
-      { id: 'hr-6', label: 'Willkommens-Mail verschickt', completed: false, assignee: 'HR', dueInDays: 0 },
-      { id: 'hr-7', label: 'Team-Vorstellung geplant', completed: false, assignee: 'Teamleitung', dueInDays: 0 },
-      { id: 'hr-8', label: 'Feedback-Gespräch (Woche 1)', completed: false, assignee: 'HR', dueInDays: 5 },
+      { id: 'hr-1', label: 'team.onboarding.item.hr.personalForm', completed: false, assignee: 'HR', dueInDays: -5 },
+      { id: 'hr-2', label: 'team.onboarding.item.hr.contract', completed: false, assignee: 'HR', dueInDays: -3 },
+      { id: 'hr-3', label: 'team.onboarding.item.hr.taxId', completed: false, assignee: 'HR', dueInDays: -1 },
+      { id: 'hr-4', label: 'team.onboarding.item.hr.bankDetails', completed: false, assignee: 'HR', dueInDays: 0 },
+      { id: 'hr-5', label: 'team.onboarding.item.hr.doctorAppointment', completed: false, assignee: 'HR', dueInDays: 3 },
+      { id: 'hr-6', label: 'team.onboarding.item.hr.welcomeEmail', completed: false, assignee: 'HR', dueInDays: 0 },
+      { id: 'hr-7', label: 'team.onboarding.item.hr.teamIntro', completed: false, assignee: 'Teamleitung', dueInDays: 0 },
+      { id: 'hr-8', label: 'team.onboarding.item.hr.feedbackWeek1', completed: false, assignee: 'HR', dueInDays: 5 },
     ],
   },
   {
     id: 'tpl-fach',
-    name: 'Fachliches Onboarding',
+    name: 'team.onboarding.tpl.technicalOnboarding',
     icon: Briefcase,
     color: 'bg-warning-light text-warning',
     items: [
-      { id: 'f-1', label: 'Einarbeitungsplan erstellt', completed: false, assignee: 'Teamleitung', dueInDays: -2 },
-      { id: 'f-2', label: 'Mentor/Buddy zugewiesen', completed: false, assignee: 'Teamleitung', dueInDays: -1 },
-      { id: 'f-3', label: 'Projekt-Zugänge eingerichtet', completed: false, assignee: 'Teamleitung', dueInDays: 0 },
-      { id: 'f-4', label: 'Dokumentation durcharbeiten', completed: false, dueInDays: 3 },
-      { id: 'f-5', label: 'Erste Aufgabe zugewiesen', completed: false, assignee: 'Teamleitung', dueInDays: 2 },
-      { id: 'f-6', label: 'Code-Review Prozess erklaert', completed: false, assignee: 'Mentor', dueInDays: 3 },
+      { id: 'f-1', label: 'team.onboarding.item.tech.trainingPlan', completed: false, assignee: 'Teamleitung', dueInDays: -2 },
+      { id: 'f-2', label: 'team.onboarding.item.tech.mentor', completed: false, assignee: 'Teamleitung', dueInDays: -1 },
+      { id: 'f-3', label: 'team.onboarding.item.tech.projectAccess', completed: false, assignee: 'Teamleitung', dueInDays: 0 },
+      { id: 'f-4', label: 'team.onboarding.item.tech.documentation', completed: false, dueInDays: 3 },
+      { id: 'f-5', label: 'team.onboarding.item.tech.firstTask', completed: false, assignee: 'Teamleitung', dueInDays: 2 },
+      { id: 'f-6', label: 'team.onboarding.item.tech.codeReview', completed: false, assignee: 'Mentor', dueInDays: 3 },
     ],
   },
   {
     id: 'tpl-compliance',
-    name: 'Compliance & Sicherheit',
+    name: 'team.onboarding.tpl.complianceOnboarding',
     icon: FileText,
     color: 'bg-error-light text-error',
     items: [
-      { id: 'c-1', label: 'Datenschutzbelehrung (DSGVO)', completed: false, assignee: 'HR', dueInDays: 0 },
-      { id: 'c-2', label: 'Arbeitssicherheits-Unterweisung', completed: false, assignee: 'Sicherheitsbeauftragter', dueInDays: 1 },
-      { id: 'c-3', label: 'Brandschutz-Einweisung', completed: false, assignee: 'Sicherheitsbeauftragter', dueInDays: 2 },
-      { id: 'c-4', label: 'Geheimhaltungsvereinbarung unterschrieben', completed: false, assignee: 'HR', dueInDays: 0 },
-      { id: 'c-5', label: 'IT-Sicherheitsrichtlinie gelesen', completed: false, dueInDays: 1 },
+      { id: 'c-1', label: 'team.onboarding.item.compliance.gdpr', completed: false, assignee: 'HR', dueInDays: 0 },
+      { id: 'c-2', label: 'team.onboarding.item.compliance.workSafety', completed: false, assignee: 'Sicherheitsbeauftragter', dueInDays: 1 },
+      { id: 'c-3', label: 'team.onboarding.item.compliance.fireSafety', completed: false, assignee: 'Sicherheitsbeauftragter', dueInDays: 2 },
+      { id: 'c-4', label: 'team.onboarding.item.compliance.nda', completed: false, assignee: 'HR', dueInDays: 0 },
+      { id: 'c-5', label: 'team.onboarding.item.compliance.itPolicy', completed: false, dueInDays: 1 },
     ],
   },
 ]
@@ -119,15 +119,15 @@ const ACTIVE_ONBOARDINGS: ActiveOnboarding[] = [
     employeeInitials: 'TB',
     startDate: '2025-06-01',
     templateId: 'tpl-it',
-    templateName: 'IT-Onboarding',
+    templateName: 'team.onboarding.tpl.itOnboarding',
     items: [
-      { id: 'it-1', label: 'Laptop / Arbeitsgerät bereitstellen', completed: true, assignee: 'IT-Abteilung' },
-      { id: 'it-2', label: 'E-Mail-Konto einrichten', completed: true, assignee: 'IT-Abteilung' },
-      { id: 'it-3', label: 'Cosmi Zugang erstellen', completed: true, assignee: 'IT-Abteilung' },
-      { id: 'it-4', label: 'VPN-Zugang konfigurieren', completed: true, assignee: 'IT-Abteilung' },
-      { id: 'it-5', label: 'Software-Lizenzen zuweisen', completed: true, assignee: 'IT-Abteilung' },
-      { id: 'it-6', label: 'Drucker einrichten', completed: true, assignee: 'IT-Abteilung' },
-      { id: 'it-7', label: 'Passwort-Manager Einweisung', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-1', label: 'team.onboarding.item.it.laptop', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-2', label: 'team.onboarding.item.it.email', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-3', label: 'team.onboarding.item.it.cosmiAccess', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-4', label: 'team.onboarding.item.it.vpn', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-5', label: 'team.onboarding.item.it.licenses', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-6', label: 'team.onboarding.item.it.printer', completed: true, assignee: 'IT-Abteilung' },
+      { id: 'it-7', label: 'team.onboarding.item.it.passwordManager', completed: true, assignee: 'IT-Abteilung' },
     ],
   },
   {
@@ -136,16 +136,16 @@ const ACTIVE_ONBOARDINGS: ActiveOnboarding[] = [
     employeeInitials: 'TB',
     startDate: '2025-06-01',
     templateId: 'tpl-hr',
-    templateName: 'HR-Onboarding',
+    templateName: 'team.onboarding.tpl.hrOnboarding',
     items: [
-      { id: 'hr-1', label: 'Personalfragebogen ausgefüllt', completed: true, assignee: 'HR' },
-      { id: 'hr-2', label: 'Arbeitsvertrag unterschrieben', completed: true, assignee: 'HR' },
-      { id: 'hr-3', label: 'Steuer-ID und SV-Nummer erfasst', completed: true, assignee: 'HR' },
-      { id: 'hr-4', label: 'Bankverbindung erfasst', completed: true, assignee: 'HR' },
-      { id: 'hr-5', label: 'Betriebsarzt-Termin vereinbart', completed: true, assignee: 'HR' },
-      { id: 'hr-6', label: 'Willkommens-Mail verschickt', completed: true, assignee: 'HR' },
-      { id: 'hr-7', label: 'Team-Vorstellung geplant', completed: true, assignee: 'Teamleitung' },
-      { id: 'hr-8', label: 'Feedback-Gespräch (Woche 1)', completed: true, assignee: 'HR' },
+      { id: 'hr-1', label: 'team.onboarding.item.hr.personalForm', completed: true, assignee: 'HR' },
+      { id: 'hr-2', label: 'team.onboarding.item.hr.contract', completed: true, assignee: 'HR' },
+      { id: 'hr-3', label: 'team.onboarding.item.hr.taxId', completed: true, assignee: 'HR' },
+      { id: 'hr-4', label: 'team.onboarding.item.hr.bankDetails', completed: true, assignee: 'HR' },
+      { id: 'hr-5', label: 'team.onboarding.item.hr.doctorAppointment', completed: true, assignee: 'HR' },
+      { id: 'hr-6', label: 'team.onboarding.item.hr.welcomeEmail', completed: true, assignee: 'HR' },
+      { id: 'hr-7', label: 'team.onboarding.item.hr.teamIntro', completed: true, assignee: 'Teamleitung' },
+      { id: 'hr-8', label: 'team.onboarding.item.hr.feedbackWeek1', completed: true, assignee: 'HR' },
     ],
   },
   {
@@ -154,14 +154,14 @@ const ACTIVE_ONBOARDINGS: ActiveOnboarding[] = [
     employeeInitials: 'CF',
     startDate: '2025-03-01',
     templateId: 'tpl-fach',
-    templateName: 'Fachliches Onboarding',
+    templateName: 'team.onboarding.tpl.technicalOnboarding',
     items: [
-      { id: 'f-1', label: 'Einarbeitungsplan erstellt', completed: true, assignee: 'Teamleitung' },
-      { id: 'f-2', label: 'Mentor/Buddy zugewiesen', completed: true, assignee: 'Teamleitung' },
-      { id: 'f-3', label: 'Projekt-Zugänge eingerichtet', completed: true, assignee: 'Teamleitung' },
-      { id: 'f-4', label: 'Dokumentation durcharbeiten', completed: true },
-      { id: 'f-5', label: 'Erste Aufgabe zugewiesen', completed: false, assignee: 'Teamleitung' },
-      { id: 'f-6', label: 'Code-Review Prozess erklaert', completed: false, assignee: 'Mentor' },
+      { id: 'f-1', label: 'team.onboarding.item.tech.trainingPlan', completed: true, assignee: 'Teamleitung' },
+      { id: 'f-2', label: 'team.onboarding.item.tech.mentor', completed: true, assignee: 'Teamleitung' },
+      { id: 'f-3', label: 'team.onboarding.item.tech.projectAccess', completed: true, assignee: 'Teamleitung' },
+      { id: 'f-4', label: 'team.onboarding.item.tech.documentation', completed: true },
+      { id: 'f-5', label: 'team.onboarding.item.tech.firstTask', completed: false, assignee: 'Teamleitung' },
+      { id: 'f-6', label: 'team.onboarding.item.tech.codeReview', completed: false, assignee: 'Mentor' },
     ],
   },
 ]
@@ -281,7 +281,7 @@ export function OnboardingChecklist() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-foreground">{ob.employeeName}</span>
-                        <span className="text-xs text-muted-foreground">— {ob.templateName}</span>
+                        <span className="text-xs text-muted-foreground">— {t(ob.templateName)}</span>
                         {isDone && <Sparkles className="h-3.5 w-3.5 text-success" />}
                       </div>
                       <div className="flex items-center gap-3 mt-1">
@@ -312,7 +312,7 @@ export function OnboardingChecklist() {
                             <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           )}
                           <span className={`text-sm flex-1 ${item.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                            {item.label}
+                            {t(item.label)}
                           </span>
                           {item.assignee && (
                             <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground flex-shrink-0">
@@ -342,7 +342,7 @@ export function OnboardingChecklist() {
                     <TplIcon className="h-5 w-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-foreground">{tpl.name}</h4>
+                    <h4 className="text-sm font-medium text-foreground">{t(tpl.name)}</h4>
                     <p className="text-xs text-muted-foreground">{tpl.items.length} {t('team.onboarding.tasks')}</p>
                   </div>
                 </div>
@@ -350,7 +350,7 @@ export function OnboardingChecklist() {
                   {tpl.items.slice(0, 4).map((item) => (
                     <div key={item.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Circle className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate">{t(item.label)}</span>
                     </div>
                   ))}
                   {tpl.items.length > 4 && (
@@ -359,13 +359,13 @@ export function OnboardingChecklist() {
                 </div>
                 <div className="flex gap-2 mt-3 pt-3 border-t border-border-muted">
                   <button
-                    onClick={() => toast.info(`${t('common.edit')}: "${tpl.name}" (Mock)`)}
+                    onClick={() => toast.info(`${t('common.edit')}: "${t(tpl.name)}" (Mock)`)}
                     className="flex-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-center"
                   >
                     {t('common.edit')}
                   </button>
                   <button
-                    onClick={() => toast.info(`${t('team.onboarding.use')}: "${tpl.name}" (Mock)`)}
+                    onClick={() => toast.info(`${t('team.onboarding.use')}: "${t(tpl.name)}" (Mock)`)}
                     className="flex-1 rounded-md bg-primary py-1.5 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors text-center"
                   >
                     {t('team.onboarding.use')}

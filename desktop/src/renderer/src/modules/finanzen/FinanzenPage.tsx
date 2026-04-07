@@ -397,31 +397,31 @@ export default function FinanzenPage() {
     { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     {
       key: 'invoices',
-      label: `Rechnungen (${invoicesData?.total ?? 0})`,
+      label: t('finanzen.tabs.invoices', { count: invoicesData?.total ?? 0 }),
       icon: FileText,
     },
     {
       key: 'quotes',
-      label: `Angebote (${quotesData?.total ?? 0})`,
+      label: t('finanzen.tabs.quotes', { count: quotesData?.total ?? 0 }),
       icon: FileText,
     },
     {
       key: 'credit-notes',
-      label: `Gutschriften (${creditNotesData?.total ?? 0})`,
+      label: t('finanzen.tabs.creditNotes', { count: creditNotesData?.total ?? 0 }),
       icon: Receipt,
     },
-    { key: 'dunning', label: 'Mahnungen', icon: Gavel },
-    { key: 'belegkette', label: 'Belegkette', icon: Link2 },
-    { key: 'banking', label: 'Banking', icon: Landmark },
-    { key: 'export', label: 'Export', icon: Download },
+    { key: 'dunning', label: t('finanzen.tabs.dunning'), icon: Gavel },
+    { key: 'belegkette', label: t('finanzen.tabs.belegkette'), icon: Link2 },
+    { key: 'banking', label: t('finanzen.tabs.banking'), icon: Landmark },
+    { key: 'export', label: t('finanzen.tabs.export'), icon: Download },
   ]
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {/* Header */}
       <PageHeader
-        title="Rechnungen & Finanzen"
-        description="Rechnungen, Angebote, Gutschriften, Belegketten und Mahnwesen"
+        title={t('finanzen.page.title')}
+        description={t('finanzen.page.description')}
         icon={Receipt}
         moduleId="finance"
         className="mb-6"
@@ -432,21 +432,21 @@ export default function FinanzenPage() {
               className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <Timer className="h-4 w-4" />
-              Stunden abrechnen
+              {t('finanzen.hours.title')}
             </button>
             <button
               onClick={() => setShowExport(true)}
               className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
             >
               <Download className="h-4 w-4" />
-              DATEV Export
+              {t('finanzen.page.datevExport')}
             </button>
             <button
               onClick={handleNewInvoice}
               className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Neue Rechnung
+              {t('finanzen.invoices.create')}
             </button>
           </div>
         }
@@ -482,7 +482,7 @@ export default function FinanzenPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Suchen..."
+              placeholder={t('finanzen.page.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-input-placeholder focus:outline-none focus:ring-2 focus:ring-focus-ring"
@@ -494,7 +494,7 @@ export default function FinanzenPage() {
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
-              Neues Angebot
+              {t('finanzen.quotes.create')}
             </button>
           )}
           {activeTab === 'credit-notes' && (
@@ -503,7 +503,7 @@ export default function FinanzenPage() {
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground hover:bg-button-primary-hover transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
-              Neue Gutschrift
+              {t('finanzen.creditNote.createTitle')}
             </button>
           )}
           {activeTab === 'invoices' && (
@@ -512,12 +512,12 @@ export default function FinanzenPage() {
                 [undefined, 'draft', 'sent', 'paid', 'overdue', 'cancelled'] as const
               ).map((st) => {
                 const labels: Record<string, string> = {
-                  '': 'Alle',
-                  draft: 'Entwurf',
-                  sent: 'Gesendet',
-                  paid: 'Bezahlt',
-                  overdue: 'Überfällig',
-                  cancelled: 'Storniert',
+                  '': t('finanzen.filterAll'),
+                  draft: t('finanzen.status.draft'),
+                  sent: t('finanzen.status.sent'),
+                  paid: t('finanzen.status.paid'),
+                  overdue: t('finanzen.status.overdue'),
+                  cancelled: t('finanzen.status.cancelled'),
                 }
                 return (
                   <button
@@ -552,19 +552,19 @@ export default function FinanzenPage() {
         ) : filteredInvoices.length === 0 ? (
           <EmptyState
             icon={FileText}
-            title="Keine Rechnungen"
-            description="Erstelle deine erste Rechnung"
-            action={{ label: 'Neue Rechnung', onClick: handleNewInvoice }}
+            title={t('finanzen.invoices.emptyTitle')}
+            description={t('finanzen.invoices.emptyDescription')}
+            action={{ label: t('finanzen.invoices.create'), onClick: handleNewInvoice }}
           />
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
             <div className="grid grid-cols-[100px_1fr_100px_100px_100px_160px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span>
-              <span>Kunde</span>
-              <span>Betrag</span>
-              <span>Fällig</span>
-              <span>Offen</span>
-              <span>Status</span>
+              <span>{t('finanzen.col.nr')}</span>
+              <span>{t('finanzen.col.customer')}</span>
+              <span>{t('finanzen.col.amount')}</span>
+              <span>{t('finanzen.col.dueDate')}</span>
+              <span>{t('finanzen.col.open')}</span>
+              <span>{t('common.status')}</span>
               <span />
             </div>
             {filteredInvoices.map((inv) => {
@@ -605,7 +605,7 @@ export default function FinanzenPage() {
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
                     >
                       <StatusIcon className="h-3 w-3" />
-                      {sc.label}
+                      {t(sc.labelKey)}
                     </span>
                     <QRBillIndicator
                       hasQRBill={inv.invoice_number === 'RE-2026-003' || inv.invoice_number === 'RE-2026-008'}
@@ -631,18 +631,18 @@ export default function FinanzenPage() {
         ) : filteredQuotes.length === 0 ? (
           <EmptyState
             icon={FileText}
-            title="Keine Angebote"
-            description="Erstelle dein erstes Angebot"
-            action={{ label: 'Neues Angebot', onClick: handleNewQuote }}
+            title={t('finanzen.quotes.emptyTitle')}
+            description={t('finanzen.quotes.emptyDescription')}
+            action={{ label: t('finanzen.quotes.create'), onClick: handleNewQuote }}
           />
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
             <div className="grid grid-cols-[100px_1fr_100px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span>
-              <span>Kunde</span>
-              <span>Betrag</span>
-              <span>Gültig bis</span>
-              <span>Status</span>
+              <span>{t('finanzen.col.nr')}</span>
+              <span>{t('finanzen.col.customer')}</span>
+              <span>{t('finanzen.col.amount')}</span>
+              <span>{t('finanzen.quoteForm.validUntil')}</span>
+              <span>{t('common.status')}</span>
               <span />
             </div>
             {filteredQuotes.map((q) => {
@@ -669,7 +669,7 @@ export default function FinanzenPage() {
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${sc.colors}`}
                   >
                     <StatusIcon className="h-3 w-3" />
-                    {sc.label}
+                    {t(sc.labelKey)}
                   </span>
                   <ItemActions items={getQuoteActions(q)} />
                 </div>
@@ -685,21 +685,21 @@ export default function FinanzenPage() {
         ) : filteredCreditNotes.length === 0 ? (
           <EmptyState
             icon={Receipt}
-            title="Keine Gutschriften"
-            description="Erstelle eine Gutschrift zu einer bestehenden Rechnung"
+            title={t('finanzen.creditNotes.emptyTitle')}
+            description={t('finanzen.creditNotes.emptyDescription')}
             action={{
-              label: 'Neue Gutschrift',
+              label: t('finanzen.creditNote.createTitle'),
               onClick: () => setShowCreditNote(true),
             }}
           />
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden animate-fade-up stagger-2">
             <div className="grid grid-cols-[100px_1fr_120px_100px_90px_40px] gap-3 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border bg-secondary/30">
-              <span>Nr.</span>
-              <span>Kunde</span>
-              <span>Originalrechnung</span>
-              <span>Betrag</span>
-              <span>Status</span>
+              <span>{t('finanzen.col.nr')}</span>
+              <span>{t('finanzen.col.customer')}</span>
+              <span>{t('finanzen.creditNote.originalInvoice')}</span>
+              <span>{t('finanzen.col.amount')}</span>
+              <span>{t('common.status')}</span>
               <span />
             </div>
             {filteredCreditNotes.map((cn) => {
@@ -728,23 +728,23 @@ export default function FinanzenPage() {
                         : 'bg-info-light text-info'
                     }`}
                   >
-                    {isDraft ? 'Entwurf' : 'Gesendet'}
+                    {isDraft ? t('finanzen.status.draft') : t('finanzen.status.sent')}
                   </span>
                   <ItemActions
                     items={[
                       {
-                        label: 'PDF herunterladen',
+                        label: t('finanzen.pdf.downloadPdf'),
                         onClick: () =>
                           downloadCreditNotePDF.mutate(cn.id),
                       },
                       ...(isDraft
                         ? [
                             {
-                              label: 'Senden',
+                              label: t('finanzen.dunning.send'),
                               onClick: () => {
                                 sendCreditNote.mutate(cn.id, {
                                   onSuccess: () =>
-                                    toast.success('Gutschrift gesendet'),
+                                    toast.success(t('finanzen.creditNote.sent')),
                                   onError: (err: Error) =>
                                     toast.error(err.message),
                                 })
@@ -773,7 +773,7 @@ export default function FinanzenPage() {
       {activeTab === 'export' && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Exportiere Finanzdaten in verschiedene Buchhaltungsformate.
+            {t('finanzen.exportTab.description')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* DATEV */}
@@ -788,14 +788,14 @@ export default function FinanzenPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Buchungsstapel für DATEV Unternehmen online, Kanzlei-Rechnungswesen und Steuerberater-Software.
+                {t('finanzen.exportTab.datevDescription')}
               </p>
               <button
                 onClick={() => setShowExport(true)}
                 className="w-full flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
-                DATEV Export
+                {t('finanzen.page.datevExport')}
               </button>
             </div>
             {/* Bexio */}
@@ -810,14 +810,14 @@ export default function FinanzenPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Export im Bexio-kompatiblen CSV-Format. Rechnungen, Kontakte und Artikel separat exportierbar.
+                {t('finanzen.exportTab.bexioDescription')}
               </p>
               <button
-                onClick={() => toast.success('Bexio-Export heruntergeladen')}
+                onClick={() => toast.success(t('finanzen.exportTab.bexioDownloaded'))}
                 className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
-                Bexio Export
+                {t('finanzen.exportTab.bexioExport')}
               </button>
             </div>
             {/* BMD */}
@@ -832,14 +832,14 @@ export default function FinanzenPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Export für BMD NTCS Buchhaltung. Standard in Österreich für Steuerberater und KMUs.
+                {t('finanzen.exportTab.bmdDescription')}
               </p>
               <button
-                onClick={() => toast.success('BMD-Export heruntergeladen')}
+                onClick={() => toast.success(t('finanzen.exportTab.bmdDownloaded'))}
                 className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
-                BMD Export
+                {t('finanzen.exportTab.bmdExport')}
               </button>
             </div>
           </div>
@@ -917,9 +917,9 @@ export default function FinanzenPage() {
       <ConfirmDialog
         open={!!confirmDelete}
         onOpenChange={() => setConfirmDelete(null)}
-        title="Eintrag löschen?"
-        description={`"${confirmDelete?.label}" wird dauerhaft gelöscht.`}
-        confirmLabel="Löschen"
+        title={t('finanzen.confirm.deleteTitle')}
+        description={t('finanzen.confirm.deleteDescription', { label: confirmDelete?.label })}
+        confirmLabel={t('common.delete')}
         variant="destructive"
         onConfirm={handleDeleteConfirm}
       />
@@ -932,7 +932,7 @@ export default function FinanzenPage() {
         >
           <div className="flex flex-col items-center gap-3 rounded-2xl bg-card p-8 shadow-large animate-scale-in-bounce">
             <AnimatedCheckmark size={56} />
-            <p className="text-sm font-medium text-foreground">{sentAnimation} gesendet</p>
+            <p className="text-sm font-medium text-foreground">{t('finanzen.page.invoiceSentOverlay', { number: sentAnimation })}</p>
           </div>
         </div>
       )}
