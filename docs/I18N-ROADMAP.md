@@ -3,9 +3,9 @@
 ## Context
 i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.ts-Dateien instrumentieren, damit die App vollständig DE/EN/FR/IT übersetzbar ist. Agents dürfen max ~5-7 Dateien pro Task bearbeiten, um unter 80k Tokens zu bleiben.
 
-## Aktueller Stand (2026-04-06, Update 2)
+## Aktueller Stand (2026-04-07, Update 3)
 
-### Committed (13 Commits auf main):
+### Committed (18 Commits auf main):
 - `1b7ee22` — i18next Infrastruktur + react-intl entfernt (20 Dateien)
 - `cf825a7` — Dashboard, CRM instrumentiert (78 Dateien)
 - `10cffa5` — Work, Profil, Settings, Kommunikation, Finanzen, Team (107 Dateien)
@@ -19,6 +19,11 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 - `99b36e0` — Helpdesk (120), Buchhaltung (158), Kalender (33), Rapporte (130), Notifications (30)
 - `44aa791` — i18n Loader mit allen Modul-Additions aktualisiert
 - `50c1b15` — Component-Verzeichnisse instrumentiert (412 Keys, 9 JSONs)
+- `c2ab5c7` — Wave 2+3: Security, Features, Config, API Hooks, Remaining Pages (315 Keys)
+- `1a8a218` — Settings Tabs instrumentiert (12 Dateien, +404 Keys)
+- `3779465` — Integration Panels instrumentiert (11 Dateien, +261 Keys)
+- `7175e44` — Module Pages: Finanzen, Security, Team, Kalender, Mails (+196 Keys)
+- `052a98e` — API Hooks, Types, Remaining Components (+108 Keys)
 
 ### Modul-Status Phase 3
 
@@ -101,22 +106,24 @@ Alle 41 additions-JSONs (32 Module + 9 Components) importiert und in mergedDE ge
 - `berichte.json` — BerichtePage
 - `video.json` — VideoPage
 
-### Verbleibend (Schritt 3.5 Wave 2+3, ~47 Dateien):
-- Settings Tabs (13 Dateien) → erweitern settings.json
-- Integration Panels (11 Dateien) → erweitern settings.json
-- Sub-Pages & Dialoge (18 Dateien) → erweitern bestehende JSONs
-- Borderline/Kleinkram (~7 Dateien)
+### ~~Verbleibend (Schritt 3.75)~~ ✅ ERLEDIGT (2026-04-07)
+
+4 Waves, 11 Agents, 42 Dateien, +969 Keys:
+- Wave 1: Settings Tabs (12 Dateien, +404 Keys)
+- Wave 2: Integration Panels (11 Dateien, +261 Keys)
+- Wave 3: Module Pages — Finanzen, Security, Team, Kalender, Mails (13 Dateien, +196 Keys)
+- Wave 4: API Hooks, Types, Components (6 Dateien, +108 Keys)
+
+Mock-Daten in Stores bewusst NICHT instrumentiert (werden durch Backend-Daten ersetzt).
 
 ---
 
-## Schritt 4: Straggler Wave 2+3 + Merge ← NÄCHSTER SCHRITT
+## Schritt 4: Merge & Loader ← NÄCHSTER SCHRITT
 
-1. Wave 2: Settings + Integrations instrumentieren (3 Agents parallel)
-2. Wave 3: Sub-Pages + Kleinkram instrumentieren (3 Agents parallel)
-3. Alle additions/*.json Keys in de.json mergen
-4. i18n.ts Loader vereinfachen
-5. `npx tsc --noEmit` — muss sauber sein
-6. Commit: `feat(i18n): complete instrumentation and merge`
+1. Alle additions/*.json Keys in de.json mergen
+2. i18n.ts Loader vereinfachen (keine separaten Imports mehr)
+3. `npx tsc --noEmit` — muss sauber sein
+4. Commit: `feat(i18n): merge additions into de.json`
 
 ---
 
@@ -193,14 +200,19 @@ status, actions, required, optional, ok, copy, copied, resetFilters
 | ~~Schritt 2.5: Loader Update~~ | 1 | 1 | ✅ DONE |
 | ~~Schritt 3: Components Batch G-J~~ | 9 | 46 | ✅ DONE (412 Keys) |
 | ~~Schritt 3.5 Wave 1: Straggler-Module~~ | 3 | 14 | ✅ DONE (10 neue JSONs) |
-| Schritt 3.5 Wave 2+3: Settings/Integrations/Rest | ~7 | ~47 | TODO |
+| ~~Schritt 3.5 Wave 2+3~~ | ~7 | ~36 | ✅ DONE (315 Keys) |
+| ~~Schritt 3.75: Remaining Strings~~ | 11 | 42 | ✅ DONE (+969 Keys) |
 | Schritt 4: Merge & Loader | 1 (manuell) | — | TODO |
-| Schritt 5: Übersetzungen | 3 | 3 JSON | TODO |
+| Schritt 5: Uebersetzungen | 3 | 3 JSON | TODO |
 | Schritt 6: Cleanup | 1 (manuell) | — | TODO |
-| **Total verbleibend** | **~12** | **~50 Dateien** | |
+| **Total verbleibend** | **~5** | **~3 Dateien** | |
 
 ## Lesson Learned
 - Agents verbrauchen bis zu 250k Tokens bei >10 Dateien. Max 5-7 Dateien pro Agent!
 - JSON-Extraktion separat von Instrumentierung machen — sauberer und verifizierbar
 - Paired Agents (z.B. wiki-1/wiki-2) besser in separate JSONs schreiben lassen und danach mergen
 - Einige Module waren bereits instrumentiert aber hatten keine JSONs — Extraktion-only Agents funktionieren gut
+- Bei shared JSON (settings.json): sequentielle Agents, nicht parallel — sonst Merge-Konflikte
+- Session-Limits beachten: nach jeder Wave pausieren wenn noetig
+- Wenn Agent JSON-Write verpasst (Limit): Keys manuell per Node-Script nachtragen
+- Mock-Daten in Stores bewusst nicht instrumentieren — werden durch Backend-Daten ersetzt
