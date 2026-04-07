@@ -44,12 +44,7 @@ interface TeamsSetupWizardProps {
   existingConfig?: IntegrationConfig
 }
 
-const STEPS = [
-  { label: 'Plattform', number: 1 },
-  { label: 'Kanalzuordnung', number: 2 },
-  { label: 'Test', number: 3 },
-  { label: 'Fertig', number: 4 },
-]
+const STEP_NUMBERS = [1, 2, 3, 4]
 
 export function TeamsSetupWizard({
   isOpen,
@@ -121,17 +116,22 @@ export function TeamsSetupWizard({
     return true
   }
 
+  const STEPS = [
+    { label: t('settings.integrations.teams.step.platform'), number: 1 },
+    { label: t('settings.integrations.teams.step.channelMapping'), number: 2 },
+    { label: t('settings.integrations.teams.step.test'), number: 3 },
+    { label: t('settings.integrations.teams.step.done'), number: 4 },
+  ]
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Microsoft Teams einrichten</DialogTitle>
+          <DialogTitle>{t('settings.integrations.teams.setup.title')}</DialogTitle>
           <DialogDescription>
-            Konfigurieren Sie die Teams-Integration in{' '}
-            {STEPS[step - 1].label === 'Fertig'
-              ? 'einem letzten'
-              : `${step} von ${STEPS.length}`}{' '}
-            Schritten
+            {step === 4
+              ? t('settings.integrations.teams.setup.descriptionLastStep')
+              : t('settings.integrations.teams.setup.descriptionStep', { step, total: STEPS.length })}
           </DialogDescription>
         </DialogHeader>
 
@@ -208,7 +208,7 @@ export function TeamsSetupWizard({
             disabled={step === 1}
           >
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            Zurück
+            {t('common.back')}
           </Button>
           {step < 4 ? (
             <Button
@@ -219,12 +219,12 @@ export function TeamsSetupWizard({
               {createConfig.isPending && (
                 <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
               )}
-              Weiter
+              {t('common.next')}
               <ArrowRight className="h-3.5 w-3.5 ml-1" />
             </Button>
           ) : (
             <Button size="sm" onClick={handleFinish}>
-              Speichern und aktivieren
+              {t('settings.integrations.teams.setup.saveAndActivate')}
             </Button>
           )}
         </div>
@@ -250,12 +250,12 @@ function StepPlatform({
   setAppPassword: (v: string) => void
   isEditing: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-info/30 bg-info-light p-3">
         <p className="text-sm text-info">
-          Erstellen Sie eine Azure AD App-Registrierung und geben Sie die
-          Anmeldeinformationen ein.
+          {t('settings.integrations.teams.platform.setupInfo')}
         </p>
         <a
           href="https://learn.microsoft.com/en-us/microsoftteams/platform/bots/how-to/authentication/bot-sso-register-aad"
@@ -263,7 +263,7 @@ function StepPlatform({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs text-info hover:underline mt-2"
         >
-          Microsoft-Dokumentation öffnen
+          {t('settings.integrations.teams.platform.docsLink')}
           <ExternalLink className="h-3 w-3" />
         </a>
       </div>
@@ -271,8 +271,7 @@ function StepPlatform({
       {isEditing ? (
         <div className="rounded-md bg-muted p-3">
           <p className="text-sm text-muted-foreground">
-            Anmeldeinformationen sind bereits konfiguriert. Sie können die
-            Kanalzuordnungen im nächsten Schritt anpassen.
+            {t('settings.integrations.teams.platform.alreadyConfigured')}
           </p>
         </div>
       ) : (
@@ -283,7 +282,7 @@ function StepPlatform({
             </Label>
             <Input
               id="teams-app-id"
-              placeholder="z.B. 12345678-abcd-1234-abcd-123456789abc"
+              placeholder={t('settings.integrations.teams.platform.appIdPlaceholder')}
               value={appId}
               onChange={(e) => setAppId(e.target.value)}
               className="font-mono text-sm"
@@ -296,7 +295,7 @@ function StepPlatform({
             <Input
               id="teams-app-pw"
               type="password"
-              placeholder="Client Secret eingeben"
+              placeholder={t('settings.integrations.teams.platform.appPasswordPlaceholder')}
               value={appPassword}
               onChange={(e) => setAppPassword(e.target.value)}
             />
@@ -308,11 +307,11 @@ function StepPlatform({
 }
 
 function StepChannelMapping() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Ordnen Sie Teams-Kanäle den Cosmi Modulen zu. Benachrichtigungen
-        der ausgewaehlten Module werden an den jeweiligen Kanal weitergeleitet.
+        {t('settings.integrations.teams.channelMapping.description')}
       </p>
       <ChannelMappingEditor platform="teams" />
     </div>
@@ -328,10 +327,11 @@ function StepTest({
   testResult: 'success' | 'error' | null
   isTesting: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Senden Sie eine Testbenachrichtigung, um die Verbindung zu prüfen.
+        {t('settings.integrations.teams.test.description')}
       </p>
 
       <Button variant="outline" onClick={onTest} disabled={isTesting}>
@@ -340,14 +340,14 @@ function StepTest({
         ) : (
           <Send className="h-3.5 w-3.5 mr-1.5" />
         )}
-        Test senden
+        {t('settings.integrations.teams.test.sendButton')}
       </Button>
 
       {testResult === 'success' && (
         <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success-light p-3">
           <CheckCircle className="h-4 w-4 text-success shrink-0" />
           <p className="text-sm text-success">
-            Testbenachrichtigung erfolgreich gesendet!
+            {t('settings.integrations.teams.test.successMessage')}
           </p>
         </div>
       )}
@@ -355,7 +355,7 @@ function StepTest({
         <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-error-light p-3">
           <XCircle className="h-4 w-4 text-destructive shrink-0" />
           <p className="text-sm text-destructive">
-            Test fehlgeschlagen. Bitte überprüfen Sie die Konfiguration.
+            {t('settings.integrations.teams.test.errorMessage')}
           </p>
         </div>
       )}
@@ -370,22 +370,23 @@ function StepFinish({
   isActive: boolean
   setIsActive: (v: boolean) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-success/30 bg-success-light p-3">
         <p className="text-sm text-success font-medium">
-          Microsoft Teams Konfiguration abgeschlossen!
+          {t('settings.integrations.teams.finish.configDone')}
         </p>
         <p className="text-xs text-success mt-1">
-          Die Integration kann jetzt aktiviert werden.
+          {t('settings.integrations.teams.finish.configDoneHint')}
         </p>
       </div>
 
       <div className="flex items-center justify-between rounded-md border border-border p-3">
         <div>
-          <p className="text-sm font-medium">Integration aktivieren</p>
+          <p className="text-sm font-medium">{t('settings.integrations.teams.finish.activateLabel')}</p>
           <p className="text-xs text-muted-foreground">
-            Benachrichtigungen werden an Teams weitergeleitet
+            {t('settings.integrations.teams.finish.activateDesc')}
           </p>
         </div>
         <Switch checked={isActive} onCheckedChange={setIsActive} />

@@ -28,9 +28,9 @@ interface LexwareFieldMappingEditorProps {
 }
 
 const DIRECTION_OPTIONS = [
-  { value: 'inbound', label: '\u2190 Eingehend' },
-  { value: 'outbound', label: '\u2192 Ausgehend' },
-  { value: 'both', label: '\u2194 Bidirektional' },
+  { value: 'inbound', labelKey: 'settings.integrations.lexware.fieldMapping.directionInbound' },
+  { value: 'outbound', labelKey: 'settings.integrations.lexware.fieldMapping.directionOutbound' },
+  { value: 'both', labelKey: 'settings.integrations.lexware.fieldMapping.directionBoth' },
 ] as const
 
 export function LexwareFieldMappingEditor({
@@ -92,7 +92,7 @@ export function LexwareFieldMappingEditor({
   }
 
   const handleResetDefaults = () => {
-    if (!confirm('Alle Zuordnungen auf Standard zurücksetzen?')) return
+    if (!confirm(t('settings.integrations.lexware.fieldMapping.resetConfirm'))) return
     setMappings(
       entityType === 'contact' ? [...DEFAULT_CONTACT_MAPPINGS] : [],
     )
@@ -117,7 +117,7 @@ export function LexwareFieldMappingEditor({
       <div className="flex items-center gap-2 py-4">
         <Loader2 className="h-4 w-4 animate-spin" />
         <span className="text-sm text-muted-foreground">
-          Lade Feld-Zuordnungen...
+          {t('settings.integrations.lexware.fieldMapping.loading')}
         </span>
       </div>
     )
@@ -128,12 +128,12 @@ export function LexwareFieldMappingEditor({
       {!compact && (
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-medium">
-            Feld-Zuordnung:{' '}
+            {t('settings.integrations.lexware.fieldMapping.title')}:{' '}
             {entityType === 'contact'
-              ? 'Kontakte'
+              ? t('settings.integrations.lexware.fieldMapping.entityContact')
               : entityType === 'invoice'
-                ? 'Rechnungen'
-                : 'Angebote'}
+                ? t('settings.integrations.lexware.fieldMapping.entityInvoice')
+                : t('settings.integrations.lexware.fieldMapping.entityQuote')}
           </h4>
           <Button
             variant="ghost"
@@ -142,7 +142,7 @@ export function LexwareFieldMappingEditor({
             className="text-xs"
           >
             <RotateCcw className="h-3 w-3 mr-1" />
-            Standard
+            {t('settings.integrations.lexware.fieldMapping.resetShort')}
           </Button>
         </div>
       )}
@@ -151,10 +151,10 @@ export function LexwareFieldMappingEditor({
       <div className="space-y-2">
         {/* Header */}
         <div className="grid grid-cols-[1fr,auto,1fr,auto,auto] gap-2 text-xs text-muted-foreground px-1">
-          <span>Cosmi</span>
-          <span className="w-[120px]">Richtung</span>
+          <span>{t('settings.integrations.lexware.fieldMapping.colCosmi')}</span>
+          <span className="w-[120px]">{t('settings.integrations.lexware.fieldMapping.colDirection')}</span>
           <span>Lexware</span>
-          <span className="w-10 text-center">Pflicht</span>
+          <span className="w-10 text-center">{t('settings.integrations.lexware.fieldMapping.colRequired')}</span>
           <span className="w-8" />
         </div>
 
@@ -175,7 +175,7 @@ export function LexwareFieldMappingEditor({
                 handleUpdate(index, 'kmuhub_field', e.target.value)
               }
             >
-              <option value="">-- Feld wählen --</option>
+              <option value="">{t('settings.integrations.lexware.fieldMapping.selectField')}</option>
               {kmuhubFields.map((f) => (
                 <option key={f.value} value={f.value}>
                   {f.label}
@@ -192,7 +192,7 @@ export function LexwareFieldMappingEditor({
             >
               {DIRECTION_OPTIONS.map((d) => (
                 <option key={d.value} value={d.value}>
-                  {d.label}
+                  {t(d.labelKey)}
                 </option>
               ))}
             </select>
@@ -204,7 +204,7 @@ export function LexwareFieldMappingEditor({
                 handleUpdate(index, 'lexware_field', e.target.value)
               }
             >
-              <option value="">-- Feld wählen --</option>
+              <option value="">{t('settings.integrations.lexware.fieldMapping.selectField')}</option>
               {lexwareFields.map((f) => (
                 <option key={f.value} value={f.value}>
                   {f.label}
@@ -244,13 +244,13 @@ export function LexwareFieldMappingEditor({
         className="text-xs"
       >
         <Plus className="h-3 w-3 mr-1" />
-        Zuordnung hinzufügen
+        {t('settings.integrations.lexware.fieldMapping.addMapping')}
       </Button>
 
       {/* Validation errors */}
       {duplicateLexwareFields.length > 0 && (
         <p className="text-xs text-destructive">
-          Doppelte Lexware-Felder:{' '}
+          {t('settings.integrations.lexware.fieldMapping.duplicateFields')}:{' '}
           {[...new Set(duplicateLexwareFields)].join(', ')}
         </p>
       )}
@@ -268,7 +268,7 @@ export function LexwareFieldMappingEditor({
             {updateMappings.isPending && (
               <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
             )}
-            Speichern
+            {t('settings.integrations.lexware.fieldMapping.save')}
           </Button>
           <Button
             variant="ghost"
@@ -277,7 +277,7 @@ export function LexwareFieldMappingEditor({
             className="text-xs"
           >
             <RotateCcw className="h-3 w-3 mr-1" />
-            Standard wiederherstellen
+            {t('settings.integrations.lexware.fieldMapping.resetDefaults')}
           </Button>
         </div>
       )}
@@ -293,7 +293,7 @@ export function LexwareFieldMappingEditor({
             {updateMappings.isPending && (
               <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
             )}
-            Speichern
+            {t('settings.integrations.lexware.fieldMapping.save')}
           </Button>
           <Button
             variant="ghost"
@@ -302,7 +302,7 @@ export function LexwareFieldMappingEditor({
             className="text-xs"
           >
             <RotateCcw className="h-3 w-3 mr-1" />
-            Standard
+            {t('settings.integrations.lexware.fieldMapping.resetShort')}
           </Button>
         </div>
       )}

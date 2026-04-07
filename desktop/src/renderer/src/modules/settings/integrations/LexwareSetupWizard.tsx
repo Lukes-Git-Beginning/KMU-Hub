@@ -76,11 +76,11 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Lexware Office verbinden</DialogTitle>
+          <DialogTitle>{t('settings.integrations.lexware.setup.title')}</DialogTitle>
           <DialogDescription>
-            {step === 1 && 'Geben Sie Ihren Lexware Office API-Schluessel ein.'}
-            {step === 2 && 'Konfigurieren Sie die Feld-Zuordnung.'}
-            {step === 3 && 'Starten Sie die erste Synchronisierung.'}
+            {step === 1 && t('settings.integrations.lexware.setup.descStep1')}
+            {step === 2 && t('settings.integrations.lexware.setup.descStep2')}
+            {step === 3 && t('settings.integrations.lexware.setup.descStep3')}
           </DialogDescription>
         </DialogHeader>
 
@@ -99,13 +99,13 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
         {step === 1 && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="api-key">API-Schluessel</Label>
+              <Label htmlFor="api-key">{t('settings.integrations.lexware.setup.apiKeyLabel')}</Label>
               <div className="relative">
                 <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="api-key"
                   type="password"
-                  placeholder="Ihren Lexware API-Schluessel eingeben..."
+                  placeholder={t('settings.integrations.lexware.setup.apiKeyPlaceholder')}
                   value={apiKey}
                   onChange={(e) => {
                     setApiKey(e.target.value)
@@ -115,19 +115,19 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Den API-Schluessel finden Sie in Lexware Office unter Einstellungen &gt; Öffentliche API.
+                {t('settings.integrations.lexware.setup.apiKeyHint')}
               </p>
             </div>
 
             {testResult === 'success' && (
               <div className="flex items-center gap-2 text-success text-sm">
                 <CheckCircle2 className="h-4 w-4" />
-                Verbindung erfolgreich
+                {t('settings.integrations.lexware.setup.connectionSuccess')}
               </div>
             )}
             {testResult === 'error' && (
               <p className="text-sm text-destructive">
-                Verbindung fehlgeschlagen. Bitte prüfen Sie den API-Schluessel.
+                {t('settings.integrations.lexware.setup.connectionError')}
               </p>
             )}
           </div>
@@ -142,10 +142,9 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
         {step === 3 && (
           <div className="text-center py-6 space-y-3">
             <CheckCircle2 className="h-12 w-12 text-success mx-auto" />
-            <h3 className="font-medium">Verbindung hergestellt</h3>
+            <h3 className="font-medium">{t('settings.integrations.lexware.setup.connectionEstablished')}</h3>
             <p className="text-sm text-muted-foreground">
-              Lexware Office ist verbunden. Starten Sie jetzt die erste
-              Kontakt-Synchronisierung.
+              {t('settings.integrations.lexware.setup.syncPrompt')}
             </p>
           </div>
         )}
@@ -154,7 +153,7 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
           {step === 1 && (
             <>
               <Button variant="outline" onClick={handleClose}>
-                Abbrechen
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={testResult === 'success' ? () => setStep(2) : handleTest}
@@ -166,10 +165,10 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
                 {testResult === 'success' ? (
                   <>
                     <ArrowRight className="h-4 w-4 mr-2" />
-                    Weiter
+                    {t('common.next')}
                   </>
                 ) : (
-                  'Verbindung testen'
+                  t('settings.integrations.lexware.setup.testConnection')
                 )}
               </Button>
             </>
@@ -177,24 +176,24 @@ export function LexwareSetupWizard({ isOpen, onClose }: LexwareSetupWizardProps)
           {step === 2 && (
             <>
               <Button variant="outline" onClick={() => setStep(1)}>
-                Zurück
+                {t('common.back')}
               </Button>
               <Button onClick={() => setStep(3)}>
                 <ArrowRight className="h-4 w-4 mr-2" />
-                Weiter
+                {t('common.next')}
               </Button>
             </>
           )}
           {step === 3 && (
             <>
               <Button variant="outline" onClick={handleClose}>
-                Später
+                {t('settings.integrations.lexware.setup.later')}
               </Button>
               <Button onClick={handleStartSync} disabled={triggerSync.isPending}>
                 {triggerSync.isPending && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 )}
-                Sync starten
+                {t('settings.integrations.lexware.setup.startSync')}
               </Button>
             </>
           )}

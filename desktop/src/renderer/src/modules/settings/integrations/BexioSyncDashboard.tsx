@@ -90,7 +90,7 @@ export function BexioSyncDashboard({
   }
 
   const handleDisconnect = async () => {
-    if (!confirm('Bexio-Verbindung wirklich trennen? Alle Sync-Einstellungen gehen verloren.')) return
+    if (!confirm(t('settings.integrations.bexio.sync.confirmDisconnect'))) return
     await disconnect.mutateAsync()
     onClose()
   }
@@ -99,19 +99,22 @@ export function BexioSyncDashboard({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Bexio Synchronisierung</DialogTitle>
+          <DialogTitle>{t('settings.integrations.bexio.sync.title')}</DialogTitle>
         </DialogHeader>
 
         {/* Connection header */}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <p className="text-sm font-medium">
-              Verbunden mit: {connection?.org_name || 'Bexio'}
+              {t('settings.integrations.bexio.sync.connectedWith', {
+                name: connection?.org_name || 'Bexio',
+              })}
             </p>
             {connection?.connected_at && (
               <p className="text-xs text-muted-foreground">
-                Seit{' '}
-                {new Date(connection.connected_at).toLocaleDateString('de-DE')}
+                {t('settings.integrations.bexio.sync.connectedSince', {
+                  date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
+                })}
               </p>
             )}
           </div>
@@ -127,7 +130,7 @@ export function BexioSyncDashboard({
             ) : (
               <Unlink className="h-3.5 w-3.5 mr-1" />
             )}
-            Trennen
+            {t('settings.integrations.bexio.sync.disconnect')}
           </Button>
         </div>
 
@@ -135,22 +138,22 @@ export function BexioSyncDashboard({
         <div className="grid grid-cols-2 gap-3">
           <SyncStatusCard
             icon={<Users className="h-4 w-4" />}
-            name="Kontakte"
+            name={t('settings.integrations.bexio.sync.entityContacts')}
             status={syncStatus?.contact_sync}
           />
           <SyncStatusCard
             icon={<FileText className="h-4 w-4" />}
-            name="Rechnungen"
+            name={t('settings.integrations.bexio.sync.entityInvoices')}
             status={syncStatus?.invoice_sync}
           />
           <SyncStatusCard
             icon={<Receipt className="h-4 w-4" />}
-            name="Offerten"
+            name={t('settings.integrations.bexio.sync.entityQuotes')}
             status={syncStatus?.quote_sync}
           />
           <SyncStatusCard
             icon={<CreditCard className="h-4 w-4" />}
-            name="Zahlungen"
+            name={t('settings.integrations.bexio.sync.entityPayments')}
             status={syncStatus?.payment_poll}
           />
         </div>
@@ -166,14 +169,16 @@ export function BexioSyncDashboard({
             ) : (
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             )}
-            Jetzt synchronisieren
+            {t('settings.integrations.bexio.sync.syncNow')}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowFieldMappings(!showFieldMappings)}
           >
-            Feld-Zuordnungen {showFieldMappings ? 'ausblenden' : 'anzeigen'}
+            {showFieldMappings
+              ? t('settings.integrations.bexio.sync.fieldMappingsHide')
+              : t('settings.integrations.bexio.sync.fieldMappingsShow')}
           </Button>
         </div>
 
@@ -187,21 +192,27 @@ export function BexioSyncDashboard({
         {/* Sync history */}
         {syncLogs && syncLogs.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium">Sync-Verlauf</h4>
+            <h4 className="text-sm font-medium">
+              {t('settings.integrations.bexio.sync.history')}
+            </h4>
             <div className="rounded-md border border-border overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-muted/50">
-                    <th className="text-left px-3 py-2 font-medium">Typ</th>
-                    <th className="text-left px-3 py-2 font-medium">Status</th>
-                    <th className="text-right px-3 py-2 font-medium">
-                      Verarbeitet
-                    </th>
-                    <th className="text-right px-3 py-2 font-medium">
-                      Fehler
+                    <th className="text-left px-3 py-2 font-medium">
+                      {t('settings.integrations.bexio.sync.col.type')}
                     </th>
                     <th className="text-left px-3 py-2 font-medium">
-                      Gestartet
+                      {t('settings.integrations.bexio.sync.col.status')}
+                    </th>
+                    <th className="text-right px-3 py-2 font-medium">
+                      {t('settings.integrations.bexio.sync.col.processed')}
+                    </th>
+                    <th className="text-right px-3 py-2 font-medium">
+                      {t('settings.integrations.bexio.sync.col.errors')}
+                    </th>
+                    <th className="text-left px-3 py-2 font-medium">
+                      {t('settings.integrations.bexio.sync.col.started')}
                     </th>
                   </tr>
                 </thead>
@@ -223,12 +234,15 @@ export function BexioSyncDashboard({
 // Sub-components
 // ---------------------------------------------------------------------------
 
-const SYNC_TYPE_LABELS: Record<string, string> = {
-  contact_full: 'Kontakte (Voll)',
-  contact_delta: 'Kontakte (Delta)',
-  invoice_push: 'Rechnungen',
-  quote_push: 'Offerten',
-  payment_poll: 'Zahlungen',
+function useSyncTypeLabels(): Record<string, string> {
+  const { t } = useTranslation()
+  return {
+    contact_full: t('settings.integrations.bexio.sync.syncTypeLabels.contactFull'),
+    contact_delta: t('settings.integrations.bexio.sync.syncTypeLabels.contactDelta'),
+    invoice_push: t('settings.integrations.bexio.sync.syncTypeLabels.invoicePush'),
+    quote_push: t('settings.integrations.bexio.sync.syncTypeLabels.quotePush'),
+    payment_poll: t('settings.integrations.bexio.sync.syncTypeLabels.paymentPoll'),
+  }
 }
 
 function SyncStatusCard({
@@ -240,6 +254,7 @@ function SyncStatusCard({
   name: string
   status?: BexioEntitySyncStatus
 }) {
+  const { t } = useTranslation()
   const statusColor =
     status?.status === 'running'
       ? 'text-info'
@@ -261,28 +276,32 @@ function SyncStatusCard({
         ) : (
           <span className={`text-xs ${statusColor}`}>
             {status?.status === 'completed'
-              ? 'OK'
+              ? t('settings.integrations.bexio.sync.statusOk')
               : status?.status === 'failed'
-                ? 'Fehler'
+                ? t('settings.integrations.bexio.sync.statusError')
                 : status?.status === 'running'
-                  ? 'Laeuft'
-                  : 'Wartend'}
+                  ? t('settings.integrations.bexio.sync.statusRunning')
+                  : t('settings.integrations.bexio.sync.statusWaiting')}
           </span>
         )}
       </div>
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          {status?.items_synced ?? 0} synchronisiert
+          {t('settings.integrations.bexio.sync.itemsSynced', {
+            count: status?.items_synced ?? 0,
+          })}
           {(status?.items_failed ?? 0) > 0 && (
             <span className="text-destructive ml-1">
-              ({status!.items_failed} Fehler)
+              ({t('settings.integrations.bexio.sync.itemsFailed', {
+                count: status!.items_failed,
+              })})
             </span>
           )}
         </span>
         {status?.last_sync_at && (
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatRelativeTime(status.last_sync_at)}
+            {formatRelativeTime(status.last_sync_at, t)}
           </span>
         )}
       </div>
@@ -292,6 +311,7 @@ function SyncStatusCard({
 
 function SyncLogRow({ log }: { log: BexioSyncLogEntry }) {
   const [expanded, setExpanded] = useState(false)
+  const syncTypeLabels = useSyncTypeLabels()
 
   return (
     <>
@@ -300,7 +320,7 @@ function SyncLogRow({ log }: { log: BexioSyncLogEntry }) {
         onClick={() => log.error_message && setExpanded(!expanded)}
       >
         <td className="px-3 py-2">
-          {SYNC_TYPE_LABELS[log.sync_type] || log.sync_type}
+          {syncTypeLabels[log.sync_type] || log.sync_type}
         </td>
         <td className="px-3 py-2">
           <SyncStatusBadge status={log.status} />
@@ -340,6 +360,7 @@ function SyncStatusBadge({
 }: {
   status: BexioSyncLogEntry['status']
 }) {
+  const { t } = useTranslation()
   switch (status) {
     case 'completed':
       return (
@@ -348,7 +369,7 @@ function SyncStatusBadge({
           className="text-[10px] border-success/30 text-success"
         >
           <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
-          OK
+          {t('settings.integrations.bexio.sync.statusOk')}
         </Badge>
       )
     case 'failed':
@@ -358,7 +379,7 @@ function SyncStatusBadge({
           className="text-[10px] border-destructive/30 text-destructive"
         >
           <XCircle className="h-2.5 w-2.5 mr-0.5" />
-          Fehler
+          {t('settings.integrations.bexio.sync.statusError')}
         </Badge>
       )
     case 'partial':
@@ -368,7 +389,7 @@ function SyncStatusBadge({
           className="text-[10px] border-warning/30 text-warning"
         >
           <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
-          Teilweise
+          {t('settings.integrations.bexio.sync.statusPartial')}
         </Badge>
       )
     case 'running':
@@ -378,19 +399,22 @@ function SyncStatusBadge({
           className="text-[10px] border-info/30 text-info"
         >
           <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" />
-          Laeuft
+          {t('settings.integrations.bexio.sync.statusRunning')}
         </Badge>
       )
   }
 }
 
-function formatRelativeTime(isoDate: string): string {
+function formatRelativeTime(
+  isoDate: string,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
   const diff = Date.now() - new Date(isoDate).getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'gerade eben'
-  if (minutes < 60) return `vor ${minutes} Min.`
+  if (minutes < 1) return t('settings.integrations.bexio.sync.justNow')
+  if (minutes < 60) return t('settings.integrations.bexio.sync.minutesAgo', { count: minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `vor ${hours} Std.`
+  if (hours < 24) return t('settings.integrations.bexio.sync.hoursAgo', { count: hours })
   const days = Math.floor(hours / 24)
-  return `vor ${days} Tag${days > 1 ? 'en' : ''}`
+  return t('settings.integrations.bexio.sync.daysAgo', { count: days })
 }

@@ -62,7 +62,7 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
 
   const handleSave = () => {
     store.setFieldValues(definition.id, localValues)
-    toast.success('Einstellungen gespeichert')
+    toast.success(t('settings.integrations.generic.settingsSaved'))
   }
 
   const handleConnect = () => {
@@ -71,29 +71,29 @@ export function GenericIntegrationPanel({ definition, onBack }: GenericIntegrati
       // Mock OAuth2 flow
       store.setStatus(definition.id, 'syncing' as never)
       setTimeout(() => store.connect(definition.id), 1500)
-      toast.success(`${definition.name} wird verbunden...`)
+      toast.success(t('settings.integrations.generic.connecting', { name: definition.name }))
     } else {
       store.connect(definition.id)
-      toast.success(`${definition.name} verbunden`)
+      toast.success(t('settings.integrations.generic.connected', { name: definition.name }))
     }
   }
 
   const handleDisconnect = () => {
     store.disconnect(definition.id)
-    toast.success(`${definition.name} getrennt`)
+    toast.success(t('settings.integrations.generic.disconnected', { name: definition.name }))
   }
 
   const handleTest = () => {
     setTesting(true)
     setTimeout(() => {
       setTesting(false)
-      toast.success('Verbindung erfolgreich')
+      toast.success(t('settings.integrations.generic.testSuccess'))
     }, 1000)
   }
 
   const handleSync = () => {
     store.triggerSync(definition.id)
-    toast.success('Synchronisation gestartet')
+    toast.success(t('settings.integrations.generic.syncStarted'))
   }
 
   const togglePasswordVisibility = (fieldId: string) => {

@@ -24,11 +24,11 @@ const DEFAULT_MAPPINGS: KontoMapping[] = [
   { id: 'km-4', kmuLabel: 'Lohn & Gehalt', datevKonto: '6000' },
 ]
 
-const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  connected: { label: 'Verbunden', cls: 'bg-success-light text-success' },
-  disconnected: { label: 'Nicht verbunden', cls: 'bg-secondary text-muted-foreground' },
-  syncing: { label: 'Synchronisiert...', cls: 'bg-info-light text-info' },
-  error: { label: 'Fehler', cls: 'bg-error-light text-destructive' },
+const STATUS_BADGE: Record<string, { labelKey: string; cls: string }> = {
+  connected: { labelKey: 'settings.integrations.panel.status.connected', cls: 'bg-success-light text-success' },
+  disconnected: { labelKey: 'settings.integrations.panel.status.disconnected', cls: 'bg-secondary text-muted-foreground' },
+  syncing: { labelKey: 'settings.integrations.panel.status.syncing', cls: 'bg-info-light text-info' },
+  error: { labelKey: 'settings.integrations.panel.status.error', cls: 'bg-error-light text-destructive' },
 }
 
 interface DATEVConfigPanelProps {
@@ -64,31 +64,31 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
       susaEnabled,
       kontenblaetter,
     })
-    toast.success('DATEV-Einstellungen gespeichert')
+    toast.success(t('settings.integrations.datev.config.settingsSaved'))
   }
 
   const handleConnect = () => {
     handleSave()
     store.connect('datev-rechnungswesen')
-    toast.success('DATEV Rechnungswesen verbunden')
+    toast.success(t('settings.integrations.datev.config.connected'))
   }
 
   const handleDisconnect = () => {
     store.disconnect('datev-rechnungswesen')
-    toast.success('DATEV Rechnungswesen getrennt')
+    toast.success(t('settings.integrations.datev.config.disconnected'))
   }
 
   const handleTest = () => {
     setTesting(true)
     setTimeout(() => {
       setTesting(false)
-      toast.success('DATEV-Verbindung erfolgreich')
+      toast.success(t('settings.integrations.datev.config.testSuccess'))
     }, 1000)
   }
 
   const handleSync = () => {
     store.triggerSync('datev-rechnungswesen')
-    toast.success('DATEV-Synchronisation gestartet')
+    toast.success(t('settings.integrations.datev.config.syncStarted'))
   }
 
   const startEdit = (mapping: KontoMapping) => {
@@ -107,7 +107,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
 
   const addMapping = () => {
     const newId = `km-${Date.now()}`
-    setMappings((prev) => [...prev, { id: newId, kmuLabel: 'Neues Konto', datevKonto: '' }])
+    setMappings((prev) => [...prev, { id: newId, kmuLabel: t('settings.integrations.datev.config.newAccount'), datevKonto: '' }])
     setEditingId(newId)
     setEditKonto('')
   }
@@ -124,7 +124,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Zurück zu Integrationen
+        {t('settings.integrations.backToIntegrations')}
       </button>
 
       {/* Header */}
@@ -136,11 +136,11 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold text-foreground">DATEV Rechnungswesen</h2>
             <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${badge.cls}`}>
-              {badge.label}
+              {t(badge.labelKey)}
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Konten-Mapping, BWA/SuSa-Export, DATEV-Connect oder Dateiexport
+            {t('settings.integrations.datev-rechnungswesen.description')}
           </p>
         </div>
       </div>
@@ -148,10 +148,10 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
       {/* Connected info */}
       {status === 'connected' && integration?.connectedAt && (
         <div className="rounded-lg border border-success/30 bg-success-light px-4 py-2.5 mb-6 text-sm text-success">
-          Verbunden seit {new Date(integration.connectedAt).toLocaleDateString('de-DE')}
+          {t('settings.integrations.connectedSince', { date: new Date(integration.connectedAt).toLocaleDateString('de-DE') })}
           {integration.lastSync && (
             <span className="ml-3 text-success/70">
-              Letzte Sync: {new Date(integration.lastSync).toLocaleString('de-DE')}
+              {t('settings.integrations.lastSync', { date: new Date(integration.lastSync).toLocaleString('de-DE') })}
             </span>
           )}
         </div>
@@ -159,25 +159,25 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
 
       {/* Mandant */}
       <div className="mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Mandant</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integrations.datev.config.mandantSection')}</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Mandantennummer</label>
+            <label className="text-sm font-medium text-foreground">{t('settings.integrations.datev.config.mandantNr')}</label>
             <input
               type="text"
               value={mandantNr}
               onChange={(e) => setMandantNr(e.target.value)}
-              placeholder="z.B. 12345"
+              placeholder={t('settings.integrations.datev.config.mandantNrPlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Beraternummer</label>
+            <label className="text-sm font-medium text-foreground">{t('settings.integrations.datev.config.beraterNr')}</label>
             <input
               type="text"
               value={beraterNr}
               onChange={(e) => setBeraterNr(e.target.value)}
-              placeholder="z.B. 67890"
+              placeholder={t('settings.integrations.datev.config.beraterNrPlaceholder')}
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground"
             />
           </div>
@@ -186,7 +186,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
 
       {/* Export method */}
       <div className="mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Exportmethode</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integrations.datev.config.exportMethodSection')}</h3>
         <div className="space-y-2">
           <label className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-secondary/30 transition-colors">
             <input
@@ -197,8 +197,8 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
               className="accent-primary"
             />
             <div>
-              <span className="text-sm font-medium text-foreground">DATEV-Connect Online (API)</span>
-              <p className="text-[11px] text-muted-foreground">Direkte Übertragung an DATEV Rechenzentrum</p>
+              <span className="text-sm font-medium text-foreground">{t('settings.integrations.datev.config.exportMethodConnect')}</span>
+              <p className="text-[11px] text-muted-foreground">{t('settings.integrations.datev.config.exportMethodConnectDesc')}</p>
             </div>
           </label>
           <label className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-secondary/30 transition-colors">
@@ -210,8 +210,8 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
               className="accent-primary"
             />
             <div>
-              <span className="text-sm font-medium text-foreground">Dateiexport (ASCII/CSV)</span>
-              <p className="text-[11px] text-muted-foreground">Export-Dateien zum manuellen Import in DATEV</p>
+              <span className="text-sm font-medium text-foreground">{t('settings.integrations.datev.config.exportMethodFile')}</span>
+              <p className="text-[11px] text-muted-foreground">{t('settings.integrations.datev.config.exportMethodFileDesc')}</p>
             </div>
           </label>
         </div>
@@ -219,12 +219,12 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
 
       {/* Konten-Mapping */}
       <div className="mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Konten-Mapping</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integrations.datev.config.kontenMappingSection')}</h3>
         <div className="rounded-lg border border-border overflow-hidden">
           <div className="grid grid-cols-[1fr_120px_80px] gap-3 px-4 py-2 bg-secondary/50 text-xs font-medium text-muted-foreground">
-            <span>Cosmi Konto</span>
-            <span>DATEV Konto</span>
-            <span className="text-right">Aktion</span>
+            <span>{t('settings.integrations.datev.config.colCosmiAccount')}</span>
+            <span>{t('settings.integrations.datev.config.colDatevAccount')}</span>
+            <span className="text-right">{t('settings.integrations.datev.config.colAction')}</span>
           </div>
           {mappings.map((m) => (
             <div key={m.id} className="grid grid-cols-[1fr_120px_80px] gap-3 items-center px-4 py-2.5 border-t border-border">
@@ -264,18 +264,18 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
           className="flex items-center gap-1.5 mt-2 text-xs text-primary hover:text-primary/80 transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
-          Zuordnung hinzufügen
+          {t('settings.integrations.datev.config.addMapping')}
         </button>
       </div>
 
       {/* Auswertungen */}
       <div className="mb-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Auswertungen</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">{t('settings.integrations.datev.config.auswertungenSection')}</h3>
         <div className="space-y-2">
           {[
-            { label: 'BWA (Betriebswirtschaftliche Auswertung)', value: bwaEnabled, set: setBwaEnabled },
-            { label: 'SuSa (Summen- und Saldenliste)', value: susaEnabled, set: setSusaEnabled },
-            { label: 'Kontenblaetter', value: kontenblaetter, set: setKontenblaetter },
+            { label: t('settings.integrations.datev.config.auswertungBwa'), value: bwaEnabled, set: setBwaEnabled },
+            { label: t('settings.integrations.datev.config.auswertungSusa'), value: susaEnabled, set: setSusaEnabled },
+            { label: t('settings.integrations.datev.config.auswertungKontenblaetter'), value: kontenblaetter, set: setKontenblaetter },
           ].map((item) => (
             <label key={item.label} className="flex items-center gap-3 cursor-pointer">
               <input
@@ -299,14 +299,14 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
               className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
               <Unlink className="h-4 w-4" />
-              Trennen
+              {t('settings.integrations.panel.disconnect')}
             </button>
             <button
               onClick={handleSync}
               className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
             >
               <RefreshCw className={`h-4 w-4 ${status === 'syncing' ? 'animate-spin' : ''}`} />
-              Synchronisieren
+              {t('settings.integrations.panel.sync')}
             </button>
           </>
         ) : (
@@ -315,14 +315,14 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
           >
             <Plug className="h-4 w-4" />
-            Verbinden
+            {t('settings.integrations.panel.connect')}
           </button>
         )}
         <button
           onClick={handleSave}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-button-primary-hover transition-colors"
         >
-          Speichern
+          {t('settings.integrations.panel.save')}
         </button>
         <button
           onClick={handleTest}
@@ -330,7 +330,7 @@ export function DATEVConfigPanel({ onBack }: DATEVConfigPanelProps) {
           className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors disabled:opacity-50 ml-auto"
         >
           {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-          Verbindung testen
+          {t('settings.integrations.panel.testConnection')}
         </button>
       </div>
     </div>

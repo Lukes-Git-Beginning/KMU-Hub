@@ -84,9 +84,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
 
   const handleDisconnect = async () => {
     if (
-      !confirm(
-        'DATEV-Verbindung wirklich trennen? Upload-Einstellungen gehen verloren.',
-      )
+      !confirm(t('settings.integrations.datev.settings.disconnectConfirm'))
     )
       return
     await disconnect.mutateAsync()
@@ -128,10 +126,9 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>DATEV-Einstellungen</DialogTitle>
+          <DialogTitle>{t('settings.integrations.datev.settings.title')}</DialogTitle>
           <DialogDescription>
-            Konfigurieren Sie die DATEV-Anbindung für den automatischen oder
-            manuellen Buchungsexport.
+            {t('settings.integrations.datev.settings.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -145,14 +142,11 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
             )}
             <div>
               <p className="text-sm font-medium">
-                {isConnected ? 'Mit DATEV verbunden' : 'Nicht verbunden'}
+                {isConnected ? t('settings.integrations.datev.settings.connectionStatusConnected') : t('settings.integrations.datev.settings.connectionStatusDisconnected')}
               </p>
               {isConnected && connection?.connected_at && (
                 <p className="text-xs text-muted-foreground">
-                  Seit{' '}
-                  {new Date(connection.connected_at).toLocaleDateString(
-                    'de-DE',
-                  )}
+                  {t('settings.integrations.datev.settings.connectedSince', { date: new Date(connection.connected_at).toLocaleDateString('de-DE') })}
                 </p>
               )}
             </div>
@@ -170,7 +164,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
               ) : (
                 <Unlink className="h-3.5 w-3.5 mr-1" />
               )}
-              Trennen
+              {t('settings.integrations.panel.disconnect')}
             </Button>
           ) : (
             <Button
@@ -183,7 +177,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
               ) : (
                 <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               )}
-              {polling ? 'Warte auf Autorisierung...' : 'Mit DATEV verbinden'}
+              {polling ? t('settings.integrations.datev.settings.waitingForAuth') : t('settings.integrations.datev.settings.connectButton')}
             </Button>
           )}
         </div>
@@ -194,8 +188,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
             <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-warning">
-                Ohne DATEV-Verbindung steht der manuelle CSV-Export zur
-                Verfügung.
+                {t('settings.integrations.datev.settings.fallbackMessage')}
               </p>
               <Button
                 variant="link"
@@ -203,7 +196,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
                 className="h-auto p-0 text-warning underline text-xs mt-1"
               >
                 <Download className="h-3 w-3 mr-1" />
-                Manueller CSV-Export verfügbar
+                {t('settings.integrations.datev.settings.csvExportAvailable')}
               </Button>
             </div>
           </div>
@@ -216,17 +209,17 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
 
             {/* Mandant-Nr */}
             <div className="space-y-2">
-              <Label htmlFor="mandant-nr">Mandant-Nr.</Label>
+              <Label htmlFor="mandant-nr">{t('settings.integrations.datev.settings.mandantNrLabel')}</Label>
               <Input
                 id="mandant-nr"
-                placeholder="z.B. 12345"
+                placeholder={t('settings.integrations.datev.config.mandantNrPlaceholder')}
                 value={config?.client_number ?? ''}
                 onChange={(e) =>
                   handleConfigUpdate({ client_number: e.target.value })
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Die Mandantennummer aus Ihrem DATEV-Konto.
+                {t('settings.integrations.datev.settings.mandantNrHint')}
               </p>
             </div>
 
@@ -234,10 +227,10 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <div>
                 <Label className="text-sm font-medium">
-                  Automatischer Upload
+                  {t('settings.integrations.datev.settings.autoUploadLabel')}
                 </Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Buchungsstapel automatisch nach Export an DATEV senden
+                  {t('settings.integrations.datev.settings.autoUploadDesc')}
                 </p>
               </div>
               <Switch
@@ -252,11 +245,11 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
 
             {/* Manual upload with date range */}
             <div className="space-y-3">
-              <h4 className="text-sm font-medium">Manueller Upload</h4>
+              <h4 className="text-sm font-medium">{t('settings.integrations.datev.settings.manualUploadSection')}</h4>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="date-from" className="text-xs">
-                    Von
+                    {t('settings.integrations.datev.settings.dateFrom')}
                   </Label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -271,7 +264,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="date-to" className="text-xs">
-                    Bis
+                    {t('settings.integrations.datev.settings.dateTo')}
                   </Label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -300,7 +293,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
                   ) : (
                     <Upload className="h-3.5 w-3.5 mr-1.5" />
                   )}
-                  Buchungsstapel hochladen
+                  {t('settings.integrations.datev.settings.uploadBuchungsstapel')}
                 </Button>
                 <Button
                   variant="outline"
@@ -309,7 +302,7 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
                   disabled={uploadBuchungsstapel.isPending}
                 >
                   <FileText className="h-3.5 w-3.5 mr-1.5" />
-                  Beleg hochladen
+                  {t('settings.integrations.datev.settings.uploadBeleg')}
                 </Button>
               </div>
             </div>
@@ -319,25 +312,25 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
             {/* Upload log table */}
             {uploadLogs && uploadLogs.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-sm font-medium">Upload-Verlauf</h4>
+                <h4 className="text-sm font-medium">{t('settings.integrations.datev.settings.uploadLog')}</h4>
                 <div className="rounded-md border border-border overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-muted/50">
                         <th className="text-left px-3 py-2 font-medium">
-                          Typ
+                          {t('settings.integrations.datev.settings.colType')}
                         </th>
                         <th className="text-left px-3 py-2 font-medium">
-                          Status
+                          {t('settings.integrations.datev.settings.colStatus')}
                         </th>
                         <th className="text-right px-3 py-2 font-medium">
-                          Belege
+                          {t('settings.integrations.datev.settings.colDocuments')}
                         </th>
                         <th className="text-right px-3 py-2 font-medium">
-                          Größe
+                          {t('settings.integrations.datev.settings.colSize')}
                         </th>
                         <th className="text-left px-3 py-2 font-medium">
-                          Datum
+                          {t('settings.integrations.datev.settings.colDate')}
                         </th>
                       </tr>
                     </thead>
@@ -361,12 +354,13 @@ export function DatevSettingsPanel({ isOpen, onClose }: DatevSettingsPanelProps)
 // Sub-components
 // ---------------------------------------------------------------------------
 
-const UPLOAD_TYPE_LABELS: Record<string, string> = {
-  buchungsstapel: 'Buchungsstapel',
-  belegbild: 'Belegbild',
+const UPLOAD_TYPE_KEYS: Record<string, string> = {
+  buchungsstapel: 'settings.integrations.datev.settings.uploadTypeBuchungsstapel',
+  belegbild: 'settings.integrations.datev.settings.uploadTypeBelegbild',
 }
 
 function UploadLogRow({ log }: { log: DatevUploadLogEntry }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -376,7 +370,7 @@ function UploadLogRow({ log }: { log: DatevUploadLogEntry }) {
         onClick={() => log.error_message && setExpanded(!expanded)}
       >
         <td className="px-3 py-2">
-          {UPLOAD_TYPE_LABELS[log.upload_type] || log.upload_type}
+          {UPLOAD_TYPE_KEYS[log.upload_type] ? t(UPLOAD_TYPE_KEYS[log.upload_type]) : log.upload_type}
         </td>
         <td className="px-3 py-2">
           <UploadStatusBadge status={log.status} />
@@ -410,6 +404,7 @@ function UploadStatusBadge({
 }: {
   status: DatevUploadLogEntry['status']
 }) {
+  const { t } = useTranslation()
   switch (status) {
     case 'completed':
       return (
@@ -418,7 +413,7 @@ function UploadStatusBadge({
           className="text-[10px] border-success/30 text-success"
         >
           <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
-          Fertig
+          {t('settings.integrations.datev.settings.statusCompleted')}
         </Badge>
       )
     case 'failed':
@@ -428,7 +423,7 @@ function UploadStatusBadge({
           className="text-[10px] border-destructive/30 text-destructive"
         >
           <XCircle className="h-2.5 w-2.5 mr-0.5" />
-          Fehler
+          {t('settings.integrations.datev.settings.statusFailed')}
         </Badge>
       )
     case 'uploading':
@@ -438,7 +433,7 @@ function UploadStatusBadge({
           className="text-[10px] border-info/30 text-info"
         >
           <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" />
-          Hochladen
+          {t('settings.integrations.datev.settings.statusUploading')}
         </Badge>
       )
     case 'pending':
@@ -448,7 +443,7 @@ function UploadStatusBadge({
           className="text-[10px] border-warning/30 text-warning"
         >
           <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
-          Wartend
+          {t('settings.integrations.datev.settings.statusPending')}
         </Badge>
       )
   }

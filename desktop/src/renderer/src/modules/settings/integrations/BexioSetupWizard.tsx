@@ -41,30 +41,20 @@ interface BexioSetupWizardProps {
   onClose: () => void
 }
 
-const STEPS = [
-  { label: 'Verbindung', number: 1 },
-  { label: 'Sync-Optionen', number: 2 },
-  { label: 'Feld-Zuordnung', number: 3 },
-  { label: 'Erster Sync', number: 4 },
-]
 
-const INTERVAL_OPTIONS = [
-  { value: 5, label: '5 Minuten' },
-  { value: 10, label: '10 Minuten' },
-  { value: 15, label: '15 Minuten' },
-  { value: 30, label: '30 Minuten' },
-  { value: 60, label: '60 Minuten' },
-]
-
-const POLL_INTERVAL_OPTIONS = [
-  { value: 1, label: '1 Minute' },
-  { value: 5, label: '5 Minuten' },
-  { value: 10, label: '10 Minuten' },
-  { value: 15, label: '15 Minuten' },
-]
+const INTERVAL_OPTIONS = [5, 10, 15, 30, 60]
+const POLL_INTERVAL_OPTIONS = [1, 5, 10, 15]
 
 export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
   const { t } = useTranslation()
+
+  const STEPS = [
+    { label: t('settings.integrations.bexio.setup.step.connection'), number: 1 },
+    { label: t('settings.integrations.bexio.setup.step.syncOptions'), number: 2 },
+    { label: t('settings.integrations.bexio.setup.step.fieldMapping'), number: 3 },
+    { label: t('settings.integrations.bexio.setup.step.initialSync'), number: 4 },
+  ]
+
   const [step, setStep] = useState(1)
   const [syncConfig, setSyncConfig] = useState<BexioSyncConfig>({
     contact_sync_enabled: true,
@@ -141,13 +131,11 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Bexio einrichten</DialogTitle>
+          <DialogTitle>{t('settings.integrations.bexio.setup.title')}</DialogTitle>
           <DialogDescription>
-            Verbinden Sie Cosmi mit Ihrem Bexio-Konto in{' '}
             {step === STEPS.length
-              ? 'einem letzten'
-              : `${step} von ${STEPS.length}`}{' '}
-            Schritten
+              ? t('settings.integrations.bexio.setup.descriptionLastStep')
+              : t('settings.integrations.bexio.setup.descriptionStep', { step, total: STEPS.length })}
           </DialogDescription>
         </DialogHeader>
 
@@ -228,7 +216,7 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
             disabled={step === 1}
           >
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            Zurück
+            {t('common.back')}
           </Button>
           {step < STEPS.length ? (
             <Button
@@ -236,12 +224,12 @@ export function BexioSetupWizard({ isOpen, onClose }: BexioSetupWizardProps) {
               onClick={handleNext}
               disabled={!canProceed()}
             >
-              Weiter
+              {t('common.next')}
               <ArrowRight className="h-3.5 w-3.5 ml-1" />
             </Button>
           ) : (
             <Button size="sm" onClick={handleFinish}>
-              Fertig
+              {t('settings.integrations.bexio.setup.finish')}
             </Button>
           )}
         </div>
@@ -267,12 +255,12 @@ function StepOAuth({
   isConnecting: boolean
   isPolling: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-info/30 bg-info-light p-3">
         <p className="text-sm text-info">
-          Verbinden Sie Cosmi mit Ihrem Bexio-Konto über OAuth. Sie werden
-          zu Bexio weitergeleitet, um den Zugriff zu genehmigen.
+          {t('settings.integrations.bexio.setup.oauthInfo')}
         </p>
       </div>
 
@@ -281,11 +269,11 @@ function StepOAuth({
           <CheckCircle className="h-4 w-4 text-success shrink-0" />
           <div>
             <p className="text-sm text-success font-medium">
-              Verbindung hergestellt!
+              {t('settings.integrations.bexio.setup.connectionEstablished')}
             </p>
             {orgName && (
               <p className="text-xs text-success mt-0.5">
-                Organisation: {orgName}
+                {t('settings.integrations.bexio.setup.organisation', { name: orgName })}
               </p>
             )}
           </div>
@@ -298,13 +286,13 @@ function StepOAuth({
             ) : (
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
             )}
-            Mit Bexio verbinden
+            {t('settings.integrations.bexio.setup.connectButton')}
           </Button>
 
           {isPolling && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Warte auf Bexio-Autorisierung...
+              {t('settings.integrations.bexio.setup.waitingAuth')}
             </div>
           )}
         </div>
@@ -320,6 +308,7 @@ function StepSyncConfig({
   config: BexioSyncConfig
   onChange: (config: BexioSyncConfig) => void
 }) {
+  const { t } = useTranslation()
   const update = (partial: Partial<BexioSyncConfig>) => {
     onChange({ ...config, ...partial })
   }
@@ -327,17 +316,17 @@ function StepSyncConfig({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Wählen Sie, welche Daten synchronisiert werden sollen.
+        {t('settings.integrations.bexio.setup.chooseSyncData')}
       </p>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="text-sm font-medium">
-              Kontakte bidirektional synchronisieren
+              {t('settings.integrations.bexio.setup.contactSyncLabel')}
             </Label>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Kontakte zwischen Cosmi und Bexio abgleichen
+              {t('settings.integrations.bexio.setup.contactSyncHelp')}
             </p>
           </div>
           <Switch
@@ -348,7 +337,9 @@ function StepSyncConfig({
 
         {config.contact_sync_enabled && (
           <div className="ml-4 flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Intervall:</Label>
+            <Label className="text-xs text-muted-foreground">
+              {t('settings.integrations.bexio.setup.intervalLabel')}
+            </Label>
             <select
               className="text-xs rounded-md border border-border bg-background px-2 py-1"
               value={config.contact_sync_interval_minutes}
@@ -356,9 +347,9 @@ function StepSyncConfig({
                 update({ contact_sync_interval_minutes: Number(e.target.value) })
               }
             >
-              {INTERVAL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
+              {INTERVAL_OPTIONS.map((v) => (
+                <option key={v} value={v}>
+                  {t('settings.integrations.bexio.setup.minutesOption', { count: v })}
                 </option>
               ))}
             </select>
@@ -368,10 +359,10 @@ function StepSyncConfig({
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="text-sm font-medium">
-              Rechnungen an Bexio senden
+              {t('settings.integrations.bexio.setup.invoicePushLabel')}
             </Label>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Erstellte Rechnungen automatisch in Bexio anlegen
+              {t('settings.integrations.bexio.setup.invoicePushHelp')}
             </p>
           </div>
           <Switch
@@ -383,10 +374,10 @@ function StepSyncConfig({
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="text-sm font-medium">
-              Offerten an Bexio senden
+              {t('settings.integrations.bexio.setup.quotePushLabel')}
             </Label>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Erstellte Offerten automatisch in Bexio anlegen
+              {t('settings.integrations.bexio.setup.quotePushHelp')}
             </p>
           </div>
           <Switch
@@ -398,10 +389,10 @@ function StepSyncConfig({
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="text-sm font-medium">
-              Zahlungsstatus von Bexio abfragen
+              {t('settings.integrations.bexio.setup.paymentPollLabel')}
             </Label>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Zahlungseingänge aus Bexio automatisch erkennen
+              {t('settings.integrations.bexio.setup.paymentPollHelp')}
             </p>
           </div>
           <Switch
@@ -412,7 +403,9 @@ function StepSyncConfig({
 
         {config.payment_poll_enabled && (
           <div className="ml-4 flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">Intervall:</Label>
+            <Label className="text-xs text-muted-foreground">
+              {t('settings.integrations.bexio.setup.intervalLabel')}
+            </Label>
             <select
               className="text-xs rounded-md border border-border bg-background px-2 py-1"
               value={config.payment_poll_interval_minutes}
@@ -422,9 +415,9 @@ function StepSyncConfig({
                 })
               }
             >
-              {POLL_INTERVAL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
+              {POLL_INTERVAL_OPTIONS.map((v) => (
+                <option key={v} value={v}>
+                  {t('settings.integrations.bexio.setup.minutesOption', { count: v })}
                 </option>
               ))}
             </select>
@@ -436,11 +429,11 @@ function StepSyncConfig({
 }
 
 function StepFieldMapping() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Ordnen Sie die Kontakt-Felder zwischen Cosmi und Bexio zu. Sie
-        können diese Zuordnungen später jederzeit anpassen.
+        {t('settings.integrations.bexio.setup.fieldMappingHint')}
       </p>
       <BexioFieldMappingEditor entityType="contact" compact />
     </div>
@@ -458,6 +451,7 @@ function StepInitialSync({
   syncTriggered: boolean
   syncStatus?: import('@/api/bexio-types').BexioSyncStatus
 }) {
+  const { t } = useTranslation()
   const isRunning =
     syncStatus?.contact_sync?.status === 'running' ||
     syncStatus?.invoice_sync?.status === 'running'
@@ -466,11 +460,10 @@ function StepInitialSync({
     <div className="space-y-4">
       <div className="rounded-md border border-success/30 bg-success-light p-3">
         <p className="text-sm text-success font-medium">
-          Konfiguration abgeschlossen!
+          {t('settings.integrations.bexio.setup.configDone')}
         </p>
         <p className="text-xs text-success mt-1">
-          Starten Sie jetzt die erste Synchronisierung, um Ihre Daten
-          abzugleichen.
+          {t('settings.integrations.bexio.setup.configDoneHint')}
         </p>
       </div>
 
@@ -481,28 +474,42 @@ function StepInitialSync({
           ) : (
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
           )}
-          Synchronisierung starten
+          {t('settings.integrations.bexio.setup.startSync')}
         </Button>
       ) : (
         <div className="space-y-2">
           {isRunning ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Synchronisierung läuft...
+              {t('settings.integrations.bexio.setup.syncRunning')}
             </div>
           ) : (
             syncStatus && (
               <div className="rounded-md border border-border p-3 space-y-1">
-                <p className="text-sm font-medium">Ergebnis:</p>
-                <p className="text-xs text-muted-foreground">
-                  Kontakte: {syncStatus.contact_sync.items_synced} synchronisiert
-                  {syncStatus.contact_sync.items_failed > 0 &&
-                    `, ${syncStatus.contact_sync.items_failed} Fehler`}
+                <p className="text-sm font-medium">
+                  {t('settings.integrations.bexio.setup.syncResult')}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Rechnungen: {syncStatus.invoice_sync.items_synced} synchronisiert
-                  {syncStatus.invoice_sync.items_failed > 0 &&
-                    `, ${syncStatus.invoice_sync.items_failed} Fehler`}
+                  {t(
+                    syncStatus.contact_sync.items_failed > 0
+                      ? 'settings.integrations.bexio.setup.syncResultContactsFailed'
+                      : 'settings.integrations.bexio.setup.syncResultContacts',
+                    {
+                      synced: syncStatus.contact_sync.items_synced,
+                      failed: syncStatus.contact_sync.items_failed,
+                    },
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    syncStatus.invoice_sync.items_failed > 0
+                      ? 'settings.integrations.bexio.setup.syncResultInvoicesFailed'
+                      : 'settings.integrations.bexio.setup.syncResultInvoices',
+                    {
+                      synced: syncStatus.invoice_sync.items_synced,
+                      failed: syncStatus.invoice_sync.items_failed,
+                    },
+                  )}
                 </p>
               </div>
             )

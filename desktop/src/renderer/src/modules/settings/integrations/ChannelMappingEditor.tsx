@@ -66,11 +66,11 @@ export function ChannelMappingEditor({
 
   const handleCreate = async () => {
     if (!form.channelId.trim() || !form.channelName.trim()) {
-      toast.error('Bitte Kanal-ID und Name eingeben')
+      toast.error(t('settings.integrations.channelMapping.errorChannelRequired'))
       return
     }
     if (form.modules.length === 0) {
-      toast.error('Bitte mindestens ein Modul auswählen')
+      toast.error(t('settings.integrations.channelMapping.errorModuleRequired'))
       return
     }
     await createMapping.mutateAsync({
@@ -86,7 +86,7 @@ export function ChannelMappingEditor({
   const handleUpdate = async () => {
     if (!editingId) return
     if (!form.channelName.trim()) {
-      toast.error('Bitte Kanalnamen eingeben')
+      toast.error(t('settings.integrations.channelMapping.errorChannelNameRequired'))
       return
     }
     await updateMapping.mutateAsync({
@@ -184,7 +184,7 @@ export function ChannelMappingEditor({
                             onClick={() => handleDelete(mapping.id)}
                             className="h-7 px-2 text-destructive hover:text-destructive"
                           >
-                            Löschen
+                            {t('settings.integrations.channelMapping.deleteConfirm')}
                           </Button>
                           <Button
                             variant="ghost"
@@ -232,7 +232,7 @@ export function ChannelMappingEditor({
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Noch keine Kanalzuordnungen erstellt.
+          {t('settings.integrations.channelMapping.noMappings')}
         </p>
       )}
 
@@ -260,7 +260,7 @@ export function ChannelMappingEditor({
           }}
         >
           <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Neue Zuordnung
+          {t('settings.integrations.channelMapping.addMapping')}
         </Button>
       )}
     </div>
@@ -288,16 +288,17 @@ function MappingForm({
   isSaving: boolean
   isEdit?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="channel-id" className="text-xs">
-            Kanal-ID
+            {t('settings.integrations.channelMapping.channelIdLabel')}
           </Label>
           <Input
             id="channel-id"
-            placeholder="z.B. C0123456789"
+            placeholder={t('settings.integrations.channelMapping.channelIdPlaceholder')}
             value={form.channelId}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, channelId: e.target.value }))
@@ -307,11 +308,11 @@ function MappingForm({
         </div>
         <div>
           <Label htmlFor="channel-name" className="text-xs">
-            Kanalname
+            {t('settings.integrations.channelMapping.channelNameLabel')}
           </Label>
           <Input
             id="channel-name"
-            placeholder="z.B. #benachrichtigungen"
+            placeholder={t('settings.integrations.channelMapping.channelNamePlaceholder')}
             value={form.channelName}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, channelName: e.target.value }))
@@ -322,7 +323,9 @@ function MappingForm({
 
       {/* Module toggles as colored chips */}
       <div>
-        <Label className="text-xs mb-1.5 block">Module</Label>
+        <Label className="text-xs mb-1.5 block">
+          {t('settings.integrations.channelMapping.modulesLabel')}
+        </Label>
         <div className="flex flex-wrap gap-1.5">
           {INTEGRATION_MODULES.map((mod) => {
             const isSelected = form.modules.includes(mod.id)
@@ -349,10 +352,12 @@ function MappingForm({
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={onSave} disabled={isSaving}>
           <Save className="h-3.5 w-3.5 mr-1" />
-          {isEdit ? 'Aktualisieren' : 'Speichern'}
+          {isEdit
+            ? t('settings.integrations.channelMapping.updateButton')
+            : t('common.save')}
         </Button>
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Abbrechen
+          {t('common.cancel')}
         </Button>
       </div>
     </div>

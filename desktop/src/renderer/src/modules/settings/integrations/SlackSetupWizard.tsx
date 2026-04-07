@@ -47,12 +47,7 @@ interface SlackSetupWizardProps {
 
 type CredentialMode = 'manual' | 'oauth'
 
-const STEPS = [
-  { label: 'Plattform', number: 1 },
-  { label: 'Kanalzuordnung', number: 2 },
-  { label: 'Test', number: 3 },
-  { label: 'Fertig', number: 4 },
-]
+const STEP_NUMBERS = [1, 2, 3, 4]
 
 export function SlackSetupWizard({
   isOpen,
@@ -137,17 +132,22 @@ export function SlackSetupWizard({
     return true
   }
 
+  const STEPS = [
+    { label: t('settings.integrations.slack.step.platform'), number: 1 },
+    { label: t('settings.integrations.slack.step.channelMapping'), number: 2 },
+    { label: t('settings.integrations.slack.step.test'), number: 3 },
+    { label: t('settings.integrations.slack.step.done'), number: 4 },
+  ]
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Slack einrichten</DialogTitle>
+          <DialogTitle>{t('settings.integrations.slack.setup.title')}</DialogTitle>
           <DialogDescription>
-            Konfigurieren Sie die Slack-Integration in{' '}
-            {STEPS[step - 1].label === 'Fertig'
-              ? 'einem letzten'
-              : `${step} von ${STEPS.length}`}{' '}
-            Schritten
+            {step === 4
+              ? t('settings.integrations.slack.setup.descriptionLastStep')
+              : t('settings.integrations.slack.setup.descriptionStep', { step, total: STEPS.length })}
           </DialogDescription>
         </DialogHeader>
 
@@ -231,7 +231,7 @@ export function SlackSetupWizard({
             disabled={step === 1}
           >
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            Zurück
+            {t('common.back')}
           </Button>
           {step < 4 ? (
             <Button
@@ -242,12 +242,12 @@ export function SlackSetupWizard({
               {createConfig.isPending && (
                 <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
               )}
-              Weiter
+              {t('common.next')}
               <ArrowRight className="h-3.5 w-3.5 ml-1" />
             </Button>
           ) : (
             <Button size="sm" onClick={handleFinish}>
-              Speichern und aktivieren
+              {t('settings.integrations.slack.setup.saveAndActivate')}
             </Button>
           )}
         </div>
@@ -287,12 +287,12 @@ function StepPlatform({
   isEditing: boolean
   onOAuthInstall: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-purple-500/30 bg-purple-50/10 p-3">
         <p className="text-sm text-purple-700 dark:text-purple-400">
-          Erstellen Sie eine Slack App auf api.slack.com und geben Sie die
-          Anmeldeinformationen ein.
+          {t('settings.integrations.slack.platform.setupInfo')}
         </p>
         <a
           href="https://api.slack.com/apps"
@@ -300,7 +300,7 @@ function StepPlatform({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 hover:underline mt-2"
         >
-          Slack App erstellen
+          {t('settings.integrations.slack.platform.createApp')}
           <ExternalLink className="h-3 w-3" />
         </a>
       </div>
@@ -308,8 +308,7 @@ function StepPlatform({
       {isEditing ? (
         <div className="rounded-md bg-muted p-3">
           <p className="text-sm text-muted-foreground">
-            Anmeldeinformationen sind bereits konfiguriert. Sie können die
-            Kanalzuordnungen im nächsten Schritt anpassen.
+            {t('settings.integrations.slack.platform.alreadyConfigured')}
           </p>
         </div>
       ) : (
@@ -321,14 +320,14 @@ function StepPlatform({
               size="sm"
               onClick={() => setCredMode('manual')}
             >
-              Manuell eingeben
+              {t('settings.integrations.slack.platform.modeManual')}
             </Button>
             <Button
               variant={credMode === 'oauth' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setCredMode('oauth')}
             >
-              Mit Slack verbinden
+              {t('settings.integrations.slack.platform.modeOAuth')}
             </Button>
           </div>
 
@@ -354,7 +353,7 @@ function StepPlatform({
                 <Input
                   id="slack-signing-secret"
                   type="password"
-                  placeholder="Signing Secret eingeben"
+                  placeholder={t('settings.integrations.slack.platform.signingSecretPlaceholder')}
                   value={signingSecret}
                   onChange={(e) => setSigningSecret(e.target.value)}
                 />
@@ -362,7 +361,7 @@ function StepPlatform({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="slack-client-id" className="text-xs">
-                    Client ID (optional)
+                    {t('settings.integrations.slack.platform.clientIdLabel')}
                   </Label>
                   <Input
                     id="slack-client-id"
@@ -374,7 +373,7 @@ function StepPlatform({
                 </div>
                 <div>
                   <Label htmlFor="slack-client-secret" className="text-xs">
-                    Client Secret (optional)
+                    {t('settings.integrations.slack.platform.clientSecretLabel')}
                   </Label>
                   <Input
                     id="slack-client-secret"
@@ -389,16 +388,14 @@ function StepPlatform({
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Klicken Sie auf den Button, um die Slack-App in Ihrem
-                Workspace zu installieren. Sie werden zu Slack weitergeleitet.
+                {t('settings.integrations.slack.platform.oauthInfo')}
               </p>
               <Button variant="outline" onClick={onOAuthInstall}>
                 <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Mit Slack verbinden
+                {t('settings.integrations.slack.platform.modeOAuth')}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Nach der Installation kehren Sie hierher zurück und fahren
-                mit der Kanalzuordnung fort.
+                {t('settings.integrations.slack.platform.oauthReturnHint')}
               </p>
             </div>
           )}
@@ -409,11 +406,11 @@ function StepPlatform({
 }
 
 function StepChannelMapping() {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Ordnen Sie Slack-Kanäle den Cosmi Modulen zu. Benachrichtigungen
-        der ausgewaehlten Module werden an den jeweiligen Kanal weitergeleitet.
+        {t('settings.integrations.slack.channelMapping.description')}
       </p>
       <ChannelMappingEditor platform="slack" />
     </div>
@@ -429,10 +426,11 @@ function StepTest({
   testResult: 'success' | 'error' | null
   isTesting: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Senden Sie eine Testbenachrichtigung, um die Verbindung zu prüfen.
+        {t('settings.integrations.slack.test.description')}
       </p>
 
       <Button variant="outline" onClick={onTest} disabled={isTesting}>
@@ -441,14 +439,14 @@ function StepTest({
         ) : (
           <Send className="h-3.5 w-3.5 mr-1.5" />
         )}
-        Test senden
+        {t('settings.integrations.slack.test.sendButton')}
       </Button>
 
       {testResult === 'success' && (
         <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success-light p-3">
           <CheckCircle className="h-4 w-4 text-success shrink-0" />
           <p className="text-sm text-success">
-            Testbenachrichtigung erfolgreich gesendet!
+            {t('settings.integrations.slack.test.successMessage')}
           </p>
         </div>
       )}
@@ -456,7 +454,7 @@ function StepTest({
         <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-error-light p-3">
           <XCircle className="h-4 w-4 text-destructive shrink-0" />
           <p className="text-sm text-destructive">
-            Test fehlgeschlagen. Bitte überprüfen Sie die Konfiguration.
+            {t('settings.integrations.slack.test.errorMessage')}
           </p>
         </div>
       )}
@@ -471,22 +469,23 @@ function StepFinish({
   isActive: boolean
   setIsActive: (v: boolean) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-success/30 bg-success-light p-3">
         <p className="text-sm text-success font-medium">
-          Slack Konfiguration abgeschlossen!
+          {t('settings.integrations.slack.finish.configDone')}
         </p>
         <p className="text-xs text-success mt-1">
-          Die Integration kann jetzt aktiviert werden.
+          {t('settings.integrations.slack.finish.configDoneHint')}
         </p>
       </div>
 
       <div className="flex items-center justify-between rounded-md border border-border p-3">
         <div>
-          <p className="text-sm font-medium">Integration aktivieren</p>
+          <p className="text-sm font-medium">{t('settings.integrations.slack.finish.activateLabel')}</p>
           <p className="text-xs text-muted-foreground">
-            Benachrichtigungen werden an Slack weitergeleitet
+            {t('settings.integrations.slack.finish.activateDesc')}
           </p>
         </div>
         <Switch checked={isActive} onCheckedChange={setIsActive} />

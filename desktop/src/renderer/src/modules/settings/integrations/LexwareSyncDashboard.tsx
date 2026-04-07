@@ -90,9 +90,7 @@ export function LexwareSyncDashboard({
 
   const handleDisconnect = async () => {
     if (
-      !confirm(
-        'Lexware-Verbindung wirklich trennen? Alle Sync-Einstellungen gehen verloren.',
-      )
+      !confirm(t('settings.integrations.lexware.sync.confirmDisconnect'))
     )
       return
     await disconnect.mutateAsync()
@@ -106,19 +104,20 @@ export function LexwareSyncDashboard({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Lexware Office Synchronisierung</DialogTitle>
+          <DialogTitle>{t('settings.integrations.lexware.sync.title')}</DialogTitle>
         </DialogHeader>
 
         {/* Connection header */}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <p className="text-sm font-medium">
-              Verbunden mit: Lexware Office
+              {t('settings.integrations.lexware.sync.connectedWith')}
             </p>
             {connection?.connected_at && (
               <p className="text-xs text-muted-foreground">
-                Seit{' '}
-                {new Date(connection.connected_at).toLocaleDateString('de-DE')}
+                {t('settings.integrations.lexware.sync.connectedSince', {
+                  date: new Date(connection.connected_at).toLocaleDateString('de-DE'),
+                })}
               </p>
             )}
           </div>
@@ -134,7 +133,7 @@ export function LexwareSyncDashboard({
             ) : (
               <Unlink className="h-3.5 w-3.5 mr-1" />
             )}
-            Trennen
+            {t('settings.integrations.lexware.sync.disconnect')}
           </Button>
         </div>
 
@@ -142,17 +141,17 @@ export function LexwareSyncDashboard({
         <div className="grid grid-cols-2 gap-3">
           <SyncStatusCard
             icon={<Users className="h-4 w-4" />}
-            name="Kontakte"
+            name={t('settings.integrations.lexware.sync.entityContacts')}
             status={syncStatus?.contact_sync}
           />
           <SyncStatusCard
             icon={<FileText className="h-4 w-4" />}
-            name="Rechnungen"
+            name={t('settings.integrations.lexware.sync.entityInvoices')}
             status={syncStatus?.invoice_sync}
           />
           <SyncStatusCard
             icon={<Receipt className="h-4 w-4" />}
-            name="Angebote"
+            name={t('settings.integrations.lexware.sync.entityQuotes')}
             status={syncStatus?.quote_sync}
           />
 
@@ -171,7 +170,7 @@ export function LexwareSyncDashboard({
                   className="text-[10px] border-success/30 text-success"
                 >
                   <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
-                  Aktiv
+                  {t('settings.integrations.lexware.sync.webhookActive')}
                 </Badge>
               ) : (
                 <Badge
@@ -179,14 +178,14 @@ export function LexwareSyncDashboard({
                   className="text-[10px] border-destructive/30 text-destructive"
                 >
                   <XCircle className="h-2.5 w-2.5 mr-0.5" />
-                  Inaktiv
+                  {t('settings.integrations.lexware.sync.webhookInactive')}
                 </Badge>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
               {webhookActive
-                ? 'Echtzeit-Benachrichtigungen aktiv'
-                : 'Keine Echtzeit-Benachrichtigungen'}
+                ? t('settings.integrations.lexware.sync.webhookActiveDesc')
+                : t('settings.integrations.lexware.sync.webhookInactiveDesc')}
             </p>
           </div>
         </div>
@@ -202,14 +201,16 @@ export function LexwareSyncDashboard({
             ) : (
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             )}
-            Jetzt synchronisieren
+            {t('settings.integrations.lexware.sync.syncNow')}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowFieldMappings(!showFieldMappings)}
           >
-            Feld-Zuordnungen {showFieldMappings ? 'ausblenden' : 'anzeigen'}
+            {showFieldMappings
+              ? t('settings.integrations.lexware.sync.fieldMappingsHide')
+              : t('settings.integrations.lexware.sync.fieldMappingsShow')}
           </Button>
         </div>
 
@@ -223,21 +224,21 @@ export function LexwareSyncDashboard({
         {/* Sync history */}
         {syncLogs && syncLogs.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium">Sync-Verlauf</h4>
+            <h4 className="text-sm font-medium">{t('settings.integrations.lexware.sync.history')}</h4>
             <div className="rounded-md border border-border overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-muted/50">
-                    <th className="text-left px-3 py-2 font-medium">Typ</th>
-                    <th className="text-left px-3 py-2 font-medium">Status</th>
+                    <th className="text-left px-3 py-2 font-medium">{t('settings.integrations.lexware.sync.col.type')}</th>
+                    <th className="text-left px-3 py-2 font-medium">{t('settings.integrations.lexware.sync.col.status')}</th>
                     <th className="text-right px-3 py-2 font-medium">
-                      Verarbeitet
+                      {t('settings.integrations.lexware.sync.col.processed')}
                     </th>
                     <th className="text-right px-3 py-2 font-medium">
-                      Fehler
+                      {t('settings.integrations.lexware.sync.col.errors')}
                     </th>
                     <th className="text-left px-3 py-2 font-medium">
-                      Gestartet
+                      {t('settings.integrations.lexware.sync.col.started')}
                     </th>
                   </tr>
                 </thead>
@@ -259,15 +260,6 @@ export function LexwareSyncDashboard({
 // Sub-components
 // ---------------------------------------------------------------------------
 
-const SYNC_TYPE_LABELS: Record<string, string> = {
-  contact_full: 'Kontakte (Voll)',
-  contact_delta: 'Kontakte (Delta)',
-  invoice_push: 'Rechnungen',
-  quote_push: 'Angebote',
-  credit_note_push: 'Gutschriften',
-  webhook_event: 'Webhook',
-}
-
 function SyncStatusCard({
   icon,
   name,
@@ -277,6 +269,7 @@ function SyncStatusCard({
   name: string
   status?: LexwareEntitySyncStatus
 }) {
+  const { t } = useTranslation()
   const statusColor =
     status?.status === 'running'
       ? 'text-info'
@@ -298,28 +291,28 @@ function SyncStatusCard({
         ) : (
           <span className={`text-xs ${statusColor}`}>
             {status?.status === 'completed'
-              ? 'OK'
+              ? t('settings.integrations.lexware.sync.statusOk')
               : status?.status === 'failed'
-                ? 'Fehler'
+                ? t('settings.integrations.lexware.sync.statusError')
                 : status?.status === 'running'
-                  ? 'Laeuft'
-                  : 'Wartend'}
+                  ? t('settings.integrations.lexware.sync.statusRunning')
+                  : t('settings.integrations.lexware.sync.statusWaiting')}
           </span>
         )}
       </div>
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          {status?.items_synced ?? 0} synchronisiert
+          {t('settings.integrations.lexware.sync.itemsSynced', { count: status?.items_synced ?? 0 })}
           {(status?.items_failed ?? 0) > 0 && (
             <span className="text-destructive ml-1">
-              ({status!.items_failed} Fehler)
+              ({t('settings.integrations.lexware.sync.itemsFailed', { count: status!.items_failed })})
             </span>
           )}
         </span>
         {status?.last_sync_at && (
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatRelativeTime(status.last_sync_at)}
+            {formatRelativeTime(status.last_sync_at, t)}
           </span>
         )}
       </div>
@@ -328,7 +321,17 @@ function SyncStatusCard({
 }
 
 function SyncLogRow({ log }: { log: LexwareSyncLogEntry }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+
+  const SYNC_TYPE_LABELS: Record<string, string> = {
+    contact_full: t('settings.integrations.lexware.sync.syncTypeLabels.contactFull'),
+    contact_delta: t('settings.integrations.lexware.sync.syncTypeLabels.contactDelta'),
+    invoice_push: t('settings.integrations.lexware.sync.syncTypeLabels.invoicePush'),
+    quote_push: t('settings.integrations.lexware.sync.syncTypeLabels.quotePush'),
+    credit_note_push: t('settings.integrations.lexware.sync.syncTypeLabels.creditNotePush'),
+    webhook_event: t('settings.integrations.lexware.sync.syncTypeLabels.webhookEvent'),
+  }
 
   return (
     <>
@@ -377,6 +380,7 @@ function SyncStatusBadge({
 }: {
   status: LexwareSyncLogEntry['status']
 }) {
+  const { t } = useTranslation()
   switch (status) {
     case 'completed':
       return (
@@ -385,7 +389,7 @@ function SyncStatusBadge({
           className="text-[10px] border-success/30 text-success"
         >
           <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
-          OK
+          {t('settings.integrations.lexware.sync.statusOk')}
         </Badge>
       )
     case 'failed':
@@ -395,7 +399,7 @@ function SyncStatusBadge({
           className="text-[10px] border-destructive/30 text-destructive"
         >
           <XCircle className="h-2.5 w-2.5 mr-0.5" />
-          Fehler
+          {t('settings.integrations.lexware.sync.statusError')}
         </Badge>
       )
     case 'partial':
@@ -405,7 +409,7 @@ function SyncStatusBadge({
           className="text-[10px] border-warning/30 text-warning"
         >
           <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
-          Teilweise
+          {t('settings.integrations.lexware.sync.statusPartial')}
         </Badge>
       )
     case 'running':
@@ -415,19 +419,19 @@ function SyncStatusBadge({
           className="text-[10px] border-info/30 text-info"
         >
           <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" />
-          Laeuft
+          {t('settings.integrations.lexware.sync.statusRunning')}
         </Badge>
       )
   }
 }
 
-function formatRelativeTime(isoDate: string): string {
+function formatRelativeTime(isoDate: string, t: (key: string, opts?: object) => string): string {
   const diff = Date.now() - new Date(isoDate).getTime()
   const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'gerade eben'
-  if (minutes < 60) return `vor ${minutes} Min.`
+  if (minutes < 1) return t('settings.integrations.lexware.sync.justNow')
+  if (minutes < 60) return t('settings.integrations.lexware.sync.minutesAgo', { count: minutes })
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `vor ${hours} Std.`
+  if (hours < 24) return t('settings.integrations.lexware.sync.hoursAgo', { count: hours })
   const days = Math.floor(hours / 24)
-  return `vor ${days} Tag${days > 1 ? 'en' : ''}`
+  return t('settings.integrations.lexware.sync.daysAgo', { count: days })
 }
