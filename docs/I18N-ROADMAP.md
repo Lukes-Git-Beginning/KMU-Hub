@@ -67,7 +67,7 @@ i18n Migration (react-intl → i18next) in Cosmi Desktop. Ziel: Alle ~440 .tsx/.
 ### i18n.ts Loader
 Alle 41 additions-JSONs (32 Module + 9 Components) importiert und in mergedDE gemergt.
 
-### Additions-Keys gesamt: ~4.500+
+### de.json Keys gesamt: 7.221 (nach Merge von 46 additions + base)
 
 ---
 
@@ -118,16 +118,17 @@ Mock-Daten in Stores bewusst NICHT instrumentiert (werden durch Backend-Daten er
 
 ---
 
-## Schritt 4: Merge & Loader ← NÄCHSTER SCHRITT
+## ~~Schritt 4: Merge & Loader~~ ✅ ERLEDIGT
 
-1. Alle additions/*.json Keys in de.json mergen
-2. i18n.ts Loader vereinfachen (keine separaten Imports mehr)
-3. `npx tsc --noEmit` — muss sauber sein
-4. Commit: `feat(i18n): merge additions into de.json`
+- 46 additions/*.json (6.972 Keys) in de.json gemergt → **7.221 Keys total**
+- i18n.ts von 153 auf 44 Zeilen vereinfacht (keine separaten Imports mehr)
+- additions/ Verzeichnis entfernt
+- `tsc --noEmit` + `npm run build` sauber
+- Commit: `feat(i18n): merge additions into de.json and simplify loader`
 
 ---
 
-## Schritt 5: Phase 4 — Übersetzungen (EN/FR/IT)
+## Schritt 5: Phase 4 — Übersetzungen (EN/FR/IT) ← NÄCHSTER SCHRITT
 
 1. de.json ist jetzt komplett
 2. en.json generieren (alle Keys übersetzen)
@@ -202,7 +203,7 @@ status, actions, required, optional, ok, copy, copied, resetFilters
 | ~~Schritt 3.5 Wave 1: Straggler-Module~~ | 3 | 14 | ✅ DONE (10 neue JSONs) |
 | ~~Schritt 3.5 Wave 2+3~~ | ~7 | ~36 | ✅ DONE (315 Keys) |
 | ~~Schritt 3.75: Remaining Strings~~ | 11 | 42 | ✅ DONE (+969 Keys) |
-| Schritt 4: Merge & Loader | 1 (manuell) | — | TODO |
+| ~~Schritt 4: Merge & Loader~~ | 1 (Script) | 46→1 JSON | ✅ DONE (7.221 Keys) |
 | Schritt 5: Uebersetzungen | 3 | 3 JSON | TODO |
 | Schritt 6: Cleanup | 1 (manuell) | — | TODO |
 | **Total verbleibend** | **~5** | **~3 Dateien** | |
