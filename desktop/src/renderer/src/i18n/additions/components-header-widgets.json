@@ -32,5 +32,28 @@
 
   "header.quickNote.addPlaceholder": "Kurznotiz hinzufügen",
   "header.quickNote.title": "Kurznotiz",
-  "header.quickNote.inputPlaceholder": "Erinnerung, Notiz..."
+  "header.quickNote.inputPlaceholder": "Erinnerung, Notiz...",
+
+  "header.dailyPlanner.add": "Hinzufügen",
+  "header.dailyPlanner.addTask": "Aufgabe hinzufügen",
+  "header.dailyPlanner.addTaskLabel": "Aufgabe",
+  "header.dailyPlanner.completedCount": "{{count}} erledigt",
+  "header.dailyPlanner.emptySubtitle": "Alle Aufgaben für diesen Tab erledigt.",
+  "header.dailyPlanner.emptyTitle": "Alles erledigt!",
+  "header.dailyPlanner.hide": "Ausblenden",
+  "header.dailyPlanner.priorityHigh": "Hoch",
+  "header.dailyPlanner.priorityLabel": "Priorität",
+  "header.dailyPlanner.priorityLow": "Niedrig",
+  "header.dailyPlanner.priorityMedium": "Mittel",
+  "header.dailyPlanner.priorityNone": "Keine",
+  "header.dailyPlanner.priorityPlaceholder": "Priorität wählen",
+  "header.dailyPlanner.show": "Anzeigen",
+  "header.dailyPlanner.tabLater": "Später",
+  "header.dailyPlanner.tabLaterCount": "{{count}} Aufgaben später",
+  "header.dailyPlanner.tabToday": "Heute",
+  "header.dailyPlanner.tabTodayCount": "{{count}} Aufgaben heute",
+  "header.dailyPlanner.tabTomorrow": "Morgen",
+  "header.dailyPlanner.tabTomorrowCount": "{{count}} Aufgaben morgen",
+  "header.dailyPlanner.taskPlaceholder": "Aufgabe beschreiben...",
+  "header.dailyPlanner.title": "Tagesplaner"
 }

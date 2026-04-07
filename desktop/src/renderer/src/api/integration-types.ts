@@ -5,6 +5,7 @@
  * notification requests. Matches the backend gateway endpoints defined in
  * route_integration.go.
  */
+import i18next from 'i18next'
 
 // ---------------------------------------------------------------------------
 // Platform type
@@ -148,15 +149,23 @@ export interface UpdateIntegrationRequest {
 // Module definitions for the mapping editor
 // ---------------------------------------------------------------------------
 
-export const INTEGRATION_MODULES = [
-  { id: 'crm', label: 'CRM', color: '#3b82f6' },
-  { id: 'work', label: 'Aufgaben', color: '#8b5cf6' },
-  { id: 'hr', label: 'Personal', color: '#22c55e' },
-  { id: 'biz', label: 'Finanzen', color: '#f59e0b' },
-  { id: 'email', label: 'E-Mail', color: '#0ea5e9' },
-  { id: 'chat', label: 'Chat', color: '#10b981' },
-  { id: 'calendar', label: 'Kalender', color: '#f97316' },
-  { id: 'document', label: 'Dokumente', color: '#64748b' },
-  { id: 'system', label: 'System', color: '#ef4444' },
-  { id: 'automation', label: 'Automation', color: '#a855f7' },
+export const INTEGRATION_MODULE_IDS = [
+  { id: 'crm', color: '#3b82f6', labelKey: 'config.integrationTypes.crm' },
+  { id: 'work', color: '#8b5cf6', labelKey: 'config.integrationTypes.work' },
+  { id: 'hr', color: '#22c55e', labelKey: 'config.integrationTypes.hr' },
+  { id: 'biz', color: '#f59e0b', labelKey: 'config.integrationTypes.biz' },
+  { id: 'email', color: '#0ea5e9', labelKey: 'config.integrationTypes.email' },
+  { id: 'chat', color: '#10b981', labelKey: 'config.integrationTypes.chat' },
+  { id: 'calendar', color: '#f97316', labelKey: 'config.integrationTypes.calendar' },
+  { id: 'document', color: '#64748b', labelKey: 'config.integrationTypes.document' },
+  { id: 'system', color: '#ef4444', labelKey: 'config.integrationTypes.system' },
+  { id: 'automation', color: '#a855f7', labelKey: 'config.integrationTypes.automation' },
 ] as const
+
+/** Returns INTEGRATION_MODULES with translated labels. Call at render time, not at module load. */
+export function getIntegrationModules() {
+  return INTEGRATION_MODULE_IDS.map((m) => ({ ...m, label: i18next.t(m.labelKey) }))
+}
+
+/** @deprecated Use getIntegrationModules() for translated labels. */
+export const INTEGRATION_MODULES = INTEGRATION_MODULE_IDS

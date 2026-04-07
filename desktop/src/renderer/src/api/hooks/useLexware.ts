@@ -7,6 +7,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import * as lexwareClient from '../lexware-client'
 import type { LexwareFieldMappingEntry } from '../lexware-types'
 
@@ -45,10 +46,10 @@ export function useLexwareConnect() {
     mutationFn: (apiKey: string) => lexwareClient.connect(apiKey),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: lexwareKeys.connection() })
-      toast.success('Lexware-Verbindung hergestellt')
+      toast.success(i18next.t('api.lexware.connected'))
     },
     onError: () => {
-      toast.error('Fehler beim Verbinden mit Lexware')
+      toast.error(i18next.t('api.lexware.error.connect'))
     },
   })
 }
@@ -59,10 +60,10 @@ export function useLexwareDisconnect() {
     mutationFn: () => lexwareClient.disconnect(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: lexwareKeys.all })
-      toast.success('Lexware-Verbindung getrennt')
+      toast.success(i18next.t('api.lexware.disconnected'))
     },
     onError: () => {
-      toast.error('Fehler beim Trennen der Lexware-Verbindung')
+      toast.error(i18next.t('api.lexware.error.disconnect'))
     },
   })
 }
@@ -72,13 +73,13 @@ export function useLexwareTestConnection() {
     mutationFn: () => lexwareClient.testConnection(),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success('Lexware-Verbindung erfolgreich getestet')
+        toast.success(i18next.t('api.lexware.testSuccess'))
       } else {
-        toast.error(data.error_message || 'Verbindungstest fehlgeschlagen')
+        toast.error(data.error_message || i18next.t('api.lexware.error.testFailed'))
       }
     },
     onError: () => {
-      toast.error('Fehler beim Testen der Lexware-Verbindung')
+      toast.error(i18next.t('api.lexware.error.test'))
     },
   })
 }
@@ -114,10 +115,10 @@ export function useLexwareTriggerSync() {
     mutationFn: (syncType?: string) => lexwareClient.triggerSync(syncType),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: lexwareKeys.syncStatus() })
-      toast.success('Synchronisierung gestartet')
+      toast.success(i18next.t('api.lexware.syncStarted'))
     },
     onError: () => {
-      toast.error('Fehler beim Starten der Synchronisierung')
+      toast.error(i18next.t('api.lexware.error.syncStart'))
     },
   })
 }
@@ -147,10 +148,10 @@ export function useLexwareUpdateFieldMappings(entityType: string) {
       qc.invalidateQueries({
         queryKey: lexwareKeys.fieldMappings(entityType),
       })
-      toast.success('Feld-Zuordnungen gespeichert')
+      toast.success(i18next.t('api.lexware.fieldMappingsSaved'))
     },
     onError: () => {
-      toast.error('Fehler beim Speichern der Feld-Zuordnungen')
+      toast.error(i18next.t('api.lexware.error.fieldMappingsSave'))
     },
   })
 }
@@ -164,13 +165,17 @@ export function useLexwarePushInvoice() {
     mutationFn: (invoiceId: string) => lexwareClient.pushInvoice(invoiceId),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success(`Rechnung an Lexware gesendet${data.lexware_id ? ` (ID: ${data.lexware_id})` : ''}`)
+        toast.success(
+          data.lexware_id
+            ? i18next.t('api.lexware.invoicePushed', { lexware_id: data.lexware_id })
+            : i18next.t('api.lexware.invoicePushedNoId')
+        )
       } else {
-        toast.error(data.error_message || 'Fehler beim Senden der Rechnung')
+        toast.error(data.error_message || i18next.t('api.lexware.error.invoicePush'))
       }
     },
     onError: () => {
-      toast.error('Fehler beim Senden der Rechnung an Lexware')
+      toast.error(i18next.t('api.lexware.error.invoicePush'))
     },
   })
 }
@@ -180,13 +185,17 @@ export function useLexwarePushQuote() {
     mutationFn: (quoteId: string) => lexwareClient.pushQuote(quoteId),
     onSuccess: (data) => {
       if (data.success) {
-        toast.success(`Offerte an Lexware gesendet${data.lexware_id ? ` (ID: ${data.lexware_id})` : ''}`)
+        toast.success(
+          data.lexware_id
+            ? i18next.t('api.lexware.quotePushed', { lexware_id: data.lexware_id })
+            : i18next.t('api.lexware.quotePushedNoId')
+        )
       } else {
-        toast.error(data.error_message || 'Fehler beim Senden der Offerte')
+        toast.error(data.error_message || i18next.t('api.lexware.error.quotePush'))
       }
     },
     onError: () => {
-      toast.error('Fehler beim Senden der Offerte an Lexware')
+      toast.error(i18next.t('api.lexware.error.quotePush'))
     },
   })
 }

@@ -9,6 +9,7 @@ import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { wsManager } from '@/api/websocket'
+import i18next from 'i18next'
 import type { components } from '@/api/types'
 
 type Notification = components['schemas']['Notification']
@@ -180,7 +181,7 @@ export function useNotificationWebSocket() {
 
       // Trigger native desktop notification if app is not focused
       if (!document.hasFocus()) {
-        const title = (data.title as string) || 'Neue Benachrichtigung'
+        const title = (data.title as string) || i18next.t('api.notifications.newNotification')
         const body = (data.body as string) || ''
         try {
           window.electronAPI.notifications.show(title, body)

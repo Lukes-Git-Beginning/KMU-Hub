@@ -9,6 +9,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18next from 'i18next'
 import {
   hrLeaveApi,
   hrTimeApi,
@@ -84,20 +85,20 @@ function showArbZGToast(compliance: ArbZGComplianceResult | undefined) {
   if (!compliance) return
   switch (compliance.severity) {
     case 'info':
-      toast.info(compliance.message || '8 Stunden erreicht')
+      toast.info(compliance.message || i18next.t('api.hr.arbzg.info'))
       break
     case 'warning':
-      toast.warning(compliance.message || '9 Stunden überschritten')
+      toast.warning(compliance.message || i18next.t('api.hr.arbzg.warning'))
       break
     case 'error':
       toast.error(
-        compliance.message || 'Arbeitszeitgrenze (10h) überschritten!',
+        compliance.message || i18next.t('api.hr.arbzg.error'),
       )
       break
   }
   if (compliance.restViolation) {
     toast.warning(
-      `Ruhezeit-Verletzung: Nur ${compliance.restHoursActual ?? 0}h statt 11h Ruhezeit`,
+      i18next.t('api.hr.arbzg.restViolation', { hours: compliance.restHoursActual ?? 0 }),
     )
   }
 }
@@ -157,10 +158,10 @@ export function useCreateLeaveRequest() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'leave', 'requests'] })
       qc.invalidateQueries({ queryKey: hrKeys.leaveBalance() })
-      toast.success('Abwesenheitsantrag eingereicht')
+      toast.success(i18next.t('api.hr.leave.submitted'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Antrag konnte nicht erstellt werden')
+      toast.error(err.message || i18next.t('api.hr.leave.error.submit'))
     },
   })
 }
@@ -173,10 +174,10 @@ export function useApproveLeaveRequest() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'leave', 'requests'] })
       qc.invalidateQueries({ queryKey: ['hr', 'leave', 'balance'] })
-      toast.success('Antrag genehmigt')
+      toast.success(i18next.t('api.hr.leave.approved'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Genehmigung fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.leave.error.approve'))
     },
   })
 }
@@ -188,10 +189,10 @@ export function useRejectLeaveRequest() {
       hrLeaveApi.rejectRequest(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'leave', 'requests'] })
-      toast.success('Antrag abgelehnt')
+      toast.success(i18next.t('api.hr.leave.rejected'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Ablehnung fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.leave.error.reject'))
     },
   })
 }
@@ -203,10 +204,10 @@ export function useCancelLeaveRequest() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'leave', 'requests'] })
       qc.invalidateQueries({ queryKey: hrKeys.leaveBalance() })
-      toast.success('Antrag storniert')
+      toast.success(i18next.t('api.hr.leave.cancelled'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Stornierung fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.leave.error.cancel'))
     },
   })
 }
@@ -218,10 +219,10 @@ export function useRecordSickLeave() {
       hrLeaveApi.recordSickLeave(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'leave', 'requests'] })
-      toast.success('Krankmeldung erfasst')
+      toast.success(i18next.t('api.hr.leave.sickLeaveRecorded'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Krankmeldung fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.leave.error.sickLeave'))
     },
   })
 }
@@ -253,10 +254,10 @@ export function useClockIn() {
       qc.invalidateQueries({ queryKey: hrKeys.workTimeStatus() })
       qc.invalidateQueries({ queryKey: hrKeys.activeShift() })
       showArbZGToast(data.compliance)
-      toast.success('Eingestempelt')
+      toast.success(i18next.t('api.hr.time.clockedIn'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Einstempeln fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.time.error.clockIn'))
     },
   })
 }
@@ -271,10 +272,10 @@ export function useClockOut() {
       qc.invalidateQueries({ queryKey: ['hr', 'time', 'entries'] })
       qc.invalidateQueries({ queryKey: ['hr', 'time', 'summary'] })
       showArbZGToast(data.compliance)
-      toast.success('Ausgestempelt')
+      toast.success(i18next.t('api.hr.time.clockedOut'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Ausstempeln fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.time.error.clockOut'))
     },
   })
 }
@@ -286,10 +287,10 @@ export function useStartBreak() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: hrKeys.activeShift() })
       qc.invalidateQueries({ queryKey: hrKeys.workTimeStatus() })
-      toast.info('Pause gestartet')
+      toast.info(i18next.t('api.hr.time.breakStarted'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Pause starten fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.time.error.breakStart'))
     },
   })
 }
@@ -301,10 +302,10 @@ export function useEndBreak() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: hrKeys.activeShift() })
       qc.invalidateQueries({ queryKey: hrKeys.workTimeStatus() })
-      toast.info('Pause beendet')
+      toast.info(i18next.t('api.hr.time.breakEnded'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Pause beenden fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.time.error.breakEnd'))
     },
   })
 }
@@ -342,10 +343,10 @@ export function useSubmitCorrection() {
       hrTimeApi.submitCorrection(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'time', 'entries'] })
-      toast.success('Korrekturantrag eingereicht')
+      toast.success(i18next.t('api.hr.time.correctionSubmitted'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Korrekturantrag fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.time.error.correction'))
     },
   })
 }
@@ -356,10 +357,10 @@ export function useApproveCorrection() {
     mutationFn: (id: string) => hrTimeApi.approveCorrection(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'time', 'entries'] })
-      toast.success('Korrektur genehmigt')
+      toast.success(i18next.t('api.hr.time.correctionApproved'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Korrektur-Genehmigung fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.time.error.correctionApprove'))
     },
   })
 }
@@ -413,10 +414,10 @@ export function useCreateEmployee() {
     mutationFn: (data: CreateEmployeeInput) => hrEmployeeApi.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr', 'employees'] })
-      toast.success('Mitarbeiter erstellt')
+      toast.success(i18next.t('api.hr.employee.created'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Mitarbeiter konnte nicht erstellt werden')
+      toast.error(err.message || i18next.t('api.hr.employee.error.create'))
     },
   })
 }
@@ -429,10 +430,10 @@ export function useUpdateEmployee() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['hr', 'employees'] })
       qc.invalidateQueries({ queryKey: hrKeys.employee(vars.id) })
-      toast.success('Mitarbeiterprofil aktualisiert')
+      toast.success(i18next.t('api.hr.employee.updated'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Aktualisierung fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.employee.error.update'))
     },
   })
 }
@@ -444,10 +445,10 @@ export function useUpdateSelfProfile() {
       hrEmployeeApi.updateSelf(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: hrKeys.selfProfile() })
-      toast.success('Profil aktualisiert')
+      toast.success(i18next.t('api.hr.employee.profileUpdated'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Profil-Aktualisierung fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.employee.error.profileUpdate'))
     },
   })
 }
@@ -475,10 +476,10 @@ export function useUploadEmployeeDocument() {
       qc.invalidateQueries({
         queryKey: hrKeys.employeeDocuments(vars.employeeId),
       })
-      toast.success('Dokument hochgeladen')
+      toast.success(i18next.t('api.hr.employee.documentUploaded'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Upload fehlgeschlagen')
+      toast.error(err.message || i18next.t('api.hr.employee.error.documentUpload'))
     },
   })
 }
@@ -512,10 +513,10 @@ export function useUpdateHRSettings() {
     mutationFn: (data: Partial<HRSettings>) => hrSettingsApi.update(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: hrKeys.hrSettings() })
-      toast.success('HR-Einstellungen aktualisiert')
+      toast.success(i18next.t('api.hr.settings.updated'))
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Einstellungen konnten nicht gespeichert werden')
+      toast.error(err.message || i18next.t('api.hr.settings.error.update'))
     },
   })
 }

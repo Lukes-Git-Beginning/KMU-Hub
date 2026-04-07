@@ -4,6 +4,7 @@
  * Covers: API key connection, sync status, sync logs, field mappings.
  * Matches the gateway endpoints defined in route_lexware.go.
  */
+import i18next from 'i18next'
 
 // ---------------------------------------------------------------------------
 // Connection
@@ -69,28 +70,44 @@ export interface LexwareFieldMappingEntry {
 // Known Lexware fields (nested) for field mapping editor dropdowns
 // ---------------------------------------------------------------------------
 
-export const LEXWARE_CONTACT_FIELDS = [
-  { value: 'person.firstName', label: 'Vorname (Person)' },
-  { value: 'person.lastName', label: 'Nachname (Person)' },
-  { value: 'company.name', label: 'Firmenname' },
-  { value: 'emailAddresses.business', label: 'E-Mail (Business)' },
-  { value: 'phoneNumbers.business', label: 'Telefon (Business)' },
-  { value: 'phoneNumbers.mobile', label: 'Mobil' },
-  { value: 'addresses.billing.street', label: 'Strasse (Rechnung)' },
-  { value: 'addresses.billing.city', label: 'Stadt (Rechnung)' },
-  { value: 'addresses.billing.zip', label: 'PLZ (Rechnung)' },
-  { value: 'addresses.billing.countryCode', label: 'Land (Rechnung)' },
-  { value: 'note', label: 'Notiz' },
+const LEXWARE_CONTACT_FIELD_KEYS = [
+  { value: 'person.firstName', labelKey: 'config.lexwareFields.firstNamePerson' },
+  { value: 'person.lastName', labelKey: 'config.lexwareFields.lastNamePerson' },
+  { value: 'company.name', labelKey: 'config.lexwareFields.companyName' },
+  { value: 'emailAddresses.business', labelKey: 'config.lexwareFields.emailBusiness' },
+  { value: 'phoneNumbers.business', labelKey: 'config.lexwareFields.phoneBusiness' },
+  { value: 'phoneNumbers.mobile', labelKey: 'config.lexwareFields.mobile' },
+  { value: 'addresses.billing.street', labelKey: 'config.lexwareFields.billingStreet' },
+  { value: 'addresses.billing.city', labelKey: 'config.lexwareFields.billingCity' },
+  { value: 'addresses.billing.zip', labelKey: 'config.lexwareFields.billingZip' },
+  { value: 'addresses.billing.countryCode', labelKey: 'config.lexwareFields.billingCountry' },
+  { value: 'note', labelKey: 'config.lexwareFields.note' },
 ] as const
 
-export const KMUHUB_CONTACT_FIELDS = [
-  { value: 'first_name', label: 'Vorname' },
-  { value: 'last_name', label: 'Nachname' },
-  { value: 'email', label: 'E-Mail' },
-  { value: 'phone', label: 'Telefon' },
-  { value: 'company_name', label: 'Firma' },
-  { value: 'notes', label: 'Notizen' },
+/** Returns Lexware contact fields with translated labels. Call at render time, not at module load. */
+export function getLexwareContactFields() {
+  return LEXWARE_CONTACT_FIELD_KEYS.map((f) => ({ value: f.value, label: i18next.t(f.labelKey) }))
+}
+
+/** @deprecated Use getLexwareContactFields() for translated labels. */
+export const LEXWARE_CONTACT_FIELDS = LEXWARE_CONTACT_FIELD_KEYS
+
+const KMUHUB_CONTACT_FIELD_KEYS = [
+  { value: 'first_name', labelKey: 'config.lexwareFields.cosmiFirstName' },
+  { value: 'last_name', labelKey: 'config.lexwareFields.cosmiLastName' },
+  { value: 'email', labelKey: 'config.lexwareFields.cosmiEmail' },
+  { value: 'phone', labelKey: 'config.lexwareFields.cosmiPhone' },
+  { value: 'company_name', labelKey: 'config.lexwareFields.cosmiCompany' },
+  { value: 'notes', labelKey: 'config.lexwareFields.cosmiNotes' },
 ] as const
+
+/** Returns Cosmi contact fields with translated labels. Call at render time, not at module load. */
+export function getKmuhubContactFields() {
+  return KMUHUB_CONTACT_FIELD_KEYS.map((f) => ({ value: f.value, label: i18next.t(f.labelKey) }))
+}
+
+/** @deprecated Use getKmuhubContactFields() for translated labels. */
+export const KMUHUB_CONTACT_FIELDS = KMUHUB_CONTACT_FIELD_KEYS
 
 // ---------------------------------------------------------------------------
 // Default field mappings (used in setup wizard)
